@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -28,7 +29,7 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       connectSrc: ["'self'", "https://api.stripe.com"],
       frameSrc: ["'self'", "https://js.stripe.com"],
-      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.repl.co"], // Allow Replit preview
+      frameAncestors: ["'self'"], // Allow Replit preview
     },
   },
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
@@ -44,7 +45,7 @@ app.use(helmet({
 // Enable CORS with security options
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.REPLIT_DEV_DOMAIN] 
+    ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : ["*"]) 
     : true,
   credentials: true,
   maxAge: 86400
@@ -268,15 +269,24 @@ app.post('/api/stripe/customers', async (req, res) => {
   }
 });
 
-// Authentication middleware
+// Authentication middleware — JWT or anonymous pass-through
 app.use((req, res, next) => {
-  const userId = req.headers['x-replit-user-id'];
-  const userName = req.headers['x-replit-user-name'];
-  if (!userId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
+  // Support JWT Bearer token
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const token = authHeader.slice(7);
+      const secret = process.env.JWT_SECRET || 'fitmunch-secret-key';
+      const decoded = jwt.verify(token, secret);
+      req.user = { id: decoded.userId, name: decoded.name };
+    } catch (e) {
+      // Invalid token — continue as anonymous
+      req.user = null;
+    }
+  } else {
+    req.user = null;
   }
-  req.user = { id: userId, name: userName };
   next();
 });
 
@@ -633,7 +643,7 @@ const port = process.env.PORT || 5000;
 // Start the server - make sure it's accessible externally on all interfaces
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 FitMunch Server running on port ${port}`);
-  console.log(`🌐 External URL: https://${process.env.REPLIT_DEV_DOMAIN}`);
+  console.log(`🌐 Running on port ${port}`);
   console.log(`📱 Your app is ready to view!`);
 }).on('error', (err) => {
   console.error('❌ Server error:', err);
@@ -643,7 +653,7 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`Port ${port} is already in use, trying port 3000`);
     app.listen(3000, '0.0.0.0', () => {
       console.log(`🚀 FitMunch Server running on port 3000`);
-      console.log(`🌐 External URL: https://${process.env.REPLIT_DEV_DOMAIN}`);
+      console.log(`🌐 Running on port ${port}`);
     });
   }
 });
