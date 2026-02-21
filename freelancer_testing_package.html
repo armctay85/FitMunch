@@ -1,0 +1,292 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitMunch Android Testing Package</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 {
+            color: #4361ee;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .file-list {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .file {
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .file a {
+            text-decoration: none;
+            color: #2c3e50;
+            padding: 5px;
+            transition: background-color 0.2s;
+            flex-grow: 1;
+        }
+        .file a:hover {
+            background-color: #e5e5e5;
+        }
+        .file-type {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            width: 70px;
+        }
+        .checklist {
+            list-style-type: none;
+            padding-left: 10px;
+        }
+        .checklist li {
+            margin-bottom: 10px;
+            position: relative;
+            padding-left: 30px;
+        }
+        .checklist li:before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #4361ee;
+            border-radius: 3px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .contact-form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4361ee;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3a56d4;
+        }
+        .deadline {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>FitMunch Android Testing Package</h1>
+    <p>This package contains all necessary files and instructions for testing the FitMunch app in preparation for Google Play Store submission.</p>
+    
+    <div class="container">
+        <h2>Project Overview</h2>
+        <p><strong>App Name:</strong> FitMunch</p>
+        <p><strong>Version:</strong> 1.0.0</p>
+        <p><strong>Platform:</strong> Android</p>
+        <p><strong>Current Status:</strong> Ready for testing & Google Play submission preparation</p>
+        <p><strong>Deadline:</strong> <span class="deadline">Proposals needed by March 15, 2025</span></p>
+    </div>
+
+    <div class="container">
+        <h2>Key Files for Testing</h2>
+        <div class="file-list">
+            <div class="file">
+                <span class="file-type">[CONFIG]</span>
+                <a href="capacitor.config.json" target="_blank">capacitor.config.json</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[CONFIG]</span>
+                <a href="app_manifest.json" target="_blank">app_manifest.json</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[BUILD]</span>
+                <a href="build_android.js" target="_blank">build_android.js</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[BUILD]</span>
+                <a href="build_apk.js" target="_blank">build_apk.js</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[GRADLE]</span>
+                <a href="android/build.gradle" target="_blank">android/build.gradle</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[SUBMIT]</span>
+                <a href="google_play_submit.js" target="_blank">google_play_submit.js</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[RATING]</span>
+                <a href="google_play_content_rating.txt" target="_blank">google_play_content_rating.txt</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[CHECK]</span>
+                <a href="google_play_submission_checklist.md" target="_blank">google_play_submission_checklist.md</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[REPORT]</span>
+                <a href="generate_prelaunch_report.js" target="_blank">generate_prelaunch_report.js</a>
+            </div>
+            <div class="file">
+                <span class="file-type">[ISSUES]</span>
+                <a href="app_review_summary.js" target="_blank">app_review_summary.js</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>Testing Requirements</h2>
+            <ul class="checklist">
+                <li>Fix critical issues identified in pre-launch report</li>
+                <li>Test subscription plans (Free, Basic, Premium, Pro Coach)</li>
+                <li>Verify Google Play Billing integration</li>
+                <li>Test user account functionality and cross-device syncing</li>
+                <li>Test Google Fit integration</li>
+                <li>Verify push notifications</li>
+                <li>Test deep linking implementation</li>
+                <li>Test app on multiple Android versions (8.0 to 14)</li>
+                <li>Ensure all assets for Google Play Store are prepared</li>
+                <li>Complete content rating questionnaire</li>
+                <li>Ensure compliance with Google Play policies</li>
+            </ul>
+        </div>
+
+        <div class="container">
+            <h2>Critical Issues to Resolve</h2>
+            <ol>
+                <li><strong>[Critical]</strong> subscriptionManager: Initialization issues</li>
+                <li><strong>[UI]</strong> Workout Tracking: Layout breaks on small screens</li>
+                <li><strong>[Store]</strong> Missing: Content rating survey</li>
+                <li><strong>[Revenue]</strong> Receipt validation needs server implementation</li>
+                <li><strong>[Security]</strong> Medium: Session timeout not implemented</li>
+            </ol>
+            <p>See <a href="generate_prelaunch_report.js">generate_prelaunch_report.js</a> for more details.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Project Timeline</h2>
+        <p><strong>Total Duration:</strong> 3-4 weeks</p>
+        <p><strong>Milestones:</strong></p>
+        <ul>
+            <li>Week 1: Fix critical issues (IAP, user accounts, SubscriptionManager)</li>
+            <li>Week 2: Optimize performance and integrate Google Play requirements</li>
+            <li>Week 3: Testing and bug fixing</li>
+            <li>Week 4: Finalize assets, submit to Google Play, and deliver code/report</li>
+        </ul>
+    </div>
+
+    <div class="container">
+        <h2>Budget Range</h2>
+        <p><strong>$1,500 - $2,500</strong> (negotiable based on experience and timeline)</p>
+        <p><strong>Payment Terms:</strong></p>
+        <ul>
+            <li>30% upfront</li>
+            <li>30% after critical issues are fixed (Milestone 1)</li>
+            <li>40% upon successful Google Play submission and delivery</li>
+        </ul>
+    </div>
+
+    <div class="contact-form">
+        <h2>Submit Your Proposal</h2>
+        <form id="freelancerForm">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="experience">Experience with Android & Google Play</label>
+                <textarea id="experience" name="experience" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="timeline">Estimated Timeline (weeks)</label>
+                <select id="timeline" name="timeline" required>
+                    <option value="">Select timeline</option>
+                    <option value="2">2 weeks</option>
+                    <option value="3">3 weeks</option>
+                    <option value="4">4 weeks</option>
+                    <option value="5">5+ weeks</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="cost">Estimated Cost ($USD)</label>
+                <input type="number" id="cost" name="cost" min="1000" max="5000" required>
+            </div>
+            <div class="form-group">
+                <label for="approach">Approach to Resolving Critical Issues</label>
+                <textarea id="approach" name="approach" rows="5" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="portfolio">Links to Past Projects or GitHub</label>
+                <textarea id="portfolio" name="portfolio" rows="2" required></textarea>
+            </div>
+            <button type="submit">Submit Proposal</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('freelancerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Thank you for your submission! We will review your proposal and get back to you soon.');
+            // In a real implementation, you would send this data to a server
+            console.log({
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                experience: document.getElementById('experience').value,
+                timeline: document.getElementById('timeline').value,
+                cost: document.getElementById('cost').value,
+                approach: document.getElementById('approach').value,
+                portfolio: document.getElementById('portfolio').value
+            });
+            this.reset();
+        });
+    </script>
+</body>
+</html>

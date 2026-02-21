@@ -1,0 +1,62 @@
+
+# FitMunch App Content Rating Survey for Google Play Store
+
+This document contains the answers to Google Play's content rating survey for the FitMunch app.
+
+## App Information
+- App Name: FitMunch
+- App Category: Health & Fitness
+- Content Rating Target: Everyone (E)
+
+## Content Rating Questionnaire
+
+### Section 1: Violence
+- Does the app contain any violent content? **No**
+- Does the app contain any references to violence? **No**
+
+### Section 2: Sexuality
+- Does the app contain any sexual content or nudity? **No**
+- Does the app contain references to sexuality? **No**
+
+### Section 3: Language
+- Does the app contain any profane or vulgar language? **No**
+- Does the app contain any references to profane language? **No**
+
+### Section 4: Controlled Substances
+- Does the app reference alcohol, tobacco, or drugs? **No**
+- Does the app promote or encourage consumption of alcohol, tobacco, or drugs? **No**
+
+### Section 5: User-Generated Content
+- Does the app allow users to communicate or share content with other users? **No**
+- Does the app allow users to share location data? **No**
+- Does the app allow users to share photos, videos, or files? **No**
+
+### Section 6: Shopping
+- Does the app contain the ability to make purchases? **Yes**
+- Are the purchases made directly through Google Play's in-app billing? **Yes**
+- What is being sold? **Subscription services for premium fitness and nutrition features**
+
+### Section 7: Personal Information
+- Does the app collect personal information? **Yes**
+- What personal information is collected? **Basic account information, fitness goals, height, weight, and fitness activity**
+- Is the information encrypted and stored securely? **Yes**
+- Is the collected information shared with third parties? **No**
+
+### Section 8: Location
+- Does the app access the user's location? **Yes - Approximate location only**
+- Is location access required for core functionality? **No - it's optional**
+- How is location data used? **To find nearby grocery stores for shopping list features**
+
+### Section 9: Data Sharing
+- Does the app share user data with third parties? **No**
+- Does the app use data for advertising purposes? **No**
+
+## Summary
+The FitMunch app is suitable for all ages (Everyone) as it does not contain any violent, sexual, profane, or controlled substance content. It does collect basic personal information for fitness tracking purposes, but this data is stored securely and not shared with third parties. The app offers in-app purchases through Google Play's billing system for premium subscription features.
+
+## Certification
+I certify that the above information is accurate and complete. I understand that misrepresentation may result in the app being removed from Google Play.
+
+Date: [Current Date]
+Name: [App Publisher Name]
+Position: [Your Position]

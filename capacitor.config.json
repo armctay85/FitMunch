@@ -1,0 +1,72 @@
+{
+  "appId": "com.fitmunch.app",
+  "appName": "FitMunch",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#4CAF50",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": true,
+      "spinnerColor": "#FFFFFF",
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    },
+    "HealthKit": {
+      "readPermissions": [
+        "ActivitySummary",
+        "Workout",
+        "StepCount",
+        "DistanceWalkingRunning",
+        "ActiveEnergyBurned"
+      ],
+      "writePermissions": []
+    },
+    "GoogleFit": {
+      "fitnessOptions": [
+        "FITNESS_ACTIVITY_READ",
+        "FITNESS_LOCATION_READ",
+        "FITNESS_BODY_READ"
+      ]
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#4CAF50",
+      "sound": "beep.wav"
+    },
+    "App": {
+      "appUrl": "https://fitmunch.app",
+      "appUrlScheme": "fitmunch"
+    }
+  },
+  "server": {
+    "hostname": "app",
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#FFFFFF",
+    "preferredContentMode": "mobile",
+    "usesCleartextTraffic": false,
+    "scrollEnabled": true,
+    "allowsLinkPreview": false,
+    "statusBarStyle": "dark",
+    "hideSplashScreenOnLoad": true
+  },
+  "android": {
+    "backgroundColor": "#FFFFFF",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

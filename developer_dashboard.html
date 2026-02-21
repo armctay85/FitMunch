@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitMunch Developer Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="developer_dashboard.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <nav class="dev-sidebar">
+      <div class="logo">
+        <i class="fas fa-microchip"></i>
+        <h1>Grok Developer</h1>
+      </div>
+      <div class="nav-items">
+        <button data-section="overview" class="nav-item active">
+          <i class="fas fa-home"></i>Overview
+        </button>
+        <button data-section="enhancements" class="nav-item">
+          <i class="fas fa-lightbulb"></i>Enhancements
+        </button>
+        <button data-section="code-analysis" class="nav-item">
+          <i class="fas fa-code"></i>Code Analysis
+        </button>
+        <button data-section="roadmap" class="nav-item">
+          <i class="fas fa-map"></i>Roadmap
+        </button>
+        <button data-section="metrics" class="nav-item">
+          <i class="fas fa-chart-line"></i>Metrics
+        </button>
+        <button data-section="scheduler" class="nav-item">
+          <i class="fas fa-clock"></i>Scheduler
+        </button>
+        <button class="nav-item" data-section="grok-chat">
+          <i class="fas fa-robot"></i>
+          <span>Grok Chat</span>
+        </button>
+      </div>
+      <div class="back-to-app">
+        <a href="index.html" class="back-btn">
+          <i class="fas fa-arrow-left"></i> Back to FitMunch
+        </a>
+      </div>
+    </nav>
+
+    <main class="dev-content">
+      <header class="dev-header">
+        <h1>FitMunch Developer Dashboard</h1>
+        <div class="dev-actions">
+          <button id="analyze-btn" class="dev-btn">
+            <i class="fas fa-sync"></i> Analyze Project
+          </button>
+          <button id="generate-btn" class="dev-btn">
+            <i class="fas fa-magic"></i> Generate Ideas
+          </button>
+        </div>
+      </header>
+
+      <section id="overview" class="dev-section active-section">
+        <h2>Project Overview</h2>
+        <div class="metrics-cards">
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-code"></i>
+            </div>
+            <div class="metric-content">
+              <h3>Code Quality</h3>
+              <div class="progress-container">
+                <div class="progress-bar" style="width: 85%"></div>
+              </div>
+              <p>85/100</p>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="metric-content">
+              <h3>User Experience</h3>
+              <div class="progress-container">
+                <div class="progress-bar" style="width: 75%"></div>
+              </div>
+              <p>75/100</p>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-tachometer-alt"></i>
+            </div>
+            <div class="metric-content">
+              <h3>Performance</h3>
+              <div class="progress-container">
+                <div class="progress-bar" style="width: 90%"></div>
+              </div>
+              <p>90/100</p>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="metric-content">
+              <h3>Security</h3>
+              <div class="progress-container">
+                <div class="progress-bar" style="width: 65%"></div>
+              </div>
+              <p>65/100</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="overview-grid">
+          <div class="overview-card">
+            <h3>Tech Stack</h3>
+            <div class="tag-container">
+              <span class="tag">HTML</span>
+              <span class="tag">CSS</span>
+              <span class="tag">JavaScript</span>
+              <span class="tag">Node.js</span>
+              <span class="tag">Express</span>
+            </div>
+          </div>
+          <div class="overview-card">
+            <h3>Top Priorities</h3>
+            <ul class="priority-list" id="priority-list">
+              <li>
+                <span class="priority high">High</span>
+                <span>Implement data persistence</span>
+              </li>
+              <li>
+                <span class="priority high">High</span>
+                <span>Add user authentication</span>
+              </li>
+              <li>
+                <span class="priority medium">Medium</span>
+                <span>Enhance data visualization</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="overview-card full-width">
+          <h3>Technical Debt</h3>
+          <table class="tech-debt-table">
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Issue</th>
+                <th>Priority</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tech-debt-list">
+              <tr>
+                <td>Data Storage</td>
+                <td>Overreliance on localStorage limits scalability</td>
+                <td><span class="priority high">High</span></td>
+                <td><button class="small-btn">View Plan</button></td>
+              </tr>
+              <tr>
+                <td>User Authentication</td>
+                <td>Lack of user accounts prevents cross-device syncing</td>
+                <td><span class="priority high">High</span></td>
+                <td><button class="small-btn">View Plan</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="enhancements" class="dev-section">
+        <h2>Enhancement Suggestions</h2>
+        <div class="filter-controls">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search enhancements...">
+          </div>
+          <div class="filter-buttons">
+            <button class="filter-btn active">All</button>
+            <button class="filter-btn">High Impact</button>
+            <button class="filter-btn">Low Effort</button>
+            <button class="filter-btn">Infrastructure</button>
+            <button class="filter-btn">Features</button>
+          </div>
+        </div>
+
+        <div class="enhancements-grid" id="enhancements-grid">
+          <!-- To be populated by JavaScript -->
+        </div>
+      </section>
+
+      <section id="code-analysis" class="dev-section">
+        <h2>Code Analysis</h2>
+        <div class="code-review-container">
+          <div class="code-selection">
+            <label for="file-select">Select File:</label>
+            <select id="file-select">
+              <option value="script.js">script.js</option>
+              <option value="server.js">server.js</option>
+              <option value="index.html">index.html</option>
+              <option value="style.css">style.css</option>
+            </select>
+            <button id="analyze-code-btn" class="dev-btn">Analyze</button>
+          </div>
+
+          <div class="code-review-results">
+            <div class="results-header">
+              <h3>Analysis Results</h3>
+              <span class="score">Score: <span id="code-score">0</span>/100</span>
+            </div>
+            <div class="results-content">
+              <div class="results-section">
+                <h4>Strengths</h4>
+                <ul id="code-strengths">
+                  <!-- To be populated by JavaScript -->
+                </ul>
+              </div>
+              <div class="results-section">
+                <h4>Improvement Opportunities</h4>
+                <ul id="code-improvements">
+                  <!-- To be populated by JavaScript -->
+                </ul>
+              </div>
+              <div class="results-section">
+                <h4>Recommendations</h4>
+                <ul id="code-recommendations">
+                  <!-- To be populated by JavaScript -->
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap" class="dev-section">
+        <h2>Development Roadmap</h2>
+        <div class="roadmap-container" id="roadmap-container">
+          <!-- To be populated by JavaScript -->
+        </div>
+      </section>
+
+      <section id="metrics" class="dev-section">
+        <h2>Development Metrics</h2>
+        <div class="metrics-container">
+          <div class="metric-chart">
+            <h3>Code Quality Over Time</h3>
+            <div class="chart-placeholder">
+              <p>Chart visualization will appear here</p>
+            </div>
+          </div>
+          <div class="metric-chart">
+            <h3>Enhancement Progress</h3>
+            <div class="chart-placeholder">
+              <p>Chart visualization will appear here</p>
+            </div>
+          </div>
+        </div>
+        <div class="activity-log">
+          <h3>Recent Activity</h3>
+          <ul class="activity-list" id="activity-list">
+            <!-- To be populated by JavaScript -->
+          </ul>
+        </div>
+      </section>
+
+      <section id="scheduler" class="dev-section">
+            <div class="dev-header">
+                <h1>Task Scheduler</h1>
+                <div class="dev-actions">
+                    <button id="add-schedule" class="dev-btn">
+                        <i class="fas fa-plus"></i>
+                        Add Task
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scheduler Status Card -->
+            <div class="scheduler-status-card">
+                <div class="status-header">
+                    <h3>Scheduler Status</h3>
+                    <div id="status-indicator" class="status-indicator inactive">Inactive</div>
+                </div>
+                <div class="status-details">
+                    <div class="status-item">
+                        <span class="status-label">Status:</span>
+                        <button id="toggle-scheduler" class="dev-btn">
+                            <i class="fas fa-power-off"></i>
+                            <span id="scheduler-status">Start Scheduler</span>
+                        </button>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Scheduled Tasks:</span>
+                        <span id="task-count" class="status-value">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Current Operation:</span>
+                        <span id="current-operation" class="status-value">None</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Last Run:</span>
+                        <span id="last-run" class="status-value">Never</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scheduled Tasks -->
+            <div class="scheduler-tasks">
+                <h3>Scheduled Tasks</h3>
+                <div class="task-list-container">
+                    <table class="task-list">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Name</th>
+                                <th>Action</th>
+                                <th>Schedule</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduled-tasks">
+                            <tr>
+                                <td colspan="5" style="text-align: center;">No scheduled tasks</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Job History -->
+            <div class="job-history">
+                <h3>Job History</h3>
+                <div class="history-list-container">
+                    <table class="history-list">
+                        <thead>
+                            <tr>
+                                <th>Task</th>
+                                <th>Action</th>
+                                <th>Run Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="job-history">
+                            <tr>
+                                <td colspan="4" style="text-align: center;">No job history</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Task Modal -->
+            <div id="task-modal" class="task-modal">
+                <div class="task-modal-content">
+                    <div class="task-modal-header">
+                        <h3 id="modal-title">Add Scheduled Task</h3>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                    <div class="task-modal-body">
+                        <form id="task-form">
+                            <input type="hidden" id="task-id">
+                            <div class="form-group">
+                                <label for="task-name">Task Name</label>
+                                <input type="text" id="task-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="task-action">Action</label>
+                                <select id="task-action" required>
+                                    <option value="analyze">Analyze Project</option>
+                                    <option value="suggest">Generate Suggestions</option>
+                                    <option value="prioritize">Prioritize Enhancements</option>
+                                    <option value="roadmap">Update Roadmap</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Run on Days</label>
+                                <div class="day-checkboxes">
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="0"> Sun
+                                    </label>
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="1"> Mon
+                                    </label>
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="2"> Tue
+                                    </label>
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="3"> Wed
+                                    </label>
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="4"> Thu
+                                    </label>
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="5"> Fri
+                                    </label>
+                                    <label class="day-checkbox">
+                                        <input type="checkbox" name="days" value="6"> Sat
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Run at Time</label>
+                                <div class="time-inputs">
+                                    <input type="number" id="task-hour" min="0" max="23" required placeholder="Hour (0-23)">
+                                    <span>:</span>
+                                    <input type="number" id="task-minute" min="0" max="59" required placeholder="Minute (0-59)">
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="cancel-btn">Cancel</button>
+                                <button type="submit" class="save-btn">Save Task</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grok Chat Section -->
+        <section id="grok-chat" class="dev-section">
+            <div class="dev-header">
+                <h1>Grok Chat</h1>
+                <div class="dev-actions">
+                    <button id="clear-chat" class="dev-btn">
+                        <i class="fas fa-trash"></i>
+                        Clear History
+                    </button>
+                </div>
+            </div>
+
+            <!-- API Key Setup -->
+            <div class="api-key-setup">
+              <h3>X API Key Setup</h3>
+              <div class="api-key-input-container">
+                <input type="text" id="api-key-input" placeholder="Enter your X API key">
+                <button class="dev-btn" id="save-api-key">Save Key</button>
+              </div>
+              <p class="api-key-info">Your API key is stored locally and is never sent to our servers. It's used only to make requests to the X Grok API.</p>
+
+              <div class="grok-settings">
+                <div class="toggle-container">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="auto-implement-toggle" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Auto-implement code changes</span>
+                </div>
+                <p class="setting-description">When enabled, Grok will automatically implement code changes when you ask it to make modifications.</p>
+              </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will be populated dynamically -->
+                </div>
+
+                <div class="chat-input-container" style="display: flex; padding: 15px; gap: 10px; border-top: 1px solid #e0e0e0;">
+                    <textarea id="chat-input" placeholder="Ask Grok to enhance the system..." style="flex-grow: 1; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: none; height: 50px;"></textarea>
+                    <button id="send-message" class="dev-btn" style="align-self: flex-end; height: 50px; width: 50px;">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Enhancement Queue -->
+            <div class="enhancements-queue">
+                <h3>Enhancement Queue</h3>
+                <div class="queue-items" id="enhancement-queue">
+                    <!-- Queue items will be populated dynamically -->
+                    <div class="empty-queue">No enhancements in queue</div>
+                </div>
+            </div>
+        </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+  <script type="module" src="developer_dashboard.js"></script>
+  <script type="module" src="grok_chat.js"></script>
+</body>
+</html>
+
+<div class="grok-info-banner">
+  <i class="fas fa-info-circle"></i> 
+  Enter your X API key above to connect to the real Grok AI service from X.
+</div>

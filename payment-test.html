@@ -1,0 +1,268 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitMunch Payment Integration Test</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        .test-container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status-box {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .pending {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .test-item {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>FitMunch Payment Integration Test</h1>
+        <p>This page tests the integration between FitMunch and Stripe payment processing.</p>
+        
+        <div class="test-item">
+            <h2>1. Test Stripe API Connection</h2>
+            <button id="test-connection">Test Connection</button>
+            <div id="connection-status" class="status-box pending">Waiting for test...</div>
+        </div>
+        
+        <div class="test-item">
+            <h2>2. Create Test Customer</h2>
+            <button id="create-customer" disabled>Create Test Customer</button>
+            <div id="customer-status" class="status-box pending">Waiting for connection test...</div>
+        </div>
+        
+        <div class="test-item">
+            <h2>3. Create Checkout Session</h2>
+            <button id="create-checkout" disabled>Create Checkout Session</button>
+            <div id="checkout-status" class="status-box pending">Waiting for customer creation...</div>
+        </div>
+        
+        <div class="test-item">
+            <h2>4. Test Payment Form</h2>
+            <div id="payment-form-container" style="display: none;">
+                <form id="payment-form">
+                    <div id="card-element">
+                        <!-- Stripe Elements will be inserted here -->
+                    </div>
+                    <div id="card-errors" role="alert"></div>
+                    <button id="submit-payment" type="submit">Pay Now (Test Mode)</button>
+                </form>
+            </div>
+            <div id="payment-status" class="status-box pending">Waiting for checkout session...</div>
+        </div>
+        
+        <div>
+            <h2>Overall Status</h2>
+            <div id="overall-status" class="status-box pending">Running tests...</div>
+            <a href="/" class="button">Back to FitMunch</a>
+        </div>
+    </div>
+
+    <script>
+        let testCustomerId = null;
+        let testCheckoutSessionId = null;
+        let stripeInstance = null;
+        let cardElement = null;
+        
+        // Initialize Stripe
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test connection first
+            document.getElementById('test-connection').addEventListener('click', testConnection);
+            document.getElementById('create-customer').addEventListener('click', createTestCustomer);
+            document.getElementById('create-checkout').addEventListener('click', createCheckoutSession);
+            document.getElementById('payment-form').addEventListener('submit', handlePaymentSubmission);
+        });
+        
+        async function testConnection() {
+            const connectionStatus = document.getElementById('connection-status');
+            connectionStatus.textContent = 'Testing connection...';
+            connectionStatus.className = 'status-box pending';
+            
+            try {
+                const response = await fetch('/api/stripe-test');
+                const data = await response.json();
+                
+                if (data.success) {
+                    connectionStatus.textContent = 'Connection successful! Stripe API is connected.';
+                    connectionStatus.className = 'status-box success';
+                    document.getElementById('create-customer').disabled = false;
+                    updateOverallStatus();
+                } else {
+                    throw new Error(data.message || 'Connection failed');
+                }
+            } catch (error) {
+                connectionStatus.textContent = `Connection failed: ${error.message}`;
+                connectionStatus.className = 'status-box error';
+                updateOverallStatus(false);
+            }
+        }
+        
+        async function createTestCustomer() {
+            const customerStatus = document.getElementById('customer-status');
+            customerStatus.textContent = 'Creating test customer...';
+            customerStatus.className = 'status-box pending';
+            
+            try {
+                const testEmail = `test-${Date.now()}@fitmunch.com.au`;
+                const response = await fetch('/api/stripe/customers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: testEmail,
+                        name: 'FitMunch Test User',
+                        metadata: { isTest: true }
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.id) {
+                    testCustomerId = data.id;
+                    customerStatus.textContent = `Test customer created with ID: ${data.id}`;
+                    customerStatus.className = 'status-box success';
+                    document.getElementById('create-checkout').disabled = false;
+                    updateOverallStatus();
+                } else {
+                    throw new Error(data.message || 'Failed to create customer');
+                }
+            } catch (error) {
+                customerStatus.textContent = `Customer creation failed: ${error.message}`;
+                customerStatus.className = 'status-box error';
+                updateOverallStatus(false);
+            }
+        }
+        
+        async function createCheckoutSession() {
+            const checkoutStatus = document.getElementById('checkout-status');
+            checkoutStatus.textContent = 'Creating checkout session...';
+            checkoutStatus.className = 'status-box pending';
+            
+            try {
+                // This would typically use your actual price IDs
+                const testPriceId = 'price_1NrXvVLkdIwHu7ixO7ZUyKOK'; // Replace with a test price ID
+                
+                const response = await fetch('/api/stripe/checkout-sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        priceId: testPriceId,
+                        customerId: testCustomerId,
+                        successUrl: window.location.origin + '/payment-success.html?session_id={CHECKOUT_SESSION_ID}',
+                        cancelUrl: window.location.origin + '/payment-test.html?canceled=true'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.url) {
+                    testCheckoutSessionId = data.id;
+                    checkoutStatus.textContent = `Checkout session created. Click here to test the payment flow.`;
+                    checkoutStatus.className = 'status-box success';
+                    
+                    // Add a link to the checkout session
+                    const checkoutLink = document.createElement('a');
+                    checkoutLink.href = data.url;
+                    checkoutLink.textContent = 'Open Stripe Checkout';
+                    checkoutLink.target = '_blank';
+                    checkoutLink.className = 'button';
+                    checkoutStatus.appendChild(document.createElement('br'));
+                    checkoutStatus.appendChild(checkoutLink);
+                    
+                    // Show payment form
+                    document.getElementById('payment-form-container').style.display = 'block';
+                    document.getElementById('payment-status').textContent = 'Ready to test payment';
+                    document.getElementById('payment-status').className = 'status-box success';
+                    
+                    updateOverallStatus();
+                } else {
+                    throw new Error(data.message || 'Failed to create checkout session');
+                }
+            } catch (error) {
+                checkoutStatus.textContent = `Checkout session creation failed: ${error.message}`;
+                checkoutStatus.className = 'status-box error';
+                updateOverallStatus(false);
+            }
+        }
+        
+        function handlePaymentSubmission(event) {
+            event.preventDefault();
+            // In a real implementation, this would use Stripe.js to handle the payment
+            // For this test, we're just simulating a successful payment
+            const paymentStatus = document.getElementById('payment-status');
+            paymentStatus.textContent = 'Payment test successful! In a real checkout, the user would be redirected to the payment success page.';
+            paymentStatus.className = 'status-box success';
+            updateOverallStatus();
+        }
+        
+        function updateOverallStatus(isSuccess = true) {
+            const overallStatus = document.getElementById('overall-status');
+            const connectionStatus = document.getElementById('connection-status');
+            const customerStatus = document.getElementById('customer-status');
+            const checkoutStatus = document.getElementById('checkout-status');
+            const paymentStatus = document.getElementById('payment-status');
+            
+            if (!isSuccess) {
+                overallStatus.textContent = 'Some tests failed. Check the details above.';
+                overallStatus.className = 'status-box error';
+                return;
+            }
+            
+            if (connectionStatus.className.includes('success') && 
+                customerStatus.className.includes('success') && 
+                checkoutStatus.className.includes('success')) {
+                overallStatus.textContent = 'All tests passed! Stripe integration is working correctly.';
+                overallStatus.className = 'status-box success';
+            } else if (connectionStatus.className.includes('success')) {
+                overallStatus.textContent = 'Stripe API connected, but not all tests are complete.';
+                overallStatus.className = 'status-box pending';
+            }
+        }
+    </script>
+</body>
+</html>

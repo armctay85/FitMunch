@@ -1,0 +1,238 @@
+I’ll adjust the project brief and Replit instructions to reflect the new name, “FitMunch,” while keeping everything else consistent. The updated brief and code will align with the Australian fitness and meal planning app’s direction, function, and aesthetic. Below is the revised brief followed by the updated Replit step-by-step instructions with the new name incorporated.
+Updated Project Brief for “FitMunch” in Replit
+Project Title
+FitMunch: Australian Fitness and Meal Planning Web App
+Starting Brief
+“FitMunch” is a straightforward, user-friendly web application designed for Australians to track fitness goals and food preferences, generate personalized meal plans, and create shopping lists tailored to local supermarkets. Targeting individuals aged 18-45—fitness enthusiasts and health-conscious Aussies—the app simplifies wellness with a bold, practical, and distinctly Australian approach. Built in Replit, it uses a web-based interface for accessibility without app store deployment, ensuring low cost and rapid development. The project aims for completion in 1–2 weeks, prioritizing core functionality and a clean aesthetic, with no coding required beyond copying provided templates.
+Required App Direction
+Purpose: Enable Australians to log fitness goals (e.g., calories, steps), input food likes/dislikes, and receive meal plans and shopping lists, emphasizing local dietary habits.
+Scope: A Minimum Viable Product (MVP) web app with:
+Input forms for goals and preferences.
+Pre-set meal plans tied to goals (e.g., Weight Loss, Muscle Gain).
+Shopping lists using Coles/Woolworths categories.
+Platform: Web-based via Replit, accessible on mobile/desktop browsers.
+Development: Use pre-written HTML/CSS/JavaScript code in Replit, with AI-generated back-end data (meal plans/shopping lists).
+Function
+User Inputs:
+Fitness Goals: Enter daily calories (e.g., 2000), goal type (e.g., “Weight Loss”), steps (e.g., 8000).
+Food Preferences: Input likes (e.g., “BBQ, seafood”) and dislikes (e.g., “tofu”).
+Meal Plan Generation:
+Match goal type to one of 5 pre-set Aussie meal plans (e.g., “Grilled barramundi” for Weight Loss).
+Display the meal plan text on-screen.
+Shopping List:
+Generate a list of ingredients based on the selected meal plan, categorized by Aussie supermarket sections (e.g., “Seafood: Barramundi”).
+Show as a clickable list.
+Navigation:
+Simple tabs or buttons to switch between Home, Goals, Food, Meal Plan, and Shopping sections.
+Aesthetic
+Font: Montserrat (via Google Fonts):
+Bold (700) for headings (e.g., “FitMunch,” “Your Meal Plan”).
+Medium (500) for buttons/labels.
+Regular (400) for body text.
+Colors: 
+Green (#006400): Headers and buttons, evoking Australian bushland.
+Gold (#FFD700): Accents and highlights, reflecting Aussie spirit.
+White (#FFFFFF): Background for clarity.
+Style: 
+Clean, bold, and modern—minimal clutter, large text/buttons for mobile-friendliness.
+Aussie vibe: Subtle earthy tones and practical design, aligning with the “Munch” theme of food and fitness.
+Target Outcome
+A functional web app hosted on Replit, accessible via a shareable link, allowing users to input data, view meal plans, and get shopping lists in under 10 clicks. “FitMunch” prioritizes simplicity and cost-efficiency, fitting a no-code, DIY approach.
+Updated Step-by-Step Instructions for Replit (FitMunch)
+Step 1: Set Up Replit
+Sign Up:
+Go to Replit, click “Sign Up,” use your email, and log in.
+Create a New Repl:
+Click “+ Create Repl” > select “HTML, CSS, JS” template > name it “FitMunch” > click “Create Repl.”
+Understand the Interface:
+Left: File explorer (index.html, style.css, script.js).
+Middle: Code editor.
+Right: Live preview (updates as you save).
+Step 2: Copy-Paste Starting Code
+Below is the updated code with “FitMunch” replacing “AussieFit”—copy each section into the respective Replit files.
+index.html (Structure):
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitMunch</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FitMunch</h1>
+  </header>
+  <main>
+    <section id="home">
+      <button onclick="showSection('goals')">Set Goals</button>
+      <button onclick="showSection('food')">Food Preferences</button>
+      <button onclick="showSection('meal')">View Meal Plan</button>
+      <button onclick="showSection('shopping')">Shopping List</button>
+    </section>
+    <section id="goals" class="hidden">
+      <h2>Set Your Fitness Goals</h2>
+      <input type="text" id="calories" placeholder="Daily Calories (e.g., 2000)">
+      <input type="text" id="goalType" placeholder="Goal (e.g., Weight Loss)">
+      <input type="text" id="steps" placeholder="Daily Steps (e.g., 8000)">
+      <button onclick="saveGoals()">Save</button>
+    </section>
+    <section id="food" class="hidden">
+      <h2>Food Preferences</h2>
+      <input type="text" id="likes" placeholder="Likes (e.g., BBQ, seafood)">
+      <input type="text" id="dislikes" placeholder="Dislikes (e.g., tofu)">
+      <button onclick="saveFood()">Save</button>
+    </section>
+    <section id="meal" class="hidden">
+      <h2>Your Meal Plan</h2>
+      <p id="mealDisplay">Welcome! Set a goal to see your meal plan.</p>
+      <button onclick="generateMealPlan()">Generate Plan</button>
+    </section>
+    <section id="shopping" class="hidden">
+      <h2>Shopping List</h2>
+      <ul id="shopList">
+        <li>Bread</li>
+        <li>Eggs</li>
+      </ul>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
+style.css (Aesthetic):
+css
+body {
+  font-family: 'Montserrat', sans-serif;
+  margin: 0;
+  background-color: #FFFFFF;
+}
+header {
+  background-color: #006400;
+  color: #FFD700;
+  text-align: center;
+  padding: 10px;
+}
+h1 {
+  font-weight: 700;
+  margin: 0;
+}
+h2 {
+  font-weight: 700;
+  color: #006400;
+}
+main {
+  padding: 20px;
+}
+button {
+  font-weight: 500;
+  background-color: #006400;
+  color: #FFD700;
+  border: none;
+  padding: 10px;
+  margin: 5px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #FFD700;
+  color: #006400;
+}
+input {
+  font-weight: 400;
+  width: 100%;
+  padding: 8px;
+  margin: 5px 0;
+}
+.hidden {
+  display: none;
+}
+#mealDisplay {
+  font-weight: 400;
+}
+ul {
+  font-weight: 400;
+  list-style-type: none;
+  padding: 0;
+}
+script.js (Logic with AI-Generated Data):
+javascript
+let calories = "2000";
+let goalType = "Maintenance";
+let steps = "8000";
+let likes = "BBQ, seafood";
+let dislikes = "";
+let selectedMealPlan = "Welcome! Set a goal to see your meal plan.";
+let shoppingItems = ["Bread", "Eggs"];
+
+const mealPlans = [
+  { goal: "Weight Loss", meal: "Grilled barramundi (150g), steamed broccoli (100g)", shopping: ["Seafood: Barramundi fillet", "Fresh Produce: Broccoli"] },
+  { goal: "Muscle Gain", meal: "BBQ chicken breast (200g), sweet potato (150g)", shopping: ["Meat & Poultry: Chicken breast", "Fresh Produce: Sweet potato"] },
+  { goal: "Maintenance", meal: "Vegemite toast (2 slices), poached eggs (2)", shopping: ["Bakery: Wholemeal bread", "Pantry: Vegemite", "Dairy, Eggs & Fridge: Eggs"] }
+];
+
+function showSection(sectionId) {
+  document.querySelectorAll('section').forEach(section => section.classList.add('hidden'));
+  document.getElementById(sectionId).classList.remove('hidden');
+}
+
+function saveGoals() {
+  calories = document.getElementById("calories").value || "2000";
+  goalType = document.getElementById("goalType").value || "Maintenance";
+  steps = document.getElementById("steps").value || "8000";
+  showSection("home");
+}
+
+function saveFood() {
+  likes = document.getElementById("likes").value || "BBQ, seafood";
+  dislikes = document.getElementById("dislikes").value || "";
+  showSection("home");
+}
+
+function generateMealPlan() {
+  const plan = mealPlans.find(p => p.goal === goalType) || mealPlans[2]; // Default to Maintenance
+  selectedMealPlan = plan.meal;
+  shoppingItems = plan.shopping;
+  document.getElementById("mealDisplay").textContent = selectedMealPlan;
+  updateShoppingList();
+  showSection("meal");
+}
+
+function updateShoppingList() {
+  const list = document.getElementById("shopList");
+  list.innerHTML = "";
+  shoppingItems.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    list.appendChild(li);
+  });
+}
+
+// Initial setup
+showSection("home");
+Step 3: Run and Test
+Run the App:
+Click the green “Run” button (top center in Replit).
+The right pane displays the live “FitMunch” web app.
+Test:
+Click “Set Goals,” enter “1800,” “Weight Loss,” “10000,” click “Save.”
+Click “Food Preferences,” enter “seafood,” “tofu,” click “Save.”
+Click “View Meal Plan,” click “Generate Plan”—verify it shows “Grilled barramundi…”
+Click “Shopping List”—confirm “Seafood: Barramundi fillet,” etc., appear.
+Tweak:
+Add more plans to mealPlans in script.js (see below for extras).
+Step 4: Expand with More Meal Plans
+Two additional AI-generated Aussie meal plans for “FitMunch”:
+Low-Carb: { goal: "Weight Loss", meal: "Kangaroo steak (150g), zucchini noodles (100g)", shopping: ["Meat & Poultry: Kangaroo steak", "Fresh Produce: Zucchini"] }
+Quick: { goal: "Maintenance", meal: "Tuna salad (100g tuna, 50g lettuce)", shopping: ["Pantry: Canned tuna", "Fresh Produce: Lettuce"] }
+Copy these into the mealPlans array in script.js, inside the square brackets [], separated by commas.
+Step 5: Share
+Click “Share” (top right) > copy the URL to share “FitMunch” with others or access on your phone.
+Time & Cost
+Time: 1–2 weeks (1 day setup, 2–3 days testing/tweaking).
+Cost: $0 (Replit free tier, no app store fees for web).
+Changes Made
+Replaced all instances of “AussieFit” with “FitMunch” in the brief, HTML title, header, and Replit project name.
+Kept the function, aesthetic, and code logic identical, as the name change doesn’t affect those aspects.
+Ensured the brief reflects the new branding while maintaining the Australian focus.
+This “FitMunch” web app is ready to go—just copy the code into Replit, run it, and test. Let me know if you need more meal plans or help with a specific step!

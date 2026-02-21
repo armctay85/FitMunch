@@ -1,0 +1,660 @@
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+// Custom domain configuration (simplified for Replit)
+const configureCustomDomain = (app) => {
+  // Basic configuration for Replit environment
+  app.set('trust proxy', true);
+};
+// Initialize Stripe only if key is available
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.log('Warning: STRIPE_SECRET_KEY not found. Stripe functionality will be disabled.');
+}
+
+const app = express();
+
+// Security: Enhanced Helmet configuration with Replit preview support
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https://api.stripe.com"],
+      frameSrc: ["'self'", "https://js.stripe.com"],
+      frameAncestors: ["'self'", "https://*.replit.dev", "https://*.repl.co"], // Allow Replit preview
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
+  frameguard: false, // Disable X-Frame-Options to allow Replit preview iframe
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
+
+// Enable CORS with security options
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.REPLIT_DEV_DOMAIN] 
+    : true,
+  credentials: true,
+  maxAge: 86400
+}));
+// Serve only essential static files from public directory for security
+app.use(express.static('public', {
+  maxAge: '1d', // Cache static assets for 1 day
+  etag: true
+}));
+
+// Configure custom domain support
+configureCustomDomain(app);
+
+// Add compression middleware for better performance
+const compression = require('compression');
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+
+// Add body size limits for security and parse JSON/URL-encoded data
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Rate limiting for API endpoints
+const rateLimit = require('express-rate-limit');
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false }, // Disable trust proxy validation for Replit
+});
+
+app.use('/api/', apiLimiter);
+
+// Stricter rate limit for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5, // Only 5 attempts per 15 minutes
+  message: 'Too many authentication attempts, please try again later.',
+  validate: { trustProxy: false }, // Disable trust proxy validation for Replit
+});
+
+app.use('/api/auth/', authLimiter);
+
+// Add API router before auth middleware
+const apiRouter = require('./api_server');
+app.use('/api', apiRouter);
+
+// Test Stripe API connection
+app.get('/api/stripe-test', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({
+      success: false,
+      message: 'Stripe is not configured. Please add STRIPE_SECRET_KEY to environment variables.',
+      connectionStatus: 'disabled'
+    });
+  }
+  
+  try {
+    // Attempt to list customers as a basic test
+    const customers = await stripe.customers.list({ limit: 1 });
+    res.json({ 
+      success: true, 
+      message: 'Stripe API connected successfully',
+      connectionStatus: 'active',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Stripe API connection error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Stripe API connection failed',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint to create a Stripe checkout session
+app.post('/api/stripe/checkout-sessions', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({
+      success: false,
+      message: 'Stripe is not configured'
+    });
+  }
+  
+  try {
+    const { priceId, customerId, successUrl, cancelUrl } = req.body;
+
+    if (!priceId || !customerId || !successUrl || !cancelUrl) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameters'
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      customer: customerId,
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1
+        },
+      ],
+      success_url: successUrl,
+      cancel_url: cancelUrl
+    });
+
+    res.json({ 
+      success: true, 
+      url: session.url,
+      id: session.id
+    });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create checkout session',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint to complete subscription after payment success
+app.post('/api/complete-subscription', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({
+      success: false,
+      message: 'Stripe is not configured'
+    });
+  }
+  
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Session ID is required'
+      });
+    }
+
+    // Retrieve the session to verify payment
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['subscription', 'customer']
+    });
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment not completed'
+      });
+    }
+
+    // Return subscription details
+    res.json({
+      success: true,
+      message: 'Subscription completed successfully',
+      subscription: session.subscription,
+      customer: session.customer
+    });
+
+  } catch (error) {
+    console.error('Error completing subscription:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete subscription',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint to create or get Stripe customer
+app.post('/api/stripe/customers', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({
+      success: false,
+      message: 'Stripe is not configured'
+    });
+  }
+  
+  try {
+    const { email, name, metadata } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email is required'
+      });
+    }
+
+    const customer = await stripe.customers.create({
+      email,
+      name: name || '',
+      metadata: metadata || {}
+    });
+
+    res.json({ 
+      success: true, 
+      id: customer.id,
+      email: customer.email
+    });
+  } catch (error) {
+    console.error('Error creating customer:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create customer',
+      error: error.message
+    });
+  }
+});
+
+// Authentication middleware
+app.use((req, res, next) => {
+  const userId = req.headers['x-replit-user-id'];
+  const userName = req.headers['x-replit-user-name'];
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  req.user = { id: userId, name: userName };
+  next();
+});
+
+const foodDatabase = {
+  items: [
+    { name: "Chicken Breast", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+    { name: "Brown Rice", calories: 216, protein: 5, carbs: 45, fat: 1.8 },
+    { name: "Salmon", calories: 208, protein: 22, carbs: 0, fat: 13 }
+  ]
+};
+
+let userLogs = {};
+
+// Food database endpoints
+app.get('/api/foods/search', (req, res) => {
+  const query = req.query.q.toLowerCase();
+  const results = foodDatabase.items.filter(item => 
+    item.name.toLowerCase().includes(query)
+  );
+  res.json(results);
+});
+
+app.post('/api/log/food', (req, res) => {
+  const { userId, date, meal, food } = req.body;
+  if (!userLogs[userId]) {
+    userLogs[userId] = {};
+  }
+  if (!userLogs[userId][date]) {
+    userLogs[userId][date] = { meals: {} };
+  }
+  if (!userLogs[userId][date].meals[meal]) {
+    userLogs[userId][date].meals[meal] = [];
+  }
+  userLogs[userId][date].meals[meal].push(food);
+  res.json({ success: true });
+});
+
+app.get('/api/log/:userId/:date', (req, res) => {
+  const { userId, date } = req.params;
+  res.json(userLogs[userId]?.[date] || { meals: {} });
+});
+
+app.post('/api/analyze-goals', (req, res) => {
+  try {
+    const { goals } = req.body;
+    const recommendations = {
+      calories: Math.max(1800, parseInt(goals.calories)),
+      activity: {
+        type: goals.activityPlan.type || 'gym',
+        frequency: goals.activityPlan.frequency || 3,
+        level: goals.activityPlan.level || 'Beginner',
+        duration: goals.activityPlan.duration || 1
+      }
+    };
+    res.json(recommendations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// User profile endpoints
+let userProfiles = {};
+
+app.post('/api/user/profile', (req, res) => {
+  try {
+    const { userId, profile } = req.body;
+    if (!userId || !profile) {
+      return res.status(400).json({ error: 'Missing userId or profile data' });
+    }
+    userProfiles[userId] = {
+      ...profile,
+      updatedAt: new Date().toISOString()
+    };
+    res.json({ success: true, profile: userProfiles[userId] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/user/profile/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const profile = userProfiles[userId] || null;
+    res.json({ success: true, profile });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Meal logging endpoints
+let mealLogs = {};
+
+app.post('/api/meals/log', (req, res) => {
+  try {
+    const { userId, date, mealType, foodItems, calories, macros } = req.body;
+    if (!userId || !date || !mealType) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const logKey = `${userId}_${date}`;
+    if (!mealLogs[logKey]) {
+      mealLogs[logKey] = { meals: {}, totalCalories: 0 };
+    }
+    if (!mealLogs[logKey].meals[mealType]) {
+      mealLogs[logKey].meals[mealType] = [];
+    }
+    
+    const mealEntry = {
+      foodItems: foodItems || [],
+      calories: calories || 0,
+      macros: macros || { protein: 0, carbs: 0, fat: 0 },
+      loggedAt: new Date().toISOString()
+    };
+    
+    mealLogs[logKey].meals[mealType].push(mealEntry);
+    mealLogs[logKey].totalCalories += (calories || 0);
+    
+    res.json({ success: true, meal: mealEntry });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/meals/daily/:userId/:date', (req, res) => {
+  try {
+    const { userId, date } = req.params;
+    const logKey = `${userId}_${date}`;
+    const dailyLog = mealLogs[logKey] || { meals: {}, totalCalories: 0 };
+    res.json({ success: true, data: dailyLog });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Workout logging endpoints
+let workoutLogs = {};
+
+app.post('/api/workouts/log', (req, res) => {
+  try {
+    const { userId, date, workoutType, duration, caloriesBurned, exercises } = req.body;
+    if (!userId || !workoutType) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    if (!workoutLogs[userId]) {
+      workoutLogs[userId] = [];
+    }
+    
+    const workoutEntry = {
+      id: Date.now().toString(),
+      date: date || new Date().toISOString(),
+      workoutType,
+      duration: duration || 0,
+      caloriesBurned: caloriesBurned || 0,
+      exercises: exercises || [],
+      loggedAt: new Date().toISOString()
+    };
+    
+    workoutLogs[userId].unshift(workoutEntry);
+    res.json({ success: true, workout: workoutEntry });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/workouts/history/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 30;
+    const history = workoutLogs[userId] || [];
+    res.json({ success: true, workouts: history.slice(0, limit) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Progress tracking endpoints
+let progressLogs = {};
+
+app.post('/api/progress/log', (req, res) => {
+  try {
+    const { userId, date, weight, bodyFat, measurements, notes } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId' });
+    }
+    
+    if (!progressLogs[userId]) {
+      progressLogs[userId] = [];
+    }
+    
+    const progressEntry = {
+      id: Date.now().toString(),
+      date: date || new Date().toISOString(),
+      weight: weight || 0,
+      bodyFat: bodyFat || 0,
+      measurements: measurements || {},
+      notes: notes || '',
+      loggedAt: new Date().toISOString()
+    };
+    
+    progressLogs[userId].unshift(progressEntry);
+    res.json({ success: true, progress: progressEntry });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/progress/history/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit) || 30;
+    const history = progressLogs[userId] || [];
+    res.json({ success: true, progress: history.slice(0, limit) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Analytics endpoint
+let analyticsEvents = [];
+
+app.post('/api/analytics/events', (req, res) => {
+  try {
+    const { events } = req.body;
+    if (!events || !Array.isArray(events)) {
+      return res.status(400).json({ error: 'Invalid events data' });
+    }
+    
+    analyticsEvents.push(...events);
+    
+    // Keep only last 10000 events to prevent memory issues
+    if (analyticsEvents.length > 10000) {
+      analyticsEvents = analyticsEvents.slice(-10000);
+    }
+    
+    res.json({ success: true, eventsLogged: events.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Recommendations endpoints
+app.get('/api/recommendations/meals/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userProfile = userProfiles[userId] || {};
+    const targetCalories = userProfile.goals?.calories || 2000;
+    
+    const recommendations = [
+      {
+        meal: 'breakfast',
+        suggestion: {
+          name: 'Greek Yogurt Bowl',
+          calories: Math.round(targetCalories * 0.25),
+          protein: 20,
+          carbs: 30,
+          fat: 8,
+          ingredients: ['Greek yogurt', 'Berries', 'Granola', 'Honey']
+        },
+        timing: '7:00 AM - 9:00 AM',
+        reason: 'High-protein breakfast to kickstart your metabolism'
+      },
+      {
+        meal: 'lunch',
+        suggestion: {
+          name: 'Grilled Chicken Salad',
+          calories: Math.round(targetCalories * 0.35),
+          protein: 35,
+          carbs: 25,
+          fat: 12,
+          ingredients: ['Chicken breast', 'Mixed greens', 'Vegetables', 'Olive oil dressing']
+        },
+        timing: '12:00 PM - 2:00 PM',
+        reason: 'Balanced meal with lean protein and vegetables'
+      },
+      {
+        meal: 'dinner',
+        suggestion: {
+          name: 'Salmon with Quinoa',
+          calories: Math.round(targetCalories * 0.30),
+          protein: 30,
+          carbs: 35,
+          fat: 15,
+          ingredients: ['Salmon fillet', 'Quinoa', 'Broccoli', 'Lemon']
+        },
+        timing: '6:00 PM - 8:00 PM',
+        reason: 'Omega-3 rich meal supporting recovery and sleep'
+      }
+    ];
+    
+    res.json({ success: true, recommendations });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/recommendations/workouts/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userProfile = userProfiles[userId] || {};
+    const fitnessLevel = userProfile.goals?.activityPlan?.level || 'Beginner';
+    const preferredType = userProfile.goals?.activityPlan?.type || 'gym';
+    
+    const recommendations = [
+      {
+        type: 'Strength Training',
+        duration: 45,
+        frequency: 3,
+        intensity: fitnessLevel.toLowerCase(),
+        exercises: [
+          { name: 'Squats', sets: 3, reps: 12 },
+          { name: 'Bench Press', sets: 3, reps: 10 },
+          { name: 'Deadlifts', sets: 3, reps: 8 },
+          { name: 'Shoulder Press', sets: 3, reps: 10 }
+        ],
+        benefits: ['Build muscle', 'Increase strength', 'Boost metabolism'],
+        reason: 'Based on your fitness level and goals'
+      },
+      {
+        type: 'Cardio',
+        duration: 30,
+        frequency: 2,
+        intensity: 'moderate',
+        exercises: [
+          { name: 'Running', duration: 20, intensity: 'moderate' },
+          { name: 'Cycling', duration: 15, intensity: 'light' }
+        ],
+        benefits: ['Improve cardiovascular health', 'Burn calories', 'Increase endurance'],
+        reason: 'Complement strength training with cardio'
+      },
+      {
+        type: 'Flexibility',
+        duration: 15,
+        frequency: 5,
+        intensity: 'light',
+        exercises: [
+          { name: 'Yoga', duration: 15 },
+          { name: 'Stretching', duration: 10 }
+        ],
+        benefits: ['Improve flexibility', 'Reduce injury risk', 'Aid recovery'],
+        reason: 'Essential for overall fitness and recovery'
+      }
+    ];
+    
+    res.json({ success: true, recommendations });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Use Replit's PORT environment variable or fallback to 5000 for frontend
+const port = process.env.PORT || 5000;
+
+// Start the server - make sure it's accessible externally on all interfaces
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 FitMunch Server running on port ${port}`);
+  console.log(`🌐 External URL: https://${process.env.REPLIT_DEV_DOMAIN}`);
+  console.log(`📱 Your app is ready to view!`);
+}).on('error', (err) => {
+  console.error('❌ Server error:', err);
+  
+  // If port is already in use, try port 3000 (common Replit fallback)
+  if (err.code === 'EADDRINUSE') {
+    console.log(`Port ${port} is already in use, trying port 3000`);
+    app.listen(3000, '0.0.0.0', () => {
+      console.log(`🚀 FitMunch Server running on port 3000`);
+      console.log(`🌐 External URL: https://${process.env.REPLIT_DEV_DOMAIN}`);
+    });
+  }
+});
+
+// Handle process termination gracefully
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});

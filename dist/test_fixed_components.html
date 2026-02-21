@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitMunch Component Tests</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    .test-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+    button {
+      padding: 8px 12px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    #console {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      height: 200px;
+      overflow-y: auto;
+      margin-top: 20px;
+    }
+    .log-item {
+      margin: 5px 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>FitMunch Component Tests</h1>
+  
+  <div class="test-section">
+    <h2>Analytics Test</h2>
+    <button id="test-analytics">Test Analytics</button>
+    <div id="analytics-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Subscription Manager Test</h2>
+    <button id="test-subscription">Test Subscription Manager</button>
+    <button id="test-purchase">Test Purchase Flow</button>
+    <div id="subscription-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>User Account Test</h2>
+    <button id="test-registration">Test Registration</button>
+    <button id="test-login">Test Login</button>
+    <button id="test-sync">Test Data Sync</button>
+    <div id="user-account-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Receipt Validator Test</h2>
+    <button id="test-receipt">Test Receipt Validation</button>
+    <div id="receipt-result"></div>
+  </div>
+  
+  <h2>Console Output</h2>
+  <div id="console"></div>
+  
+  <!-- Load the fixed scripts -->
+  <script src="analytics.js"></script>
+  <script src="subscription_manager.js"></script>
+  <script src="user_account.js"></script>
+  <script src="receipt_validator.js"></script>
+  
+  <script>
+    // Custom console logger to display in the page
+    const consoleDiv = document.getElementById('console');
+    const originalConsole = { 
+      log: console.log, 
+      error: console.error, 
+      warn: console.warn 
+    };
+    
+    console.log = function() {
+      originalConsole.log.apply(console, arguments);
+      const args = Array.from(arguments);
+      const log = document.createElement('div');
+      log.className = 'log-item';
+      log.textContent = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+      consoleDiv.appendChild(log);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    };
+    
+    console.error = function() {
+      originalConsole.error.apply(console, arguments);
+      const args = Array.from(arguments);
+      const log = document.createElement('div');
+      log.className = 'log-item error';
+      log.textContent = 'ERROR: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+      consoleDiv.appendChild(log);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    };
+    
+    console.warn = function() {
+      originalConsole.warn.apply(console, arguments);
+      const args = Array.from(arguments);
+      const log = document.createElement('div');
+      log.className = 'log-item';
+      log.style.color = 'orange';
+      log.textContent = 'WARNING: ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+      consoleDiv.appendChild(log);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    };
+    
+    // Test functions
+    document.getElementById('test-analytics').addEventListener('click', function() {
+      const resultDiv = document.getElementById('analytics-result');
+      try {
+        if (typeof AnalyticsService !== 'undefined') {
+          AnalyticsService.initialize();
+          AnalyticsService.trackPageView('test-page');
+          AnalyticsService.trackEvent('test_event', { test: true });
+          
+          resultDiv.textContent = 'Analytics tested successfully';
+          resultDiv.className = 'success';
+        } else {
+          resultDiv.textContent = 'AnalyticsService is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    document.getElementById('test-subscription').addEventListener('click', function() {
+      const resultDiv = document.getElementById('subscription-result');
+      try {
+        if (typeof subscriptionManager !== 'undefined') {
+          const currentPlan = subscriptionManager.getCurrentPlan();
+          const hasAccess = subscriptionManager.hasFeatureAccess(1);
+          
+          resultDiv.textContent = `Current plan: ${currentPlan}, Has access to feature 1: ${hasAccess}`;
+          resultDiv.className = 'success';
+        } else {
+          resultDiv.textContent = 'subscriptionManager is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    document.getElementById('test-purchase').addEventListener('click', function() {
+      const resultDiv = document.getElementById('subscription-result');
+      try {
+        if (typeof subscriptionManager !== 'undefined') {
+          subscriptionManager.startPurchase('basic')
+            .then(result => {
+              resultDiv.textContent = `Purchase result: ${JSON.stringify(result)}`;
+              resultDiv.className = result.success ? 'success' : 'error';
+            })
+            .catch(error => {
+              resultDiv.textContent = 'Purchase error: ' + error.message;
+              resultDiv.className = 'error';
+              console.error(error);
+            });
+        } else {
+          resultDiv.textContent = 'subscriptionManager is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    document.getElementById('test-registration').addEventListener('click', function() {
+      const resultDiv = document.getElementById('user-account-result');
+      try {
+        if (typeof userAccount !== 'undefined') {
+          userAccount.registerWithEmail('test@example.com', 'password123', 'Test User')
+            .then(result => {
+              resultDiv.textContent = `Registration result: ${JSON.stringify(result)}`;
+              resultDiv.className = result.success ? 'success' : 'error';
+            })
+            .catch(error => {
+              resultDiv.textContent = 'Registration error: ' + error.message;
+              resultDiv.className = 'error';
+              console.error(error);
+            });
+        } else {
+          resultDiv.textContent = 'userAccount is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    document.getElementById('test-login').addEventListener('click', function() {
+      const resultDiv = document.getElementById('user-account-result');
+      try {
+        if (typeof userAccount !== 'undefined') {
+          userAccount.loginWithEmail('test@example.com', 'password123')
+            .then(result => {
+              resultDiv.textContent = `Login result: ${JSON.stringify(result)}`;
+              resultDiv.className = result.success ? 'success' : 'error';
+            })
+            .catch(error => {
+              resultDiv.textContent = 'Login error: ' + error.message;
+              resultDiv.className = 'error';
+              console.error(error);
+            });
+        } else {
+          resultDiv.textContent = 'userAccount is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    document.getElementById('test-sync').addEventListener('click', function() {
+      const resultDiv = document.getElementById('user-account-result');
+      try {
+        if (typeof userAccount !== 'undefined') {
+          if (!userAccount.isUserLoggedIn()) {
+            resultDiv.textContent = 'Please login first';
+            resultDiv.className = 'error';
+            return;
+          }
+          
+          userAccount.syncToCloud()
+            .then(result => {
+              resultDiv.textContent = `Sync result: ${result}`;
+              resultDiv.className = result ? 'success' : 'error';
+            })
+            .catch(error => {
+              resultDiv.textContent = 'Sync error: ' + error.message;
+              resultDiv.className = 'error';
+              console.error(error);
+            });
+        } else {
+          resultDiv.textContent = 'userAccount is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    document.getElementById('test-receipt').addEventListener('click', function() {
+      const resultDiv = document.getElementById('receipt-result');
+      try {
+        if (typeof receiptValidator !== 'undefined') {
+          // Create mock receipt data
+          const mockReceipt = {
+            receiptData: 'mock_receipt_data_' + Math.random().toString(36).substring(2),
+            productId: 'com.fitmunch.premium'
+          };
+          
+          receiptValidator.validateReceipt(mockReceipt, mockReceipt.productId)
+            .then(result => {
+              resultDiv.textContent = `Validation result: ${JSON.stringify(result)}`;
+              resultDiv.className = result.valid ? 'success' : 'error';
+            })
+            .catch(error => {
+              resultDiv.textContent = 'Validation error: ' + error.message;
+              resultDiv.className = 'error';
+              console.error(error);
+            });
+        } else {
+          resultDiv.textContent = 'receiptValidator is not defined';
+          resultDiv.className = 'error';
+        }
+      } catch (error) {
+        resultDiv.textContent = 'Error: ' + error.message;
+        resultDiv.className = 'error';
+        console.error(error);
+      }
+    });
+    
+    // Log initial status
+    console.log('Test page loaded');
+    console.log('Analytics available:', typeof AnalyticsService !== 'undefined');
+    console.log('Subscription manager available:', typeof subscriptionManager !== 'undefined');
+    console.log('User account available:', typeof userAccount !== 'undefined');
+    console.log('Receipt validator available:', typeof receiptValidator !== 'undefined');
+  </script>
+</body>
+</html>
