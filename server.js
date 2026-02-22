@@ -702,25 +702,13 @@ app.get('/api/recommendations/workouts/:userId', (req, res) => {
   }
 });
 
-// Use Replit's PORT environment variable or fallback to 5000 for frontend
 const port = process.env.PORT || 5000;
 
-// Start the server - make sure it's accessible externally on all interfaces
 app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 FitMunch Server running on port ${port}`);
-  console.log(`🌐 Running on port ${port}`);
-  console.log(`📱 Your app is ready to view!`);
+  console.log(`🚀 FitMunch running on port ${port}`);
 }).on('error', (err) => {
-  console.error('❌ Server error:', err);
-  
-  // If port is already in use, try port 3000 (common Replit fallback)
-  if (err.code === 'EADDRINUSE') {
-    console.log(`Port ${port} is already in use, trying port 3000`);
-    app.listen(3000, '0.0.0.0', () => {
-      console.log(`🚀 FitMunch Server running on port 3000`);
-      console.log(`🌐 Running on port ${port}`);
-    });
-  }
+  console.error('❌ Failed to start server:', err.message);
+  process.exit(1);
 });
 
 // Handle process termination gracefully
