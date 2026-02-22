@@ -4,7 +4,11 @@
       <stop offset="0%" stop-color="#14532d"/>
       <stop offset="100%" stop-color="#052e16"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="broc" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#4ade80"/>
       <stop offset="100%" stop-color="#16a34a"/>
     </linearGradient>
@@ -13,37 +17,44 @@
   <!-- Background -->
   <rect width="512" height="512" rx="115" fill="url(#bg)"/>
 
-  <!-- ── FORK-DUMBBELL MARK ── -->
-  <!-- 3 fork tines -->
-  <rect x="184" y="96" width="26" height="110" rx="13" fill="white"/>
-  <rect x="243" y="80" width="26" height="126" rx="13" fill="white"/>
-  <rect x="302" y="96" width="26" height="110" rx="13" fill="white"/>
+  <!-- ── BROCCOLI HEAD ── -->
+  <!-- Centre top floret -->
+  <circle cx="256" cy="128" r="82" fill="url(#broc)"/>
+  <!-- Left floret -->
+  <circle cx="175" cy="168" r="68" fill="url(#broc)"/>
+  <!-- Right floret -->
+  <circle cx="337" cy="168" r="68" fill="url(#broc)"/>
+  <!-- Fill gap between florets at base -->
+  <ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#broc)"/>
 
-  <!-- Fork collar — where tines meet the handle -->
-  <rect x="174" y="192" width="164" height="30" rx="10" fill="white"/>
+  <!-- Floret texture — darker dots to suggest floret clusters -->
+  <circle cx="232" cy="108" r="22" fill="#16a34a" opacity="0.5"/>
+  <circle cx="278" cy="100" r="18" fill="#16a34a" opacity="0.5"/>
+  <circle cx="256" cy="138" r="16" fill="#16a34a" opacity="0.4"/>
+  <circle cx="162" cy="150" r="18" fill="#16a34a" opacity="0.45"/>
+  <circle cx="190" cy="128" r="14" fill="#16a34a" opacity="0.4"/>
+  <circle cx="322" cy="148" r="18" fill="#16a34a" opacity="0.45"/>
+  <circle cx="350" cy="124" r="14" fill="#16a34a" opacity="0.4"/>
 
-  <!-- Fork handle / stem -->
-  <rect x="243" y="218" width="26" height="118" rx="13" fill="white"/>
+  <!-- ── STALK ── -->
+  <rect x="228" y="228" width="56" height="108" rx="12" fill="white"/>
 
-  <!-- ── DUMBBELL BASE ── -->
+  <!-- ── DUMBBELL ── -->
   <!-- Bar -->
-  <rect x="148" y="352" width="216" height="24" rx="12" fill="white"/>
+  <rect x="142" y="348" width="228" height="26" rx="13" fill="white"/>
 
-  <!-- Left collar -->
-  <rect x="168" y="340" width="30" height="48" rx="8" fill="url(#accent)"/>
-  <!-- Right collar -->
-  <rect x="314" y="340" width="30" height="48" rx="8" fill="url(#accent)"/>
+  <!-- Left collar — green accent -->
+  <rect x="166" y="334" width="34" height="54" rx="9" fill="url(#acc)"/>
+  <!-- Right collar — green accent -->
+  <rect x="312" y="334" width="34" height="54" rx="9" fill="url(#acc)"/>
 
   <!-- Left plate -->
-  <rect x="130" y="328" width="50" height="72" rx="14" fill="white"/>
+  <rect x="118" y="316" width="62" height="90" rx="16" fill="white"/>
   <!-- Left plate slot -->
-  <rect x="145" y="345" width="20" height="38" rx="6" fill="url(#bg)"/>
+  <rect x="134" y="334" width="26" height="54" rx="8" fill="url(#bg)"/>
 
   <!-- Right plate -->
-  <rect x="332" y="328" width="50" height="72" rx="14" fill="white"/>
+  <rect x="332" y="316" width="62" height="90" rx="16" fill="white"/>
   <!-- Right plate slot -->
-  <rect x="347" y="345" width="20" height="38" rx="6" fill="url(#bg)"/>
-
-  <!-- Connector from fork handle to dumbbell bar -->
-  <rect x="243" y="332" width="26" height="24" rx="0" fill="white"/>
+  <rect x="352" y="334" width="26" height="54" rx="8" fill="url(#bg)"/>
 </svg>
