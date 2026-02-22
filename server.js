@@ -99,6 +99,57 @@ const authLimiter = rateLimit({
 
 app.use('/api/auth/', authLimiter);
 
+// ── STRIPE WEBHOOK (raw body BEFORE json parser) ──────────────────────────────
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripe) return res.status(503).send('Stripe not configured');
+  if (!webhookSecret) return res.status(400).send('STRIPE_WEBHOOK_SECRET not set');
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error('Webhook sig failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  const { updateUserSubscription, db, schema } = require('./server/storage.js');
+  const { eq } = require('drizzle-orm');
+
+  try {
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object;
+        const priceId = sub.items?.data[0]?.price?.id;
+        const tier = priceId === 'price_1T3SyDGMuYRuJYDrF8mvMrwi' ? 'pro' : 'starter';
+        const active = ['active','trialing'].includes(sub.status);
+        const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
+        if (users[0]) await updateUserSubscription(users[0].id, active ? tier : 'free', sub.id);
+        console.log(`Subscription ${event.type}: customer ${sub.customer} → ${active ? tier : 'free'}`);
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object;
+        const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
+        if (users[0]) await updateUserSubscription(users[0].id, 'free', null);
+        console.log(`Subscription cancelled: customer ${sub.customer}`);
+        break;
+      }
+      case 'invoice.payment_failed':
+        console.warn(`Payment failed: customer ${event.data.object.customer}`);
+        break;
+      default:
+        console.log(`Webhook: ${event.type}`);
+    }
+  } catch (err) {
+    console.error('Webhook handler error:', err.message);
+    return res.status(500).send('Handler error');
+  }
+  res.json({ received: true });
+});
+
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
