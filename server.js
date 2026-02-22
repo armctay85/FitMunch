@@ -73,8 +73,8 @@ app.use(compression({
 }));
 
 // Add body size limits for security and parse JSON/URL-encoded data
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Rate limiting for API endpoints
 const rateLimit = require('express-rate-limit');
@@ -153,6 +153,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
+
+// Receipt scanner (multer file upload — must mount separately)
+const receiptScanner = require('./receipt-scanner');
+app.use('/api/receipt', receiptScanner);
 
 // Health check — used by Railway to verify the app is running
 app.get('/api/health', (req, res) => {

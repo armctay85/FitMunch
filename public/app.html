@@ -243,6 +243,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <div class="sb-section-label">Tools</div>
   <button class="sb-item" onclick="nav('shopping-lists')" id="nav-shopping-lists"><span class="sb-icon">🛒</span>Shopping Lists</button>
   <button class="sb-item" onclick="nav('favourites')" id="nav-favourites"><span class="sb-icon">❤️</span>Favourites</button>
+  <button class="sb-item" onclick="nav('receipt-scanner')" id="nav-receipt-scanner"><span class="sb-icon">📸</span>Receipt Scanner</button>
   <button class="sb-item" onclick="nav('billing')" id="nav-billing"><span class="sb-icon">💳</span>Billing</button>
 </nav>
 
@@ -257,6 +258,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <button class="sb-item" onclick="nav('portal-progress')" id="nav-portal-progress"><span class="sb-icon">📈</span>Progress</button>
   <div class="sb-section-label">My Stuff</div>
   <button class="sb-item" onclick="nav('portal-shopping')" id="nav-portal-shopping"><span class="sb-icon">🛒</span>Shopping List</button>
+  <button class="sb-item" onclick="nav('receipt-scanner')" id="nav-receipt-scanner-c"><span class="sb-icon">📸</span>Receipt Scanner</button>
   <button class="sb-item" onclick="nav('portal-favourites')" id="nav-portal-favourites"><span class="sb-icon">❤️</span>Favourites</button>
 </nav>
 
@@ -502,6 +504,90 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <div class="scroll-body">
     <div class="fav-grid" id="client-favs-grid">
       <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RECEIPT SCANNER ══ -->
+<div class="view" id="view-receipt-scanner">
+  <div class="view-header">
+    <div><div class="view-title">📸 Receipt Scanner</div><div class="view-sub">Snap your supermarket receipt — get your full week's macro breakdown instantly.</div></div>
+  </div>
+  <div class="scroll-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- Upload Panel -->
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-header"><span class="card-title">Upload Receipt</span></div>
+          <div class="card-body">
+            <div id="receipt-drop-zone" onclick="document.getElementById('receipt-file').click()"
+              style="border:2px dashed #bbf7d0;border-radius:10px;padding:32px;text-align:center;cursor:pointer;background:#f0fdf4;transition:all .15s">
+              <div style="font-size:32px;margin-bottom:8px">📸</div>
+              <div style="font-size:.88rem;font-weight:700;color:var(--green2);margin-bottom:4px">Tap to choose a photo</div>
+              <div style="font-size:.75rem;color:var(--text3)">JPG, PNG, HEIC — max 10MB</div>
+            </div>
+            <input type="file" id="receipt-file" accept="image/*" style="display:none" onchange="receiptFileSelected(event)"/>
+            <div id="receipt-preview" style="display:none;margin-top:12px">
+              <img id="receipt-img-preview" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover;border:1px solid var(--border)"/>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn btn-green" style="flex:1" onclick="scanReceipt()" id="scan-btn">Scan Receipt →</button>
+                <button class="btn btn-ghost2" onclick="clearReceipt()">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="share-card" style="display:none">
+          <div class="card-header"><span class="card-title">Share to TikTok &amp; IG</span></div>
+          <div class="card-body">
+            <textarea id="share-text-box" class="form-input" rows="7" style="width:100%;font-size:.78rem;line-height:1.6"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn btn-green" style="flex:1" onclick="copyShareText()">📋 Copy caption</button>
+              <button class="btn btn-ghost2" onclick="shareNative()">📲 Share</button>
+            </div>
+            <div style="font-size:.72rem;color:var(--text3);margin-top:8px">Paste this caption when posting your receipt photo to TikTok or Instagram Reels.</div>
+          </div>
+        </div>
+      </div>
+      <!-- Results Panel -->
+      <div>
+        <div id="scan-loading" style="display:none;text-align:center;padding:40px">
+          <div class="loader" style="width:24px;height:24px;border-width:3px;margin:0 auto 12px"></div>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text2)">Reading your receipt…</div>
+          <div style="font-size:.75rem;color:var(--text3);margin-top:4px">Claude AI is scanning every item</div>
+        </div>
+        <div id="scan-empty" style="text-align:center;padding:60px 20px">
+          <div style="font-size:36px;margin-bottom:12px">🧾</div>
+          <div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div>
+          <div style="font-size:.78rem;color:var(--text3)">Works with Woolworths, Coles, Aldi, IGA, Costco</div>
+        </div>
+        <div id="scan-results" style="display:none">
+          <!-- Score card -->
+          <div style="background:linear-gradient(135deg,#0a1a0a,#0d2d1a);border-radius:12px;padding:20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#86efac;margin-bottom:4px">Weekly haul score</div>
+              <div style="font-size:3rem;font-weight:900;color:#22c55e;letter-spacing:-.06em" id="scan-grade">—</div>
+            </div>
+            <div style="display:flex;gap:16px">
+              <div style="text-align:center"><div style="font-size:1.4rem;font-weight:900;color:#fff" id="scan-protein">0g</div><div style="font-size:.65rem;color:#86efac">Protein</div></div>
+              <div style="text-align:center"><div style="font-size:1.4rem;font-weight:900;color:#fff" id="scan-cals">0</div><div style="font-size:.65rem;color:#86efac">Calories</div></div>
+              <div style="text-align:center"><div style="font-size:1.4rem;font-weight:900;color:#fff" id="scan-items">0</div><div style="font-size:.65rem;color:#86efac">Items</div></div>
+            </div>
+          </div>
+          <!-- Macro bar -->
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+              <div><div style="font-size:1.1rem;font-weight:800;color:#3b82f6" id="scan-carbs">0g</div><div style="font-size:.65rem;color:var(--text3)">Carbs</div></div>
+              <div><div style="font-size:1.1rem;font-weight:800;color:#f59e0b" id="scan-fat">0g</div><div style="font-size:.65rem;color:var(--text3)">Fat</div></div>
+              <div><div style="font-size:1.1rem;font-weight:800;color:var(--text2)" id="scan-item-count">0</div><div style="font-size:.65rem;color:var(--text3)">Food items</div></div>
+            </div>
+          </div>
+          <!-- Item list -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Items scanned</span></div>
+            <div id="scan-items-list" style="max-height:320px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1311,6 +1397,123 @@ async function logProgressEntry() {
   closeModal('modal-log-progress');
   loadProgressLog();
 }
+
+// ── RECEIPT SCANNER ──────────────────────────────────────────────────────────
+let receiptBase64 = null, receiptMime = null;
+
+function receiptFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  receiptMime = file.type;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    receiptBase64 = ev.target.result; // full data URL
+    document.getElementById('receipt-img-preview').src = receiptBase64;
+    document.getElementById('receipt-preview').style.display = '';
+    document.getElementById('receipt-drop-zone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearReceipt() {
+  receiptBase64 = null; receiptMime = null;
+  document.getElementById('receipt-file').value = '';
+  document.getElementById('receipt-preview').style.display = 'none';
+  document.getElementById('receipt-drop-zone').style.display = '';
+  document.getElementById('scan-results').style.display = 'none';
+  document.getElementById('scan-empty').style.display = '';
+  document.getElementById('share-card').style.display = 'none';
+}
+
+async function scanReceipt() {
+  if (!receiptBase64) return;
+  document.getElementById('scan-loading').style.display = '';
+  document.getElementById('scan-empty').style.display = 'none';
+  document.getElementById('scan-results').style.display = 'none';
+  document.getElementById('scan-btn').disabled = true;
+  try {
+    const r = await fetch('/api/receipt/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token },
+      body: JSON.stringify({ image: receiptBase64, mimeType: receiptMime }),
+    });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Scan failed');
+    renderScanResults(data);
+  } catch(err) {
+    document.getElementById('scan-empty').style.display = '';
+    document.getElementById('scan-empty').innerHTML = `<div style="font-size:28px">⚠️</div><div style="font-size:.85rem;font-weight:600;color:var(--red);margin-top:8px">${err.message}</div>`;
+  } finally {
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-btn').disabled = false;
+  }
+}
+
+const CAT_EMOJI2 = {meat:'🥩',dairy:'🥛',grains:'🌾',vegetables:'🥦',fruit:'🍎',pantry:'🫙',beverage:'🥤',supplement:'💊',other:'📦'};
+
+function renderScanResults(data) {
+  const { weeklyTotals: t, grade: g, items, shareText: st, itemCount } = data;
+  document.getElementById('scan-grade').textContent = g;
+  document.getElementById('scan-protein').textContent = t.protein + 'g';
+  document.getElementById('scan-cals').textContent = t.calories.toLocaleString();
+  document.getElementById('scan-carbs').textContent = t.carbs + 'g';
+  document.getElementById('scan-fat').textContent = t.fat + 'g';
+  document.getElementById('scan-item-count').textContent = itemCount;
+  document.getElementById('scan-items').textContent = itemCount;
+
+  // Render items grouped
+  const grouped = data.byCategory || {};
+  let html = '';
+  for (const [cat, catItems] of Object.entries(grouped)) {
+    html += `<div style="padding:8px 14px 2px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--bg)">${CAT_EMOJI2[cat]||'📦'} ${cat}</div>`;
+    catItems.forEach(item => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border)">
+        <span style="flex:1;font-size:.8rem;font-weight:500">${item.name}</span>
+        <span style="font-size:.72rem;color:#3b82f6;font-weight:700">${item.nutrition.protein}g P</span>
+        <span style="font-size:.72rem;color:var(--text3)">${item.nutrition.calories} cal</span>
+      </div>`;
+    });
+  }
+  document.getElementById('scan-items-list').innerHTML = html;
+  document.getElementById('scan-results').style.display = '';
+
+  // Share card
+  document.getElementById('share-text-box').value = st;
+  document.getElementById('share-card').style.display = '';
+}
+
+function copyShareText() {
+  const txt = document.getElementById('share-text-box').value;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.querySelector('#share-card .btn-green');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function shareNative() {
+  const txt = document.getElementById('share-text-box').value;
+  if (navigator.share) {
+    navigator.share({ text: txt, title: 'My FitMunch Weekly Shop' }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(txt);
+    alert('Caption copied to clipboard — paste it into TikTok or Instagram.');
+  }
+}
+
+// Drag and drop on receipt zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('receipt-drop-zone');
+  if (!dz) return;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor='var(--green2)'; });
+  dz.addEventListener('dragleave', () => dz.style.borderColor='#bbf7d0');
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.style.borderColor='#bbf7d0';
+    const file = e.dataTransfer.files[0];
+    if (file) { const fakeEv={target:{files:[file]}}; receiptFileSelected(fakeEv); }
+  });
+});
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 boot();
