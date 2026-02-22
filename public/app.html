@@ -823,6 +823,21 @@ const API = (path, opts={}) => {
 };
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
+// ── VISIBLE ERROR DISPLAY (debug) ─────────────────────────────────────────────
+function showErr(msg) {
+  console.error('[FitMunch]', msg);
+  let el = document.getElementById('_dbg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_dbg';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#7f1d1d;color:#fca5a5;font-size:11px;padding:8px 14px;z-index:99999;font-family:monospace;max-height:120px;overflow-y:auto';
+    document.body.appendChild(el);
+  }
+  el.innerHTML += '<div>⚠ ' + msg + '</div>';
+}
+window.onerror = (msg, src, line) => showErr(msg + ' (line '+line+')');
+window.onunhandledrejection = e => showErr('Promise: ' + (e.reason?.message || e.reason));
+
 async function boot() {
   if (!S.token) { window.location.href = '/login.html'; return; }
   try {
@@ -859,24 +874,27 @@ function logout() {
 // ── NAV ──────────────────────────────────────────────────────────────────────
 let currentView = '';
 function nav(id) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
-  const view = document.getElementById('view-'+id);
-  if (view) view.classList.add('active');
-  const btn = document.getElementById('nav-'+id);
-  if (btn) btn.classList.add('active');
-  currentView = id;
-  // Lazy load
-  if (id === 'clients' && !S.clients.length) loadClients();
-  if (id === 'meal-plans') loadMealPlans();
-  if (id === 'workout-plans') loadWorkoutPlans();
-  if (id === 'shopping-lists') loadShoppingLists();
-  if (id === 'favourites' || id === 'portal-favourites') loadFavourites();
-  if (id === 'portal-meals') { initMealDate(); loadTodayMeals(); }
-  if (id === 'portal-workouts') loadWorkoutLog();
-  if (id === 'portal-progress') loadProgressLog();
-  if (id === 'portal-plan') renderPortalPlan();
-  if (id === 'portal-shopping') renderPortalShopping();
+  try {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+    const view = document.getElementById('view-'+id);
+    if (!view) { console.error('nav: no view found for id='+id); return; }
+    view.classList.add('active');
+    const btn = document.getElementById('nav-'+id);
+    if (btn) btn.classList.add('active');
+    currentView = id;
+    // Lazy load
+    if (id === 'clients' && !S.clients.length) loadClients();
+    if (id === 'meal-plans') loadMealPlans();
+    if (id === 'workout-plans') loadWorkoutPlans();
+    if (id === 'shopping-lists') loadShoppingLists();
+    if (id === 'favourites' || id === 'portal-favourites') loadFavourites();
+    if (id === 'portal-meals') { initMealDate(); loadTodayMeals(); }
+    if (id === 'portal-workouts') loadWorkoutLog();
+    if (id === 'portal-progress') loadProgressLog();
+    if (id === 'portal-plan') renderPortalPlan();
+    if (id === 'portal-shopping') renderPortalShopping();
+  } catch(e) { showErr('nav('+id+'): '+e.message); }
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────────────────────
