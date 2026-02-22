@@ -505,6 +505,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-purple" id="pm-workouts">0</div><div class="metric-sub">this week</div></div>
       <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div></div>
     </div>
+    <!-- Goals banner (hidden until goals set) -->
+    <div id="portal-goal-banner" style="display:none;margin-bottom:14px"></div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="card">
         <div class="card-header"><span class="card-title">My Meal Plan</span><button class="btn btn-ghost2 btn-sm" onclick="nav('portal-plan')">View</button></div>
@@ -514,6 +517,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <div class="card-header"><span class="card-title">My Workout Plan</span><button class="btn btn-ghost2 btn-sm" onclick="nav('portal-plan')">View</button></div>
         <div class="card-body" id="home-workoutplan"><span style="color:var(--text3);font-size:.78rem">No plan assigned yet</span></div>
       </div>
+    </div>
+    <!-- Onboarding CTA for new users -->
+    <div id="portal-onboard-cta" style="margin-top:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:20px;text-align:center">
+      <div style="font-size:28px;margin-bottom:8px">📸</div>
+      <div style="font-size:.92rem;font-weight:800;color:#14532d;margin-bottom:6px">Scan your first receipt</div>
+      <div style="font-size:.78rem;color:#166534;line-height:1.5;margin-bottom:14px">Snap your Woolies or Coles receipt — get your full macro breakdown in seconds.</div>
+      <button class="btn btn-green" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
     </div>
   </div>
 </div>
@@ -635,7 +645,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
               <button class="btn btn-green" style="flex:1" onclick="copyShareText()">📋 Copy caption</button>
               <button class="btn btn-ghost2" onclick="shareNative()">📲 Share</button>
             </div>
-            <div style="font-size:.72rem;color:var(--text3);margin-top:8px">Paste this caption when posting your receipt photo to TikTok or Instagram Reels.</div>
+            <button class="btn btn-ghost2" style="width:100%;margin-top:8px" onclick="downloadScanCard()">⬇️ Download share card (PNG)</button>
+            <div style="font-size:.72rem;color:var(--text3);margin-top:8px">Download the card + copy caption → post to TikTok or Instagram Reels.</div>
           </div>
         </div>
       </div>
@@ -675,8 +686,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
           <!-- Item list -->
           <div class="card">
             <div class="card-header"><span class="card-title">Items scanned</span></div>
-            <div id="scan-items-list" style="max-height:320px;overflow-y:auto"></div>
+            <div id="scan-items-list" style="max-height:260px;overflow-y:auto"></div>
           </div>
+          <!-- Log to meals -->
+          <div class="card" id="scan-log-meals-box" style="display:none;margin-top:14px"></div>
         </div>
       </div>
     </div>
@@ -823,6 +836,41 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
+<!-- GOALS ONBOARDING MODAL -->
+<div class="modal-overlay" id="modal-goals" style="z-index:300" onclick="closeOnOverlay(event)">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">👋 Let's set your goals<button class="modal-close" onclick="closeModal('modal-goals')">✕</button></div>
+    <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:16px">30 seconds. We'll track your progress and show how you're tracking.</p>
+    <div class="form-field">
+      <label class="form-label">My goal</label>
+      <select id="goal-type" class="form-select">
+        <option value="lose_weight">🔥 Lose weight</option>
+        <option value="muscle_gain">💪 Build muscle</option>
+        <option value="maintain">⚖️ Maintain weight</option>
+        <option value="general_fitness">🏃 General fitness</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-field">
+        <label class="form-label">Daily calories</label>
+        <input type="number" id="goal-calories" class="form-input" placeholder="e.g. 2000" min="1000" max="5000"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Protein target (g)</label>
+        <input type="number" id="goal-protein" class="form-input" placeholder="e.g. 150" min="50" max="400"/>
+      </div>
+    </div>
+    <div class="form-field" style="margin-top:10px">
+      <label class="form-label">Current weight (kg) <span style="color:var(--text3);font-weight:400">optional</span></label>
+      <input type="number" id="goal-weight" class="form-input" placeholder="e.g. 80" step="0.1"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-goals')">Skip for now</button>
+      <button class="btn btn-green" onclick="saveGoals()">Save goals →</button>
+    </div>
+  </div>
+</div>
+
 <!-- MOBILE BOTTOM NAV -->
 <div class="mobile-nav" id="mobile-nav">
   <div class="mob-nav-items" id="mob-nav-items"><!-- injected by JS --></div>
@@ -833,6 +881,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 // ── STATE ────────────────────────────────────────────────────────────────────
 const S = {
   token: localStorage.getItem('fm_token'),
+  goals: null,
+  lastScan: null,
   user: null,
   role: 'pt',
   clients: [],
@@ -1415,19 +1465,35 @@ async function setupClientPortal() {
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('portal-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 💪';
   setupMobileNav('client');
+
+  // Load user profile / goals
+  try {
+    const prof = await API('/user/profile/' + S.user.id);
+    if (prof.success && prof.profile && prof.profile.targetCalories) {
+      S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein };
+      renderGoalTargets();
+    }
+  } catch(e) { /* ignore */ }
+
   const r = await API('/portal/me');
   if (r.success) {
     S.portalData = r;
-    if (r.pt) document.getElementById('portal-pt-name').textContent = 'Managed by ' + r.pt.name;
+    if (r.pt) {
+      document.getElementById('portal-pt-name').textContent = 'Managed by ' + r.pt.name;
+    } else {
+      document.getElementById('portal-pt-name').textContent = 'Solo tracking — no trainer yet';
+      // Show goals modal if no goals set and no plan
+      if (!S.goals && !r.mealPlan) {
+        setTimeout(() => openModal('modal-goals'), 800);
+      }
+    }
     // Dashboard metrics
     const todayMeals = (r.recentMeals||[]).filter(m => new Date(m.date).toDateString()===new Date().toDateString());
     document.getElementById('pm-meals').textContent = todayMeals.length;
     document.getElementById('pm-cals').textContent = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
     const weekWorkouts = (r.recentWorkouts||[]).filter(w => (Date.now()-new Date(w.date)) < 7*86400000);
     document.getElementById('pm-workouts').textContent = weekWorkouts.length;
-    // Rough streak: count consecutive days with at least one meal log
     document.getElementById('pm-streak').textContent = calcStreak(r.recentMeals||[]);
-    // Home plan cards
     if (r.mealPlan) {
       document.getElementById('home-mealplan').innerHTML = `<div class="portal-plan-name">${r.mealPlan.meal_plan_name||'Meal Plan'}</div><div class="portal-plan-meta">${r.mealPlan.total_calories||0} cal/day target</div>`;
     }
@@ -1667,25 +1733,89 @@ function renderScanResults(data) {
   document.getElementById('scan-item-count').textContent = itemCount;
   document.getElementById('scan-items').textContent = itemCount;
 
-  // Render items grouped
+  // Store scan data globally for logging
+  S.lastScan = data;
+
+  // Render items grouped with checkboxes for meal logging
   const grouped = data.byCategory || {};
   let html = '';
+  let itemIdx = 0;
   for (const [cat, catItems] of Object.entries(grouped)) {
     html += `<div style="padding:8px 14px 2px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--bg)">${CAT_EMOJI2[cat]||'📦'} ${cat}</div>`;
     catItems.forEach(item => {
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border)">
+      const idx = itemIdx++;
+      html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--green2);width:16px;height:16px;flex-shrink:0" checked/>
         <span style="flex:1;font-size:.8rem;font-weight:500">${item.name}</span>
         <span style="font-size:.72rem;color:#3b82f6;font-weight:700">${item.nutrition.protein}g P</span>
         <span style="font-size:.72rem;color:var(--text3)">${item.nutrition.calories} cal</span>
-      </div>`;
+      </label>`;
     });
   }
   document.getElementById('scan-items-list').innerHTML = html;
+
+  // Add to meals CTA
+  const allItems = Object.values(grouped).flat();
+  const logBox = document.getElementById('scan-log-meals-box');
+  if (logBox) {
+    logBox.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 0">
+        <span style="font-size:.78rem;font-weight:700;color:var(--text)">📥 Log items to today's meals</span>
+        <label style="font-size:.72rem;color:var(--green2);cursor:pointer"><input type="checkbox" id="cb-select-all" style="accent-color:var(--green2)" checked onchange="toggleAllScanItems(this.checked)"> Select all</label>
+      </div>
+      <div style="padding:8px 14px 14px">
+        <div style="font-size:.72rem;color:var(--text3);margin-bottom:10px">Checked items will be added to your meal log for today.</div>
+        <select id="scan-meal-type" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:.78rem;margin-bottom:10px;background:#fff">
+          <option value="breakfast">Breakfast</option>
+          <option value="lunch" selected>Lunch</option>
+          <option value="dinner">Dinner</option>
+          <option value="snack">Snack</option>
+        </select>
+        <button class="btn btn-green" style="width:100%" onclick="logScannedItems()">➕ Add to today's meals</button>
+      </div>`;
+    logBox.style.display = '';
+  }
+
   document.getElementById('scan-results').style.display = '';
 
   // Share card
   document.getElementById('share-text-box').value = st;
   document.getElementById('share-card').style.display = '';
+}
+
+function toggleAllScanItems(checked) {
+  document.querySelectorAll('.scan-item-cb').forEach(cb => cb.checked = checked);
+}
+
+async function logScannedItems() {
+  if (!S.lastScan) return;
+  const allItems = Object.values(S.lastScan.byCategory || {}).flat();
+  const checked = [...document.querySelectorAll('.scan-item-cb:checked')].map(cb => allItems[parseInt(cb.dataset.idx)]).filter(Boolean);
+  if (!checked.length) { toast('Select at least one item', 'warn'); return; }
+  const mealType = document.getElementById('scan-meal-type').value;
+  let logged = 0;
+  for (const item of checked) {
+    const body = {
+      userId: S.user.id,
+      date: new Date().toISOString(),
+      mealType,
+      foodName: item.name,
+      calories: item.nutrition.calories || 0,
+      protein: item.nutrition.protein || 0,
+      carbs: item.nutrition.carbs || 0,
+      fat: item.nutrition.fat || 0,
+      servingSize: item.qty || '',
+    };
+    const r = await API('/meals/log', { method:'POST', body: JSON.stringify(body) });
+    if (r.success) logged++;
+  }
+  if (logged) {
+    toast(`✅ ${logged} item${logged!==1?'s':''} logged to ${mealType}!`);
+    document.querySelectorAll('.scan-item-cb').forEach(cb => cb.checked = false);
+    document.getElementById('cb-select-all').checked = false;
+  } else {
+    toast('Could not log items — try again', 'error');
+  }
 }
 
 function copyShareText() {
@@ -1696,6 +1826,106 @@ function copyShareText() {
     btn.textContent = '✓ Copied!';
     setTimeout(() => btn.textContent = orig, 2000);
   });
+}
+
+// ── GOALS ONBOARDING ─────────────────────────────────────────────────────────
+async function saveGoals() {
+  const fitnessGoal  = document.getElementById('goal-type').value;
+  const targetCalories = parseInt(document.getElementById('goal-calories').value) || 0;
+  const targetProtein  = parseInt(document.getElementById('goal-protein').value) || 0;
+  const weight   = parseFloat(document.getElementById('goal-weight').value) || null;
+  if (!targetCalories || !targetProtein) { toast('Enter calorie and protein targets', 'warn'); return; }
+  await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories, targetProtein }) });
+  if (weight) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight }) });
+  S.goals = { fitnessGoal, targetCalories, targetProtein };
+  closeModal('modal-goals');
+  toast('Goals saved! Let\'s go 🔥');
+  renderGoalTargets();
+}
+
+function renderGoalTargets() {
+  const g = S.goals;
+  if (!g) return;
+  const el = document.getElementById('portal-goal-banner');
+  if (!el) return;
+  el.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+      <div style="font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Daily Calories</div>
+      <div style="font-size:1.3rem;font-weight:900;color:var(--green2)">${(g.targetCalories||0).toLocaleString()}</div>
+      <div style="font-size:.65rem;color:var(--text3)">target</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+      <div style="font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Protein Goal</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#3b82f6">${g.targetProtein||0}g</div>
+      <div style="font-size:.65rem;color:var(--text3)">per day</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+      <div style="font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Goal</div>
+      <div style="font-size:.88rem;font-weight:800;color:var(--text)">${({lose_weight:'🔥 Cut',muscle_gain:'💪 Bulk',maintain:'⚖️ Maintain',general_fitness:'🏃 Fitness'})[g.fitnessGoal]||'—'}</div>
+      <button class="btn btn-ghost2 btn-sm" style="margin-top:6px;font-size:.65rem" onclick="openModal('modal-goals')">Edit</button>
+    </div>
+  </div>`;
+  el.style.display = '';
+}
+
+// ── SCAN CARD DOWNLOAD ────────────────────────────────────────────────────────
+function downloadScanCard() {
+  if (!S.lastScan) { toast('Scan a receipt first', 'warn'); return; }
+  const { weeklyTotals: t, grade: g } = S.lastScan;
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080; canvas.height = 1080;
+  const ctx = canvas.getContext('2d');
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
+  grad.addColorStop(0, '#0a1a0a'); grad.addColorStop(1, '#0d2d1a');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 1080, 1080);
+
+  // Brand
+  ctx.fillStyle = '#22c55e'; ctx.font = 'bold 36px system-ui,sans-serif';
+  ctx.fillText('FitMunch', 80, 100);
+  ctx.fillStyle = '#86efac'; ctx.font = '24px system-ui,sans-serif';
+  ctx.fillText('Weekly Shop Scan', 80, 140);
+
+  // Grade
+  ctx.fillStyle = '#22c55e'; ctx.font = 'bold 240px system-ui,sans-serif';
+  ctx.textAlign = 'right'; ctx.fillText(g, 1000, 380);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#86efac'; ctx.font = '28px system-ui,sans-serif';
+  ctx.fillText('Nutrition Grade', 80, 380);
+
+  // Divider
+  ctx.strokeStyle = 'rgba(134,239,172,0.3)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(80, 430); ctx.lineTo(1000, 430); ctx.stroke();
+
+  // Stats
+  const stats = [
+    ['🥩', 'Protein', t.protein + 'g', '#22c55e'],
+    ['🔥', 'Calories', t.calories.toLocaleString(), '#f59e0b'],
+    ['🌾', 'Carbs', t.carbs + 'g', '#3b82f6'],
+    ['🧈', 'Fat', t.fat + 'g', '#a78bfa'],
+  ];
+  stats.forEach(([emoji, label, value, color], i) => {
+    const x = 80 + i * 240;
+    ctx.fillStyle = color; ctx.font = 'bold 72px system-ui,sans-serif';
+    ctx.fillText(value, x, 580);
+    ctx.fillStyle = '#86efac'; ctx.font = '28px system-ui,sans-serif';
+    ctx.fillText(emoji + ' ' + label, x, 630);
+  });
+
+  // Hashtags
+  ctx.fillStyle = 'rgba(134,239,172,0.6)'; ctx.font = '26px system-ui,sans-serif';
+  ctx.fillText('#FitMunch  #RateMyWeeklyShop  #MacroTracking  #FitnessAustralia', 80, 900);
+
+  // fitmunch.com.au
+  ctx.fillStyle = '#22c55e'; ctx.font = 'bold 28px system-ui,sans-serif';
+  ctx.fillText('fitmunch.com.au', 80, 970);
+
+  const link = document.createElement('a');
+  link.download = 'fitmunch-scan-' + g + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  toast('Card downloaded! Post it to TikTok or IG 🔥');
 }
 
 // ── CHECKOUT ──────────────────────────────────────────────────────────────────
