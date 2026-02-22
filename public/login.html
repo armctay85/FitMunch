@@ -274,7 +274,8 @@
     if (password.length < 8) { showError('register-error', 'Password must be at least 8 characters.'); return; }
     setLoading('register-btn', true);
     try {
-      const r    = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+      const inviteToken = new URLSearchParams(window.location.search).get('invite');
+      const r    = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, ...(inviteToken ? { inviteToken } : {}) }) });
       const data = await r.json();
       if (!data.success) { showError('register-error', data.error); return; }
       localStorage.setItem('fm_token', data.token);

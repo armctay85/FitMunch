@@ -21,8 +21,13 @@ const {
   getRecentWorkouts,
   logProgress,
   getProgressHistory,
-  trackEvent
+  trackEvent,
+  db,
+  schema,
 } = require('./server/storage.js');
+const { eq, and, desc, gte } = require('drizzle-orm');
+const { Pool } = require('pg');
+const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 class ApiServer {
   constructor(port = 3000) {
@@ -418,10 +423,37 @@ router.post('/auth/register', async (req, res) => {
       return res.status(409).json({ success: false, error: 'An account with that email already exists.' });
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // Check for invite token — if present, register as client
+    let role = 'pt';
+    let ptId = null;
+    if (req.body.inviteToken) {
+      const invite = await _pool.query(
+        'SELECT * FROM client_invitations WHERE token=$1 AND accepted=FALSE AND expires_at > NOW()',
+        [req.body.inviteToken]
+      );
+      if (invite.rows[0]) {
+        role = 'client';
+        ptId = invite.rows[0].pt_id;
+      }
+    }
+
     const user = await createUser(email.toLowerCase(), name, passwordHash);
 
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email } });
+    // Set role and pt_id
+    await _pool.query('UPDATE users SET role=$1, pt_id=$2 WHERE id=$3', [role, ptId, user.id]);
+
+    // If client, link to PT
+    if (role === 'client' && ptId && req.body.inviteToken) {
+      await _pool.query(
+        'INSERT INTO pt_clients (pt_id, client_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [ptId, user.id]
+      );
+      await _pool.query('UPDATE client_invitations SET accepted=TRUE WHERE token=$1', [req.body.inviteToken]);
+    }
+
+    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
@@ -443,8 +475,10 @@ router.post('/auth/login', async (req, res) => {
     if (!valid)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
 
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier } });
+    const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
+    const role = roleRow.rows[0]?.role || 'pt';
+    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
@@ -464,10 +498,342 @@ router.get('/auth/me', async (req, res) => {
     if (!user)
       return res.status(401).json({ success: false, error: 'User not found.' });
 
-    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier } });
+    const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
+    const role = roleRow.rows[0]?.role || 'pt';
+    const ptId = roleRow.rows[0]?.pt_id;
+    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role, ptId } });
   } catch (err) {
     res.status(401).json({ success: false, error: 'Invalid or expired token.' });
   }
+});
+
+// ── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
+function authMiddleware(req, res, next) {
+  const h = req.headers['authorization'];
+  if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
+  try {
+    req.user = jwt.verify(h.slice(7), JWT_SECRET);
+    next();
+  } catch { res.status(401).json({ error: 'Invalid token' }); }
+}
+
+// ── CLIENT INVITATIONS ───────────────────────────────────────────────────────
+const crypto = require('crypto');
+
+// POST /api/clients/invite — PT creates invite link
+router.post('/clients/invite', authMiddleware, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await _pool.query(
+      'INSERT INTO client_invitations (pt_id, email, token, expires_at) VALUES ($1,$2,$3,$4)',
+      [req.user.userId, email || null, token, expires]
+    );
+    const inviteUrl = `${req.headers.origin || 'https://fitmunch.com.au'}/login.html?invite=${token}`;
+    res.json({ success: true, token, inviteUrl, expiresAt: expires });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/clients/invite/:token — validate invite token
+router.get('/clients/invite/:token', async (req, res) => {
+  try {
+    const r = await _pool.query(
+      'SELECT ci.*, u.name as pt_name FROM client_invitations ci JOIN users u ON u.id=ci.pt_id WHERE ci.token=$1 AND ci.accepted=FALSE AND ci.expires_at > NOW()',
+      [req.params.token]
+    );
+    if (!r.rows[0]) return res.status(404).json({ valid: false, error: 'Invalid or expired invite link.' });
+    res.json({ valid: true, ptName: r.rows[0].pt_name, email: r.rows[0].email });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── PT CLIENT MANAGEMENT ─────────────────────────────────────────────────────
+
+// GET /api/clients — PT gets their client list with recent activity
+router.get('/clients', authMiddleware, async (req, res) => {
+  try {
+    const r = await _pool.query(`
+      SELECT u.id, u.name, u.email, u.created_at, pc.status, pc.phase, pc.joined_at,
+        (SELECT COUNT(*) FROM meal_logs ml WHERE ml.user_id=u.id AND ml.date > NOW()-INTERVAL '7 days') as meals_7d,
+        (SELECT COUNT(*) FROM workout_logs wl WHERE wl.user_id=u.id AND wl.date > NOW()-INTERVAL '7 days') as workouts_7d,
+        (SELECT MAX(ml2.date) FROM meal_logs ml2 WHERE ml2.user_id=u.id) as last_logged,
+        (SELECT MAX(pl.date) FROM progress_logs pl WHERE pl.user_id=u.id) as last_progress
+      FROM pt_clients pc
+      JOIN users u ON u.id=pc.client_id
+      WHERE pc.pt_id=$1
+      ORDER BY pc.joined_at DESC
+    `, [req.user.userId]);
+    res.json({ success: true, clients: r.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/clients/:clientId — full client detail for PT
+router.get('/clients/:clientId', authMiddleware, async (req, res) => {
+  try {
+    // Verify PT owns this client
+    const owns = await _pool.query(
+      'SELECT 1 FROM pt_clients WHERE pt_id=$1 AND client_id=$2', [req.user.userId, req.params.clientId]
+    );
+    if (!owns.rows[0]) return res.status(403).json({ error: 'Not your client' });
+    const user = await getUserById(req.params.clientId);
+    const profile = await getProfile(req.params.clientId);
+    const meals = await getMealLogsForPeriod(req.params.clientId, new Date(Date.now()-30*86400000), new Date());
+    const workouts = await getRecentWorkouts(req.params.clientId, 20);
+    const progress = await getProgressHistory(req.params.clientId, 20);
+    const plans = await _pool.query(
+      'SELECT * FROM plan_assignments WHERE client_id=$1 AND active=TRUE', [req.params.clientId]
+    );
+    res.json({ success: true, client: user, profile, meals, workouts, progress, assignments: plans.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /api/clients/:clientId — update phase/notes/status
+router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
+  try {
+    const { phase, notes, status } = req.body;
+    await _pool.query(
+      'UPDATE pt_clients SET phase=$1, notes=$2, status=$3 WHERE pt_id=$4 AND client_id=$5',
+      [phase, notes, status, req.user.userId, req.params.clientId]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/clients/:clientId/assign-plan — PT assigns a meal or workout plan to client
+router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) => {
+  try {
+    const { planType, planId } = req.body;
+    if (!['meal','workout'].includes(planType)) return res.status(400).json({ error: 'planType must be meal or workout' });
+    // Deactivate old assignment of same type
+    await _pool.query('UPDATE plan_assignments SET active=FALSE WHERE client_id=$1 AND plan_type=$2', [req.params.clientId, planType]);
+    await _pool.query(
+      'INSERT INTO plan_assignments (pt_id, client_id, plan_type, plan_id) VALUES ($1,$2,$3,$4)',
+      [req.user.userId, req.params.clientId, planType, planId]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── SHOPPING LISTS ────────────────────────────────────────────────────────────
+
+// POST /api/shopping-list/generate — auto-generate from a meal plan
+router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
+  try {
+    const { mealPlanId, name } = req.body;
+    // Get the meal plan
+    const plan = await _pool.query('SELECT * FROM meal_plans WHERE id=$1', [mealPlanId]);
+    if (!plan.rows[0]) return res.status(404).json({ error: 'Meal plan not found' });
+    const meals = plan.rows[0].meals || [];
+    
+    // Extract ingredients, group by category
+    const itemMap = {};
+    const CATEGORIES = {
+      meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','egg','eggs','prawn','shrimp'],
+      dairy: ['milk','yogurt','yoghurt','cheese','cream','butter','whey'],
+      grains: ['rice','oats','bread','pasta','noodle','quinoa','wheat','flour','cereal','wrap','tortilla'],
+      vegetables: ['broccoli','spinach','kale','carrot','onion','garlic','tomato','capsicum','pepper','zucchini','cucumber','lettuce','asparagus','avocado','celery'],
+      fruit: ['apple','banana','orange','berry','berries','grape','mango','pear','strawberry','blueberry'],
+      pantry: ['oil','sauce','spice','salt','pepper','vinegar','honey','syrup','sugar','protein powder','supplement'],
+      other: [],
+    };
+    function categorise(name) {
+      const n = name.toLowerCase();
+      for (const [cat, words] of Object.entries(CATEGORIES)) {
+        if (words.some(w => n.includes(w))) return cat;
+      }
+      return 'other';
+    }
+    
+    // Walk meals structure — support array or object
+    const mealItems = Array.isArray(meals) ? meals : Object.values(meals).flat();
+    mealItems.forEach(day => {
+      const dayMeals = Array.isArray(day) ? day : (day.meals ? Object.values(day.meals).flat() : [day]);
+      dayMeals.forEach(item => {
+        const foodName = item.name || item.foodName || item.food || String(item);
+        if (!foodName || foodName === '[object Object]') return;
+        const key = foodName.toLowerCase().trim();
+        if (itemMap[key]) {
+          itemMap[key].qty = (parseFloat(itemMap[key].qty) || 1) + 1;
+        } else {
+          itemMap[key] = {
+            name: foodName,
+            qty: item.servingSize || item.quantity || 1,
+            unit: item.unit || '',
+            category: categorise(foodName),
+            checked: false,
+          };
+        }
+      });
+    });
+    
+    const items = Object.values(itemMap).sort((a,b) => a.category.localeCompare(b.category));
+    const list = await _pool.query(
+      'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
+      [req.user.userId, mealPlanId, name || plan.rows[0].name + ' — Shopping List', JSON.stringify(items)]
+    );
+    res.json({ success: true, list: list.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/shopping-list — get all shopping lists for user
+router.get('/shopping-list', authMiddleware, async (req, res) => {
+  try {
+    const r = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
+    res.json({ success: true, lists: r.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/shopping-list/:id — single list
+router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
+  try {
+    const r = await _pool.query('SELECT * FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json({ success: true, list: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /api/shopping-list/:id — update items (check/uncheck) or complete
+router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
+  try {
+    const { items, completed } = req.body;
+    const sets = [];
+    const vals = [];
+    let i = 1;
+    if (items !== undefined) { sets.push(`items=$${i++}`); vals.push(JSON.stringify(items)); }
+    if (completed !== undefined) { sets.push(`completed=$${i++}`); vals.push(completed); }
+    sets.push(`updated_at=NOW()`);
+    vals.push(req.params.id, req.user.userId);
+    await _pool.query(`UPDATE shopping_lists SET ${sets.join(',')} WHERE id=$${i++} AND user_id=$${i++}`, vals);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/shopping-list/:id
+router.delete('/shopping-list/:id', authMiddleware, async (req, res) => {
+  try {
+    await _pool.query('DELETE FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── FAVOURITES ────────────────────────────────────────────────────────────────
+
+// GET /api/favourites — get all favourites for user
+router.get('/favourites', authMiddleware, async (req, res) => {
+  try {
+    const r = await _pool.query('SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
+    res.json({ success: true, favourites: r.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/favourites — add a favourite
+router.post('/favourites', authMiddleware, async (req, res) => {
+  try {
+    const { itemType, itemId, itemData } = req.body;
+    const r = await _pool.query(
+      'INSERT INTO favourites (user_id, item_type, item_id, item_data) VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, item_type, item_id) DO NOTHING RETURNING *',
+      [req.user.userId, itemType, String(itemId), JSON.stringify(itemData || {})]
+    );
+    res.json({ success: true, favourite: r.rows[0] || null, alreadyExists: !r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/favourites/:type/:itemId — remove a favourite
+router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
+  try {
+    await _pool.query('DELETE FROM favourites WHERE user_id=$1 AND item_type=$2 AND item_id=$3',
+      [req.user.userId, req.params.type, req.params.itemId]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
+
+router.get('/meal-plans', authMiddleware, async (req, res) => {
+  try {
+    const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
+    res.json({ success: true, plans: r.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/meal-plans', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const r = await _pool.query(
+      'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+      [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
+    );
+    res.json({ success: true, plan: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete('/meal-plans/:id', authMiddleware, async (req, res) => {
+  try {
+    await _pool.query('DELETE FROM meal_plans WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── WORKOUT PLANS (CRUD) ──────────────────────────────────────────────────────
+
+router.get('/workout-plans', authMiddleware, async (req, res) => {
+  try {
+    const r = await _pool.query('SELECT * FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
+    res.json({ success: true, plans: r.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/workout-plans', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, level, frequency, workouts } = req.body;
+    const r = await _pool.query(
+      'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
+    );
+    res.json({ success: true, plan: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
+  try {
+    await _pool.query('DELETE FROM workout_plans WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── CLIENT PORTAL (for clients to get their assigned data) ───────────────────
+router.get('/portal/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.userId);
+    const profile = await getProfile(req.user.userId);
+    // Get assigned plans
+    const assigned = await _pool.query(
+      'SELECT pa.*, mp.name as meal_plan_name, mp.meals, mp.total_calories, wp.name as workout_plan_name, wp.workouts FROM plan_assignments pa LEFT JOIN meal_plans mp ON pa.plan_id=mp.id AND pa.plan_type=\'meal\' LEFT JOIN workout_plans wp ON pa.plan_id=wp.id AND pa.plan_type=\'workout\' WHERE pa.client_id=$1 AND pa.active=TRUE',
+      [req.user.userId]
+    );
+    const mealAssignment = assigned.rows.find(r => r.plan_type === 'meal');
+    const workoutAssignment = assigned.rows.find(r => r.plan_type === 'workout');
+    // Shopping lists
+    const lists = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [req.user.userId]);
+    // Recent logs
+    const meals = await getMealLogsForPeriod(req.user.userId, new Date(Date.now()-7*86400000), new Date());
+    const workouts = await getRecentWorkouts(req.user.userId, 10);
+    const progress = await getProgressHistory(req.user.userId, 10);
+    const favs = await _pool.query('SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
+    // PT info
+    const ptRow = await _pool.query('SELECT u.name, u.email FROM pt_clients pc JOIN users u ON u.id=pc.pt_id WHERE pc.client_id=$1', [req.user.userId]);
+    res.json({
+      success: true, user, profile,
+      mealPlan: mealAssignment,
+      workoutPlan: workoutAssignment,
+      shoppingLists: lists.rows,
+      recentMeals: meals,
+      recentWorkouts: workouts,
+      progress,
+      favourites: favs.rows,
+      pt: ptRow.rows[0] || null,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Export router for use in other modules

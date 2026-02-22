@@ -134,6 +134,63 @@ const analyticsEvents = pgTable('analytics_events', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ── B2B PT PLATFORM ADDITIONS ──────────────────────────────────────────────
+
+// Client invitations — PT generates a token, client clicks link to register
+const clientInvitations = pgTable('client_invitations', {
+  id: serial('id').primaryKey(),
+  ptId: uuid('pt_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  email: varchar('email', { length: 255 }),
+  token: varchar('token', { length: 64 }).notNull().unique(),
+  accepted: boolean('accepted').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+// PT → Client relationships
+const ptClients = pgTable('pt_clients', {
+  id: serial('id').primaryKey(),
+  ptId: uuid('pt_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid('client_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 20 }).default('active'), // active | paused | archived
+  phase: varchar('phase', { length: 50 }), // deficit, maintain, bulk
+  notes: text('notes'),
+  joinedAt: timestamp('joined_at').defaultNow().notNull(),
+});
+
+// Shopping lists — generated from a meal plan
+const shoppingLists = pgTable('shopping_lists', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  mealPlanId: integer('meal_plan_id').references(() => mealPlans.id),
+  name: text('name').notNull(),
+  items: jsonb('items').default('[]'), // [{name, qty, unit, category, checked}]
+  completed: boolean('completed').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Favourites — meals, workouts, plans
+const favourites = pgTable('favourites', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  itemType: varchar('item_type', { length: 50 }).notNull(), // meal | workout | meal_plan | workout_plan | food
+  itemId: text('item_id').notNull(), // id of the item
+  itemData: jsonb('item_data').default('{}'), // snapshot of the item
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Plan assignments — PT assigns meal/workout plans to clients
+const planAssignments = pgTable('plan_assignments', {
+  id: serial('id').primaryKey(),
+  ptId: uuid('pt_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid('client_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  planType: varchar('plan_type', { length: 20 }).notNull(), // meal | workout
+  planId: integer('plan_id').notNull(),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+  active: boolean('active').default(true),
+});
+
 // Relations
 const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, {
@@ -186,6 +243,11 @@ module.exports = {
   workoutPlans,
   achievements,
   analyticsEvents,
+  clientInvitations,
+  ptClients,
+  shoppingLists,
+  favourites,
+  planAssignments,
   usersRelations,
   userProfilesRelations,
   mealLogsRelations,

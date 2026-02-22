@@ -1,774 +1,1319 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FitMunch - Your Personal Fitness & Nutrition Companion</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FitMunch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#22c55e;--green2:#16a34a;--green3:#15803d;
+  --bg:#f8fafc;--bg2:#f1f5f9;--dark:#0f172a;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --surface:#ffffff;--radius:10px;
+  --purple:#7c3aed;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
 
-    <!-- Meta Tags for SEO -->
-    <meta name="description" content="FitMunch helps you track fitness, plan meals, and achieve your health goals with personalized workout plans and nutrition tracking.">
-    <meta name="keywords" content="fitness tracker, nutrition app, meal planning, workout plans, health goals">
-    <meta name="author" content="FitMunch Team">
+/* ── NAV ── */
+.topnav{
+  height:52px;background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;
+}
+.nav-logo{display:flex;align-items:center;gap:8px;text-decoration:none;margin-right:8px}
+.logo-m{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center}
+.logo-m svg{width:14px;height:14px}
+.logo-w{font-size:1rem;font-weight:900;color:var(--text);letter-spacing:-.03em}
+.logo-w span{color:var(--green2)}
+.nav-spacer{flex:1}
+.nav-plan{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:4px;background:#f0fdf4;color:var(--green2);border:1px solid #bbf7d0;margin-right:4px}
+.nav-user{font-size:.82rem;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:6px}
+.nav-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--purple),#a78bfa);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0}
+.nav-btn{padding:5px 12px;border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-logout{background:transparent;color:var(--text3)}
+.btn-logout:hover{color:var(--red)}
+.btn-upgrade{background:var(--green2);color:#fff}
+.btn-upgrade:hover{background:var(--green3)}
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://fitmunch.app/">
-    <meta property="og:title" content="FitMunch - Your Personal Fitness & Nutrition Companion">
-    <meta property="og:description" content="Track fitness, plan meals, and achieve your health goals with FitMunch.">
-    <meta property="og:image" content="https://fitmunch.app/generated-icon.png">
+/* ── SHELL ── */
+.shell{display:flex;flex:1;overflow:hidden}
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://fitmunch.app/">
-    <meta property="twitter:title" content="FitMunch - Your Personal Fitness & Nutrition Companion">
-    <meta property="twitter:description" content="Track fitness, plan meals, and achieve your health goals with FitMunch.">
-    <meta property="twitter:image" content="https://fitmunch.app/generated-icon.png">
+/* ── SIDEBAR ── */
+.sidebar{
+  width:200px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:12px 8px;overflow-y:auto;
+}
+.sb-section-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:8px 8px 4px;margin-top:4px}
+.sb-item{
+  display:flex;align-items:center;gap:9px;padding:7px 10px;
+  border-radius:7px;cursor:pointer;font-size:.8rem;font-weight:500;
+  color:var(--text2);transition:all .15s;border:none;background:none;width:100%;text-align:left;
+}
+.sb-item:hover{background:var(--bg2);color:var(--text)}
+.sb-item.active{background:#f0fdf4;color:var(--green2);font-weight:700}
+.sb-icon{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.sb-badge{margin-left:auto;background:var(--bg2);color:var(--text3);font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px;min-width:16px;text-align:center}
+.sb-badge.alert{background:rgba(239,68,68,.12);color:var(--red)}
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="generated-icon.png">
-    <link rel="apple-touch-icon" href="generated-icon.png">
+/* ── MAIN ── */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.view{display:none;flex:1;flex-direction:column;overflow:hidden}
+.view.active{display:flex}
+.view-header{padding:16px 20px 0;flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.view-title{font-size:1.1rem;font-weight:800;letter-spacing:-.03em}
+.view-sub{font-size:.75rem;color:var(--text3);margin-top:2px}
+.view-actions{display:flex;gap:8px;align-items:center}
+.scroll-body{flex:1;overflow-y:auto;padding:14px 20px 24px}
+.scroll-body::-webkit-scrollbar{width:4px}
+.scroll-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-green{background:var(--green2);color:#fff}.btn-green:hover{background:var(--green3)}
+.btn-ghost2{background:var(--bg2);color:var(--text2);border:1px solid var(--border)}.btn-ghost2:hover{color:var(--text)}
+.btn-red{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}.btn-red:hover{background:rgba(239,68,68,.15)}
+.btn-sm{padding:4px 10px;font-size:.72rem}
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+/* ── CARDS ── */
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.card-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+.card-body{padding:14px}
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="app_manifest.json">
-    <meta name="theme-color" content="#004225">
+/* ── METRICS ── */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.metric{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.metric-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px}
+.metric-value{font-size:1.6rem;font-weight:900;letter-spacing:-.04em;line-height:1}
+.metric-sub{font-size:.72rem;color:var(--text3);margin-top:4px}
+.mv-green{color:var(--green2)}.mv-purple{color:var(--purple)}.mv-amber{color:var(--amber)}.mv-blue{color:var(--blue)}
 
-    <!-- Preload Critical Resources -->
-    <link rel="preload" href="script.js" as="script">
-    <link rel="preload" href="style.css" as="style">
-    
-    <!-- Auth Guard: redirect to /login.html if no valid token -->
-    <script>
-    (function() {
-      const token = localStorage.getItem('fm_token');
-      if (!token) { window.location.replace('/login.html'); }
-    })();
-    </script>
+/* ── CLIENT LIST ── */
+.client-row{
+  display:flex;align-items:center;gap:12px;padding:12px 14px;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;
+}
+.client-row:last-child{border:none}
+.client-row:hover{background:var(--bg)}
+.c-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#fff;flex-shrink:0}
+.c-name{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.c-meta{font-size:.72rem;color:var(--text3)}
+.c-stats{display:flex;gap:14px;margin-left:auto;align-items:center}
+.c-stat{text-align:center}
+.c-stat-v{font-size:.85rem;font-weight:700;color:var(--text);line-height:1}
+.c-stat-l{font-size:.6rem;color:var(--text3)}
+.compliance-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.comp-high{background:var(--green)}.comp-mid{background:var(--amber)}.comp-low{background:var(--red)}
+.phase-chip{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
+.phase-deficit{background:#fef3c7;color:#92400e}
+.phase-bulk{background:#eff6ff;color:#1e40af}
+.phase-maintain{background:#f0fdf4;color:var(--green2)}
 
-    <!-- Force Service Worker Update -->
-    <script>
-    (function() {
-      const CURRENT_VERSION = '1.3.0';
-      const VERSION_KEY = 'fitmunch_app_version';
-      const storedVersion = localStorage.getItem(VERSION_KEY);
-      
-      if (storedVersion !== CURRENT_VERSION) {
-        console.log('🔄 App version changed, clearing caches...');
-        // Clear localStorage user ID to trigger UUID regeneration
-        localStorage.removeItem('userId');
-        sessionStorage.removeItem('fitmunch_userId');
-        // Update version
-        localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
-        
-        // Unregister old service workers
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) {
-              registration.unregister().then(function() {
-                console.log('✅ Old service worker unregistered');
-              });
-            }
-          });
-        }
-        
-        // Clear all caches
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            for (let name of names) {
-              caches.delete(name);
-            }
-            console.log('✅ All caches cleared');
-          });
-        }
-      }
-    })();
-    </script>
+/* ── PLAN CARDS ── */
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.plan-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all .15s}
+.plan-card:hover{border-color:var(--green2);box-shadow:0 4px 14px rgba(22,163,74,.08)}
+.plan-card-name{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.plan-card-meta{font-size:.72rem;color:var(--text3)}
+.plan-card-footer{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+
+/* ── SHOPPING LIST ── */
+.shop-category{margin-bottom:16px}
+.shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.shop-cat-icon{font-size:12px}
+.shop-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:#fff;margin-bottom:6px;transition:all .15s}
+.shop-item.checked{opacity:.5;background:var(--bg2)}
+.shop-cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.65rem;transition:all .15s}
+.shop-cb.checked{background:var(--green2);border-color:var(--green2);color:#fff}
+.shop-name{flex:1;font-size:.82rem;font-weight:500;color:var(--text)}
+.shop-qty{font-size:.75rem;color:var(--text3)}
+
+/* ── FAVOURITES ── */
+.fav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fav-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;position:relative;transition:all .15s}
+.fav-card:hover{border-color:var(--border2)}
+.fav-heart{position:absolute;top:8px;right:8px;cursor:pointer;font-size:14px;color:var(--red)}
+.fav-type{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px}
+.fav-name{font-size:.82rem;font-weight:600;color:var(--text)}
+
+/* ── PROGRESS LOGS ── */
+.progress-form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)}
+.form-input{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.82rem;color:var(--text);outline:none;transition:border-color .15s;font-family:inherit}
+.form-input:focus{border-color:var(--green2)}
+.form-select{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:.82rem;color:var(--text);outline:none;font-family:inherit}
+
+/* ── MEAL LOG ── */
+.meal-section{margin-bottom:16px}
+.meal-section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.food-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:7px;margin-bottom:6px}
+.food-name{flex:1;font-size:.82rem;font-weight:500}
+.food-cals{font-size:.78rem;font-weight:700;color:var(--text)}
+.food-macro{font-size:.68rem;color:var(--text3)}
+.fav-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:2px;opacity:.5;transition:opacity .15s}
+.fav-btn:hover,.fav-btn.active{opacity:1}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(4px)}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:12px;padding:22px;width:460px;max-width:90vw;transform:scale(.96) translateY(8px);transition:transform .2s;border:1px solid var(--border)}
+.modal-overlay.open .modal{transform:scale(1) translateY(0)}
+.modal-title{font-size:.95rem;font-weight:800;letter-spacing:-.02em;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text3);padding:2px 6px}
+.modal-close:hover{color:var(--text)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+
+/* ── INVITE BANNER ── */
+.invite-banner{
+  background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+  border:1px solid #bbf7d0;border-radius:var(--radius);
+  padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px;
+}
+.invite-link{font-size:.75rem;font-family:monospace;background:#fff;border:1px solid var(--border);border-radius:5px;padding:5px 10px;flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{font-size:.75rem;font-weight:700;padding:5px 12px;background:var(--green2);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap}
+.copy-btn:active{transform:scale(.97)}
+
+/* ── CLIENT DETAIL PANEL ── */
+.detail-panel{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.detail-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:#fff}
+.back-btn{background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--text3);padding:4px 8px;border-radius:5px;display:flex;align-items:center;gap:4px}
+.back-btn:hover{color:var(--text);background:var(--bg2)}
+.detail-tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0}
+.detail-tab{padding:10px 14px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s}
+.detail-tab.active{color:var(--green2);border-bottom-color:var(--green2)}
+.detail-body{flex:1;overflow-y:auto;padding:16px 20px}
+
+/* ── PORTAL (CLIENT VIEW) ── */
+.portal-plan{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.portal-plan-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px}
+.portal-plan-name{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:4px}
+.portal-plan-meta{font-size:.75rem;color:var(--text2)}
+
+/* ── WORKOUT LOG ── */
+.workout-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:7px;margin-bottom:6px}
+.exercise-name{flex:1;font-size:.82rem;font-weight:600}
+.exercise-detail{font-size:.72rem;color:var(--text3)}
+
+/* ── MISC ── */
+.tag{display:inline-block;font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}
+.tag-green{background:#f0fdf4;color:var(--green2);border:1px solid #bbf7d0}
+.tag-amber{background:#fef3c7;color:#92400e}
+.tag-red{background:#fef2f2;color:#991b1b}
+.tag-blue{background:#eff6ff;color:#1e40af}
+.tag-purple{background:rgba(124,58,237,.08);color:var(--purple)}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-state .ei{font-size:28px;margin-bottom:8px}
+.empty-state .et{font-size:.82rem;font-weight:600;color:var(--text2);margin-bottom:4px}
+.empty-state .es{font-size:.75rem}
+.loader{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--green2);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
 </head>
 <body>
-    <!-- Emergency Fallback (shown if JS fails) -->
-    <div id="emergencyFallback" class="emergency-fallback" style="display: block;">
-        <div class="logo-fallback">🥗</div>
-        <h2>Welcome to FitMunch</h2>
-        <p>Your personal fitness and nutrition companion is loading...</p>
-        <div class="fallback-actions">
-            <button onclick="location.reload()" class="primary-btn">
-                <i class="fas fa-refresh"></i> Reload App
-            </button>
-            <a href="mailto:support@fitmunch.app" class="secondary-btn">
-                <i class="fas fa-envelope"></i> Contact Support
-            </a>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a href="/" class="nav-logo">
+    <div class="logo-m"><svg viewBox="0 0 20 20" fill="none"><path d="M4 14C4 14 5 10 10 10C15 10 16 6 16 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="5" r="2.5" fill="white"/></svg></div>
+    <span class="logo-w">Fit<span>Munch</span></span>
+  </a>
+  <div class="nav-spacer"></div>
+  <span class="nav-plan" id="nav-plan-badge" style="display:none"></span>
+  <div class="nav-user"><div class="nav-av" id="nav-av"></div><span id="nav-name"></span></div>
+  <button class="nav-btn btn-upgrade" id="btn-upgrade" onclick="nav('billing')" style="display:none">Upgrade</button>
+  <button class="nav-btn btn-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<div class="shell">
+<!-- SIDEBAR — PT VIEW -->
+<nav class="sidebar" id="sidebar-pt" style="display:none">
+  <div class="sb-section-label">Manage</div>
+  <button class="sb-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="sb-icon">⚡</span>Dashboard</button>
+  <button class="sb-item" onclick="nav('clients')" id="nav-clients"><span class="sb-icon">👥</span>Clients<span class="sb-badge" id="sb-clients">0</span></button>
+  <div class="sb-section-label">Plans</div>
+  <button class="sb-item" onclick="nav('meal-plans')" id="nav-meal-plans"><span class="sb-icon">🥗</span>Meal Plans</button>
+  <button class="sb-item" onclick="nav('workout-plans')" id="nav-workout-plans"><span class="sb-icon">🏋️</span>Workout Plans</button>
+  <div class="sb-section-label">Tools</div>
+  <button class="sb-item" onclick="nav('shopping-lists')" id="nav-shopping-lists"><span class="sb-icon">🛒</span>Shopping Lists</button>
+  <button class="sb-item" onclick="nav('favourites')" id="nav-favourites"><span class="sb-icon">❤️</span>Favourites</button>
+  <button class="sb-item" onclick="nav('billing')" id="nav-billing"><span class="sb-icon">💳</span>Billing</button>
+</nav>
+
+<!-- SIDEBAR — CLIENT VIEW -->
+<nav class="sidebar" id="sidebar-client" style="display:none">
+  <div class="sb-section-label">Today</div>
+  <button class="sb-item active" onclick="nav('portal-home')" id="nav-portal-home"><span class="sb-icon">🏠</span>Home</button>
+  <button class="sb-item" onclick="nav('portal-plan')" id="nav-portal-plan"><span class="sb-icon">📋</span>My Plan</button>
+  <div class="sb-section-label">Log</div>
+  <button class="sb-item" onclick="nav('portal-meals')" id="nav-portal-meals"><span class="sb-icon">🥗</span>Log Meals</button>
+  <button class="sb-item" onclick="nav('portal-workouts')" id="nav-portal-workouts"><span class="sb-icon">🏋️</span>Log Workout</button>
+  <button class="sb-item" onclick="nav('portal-progress')" id="nav-portal-progress"><span class="sb-icon">📈</span>Progress</button>
+  <div class="sb-section-label">My Stuff</div>
+  <button class="sb-item" onclick="nav('portal-shopping')" id="nav-portal-shopping"><span class="sb-icon">🛒</span>Shopping List</button>
+  <button class="sb-item" onclick="nav('portal-favourites')" id="nav-portal-favourites"><span class="sb-icon">❤️</span>Favourites</button>
+</nav>
+
+<div class="main" id="app-main">
+
+<!-- ══ PT: DASHBOARD ══ -->
+<div class="view active" id="view-dashboard">
+  <div class="view-header">
+    <div><div class="view-title" id="dash-greeting">Good morning</div><div class="view-sub">Here's what's happening with your clients today.</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openInviteModal()">+ Invite Client</button></div>
+  </div>
+  <div class="scroll-body">
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-label">Active Clients</div><div class="metric-value mv-green" id="m-clients">0</div><div class="metric-sub">in your roster</div></div>
+      <div class="metric"><div class="metric-label">Logged Today</div><div class="metric-value mv-blue" id="m-logged">0</div><div class="metric-sub">clients active</div></div>
+      <div class="metric"><div class="metric-label">Need Check-in</div><div class="metric-value mv-amber" id="m-checkin">0</div><div class="metric-sub">3+ days quiet</div></div>
+      <div class="metric"><div class="metric-label">This Month</div><div class="metric-value mv-purple" id="m-mrr">$0</div><div class="metric-sub">subscription revenue</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Client Activity</span><button class="btn btn-ghost2 btn-sm" onclick="nav('clients')">View all</button></div>
+      <div id="dash-client-list">
+        <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PT: CLIENTS ══ -->
+<div class="view" id="view-clients">
+  <div class="view-header">
+    <div><div class="view-title">Clients</div><div class="view-sub" id="clients-sub">Loading…</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openInviteModal()">+ Invite Client</button></div>
+  </div>
+  <div id="invite-banner" style="padding:0 20px;margin-top:12px;display:none">
+    <div class="invite-banner">
+      <span style="font-size:.82rem;font-weight:600">📨 Invite link ready:</span>
+      <span class="invite-link" id="invite-link-text"></span>
+      <button class="copy-btn" onclick="copyInvite()">Copy</button>
+    </div>
+  </div>
+  <div class="scroll-body">
+    <div class="card" id="clients-card">
+      <div id="clients-list"><div style="padding:20px;text-align:center"><div class="loader"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PT: CLIENT DETAIL ══ -->
+<div class="view" id="view-client-detail">
+  <div class="detail-panel">
+    <div class="detail-header">
+      <button class="back-btn" onclick="nav('clients')">← Back</button>
+      <div class="c-av" id="detail-av" style="width:32px;height:32px;font-size:.65rem"></div>
+      <div style="flex:1"><div style="font-size:.9rem;font-weight:800" id="detail-name">Client</div><div style="font-size:.72rem;color:var(--text3)" id="detail-email"></div></div>
+      <select class="form-select" id="detail-phase" style="width:130px" onchange="updateClientPhase()">
+        <option value="deficit">Deficit phase</option><option value="maintain">Maintain phase</option><option value="bulk">Bulk phase</option>
+      </select>
+      <button class="btn btn-green btn-sm" onclick="openAssignModal()">Assign Plan</button>
+    </div>
+    <div class="detail-tabs">
+      <div class="detail-tab active" onclick="detailTab('overview',this)">Overview</div>
+      <div class="detail-tab" onclick="detailTab('meals',this)">Meals</div>
+      <div class="detail-tab" onclick="detailTab('workouts',this)">Workouts</div>
+      <div class="detail-tab" onclick="detailTab('progress',this)">Progress</div>
+    </div>
+    <div class="detail-body" id="detail-body">
+      <div style="text-align:center;padding:20px"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PT: MEAL PLANS ══ -->
+<div class="view" id="view-meal-plans">
+  <div class="view-header">
+    <div><div class="view-title">Meal Plans</div><div class="view-sub">Create plans and assign them to clients.</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-mealplan')">+ New Plan</button></div>
+  </div>
+  <div class="scroll-body">
+    <div class="plan-grid" id="meal-plans-grid">
+      <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PT: WORKOUT PLANS ══ -->
+<div class="view" id="view-workout-plans">
+  <div class="view-header">
+    <div><div class="view-title">Workout Plans</div><div class="view-sub">Design programs and assign to clients.</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-workoutplan')">+ New Plan</button></div>
+  </div>
+  <div class="scroll-body">
+    <div class="plan-grid" id="workout-plans-grid">
+      <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PT: SHOPPING LISTS ══ -->
+<div class="view" id="view-shopping-lists">
+  <div class="view-header">
+    <div><div class="view-title">Shopping Lists</div><div class="view-sub">Auto-generated from meal plans.</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-generate-shopping')">Generate from Plan</button></div>
+  </div>
+  <div class="scroll-body" id="shopping-lists-body">
+    <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+  </div>
+</div>
+
+<!-- ══ PT: FAVOURITES ══ -->
+<div class="view" id="view-favourites">
+  <div class="view-header"><div><div class="view-title">Favourites</div><div class="view-sub">Saved meals, foods and workouts.</div></div></div>
+  <div class="scroll-body">
+    <div class="fav-grid" id="pt-favs-grid">
+      <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PT: BILLING ══ -->
+<div class="view" id="view-billing">
+  <div class="view-header"><div><div class="view-title">Billing</div><div class="view-sub">Manage your subscription.</div></div></div>
+  <div class="scroll-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px">
+      <div class="card" style="border:2px solid var(--border)">
+        <div class="card-body">
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Starter</div>
+          <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$59<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+          <div style="font-size:.78rem;color:var(--text2);margin:10px 0">Up to 10 clients</div>
+          <a href="/login.html?plan=starter" class="btn btn-ghost2" style="display:block;text-align:center;margin-top:10px;text-decoration:none">Select plan</a>
         </div>
-    </div>
-
-    <!-- Main App Container -->
-    <div id="mainApp" class="app-container" style="display: none;">
-        <!-- Header -->
-        <header>
-            <div class="logo">
-                <img src="generated-icon.png" alt="FitMunch" class="logo-img">
-                <span>FitMunch</span>
-            </div>
-            <div class="user-controls">
-                <span id="plan-badge" style="display:none;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;letter-spacing:0.5px;margin-right:8px;"></span>
-                <button onclick="editProfile()" class="secondary-btn">
-                    <i class="fas fa-user-edit"></i> Edit Profile
-                </button>
-                <div class="theme-toggle">
-                    <i class="fas fa-sun"></i>
-                    <label class="theme-switch">
-                        <input type="checkbox" id="themeToggle" onchange="toggleTheme()">
-                        <span class="slider"></span>
-                    </label>
-                    <i class="fas fa-moon"></i>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Layout -->
-        <main>
-            <!-- Side Navigation -->
-            <nav class="main-nav">
-                <button class="nav-item active" data-section="dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </button>
-                <button class="nav-item" data-section="workout">
-                    <i class="fas fa-dumbbell"></i>
-                    <span>Workouts</span>
-                </button>
-                <button class="nav-item" data-section="food">
-                    <i class="fas fa-utensils"></i>
-                    <span>Food Log</span>
-                </button>
-                <button class="nav-item" data-section="meal">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>Meal Plans</span>
-                </button>
-                <button class="nav-item" data-section="shopping">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span>Shopping</span>
-                </button>
-                <button class="nav-item" data-section="fitness">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Analytics</span>
-                </button>
-
-                <div class="dev-link">
-                    <a href="developer_dashboard.html" class="nav-item">
-                        <i class="fas fa-code"></i>
-                        <span>Developer</span>
-                    </a>
-                </div>
-            </nav>
-
-            <!-- Main Content -->
-            <div class="main-content">
-                <!-- Premium Banner -->
-                <div class="promo-banner">
-                    <div class="banner-content">
-                        <h2>
-                            <i class="fas fa-crown"></i>
-                            Upgrade to FitMunch Premium
-                        </h2>
-                        <p>Unlock advanced analytics, custom meal plans, and AI-powered recommendations</p>
-                    </div>
-                    <div class="banner-cta">
-                        <div class="banner-discount">50% OFF</div>
-                        <button class="banner-btn" onclick="upgradeToPremium()">
-                            <i class="fas fa-rocket"></i>
-                            Upgrade Now
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Dashboard Section -->
-                <section id="dashboard" class="section active-section">
-                    <!-- Hero Section -->
-                    <div class="hero-section">
-                        <div class="hero-content">
-                            <h1 class="typography-hero">Your Fitness,<br>Supercharged 🚀</h1>
-                            <p class="typography-subtitle">AI-powered meal plans, workout tracking, and nutrition analytics — built for Australians who take their health seriously.</p>
-                        </div>
-                        <div class="social-proof">
-                            <div class="proof-item">
-                                <i class="fas fa-users"></i>
-                                <span><strong>1,200+</strong> Australians tracking daily</span>
-                            </div>
-                            <div class="proof-item">
-                                <i class="fas fa-star"></i>
-                                <span><strong>4.8★</strong> average rating</span>
-                            </div>
-                            <div class="proof-item">
-                                <i class="fas fa-shield-alt"></i>
-                                <span>Free to start, no credit card</span>
-                            </div>
-                        </div>
-                        <div class="hero-cta">
-                            <button class="cta-trial-btn" onclick="upgradeToPremium()">
-                                <i class="fas fa-rocket"></i> Start Free Trial
-                            </button>
-                            <button class="secondary-btn" onclick="showSection('dashboard')">
-                                <i class="fas fa-play"></i> Explore App
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Profile Header -->
-                    <div class="profile-header">
-                        <div class="profile-info">
-                            <h2 id="userName">FitMunch User</h2>
-                            <p id="currentDate">Today</p>
-                            <div class="goal-progress">
-                                <span id="calorieProgress">0/2000 cal</span>
-                                <span id="stepsProgress">0/10000 steps</span>
-                                <span id="activityProgress">Active</span>
-                            </div>
-                        </div>
-                        <div class="wellness-score">
-                            <span class="score">85</span>
-                            <div class="label">Wellness Score</div>
-                        </div>
-                        <div class="quick-actions">
-                            <button onclick="showSection('food')" class="primary-btn">
-                                <i class="fas fa-plus"></i> Log Food
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Stats Grid -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <i class="fas fa-fire"></i>
-                            <h3>Calories Today</h3>
-                            <p id="calorieDisplay">2000</p>
-                        </div>
-                        <div class="stat-card">
-                            <i class="fas fa-walking"></i>
-                            <h3>Steps Today</h3>
-                            <p id="stepsDisplay">10000</p>
-                        </div>
-                        <div class="stat-card">
-                            <i class="fas fa-dumbbell"></i>
-                            <h3>Workouts This Week</h3>
-                            <p>3 of 4</p>
-                        </div>
-                        <div class="stat-card">
-                            <i class="fas fa-chart-line"></i>
-                            <h3>Streak</h3>
-                            <p>7 days</p>
-                        </div>
-                    </div>
-
-                    <!-- Charts Row -->
-                    <div class="charts-row">
-                        <div class="chart-card">
-                            <h3><i class="fas fa-chart-pie"></i> Today's Macros</h3>
-                            <canvas id="dashMacroChart" height="160"></canvas>
-                        </div>
-                        <div class="chart-card">
-                            <h3><i class="fas fa-chart-bar"></i> Weekly Activity</h3>
-                            <canvas id="dashWeeklyChart" height="160"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Quick Navigation -->
-                    <div class="quick-nav-cards">
-                        <a href="#" class="nav-card" data-section="workout">
-                            <i class="fas fa-dumbbell"></i>
-                            <h3>Start Workout</h3>
-                            <p>Begin your fitness routine</p>
-                        </a>
-                        <a href="#" class="nav-card" data-section="meal">
-                            <i class="fas fa-clipboard-list"></i>
-                            <h3>Meal Planning</h3>
-                            <p>Plan your nutrition</p>
-                        </a>
-                        <a href="#" class="nav-card" data-section="food">
-                            <i class="fas fa-utensils"></i>
-                            <h3>Log Food</h3>
-                            <p>Track your meals</p>
-                        </a>
-                        <a href="#" class="nav-card" data-section="shopping">
-                            <i class="fas fa-shopping-cart"></i>
-                            <h3>Shopping List</h3>
-                            <p>Get your groceries</p>
-                        </a>
-                    </div>
-                </section>
-
-                <!-- Workout Section -->
-                <section id="workout" class="section">
-                    <h2><i class="fas fa-dumbbell"></i> Workout Plans</h2>
-
-                    <div class="workout-controls">
-                        <button id="regenerateWorkoutBtn" onclick="regenerateWorkout()" class="primary-btn">
-                            <i class="fas fa-refresh"></i> Regenerate Plan
-                        </button>
-                        <button onclick="generateActivityPlan()" class="secondary-btn">
-                            <i class="fas fa-magic"></i> Generate New Plan
-                        </button>
-                        <button onclick="editWorkoutPlan()" class="secondary-btn">
-                            <i class="fas fa-edit"></i> Customize Plan
-                        </button>
-                    </div>
-
-                    <div id="workoutPlanDisplay" class="workout-plan">
-                        <p>Click "Generate New Plan" to create your personalized workout routine.</p>
-                    </div>
-                </section>
-
-                <!-- Food Log Section -->
-                <section id="food" class="section">
-                    <h2><i class="fas fa-utensils"></i> Food Log</h2>
-
-                    <div class="food-controls">
-                        <button onclick="showFoodSearch()" class="primary-btn">
-                            <i class="fas fa-plus"></i> Add Food
-                        </button>
-                        <button onclick="scanBarcode()" class="secondary-btn">
-                            <i class="fas fa-barcode"></i> Scan Barcode
-                        </button>
-                    </div>
-
-                    <div id="searchResults"></div>
-
-                    <div class="meals-container">
-                        <div class="meal-section">
-                            <h3>Breakfast</h3>
-                            <ul id="breakfastLog" class="food-list"></ul>
-                        </div>
-                        <div class="meal-section">
-                            <h3>Lunch</h3>
-                            <ul id="lunchLog" class="food-list"></ul>
-                        </div>
-                        <div class="meal-section">
-                            <h3>Dinner</h3>
-                            <ul id="dinnerLog" class="food-list"></ul>
-                        </div>
-                        <div class="meal-section">
-                            <h3>Snacks</h3>
-                            <ul id="snacksLog" class="food-list"></ul>
-                        </div>
-                    </div>
-
-                    <div class="macro-summary">
-                        <h3>Daily Totals</h3>
-                        <div class="macro-grid">
-                            <div class="macro-item">
-                                <span class="macro-label">Calories</span>
-                                <span id="totalCals" class="macro-value">0</span>
-                            </div>
-                            <div class="macro-item">
-                                <span class="macro-label">Protein</span>
-                                <span id="totalProtein" class="macro-value">0g</span>
-                            </div>
-                            <div class="macro-item">
-                                <span class="macro-label">Carbs</span>
-                                <span id="totalCarbs" class="macro-value">0g</span>
-                            </div>
-                            <div class="macro-item">
-                                <span class="macro-label">Fat</span>
-                                <span id="totalFat" class="macro-value">0g</span>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Meal Planning Section -->
-                <section id="meal" class="section">
-                    <h2><i class="fas fa-clipboard-list"></i> Meal Planning</h2>
-
-                    <div class="meal-controls">
-                        <select id="goalType" class="form-control">
-                            <option value="Weight Loss">Weight Loss</option>
-                            <option value="Maintenance" selected>Maintenance</option>
-                            <option value="Muscle Gain">Muscle Gain</option>
-                        </select>
-                        <button onclick="generateMealPlan()" class="primary-btn">
-                            <i class="fas fa-magic"></i> Generate Meal Plan
-                        </button>
-                    </div>
-
-                    <div id="mealDisplay" class="meal-plan">
-                        <p>Select your goal and click "Generate Meal Plan" to get personalized meal suggestions.</p>
-                    </div>
-
-                    <div class="nutrition-summary">
-                        <h3>Nutritional Breakdown</h3>
-                        <div class="nutrition-grid">
-                            <div class="nutrition-item">
-                                <span class="nutrition-label">Calories</span>
-                                <span id="mealCalories" class="nutrition-value">0</span>
-                            </div>
-                            <div class="nutrition-item">
-                                <span class="nutrition-label">Protein</span>
-                                <span id="mealProtein" class="nutrition-value">0g</span>
-                            </div>
-                            <div class="nutrition-item">
-                                <span class="nutrition-label">Carbs</span>
-                                <span id="mealCarbs" class="nutrition-value">0g</span>
-                            </div>
-                            <div class="nutrition-item">
-                                <span class="nutrition-label">Fat</span>
-                                <span id="mealFat" class="nutrition-value">0g</span>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Shopping Section -->
-                <section id="shopping" class="section">
-                    <h2><i class="fas fa-shopping-cart"></i> Shopping List</h2>
-
-                    <div class="shopping-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Total Items:</span>
-                            <span id="totalItems" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Total Cost:</span>
-                            <span id="totalCost" class="stat-value">$0.00</span>
-                        </div>
-                    </div>
-
-                    <div class="shopping-controls">
-                        <button onclick="updateShoppingList()" class="primary-btn">
-                            <i class="fas fa-refresh"></i> Update List
-                        </button>
-                        <button id="priceCheckBtn" onclick="checkProductPrice()" class="secondary-btn">
-                            <i class="fas fa-search-dollar"></i> Price Check
-                        </button>
-                    </div>
-
-                    <div id="shopList" class="shopping-list">
-                        <p>Click "Update List" to generate your shopping list based on your meal plans.</p>
-                    </div>
-                </section>
-
-                <!-- Analytics Section -->
-                <section id="fitness" class="section">
-                    <h2><i class="fas fa-chart-line"></i> Analytics</h2>
-
-                    <div class="analytics-controls">
-                        <select id="analyticsTimeframe" class="form-control">
-                            <option value="week">This Week</option>
-                            <option value="month">This Month</option>
-                            <option value="quarter">Last 3 Months</option>
-                        </select>
-                        <button onclick="updateAnalytics()" class="primary-btn">
-                            <i class="fas fa-refresh"></i> Update Analytics
-                        </button>
-                    </div>
-
-                    <div class="analytics-grid">
-                        <div class="analytics-card">
-                            <h3>Weekly Progress</h3>
-                            <div class="progress-chart">
-                                <div class="chart-container">
-                                    <canvas id="progressChart" width="400" height="200"></canvas>
-                                </div>
-                                <div class="chart-stats">
-                                    <div class="stat">
-                                        <span class="label">Avg Calories</span>
-                                        <span class="value" id="avgCalories">1,847</span>
-                                    </div>
-                                    <div class="stat">
-                                        <span class="label">Workouts</span>
-                                        <span class="value" id="totalWorkouts">4</span>
-                                    </div>
-                                    <div class="stat">
-                                        <span class="label">Streak</span>
-                                        <span class="value" id="currentStreak">7 days</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analytics-card">
-                            <h3>Goals Achievement</h3>
-                            <div class="goals-overview">
-                                <div class="goal-item">
-                                    <div class="goal-info">
-                                        <span class="goal-name">Daily Calories</span>
-                                        <span class="goal-target">2000 cal target</span>
-                                    </div>
-                                    <div class="goal-progress">
-                                        <div class="progress-ring" style="--progress: 285deg;">
-                                            <span class="progress-value">92%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="goal-item">
-                                    <div class="goal-info">
-                                        <span class="goal-name">Daily Steps</span>
-                                        <span class="goal-target">10,000 steps target</span>
-                                    </div>
-                                    <div class="goal-progress">
-                                        <div class="progress-ring" style="--progress: 270deg;">
-                                            <span class="progress-value">85%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="goal-item">
-                                    <div class="goal-info">
-                                        <span class="goal-name">Weekly Workouts</span>
-                                        <span class="goal-target">4 workouts target</span>
-                                    </div>
-                                    <div class="goal-progress">
-                                        <div class="progress-ring" style="--progress: 360deg;">
-                                            <span class="progress-value">100%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analytics-card">
-                            <h3>Nutrition Breakdown</h3>
-                            <div class="nutrition-chart">
-                                <canvas id="nutritionChart" width="300" height="300"></canvas>
-                                <div class="nutrition-legend">
-                                    <div class="legend-item">
-                                        <span class="color-indicator protein"></span>
-                                        <span>Protein (25%)</span>
-                                    </div>
-                                    <div class="legend-item">
-                                        <span class="color-indicator carbs"></span>
-                                        <span>Carbs (45%)</span>
-                                    </div>
-                                    <div class="legend-item">
-                                        <span class="color-indicator fat"></span>
-                                        <span>Fat (30%)</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analytics-card">
-                            <h3>Activity Summary</h3>
-                            <div class="activity-summary">
-                                <div class="summary-item">
-                                    <i class="fas fa-fire"></i>
-                                    <div class="summary-info">
-                                        <span class="summary-label">Calories Burned</span>
-                                        <span class="summary-value">1,240</span>
-                                    </div>
-                                </div>
-                                <div class="summary-item">
-                                    <i class="fas fa-dumbbell"></i>
-                                    <div class="summary-info">
-                                        <span class="summary-label">Exercise Minutes</span>
-                                        <span class="summary-value">180</span>
-                                    </div>
-                                </div>
-                                <div class="summary-item">
-                                    <i class="fas fa-walking"></i>
-                                    <div class="summary-info">
-                                        <span class="summary-label">Total Steps</span>
-                                        <span class="summary-value">68,420</span>
-                                    </div>
-                                </div>
-                                <div class="summary-item">
-                                    <i class="fas fa-trophy"></i>
-                                    <div class="summary-info">
-                                        <span class="summary-label">Goals Met</span>
-                                        <span class="summary-value">5/7 days</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </main>
-
-        <!-- Footer Navigation (Mobile) -->
-        <footer class="nav">
-            <a href="#" class="nav-item active" data-section="dashboard">
-                <i class="fas fa-home"></i>
-                <span>Home</span>
-            </a>
-            <a href="#" class="nav-item" data-section="workout">
-                <i class="fas fa-dumbbell"></i>
-                <span>Workout</span>
-            </a>
-            <a href="#" class="nav-item" data-section="food">
-                <i class="fas fa-utensils"></i>
-                <span>Food</span>
-            </a>
-            <a href="#" class="nav-item" data-section="meal">
-                <i class="fas fa-clipboard-list"></i>
-                <span>Meals</span>
-            </a>
-            <a href="#" class="nav-item" data-section="shopping">
-                <i class="fas fa-shopping-cart"></i>
-                <span>Shop</span>
-            </a>
-        </footer>
-    </div>
-
-    <!-- Modals -->
-    <div id="workoutLogModal" class="modal">
-        <div class="modal-content workout-log-content">
-            <h2>Log Your Workout</h2>
-            <form id="workoutLogForm" class="workout-log-form">
-                <div class="form-group">
-                    <label for="exerciseName">Exercise Name:</label>
-                    <input type="text" id="exerciseName" name="exerciseName" required>
-                </div>
-                <div class="form-group">
-                    <label for="setsCompleted">Sets Completed:</label>
-                    <input type="number" id="setsCompleted" name="setsCompleted" min="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="repsCompleted">Reps Completed:</label>
-                    <input type="number" id="repsCompleted" name="repsCompleted" min="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="weightUsed">Weight Used (kg):</label>
-                    <input type="number" id="weightUsed" name="weightUsed" step="0.5" min="0">
-                </div>
-                <div class="workout-log-actions">
-                    <button type="button" onclick="closeModal('workoutLogModal')" class="secondary-btn">Cancel</button>
-                    <button type="submit" class="primary-btn">Save Workout</button>
-                </div>
-            </form>
+      </div>
+      <div class="card" style="border:2px solid var(--green2)">
+        <div class="card-body">
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:8px">Pro — Most popular</div>
+          <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+          <div style="font-size:.78rem;color:var(--text2);margin:10px 0">Unlimited clients + all features</div>
+          <a href="/login.html?plan=pro" class="btn btn-green" style="display:block;text-align:center;margin-top:10px;text-decoration:none">Select plan →</a>
         </div>
+      </div>
     </div>
+  </div>
+</div>
 
-    <div id="workoutDetailsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Workout Details</h3>
-                <button class="close-modal" onclick="closeWorkoutDetailsModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Detailed workout information will appear here.</p>
-            </div>
+<!-- ══ CLIENT: HOME ══ -->
+<div class="view" id="view-portal-home">
+  <div class="view-header">
+    <div><div class="view-title" id="portal-greeting">Good morning</div><div class="view-sub" id="portal-pt-name">Loading your data…</div></div>
+  </div>
+  <div class="scroll-body">
+    <div class="metrics-row">
+      <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub">logged</div></div>
+      <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub">today</div></div>
+      <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-purple" id="pm-workouts">0</div><div class="metric-sub">this week</div></div>
+      <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">My Meal Plan</span><button class="btn btn-ghost2 btn-sm" onclick="nav('portal-plan')">View</button></div>
+        <div class="card-body" id="home-mealplan"><span style="color:var(--text3);font-size:.78rem">No plan assigned yet</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">My Workout Plan</span><button class="btn btn-ghost2 btn-sm" onclick="nav('portal-plan')">View</button></div>
+        <div class="card-body" id="home-workoutplan"><span style="color:var(--text3);font-size:.78rem">No plan assigned yet</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT: MY PLAN ══ -->
+<div class="view" id="view-portal-plan">
+  <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub">Assigned by your trainer.</div></div></div>
+  <div class="scroll-body" id="portal-plan-body">
+    <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+  </div>
+</div>
+
+<!-- ══ CLIENT: LOG MEALS ══ -->
+<div class="view" id="view-portal-meals">
+  <div class="view-header">
+    <div><div class="view-title">Log Meals</div><div class="view-sub" id="meals-date-label"></div></div>
+    <div class="view-actions">
+      <input type="date" class="form-input" id="meals-date" style="font-size:.78rem" onchange="loadTodayMeals()"/>
+      <button class="btn btn-green" onclick="openModal('modal-log-meal')">+ Add Food</button>
+    </div>
+  </div>
+  <div class="scroll-body">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;gap:20px">
+      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Calories</div><div style="font-size:1.3rem;font-weight:800" id="meals-total-cals">0</div></div>
+      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Protein</div><div style="font-size:1.3rem;font-weight:800;color:var(--blue)" id="meals-protein">0g</div></div>
+      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Carbs</div><div style="font-size:1.3rem;font-weight:800;color:var(--amber)" id="meals-carbs">0g</div></div>
+      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Fat</div><div style="font-size:1.3rem;font-weight:800;color:var(--red)" id="meals-fat">0g</div></div>
+    </div>
+    <div id="meals-log-body">
+      <div class="meal-section"><div class="meal-section-title">🌅 Breakfast</div><div id="log-breakfast" class="meal-entries"></div></div>
+      <div class="meal-section"><div class="meal-section-title">☀️ Lunch</div><div id="log-lunch" class="meal-entries"></div></div>
+      <div class="meal-section"><div class="meal-section-title">🌙 Dinner</div><div id="log-dinner" class="meal-entries"></div></div>
+      <div class="meal-section"><div class="meal-section-title">🍎 Snack</div><div id="log-snack" class="meal-entries"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT: LOG WORKOUT ══ -->
+<div class="view" id="view-portal-workouts">
+  <div class="view-header">
+    <div><div class="view-title">Log Workout</div><div class="view-sub">Track your training sessions.</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-log-workout')">+ Log Session</button></div>
+  </div>
+  <div class="scroll-body">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Recent Sessions</span></div>
+      <div id="workout-log-body"><div style="padding:20px;text-align:center"><div class="loader"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT: PROGRESS ══ -->
+<div class="view" id="view-portal-progress">
+  <div class="view-header">
+    <div><div class="view-title">Progress</div><div class="view-sub">Track your body measurements and weight over time.</div></div>
+    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-log-progress')">+ Log Measurement</button></div>
+  </div>
+  <div class="scroll-body">
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><span class="card-title">Recent Measurements</span></div>
+      <div id="progress-log-body"><div style="padding:20px;text-align:center"><div class="loader"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT: SHOPPING LIST ══ -->
+<div class="view" id="view-portal-shopping">
+  <div class="view-header">
+    <div><div class="view-title">Shopping List</div><div class="view-sub">Generated from your assigned meal plan.</div></div>
+  </div>
+  <div class="scroll-body" id="portal-shopping-body">
+    <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+  </div>
+</div>
+
+<!-- ══ CLIENT: FAVOURITES ══ -->
+<div class="view" id="view-portal-favourites">
+  <div class="view-header"><div><div class="view-title">Favourites</div><div class="view-sub">Foods and workouts you've loved.</div></div></div>
+  <div class="scroll-body">
+    <div class="fav-grid" id="client-favs-grid">
+      <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ── MODALS ── -->
+<div class="modal-overlay" id="modal-invite" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Invite a Client<button class="modal-close" onclick="closeModal('modal-invite')">✕</button></div>
+    <div style="font-size:.82rem;color:var(--text2);margin-bottom:14px">Enter their email (optional) and share the link. They'll register as your client automatically.</div>
+    <div class="form-field" style="margin-bottom:14px"><label class="form-label">Client Email (optional)</label><input class="form-input" id="inv-email" type="email" placeholder="client@example.com"/></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-invite')">Cancel</button>
+      <button class="btn btn-green" onclick="createInvite()">Generate Invite Link</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-assign" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Assign Plan to Client<button class="modal-close" onclick="closeModal('modal-assign')">✕</button></div>
+    <div class="form-row">
+      <div class="form-field"><label class="form-label">Plan Type</label>
+        <select class="form-select" id="assign-type"><option value="meal">Meal Plan</option><option value="workout">Workout Plan</option></select></div>
+    </div>
+    <div class="form-field" style="margin-top:10px"><label class="form-label">Select Plan</label>
+      <select class="form-select" id="assign-plan-select"><option>Loading…</option></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-assign')">Cancel</button>
+      <button class="btn btn-green" onclick="doAssignPlan()">Assign Plan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-mealplan" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">New Meal Plan<button class="modal-close" onclick="closeModal('modal-mealplan')">✕</button></div>
+    <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" placeholder="e.g. 12-week deficit plan"/></div>
+    <div class="form-row">
+      <div class="form-field"><label class="form-label">Goal</label>
+        <select class="form-select" id="mp-goal"><option value="weight_loss">Weight Loss</option><option value="maintenance">Maintenance</option><option value="muscle_gain">Muscle Gain</option></select></div>
+      <div class="form-field"><label class="form-label">Daily Calories</label><input class="form-input" id="mp-cals" type="number" placeholder="1800"/></div>
+    </div>
+    <div class="form-field" style="margin-top:10px"><label class="form-label">Description</label><textarea class="form-input" id="mp-desc" rows="2" placeholder="Describe what this plan is for…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-mealplan')">Cancel</button>
+      <button class="btn btn-green" onclick="saveMealPlan()">Create Plan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-workoutplan" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">New Workout Plan<button class="modal-close" onclick="closeModal('modal-workoutplan')">✕</button></div>
+    <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="wp-name" placeholder="e.g. 5-day PPL program"/></div>
+    <div class="form-row">
+      <div class="form-field"><label class="form-label">Level</label>
+        <select class="form-select" id="wp-level"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+      <div class="form-field"><label class="form-label">Days/Week</label><input class="form-input" id="wp-freq" type="number" placeholder="4" min="1" max="7"/></div>
+    </div>
+    <div class="form-field" style="margin-top:10px"><label class="form-label">Description</label><textarea class="form-input" id="wp-desc" rows="2" placeholder="What does this program focus on?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-workoutplan')">Cancel</button>
+      <button class="btn btn-green" onclick="saveWorkoutPlan()">Create Plan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-generate-shopping" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Generate Shopping List<button class="modal-close" onclick="closeModal('modal-generate-shopping')">✕</button></div>
+    <div class="form-field" style="margin-bottom:10px"><label class="form-label">From Meal Plan</label>
+      <select class="form-select" id="gen-plan-select"><option>Loading…</option></select></div>
+    <div class="form-field"><label class="form-label">List Name</label><input class="form-input" id="gen-list-name" placeholder="Leave blank for auto-name"/></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-generate-shopping')">Cancel</button>
+      <button class="btn btn-green" onclick="generateShoppingList()">Generate List</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-log-meal" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Log Food<button class="modal-close" onclick="closeModal('modal-log-meal')">✕</button></div>
+    <div class="form-row">
+      <div class="form-field" style="grid-column:1/-1"><label class="form-label">Food Name</label><input class="form-input" id="lm-food" placeholder="e.g. Chicken breast, 150g"/></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-field"><label class="form-label">Meal</label>
+        <select class="form-select" id="lm-meal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option></select></div>
+      <div class="form-field"><label class="form-label">Calories</label><input class="form-input" id="lm-cals" type="number" placeholder="0"/></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-field"><label class="form-label">Protein (g)</label><input class="form-input" id="lm-protein" type="number" placeholder="0"/></div>
+      <div class="form-field"><label class="form-label">Carbs (g)</label><input class="form-input" id="lm-carbs" type="number" placeholder="0"/></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-field"><label class="form-label">Fat (g)</label><input class="form-input" id="lm-fat" type="number" placeholder="0"/></div>
+      <div class="form-field"><label class="form-label">Serving Size</label><input class="form-input" id="lm-serving" placeholder="150g"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-log-meal')">Cancel</button>
+      <button class="btn btn-green" onclick="logMealEntry()">Log It</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-log-workout" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Log Workout Session<button class="modal-close" onclick="closeModal('modal-log-workout')">✕</button></div>
+    <div class="form-field" style="margin-bottom:10px"><label class="form-label">Workout Type</label><input class="form-input" id="lw-type" placeholder="e.g. Upper body, Leg day, Cardio"/></div>
+    <div class="form-row">
+      <div class="form-field"><label class="form-label">Duration (min)</label><input class="form-input" id="lw-duration" type="number" placeholder="60"/></div>
+      <div class="form-field"><label class="form-label">Calories Burned</label><input class="form-input" id="lw-cals" type="number" placeholder="0"/></div>
+    </div>
+    <div class="form-field" style="margin-top:10px"><label class="form-label">Notes</label><textarea class="form-input" id="lw-notes" rows="2" placeholder="How did it go? Any PRs?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-log-workout')">Cancel</button>
+      <button class="btn btn-green" onclick="logWorkoutEntry()">Log Session</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-log-progress" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">Log Measurement<button class="modal-close" onclick="closeModal('modal-log-progress')">✕</button></div>
+    <div class="form-row">
+      <div class="form-field"><label class="form-label">Body Weight (kg)</label><input class="form-input" id="lp-weight" type="number" step="0.1" placeholder="75.0"/></div>
+      <div class="form-field"><label class="form-label">Body Fat %</label><input class="form-input" id="lp-bf" type="number" step="0.1" placeholder="20"/></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-field"><label class="form-label">Waist (cm)</label><input class="form-input" id="lp-waist" type="number" step="0.1" placeholder="80"/></div>
+      <div class="form-field"><label class="form-label">Chest (cm)</label><input class="form-input" id="lp-chest" type="number" step="0.1" placeholder="100"/></div>
+    </div>
+    <div class="form-field" style="margin-top:10px"><label class="form-label">Notes</label><textarea class="form-input" id="lp-notes" rows="2" placeholder="How are you feeling?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-log-progress')">Cancel</button>
+      <button class="btn btn-green" onclick="logProgressEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+const S = {
+  token: localStorage.getItem('fm_token'),
+  user: null,
+  role: 'pt',
+  clients: [],
+  mealPlans: [],
+  workoutPlans: [],
+  shoppingLists: [],
+  favourites: [],
+  currentClient: null,
+  currentClientData: null,
+  portalData: null,
+  inviteLink: null,
+  todayMeals: [],
+  mealsDate: new Date().toISOString().split('T')[0],
+};
+
+const API = (path, opts={}) => {
+  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
+  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
+};
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+async function boot() {
+  if (!S.token) { window.location.href = '/login.html'; return; }
+  try {
+    const me = await API('/auth/me');
+    if (!me.success) { logout(); return; }
+    S.user = me.user;
+    S.role = me.user.role || 'pt';
+    // Update nav
+    document.getElementById('nav-name').textContent = me.user.name.split(' ')[0];
+    document.getElementById('nav-av').textContent = me.user.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    if (me.user.subscriptionTier && me.user.subscriptionTier !== 'free') {
+      const badge = document.getElementById('nav-plan-badge');
+      badge.textContent = me.user.subscriptionTier.charAt(0).toUpperCase()+me.user.subscriptionTier.slice(1);
+      badge.style.display = '';
+    } else {
+      document.getElementById('btn-upgrade').style.display = '';
+    }
+    // Show correct sidebar
+    if (S.role === 'client') {
+      document.getElementById('sidebar-client').style.display = '';
+      setupClientPortal();
+    } else {
+      document.getElementById('sidebar-pt').style.display = '';
+      setupPT();
+    }
+  } catch { logout(); }
+}
+
+function logout() {
+  localStorage.removeItem('fm_token');
+  window.location.href = '/login.html';
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+let currentView = '';
+function nav(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  const view = document.getElementById('view-'+id);
+  if (view) view.classList.add('active');
+  const btn = document.getElementById('nav-'+id);
+  if (btn) btn.classList.add('active');
+  currentView = id;
+  // Lazy load
+  if (id === 'clients' && !S.clients.length) loadClients();
+  if (id === 'meal-plans') loadMealPlans();
+  if (id === 'workout-plans') loadWorkoutPlans();
+  if (id === 'shopping-lists') loadShoppingLists();
+  if (id === 'favourites' || id === 'portal-favourites') loadFavourites();
+  if (id === 'portal-meals') { initMealDate(); loadTodayMeals(); }
+  if (id === 'portal-workouts') loadWorkoutLog();
+  if (id === 'portal-progress') loadProgressLog();
+  if (id === 'portal-plan') renderPortalPlan();
+  if (id === 'portal-shopping') renderPortalShopping();
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOnOverlay(e) { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); }
+function openInviteModal() { openModal('modal-invite'); }
+
+// ── PT SETUP ──────────────────────────────────────────────────────────────────
+async function setupPT() {
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('dash-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 👋';
+  await loadClients();
+  loadMealPlans();
+}
+
+async function loadClients() {
+  try {
+    const r = await API('/clients');
+    S.clients = r.clients || [];
+    // Update sidebar badge
+    document.getElementById('sb-clients').textContent = S.clients.length;
+    document.getElementById('clients-sub').textContent = S.clients.length + ' client' + (S.clients.length!==1?'s':'');
+    renderClientList(S.clients, 'clients-list');
+    renderClientList(S.clients.slice(0,5), 'dash-client-list');
+    // Dashboard metrics
+    document.getElementById('m-clients').textContent = S.clients.length;
+    const logged = S.clients.filter(c => c.meals_7d > 0 || c.workouts_7d > 0).length;
+    document.getElementById('m-logged').textContent = logged;
+    const needCheckin = S.clients.filter(c => {
+      if (!c.last_logged) return true;
+      return (Date.now() - new Date(c.last_logged)) > 3*86400000;
+    }).length;
+    document.getElementById('m-checkin').textContent = needCheckin;
+    if (needCheckin > 0) document.getElementById('sb-clients').className = 'sb-badge alert';
+  } catch(e) { console.error(e); }
+}
+
+const COLORS = ['#7c3aed','#0891b2','#dc2626','#d97706','#059669','#db2777','#2563eb','#65a30d'];
+function clientColor(name) { let h=0; for(const c of name) h+=c.charCodeAt(0); return COLORS[h%COLORS.length]; }
+function initials(name) { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function timeAgo(ts) {
+  if (!ts) return 'Never';
+  const d = Math.floor((Date.now()-new Date(ts))/86400000);
+  if (d===0) return 'Today'; if (d===1) return 'Yesterday'; return d+'d ago';
+}
+
+function renderClientList(clients, targetId) {
+  const el = document.getElementById(targetId);
+  if (!clients.length) {
+    el.innerHTML = `<div class="empty-state"><div class="ei">👥</div><div class="et">No clients yet</div><div class="es">Invite your first client to get started.</div></div>`;
+    return;
+  }
+  el.innerHTML = clients.map(c => {
+    const daysSince = c.last_logged ? (Date.now()-new Date(c.last_logged))/86400000 : 99;
+    const compClass = daysSince < 1 ? 'comp-high' : daysSince < 3 ? 'comp-mid' : 'comp-low';
+    const phase = c.phase || 'maintain';
+    return `<div class="client-row" onclick="openClient('${c.id}')">
+      <div class="compliance-dot ${compClass}"></div>
+      <div class="c-av" style="background:${clientColor(c.name)}">${initials(c.name)}</div>
+      <div style="flex:1">
+        <div class="c-name">${c.name}</div>
+        <div class="c-meta">${c.email} · <span class="phase-chip phase-${phase}">${phase}</span></div>
+      </div>
+      <div class="c-stats">
+        <div class="c-stat"><div class="c-stat-v">${c.meals_7d||0}</div><div class="c-stat-l">Meals/7d</div></div>
+        <div class="c-stat"><div class="c-stat-v">${c.workouts_7d||0}</div><div class="c-stat-l">Sessions</div></div>
+        <div class="c-stat"><div class="c-stat-v">${timeAgo(c.last_logged)}</div><div class="c-stat-l">Last logged</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openClient(clientId) {
+  S.currentClient = S.clients.find(c => c.id === clientId);
+  if (!S.currentClient) return;
+  nav('client-detail');
+  document.getElementById('nav-clients').classList.add('active');
+  document.getElementById('detail-name').textContent = S.currentClient.name;
+  document.getElementById('detail-email').textContent = S.currentClient.email;
+  document.getElementById('detail-av').textContent = initials(S.currentClient.name);
+  document.getElementById('detail-av').style.background = clientColor(S.currentClient.name);
+  document.getElementById('detail-phase').value = S.currentClient.phase || 'maintain';
+  document.getElementById('detail-body').innerHTML = '<div style="text-align:center;padding:20px"><div class="loader"></div></div>';
+  const r = await API('/clients/' + clientId);
+  S.currentClientData = r;
+  renderDetailTab('overview');
+}
+
+function detailTab(tab, el) {
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderDetailTab(tab);
+}
+
+function renderDetailTab(tab) {
+  const d = S.currentClientData;
+  const el = document.getElementById('detail-body');
+  if (!d || !d.success) { el.innerHTML = '<div class="empty-state"><div class="es">Failed to load client data.</div></div>'; return; }
+  if (tab === 'overview') {
+    const meals7 = d.meals?.length || 0;
+    const workouts = d.workouts?.length || 0;
+    const lastP = d.progress?.[0];
+    const assignments = d.assignments || [];
+    el.innerHTML = `
+      <div class="metrics-row">
+        <div class="metric"><div class="metric-label">Meals (30d)</div><div class="metric-value mv-green">${meals7}</div></div>
+        <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-blue">${workouts}</div></div>
+        <div class="metric"><div class="metric-label">Last Weight</div><div class="metric-value mv-amber">${lastP?.weight ? lastP.weight+'kg' : '—'}</div></div>
+        <div class="metric"><div class="metric-label">Plans</div><div class="metric-value mv-purple">${assignments.length}</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Assigned Plans</span><button class="btn btn-green btn-sm" onclick="openAssignModal()">Assign Plan</button></div>
+        <div class="card-body">
+          ${assignments.length ? assignments.map(a => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span class="tag ${a.plan_type==='meal'?'tag-green':'tag-blue'}">${a.plan_type}</span>
+              <span style="font-size:.82rem;font-weight:600">${a.meal_plan_name||a.workout_plan_name||'Plan #'+a.plan_id}</span>
+              <span style="margin-left:auto;font-size:.72rem;color:var(--text3)">Assigned ${timeAgo(a.assigned_at)}</span>
+            </div>`).join('') : '<div style="color:var(--text3);font-size:.78rem">No plans assigned yet.</div>'}
         </div>
-    </div>
+      </div>`;
+  } else if (tab === 'meals') {
+    const meals = d.meals || [];
+    el.innerHTML = meals.length ? meals.slice(0,20).map(m =>
+      `<div class="food-item"><div class="food-name">${m.food_name||m.foodName}</div><div><div class="food-cals">${m.calories} cal</div><div class="food-macro">P:${m.protein||0}g C:${m.carbs||0}g F:${m.fat||0}g</div></div><div style="font-size:.72rem;color:var(--text3);margin-left:8px">${timeAgo(m.date)}</div></div>`
+    ).join('') : '<div class="empty-state"><div class="es">No meal logs yet.</div></div>';
+  } else if (tab === 'workouts') {
+    const wk = d.workouts || [];
+    el.innerHTML = wk.length ? wk.slice(0,20).map(w =>
+      `<div class="workout-item"><span class="tag tag-blue">${w.workout_type||w.workoutType}</span><div class="exercise-name">${w.notes||'Session'}</div><div class="exercise-detail">${w.duration||0}min · ${w.calories_burned||0} cal</div><div style="margin-left:auto;font-size:.72rem;color:var(--text3)">${timeAgo(w.date)}</div></div>`
+    ).join('') : '<div class="empty-state"><div class="es">No workout logs yet.</div></div>';
+  } else if (tab === 'progress') {
+    const prog = d.progress || [];
+    el.innerHTML = prog.length ? prog.slice(0,20).map(p =>
+      `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:.75rem;color:var(--text3);min-width:70px">${timeAgo(p.date)}</span>
+        ${p.weight?`<span class="tag tag-green">${p.weight}kg</span>`:''}
+        ${p.body_fat_percentage?`<span class="tag tag-amber">${p.body_fat_percentage}% BF</span>`:''}
+        ${p.notes?`<span style="font-size:.75rem;color:var(--text2)">${p.notes}</span>`:''}
+      </div>`
+    ).join('') : '<div class="empty-state"><div class="es">No progress logs yet.</div></div>';
+  }
+}
 
-    <!-- JavaScript -->
-    <script src="api_service.js?v=2.0.0"></script>
-    <script src="app_initialization.js?v=2.0.0"></script>
-    <script src="script.js?v=2.0.0"></script>
-    <script src="enhanced_analytics.js?v=2.0.0"></script>
-    <script src="fitmunch-charts.js?v=2.0.0"></script>
-    
-    <!-- Initialize the app -->
-    <script>
-        // Force show the main app and hide fallback
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing app...');
-            
-            // Hide emergency fallback
-            const fallback = document.getElementById('emergencyFallback');
-            if (fallback) {
-                fallback.style.display = 'none';
-                console.log('Emergency fallback hidden');
-            }
-            
-            // Show main app
-            const mainApp = document.getElementById('mainApp');
-            if (mainApp) {
-                mainApp.style.display = 'block';
-                console.log('Main app shown');
-            }
-            
-            // Show dashboard section by default
-            if (typeof window.showSection === 'function') {
-                window.showSection('dashboard');
-            }
-            
-            // Update profile display
-            if (typeof window.updateProfileDisplay === 'function') {
-                window.updateProfileDisplay();
-            }
-        });
-    </script>
+async function updateClientPhase() {
+  if (!S.currentClient) return;
+  const phase = document.getElementById('detail-phase').value;
+  await API('/clients/'+S.currentClient.id, { method:'PATCH', body: JSON.stringify({ phase }) });
+  S.currentClient.phase = phase;
+}
 
-    <!-- Additional Functions -->
-    <script>
-        // Add missing functions
-        window.checkPrices = function() {
-            showNotification('Price check feature coming soon!', 'info');
-        };
+async function openAssignModal() {
+  openModal('modal-assign');
+  const sel = document.getElementById('assign-plan-select');
+  const type = document.getElementById('assign-type').value;
+  document.getElementById('assign-type').onchange = openAssignModal;
+  const plans = type === 'meal' ? S.mealPlans : S.workoutPlans;
+  if (!plans.length) await (type === 'meal' ? loadMealPlans() : loadWorkoutPlans());
+  const list = type === 'meal' ? S.mealPlans : S.workoutPlans;
+  sel.innerHTML = list.length ? list.map(p => `<option value="${p.id}">${p.name}</option>`).join('') : '<option>No plans yet — create one first</option>';
+}
 
-        window.closeWorkoutLogModal = function() {
-            document.getElementById('workoutLogModal').style.display = 'none';
-        };
+async function doAssignPlan() {
+  if (!S.currentClient) return;
+  const planType = document.getElementById('assign-type').value;
+  const planId = document.getElementById('assign-plan-select').value;
+  await API('/clients/'+S.currentClient.id+'/assign-plan', { method:'POST', body: JSON.stringify({ planType, planId: parseInt(planId) }) });
+  closeModal('modal-assign');
+  openClient(S.currentClient.id);
+}
 
-        window.closeWorkoutDetailsModal = function() {
-            document.getElementById('workoutDetailsModal').style.display = 'none';
-        };
+// ── INVITE ───────────────────────────────────────────────────────────────────
+async function createInvite() {
+  const email = document.getElementById('inv-email').value.trim();
+  const r = await API('/clients/invite', { method:'POST', body: JSON.stringify({ email: email||undefined }) });
+  closeModal('modal-invite');
+  if (r.success) {
+    S.inviteLink = r.inviteUrl;
+    document.getElementById('invite-link-text').textContent = r.inviteUrl;
+    document.getElementById('invite-banner').style.display = '';
+    nav('clients');
+  }
+}
+function copyInvite() {
+  navigator.clipboard.writeText(S.inviteLink||'');
+  document.querySelector('.copy-btn').textContent = 'Copied!';
+  setTimeout(() => document.querySelector('.copy-btn').textContent = 'Copy', 2000);
+}
 
-        // Add mobile device class on load
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.innerWidth <= 768) {
-                document.body.classList.add('mobile-device');
-            }
-        });
-    </script>
+// ── MEAL PLANS ────────────────────────────────────────────────────────────────
+async function loadMealPlans() {
+  const r = await API('/meal-plans');
+  S.mealPlans = r.plans || [];
+  const grid = document.getElementById('meal-plans-grid');
+  if (!grid) return;
+  if (!S.mealPlans.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plans yet</div><div class="es">Create your first plan and assign it to a client.</div></div></div>`;
+    return;
+  }
+  grid.innerHTML = S.mealPlans.map(p => `
+    <div class="plan-card">
+      <div class="plan-card-name">${p.name}</div>
+      <div class="plan-card-meta">${p.goal_type||'general'} · ${p.total_calories||0} cal/day</div>
+      ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${p.description}</div>` : ''}
+      <div class="plan-card-footer">
+        <span class="tag tag-green">Meal</span>
+        <button class="btn btn-ghost2 btn-sm" style="margin-left:auto" onclick="generateListFromPlan(${p.id},'${p.name.replace(/'/g,'\\'')}')">🛒 Shopping List</button>
+        <button class="btn btn-red btn-sm" onclick="deleteMealPlan(${p.id}, event)">✕</button>
+      </div>
+    </div>`).join('');
+}
 
-    <!-- Subscription status badge + post-checkout toast -->
-    <script>
-      (async function() {
-        const token = localStorage.getItem('fm_token');
-        if (!token) return;
+async function saveMealPlan() {
+  const r = await API('/meal-plans', { method:'POST', body: JSON.stringify({
+    name: document.getElementById('mp-name').value.trim(),
+    description: document.getElementById('mp-desc').value.trim(),
+    goalType: document.getElementById('mp-goal').value,
+    totalCalories: parseInt(document.getElementById('mp-cals').value)||0,
+    meals: [],
+  })});
+  closeModal('modal-mealplan');
+  if (r.success) { S.mealPlans.push(r.plan); loadMealPlans(); }
+}
 
-        // Show success toast if coming from Stripe checkout
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('subscribed') === '1') {
-          const toast = document.createElement('div');
-          toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#00c851;color:#fff;padding:14px 22px;border-radius:10px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,200,81,.4)';
-          toast.textContent = '🎉 Welcome! Your 14-day free trial is active.';
-          document.body.appendChild(toast);
-          setTimeout(() => toast.remove(), 6000);
-          history.replaceState({}, '', '/app.html');
-        }
+async function deleteMealPlan(id, e) {
+  e.stopPropagation();
+  await API('/meal-plans/'+id, { method:'DELETE' });
+  S.mealPlans = S.mealPlans.filter(p=>p.id!==id);
+  loadMealPlans();
+}
 
-        // Load user plan from API and show badge
-        try {
-          const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
-          const data = await res.json();
-          if (!data.success) return;
+// ── WORKOUT PLANS ─────────────────────────────────────────────────────────────
+async function loadWorkoutPlans() {
+  const r = await API('/workout-plans');
+  S.workoutPlans = r.plans || [];
+  const grid = document.getElementById('workout-plans-grid');
+  if (!grid) return;
+  if (!S.workoutPlans.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">🏋️</div><div class="et">No workout plans yet</div><div class="es">Create a program and assign it to clients.</div></div></div>`;
+    return;
+  }
+  grid.innerHTML = S.workoutPlans.map(p => `
+    <div class="plan-card">
+      <div class="plan-card-name">${p.name}</div>
+      <div class="plan-card-meta">${p.level||'intermediate'} · ${p.frequency||3} days/week</div>
+      ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${p.description}</div>` : ''}
+      <div class="plan-card-footer">
+        <span class="tag tag-blue">Workout</span>
+        <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
+      </div>
+    </div>`).join('');
+}
 
-          const tier = data.user?.subscriptionTier || 'free';
-          const badge = document.getElementById('plan-badge');
-          if (!badge) return;
+async function saveWorkoutPlan() {
+  const r = await API('/workout-plans', { method:'POST', body: JSON.stringify({
+    name: document.getElementById('wp-name').value.trim(),
+    description: document.getElementById('wp-desc').value.trim(),
+    level: document.getElementById('wp-level').value,
+    frequency: parseInt(document.getElementById('wp-freq').value)||3,
+    workouts: [],
+  })});
+  closeModal('modal-workoutplan');
+  if (r.success) { S.workoutPlans.push(r.plan); loadWorkoutPlans(); }
+}
 
-          const styles = {
-            free:    { bg: '#1e293b', color: '#94a3b8', label: 'Free' },
-            starter: { bg: '#064e3b', color: '#34d399', label: '✦ Starter' },
-            pro:     { bg: '#3b0764', color: '#c084fc', label: '⚡ Pro' },
-          };
-          const s = styles[tier] || styles.free;
-          badge.style.background = s.bg;
-          badge.style.color = s.color;
-          badge.style.border = `1px solid ${s.color}40`;
-          badge.textContent = s.label;
-          badge.style.display = 'inline-block';
-          badge.title = tier === 'free' ? 'Upgrade to unlock all features' : `${tier.charAt(0).toUpperCase()+tier.slice(1)} plan active`;
-          if (tier === 'free') {
-            badge.style.cursor = 'pointer';
-            badge.onclick = () => window.location.href = '/#pricing';
-          }
-        } catch {}
-      })();
-    </script>
+async function deleteWorkoutPlan(id, e) {
+  e.stopPropagation();
+  await API('/workout-plans/'+id, { method:'DELETE' });
+  S.workoutPlans = S.workoutPlans.filter(p=>p.id!==id);
+  loadWorkoutPlans();
+}
 
-    <!-- PWA Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => console.log('SW registered'))
-                    .catch(error => console.log('SW registration failed'));
-            });
-        }
-    </script>
+// ── SHOPPING LISTS ────────────────────────────────────────────────────────────
+async function loadShoppingLists() {
+  const r = await API('/shopping-list');
+  S.shoppingLists = r.lists || [];
+  renderShoppingLists(S.shoppingLists, 'shopping-lists-body');
+}
+
+const CAT_ICONS = { meat:'🥩', dairy:'🧀', grains:'🌾', vegetables:'🥦', fruit:'🍎', pantry:'🫙', other:'📦' };
+function renderShoppingList(list, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  const items = list.items || [];
+  if (!items.length) { el.innerHTML = '<div class="empty-state"><div class="es">No items in this list.</div></div>'; return; }
+  const grouped = {};
+  items.forEach(item => {
+    const cat = item.category || 'other';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+  el.innerHTML = Object.entries(grouped).map(([cat, catItems]) => `
+    <div class="shop-category">
+      <div class="shop-cat-label"><span class="shop-cat-icon">${CAT_ICONS[cat]||'📦'}</span>${cat.charAt(0).toUpperCase()+cat.slice(1)}</div>
+      ${catItems.map((item, i) => `
+        <div class="shop-item ${item.checked?'checked':''}" id="si-${list.id}-${i}">
+          <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i})">${item.checked?'✓':''}</div>
+          <span class="shop-name">${item.name}</span>
+          <span class="shop-qty">${item.qty||''} ${item.unit||''}</span>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function renderShoppingLists(lists, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  if (!lists.length) {
+    el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate one from a meal plan.</div></div>`;
+    return;
+  }
+  el.innerHTML = lists.map(list => `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header">
+        <span class="card-title">${list.name}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${list.completed ? '<span class="tag tag-green">Completed</span>' : ''}
+          <button class="btn btn-ghost2 btn-sm" onclick="deleteShoppingList(${list.id})">✕</button>
+        </div>
+      </div>
+      <div class="card-body" id="sl-${list.id}"></div>
+    </div>`).join('');
+  lists.forEach(list => renderShoppingList(list, 'sl-'+list.id));
+}
+
+async function toggleShopItem(listId, itemIdx) {
+  const list = S.shoppingLists.find(l=>l.id===listId) || (S.portalData?.shoppingLists||[]).find(l=>l.id===listId);
+  if (!list) return;
+  list.items[itemIdx].checked = !list.items[itemIdx].checked;
+  renderShoppingList(list, 'sl-'+listId);
+  await API('/shopping-list/'+listId, { method:'PATCH', body: JSON.stringify({ items: list.items }) });
+}
+
+async function deleteShoppingList(id) {
+  await API('/shopping-list/'+id, { method:'DELETE' });
+  S.shoppingLists = S.shoppingLists.filter(l=>l.id!==id);
+  renderShoppingLists(S.shoppingLists, 'shopping-lists-body');
+}
+
+async function generateShoppingList() {
+  const planId = document.getElementById('gen-plan-select').value;
+  const name = document.getElementById('gen-list-name').value.trim();
+  const r = await API('/shopping-list/generate', { method:'POST', body: JSON.stringify({ mealPlanId: parseInt(planId), name: name||undefined }) });
+  closeModal('modal-generate-shopping');
+  if (r.success) { S.shoppingLists.unshift(r.list); loadShoppingLists(); }
+}
+
+async function generateListFromPlan(planId, planName) {
+  const r = await API('/shopping-list/generate', { method:'POST', body: JSON.stringify({ mealPlanId: planId }) });
+  if (r.success) { S.shoppingLists.unshift(r.list); nav('shopping-lists'); }
+}
+
+// Populate generate modal plan select
+document.getElementById('modal-generate-shopping').addEventListener('click', async () => {
+  if (!S.mealPlans.length) await loadMealPlans();
+  const sel = document.getElementById('gen-plan-select');
+  sel.innerHTML = S.mealPlans.length
+    ? S.mealPlans.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+    : '<option>No plans — create one first</option>';
+});
+
+// ── FAVOURITES ────────────────────────────────────────────────────────────────
+async function loadFavourites() {
+  const r = await API('/favourites');
+  S.favourites = r.favourites || [];
+  const grid = document.getElementById(S.role==='client' ? 'client-favs-grid' : 'pt-favs-grid');
+  if (!grid) return;
+  if (!S.favourites.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">❤️</div><div class="et">No favourites yet</div><div class="es">Tap the heart on meals and workouts to save them here.</div></div></div>`;
+    return;
+  }
+  grid.innerHTML = S.favourites.map(f => `
+    <div class="fav-card">
+      <div class="fav-heart" onclick="removeFav('${f.item_type}','${f.item_id}')">❤️</div>
+      <div class="fav-type">${f.item_type}</div>
+      <div class="fav-name">${f.item_data?.name || f.item_id}</div>
+    </div>`).join('');
+}
+
+async function toggleFav(itemType, itemId, itemData) {
+  const exists = S.favourites.find(f => f.item_type===itemType && f.item_id===String(itemId));
+  if (exists) {
+    await API('/favourites/'+itemType+'/'+itemId, { method:'DELETE' });
+    S.favourites = S.favourites.filter(f=>!(f.item_type===itemType && f.item_id===String(itemId)));
+  } else {
+    const r = await API('/favourites', { method:'POST', body: JSON.stringify({ itemType, itemId: String(itemId), itemData }) });
+    if (r.success && r.favourite) S.favourites.push(r.favourite);
+  }
+}
+async function removeFav(type, id) {
+  await API('/favourites/'+type+'/'+id, { method:'DELETE' });
+  S.favourites = S.favourites.filter(f=>!(f.item_type===type && f.item_id===id));
+  loadFavourites();
+}
+
+// ── CLIENT PORTAL ─────────────────────────────────────────────────────────────
+async function setupClientPortal() {
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('portal-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 💪';
+  const r = await API('/portal/me');
+  if (r.success) {
+    S.portalData = r;
+    if (r.pt) document.getElementById('portal-pt-name').textContent = 'Managed by ' + r.pt.name;
+    // Dashboard metrics
+    const todayMeals = (r.recentMeals||[]).filter(m => new Date(m.date).toDateString()===new Date().toDateString());
+    document.getElementById('pm-meals').textContent = todayMeals.length;
+    document.getElementById('pm-cals').textContent = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+    const weekWorkouts = (r.recentWorkouts||[]).filter(w => (Date.now()-new Date(w.date)) < 7*86400000);
+    document.getElementById('pm-workouts').textContent = weekWorkouts.length;
+    // Rough streak: count consecutive days with at least one meal log
+    document.getElementById('pm-streak').textContent = calcStreak(r.recentMeals||[]);
+    // Home plan cards
+    if (r.mealPlan) {
+      document.getElementById('home-mealplan').innerHTML = `<div class="portal-plan-name">${r.mealPlan.meal_plan_name||'Meal Plan'}</div><div class="portal-plan-meta">${r.mealPlan.total_calories||0} cal/day target</div>`;
+    }
+    if (r.workoutPlan) {
+      document.getElementById('home-workoutplan').innerHTML = `<div class="portal-plan-name">${r.workoutPlan.workout_plan_name||'Workout Plan'}</div>`;
+    }
+  }
+}
+
+function calcStreak(meals) {
+  if (!meals.length) return 0;
+  const days = new Set(meals.map(m => new Date(m.date).toDateString()));
+  let streak = 0, d = new Date();
+  while (days.has(d.toDateString())) { streak++; d.setDate(d.getDate()-1); }
+  return streak;
+}
+
+function renderPortalPlan() {
+  const el = document.getElementById('portal-plan-body');
+  if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
+  const { mealPlan, workoutPlan } = S.portalData;
+  let html = '';
+  if (mealPlan) {
+    html += `<div class="portal-plan"><div class="portal-plan-title">🥗 Meal Plan</div>
+      <div class="portal-plan-name">${mealPlan.meal_plan_name||'Meal Plan'}</div>
+      <div class="portal-plan-meta">${mealPlan.total_calories||0} calories/day target</div>
+      <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('portal-shopping')">🛒 View Shopping List</button></div>
+    </div>`;
+  } else html += '<div class="empty-state" style="background:#fff;border-radius:var(--radius);padding:24px"><div class="ei">🥗</div><div class="et">No meal plan assigned</div><div class="es">Your trainer will assign one soon.</div></div>';
+  if (workoutPlan) {
+    html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
+      <div class="portal-plan-name">${workoutPlan.workout_plan_name||'Workout Plan'}</div>
+    </div>`;
+  } else html += '<div class="empty-state" style="background:#fff;border-radius:var(--radius);padding:24px;margin-top:14px"><div class="ei">🏋️</div><div class="et">No workout plan assigned</div><div class="es">Your trainer will assign one soon.</div></div>';
+  el.innerHTML = html;
+}
+
+function renderPortalShopping() {
+  const el = document.getElementById('portal-shopping-body');
+  if (!S.portalData) { el.innerHTML = '<div style="text-align:center;padding:20px"><div class="loader"></div></div>'; return; }
+  const lists = S.portalData.shoppingLists || [];
+  renderShoppingLists(lists, 'portal-shopping-body');
+  // Patch items toggle to work from portal data
+}
+
+// ── MEAL LOGGING ──────────────────────────────────────────────────────────────
+function initMealDate() {
+  const el = document.getElementById('meals-date');
+  el.value = S.mealsDate;
+  updateMealDateLabel();
+}
+function updateMealDateLabel() {
+  const d = new Date(S.mealsDate);
+  const label = document.getElementById('meals-date-label');
+  label.textContent = d.toLocaleDateString('en-AU', {weekday:'long',day:'numeric',month:'long'});
+}
+async function loadTodayMeals() {
+  S.mealsDate = document.getElementById('meals-date')?.value || S.mealsDate;
+  updateMealDateLabel();
+  const r = await API('/meals/daily/' + S.user.id + '/' + S.mealsDate);
+  const meals = r.meals || {};
+  let totalCals = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0;
+  ['breakfast','lunch','dinner','snack'].forEach(type => {
+    const el = document.getElementById('log-'+type);
+    if (!el) return;
+    const items = meals[type] || [];
+    el.innerHTML = items.length ? items.map(item => {
+      totalCals += item.calories||0;
+      totalProtein += item.protein||0;
+      totalCarbs += item.carbs||0;
+      totalFat += item.fat||0;
+      const isFav = S.favourites.some(f=>f.item_type==='food'&&f.item_id===item.foodName);
+      return `<div class="food-item">
+        <div class="food-name">${item.foodName||item.food_name}</div>
+        <div><div class="food-cals">${item.calories} cal</div><div class="food-macro">P:${item.protein||0}g C:${item.carbs||0}g F:${item.fat||0}g</div></div>
+        <button class="fav-btn ${isFav?'active':''}" onclick="toggleFav('food','${item.foodName}',{name:'${item.foodName}',calories:${item.calories||0}});this.classList.toggle('active')">❤️</button>
+      </div>`;
+    }).join('') : '<div style="color:var(--text3);font-size:.75rem;padding:6px 0">Nothing logged yet</div>';
+  });
+  document.getElementById('meals-total-cals').textContent = totalCals;
+  document.getElementById('meals-protein').textContent = totalProtein.toFixed(0)+'g';
+  document.getElementById('meals-carbs').textContent = totalCarbs.toFixed(0)+'g';
+  document.getElementById('meals-fat').textContent = totalFat.toFixed(0)+'g';
+}
+
+async function logMealEntry() {
+  const body = {
+    userId: S.user.id,
+    date: new Date(S.mealsDate).toISOString(),
+    mealType: document.getElementById('lm-meal').value,
+    foodName: document.getElementById('lm-food').value.trim(),
+    calories: parseInt(document.getElementById('lm-cals').value)||0,
+    protein: parseFloat(document.getElementById('lm-protein').value)||0,
+    carbs: parseFloat(document.getElementById('lm-carbs').value)||0,
+    fat: parseFloat(document.getElementById('lm-fat').value)||0,
+    servingSize: document.getElementById('lm-serving').value.trim(),
+  };
+  if (!body.foodName) return;
+  await API('/meals/log', { method:'POST', body: JSON.stringify(body) });
+  closeModal('modal-log-meal');
+  document.getElementById('lm-food').value='';
+  document.getElementById('lm-cals').value='';
+  document.getElementById('lm-protein').value='';
+  document.getElementById('lm-carbs').value='';
+  document.getElementById('lm-fat').value='';
+  loadTodayMeals();
+}
+
+// ── WORKOUT LOG ───────────────────────────────────────────────────────────────
+async function loadWorkoutLog() {
+  const r = await API('/workouts/history/' + S.user.id);
+  const workouts = r.workouts || [];
+  const el = document.getElementById('workout-log-body');
+  if (!el) return;
+  el.innerHTML = workouts.length ? workouts.slice(0,20).map(w => `
+    <div class="workout-item">
+      <span class="tag tag-blue">${w.workout_type||w.workoutType}</span>
+      <div class="exercise-name">${w.notes||'Session'}</div>
+      <div class="exercise-detail">${w.duration||0}min · ${w.calories_burned||0} cal</div>
+      <div style="margin-left:auto;font-size:.72rem;color:var(--text3)">${timeAgo(w.date)}</div>
+      <button class="fav-btn" onclick="toggleFav('workout','${w.id}',{name:'${(w.workout_type||'workout').replace(/'/g,'')}'});this.classList.toggle('active')">❤️</button>
+    </div>`).join('') : '<div class="empty-state"><div class="ei">🏋️</div><div class="et">No workouts logged yet</div></div>';
+}
+
+async function logWorkoutEntry() {
+  const body = {
+    userId: S.user.id,
+    date: new Date().toISOString(),
+    workoutType: document.getElementById('lw-type').value.trim(),
+    duration: parseInt(document.getElementById('lw-duration').value)||0,
+    caloriesBurned: parseInt(document.getElementById('lw-cals').value)||0,
+    notes: document.getElementById('lw-notes').value.trim(),
+    exercises: [],
+  };
+  if (!body.workoutType) return;
+  await API('/workouts/log', { method:'POST', body: JSON.stringify(body) });
+  closeModal('modal-log-workout');
+  loadWorkoutLog();
+}
+
+// ── PROGRESS LOG ──────────────────────────────────────────────────────────────
+async function loadProgressLog() {
+  const r = await API('/progress/history/' + S.user.id);
+  const prog = r.progressLogs || [];
+  const el = document.getElementById('progress-log-body');
+  if (!el) return;
+  el.innerHTML = prog.length ? prog.slice(0,20).map(p => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
+      <span style="font-size:.75rem;color:var(--text3);min-width:80px">${new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</span>
+      ${p.weight?`<span class="tag tag-green">${p.weight}kg</span>`:''}
+      ${p.body_fat_percentage?`<span class="tag tag-amber">${p.body_fat_percentage}% BF</span>`:''}
+      ${p.measurements?.waist?`<span class="tag tag-blue">Waist: ${p.measurements.waist}cm</span>`:''}
+      ${p.notes?`<span style="font-size:.75rem;color:var(--text2);flex:1">${p.notes}</span>`:''}
+    </div>`).join('') : '<div class="empty-state"><div class="ei">📈</div><div class="et">No measurements yet</div><div class="es">Log your first measurement to start tracking progress.</div></div>';
+}
+
+async function logProgressEntry() {
+  const body = {
+    userId: S.user.id,
+    date: new Date().toISOString(),
+    weight: parseFloat(document.getElementById('lp-weight').value)||null,
+    bodyFatPercentage: parseFloat(document.getElementById('lp-bf').value)||null,
+    measurements: {
+      waist: parseFloat(document.getElementById('lp-waist').value)||null,
+      chest: parseFloat(document.getElementById('lp-chest').value)||null,
+    },
+    notes: document.getElementById('lp-notes').value.trim(),
+  };
+  await API('/progress/log', { method:'POST', body: JSON.stringify(body) });
+  closeModal('modal-log-progress');
+  loadProgressLog();
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+boot();
+</script>
 </body>
 </html>
