@@ -52,8 +52,16 @@ app.use(cors({
 }));
 // Serve only essential static files from public directory for security
 app.use(express.static('public', {
-  maxAge: '1d', // Cache static assets for 1 day
-  etag: true
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      // Never cache HTML — always serve fresh JS fixes
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else {
+      // Cache assets (images, fonts, css) for 1 day
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
 }));
 
 // Configure custom domain support
