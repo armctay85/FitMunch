@@ -308,6 +308,7 @@ router.post('/meals/log', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, error: 'Missing userId' });
     }
+    if (mealData.date) mealData.date = new Date(mealData.date);
     const meal = await logMeal(userId, mealData);
     res.json({ success: true, meal });
   } catch (error) {
@@ -334,6 +335,7 @@ router.post('/workouts/log', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, error: 'Missing userId' });
     }
+    if (workoutData.date) workoutData.date = new Date(workoutData.date);
     const workout = await logWorkout(userId, workoutData);
     res.json({ success: true, workout });
   } catch (error) {
@@ -360,6 +362,7 @@ router.post('/progress/log', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, error: 'Missing userId' });
     }
+    if (progressData.date) progressData.date = new Date(progressData.date);
     const progress = await logProgress(userId, progressData);
     res.json({ success: true, progress });
   } catch (error) {
@@ -676,6 +679,17 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
 });
 
 // GET /api/shopping-list — get all shopping lists for user
+router.post('/shopping-list', authMiddleware, async (req, res) => {
+  try {
+    const { name, items = [] } = req.body;
+    const result = await _pool.query(
+      `INSERT INTO shopping_lists (user_id, name, items, generated_from_plan_id) VALUES ($1, $2, $3, NULL) RETURNING *`,
+      [req.user.userId, name || 'My List', JSON.stringify(items)]
+    );
+    res.json({ success: true, list: result.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
