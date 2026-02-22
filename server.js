@@ -170,6 +170,10 @@ app.use('/api', apiRouter);
 const receiptScanner = require('./receipt-scanner');
 app.use('/api/receipt', receiptScanner);
 
+// AI Meal Planner
+const mealPlanner = require('./meal-planner');
+app.use('/api/meal-plan', mealPlanner);
+
 // Health check — used by Railway to verify the app is running
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'fitmunch' });

@@ -221,6 +221,34 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .ft-label{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px}
 .ft-sub{font-size:.68rem;color:var(--text3)}
 
+/* ── MEAL PLANNER ── */
+.diet-tag{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:.72rem;font-weight:600;cursor:pointer;color:var(--text2);transition:all .15s;-webkit-tap-highlight-color:transparent}
+.diet-tag.active{background:var(--green2);color:#fff;border-color:var(--green2)}
+.mp-day-tab{flex-shrink:0;padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:#fff;font-size:.75rem;font-weight:700;cursor:pointer;color:var(--text2);transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.mp-day-tab.active{background:var(--green2);color:#fff;border-color:var(--green2)}
+.meal-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.meal-type-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:4px}
+.meal-name{font-size:.88rem;font-weight:800;color:var(--text);margin-bottom:8px}
+.meal-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.meal-macro{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:4px}
+.meal-m-cal{background:#fef3c7;color:#92400e}
+.meal-m-p{background:#dbeafe;color:#1e40af}
+.meal-m-c{background:#f0fdf4;color:#14532d}
+.meal-m-f{background:#fdf4ff;color:#6b21a8}
+.meal-m-time{background:var(--bg2);color:var(--text3)}
+.meal-ings{font-size:.72rem;color:var(--text2);line-height:1.7}
+/* Shopping list */
+.sl-aisle-header{display:flex;align-items:center;gap:8px;padding:10px 0 6px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);border-bottom:1px solid var(--border);margin-bottom:4px}
+.sl-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bg2)}
+.sl-item input[type=checkbox]{accent-color:var(--green2);width:18px;height:18px;flex-shrink:0;cursor:pointer}
+.sl-item.checked .sl-item-name{text-decoration:line-through;color:var(--text3)}
+.sl-item-name{flex:1;font-size:.82rem;font-weight:600}
+.sl-item-qty{font-size:.72rem;color:var(--text3)}
+.sl-item-price{font-size:.78rem;font-weight:700;color:var(--green2);white-space:nowrap}
+.sl-item-links{display:flex;gap:4px}
+.sl-item-link{font-size:.65rem;padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;text-decoration:none;color:var(--text2);font-weight:600;white-space:nowrap}
+.sl-item-link:hover{border-color:var(--green2);color:var(--green2)}
+
 /* ── MOBILE BOTTOM NAV ── */
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:100;padding:0 4px env(safe-area-inset-bottom,0)}
 .mob-nav-items{display:flex;justify-content:space-around;align-items:stretch}
@@ -421,16 +449,105 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
-<!-- ══ PT: MEAL PLANS ══ -->
+<!-- ══ MEAL PLANS — AI-POWERED ══ -->
 <div class="view" id="view-meal-plans">
   <div class="view-header">
-    <div><div class="view-title">Meal Plans</div><div class="view-sub">Create plans and assign them to clients.</div></div>
-    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-mealplan')">+ New Plan</button></div>
+    <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">AI builds your weekly plan in seconds. You eat. Simple.</div></div>
   </div>
   <div class="scroll-body">
-    <div class="plan-grid" id="meal-plans-grid">
-      <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
+
+    <!-- AI Generator Card -->
+    <div class="card" id="mp-generator" style="margin-bottom:16px;border:2px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#fff)">
+      <div class="card-body" style="padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="font-size:28px">🤖</span>
+          <div>
+            <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly meal plan</div>
+            <div style="font-size:.75rem;color:#166534">Claude AI · takes ~15 seconds · real Woolies/Coles ingredients</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-field">
+            <label class="form-label">My goal</label>
+            <select id="mp-goal-sel" class="form-select">
+              <option value="lose_weight">🔥 Lose weight</option>
+              <option value="muscle_gain">💪 Build muscle</option>
+              <option value="maintain">⚖️ Maintain</option>
+              <option value="general_fitness">🏃 General fitness</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Days to plan</label>
+            <select id="mp-days-sel" class="form-select">
+              <option value="5">5 days (Mon–Fri)</option>
+              <option value="7" selected>7 days (full week)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="form-field">
+            <label class="form-label">Daily calories</label>
+            <input type="number" id="mp-cals-sel" class="form-input" placeholder="2000" min="1200" max="5000"/>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Protein (g/day)</label>
+            <input type="number" id="mp-prot-sel" class="form-input" placeholder="150" min="50" max="400"/>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Weekly budget ($)</label>
+            <input type="number" id="mp-budget-sel" class="form-input" placeholder="120" min="50" max="300"/>
+          </div>
+        </div>
+        <div class="form-field" style="margin-bottom:16px">
+          <label class="form-label">Dietary requirements <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="dietary-tags">
+            <button class="diet-tag" data-val="vegetarian" onclick="toggleDietTag(this)">🥗 Vegetarian</button>
+            <button class="diet-tag" data-val="gluten free" onclick="toggleDietTag(this)">🌾 Gluten free</button>
+            <button class="diet-tag" data-val="dairy free" onclick="toggleDietTag(this)">🥛 Dairy free</button>
+            <button class="diet-tag" data-val="high protein" onclick="toggleDietTag(this)">💪 High protein</button>
+            <button class="diet-tag" data-val="low carb" onclick="toggleDietTag(this)">⬇️ Low carb</button>
+            <button class="diet-tag" data-val="nut free" onclick="toggleDietTag(this)">🥜 Nut free</button>
+          </div>
+        </div>
+        <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="mp-gen-btn" onclick="generateMealPlan()">
+          ✨ Generate my meal plan →
+        </button>
+      </div>
     </div>
+
+    <!-- Loading state -->
+    <div id="mp-loading" style="display:none;text-align:center;padding:48px 20px">
+      <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
+      <div style="font-size:.9rem;font-weight:700;color:var(--text)">Claude is writing your meal plan…</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and budget. Usually 10–20 seconds.</div>
+    </div>
+
+    <!-- Plan output -->
+    <div id="mp-plan-output" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:.92rem;font-weight:800" id="mp-plan-name"></div>
+          <div style="font-size:.75rem;color:var(--text3)" id="mp-plan-summary"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost2 btn-sm" onclick="generateMealPlan()">↻ Regenerate</button>
+          <button class="btn btn-green btn-sm" onclick="savePlanAndBuildList()">🛒 Build shopping list →</button>
+        </div>
+      </div>
+      <!-- Weekly averages -->
+      <div class="metrics-row" style="margin-bottom:14px" id="mp-plan-metrics"></div>
+      <!-- Day tabs -->
+      <div id="mp-day-tabs" style="display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;flex-wrap:nowrap"></div>
+      <!-- Day content -->
+      <div id="mp-day-content"></div>
+    </div>
+
+    <!-- Saved plans -->
+    <div id="mp-saved-section" style="display:none;margin-top:20px">
+      <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">Saved Plans</div>
+      <div class="plan-grid" id="meal-plans-grid"></div>
+    </div>
+
   </div>
 </div>
 
@@ -450,11 +567,45 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
   <div class="view-header">
-    <div><div class="view-title">Shopping Lists</div><div class="view-sub">Auto-generated from meal plans.</div></div>
-    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-generate-shopping')">Generate from Plan</button></div>
+    <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles.</div></div>
+    <div class="view-actions">
+      <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
+      <button class="btn btn-green btn-sm" onclick="openModal('modal-manual-list')">+ Manual list</button>
+    </div>
   </div>
-  <div class="scroll-body" id="shopping-lists-body">
-    <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+  <div class="scroll-body">
+
+    <!-- Active AI list (shown after generation) -->
+    <div id="sl-ai-list" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:.88rem;font-weight:800" id="sl-ai-name"></div>
+          <div id="sl-ai-cost-badge" style="display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:3px 10px;font-size:.72rem;margin-top:4px">
+            <span style="color:#14532d;font-weight:700">Est. total: </span><span style="color:var(--green2);font-weight:900" id="sl-ai-total">$0</span>
+            <span style="color:var(--text3)">|</span>
+            <span style="color:var(--text3)" id="sl-ai-remaining"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <a id="sl-woolies-link" href="https://www.woolworths.com.au" target="_blank" style="text-decoration:none">
+            <button class="btn btn-ghost2 btn-sm">🟢 Shop Woolies</button>
+          </a>
+          <a id="sl-coles-link" href="https://www.coles.com.au" target="_blank" style="text-decoration:none">
+            <button class="btn btn-ghost2 btn-sm">🔴 Shop Coles</button>
+          </a>
+          <button class="btn btn-green btn-sm" onclick="saveAiList()">💾 Save list</button>
+        </div>
+      </div>
+      <div id="sl-ai-aisles"></div>
+    </div>
+
+    <!-- Saved lists -->
+    <div id="sl-saved-section">
+      <div id="shopping-lists-body">
+        <div style="padding:20px;text-align:center"><div class="loader"></div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -832,6 +983,21 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div class="modal-actions">
       <button class="btn btn-ghost2" onclick="closeModal('modal-log-progress')">Cancel</button>
       <button class="btn btn-green" onclick="logProgressEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL SHOPPING LIST MODAL -->
+<div class="modal-overlay" id="modal-manual-list" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">New Shopping List<button class="modal-close" onclick="closeModal('modal-manual-list')">✕</button></div>
+    <div class="form-field"><label class="form-label">List name</label><input class="form-input" id="manual-list-name" placeholder="e.g. Woolies Sunday run"/></div>
+    <div class="form-field" style="margin-top:10px"><label class="form-label">Items (one per line)</label>
+      <textarea class="form-input" id="manual-list-items" rows="6" placeholder="Chicken breast 1kg&#10;Oats 750g&#10;Greek yoghurt&#10;Broccoli 2x&#10;Eggs dozen"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-manual-list')">Cancel</button>
+      <button class="btn btn-green" onclick="saveManualList()">Create list</button>
     </div>
   </div>
 </div>
@@ -1246,25 +1412,52 @@ function copyInvite() {
 
 // ── MEAL PLANS ────────────────────────────────────────────────────────────────
 async function loadMealPlans() {
+  // Pre-fill generator from saved goals
+  if (S.goals) {
+    const gc = document.getElementById('mp-cals-sel');
+    const gp = document.getElementById('mp-prot-sel');
+    const gg = document.getElementById('mp-goal-sel');
+    if (gc && !gc.value) gc.value = S.goals.targetCalories || '';
+    if (gp && !gp.value) gp.value = S.goals.targetProtein || '';
+    if (gg && S.goals.fitnessGoal) gg.value = S.goals.fitnessGoal;
+  }
   const r = await API('/meal-plans');
   S.mealPlans = r.plans || [];
   const grid = document.getElementById('meal-plans-grid');
+  const section = document.getElementById('mp-saved-section');
   if (!grid) return;
   if (!S.mealPlans.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plans yet</div><div class="es">Create your first plan and assign it to a client.</div></div></div>`;
+    if (section) section.style.display = 'none';
     return;
   }
-  grid.innerHTML = S.mealPlans.map(p => `
-    <div class="plan-card">
+  if (section) section.style.display = '';
+  grid.innerHTML = S.mealPlans.map(p => {
+    const goalLabel = {muscle_gain:'💪 Build muscle',lose_weight:'🔥 Lose weight',maintain:'⚖️ Maintain',general_fitness:'🏃 Fitness'}[p.goal_type] || '🥗';
+    return `<div class="plan-card">
       <div class="plan-card-name">${p.name}</div>
-      <div class="plan-card-meta">${p.goal_type||'general'} · ${p.total_calories||0} cal/day</div>
-      ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${p.description}</div>` : ''}
+      <div class="plan-card-meta">${goalLabel} · ${p.total_calories||'—'} cal/day</div>
+      ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${p.description}</div>` : ''}
       <div class="plan-card-footer">
-        <span class="tag tag-green">Meal</span>
-        <button class="btn btn-ghost2 btn-sm" style="margin-left:auto" onclick="generateListFromPlan(${p.id})">🛒 Shopping List</button>
+        <span class="tag tag-green">Saved</span>
+        <button class="btn btn-ghost2 btn-sm" style="margin-left:auto" onclick="buildListFromSaved(${p.id})">🛒 Shop list</button>
         <button class="btn btn-red btn-sm" onclick="deleteMealPlan(${p.id}, event)">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+// Build shopping list from a saved plan (that has meals stored as JSON)
+async function buildListFromSaved(planId) {
+  const plan = S.mealPlans.find(p => p.id === planId);
+  if (!plan) return;
+  // If meals array is stored as JSON days structure, use it
+  const meals = plan.meals;
+  if (!meals || !Array.isArray(meals) || !meals[0]?.meals) {
+    toast('This plan has no meal data yet — use AI generate to create a full plan', 'warn');
+    return;
+  }
+  const planObj = { planName: plan.name, days: meals };
+  await buildAiShoppingList(planObj);
 }
 
 async function saveMealPlan() {
@@ -1866,6 +2059,202 @@ function renderGoalTargets() {
     </div>
   </div>`;
   el.style.display = '';
+}
+
+// ── AI MEAL PLANNER ───────────────────────────────────────────────────────────
+let S_activePlan = null;
+let S_activeShoppingList = null;
+
+function toggleDietTag(btn) { btn.classList.toggle('active'); }
+
+async function generateMealPlan() {
+  const goal   = document.getElementById('mp-goal-sel').value;
+  const days   = parseInt(document.getElementById('mp-days-sel').value) || 7;
+  const cals   = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
+  const prot   = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
+  const budget = parseInt(document.getElementById('mp-budget-sel').value) || 120;
+  const dietary = [...document.querySelectorAll('.diet-tag.active')].map(b => b.dataset.val);
+
+  // Pre-fill from goals if blank
+  if (!document.getElementById('mp-cals-sel').value && S.goals?.targetCalories) document.getElementById('mp-cals-sel').value = S.goals.targetCalories;
+  if (!document.getElementById('mp-prot-sel').value && S.goals?.targetProtein) document.getElementById('mp-prot-sel').value = S.goals.targetProtein;
+  if (!document.getElementById('mp-goal-sel').value && S.goals?.fitnessGoal) document.getElementById('mp-goal-sel').value = S.goals.fitnessGoal;
+
+  document.getElementById('mp-loading').style.display = '';
+  document.getElementById('mp-plan-output').style.display = 'none';
+  document.getElementById('mp-gen-btn').disabled = true;
+
+  try {
+    const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, budget, dietary }) });
+    if (!r.success) throw new Error(r.error || 'Generation failed');
+    S_activePlan = r.plan;
+    renderMealPlan(r.plan);
+    toast('Meal plan ready! 🎉');
+  } catch(err) {
+    toast('Could not generate plan: ' + err.message, 'error');
+  } finally {
+    document.getElementById('mp-loading').style.display = 'none';
+    document.getElementById('mp-gen-btn').disabled = false;
+  }
+}
+
+function renderMealPlan(plan) {
+  document.getElementById('mp-plan-name').textContent = plan.planName || '7-Day Meal Plan';
+  document.getElementById('mp-plan-summary').textContent = plan.summary || '';
+
+  // Metrics bar
+  const metricsEl = document.getElementById('mp-plan-metrics');
+  metricsEl.innerHTML = `
+    <div class="metric"><div class="metric-label">Avg Calories</div><div class="metric-value mv-green">${plan.avgDailyCalories||'—'}</div><div class="metric-sub">per day</div></div>
+    <div class="metric"><div class="metric-label">Avg Protein</div><div class="metric-value mv-blue">${plan.avgDailyProtein||'—'}g</div><div class="metric-sub">per day</div></div>
+    <div class="metric"><div class="metric-label">Days Planned</div><div class="metric-value mv-purple">${plan.days.length}</div><div class="metric-sub">days</div></div>
+    <div class="metric"><div class="metric-label">Est. Budget</div><div class="metric-value mv-amber">$${plan.weeklyBudgetEst||'?'}</div><div class="metric-sub">per week</div></div>`;
+
+  // Day tabs
+  const tabsEl = document.getElementById('mp-day-tabs');
+  tabsEl.innerHTML = plan.days.map((d,i) =>
+    `<button class="mp-day-tab${i===0?' active':''}" onclick="showPlanDay(${i},this)">${d.day.substring(0,3)}</button>`
+  ).join('');
+
+  // Show first day
+  renderPlanDay(plan.days[0]);
+
+  document.getElementById('mp-plan-output').style.display = '';
+  document.getElementById('mp-saved-section').style.display = '';
+}
+
+function showPlanDay(idx, btn) {
+  document.querySelectorAll('.mp-day-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (S_activePlan?.days[idx]) renderPlanDay(S_activePlan.days[idx]);
+}
+
+const MEAL_COLORS = { breakfast:'#fef3c7', lunch:'#dbeafe', dinner:'#f0fdf4', snack:'#fdf4ff' };
+const MEAL_LABELS = { breakfast:'🌅 Breakfast', lunch:'☀️ Lunch', dinner:'🌙 Dinner', snack:'🍎 Snack' };
+
+function renderPlanDay(day) {
+  const el = document.getElementById('mp-day-content');
+  const t = day.dailyTotals || {};
+  let html = `<div style="background:linear-gradient(135deg,#0a1a0a,#0d2d1a);border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap">
+    <div style="color:#86efac;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;width:100%">${day.day} — Daily totals</div>
+    <div style="color:#fff;font-weight:900;font-size:.95rem">${t.calories||0} <span style="font-size:.65rem;color:#86efac;font-weight:400">cal</span></div>
+    <div style="color:#fff;font-weight:900;font-size:.95rem">${t.protein||0}g <span style="font-size:.65rem;color:#86efac;font-weight:400">protein</span></div>
+    <div style="color:#fff;font-weight:900;font-size:.95rem">${t.carbs||0}g <span style="font-size:.65rem;color:#86efac;font-weight:400">carbs</span></div>
+    <div style="color:#fff;font-weight:900;font-size:.95rem">${t.fat||0}g <span style="font-size:.65rem;color:#86efac;font-weight:400">fat</span></div>
+  </div>`;
+  for (const type of ['breakfast','lunch','dinner','snack']) {
+    const meal = day.meals?.[type];
+    if (!meal) continue;
+    const ings = (meal.ingredients||[]).map(i => `${i.item}${i.qty?' ('+i.qty+')':''}`).join(' · ');
+    html += `<div class="meal-card">
+      <div class="meal-type-label">${MEAL_LABELS[type]||type}</div>
+      <div class="meal-name">${meal.name}</div>
+      <div class="meal-meta">
+        <span class="meal-macro meal-m-cal">🔥 ${meal.calories||0} cal</span>
+        <span class="meal-macro meal-m-p">P: ${meal.protein||0}g</span>
+        <span class="meal-macro meal-m-c">C: ${meal.carbs||0}g</span>
+        <span class="meal-macro meal-m-f">F: ${meal.fat||0}g</span>
+        ${meal.prepMins?`<span class="meal-macro meal-m-time">⏱ ${meal.prepMins} min</span>`:''}
+      </div>
+      ${ings?`<div class="meal-ings">🛒 ${ings}</div>`:''}
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+async function savePlanAndBuildList() {
+  if (!S_activePlan) return;
+  document.getElementById('mp-gen-btn').disabled = true;
+  try {
+    // Save plan to DB
+    const saved = await API('/meal-plans', { method:'POST', body: JSON.stringify({
+      name: S_activePlan.planName,
+      description: S_activePlan.summary,
+      goalType: S_activePlan.goal || 'general_fitness',
+      totalCalories: S_activePlan.avgDailyCalories || 0,
+      meals: S_activePlan.days,
+    })});
+    if (saved.success) toast('Plan saved ✓');
+    // Build shopping list
+    await buildAiShoppingList(S_activePlan);
+  } catch(e) { toast('Error: '+e.message,'error'); }
+  finally { document.getElementById('mp-gen-btn').disabled = false; }
+}
+
+async function buildAiShoppingList(plan) {
+  toast('Building your shopping list…','success');
+  const r = await API('/meal-plan/shopping', { method:'POST', body: JSON.stringify({ plan }) });
+  if (!r.success) { toast('Could not build list: '+(r.error||'error'),'error'); return; }
+  S_activeShoppingList = r.list;
+  nav('shopping-lists');
+  renderAiShoppingList(r.list);
+}
+
+function renderAiShoppingList(list) {
+  document.getElementById('sl-ai-name').textContent = list.name || 'AI Shopping List';
+  document.getElementById('sl-ai-total').textContent = '$' + list.totalEstimated.toFixed(2);
+  document.getElementById('sl-ai-remaining').textContent = list.itemCount + ' items';
+
+  const aislesEl = document.getElementById('sl-ai-aisles');
+  let html = '';
+  for (const aisle of (list.aisleOrder || Object.keys(list.byAisle))) {
+    const items = list.byAisle[aisle] || [];
+    if (!items.length) continue;
+    const icon = list.aisleIcons?.[aisle] || '📦';
+    html += `<div class="sl-aisle-header">${icon} ${aisle} <span style="margin-left:auto;font-weight:400">${items.length} items</span></div>`;
+    items.forEach((item, idx) => {
+      html += `<div class="sl-item" id="slitem-${aisle}-${idx}">
+        <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}',${item.estimatedPrice})"/>
+        <span class="sl-item-name">${item.name}</span>
+        <span class="sl-item-qty">${item.qty}</span>
+        <span class="sl-item-price">~$${item.estimatedPrice.toFixed(2)}</span>
+        <div class="sl-item-links">
+          <a class="sl-item-link" href="${item.wooliesUrl}" target="_blank">🟢</a>
+          <a class="sl-item-link" href="${item.colesUrl}" target="_blank">🔴</a>
+        </div>
+      </div>`;
+    });
+  }
+  aislesEl.innerHTML = html;
+  document.getElementById('sl-ai-list').style.display = '';
+  document.getElementById('sl-sub').textContent = 'Est. $' + list.totalEstimated.toFixed(2) + ' · ' + list.itemCount + ' items · tap items you already have';
+}
+
+let slCheckedTotal = 0;
+function slItemCheck(cb, rowId, price) {
+  const row = document.getElementById(rowId);
+  if (cb.checked) {
+    row.classList.add('checked');
+    slCheckedTotal += price;
+  } else {
+    row.classList.remove('checked');
+    slCheckedTotal -= price;
+  }
+  const list = S_activeShoppingList;
+  if (!list) return;
+  const remaining = Math.max(0, list.totalEstimated - slCheckedTotal);
+  document.getElementById('sl-ai-remaining').textContent = 'Still need: ~$' + remaining.toFixed(2);
+}
+
+async function saveAiList() {
+  if (!S_activeShoppingList) return;
+  const r = await API('/shopping-list', { method:'POST', body: JSON.stringify({
+    name: S_activeShoppingList.name,
+    items: S_activeShoppingList.items,
+  })});
+  if (r.success) { toast('List saved ✓'); loadShoppingLists(); }
+  else toast('Could not save', 'error');
+}
+
+async function saveManualList() {
+  const name = document.getElementById('manual-list-name').value.trim() || 'My List';
+  const raw  = document.getElementById('manual-list-items').value.trim();
+  if (!raw) { toast('Add at least one item', 'warn'); return; }
+  const items = raw.split('\n').filter(Boolean).map(line => ({ name: line.trim(), qty:'1', category:'Other', checked: false }));
+  const r = await API('/shopping-list', { method:'POST', body: JSON.stringify({ name, items }) });
+  closeModal('modal-manual-list');
+  if (r.success) { toast('List created ✓'); S.shoppingLists.unshift(r.list); loadShoppingLists(); }
+  else toast('Could not save', 'error');
 }
 
 // ── SCAN CARD DOWNLOAD ────────────────────────────────────────────────────────
