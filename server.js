@@ -78,26 +78,29 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Rate limiting for API endpoints
 const rateLimit = require('express-rate-limit');
+// Railway proxies all traffic through one IP — must use X-Forwarded-For to get real client IP
+const realIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  windowMs: 15 * 60 * 1000,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false }, // Disable trust proxy validation for Replit
+  keyGenerator: realIp,
 });
 
 app.use('/api/', apiLimiter);
 
-// Stricter rate limit for authentication endpoints
+// Strict limiter ONLY on login + register — NOT on /me (called on every page load)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, // Only 5 attempts per 15 minutes
-  message: 'Too many authentication attempts, please try again later.',
-  validate: { trustProxy: false }, // Disable trust proxy validation for Replit
+  max: 20, // 20 attempts per 15 min per real IP
+  message: 'Too many login attempts, please try again in 15 minutes.',
+  keyGenerator: realIp,
 });
 
-app.use('/api/auth/', authLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // ── STRIPE WEBHOOK (raw body BEFORE json parser) ──────────────────────────────
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
