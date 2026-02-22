@@ -8,6 +8,19 @@
 const express = require('express');
 const multer = require('multer');
 const https = require('https');
+const jwt = require('jsonwebtoken');
+
+// ── AUTH GUARD ────────────────────────────────────────────────────────────────
+function requireAuth(req, res, next) {
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Unauthorised' });
+  try {
+    req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production');
+    next();
+  } catch {
+    return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+  }
+}
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -159,7 +172,7 @@ Rules:
 }
 
 // ── ROUTE ─────────────────────────────────────────────────────────────────────
-router.post('/scan', upload.single('receipt'), async (req, res) => {
+router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => {
   try {
     let imageBase64, mimeType;
 

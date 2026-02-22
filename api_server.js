@@ -276,9 +276,24 @@ class ApiServer {
 // Create and export a router instance for use as middleware
 const router = express.Router();
 
+// ── OWNERSHIP CHECK HELPER ────────────────────────────────────────────────────
+// Allows access if: requester is the user themselves, OR requester is a PT with that client
+async function canAccessUser(requesterId, targetUserId) {
+  if (requesterId === targetUserId) return true;
+  // Check if requester is a PT with targetUserId as their client
+  const r = await _pool.query(
+    'SELECT 1 FROM pt_clients WHERE pt_id=$1 AND client_id=$2 AND status=$3',
+    [requesterId, targetUserId, 'active']
+  );
+  return r.rows.length > 0;
+}
+
 // User Profile API routes
-router.get('/user/profile/:userId', async (req, res) => {
+router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
   try {
+    if (!(await canAccessUser(req.user.userId, req.params.userId))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
     const profile = await getProfile(req.params.userId);
     res.json({ success: true, profile });
   } catch (error) {
@@ -287,13 +302,11 @@ router.get('/user/profile/:userId', async (req, res) => {
   }
 });
 
-router.post('/user/profile', async (req, res) => {
+router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
-    const { userId, ...profileData } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'Missing userId' });
-    }
-    await createOrUpdateProfile(userId, profileData);
+    const profileData = { ...req.body };
+    delete profileData.userId; // ignore body userId — use token
+    await createOrUpdateProfile(req.user.userId, profileData);
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving profile:', error);
@@ -302,14 +315,12 @@ router.post('/user/profile', async (req, res) => {
 });
 
 // Meal Logging API routes
-router.post('/meals/log', async (req, res) => {
+router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
-    const { userId, ...mealData } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'Missing userId' });
-    }
+    const mealData = { ...req.body };
+    delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
-    const meal = await logMeal(userId, mealData);
+    const meal = await logMeal(req.user.userId, mealData);
     res.json({ success: true, meal });
   } catch (error) {
     console.error('Error logging meal:', error);
@@ -317,10 +328,12 @@ router.post('/meals/log', async (req, res) => {
   }
 });
 
-router.get('/meals/daily/:userId/:date', async (req, res) => {
+router.get('/meals/daily/:userId/:date', authMiddleware, async (req, res) => {
   try {
-    const { userId, date } = req.params;
-    const meals = await getMealLogsByDate(userId, new Date(date));
+    if (!(await canAccessUser(req.user.userId, req.params.userId))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const meals = await getMealLogsByDate(req.params.userId, new Date(req.params.date));
     res.json({ success: true, meals });
   } catch (error) {
     console.error('Error fetching daily meals:', error);
@@ -329,14 +342,12 @@ router.get('/meals/daily/:userId/:date', async (req, res) => {
 });
 
 // Workout Logging API routes
-router.post('/workouts/log', async (req, res) => {
+router.post('/workouts/log', authMiddleware, async (req, res) => {
   try {
-    const { userId, ...workoutData } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'Missing userId' });
-    }
+    const workoutData = { ...req.body };
+    delete workoutData.userId; // ignore body userId — use token
     if (workoutData.date) workoutData.date = new Date(workoutData.date);
-    const workout = await logWorkout(userId, workoutData);
+    const workout = await logWorkout(req.user.userId, workoutData);
     res.json({ success: true, workout });
   } catch (error) {
     console.error('Error logging workout:', error);
@@ -344,8 +355,11 @@ router.post('/workouts/log', async (req, res) => {
   }
 });
 
-router.get('/workouts/history/:userId', async (req, res) => {
+router.get('/workouts/history/:userId', authMiddleware, async (req, res) => {
   try {
+    if (!(await canAccessUser(req.user.userId, req.params.userId))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
     const limit = parseInt(req.query.limit) || 30;
     const workouts = await getRecentWorkouts(req.params.userId, limit);
     res.json({ success: true, workouts });
@@ -356,14 +370,12 @@ router.get('/workouts/history/:userId', async (req, res) => {
 });
 
 // Progress Tracking API routes
-router.post('/progress/log', async (req, res) => {
+router.post('/progress/log', authMiddleware, async (req, res) => {
   try {
-    const { userId, ...progressData } = req.body;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'Missing userId' });
-    }
+    const progressData = { ...req.body };
+    delete progressData.userId; // ignore body userId — use token
     if (progressData.date) progressData.date = new Date(progressData.date);
-    const progress = await logProgress(userId, progressData);
+    const progress = await logProgress(req.user.userId, progressData);
     res.json({ success: true, progress });
   } catch (error) {
     console.error('Error logging progress:', error);
@@ -371,8 +383,11 @@ router.post('/progress/log', async (req, res) => {
   }
 });
 
-router.get('/progress/history/:userId', async (req, res) => {
+router.get('/progress/history/:userId', authMiddleware, async (req, res) => {
   try {
+    if (!(await canAccessUser(req.user.userId, req.params.userId))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
     const limit = parseInt(req.query.limit) || 30;
     const history = await getProgressHistory(req.params.userId, limit);
     res.json({ success: true, history });

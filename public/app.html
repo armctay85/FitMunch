@@ -1387,6 +1387,12 @@ async function loadFavourites() {
     </div>`).join('');
 }
 
+function favFromBtn(btn) {
+  const type = btn.dataset.favType, id = btn.dataset.favId, name = btn.dataset.favName;
+  toggleFav(type, id, { name });
+  btn.classList.toggle('active');
+}
+
 async function toggleFav(itemType, itemId, itemData) {
   const exists = S.favourites.find(f => f.item_type===itemType && f.item_id===String(itemId));
   if (exists) {
@@ -1543,7 +1549,7 @@ async function loadWorkoutLog() {
       <div class="exercise-name">${w.notes||'Session'}</div>
       <div class="exercise-detail">${w.duration||0}min · ${w.calories_burned||0} cal</div>
       <div style="margin-left:auto;font-size:.72rem;color:var(--text3)">${timeAgo(w.date)}</div>
-      <button class="fav-btn" onclick="toggleFav('workout','${w.id}',{name:'${(w.workout_type||'workout').replace(/'/g,'')}'});this.classList.toggle('active')">❤️</button>
+      <button class="fav-btn" data-fav-type="workout" data-fav-id="${w.id}" data-fav-name="${(w.workout_type||'workout').replace(/['"<>&]/g,'')}" onclick="favFromBtn(this)">❤️</button>
     </div>`).join('') : '<div class="empty-state"><div class="ei">🏋️</div><div class="et">No workouts logged yet</div></div>';
 }
 
