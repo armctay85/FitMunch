@@ -25,8 +25,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;
 }
 .nav-logo{display:flex;align-items:center;gap:8px;text-decoration:none;margin-right:8px}
-.logo-m{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center}
-.logo-m svg{width:14px;height:14px}
+.logo-m{width:28px;height:28px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.logo-m svg{width:28px;height:28px;display:block}
 .logo-w{font-size:1rem;font-weight:900;color:var(--text);letter-spacing:-.03em}
 .logo-w span{color:var(--green2)}
 .nav-spacer{flex:1}
@@ -221,7 +221,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 <!-- TOP NAV -->
 <nav class="topnav">
   <a href="/" class="nav-logo">
-    <div class="logo-m"><svg viewBox="0 0 20 20" fill="none"><path d="M4 14C4 14 5 10 10 10C15 10 16 6 16 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="5" r="2.5" fill="white"/></svg></div>
+    <div class="logo-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="alb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="albr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="ala" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#alb)"/><circle cx="256" cy="128" r="82" fill="url(#albr)"/><circle cx="175" cy="168" r="68" fill="url(#albr)"/><circle cx="337" cy="168" r="68" fill="url(#albr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#albr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#ala)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#ala)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#alb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#alb)"/></svg></div>
     <span class="logo-w">Fit<span>Munch</span></span>
   </a>
   <div class="nav-spacer"></div>

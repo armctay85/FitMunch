@@ -23,8 +23,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* ── NAV ── */
 nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;gap:16px}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.logo-mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(22,163,74,.25);flex-shrink:0}
-.logo-mark svg{width:18px;height:18px}
+.logo-mark{width:34px;height:34px;border-radius:9px;overflow:hidden;box-shadow:0 2px 8px rgba(22,163,74,.25);flex-shrink:0;display:block}
+.logo-mark svg{width:34px;height:34px;display:block}
 .logo-word{font-size:1.1rem;font-weight:900;color:var(--text);letter-spacing:-.03em}
 .logo-word span{color:var(--green2)}
 .nav-links{display:flex;gap:4px;margin-left:16px}
@@ -228,7 +228,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
 <nav>
   <a href="/" class="nav-logo">
     <div class="logo-mark">
-      <svg viewBox="0 0 20 20" fill="none"><path d="M4 14C4 14 5 10 10 10C15 10 16 6 16 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="5" r="2.5" fill="white" opacity=".9"/><path d="M6 17L8 12L12 12L14 17" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="nb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="nbr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="na" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#nb)"/><circle cx="256" cy="128" r="82" fill="url(#nbr)"/><circle cx="175" cy="168" r="68" fill="url(#nbr)"/><circle cx="337" cy="168" r="68" fill="url(#nbr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#nbr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#na)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#na)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#nb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#nb)"/></svg>
     </div>
     <span class="logo-word">Fit<span>Munch</span></span>
   </a>
@@ -546,7 +546,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
       <div class="footer-brand">
         <div class="f-logo">
           <div class="logo-mark" style="width:26px;height:26px">
-            <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px"><path d="M4 14C4 14 5 10 10 10C15 10 16 6 16 6" stroke="white" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="5" r="2.5" fill="white"/></svg>
+            <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="width:26px;height:26px"><defs><linearGradient id="fb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="fbr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="fa" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#fb)"/><circle cx="256" cy="128" r="82" fill="url(#fbr)"/><circle cx="175" cy="168" r="68" fill="url(#fbr)"/><circle cx="337" cy="168" r="68" fill="url(#fbr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#fbr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#fa)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#fa)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#fb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#fb)"/></svg>
           </div>
           <span style="font-size:.95rem;font-weight:900;color:#f1f5f9;letter-spacing:-.03em">Fit<span style="color:var(--green)">Munch</span></span>
         </div>
