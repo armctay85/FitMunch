@@ -220,6 +220,31 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .ft-icon{font-size:22px;margin-bottom:6px}
 .ft-label{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px}
 .ft-sub{font-size:.68rem;color:var(--text3)}
+
+/* ── MOBILE BOTTOM NAV ── */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:100;padding:0 4px env(safe-area-inset-bottom,0)}
+.mob-nav-items{display:flex;justify-content:space-around;align-items:stretch}
+.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px 10px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:.58rem;font-weight:600;gap:3px;min-height:56px;-webkit-tap-highlight-color:transparent;border-radius:0}
+.mob-nav-btn .mn-icon{font-size:20px;line-height:1}
+.mob-nav-btn.active{color:var(--green2)}
+.mob-nav-more{position:fixed;bottom:56px;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:10px 16px 12px;z-index:99;display:none;flex-wrap:wrap;gap:8px}
+.mob-nav-more.open{display:flex}
+.mob-more-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:.8rem;font-weight:600;color:var(--text);flex:1;min-width:140px;-webkit-tap-highlight-color:transparent}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 767px) {
+  .sidebar{display:none !important}
+  .mobile-nav{display:block}
+  .shell{padding-bottom:56px}
+  .scroll-body{padding:12px 14px 20px}
+  .view-header{padding:12px 14px 0;flex-direction:column;align-items:flex-start;gap:8px}
+  /* 2-col feat tiles on mobile */
+  #view-dashboard .feat-tile-grid{grid-template-columns:repeat(2,1fr) !important}
+  /* Metrics: 2-col */
+  .metrics-row{grid-template-columns:repeat(2,1fr) !important}
+  /* Client detail back button visibility */
+  .topnav{padding:0 12px}
+}
 </style>
 </head>
 <body>
@@ -287,7 +312,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     </div>
 
     <!-- Feature tiles -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+    <div class="feat-tile-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
       <div class="feat-tile" onclick="nav('receipt-scanner')">
         <div class="ft-icon">📸</div>
         <div class="ft-label">Receipt Scanner</div>
@@ -798,6 +823,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
+<!-- MOBILE BOTTOM NAV -->
+<div class="mobile-nav" id="mobile-nav">
+  <div class="mob-nav-items" id="mob-nav-items"><!-- injected by JS --></div>
+</div>
+<div class="mob-nav-more" id="mob-nav-more"><!-- injected by JS --></div>
+
 <script>
 // ── STATE ────────────────────────────────────────────────────────────────────
 const S = {
@@ -882,6 +913,11 @@ function nav(id) {
     view.classList.add('active');
     const btn = document.getElementById('nav-'+id);
     if (btn) btn.classList.add('active');
+    // Sync mobile nav
+    if (moreOpen) { moreOpen=false; const me=document.getElementById('mob-nav-more'); if(me) me.classList.remove('open'); }
+    document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+    const mobBtn = document.getElementById('mob-nav-'+id);
+    if (mobBtn) mobBtn.classList.add('active');
     currentView = id;
     // Lazy load
     if (id === 'clients' && !S.clients.length) loadClients();
@@ -904,10 +940,77 @@ function closeOnOverlay(e) { if(e.target===e.currentTarget) e.currentTarget.clas
 function openInviteModal() { openModal('modal-invite'); }
 
 // ── PT SETUP ──────────────────────────────────────────────────────────────────
+// ── MOBILE NAV ────────────────────────────────────────────────────────────────
+let moreOpen = false;
+function setupMobileNav(role) {
+  const ptMain = [
+    {id:'dashboard', icon:'⚡', label:'Home'},
+    {id:'clients',   icon:'👥', label:'Clients'},
+    {id:'meal-plans',icon:'🥗', label:'Plans'},
+    {id:'receipt-scanner',icon:'📸',label:'Scanner'},
+    {id:'__more',   icon:'☰',  label:'More'},
+  ];
+  const ptMore = [
+    {id:'workout-plans', icon:'🏋️', label:'Workout Plans'},
+    {id:'shopping-lists',icon:'🛒', label:'Shopping'},
+    {id:'favourites',    icon:'❤️', label:'Favourites'},
+    {id:'billing',       icon:'💳', label:'Billing'},
+  ];
+  const clientMain = [
+    {id:'portal-home',      icon:'🏠', label:'Home'},
+    {id:'portal-meals',     icon:'🍽️', label:'Log Meals'},
+    {id:'portal-workouts',  icon:'💪', label:'Workout'},
+    {id:'portal-progress',  icon:'📈', label:'Progress'},
+    {id:'__more',           icon:'☰',  label:'More'},
+  ];
+  const clientMore = [
+    {id:'portal-plan',      icon:'📋', label:'My Plan'},
+    {id:'portal-shopping',  icon:'🛒', label:'Shopping'},
+    {id:'portal-favourites',icon:'❤️', label:'Favourites'},
+    {id:'receipt-scanner',  icon:'📸', label:'Receipt'},
+  ];
+  const mainItems = role === 'client' ? clientMain : ptMain;
+  const moreItems = role === 'client' ? clientMore : ptMore;
+  const itemsEl = document.getElementById('mob-nav-items');
+  const moreEl  = document.getElementById('mob-nav-more');
+  itemsEl.innerHTML = mainItems.map(item => {
+    if (item.id === '__more') return `<button class="mob-nav-btn" id="mob-more-toggle" onclick="toggleMobMore()"><span class="mn-icon">${item.icon}</span>${item.label}</button>`;
+    return `<button class="mob-nav-btn" id="mob-nav-${item.id}" onclick="mobNav('${item.id}')"><span class="mn-icon">${item.icon}</span>${item.label}</button>`;
+  }).join('');
+  moreEl.innerHTML = moreItems.map(item =>
+    `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${item.icon} ${item.label}</button>`
+  ).join('') + `<button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
+  // Highlight first active
+  const firstId = role === 'client' ? 'portal-home' : 'dashboard';
+  const firstBtn = document.getElementById('mob-nav-'+firstId);
+  if (firstBtn) firstBtn.classList.add('active');
+}
+function toggleMobMore() {
+  const moreEl = document.getElementById('mob-nav-more');
+  moreOpen = !moreOpen;
+  moreEl.classList.toggle('open', moreOpen);
+  const toggle = document.getElementById('mob-more-toggle');
+  if (toggle) toggle.classList.toggle('active', moreOpen);
+}
+function mobNav(id) {
+  // Close more drawer
+  moreOpen = false;
+  document.getElementById('mob-nav-more').classList.remove('open');
+  const toggle = document.getElementById('mob-more-toggle');
+  if (toggle) toggle.classList.remove('active');
+  // Highlight active
+  document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById('mob-nav-'+id);
+  if (activeBtn) activeBtn.classList.add('active');
+  // Navigate
+  nav(id);
+}
+
 async function setupPT() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('dash-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 👋';
+  setupMobileNav('pt');
   await loadClients();
   loadMealPlans();
 }
@@ -1305,6 +1408,7 @@ async function setupClientPortal() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('portal-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 💪';
+  setupMobileNav('client');
   const r = await API('/portal/me');
   if (r.success) {
     S.portalData = r;
