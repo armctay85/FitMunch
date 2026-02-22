@@ -185,7 +185,7 @@
   if (existingToken) {
     fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
       .then(r => r.json())
-      .then(d => { if (d.success) window.location.href = '/'; })
+      .then(d => { if (d.success) window.location.href = '/app.html'; })
       .catch(() => {});
   }
 
@@ -241,7 +241,7 @@
       localStorage.setItem('fm_token', data.token);
       localStorage.setItem('fm_user',  JSON.stringify(data.user));
       showSuccess('login-success', 'Logged in! Redirecting...');
-      setTimeout(() => { window.location.href = '/'; }, 800);
+      setTimeout(() => { window.location.href = '/app.html'; }, 800);
     } catch { showError('login-error', 'Network error. Please try again.'); }
     finally   { setLoading('login-btn', false); }
   }
@@ -261,7 +261,7 @@
       localStorage.setItem('fm_token', data.token);
       localStorage.setItem('fm_user',  JSON.stringify(data.user));
       showSuccess('register-success', 'Account created! Redirecting...');
-      setTimeout(() => { window.location.href = '/'; }, 800);
+      setTimeout(() => { window.location.href = '/app.html'; }, 800);
     } catch { showError('register-error', 'Network error. Please try again.'); }
     finally   { setLoading('register-btn', false); }
   }
