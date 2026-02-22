@@ -115,6 +115,7 @@
                 <span>FitMunch</span>
             </div>
             <div class="user-controls">
+                <span id="plan-badge" style="display:none;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;letter-spacing:0.5px;margin-right:8px;"></span>
                 <button onclick="editProfile()" class="secondary-btn">
                     <i class="fas fa-user-edit"></i> Edit Profile
                 </button>
@@ -710,6 +711,53 @@
                 document.body.classList.add('mobile-device');
             }
         });
+    </script>
+
+    <!-- Subscription status badge + post-checkout toast -->
+    <script>
+      (async function() {
+        const token = localStorage.getItem('fm_token');
+        if (!token) return;
+
+        // Show success toast if coming from Stripe checkout
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('subscribed') === '1') {
+          const toast = document.createElement('div');
+          toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#00c851;color:#fff;padding:14px 22px;border-radius:10px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,200,81,.4)';
+          toast.textContent = '🎉 Welcome! Your 14-day free trial is active.';
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 6000);
+          history.replaceState({}, '', '/app.html');
+        }
+
+        // Load user plan from API and show badge
+        try {
+          const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
+          const data = await res.json();
+          if (!data.success) return;
+
+          const tier = data.user?.subscriptionTier || 'free';
+          const badge = document.getElementById('plan-badge');
+          if (!badge) return;
+
+          const styles = {
+            free:    { bg: '#1e293b', color: '#94a3b8', label: 'Free' },
+            starter: { bg: '#064e3b', color: '#34d399', label: '✦ Starter' },
+            pro:     { bg: '#3b0764', color: '#c084fc', label: '⚡ Pro' },
+          };
+          const s = styles[tier] || styles.free;
+          badge.style.background = s.bg;
+          badge.style.color = s.color;
+          badge.style.border = `1px solid ${s.color}40`;
+          badge.textContent = s.label;
+          badge.style.display = 'inline-block';
+          badge.title = tier === 'free' ? 'Upgrade to unlock all features' : `${tier.charAt(0).toUpperCase()+tier.slice(1)} plan active`;
+          if (tier === 'free') {
+            badge.style.cursor = 'pointer';
+            badge.onclick = () => window.location.href = '/#pricing';
+          }
+        } catch {}
+      })();
     </script>
 
     <!-- PWA Service Worker -->
