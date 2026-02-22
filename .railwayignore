@@ -1,0 +1,10 @@
+node_modules/
+dist/
+android/
+.env
+coverage/
+attached_assets/
+*.txt
+*.log
+.git/
+drizzle/
