@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#052e16"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <linearGradient id="text-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dcfce7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background pill -->
+  <rect width="900" height="220" rx="32" fill="url(#bg)"/>
+
+  <!-- ── ICON (scaled down, left side) ── -->
+  <g transform="translate(28, 18) scale(0.36)">
+    <!-- 3 fork tines -->
+    <rect x="184" y="96" width="26" height="110" rx="13" fill="white"/>
+    <rect x="243" y="80" width="26" height="126" rx="13" fill="white"/>
+    <rect x="302" y="96" width="26" height="110" rx="13" fill="white"/>
+    <!-- Fork collar -->
+    <rect x="174" y="192" width="164" height="30" rx="10" fill="white"/>
+    <!-- Fork handle -->
+    <rect x="243" y="218" width="26" height="118" rx="13" fill="white"/>
+    <!-- Bar -->
+    <rect x="148" y="352" width="216" height="24" rx="12" fill="white"/>
+    <!-- Collars -->
+    <rect x="168" y="340" width="30" height="48" rx="8" fill="url(#accent)"/>
+    <rect x="314" y="340" width="30" height="48" rx="8" fill="url(#accent)"/>
+    <!-- Plates -->
+    <rect x="130" y="328" width="50" height="72" rx="14" fill="white"/>
+    <rect x="145" y="345" width="20" height="38" rx="6" fill="url(#bg)"/>
+    <rect x="332" y="328" width="50" height="72" rx="14" fill="white"/>
+    <rect x="347" y="345" width="20" height="38" rx="6" fill="url(#bg)"/>
+    <rect x="243" y="332" width="26" height="24" fill="white"/>
+  </g>
+
+  <!-- ── WORDMARK ── -->
+  <!-- "Fit" — white, lighter weight -->
+  <text x="222" y="148"
+    font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+    font-size="108"
+    font-weight="800"
+    letter-spacing="-4"
+    fill="url(#text-grad)">Fit</text>
+
+  <!-- "Munch" — green accent -->
+  <text x="438" y="148"
+    font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+    font-size="108"
+    font-weight="900"
+    letter-spacing="-4"
+    fill="#22c55e">Munch</text>
+
+  <!-- Tagline -->
+  <text x="224" y="180"
+    font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+    font-size="20"
+    font-weight="500"
+    letter-spacing="1"
+    fill="#86efac"
+    opacity="0.85">TRACK · EAT · PERFORM</text>
+</svg>

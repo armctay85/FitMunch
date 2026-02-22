@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#052e16"/>
+      <stop offset="40%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#0a1f0e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="48%" r="42%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="1080" fill="url(#bg)"/>
+  <!-- Subtle centre glow -->
+  <rect width="1080" height="1080" fill="url(#glow)"/>
+
+  <!-- ── ICON — large, centred ── -->
+  <g transform="translate(540, 440) scale(1.05)" style="transform-box:fill-box;transform-origin:center">
+    <!-- Fork tines — centred on 0,0 -->
+    <rect x="-148" y="-290" width="38" height="180" rx="19" fill="white"/>
+    <rect x="-19" y="-318" width="38" height="208" rx="19" fill="white"/>
+    <rect x="110" y="-290" width="38" height="180" rx="19" fill="white"/>
+
+    <!-- Fork collar -->
+    <rect x="-162" y="-122" width="324" height="44" rx="16" fill="white"/>
+
+    <!-- Fork handle -->
+    <rect x="-19" y="-82" width="38" height="192" rx="19" fill="white"/>
+
+    <!-- Dumbbell bar -->
+    <rect x="-222" y="130" width="444" height="38" rx="19" fill="white"/>
+
+    <!-- Collars — green accent -->
+    <rect x="-188" y="110" width="44" height="78" rx="12" fill="url(#accent)"/>
+    <rect x="144" y="110" width="44" height="78" rx="12" fill="url(#accent)"/>
+
+    <!-- Left plate -->
+    <rect x="-242" y="92" width="78" height="114" rx="22" fill="white"/>
+    <rect x="-218" y="116" width="30" height="66" rx="10" fill="url(#bg)"/>
+
+    <!-- Right plate -->
+    <rect x="164" y="92" width="78" height="114" rx="22" fill="white"/>
+    <rect x="188" y="116" width="30" height="66" rx="10" fill="url(#bg)"/>
+
+    <!-- Handle-to-bar connector -->
+    <rect x="-19" y="108" width="38" height="26" fill="white"/>
+  </g>
+
+  <!-- ── WORDMARK below icon ── -->
+  <text x="540" y="760"
+    text-anchor="middle"
+    font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+    font-size="148"
+    font-weight="900"
+    letter-spacing="-5"
+    fill="white">Fit<tspan fill="#22c55e">Munch</tspan></text>
+
+  <!-- Tagline -->
+  <text x="540" y="820"
+    text-anchor="middle"
+    font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+    font-size="34"
+    font-weight="500"
+    letter-spacing="8"
+    fill="#4ade80"
+    opacity="0.7">TRACK · EAT · PERFORM</text>
+</svg>
