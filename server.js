@@ -180,6 +180,66 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
   }
 });
 
+// ── CLEAN CHECKOUT ENDPOINT (JWT-authenticated, 14-day trial) ──────────────────
+const PRICE_IDS = {
+  starter: 'price_1T3SvgGMuYRuJYDrOyR2hYoq', // FitMunch PT Starter $59.99 AUD/mo
+  pro:     'price_1T3SyDGMuYRuJYDrF8mvMrwi', // FitMunch PT Pro     $99.00 AUD/mo
+};
+
+app.post('/api/checkout', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
+
+  try {
+    // Verify JWT
+    const authHeader = req.headers['authorization'];
+    if (!authHeader?.startsWith('Bearer '))
+      return res.status(401).json({ error: 'Authentication required.' });
+
+    const jwtLib = require('jsonwebtoken');
+    const decoded = jwtLib.verify(authHeader.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key');
+
+    const { plan = 'pro' } = req.body;
+    const priceId = PRICE_IDS[plan];
+    if (!priceId) return res.status(400).json({ error: 'Invalid plan.' });
+
+    // Get or create Stripe customer
+    const { getUserById, updateUserSubscription } = require('./server/storage.js');
+    const user = await getUserById(decoded.userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email, name: user.name,
+        metadata: { userId: user.id } });
+      customerId = customer.id;
+      await updateUserSubscription(user.id, user.subscriptionTier || 'free', null);
+      // Persist stripe customer ID
+      const storage = require('./server/storage.js');
+      const { eq } = require('drizzle-orm');
+      await storage.db.update(storage.schema.users)
+        .set({ stripeCustomerId: customerId })
+        .where(eq(storage.schema.users.id, user.id));
+    }
+
+    const origin = req.headers.origin || 'https://fitmunch.com.au';
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: 14 },
+      success_url: `${origin}/app.html?subscribed=1`,
+      cancel_url:  `${origin}/?cancelled=1`,
+      allow_promotion_codes: true,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Checkout error:', err.message);
+    res.status(500).json({ error: 'Checkout failed: ' + err.message });
+  }
+});
+
 // Endpoint to complete subscription after payment success
 app.post('/api/complete-subscription', async (req, res) => {
   if (!stripe) {

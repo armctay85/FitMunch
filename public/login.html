@@ -180,13 +180,32 @@
 </div>
 
 <script>
+  const urlParams = new URLSearchParams(window.location.search);
+  const plan = urlParams.get('plan') || null; // 'starter' | 'pro' | null
+
   // Redirect if already logged in
   const existingToken = localStorage.getItem('fm_token');
   if (existingToken) {
     fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
       .then(r => r.json())
-      .then(d => { if (d.success) window.location.href = '/app.html'; })
+      .then(d => { if (d.success) redirectAfterAuth(existingToken); })
       .catch(() => {});
+  }
+
+  async function redirectAfterAuth(token) {
+    if (plan) {
+      // Go straight to Stripe checkout with trial
+      try {
+        const r = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ plan })
+        });
+        const d = await r.json();
+        if (d.url) { window.location.href = d.url; return; }
+      } catch {}
+    }
+    window.location.href = '/app.html';
   }
 
   function showTab(tab) {
@@ -240,8 +259,8 @@
       if (!data.success) { showError('login-error', data.error); return; }
       localStorage.setItem('fm_token', data.token);
       localStorage.setItem('fm_user',  JSON.stringify(data.user));
-      showSuccess('login-success', 'Logged in! Redirecting...');
-      setTimeout(() => { window.location.href = '/app.html'; }, 800);
+      showSuccess('login-success', plan ? 'Logged in! Setting up your trial...' : 'Logged in! Redirecting...');
+      setTimeout(() => redirectAfterAuth(data.token), 600);
     } catch { showError('login-error', 'Network error. Please try again.'); }
     finally   { setLoading('login-btn', false); }
   }
@@ -260,8 +279,8 @@
       if (!data.success) { showError('register-error', data.error); return; }
       localStorage.setItem('fm_token', data.token);
       localStorage.setItem('fm_user',  JSON.stringify(data.user));
-      showSuccess('register-success', 'Account created! Redirecting...');
-      setTimeout(() => { window.location.href = '/app.html'; }, 800);
+      showSuccess('register-success', plan ? 'Account created! Starting your 14-day trial...' : 'Account created! Redirecting...');
+      setTimeout(() => redirectAfterAuth(data.token), 600);
     } catch { showError('register-error', 'Network error. Please try again.'); }
     finally   { setLoading('register-btn', false); }
   }
