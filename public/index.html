@@ -43,6 +43,14 @@
     <link rel="preload" href="script.js" as="script">
     <link rel="preload" href="style.css" as="style">
     
+    <!-- Auth Guard: redirect to /login.html if no valid token -->
+    <script>
+    (function() {
+      const token = localStorage.getItem('fm_token');
+      if (!token) { window.location.replace('/login.html'); }
+    })();
+    </script>
+
     <!-- Force Service Worker Update -->
     <script>
     (function() {
