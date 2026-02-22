@@ -4,22 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FitMunch — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --green:  #22c55e;
       --green2: #16a34a;
-      --bg:     #0a0f0a;
-      --card:   #111811;
-      --border: #1f2b1f;
+      --bg:     #060c06;
+      --card:   #0d150d;
+      --border: #1a2e1a;
       --muted:  #4b5e4b;
-      --text:   #e2f0e2;
+      --text:   #e8f5e8;
       --sub:    #8fa98f;
     }
 
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg); color: var(--text);
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
       padding: 20px;
@@ -120,7 +122,30 @@
 
 <div class="card">
   <div class="logo">
-    <img src="/FitMunch_broccoli_logo.png" alt="FitMunch" onerror="this.style.display='none'" />
+    <svg width="44" height="44" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+      <defs>
+        <linearGradient id="lb" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/>
+        </linearGradient>
+        <linearGradient id="la" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="115" fill="url(#lb)"/>
+      <rect x="184" y="96" width="26" height="110" rx="13" fill="white"/>
+      <rect x="243" y="80" width="26" height="126" rx="13" fill="white"/>
+      <rect x="302" y="96" width="26" height="110" rx="13" fill="white"/>
+      <rect x="174" y="192" width="164" height="30" rx="10" fill="white"/>
+      <rect x="243" y="218" width="26" height="118" rx="13" fill="white"/>
+      <rect x="148" y="352" width="216" height="24" rx="12" fill="white"/>
+      <rect x="168" y="340" width="30" height="48" rx="8" fill="url(#la)"/>
+      <rect x="314" y="340" width="30" height="48" rx="8" fill="url(#la)"/>
+      <rect x="130" y="328" width="50" height="72" rx="14" fill="white"/>
+      <rect x="145" y="345" width="20" height="38" rx="6" fill="url(#lb)"/>
+      <rect x="332" y="328" width="50" height="72" rx="14" fill="white"/>
+      <rect x="347" y="345" width="20" height="38" rx="6" fill="url(#lb)"/>
+      <rect x="243" y="332" width="26" height="24" fill="white"/>
+    </svg>
     <div class="logo-text">Fit<span>Munch</span></div>
   </div>
 
