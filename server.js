@@ -30,6 +30,7 @@ app.use(helmet({
       connectSrc: ["'self'", "https://api.stripe.com"],
       frameSrc: ["'self'", "https://js.stripe.com"],
       frameAncestors: ["'self'"], // Allow Replit preview
+      scriptSrcAttr: ["'unsafe-inline'"], // Allow onclick="" handlers (app uses inline event handlers throughout)
     },
   },
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
