@@ -221,6 +221,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .ft-label{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px}
 .ft-sub{font-size:.68rem;color:var(--text3)}
 
+/* ── FOOD SEARCH DROPDOWN ── */
+.food-result{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--bg2);transition:background .1s;-webkit-tap-highlight-color:transparent}
+.food-result:last-child{border-bottom:none}
+.food-result:hover,.food-result.focused{background:var(--bg)}
+.food-result-name{font-size:.82rem;font-weight:700;color:var(--text)}
+.food-result-serving{font-size:.68rem;color:var(--text3)}
+.food-result-macros{display:flex;gap:6px;flex-shrink:0}
+.food-result-macro{font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:3px}
+.frmcal{background:#fef3c7;color:#92400e}
+.frmpro{background:#dbeafe;color:#1e40af}
 /* ── MEAL PLANNER ── */
 .diet-tag{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:.72rem;font-weight:600;cursor:pointer;color:var(--text2);transition:all .15s;-webkit-tap-highlight-color:transparent}
 .diet-tag.active{background:var(--green2);color:#fff;border-color:var(--green2)}
@@ -693,15 +703,41 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div><div class="view-title">Log Meals</div><div class="view-sub" id="meals-date-label"></div></div>
     <div class="view-actions">
       <input type="date" class="form-input" id="meals-date" style="font-size:.78rem" onchange="loadTodayMeals()"/>
-      <button class="btn btn-green" onclick="openModal('modal-log-meal')">+ Add Food</button>
+      <button class="btn btn-green" onclick="openLogMealModal()">+ Add Food</button>
     </div>
   </div>
   <div class="scroll-body">
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;gap:20px">
-      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Calories</div><div style="font-size:1.3rem;font-weight:800" id="meals-total-cals">0</div></div>
-      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Protein</div><div style="font-size:1.3rem;font-weight:800;color:var(--blue)" id="meals-protein">0g</div></div>
-      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Carbs</div><div style="font-size:1.3rem;font-weight:800;color:var(--amber)" id="meals-carbs">0g</div></div>
-      <div style="text-align:center"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">Fat</div><div style="font-size:1.3rem;font-weight:800;color:var(--red)" id="meals-fat">0g</div></div>
+    <!-- Daily progress tracker -->
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.88rem;font-weight:800">Today's nutrition</div>
+        <div id="meals-remaining-cals" style="font-size:.75rem;color:var(--text3)"></div>
+      </div>
+      <!-- Calorie progress bar -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:.72rem;font-weight:700;color:var(--text2)">🔥 Calories</span>
+          <span style="font-size:.72rem;font-weight:700"><span id="meals-total-cals" style="color:var(--green2)">0</span> <span style="color:var(--text3)" id="meals-cal-target-label"></span></span>
+        </div>
+        <div style="background:var(--bg2);border-radius:4px;height:8px;overflow:hidden">
+          <div id="meals-cal-bar" style="background:var(--green2);height:100%;border-radius:4px;width:0%;transition:width .4s ease"></div>
+        </div>
+      </div>
+      <!-- Protein progress bar -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:.72rem;font-weight:700;color:var(--text2)">💪 Protein</span>
+          <span style="font-size:.72rem;font-weight:700"><span id="meals-protein" style="color:#3b82f6">0g</span> <span style="color:var(--text3)" id="meals-prot-target-label"></span></span>
+        </div>
+        <div style="background:var(--bg2);border-radius:4px;height:8px;overflow:hidden">
+          <div id="meals-prot-bar" style="background:#3b82f6;height:100%;border-radius:4px;width:0%;transition:width .4s ease"></div>
+        </div>
+      </div>
+      <!-- Carbs + Fat row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="font-size:.72rem"><span style="color:var(--text3)">🌾 Carbs</span> <span style="font-weight:800;color:var(--text)" id="meals-carbs">0g</span></div>
+        <div style="font-size:.72rem"><span style="color:var(--text3)">🧈 Fat</span> <span style="font-weight:800;color:var(--text)" id="meals-fat">0g</span></div>
+      </div>
     </div>
     <div id="meals-log-body">
       <div class="meal-section"><div class="meal-section-title">🌅 Breakfast</div><div id="log-breakfast" class="meal-entries"></div></div>
@@ -927,27 +963,55 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 </div>
 
 <div class="modal-overlay" id="modal-log-meal" onclick="closeOnOverlay(event)">
-  <div class="modal">
+  <div class="modal" style="max-width:440px">
     <div class="modal-title">Log Food<button class="modal-close" onclick="closeModal('modal-log-meal')">✕</button></div>
-    <div class="form-row">
-      <div class="form-field" style="grid-column:1/-1"><label class="form-label">Food Name</label><input class="form-input" id="lm-food" placeholder="e.g. Chicken breast, 150g"/></div>
+
+    <!-- Smart food search -->
+    <div class="form-field" style="position:relative;margin-bottom:4px">
+      <label class="form-label">Search food <span style="color:var(--green2);font-weight:700">— macros auto-fill ✨</span></label>
+      <input class="form-input" id="lm-search" placeholder="e.g. chicken breast, oats, banana…"
+        oninput="foodSearchInput(this.value)" onkeydown="foodSearchKey(event)" autocomplete="off"/>
+      <div id="lm-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;max-height:240px;overflow-y:auto"></div>
     </div>
-    <div class="form-row" style="margin-top:10px">
-      <div class="form-field"><label class="form-label">Meal</label>
-        <select class="form-select" id="lm-meal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option></select></div>
-      <div class="form-field"><label class="form-label">Calories</label><input class="form-input" id="lm-cals" type="number" placeholder="0"/></div>
+    <div id="lm-selected-badge" style="display:none;margin-bottom:12px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:.78rem;color:#14532d;font-weight:600"></div>
+
+    <!-- Meal + serving -->
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="form-field">
+        <label class="form-label">Meal</label>
+        <select class="form-select" id="lm-meal">
+          <option value="breakfast">🌅 Breakfast</option>
+          <option value="lunch" selected>☀️ Lunch</option>
+          <option value="dinner">🌙 Dinner</option>
+          <option value="snack">🍎 Snack</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Serving size (g)</label>
+        <input class="form-input" id="lm-serving-g" type="number" placeholder="100" oninput="recalcFromServing()" min="1" max="2000"/>
+      </div>
     </div>
-    <div class="form-row" style="margin-top:10px">
-      <div class="form-field"><label class="form-label">Protein (g)</label><input class="form-input" id="lm-protein" type="number" placeholder="0"/></div>
-      <div class="form-field"><label class="form-label">Carbs (g)</label><input class="form-input" id="lm-carbs" type="number" placeholder="0"/></div>
+
+    <!-- Macro summary (auto-filled + editable) -->
+    <div style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Macros (editable)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+        <div><label class="form-label" style="font-size:.65rem">Calories</label><input class="form-input" id="lm-cals" type="number" placeholder="0" style="padding:6px 8px;font-size:.82rem;font-weight:700;color:var(--green2)"/></div>
+        <div><label class="form-label" style="font-size:.65rem">Protein (g)</label><input class="form-input" id="lm-protein" type="number" placeholder="0" step="0.1" style="padding:6px 8px;font-size:.82rem;font-weight:700;color:#3b82f6"/></div>
+        <div><label class="form-label" style="font-size:.65rem">Carbs (g)</label><input class="form-input" id="lm-carbs" type="number" placeholder="0" step="0.1" style="padding:6px 8px;font-size:.82rem"/></div>
+        <div><label class="form-label" style="font-size:.65rem">Fat (g)</label><input class="form-input" id="lm-fat" type="number" placeholder="0" step="0.1" style="padding:6px 8px;font-size:.82rem"/></div>
+      </div>
     </div>
-    <div class="form-row" style="margin-top:10px">
-      <div class="form-field"><label class="form-label">Fat (g)</label><input class="form-input" id="lm-fat" type="number" placeholder="0"/></div>
-      <div class="form-field"><label class="form-label">Serving Size</label><input class="form-input" id="lm-serving" placeholder="150g"/></div>
+
+    <!-- Manual food name (hidden when food selected from search) -->
+    <div class="form-field" id="lm-manual-name-row">
+      <label class="form-label">Food name <span style="color:var(--text3);font-weight:400">(or type above to search)</span></label>
+      <input class="form-input" id="lm-food" placeholder="e.g. Chicken breast"/>
     </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost2" onclick="closeModal('modal-log-meal')">Cancel</button>
-      <button class="btn btn-green" onclick="logMealEntry()">Log It</button>
+      <button class="btn btn-green" onclick="logMealEntry()">Log It →</button>
     </div>
   </div>
 </div>
@@ -1154,6 +1218,7 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function closeOnOverlay(e) { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); }
 function openInviteModal() { openModal('modal-invite'); }
+function openLogMealModal() { resetMealModal && resetMealModal(); openModal('modal-log-meal'); }
 
 // ── PT SETUP ──────────────────────────────────────────────────────────────────
 // ── MOBILE NAV ────────────────────────────────────────────────────────────────
@@ -1770,29 +1835,140 @@ async function loadTodayMeals() {
   document.getElementById('meals-protein').textContent = totalProtein.toFixed(0)+'g';
   document.getElementById('meals-carbs').textContent = totalCarbs.toFixed(0)+'g';
   document.getElementById('meals-fat').textContent = totalFat.toFixed(0)+'g';
+
+  // Progress bars (uses saved goals if available)
+  const calTarget = S.goals?.targetCalories || 0;
+  const protTarget = S.goals?.targetProtein || 0;
+  if (calTarget) {
+    const calPct = Math.min(100, Math.round(totalCals / calTarget * 100));
+    const remaining = calTarget - totalCals;
+    document.getElementById('meals-cal-bar').style.width = calPct + '%';
+    document.getElementById('meals-cal-bar').style.background = calPct > 105 ? '#ef4444' : '#22c55e';
+    document.getElementById('meals-cal-target-label').textContent = '/ ' + calTarget + ' (' + (remaining > 0 ? remaining + ' left' : Math.abs(remaining) + ' over') + ')';
+    document.getElementById('meals-remaining-cals').textContent = calPct + '% of daily goal';
+  } else {
+    document.getElementById('meals-cal-target-label').textContent = '— set goals to track';
+    document.getElementById('meals-remaining-cals').textContent = '';
+  }
+  if (protTarget) {
+    const protPct = Math.min(100, Math.round(totalProtein / protTarget * 100));
+    document.getElementById('meals-prot-bar').style.width = protPct + '%';
+    document.getElementById('meals-prot-bar').style.background = protPct >= 100 ? '#22c55e' : '#3b82f6';
+    document.getElementById('meals-prot-target-label').textContent = '/ ' + protTarget + 'g (' + protPct + '%)';
+  } else {
+    document.getElementById('meals-prot-target-label').textContent = '';
+  }
+}
+
+// ── FOOD SEARCH + AUTO-FILL ───────────────────────────────────────────────────
+let _foodSearchTimer = null;
+let _foodResults = [];
+let _foodFocusIdx = -1;
+let _selectedFood100g = null;
+
+function foodSearchInput(val) {
+  clearTimeout(_foodSearchTimer);
+  const dd = document.getElementById('lm-dropdown');
+  if (!val || val.length < 2) { dd.style.display = 'none'; return; }
+  _foodSearchTimer = setTimeout(async () => {
+    const r = await fetch('/api/foods/search?q=' + encodeURIComponent(val) + '&limit=8');
+    const data = await r.json();
+    _foodResults = data.foods || [];
+    _foodFocusIdx = -1;
+    renderFoodDropdown(_foodResults, dd);
+  }, 180);
+}
+
+function renderFoodDropdown(foods, dd) {
+  if (!foods.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = foods.map((f, i) => `
+    <div class="food-result" data-idx="${i}" onclick="selectFood(${i})" onmouseover="focusResult(${i})">
+      <div>
+        <div class="food-result-name">${f.name}</div>
+        <div class="food-result-serving">${f.serving}</div>
+      </div>
+      <div class="food-result-macros">
+        <span class="food-result-macro frmcal">${f.calories} cal</span>
+        <span class="food-result-macro frmpro">${f.protein}g P</span>
+      </div>
+    </div>`).join('');
+  dd.style.display = '';
+}
+
+function focusResult(idx) {
+  _foodFocusIdx = idx;
+  document.querySelectorAll('.food-result').forEach((el, i) => el.classList.toggle('focused', i === idx));
+}
+
+function foodSearchKey(e) {
+  if (e.key === 'ArrowDown') { e.preventDefault(); focusResult(Math.min(_foodFocusIdx + 1, _foodResults.length - 1)); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); focusResult(Math.max(_foodFocusIdx - 1, 0)); }
+  else if (e.key === 'Enter' && _foodFocusIdx >= 0) { e.preventDefault(); selectFood(_foodFocusIdx); }
+  else if (e.key === 'Escape') { document.getElementById('lm-dropdown').style.display = 'none'; }
+}
+
+function selectFood(idx) {
+  const f = _foodResults[idx];
+  if (!f) return;
+  _selectedFood100g = f.per100g;
+
+  document.getElementById('lm-search').value = f.name;
+  document.getElementById('lm-food').value = f.name;
+  document.getElementById('lm-serving-g').value = f.servingG;
+  document.getElementById('lm-cals').value = f.calories;
+  document.getElementById('lm-protein').value = f.protein;
+  document.getElementById('lm-carbs').value = f.carbs;
+  document.getElementById('lm-fat').value = f.fat;
+  document.getElementById('lm-dropdown').style.display = 'none';
+
+  // Show selected badge
+  const badge = document.getElementById('lm-selected-badge');
+  badge.innerHTML = `✅ <strong>${f.name}</strong> — ${f.serving} · ${f.calories} cal · ${f.protein}g protein · ${f.carbs}g carbs · ${f.fat}g fat <span style="color:var(--text3);font-weight:400;font-size:.7rem">Change serving size to recalculate ↓</span>`;
+  badge.style.display = '';
+
+  // Hide manual name row
+  document.getElementById('lm-manual-name-row').style.display = 'none';
+}
+
+function recalcFromServing() {
+  if (!_selectedFood100g) return;
+  const grams = parseFloat(document.getElementById('lm-serving-g').value) || 0;
+  if (!grams) return;
+  const factor = grams / 100;
+  document.getElementById('lm-cals').value    = Math.round(_selectedFood100g.cal * factor);
+  document.getElementById('lm-protein').value = (Math.round(_selectedFood100g.p   * factor * 10) / 10);
+  document.getElementById('lm-carbs').value   = (Math.round(_selectedFood100g.c   * factor * 10) / 10);
+  document.getElementById('lm-fat').value     = (Math.round(_selectedFood100g.f   * factor * 10) / 10);
+}
+
+function resetMealModal() {
+  _selectedFood100g = null; _foodResults = []; _foodFocusIdx = -1;
+  ['lm-search','lm-food','lm-cals','lm-protein','lm-carbs','lm-fat','lm-serving-g'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('lm-dropdown').style.display = 'none';
+  document.getElementById('lm-selected-badge').style.display = 'none';
+  document.getElementById('lm-manual-name-row').style.display = '';
 }
 
 async function logMealEntry() {
+  const foodName = (document.getElementById('lm-food').value || document.getElementById('lm-search').value).trim();
+  if (!foodName) { toast('Search or type a food name', 'error'); return; }
   const body = {
     userId: S.user.id,
     date: new Date(S.mealsDate).toISOString(),
     mealType: document.getElementById('lm-meal').value,
-    foodName: document.getElementById('lm-food').value.trim(),
+    foodName,
     calories: parseInt(document.getElementById('lm-cals').value)||0,
     protein: parseFloat(document.getElementById('lm-protein').value)||0,
     carbs: parseFloat(document.getElementById('lm-carbs').value)||0,
     fat: parseFloat(document.getElementById('lm-fat').value)||0,
-    servingSize: document.getElementById('lm-serving').value.trim(),
+    servingSize: (document.getElementById('lm-serving-g').value ? document.getElementById('lm-serving-g').value + 'g' : ''),
   };
-  if (!body.foodName) { toast('Enter a food name', 'error'); return; }
   const r = await API('/meals/log', { method:'POST', body: JSON.stringify(body) });
   closeModal('modal-log-meal');
-  document.getElementById('lm-food').value='';
-  document.getElementById('lm-cals').value='';
-  document.getElementById('lm-protein').value='';
-  document.getElementById('lm-carbs').value='';
-  document.getElementById('lm-fat').value='';
-  if (r.success) { toast('Meal logged ✓'); loadTodayMeals(); }
+  resetMealModal();
+  if (r.success) { toast('✅ Logged: ' + foodName + ' — ' + body.calories + ' cal'); loadTodayMeals(); }
   else toast('Failed to log meal', 'error');
 }
 

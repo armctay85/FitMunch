@@ -174,6 +174,10 @@ app.use('/api/receipt', receiptScanner);
 const mealPlanner = require('./meal-planner');
 app.use('/api/meal-plan', mealPlanner);
 
+// Food Database (search + macro lookup)
+const foodDb = require('./food-db');
+app.use('/api/foods', foodDb);
+
 // Health check — used by Railway to verify the app is running
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'fitmunch' });
