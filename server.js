@@ -103,6 +103,11 @@ app.use('/api/auth/', authLimiter);
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
 
+// Health check — used by Railway to verify the app is running
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'fitmunch' });
+});
+
 // Test Stripe API connection
 app.get('/api/stripe-test', async (req, res) => {
   if (!stripe) {
