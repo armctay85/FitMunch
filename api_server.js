@@ -683,7 +683,7 @@ router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const { name, items = [] } = req.body;
     const result = await _pool.query(
-      `INSERT INTO shopping_lists (user_id, name, items, generated_from_plan_id) VALUES ($1, $2, $3, NULL) RETURNING *`,
+      `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
       [req.user.userId, name || 'My List', JSON.stringify(items)]
     );
     res.json({ success: true, list: result.rows[0] });
