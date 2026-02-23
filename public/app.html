@@ -916,7 +916,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 </div>
 
 <div class="modal-overlay" id="modal-mealplan" onclick="closeOnOverlay(event)">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;width:95vw">
     <div class="modal-title">New Meal Plan<button class="modal-close" onclick="closeModal('modal-mealplan')">✕</button></div>
     <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" placeholder="e.g. 12-week deficit plan"/></div>
     <div class="form-row">
@@ -924,7 +924,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <select class="form-select" id="mp-goal"><option value="weight_loss">Weight Loss</option><option value="maintenance">Maintenance</option><option value="muscle_gain">Muscle Gain</option></select></div>
       <div class="form-field"><label class="form-label">Daily Calories</label><input class="form-input" id="mp-cals" type="number" placeholder="1800"/></div>
     </div>
-    <div class="form-field" style="margin-top:10px"><label class="form-label">Description</label><textarea class="form-input" id="mp-desc" rows="2" placeholder="Describe what this plan is for…"></textarea></div>
+    <div class="form-field" style="margin-top:8px"><label class="form-label">Description</label><textarea class="form-input" id="mp-desc" rows="2" placeholder="Describe what this plan is for…"></textarea></div>
+    <!-- Meal Items Builder -->
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:.82rem;font-weight:700;color:var(--text2)">Meals <span style="font-weight:400;color:var(--text3)">(optional — or use AI generate after)</span></span>
+        <button class="btn btn-sm" style="background:var(--surface2);font-size:.75rem;padding:4px 10px" onclick="mpAddMealItem()">+ Add Food</button>
+      </div>
+      <div id="mp-meal-list" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost2" onclick="closeModal('modal-mealplan')">Cancel</button>
       <button class="btn btn-green" onclick="saveMealPlan()">Create Plan</button>
@@ -932,8 +940,21 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
+<!-- Meal Plan Edit Modal -->
+<div class="modal-overlay" id="modal-edit-meal-plan" onclick="closeOnOverlay(event)">
+  <div class="modal" style="max-width:540px;width:95vw">
+    <div class="modal-title" id="edit-mp-title">Edit Meals<button class="modal-close" onclick="closeModal('modal-edit-meal-plan')">✕</button></div>
+    <div id="edit-mp-meals" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:12px"></div>
+    <button class="btn btn-sm" style="background:var(--surface2);font-size:.75rem;padding:4px 10px;margin-bottom:14px" onclick="editMpAddMealItem()">+ Add Food</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-edit-meal-plan')">Cancel</button>
+      <button class="btn btn-green" onclick="saveEditedMealPlan()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-workoutplan" onclick="closeOnOverlay(event)">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;width:95vw">
     <div class="modal-title">New Workout Plan<button class="modal-close" onclick="closeModal('modal-workoutplan')">✕</button></div>
     <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="wp-name" placeholder="e.g. 5-day PPL program"/></div>
     <div class="form-row">
@@ -942,9 +963,30 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <div class="form-field"><label class="form-label">Days/Week</label><input class="form-input" id="wp-freq" type="number" placeholder="4" min="1" max="7"/></div>
     </div>
     <div class="form-field" style="margin-top:10px"><label class="form-label">Description</label><textarea class="form-input" id="wp-desc" rows="2" placeholder="What does this program focus on?"></textarea></div>
+    <!-- Exercise Builder -->
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:.82rem;font-weight:700;color:var(--text2)">Exercises</span>
+        <button class="btn btn-sm" style="background:var(--surface2);font-size:.75rem;padding:4px 10px" onclick="wpAddExercise()">+ Add Exercise</button>
+      </div>
+      <div id="wp-exercise-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost2" onclick="closeModal('modal-workoutplan')">Cancel</button>
       <button class="btn btn-green" onclick="saveWorkoutPlan()">Create Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Exercise Edit Modal (for existing plans) -->
+<div class="modal-overlay" id="modal-edit-workout-plan" onclick="closeOnOverlay(event)">
+  <div class="modal" style="max-width:540px;width:95vw">
+    <div class="modal-title" id="edit-wp-title">Edit Exercises<button class="modal-close" onclick="closeModal('modal-edit-workout-plan')">✕</button></div>
+    <div id="edit-wp-exercises" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:12px"></div>
+    <button class="btn btn-sm" style="background:var(--surface2);font-size:.75rem;padding:4px 10px;margin-bottom:14px" onclick="editWpAddExercise()">+ Add Exercise</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-edit-workout-plan')">Cancel</button>
+      <button class="btn btn-green" onclick="saveEditedWorkoutPlan()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1134,20 +1176,9 @@ const API = (path, opts={}) => {
 };
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
-// ── VISIBLE ERROR DISPLAY (debug) ─────────────────────────────────────────────
-function showErr(msg) {
-  console.error('[FitMunch]', msg);
-  let el = document.getElementById('_dbg');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = '_dbg';
-    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#7f1d1d;color:#fca5a5;font-size:11px;padding:8px 14px;z-index:99999;font-family:monospace;max-height:120px;overflow-y:auto';
-    document.body.appendChild(el);
-  }
-  el.innerHTML += '<div>⚠ ' + msg + '</div>';
-}
-window.onerror = (msg, src, line) => showErr(msg + ' (line '+line+')');
-window.onunhandledrejection = e => showErr('Promise: ' + (e.reason?.message || e.reason));
+function showErr(msg) { console.error('[FitMunch]', msg); }
+window.onerror = (msg, src, line) => console.error('[FitMunch error]', msg, 'line', line);
+window.onunhandledrejection = e => console.error('[FitMunch promise]', e.reason?.message || e.reason);
 
 async function boot() {
   if (!S.token) { window.location.href = '/login.html'; return; }
@@ -1476,8 +1507,78 @@ function copyInvite() {
 }
 
 // ── MEAL PLANS ────────────────────────────────────────────────────────────────
+// ── Meal Item Row Builder Helpers ─────────────────────────────────────────────
+function _mealRowHtml(idx, item, containerId) {
+  const types = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'];
+  const opts = types.map(t=>`<option value="${t}" ${item.mealType===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
+  return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
+    <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
+    <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
+      <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" value="${item.name||''}" data-field="name"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Meal Time</label><select class="form-select" style="padding:4px 6px;font-size:.78rem" data-field="mealType">${opts}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+      <div><label style="font-size:.7rem;color:var(--text3)">Cal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.calories||''}" placeholder="300" data-field="calories"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Protein(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.protein||''}" placeholder="25" data-field="protein"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Carbs(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.carbs||''}" placeholder="40" data-field="carbs"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Fat(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.fat||''}" placeholder="8" data-field="fat"/></div>
+    </div>
+  </div>`;
+}
+
+function _collectMealItems(containerId) {
+  const rows = document.querySelectorAll(`[id^="mprow-${containerId}-"]`);
+  return Array.from(rows).map(row => ({
+    name: row.querySelector('[data-field=name]')?.value?.trim()||'',
+    mealType: row.querySelector('[data-field=mealType]')?.value||'lunch',
+    calories: parseFloat(row.querySelector('[data-field=calories]')?.value)||0,
+    protein: parseFloat(row.querySelector('[data-field=protein]')?.value)||0,
+    carbs: parseFloat(row.querySelector('[data-field=carbs]')?.value)||0,
+    fat: parseFloat(row.querySelector('[data-field=fat]')?.value)||0,
+  })).filter(i=>i.name);
+}
+
+let _mpItemCount = 0;
+function mpAddMealItem() {
+  const list = document.getElementById('mp-meal-list');
+  list.insertAdjacentHTML('beforeend', _mealRowHtml(_mpItemCount++, {mealType:'breakfast'}, 'mp'));
+}
+
+let _editMpId = null, _editMpItemCount = 0;
+function editMpAddMealItem() {
+  const list = document.getElementById('edit-mp-meals');
+  list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, {mealType:'lunch'}, 'emp'));
+}
+
+function openEditMealPlan(planId) {
+  const p = S.mealPlans.find(x=>x.id===planId); if (!p) return;
+  _editMpId = planId; _editMpItemCount = 0;
+  document.getElementById('edit-mp-title').textContent = 'Edit: ' + p.name;
+  const list = document.getElementById('edit-mp-meals');
+  list.innerHTML = '';
+  let meals = p.meals;
+  if (typeof meals === 'string') try { meals = JSON.parse(meals); } catch { meals = []; }
+  // Flatten: support both [{name,mealType,...}] and [{day,meals:[{mealType,foods:[...]}]}]
+  let items = [];
+  if (Array.isArray(meals)) {
+    if (meals[0]?.foods !== undefined || meals[0]?.name !== undefined) items = meals;
+    else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType||'lunch'}))));
+  }
+  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
+  openModal('modal-edit-meal-plan');
+}
+
+async function saveEditedMealPlan() {
+  if (!_editMpId) return;
+  const meals = _collectMealItems('emp');
+  const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+  closeModal('modal-edit-meal-plan');
+  if (r.success) { loadMealPlans(); toast('Plan updated ✓'); }
+  else toast('Failed to save', 'error');
+}
+
+// ── Meal Plan List ────────────────────────────────────────────────────────────
 async function loadMealPlans() {
-  // Pre-fill generator from saved goals
   if (S.goals) {
     const gc = document.getElementById('mp-cals-sel');
     const gp = document.getElementById('mp-prot-sel');
@@ -1491,62 +1592,137 @@ async function loadMealPlans() {
   const grid = document.getElementById('meal-plans-grid');
   const section = document.getElementById('mp-saved-section');
   if (!grid) return;
-  if (!S.mealPlans.length) {
-    if (section) section.style.display = 'none';
-    return;
-  }
+  if (!S.mealPlans.length) { if (section) section.style.display = 'none'; return; }
   if (section) section.style.display = '';
   grid.innerHTML = S.mealPlans.map(p => {
-    const goalLabel = {muscle_gain:'💪 Build muscle',lose_weight:'🔥 Lose weight',maintain:'⚖️ Maintain',general_fitness:'🏃 Fitness'}[p.goal_type] || '🥗';
+    const goalLabel = {muscle_gain:'💪 Muscle gain',weight_loss:'🔥 Weight loss',maintenance:'⚖️ Maintenance',general_fitness:'🏃 Fitness'}[p.goal_type] || '🥗';
+    let meals = p.meals; if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
+    let items = [];
+    if (Array.isArray(meals)) {
+      if (meals[0]?.name) items = meals;
+      else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType}))));
+    }
+    const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
+      ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
+        `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
+          items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${i.name} — ${i.calories||0} cal · P:${i.protein||0}g</div>`).join('')
+        }</div>`).join('')
+    }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet — click Edit to add foods.</div>`;
     return `<div class="plan-card">
       <div class="plan-card-name">${p.name}</div>
       <div class="plan-card-meta">${goalLabel} · ${p.total_calories||'—'} cal/day</div>
       ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${p.description}</div>` : ''}
+      ${mealSummary}
       <div class="plan-card-footer">
-        <span class="tag tag-green">Saved</span>
-        <button class="btn btn-ghost2 btn-sm" style="margin-left:auto" onclick="buildListFromSaved(${p.id})">🛒 Shop list</button>
+        <span class="tag tag-green">Meal Plan</span>
+        <button class="btn btn-ghost2 btn-sm" style="margin-left:auto;margin-right:6px" onclick="openEditMealPlan(${p.id})">Edit Meals</button>
+        <button class="btn btn-ghost2 btn-sm" style="margin-right:6px" onclick="buildListFromSaved(${p.id})">🛒</button>
         <button class="btn btn-red btn-sm" onclick="deleteMealPlan(${p.id}, event)">✕</button>
       </div>
     </div>`;
   }).join('');
 }
 
-// Build shopping list from a saved plan (that has meals stored as JSON)
 async function buildListFromSaved(planId) {
   const plan = S.mealPlans.find(p => p.id === planId);
   if (!plan) return;
-  // If meals array is stored as JSON days structure, use it
-  const meals = plan.meals;
-  if (!meals || !Array.isArray(meals) || !meals[0]?.meals) {
-    toast('This plan has no meal data yet — use AI generate to create a full plan', 'warn');
-    return;
+  let meals = plan.meals;
+  if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
+  if (!meals || !Array.isArray(meals) || !meals.length) {
+    toast('Add meals to this plan first', 'warn'); return;
   }
-  const planObj = { planName: plan.name, days: meals };
-  await buildAiShoppingList(planObj);
+  // Normalise to days structure for shopping list generator
+  const days = meals[0]?.meals ? meals : [{ day: 1, meals: [{ mealType: 'daily', foods: meals }] }];
+  await buildAiShoppingList({ planName: plan.name, days });
 }
 
 async function saveMealPlan() {
   const name = document.getElementById('mp-name').value.trim();
   if (!name) { toast('Plan name is required', 'error'); return; }
+  const meals = _collectMealItems('mp');
   const r = await API('/meal-plans', { method:'POST', body: JSON.stringify({
     name, description: document.getElementById('mp-desc').value.trim(),
     goalType: document.getElementById('mp-goal').value,
-    totalCalories: parseInt(document.getElementById('mp-cals').value)||0,
-    meals: [],
+    totalCalories: parseInt(document.getElementById('mp-cals').value)||meals.reduce((s,m)=>s+m.calories,0)||0,
+    meals,
   })});
   closeModal('modal-mealplan');
+  _mpItemCount = 0;
+  document.getElementById('mp-meal-list').innerHTML = '';
   if (r.success) { S.mealPlans.push(r.plan); loadMealPlans(); toast('Meal plan created ✓'); }
   else toast('Failed to create plan', 'error');
 }
 
 async function deleteMealPlan(id, e) {
-  e.stopPropagation();
+  if (e) e.stopPropagation();
   await API('/meal-plans/'+id, { method:'DELETE' });
   S.mealPlans = S.mealPlans.filter(p=>p.id!==id);
   loadMealPlans();
 }
 
 // ── WORKOUT PLANS ─────────────────────────────────────────────────────────────
+// ── Exercise Row Builder Helpers ──────────────────────────────────────────────
+function _exerciseRowHtml(idx, ex, containerId) {
+  return `<div id="exrow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
+    <button onclick="document.getElementById('exrow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
+    <div style="display:grid;grid-template-columns:40px 1fr;gap:6px;margin-bottom:6px">
+      <div><label style="font-size:.7rem;color:var(--text3)">Day</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" max="7" value="${ex.day||1}" data-field="day"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Exercise Name</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Squat" value="${ex.name||''}" data-field="name"/></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div><label style="font-size:.7rem;color:var(--text3)">Sets</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" value="${ex.sets||3}" data-field="sets"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Reps</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. 8 or 8-12" value="${ex.reps||''}" data-field="reps"/></div>
+      <div><label style="font-size:.7rem;color:var(--text3)">Rest (sec)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${ex.rest||90}" data-field="rest"/></div>
+    </div>
+    ${ex.notes !== undefined ? `<div style="margin-top:6px"><label style="font-size:.7rem;color:var(--text3)">Notes</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. use barbell, go slow" value="${ex.notes||''}" data-field="notes"/></div>` : ''}
+  </div>`;
+}
+
+function _collectExercises(containerId) {
+  const rows = document.querySelectorAll(`[id^="exrow-${containerId}-"]`);
+  return Array.from(rows).map(row => ({
+    day: parseInt(row.querySelector('[data-field=day]')?.value)||1,
+    name: row.querySelector('[data-field=name]')?.value?.trim()||'',
+    sets: parseInt(row.querySelector('[data-field=sets]')?.value)||3,
+    reps: row.querySelector('[data-field=reps]')?.value?.trim()||'',
+    rest: parseInt(row.querySelector('[data-field=rest]')?.value)||90,
+    notes: row.querySelector('[data-field=notes]')?.value?.trim()||undefined,
+  })).filter(e => e.name);
+}
+
+let _wpExCount = 0;
+function wpAddExercise() {
+  const list = document.getElementById('wp-exercise-list');
+  list.insertAdjacentHTML('beforeend', _exerciseRowHtml(_wpExCount++, {day:1,sets:3,reps:'8-12',rest:90,notes:''}, 'wp'));
+}
+
+let _editWpId = null, _editWpExCount = 0;
+function editWpAddExercise() {
+  const list = document.getElementById('edit-wp-exercises');
+  list.insertAdjacentHTML('beforeend', _exerciseRowHtml(_editWpExCount++, {day:1,sets:3,reps:'8-12',rest:90,notes:''}, 'ewp'));
+}
+
+function openEditWorkoutPlan(planId) {
+  const p = S.workoutPlans.find(x=>x.id===planId); if (!p) return;
+  _editWpId = planId; _editWpExCount = 0;
+  document.getElementById('edit-wp-title').textContent = 'Edit: ' + p.name;
+  const list = document.getElementById('edit-wp-exercises');
+  list.innerHTML = '';
+  const exs = Array.isArray(p.workouts) ? p.workouts : (typeof p.workouts === 'string' ? JSON.parse(p.workouts||'[]') : []);
+  exs.forEach(ex => list.insertAdjacentHTML('beforeend', _exerciseRowHtml(_editWpExCount++, {...ex,notes:ex.notes??''}, 'ewp')));
+  openModal('modal-edit-workout-plan');
+}
+
+async function saveEditedWorkoutPlan() {
+  if (!_editWpId) return;
+  const workouts = _collectExercises('ewp');
+  const r = await API('/workout-plans/'+_editWpId, { method:'PUT', body: JSON.stringify({ workouts }) });
+  closeModal('modal-edit-workout-plan');
+  if (r.success) { loadWorkoutPlans(); toast('Plan updated ✓'); }
+  else toast('Failed to save', 'error');
+}
+
+// ── Workout Plan List ─────────────────────────────────────────────────────────
 async function loadWorkoutPlans() {
   const r = await API('/workout-plans');
   S.workoutPlans = r.plans || [];
@@ -1556,34 +1732,48 @@ async function loadWorkoutPlans() {
     grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">🏋️</div><div class="et">No workout plans yet</div><div class="es">Create a program and assign it to clients.</div></div></div>`;
     return;
   }
-  grid.innerHTML = S.workoutPlans.map(p => `
-    <div class="plan-card">
+  grid.innerHTML = S.workoutPlans.map(p => {
+    const exs = Array.isArray(p.workouts) ? p.workouts : (typeof p.workouts === 'string' ? JSON.parse(p.workouts||'[]') : []);
+    const dayGroups = {};
+    exs.forEach(e => { if (!dayGroups[e.day]) dayGroups[e.day]=[]; dayGroups[e.day].push(e); });
+    const exHtml = Object.keys(dayGroups).sort((a,b)=>a-b).map(d =>
+      `<div style="margin-top:8px"><div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:3px">Day ${d}</div>${
+        dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${e.name} — ${e.sets}×${e.reps||'reps'}${e.rest?' · '+e.rest+'s rest':''}</div>`).join('')
+      }</div>`
+    ).join('');
+    return `<div class="plan-card">
       <div class="plan-card-name">${p.name}</div>
       <div class="plan-card-meta">${p.level||'intermediate'} · ${p.frequency||3} days/week</div>
       ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${p.description}</div>` : ''}
+      ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet — click Edit to add.</div>`}
       <div class="plan-card-footer">
         <span class="tag tag-blue">Workout</span>
-        <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
+        <button class="btn btn-sm" style="background:var(--surface2);margin-left:auto;margin-right:6px" onclick="openEditWorkoutPlan(${p.id})">Edit Exercises</button>
+        <button class="btn btn-red btn-sm" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function saveWorkoutPlan() {
   const name = document.getElementById('wp-name').value.trim();
   if (!name) { toast('Plan name is required', 'error'); return; }
+  const workouts = _collectExercises('wp');
   const r = await API('/workout-plans', { method:'POST', body: JSON.stringify({
     name, description: document.getElementById('wp-desc').value.trim(),
     level: document.getElementById('wp-level').value,
     frequency: parseInt(document.getElementById('wp-freq').value)||3,
-    workouts: [],
+    workouts,
   })});
   closeModal('modal-workoutplan');
+  _wpExCount = 0;
+  document.getElementById('wp-exercise-list').innerHTML = '';
   if (r.success) { S.workoutPlans.push(r.plan); loadWorkoutPlans(); toast('Workout plan created ✓'); }
   else toast('Failed to create plan', 'error');
 }
 
 async function deleteWorkoutPlan(id, e) {
-  e.stopPropagation();
+  if (e) e.stopPropagation();
   await API('/workout-plans/'+id, { method:'DELETE' });
   S.workoutPlans = S.workoutPlans.filter(p=>p.id!==id);
   loadWorkoutPlans();

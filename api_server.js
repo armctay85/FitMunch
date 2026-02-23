@@ -796,6 +796,32 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    // Compute totals from meals if provided
+    let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
+    if (meals && Array.isArray(meals)) {
+      const allFoods = meals.flatMap(m => m.foods || []);
+      calcCalories = allFoods.reduce((s,f) => s+(f.calories||0), 0) || totalCalories || 0;
+      calcProtein  = allFoods.reduce((s,f) => s+(f.protein||0), 0) || totalProtein  || 0;
+      calcCarbs    = allFoods.reduce((s,f) => s+(f.carbs||0),   0) || totalCarbs    || 0;
+      calcFat      = allFoods.reduce((s,f) => s+(f.fat||0),     0) || totalFat      || 0;
+    }
+    const r = await _pool.query(
+      `UPDATE meal_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
+       goal_type=COALESCE($3,goal_type), meals=COALESCE($4,meals),
+       total_calories=COALESCE($5,total_calories), total_protein=COALESCE($6,total_protein),
+       total_carbs=COALESCE($7,total_carbs), total_fat=COALESCE($8,total_fat), updated_at=NOW()
+       WHERE id=$9 AND user_id=$10 RETURNING *`,
+      [name, description, goalType, meals ? JSON.stringify(meals) : null,
+       calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
+    res.json({ success: true, plan: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.delete('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
     await _pool.query('DELETE FROM meal_plans WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
@@ -819,6 +845,22 @@ router.post('/workout-plans', authMiddleware, async (req, res) => {
       'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
       [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
     );
+    res.json({ success: true, plan: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/workout-plans/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, level, frequency, workouts } = req.body;
+    const r = await _pool.query(
+      `UPDATE workout_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
+       level=COALESCE($3,level), frequency=COALESCE($4,frequency),
+       workouts=COALESCE($5,workouts), updated_at=NOW()
+       WHERE id=$6 AND user_id=$7 RETURNING *`,
+      [name, description, level, frequency, workouts ? JSON.stringify(workouts) : null,
+       req.params.id, req.user.userId]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
     res.json({ success: true, plan: r.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
