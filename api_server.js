@@ -877,6 +877,50 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
+router.post('/ai/insight', authMiddleware, async (req, res) => {
+  try {
+    const { todayCalories = 0, todayProtein = 0, streak = 0, goal = 'general_fitness', targetCalories = 2000, targetProtein = 150 } = req.body;
+    const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
+    const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
+
+    const goalLabel = { weight_loss: 'weight loss', muscle_gain: 'muscle gain', maintenance: 'maintenance', general_fitness: 'general fitness' }[goal] || 'your goals';
+
+    let insight = '';
+
+    // Build smart coaching tip based on context
+    if (todayCalories === 0 && todayProtein === 0) {
+      const motivators = [
+        `Fresh day, fresh start 🌅 Log your first meal to kick off your ${goalLabel} journey today.`,
+        `Nothing logged yet — no stress. Your next meal is the only one that matters right now. Log it and let's go.`,
+        `Day ${streak > 0 ? streak + 1 : 1} begins. Log your first meal and keep the momentum going 💪`,
+      ];
+      insight = motivators[streak % motivators.length];
+    } else if (calPct < 40 && protPct < 40) {
+      insight = `You're at ${calPct}% of your calorie target and ${protPct}% of your protein goal for today. Front-loading food earlier in the day tends to reduce evening snacking — try fitting in a balanced meal soon.`;
+    } else if (protPct < 50 && calPct > 60) {
+      insight = `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without blowing your calorie budget.`;
+    } else if (calPct > 110) {
+      insight = goal === 'muscle_gain'
+        ? `You're at ${calPct}% of your calorie target — solid surplus for muscle growth. Make sure that extra energy is hitting with strong protein numbers too.`
+        : `You've hit ${calPct}% of your calorie target today. If you're still hungry, prioritise high-volume, low-calorie options like veggies or broth-based soups to stay satiated without overshooting.`;
+    } else if (calPct >= 80 && protPct >= 80) {
+      const wins = [
+        `On track — ${calPct}% calories and ${protPct}% protein hit for the day. Stay consistent and the results will follow 🏆`,
+        `Solid numbers today. ${streak > 2 ? `${streak}-day logging streak` : 'Keep this up'} and you'll be seeing results before you know it.`,
+        `You're dialled in: ${calPct}% of calories, ${protPct}% of protein. Keep that energy going into your workout.`,
+      ];
+      insight = wins[Math.floor(Math.random() * wins.length)];
+    } else if (streak >= 7) {
+      insight = `${streak}-day streak 🔥 — that kind of consistency is how results actually happen. Protein at ${protPct}% today; push it over the line for a perfect day.`;
+    } else {
+      insight = `${calPct}% of calories and ${protPct}% of protein logged so far. ${protPct < 70 ? `Boost protein with a high-protein snack to hit your ${targetProtein}g target.` : `You're on a good path — keep going.`}`;
+    }
+
+    res.json({ success: true, insight });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── CLIENT PORTAL (for clients to get their assigned data) ───────────────────
 router.get('/portal/me', authMiddleware, async (req, res) => {
   try {

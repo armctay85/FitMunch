@@ -1867,6 +1867,98 @@ async function deleteWorkoutPlan(id, e) {
   loadWorkoutPlans();
 }
 
+// ── EXERCISE BUILDER ─────────────────────────────────────────────────────────
+let _exBuilder = { planId: null, freq: 3, day: 1, exercises: [] };
+let _exRowIdx = 0;
+
+function openExerciseBuilder(planId, planName, freq) {
+  _exBuilder.planId = planId;
+  _exBuilder.freq = freq || 3;
+  _exBuilder.day = 1;
+  const plan = (S.workoutPlans||[]).find(p => p.id === planId);
+  const raw = plan ? (plan.workouts || []) : [];
+  const exs = Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw || '[]') : []);
+  _exBuilder.exercises = exs.map((e, i) => ({ ...e, _id: i }));
+  _exRowIdx = _exBuilder.exercises.length;
+  document.getElementById('ex-plan-name').textContent = planName;
+  _renderExDayTabs();
+  _renderExList();
+  ['ex-name','ex-sets','ex-reps','ex-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  openModal('modal-exercises');
+}
+
+function _renderExDayTabs() {
+  const tabs = document.getElementById('ex-day-tabs');
+  if (!tabs) return;
+  tabs.innerHTML = Array.from({ length: _exBuilder.freq }, (_, i) => i + 1).map(d =>
+    `<button class="btn btn-sm ${d === _exBuilder.day ? 'btn-green' : 'btn-ghost2'}" onclick="_setExDay(${d})" style="flex-shrink:0">Day ${d}</button>`
+  ).join('');
+}
+
+function _setExDay(d) {
+  _exBuilder.day = d;
+  _renderExDayTabs();
+  _renderExList();
+}
+
+function _renderExList() {
+  const el = document.getElementById('ex-list');
+  if (!el) return;
+  const dayExs = _exBuilder.exercises.filter(e => e.day === _exBuilder.day);
+  if (!dayExs.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);font-size:.78rem;border:1px dashed var(--border);border-radius:8px">No exercises for Day ${_exBuilder.day} yet — add one below.</div>`;
+    return;
+  }
+  el.innerHTML = dayExs.map(e =>
+    `<div id="ex-item-${e._id}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:.85rem;color:var(--text1)">${e.name}</div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${e.sets||3} sets × ${e.reps||'—'}${e.rest ? ' · ' + e.rest + 's rest' : ''}</div>
+        ${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;margin-top:2px">${e.notes}</div>` : ''}
+      </div>
+      <button onclick="_removeExercise(${e._id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
+    </div>`
+  ).join('');
+}
+
+function addExerciseRow() {
+  const name = document.getElementById('ex-name')?.value.trim();
+  if (!name) { toast('Exercise name is required', 'error'); return; }
+  const sets = parseInt(document.getElementById('ex-sets')?.value) || 3;
+  const reps = document.getElementById('ex-reps')?.value.trim() || '10';
+  const notes = document.getElementById('ex-notes')?.value.trim() || undefined;
+  _exBuilder.exercises.push({ _id: _exRowIdx++, day: _exBuilder.day, name, sets, reps, ...(notes && { notes }) });
+  ['ex-name','ex-sets','ex-reps','ex-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('ex-name')?.focus();
+  _renderExList();
+  toast('Exercise added ✓');
+}
+
+function _removeExercise(idx) {
+  _exBuilder.exercises = _exBuilder.exercises.filter(e => e._id !== idx);
+  _renderExList();
+}
+
+async function saveExercises() {
+  const btn = document.querySelector('#modal-exercises .btn-green:last-child');
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  const exercises = _exBuilder.exercises.map(({ _id, ...e }) => e);
+  const r = await API('/workout-plans/' + _exBuilder.planId, {
+    method: 'PUT',
+    body: JSON.stringify({ workouts: exercises })
+  });
+  if (btn) { btn.textContent = 'Save Exercises ✓'; btn.disabled = false; }
+  if (r.success) {
+    const idx = (S.workoutPlans||[]).findIndex(p => p.id === _exBuilder.planId);
+    if (idx !== -1) S.workoutPlans[idx] = r.plan;
+    loadWorkoutPlans();
+    closeModal('modal-exercises');
+    toast('Exercises saved ✓');
+  } else {
+    toast('Failed to save exercises', 'error');
+  }
+}
+
 // ── SHOPPING LISTS ────────────────────────────────────────────────────────────
 async function loadShoppingLists() {
   const r = await API('/shopping-list');
