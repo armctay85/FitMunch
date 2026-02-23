@@ -6,6 +6,7 @@
 <title>FitMunch v1771841022</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -680,6 +681,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       </div>
     </div>
     <!-- Onboarding CTA for new users -->
+    <!-- AI Daily Coaching Card -->
+    <div id="ai-coach-card" style="display:none;margin-top:14px;background:linear-gradient(135deg,#0a1a0a,#0d2d1a);border-radius:12px;padding:18px 20px;border:1px solid rgba(34,197,94,.25)">
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <div style="width:38px;height:38px;border-radius:50%;background:rgba(34,197,94,.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid rgba(34,197,94,.3)">🧠</div>
+        <div style="flex:1">
+          <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#86efac;margin-bottom:6px">AI Coach · Today's Tip</div>
+          <div id="ai-coach-text" style="font-size:.88rem;color:#e2e8f0;line-height:1.6">Loading your personalized tip…</div>
+        </div>
+        <button onclick="refreshAiCoaching()" style="background:transparent;border:none;cursor:pointer;color:#86efac;font-size:.7rem;flex-shrink:0;opacity:.7" title="Refresh tip">↻</button>
+      </div>
+    </div>
+
     <div id="portal-onboard-cta" style="margin-top:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">📸</div>
       <div style="font-size:.92rem;font-weight:800;color:#14532d;margin-bottom:6px">Scan your first receipt</div>
@@ -765,12 +778,60 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 <!-- ══ CLIENT: PROGRESS ══ -->
 <div class="view" id="view-portal-progress">
   <div class="view-header">
-    <div><div class="view-title">Progress</div><div class="view-sub">Track your body measurements and weight over time.</div></div>
-    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-log-progress')">+ Log Measurement</button></div>
+    <div><div class="view-title">📈 Progress</div><div class="view-sub">Your body transformation over time.</div></div>
+    <div class="view-actions">
+      <button class="btn btn-ghost2 btn-sm" id="progress-share-btn" style="display:none" onclick="downloadProgressCard()">📲 Share Progress</button>
+      <button class="btn btn-green" onclick="openModal('modal-log-progress')">+ Log Measurement</button>
+    </div>
   </div>
   <div class="scroll-body">
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-header"><span class="card-title">Recent Measurements</span></div>
+    <!-- Charts area — shown once 2+ weight measurements exist -->
+    <div id="progress-charts-area" style="display:none;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Weight Trend</span>
+            <span id="progress-weight-delta" style="font-size:.75rem;font-weight:800"></span>
+          </div>
+          <div class="card-body" style="padding:14px"><canvas id="weightChart" height="120"></canvas></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="card" style="flex:1">
+            <div class="card-body" style="text-align:center;padding:14px 10px">
+              <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Start</div>
+              <div style="font-size:1.3rem;font-weight:900;color:var(--text)" id="prog-start-w">—</div>
+            </div>
+          </div>
+          <div class="card" style="flex:1">
+            <div class="card-body" style="text-align:center;padding:14px 10px">
+              <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Current</div>
+              <div style="font-size:1.3rem;font-weight:900;color:var(--green2)" id="prog-curr-w">—</div>
+            </div>
+          </div>
+          <div class="card" style="flex:1">
+            <div class="card-body" style="text-align:center;padding:14px 10px">
+              <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Change</div>
+              <div style="font-size:1.3rem;font-weight:900" id="prog-change">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Body Fat % trend chart — shown only if BF data exists -->
+      <div class="card" id="bf-chart-card" style="display:none;margin-bottom:12px">
+        <div class="card-header"><span class="card-title">Body Fat % Trend</span></div>
+        <div class="card-body" style="padding:14px"><canvas id="bfChart" height="80"></canvas></div>
+      </div>
+    </div>
+    <!-- Empty state for new users -->
+    <div id="progress-empty-state" style="text-align:center;padding:48px 20px;margin-bottom:14px">
+      <div style="font-size:40px;margin-bottom:12px">📈</div>
+      <div style="font-size:.92rem;font-weight:800;color:var(--text2);margin-bottom:8px">Start your transformation journey</div>
+      <div style="font-size:.8rem;color:var(--text3);line-height:1.6;margin-bottom:20px">Log at least 2 measurements to see your weight trend chart.</div>
+      <button class="btn btn-green" onclick="openModal('modal-log-progress')">+ Log first measurement</button>
+    </div>
+    <!-- Measurements table -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">All Measurements</span></div>
       <div id="progress-log-body"><div style="padding:20px;text-align:center"><div class="loader"></div></div></div>
     </div>
   </div>
@@ -1139,6 +1200,33 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div class="modal-actions">
       <button class="btn btn-ghost2" onclick="closeModal('modal-goals')">Skip for now</button>
       <button class="btn btn-green" onclick="saveGoals()">Save goals →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXERCISE BUILDER MODAL -->
+<div class="modal-overlay" id="modal-exercises" onclick="closeOnOverlay(event)" style="z-index:400">
+  <div class="modal" style="max-width:560px;max-height:82vh;overflow-y:auto">
+    <div class="modal-title">💪 Exercises — <span id="ex-plan-name" style="color:var(--green2)"></span><button class="modal-close" onclick="closeModal('modal-exercises')">✕</button></div>
+    <div style="font-size:.78rem;color:var(--text2);margin-bottom:14px">Add exercises to each training day. Sets, reps, and notes are optional.</div>
+    <!-- Day tabs -->
+    <div id="ex-day-tabs" style="display:flex;gap:4px;overflow-x:auto;margin-bottom:12px;flex-wrap:nowrap;padding-bottom:2px"></div>
+    <!-- Exercise list -->
+    <div id="ex-list" style="margin-bottom:12px;min-height:60px"></div>
+    <!-- Add exercise form -->
+    <div style="border:1px dashed var(--border);border-radius:8px;padding:12px;background:var(--bg)">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">+ Add Exercise</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <input class="form-input" id="ex-name" placeholder="e.g. Bench Press" onkeydown="if(event.key==='Enter')addExerciseRow()"/>
+        <input class="form-input" id="ex-sets" type="number" placeholder="Sets" min="1" max="20"/>
+        <input class="form-input" id="ex-reps" placeholder="Reps" onkeydown="if(event.key==='Enter')addExerciseRow()"/>
+      </div>
+      <input class="form-input" id="ex-notes" placeholder="Notes (e.g. 3010 tempo, rest 90s)" style="width:100%;margin-bottom:8px" onkeydown="if(event.key==='Enter')addExerciseRow()"/>
+      <button class="btn btn-green btn-sm" onclick="addExerciseRow()">+ Add Exercise</button>
+    </div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-ghost2" onclick="closeModal('modal-exercises')">Cancel</button>
+      <button class="btn btn-green" onclick="saveExercises()">Save Exercises ✓</button>
     </div>
   </div>
 </div>
@@ -1745,11 +1833,11 @@ async function loadWorkoutPlans() {
       <div class="plan-card-name">${p.name}</div>
       <div class="plan-card-meta">${p.level||'intermediate'} · ${p.frequency||3} days/week</div>
       ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${p.description}</div>` : ''}
-      ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet — click Edit to add.</div>`}
-      <div class="plan-card-footer">
+      ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet — tap below to add.</div>`}
+      <div class="plan-card-footer" style="flex-wrap:wrap;gap:6px">
         <span class="tag tag-blue">Workout</span>
-        <button class="btn btn-sm" style="background:var(--surface2);margin-left:auto;margin-right:6px" onclick="openEditWorkoutPlan(${p.id})">Edit Exercises</button>
-        <button class="btn btn-red btn-sm" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
+        <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${p.id},'${(p.name||'Plan').replace(/'/g,'\\'')}',${p.frequency||3})">💪 Exercises</button>
+        <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
       </div>
     </div>`;
   }).join('');
@@ -1948,6 +2036,39 @@ async function setupClientPortal() {
     if (r.workoutPlan) {
       document.getElementById('home-workoutplan').innerHTML = `<div class="portal-plan-name">${r.workoutPlan.workout_plan_name||'Workout Plan'}</div>`;
     }
+    // Load AI coaching insight (non-blocking)
+    loadAiCoaching(todayMeals, r.recentMeals||[]);
+  }
+}
+
+async function loadAiCoaching(todayMeals, allMeals) {
+  try {
+    const todayCals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+    const todayProt = todayMeals.reduce((s,m)=>s+(m.protein||0),0);
+    const insightR = await API('/ai/insight', {
+      method:'POST',
+      body: JSON.stringify({
+        todayCalories: todayCals, todayProtein: todayProt,
+        streak: calcStreak(allMeals),
+        goal: S.goals?.fitnessGoal||'general_fitness',
+        targetCalories: S.goals?.targetCalories||2000,
+        targetProtein: S.goals?.targetProtein||150,
+      })
+    });
+    if (insightR.insight) {
+      document.getElementById('ai-coach-text').textContent = insightR.insight;
+      document.getElementById('ai-coach-card').style.display = '';
+    }
+  } catch(e) { /* silently fail */ }
+}
+
+async function refreshAiCoaching() {
+  const coachCard = document.getElementById('ai-coach-card');
+  const coachText = document.getElementById('ai-coach-text');
+  coachText.textContent = 'Getting fresh tip…';
+  if (S.portalData) {
+    const todayMeals = (S.portalData.recentMeals||[]).filter(m=>new Date(m.date).toDateString()===new Date().toDateString());
+    await loadAiCoaching(todayMeals, S.portalData.recentMeals||[]);
   }
 }
 
@@ -2198,17 +2319,68 @@ async function logWorkoutEntry() {
 // ── PROGRESS LOG ──────────────────────────────────────────────────────────────
 async function loadProgressLog() {
   const r = await API('/progress/history/' + S.user.id);
-  const prog = r.progressLogs || r.history || [];
+  const allProg = r.progressLogs || r.history || [];
+  window._lastProgressData = allProg;
+  const withWeight = allProg.filter(p => p.weight && parseFloat(p.weight) > 0);
   const el = document.getElementById('progress-log-body');
   if (!el) return;
-  el.innerHTML = prog.length ? prog.slice(0,20).map(p => `
+
+  if (withWeight.length >= 2) {
+    document.getElementById('progress-charts-area').style.display = '';
+    document.getElementById('progress-empty-state').style.display = 'none';
+    document.getElementById('progress-share-btn').style.display = '';
+
+    const sorted = [...withWeight].sort((a,b) => new Date(a.date)-new Date(b.date));
+    const labels = sorted.map(p => new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const weights = sorted.map(p => parseFloat(p.weight));
+    const startW = weights[0], currW = weights[weights.length-1];
+    const delta = +(currW - startW).toFixed(1);
+
+    document.getElementById('prog-start-w').textContent = startW + 'kg';
+    document.getElementById('prog-curr-w').textContent = currW + 'kg';
+    const deltaEl = document.getElementById('prog-change');
+    deltaEl.textContent = (delta>0?'+':'')+delta+'kg';
+    deltaEl.style.color = delta<=0?'#22c55e':'#ef4444';
+    const deltaHdr = document.getElementById('progress-weight-delta');
+    if (deltaHdr) { deltaHdr.textContent=(delta>0?'+':'')+delta+'kg'; deltaHdr.style.color=delta<=0?'#22c55e':'#ef4444'; }
+
+    if (typeof Chart !== 'undefined') {
+      const wctx = document.getElementById('weightChart').getContext('2d');
+      if (window._weightChart) window._weightChart.destroy();
+      window._weightChart = new Chart(wctx, {
+        type:'line',
+        data:{ labels, datasets:[{ data:weights, borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.08)', fill:true, tension:0.4, pointRadius:5, pointBackgroundColor:'#16a34a', borderWidth:2.5 }] },
+        options:{ responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y+'kg'}}}, scales:{y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11},callback:v=>v+'kg'}},x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:8}}} }
+      });
+
+      const bfData = sorted.filter(p=>p.body_fat_percentage&&parseFloat(p.body_fat_percentage)>0);
+      if (bfData.length >= 2) {
+        document.getElementById('bf-chart-card').style.display='';
+        const bfctx = document.getElementById('bfChart').getContext('2d');
+        if (window._bfChart) window._bfChart.destroy();
+        window._bfChart = new Chart(bfctx, {
+          type:'line',
+          data:{ labels:bfData.map(p=>new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short'})), datasets:[{ data:bfData.map(p=>parseFloat(p.body_fat_percentage)), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)', fill:true, tension:0.4, pointRadius:5, pointBackgroundColor:'#d97706', borderWidth:2.5 }] },
+          options:{ responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y+'%'}}}, scales:{y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11},callback:v=>v+'%'}},x:{grid:{display:false},ticks:{font:{size:10}}}} }
+        });
+      }
+    }
+  } else {
+    document.getElementById('progress-charts-area').style.display='none';
+    document.getElementById('progress-empty-state').style.display='';
+    document.getElementById('progress-share-btn').style.display='none';
+  }
+
+  el.innerHTML = allProg.length ? allProg.slice(0,30).map(p=>`
     <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
-      <span style="font-size:.75rem;color:var(--text3);min-width:80px">${new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</span>
+      <span style="font-size:.75rem;color:var(--text3);min-width:80px">${new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'})}</span>
       ${p.weight?`<span class="tag tag-green">${p.weight}kg</span>`:''}
       ${p.body_fat_percentage?`<span class="tag tag-amber">${p.body_fat_percentage}% BF</span>`:''}
-      ${p.measurements?.waist?`<span class="tag tag-blue">Waist: ${p.measurements.waist}cm</span>`:''}
-      ${p.notes?`<span style="font-size:.75rem;color:var(--text2);flex:1">${p.notes}</span>`:''}
-    </div>`).join('') : '<div class="empty-state"><div class="ei">📈</div><div class="et">No measurements yet</div><div class="es">Log your first measurement to start tracking progress.</div></div>';
+      ${p.measurements?.waist?`<span class="tag tag-blue">Waist ${p.measurements.waist}cm</span>`:''}
+      ${p.measurements?.chest?`<span class="tag" style="background:#f3e8ff;color:#7c3aed">Chest ${p.measurements.chest}cm</span>`:''}
+      ${p.notes?`<span style="font-size:.72rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.notes}</span>`:''}
+    </div>`).join('')
+  : '<div class="empty-state"><div class="ei">📈</div><div class="et">No measurements logged</div><div class="es">Tap the button above to log your first measurement.</div></div>';
 }
 
 async function logProgressEntry() {
@@ -2227,6 +2399,64 @@ async function logProgressEntry() {
   closeModal('modal-log-progress');
   if (r.success || r.id) { toast('Measurement saved ✓'); loadProgressLog(); }
   else toast('Failed to save measurement', 'error');
+}
+
+function downloadProgressCard() {
+  const prog = (window._lastProgressData||[]).filter(p=>p.weight&&parseFloat(p.weight)>0);
+  if (!prog.length) { toast('Log a measurement first','warn'); return; }
+  const sorted = [...prog].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const startW = parseFloat(sorted[0].weight), currW = parseFloat(sorted[sorted.length-1].weight);
+  const delta = +(currW-startW).toFixed(1);
+  const streak = S.portalData ? calcStreak(S.portalData.recentMeals||[]) : 0;
+  const name = S.user?.name?.split(' ')[0]||'User';
+
+  const canvas = document.createElement('canvas');
+  canvas.width=1080; canvas.height=1080;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0,0,1080,1080);
+  grad.addColorStop(0,'#0a1a0a'); grad.addColorStop(1,'#0d2d1a');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,1080,1080);
+
+  // Grid pattern
+  ctx.strokeStyle='rgba(34,197,94,.07)'; ctx.lineWidth=1;
+  for(let i=0;i<1080;i+=60){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,1080);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(1080,i);ctx.stroke();}
+
+  // Header
+  ctx.fillStyle='#22c55e'; ctx.font='bold 38px system-ui';
+  ctx.textAlign='left'; ctx.fillText('🥦 FitMunch', 80, 100);
+  ctx.fillStyle='rgba(255,255,255,.4)'; ctx.font='500 28px system-ui';
+  ctx.fillText('Transformation Progress', 80, 145);
+
+  // Big delta
+  ctx.textAlign='center';
+  ctx.fillStyle=delta<=0?'#22c55e':'#f87171';
+  ctx.font='bold 220px system-ui';
+  ctx.fillText((delta>0?'+':'')+delta+'kg', 540, 440);
+
+  ctx.fillStyle='#86efac'; ctx.font='600 44px system-ui';
+  ctx.fillText(delta<=0?'✅ Lost since start':'📈 Gained since start', 540, 510);
+
+  // Stats
+  ctx.fillStyle='rgba(255,255,255,.15)';
+  ctx.beginPath(); ctx.roundRect(120,570,800,160,20); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 52px system-ui';
+  ctx.fillText(startW+'kg → '+currW+'kg', 540, 660);
+  ctx.fillStyle='#86efac'; ctx.font='500 34px system-ui';
+  ctx.fillText('Start  →  Now', 540, 710);
+
+  if(streak>0){ctx.fillStyle='#fbbf24';ctx.font='bold 46px system-ui';ctx.fillText('🔥 '+streak+'-day logging streak',540,810);}
+
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='500 34px system-ui';
+  ctx.fillText(name+"'s Journey · fitmunch.com.au",540,910);
+  ctx.fillStyle='rgba(255,255,255,.25)';ctx.font='26px system-ui';
+  ctx.fillText('#FitMunch #Transformation #FitnessAustralia',540,970);
+
+  const link=document.createElement('a');
+  link.download='fitmunch-progress.png';
+  link.href=canvas.toDataURL('image/png');
+  link.click();
+  toast('Progress card downloaded! 📲');
 }
 
 // ── RECEIPT SCANNER ──────────────────────────────────────────────────────────
