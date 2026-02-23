@@ -458,8 +458,13 @@ router.post('/auth/register', async (req, res) => {
 
     const user = await createUser(email.toLowerCase(), name, passwordHash);
 
-    // Set role and pt_id
-    await _pool.query('UPDATE users SET role=$1, pt_id=$2 WHERE id=$3', [role, ptId, user.id]);
+    // Set role, pt_id, and 14-day trial
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
+    await _pool.query(
+      'UPDATE users SET role=$1, pt_id=$2, subscription_expires_at=$3 WHERE id=$4',
+      [role, ptId, trialExpiresAt, user.id]
+    );
 
     // If client, link to PT
     if (role === 'client' && ptId && req.body.inviteToken) {
