@@ -193,6 +193,15 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       return res.json({ success: false, error: 'No image. Send multipart file (field: receipt) or JSON {image: base64dataUrl}' });
     }
 
+    // Check API key is configured
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        error: 'Receipt scanner not configured — ANTHROPIC_API_KEY missing in Railway environment variables.',
+        setup: 'Add ANTHROPIC_API_KEY to Railway → FitMunch project → Variables'
+      });
+    }
+
     const rawItems = await claudeVision(imageBase64, mimeType);
 
     const items = rawItems.map(item => ({

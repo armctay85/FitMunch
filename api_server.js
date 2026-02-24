@@ -1015,6 +1015,114 @@ router.post('/referral/claim', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/shopping-list/budget — generate shopping list from nutritional targets + budget
+// Advertised feature: "150g protein/day on $80/week → here's what to buy"
+router.post('/shopping-list/budget', authMiddleware, async (req, res) => {
+  try {
+    const { protein = 150, calories = 2200, budget = 80, days = 7 } = req.body;
+
+    // AU supermarket staples with approx Woolies/Coles prices (AUD)
+    const STAPLES = [
+      { name: 'Chicken breast (1kg)', price: 9.00, proteinPer100g: 22, calsPer100g: 110, grams: 1000, category: 'meat' },
+      { name: 'Beef mince 500g', price: 7.00, proteinPer100g: 21, calsPer100g: 153, grams: 500, category: 'meat' },
+      { name: 'Eggs (12 pack)', price: 6.00, proteinPer100g: 13, calsPer100g: 155, grams: 660, category: 'dairy' },
+      { name: 'Greek yoghurt (1kg)', price: 5.50, proteinPer100g: 9, calsPer100g: 59, grams: 1000, category: 'dairy' },
+      { name: 'Cottage cheese 500g', price: 4.00, proteinPer100g: 11, calsPer100g: 98, grams: 500, category: 'dairy' },
+      { name: 'Canned tuna (4 pack)', price: 5.00, proteinPer100g: 27, calsPer100g: 116, grams: 400, category: 'meat' },
+      { name: 'Rolled oats 1kg', price: 3.50, proteinPer100g: 13, calsPer100g: 389, grams: 1000, category: 'grains' },
+      { name: 'Brown rice 2kg', price: 4.50, proteinPer100g: 8, calsPer100g: 370, grams: 2000, category: 'grains' },
+      { name: 'Sweet potato 1kg', price: 4.00, proteinPer100g: 2, calsPer100g: 86, grams: 1000, category: 'vegetables' },
+      { name: 'Broccoli (bunch)', price: 2.50, proteinPer100g: 3, calsPer100g: 34, grams: 400, category: 'vegetables' },
+      { name: 'Spinach 250g bag', price: 3.00, proteinPer100g: 3, calsPer100g: 23, grams: 250, category: 'vegetables' },
+      { name: 'Banana bunch (~6)', price: 2.80, proteinPer100g: 1, calsPer100g: 89, grams: 600, category: 'fruit' },
+      { name: 'Olive oil 500mL', price: 7.00, proteinPer100g: 0, calsPer100g: 884, grams: 500, category: 'pantry' },
+      { name: 'Whey protein 1kg', price: 35.00, proteinPer100g: 75, calsPer100g: 380, grams: 1000, category: 'supplements' },
+      { name: 'Milk 2L', price: 3.20, proteinPer100g: 3.4, calsPer100g: 65, grams: 2000, category: 'dairy' },
+      { name: 'Almonds 500g', price: 9.00, proteinPer100g: 21, calsPer100g: 579, grams: 500, category: 'pantry' },
+      { name: 'Peanut butter 375g', price: 4.50, proteinPer100g: 25, calsPer100g: 588, grams: 375, category: 'pantry' },
+      { name: 'Frozen mixed veg 1kg', price: 3.50, proteinPer100g: 3, calsPer100g: 70, grams: 1000, category: 'vegetables' },
+      { name: 'Salmon portions 500g', price: 14.00, proteinPer100g: 20, calsPer100g: 208, grams: 500, category: 'meat' },
+    ];
+
+    const dailyProtein = protein;
+    const dailyCalories = calories;
+    const weeklyBudget = budget;
+
+    // Score each item by protein per dollar (higher = better value)
+    const scored = STAPLES.map(item => ({
+      ...item,
+      totalProtein: (item.proteinPer100g / 100) * item.grams,
+      totalCalories: (item.calsPer100g / 100) * item.grams,
+      proteinPerDollar: ((item.proteinPer100g / 100) * item.grams) / item.price,
+    })).sort((a, b) => b.proteinPerDollar - a.proteinPerDollar);
+
+    // Greedy selection: always include high-protein staples first
+    const selected = [];
+    let totalCost = 0;
+    let weeklyProtein = 0;
+    let weeklyCalories = 0;
+
+    // Always include eggs and at least one protein source
+    const mustHave = ['Chicken breast (1kg)', 'Eggs (12 pack)', 'Rolled oats 1kg'];
+    mustHave.forEach(name => {
+      const item = scored.find(i => i.name === name);
+      if (item && totalCost + item.price <= weeklyBudget) {
+        selected.push(item);
+        totalCost += item.price;
+        weeklyProtein += item.totalProtein;
+        weeklyCalories += item.totalCalories;
+      }
+    });
+
+    // Fill remaining budget with best value items
+    for (const item of scored) {
+      if (selected.find(s => s.name === item.name)) continue;
+      if (totalCost + item.price > weeklyBudget * 1.05) continue; // 5% over budget tolerance
+      selected.push(item);
+      totalCost += item.price;
+      weeklyProtein += item.totalProtein;
+      weeklyCalories += item.totalCalories;
+      if (selected.length >= 12) break;
+    }
+
+    const dailyAvgProtein = Math.round(weeklyProtein / days);
+    const dailyAvgCalories = Math.round(weeklyCalories / days);
+    const meetsProtein = dailyAvgProtein >= dailyProtein * 0.85;
+    const meetsCalories = dailyAvgCalories >= dailyCalories * 0.75;
+
+    // Save as a shopping list
+    const pool = getPool();
+    const listItems = selected.map(i => ({
+      name: i.name,
+      price: i.price,
+      category: i.category,
+      protein: Math.round(i.totalProtein),
+      calories: Math.round(i.totalCalories),
+      checked: false,
+    }));
+    const saved = await pool.query(
+      `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
+      [req.user.userId, `${protein}g protein / $${budget} budget — ${new Date().toLocaleDateString('en-AU')}`, JSON.stringify(listItems)]
+    );
+
+    res.json({
+      success: true,
+      list: saved.rows[0],
+      items: listItems,
+      summary: {
+        totalCost: Math.round(totalCost * 100) / 100,
+        dailyProtein: dailyAvgProtein,
+        dailyCalories: dailyAvgCalories,
+        meetsProteinTarget: meetsProtein,
+        meetsCalorieTarget: meetsCalories,
+        message: meetsProtein
+          ? `✅ Hits ~${dailyAvgProtein}g protein/day on $${Math.round(totalCost * 100) / 100}/week`
+          : `⚠️ ~${dailyAvgProtein}g protein/day — add whey protein to hit ${dailyProtein}g target`,
+      }
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // PT lead capture — no auth required, public endpoint
 router.post('/pt-leads', async (req, res) => {
   try {
