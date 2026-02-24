@@ -407,8 +407,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
           <div style="font-size:.75rem;color:#166534;line-height:1.5;margin-bottom:14px">Generate an invite link — they register and appear in your roster automatically.</div>
           <button class="btn btn-green" style="width:100%" onclick="openInviteModal()">Generate Invite Link</button>
           <div style="margin-top:10px;border-top:1px solid #bbf7d0;padding-top:10px">
-            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#16a34a;margin-bottom:6px">Outreach copy ready</div>
-            <button class="btn btn-ghost2 btn-sm" style="width:100%;font-size:.72rem" onclick="toast('Outreach templates are in your Mission Control dashboard','warn')">View FB + IG templates →</button>
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#16a34a;margin-bottom:6px">Refer a PT — get 1 month free</div>
+            <button class="btn btn-ghost2 btn-sm" style="width:100%;font-size:.72rem" onclick="loadReferralCode()">Get my referral link →</button>
+            <div id="referral-link-box" style="display:none;margin-top:8px;background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:8px;font-size:.7rem;word-break:break-all;color:#166534"></div>
           </div>
         </div>
       </div>
@@ -1337,6 +1338,18 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function closeOnOverlay(e) { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); }
 function openInviteModal() { openModal('modal-invite'); }
+
+async function loadReferralCode() {
+  const box = document.getElementById('referral-link-box');
+  box.style.display = 'block';
+  box.textContent = 'Generating...';
+  try {
+    const r = await apiFetch('/api/referral/code');
+    if (r.success) {
+      box.innerHTML = `<strong>Your link:</strong><br/>${r.link}<br/><br/>Uses: ${r.uses} | Free months earned: ${r.credits}<br/><br/><button class="btn btn-green btn-sm" style="width:100%;margin-top:4px" onclick="navigator.clipboard.writeText('${r.link}');toast('Copied!','ok')">Copy link</button>`;
+    }
+  } catch(e) { box.textContent = 'Error loading code'; }
+}
 function openLogMealModal() { resetMealModal && resetMealModal(); openModal('modal-log-meal'); }
 
 // ── PT SETUP ──────────────────────────────────────────────────────────────────

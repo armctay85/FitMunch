@@ -956,6 +956,65 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── PT Referral System ──────────────────────────────────────────────────────
+
+// Get or generate a referral code for logged-in PT
+router.get('/referral/code', authMiddleware, async (req, res) => {
+  try {
+    const pool = getPool();
+    await pool.query(`CREATE TABLE IF NOT EXISTS pt_referrals (
+      id SERIAL PRIMARY KEY,
+      pt_id INTEGER UNIQUE REFERENCES users(id),
+      code TEXT UNIQUE NOT NULL,
+      uses INTEGER DEFAULT 0,
+      credits INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    let row = await pool.query('SELECT * FROM pt_referrals WHERE pt_id=$1', [req.user.userId]);
+    if (!row.rows.length) {
+      const code = 'FM-' + Math.random().toString(36).substring(2,8).toUpperCase();
+      row = await pool.query(
+        'INSERT INTO pt_referrals (pt_id, code) VALUES ($1,$2) RETURNING *',
+        [req.user.userId, code]
+      );
+    }
+    const ref = row.rows[0];
+    res.json({
+      success: true,
+      code: ref.code,
+      uses: ref.uses,
+      credits: ref.credits,
+      link: `https://fitmunch.com.au/login.html?plan=starter&ref=${ref.code}`
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Claim a referral code at signup (extends trial by 30 days for referrer)
+router.post('/referral/claim', authMiddleware, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'No code provided' });
+    const pool = getPool();
+    const ref = await pool.query('SELECT * FROM pt_referrals WHERE code=$1', [code.toUpperCase()]);
+    if (!ref.rows.length) return res.status(404).json({ error: 'Invalid referral code' });
+    const referrer = ref.rows[0];
+    if (referrer.pt_id === req.user.userId) return res.status(400).json({ error: 'Cannot use your own code' });
+    // Give referrer 30 extra days
+    await pool.query(
+      'UPDATE users SET subscription_expires_at = COALESCE(subscription_expires_at, NOW()) + INTERVAL \'30 days\' WHERE id=$1',
+      [referrer.pt_id]
+    );
+    await pool.query('UPDATE pt_referrals SET uses=uses+1, credits=credits+1 WHERE code=$1', [code.toUpperCase()]);
+    // Give new PT 7 extra trial days (on top of 14-day default)
+    await pool.query(
+      'UPDATE users SET subscription_expires_at = COALESCE(subscription_expires_at, NOW()) + INTERVAL \'7 days\' WHERE id=$1',
+      [req.user.userId]
+    );
+    console.log(`[referral] ${code} used by user ${req.user.userId} — referrer ${referrer.pt_id} gets +30 days`);
+    res.json({ success: true, bonus: '7 extra trial days added to your account' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // PT lead capture — no auth required, public endpoint
 router.post('/pt-leads', async (req, res) => {
   try {
