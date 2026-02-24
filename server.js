@@ -179,6 +179,10 @@ const foodDb = require('./food-db');
 app.use('/api/foods', foodDb);
 
 // Health check — used by Railway to verify the app is running
+// Clean URLs for SEO landing pages
+app.get('/for-pts', (req, res) => res.sendFile('for-pts.html', { root: 'public' }));
+app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'fitmunch' });
 });
