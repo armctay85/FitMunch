@@ -182,6 +182,8 @@ app.use('/api/foods', foodDb);
 // Clean URLs for SEO landing pages
 app.get('/for-pts', (req, res) => res.sendFile('for-pts.html', { root: 'public' }));
 app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
+app.get('/best-pt-software-australia', (req, res) => res.sendFile('best-pt-software-australia.html', { root: 'public' }));
+app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/best-pt-software-australia'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'fitmunch' });
