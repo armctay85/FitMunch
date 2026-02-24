@@ -3,8 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch — Track Macros, Scan Receipts, Hit Your Goals</title>
-<meta name="description" content="Track macros, scan your shopping receipts for instant nutrition breakdowns, build smart grocery lists, and share your progress. For home gym warriors and the PTs who coach them."/>
+<title>FitMunch — Nutrition Tracking App for Personal Trainers Australia</title>
+<meta name="description" content="FitMunch gives Australian personal trainers a full client management platform. Track client nutrition compliance, assign meal plans, monitor progress. 14-day free trial. $59/mo AUD."/>
+<meta name="keywords" content="personal trainer app australia, pt client nutrition tracking, fitness app for personal trainers, client management app pt, macro tracking app australia"/>
+<meta property="og:title" content="FitMunch — Nutrition Compliance for PT Businesses"/>
+<meta property="og:description" content="See every client's nutrition compliance in real time. Assign meal plans, track macros, send invite links. 14-day free PT trial. fitmunch.com.au"/>
+<meta property="og:url" content="https://fitmunch.com.au"/>
+<meta property="og:type" content="website"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="FitMunch — Nutrition App for Australian PTs"/>
+<meta name="twitter:description" content="Client compliance dashboard for personal trainers. Receipt scanner your clients actually use. 14-day free trial."/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316a34a'/><text y='24' x='4' font-size='22' font-family='system-ui' font-weight='900' fill='white'>F</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
@@ -416,6 +424,11 @@ footer{background:var(--dark);padding:48px 40px 28px}
           <div><div class="pt-feat-h">Your clients go viral for you</div><div class="pt-feat-p">When clients share their FitMunch progress cards on TikTok and IG, your name is on it. Free marketing every time a client posts.</div></div>
         </div>
         <a href="/login.html?plan=starter" class="btn-primary" style="align-self:flex-start;margin-top:8px">Start PT trial — free 14 days →</a>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="email" id="pt-email-cap" placeholder="your@email.com" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;width:220px;outline:none;font-family:inherit"/>
+          <button onclick="capturePTEmail()" style="background:#fff;color:var(--green2);border:1px solid var(--green2);padding:10px 16px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">Get a personal walkthrough</button>
+        </div>
+        <div id="pt-email-msg" style="font-size:.78rem;color:var(--green2);margin-top:6px;display:none">✓ Got it — we'll reach out within 24h to set you up.</div>
       </div>
       <div class="pt-mockup">
         <div class="ptm-header"><span>PT Dashboard</span><span style="color:var(--green2)">8 active clients</span></div>
@@ -594,6 +607,19 @@ function setAud(type, el) {
     document.querySelector('.hero-sub').textContent = 'Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you\'ve bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.';
     document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html" class="btn-primary">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
   }
+}
+
+async function capturePTEmail() {
+  const input = document.getElementById('pt-email-cap');
+  const msg = document.getElementById('pt-email-msg');
+  const email = input.value.trim();
+  if (!email || !email.includes('@')) { input.style.borderColor='#ef4444'; return; }
+  try {
+    await fetch('/api/pt-leads', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, source: 'landing-pt-section' }) });
+  } catch(e) {}
+  input.style.display = 'none';
+  document.querySelector('[onclick="capturePTEmail()"]').style.display = 'none';
+  msg.style.display = 'block';
 }
 </script>
 </body>

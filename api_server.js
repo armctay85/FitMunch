@@ -956,6 +956,24 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// PT lead capture — no auth required, public endpoint
+router.post('/pt-leads', async (req, res) => {
+  try {
+    const { email, source } = req.body;
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Invalid email' });
+    const pool = getPool();
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS pt_leads (id SERIAL PRIMARY KEY, email TEXT UNIQUE, source TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`
+    );
+    await pool.query(
+      `INSERT INTO pt_leads (email, source) VALUES ($1, $2) ON CONFLICT (email) DO UPDATE SET source=EXCLUDED.source`,
+      [email.toLowerCase().trim(), source || 'landing']
+    );
+    console.log(`[pt-lead] captured: ${email} via ${source}`);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
