@@ -272,7 +272,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 /* ── RESPONSIVE ── */
 @media (max-width: 767px) {
-  .sidebar{display:none !important}
+  /* sidebar visibility controlled by JS */
   .mobile-nav{display:block}
   .shell{padding-bottom:56px}
   .scroll-body{padding:12px 14px 20px}
@@ -1849,7 +1849,7 @@ async function loadWorkoutPlans() {
       ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet — tap below to add.</div>`}
       <div class="plan-card-footer" style="flex-wrap:wrap;gap:6px">
         <span class="tag tag-blue">Workout</span>
-        <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${p.id},'${(p.name||'Plan').replace(/'/g,'\\'')}',${p.frequency||3})">💪 Exercises</button>
+        <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${p.id},&quot;${(p.name||'Plan').replace(/"/g,'')}&quot;,${p.frequency||3})">💪 Exercises</button>
         <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
       </div>
     </div>`;
