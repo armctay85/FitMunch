@@ -60,7 +60,7 @@ window.showSection = function(sectionId) {
       setTimeout(() => {
         switch(sectionId) {
           case 'meal':
-            if (typeof generateMealPlan === 'function') generateMealPlan();
+            if (typeof generateMealPlan === 'function') generateMealPlan(true);
             break;
           case 'workout':
             if (typeof generateActivityPlan === 'function') generateActivityPlan();
@@ -190,11 +190,19 @@ function updateProgressBars() {
 }
 
 // Enhanced Meal Plan Generation
-window.generateMealPlan = function() {
+// FIX: accept optional `force` flag so button clicks always work,
+// not just when triggered by navigation (active-section guard was too strict).
+window.generateMealPlan = function(force) {
   console.log("Generating enhanced meal plan");
 
   const mealSection = document.getElementById('meal');
-  if (!mealSection?.classList.contains('active-section')) return;
+  // Only skip if section is completely absent from DOM.
+  // Previously this bailed out whenever active-section class was missing,
+  // causing the button to silently do nothing.
+  if (!mealSection) {
+    console.warn("generateMealPlan: #meal section not found in DOM");
+    return;
+  }
 
   const goalType = document.getElementById('goalType')?.value || "Maintenance";
 
@@ -303,11 +311,12 @@ window.generateMealPlan = function() {
     mealDisplay.innerHTML = planHTML;
   }
 
-  // Update nutritional info
-  document.getElementById('mealCalories').textContent = '2,100';
-  document.getElementById('mealProtein').textContent = '110g';
-  document.getElementById('mealCarbs').textContent = '135g';
-  document.getElementById('mealFat').textContent = '60g';
+  // Update nutritional info (null-safe — elements may not exist in all views)
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('mealCalories', '2,100');
+  setEl('mealProtein', '110g');
+  setEl('mealCarbs', '135g');
+  setEl('mealFat', '60g');
 
   return selectedPlan;
 };
