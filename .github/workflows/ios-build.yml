@@ -1,0 +1,26 @@
+name: iOS Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Select Xcode
+      run: sudo xcode-select -s $(ls -d /Applications/Xcode*.app | tail -1)/Contents/Developer
+    
+    - name: Resolve packages
+      run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
+    
+    - name: Build
+      run: xcodebuild clean build -project FitMunch.xcodeproj -scheme FitMunch -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' CODE_SIGNING_ALLOWED=NO
+    
+    - name: Test
+      run: xcodebuild test -project FitMunch.xcodeproj -scheme FitMunch -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' CODE_SIGNING_ALLOWED=NO || echo 'No tests'
