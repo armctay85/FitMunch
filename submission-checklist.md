@@ -16,22 +16,24 @@
 ☐ API key updated in `Constants.swift`
 
 ### ✅ App Store Connect Setup
+☐ **AUTOMATED** - Run `node asc-setup.js` to create app and IAPs
 ☐ App listing created in App Store Connect
 ☐ App Name: `FitMunch: Meal & Nutrition Tracker`
 ☐ Bundle ID: `com.fitmunch.ios`
-☐ SKU: `FITMUNCH2026`
+☐ SKU: Auto-generated
 ☐ Primary Language: English (Australia)
 ☐ Pricing set to Free
 ☐ Availability: All territories selected
 
 ### ✅ In-App Purchases
+☐ **AUTOMATED** - Run `node asc-setup.js` to create IAPs
 ☐ 3 auto-renewable subscriptions created:
-  - Weekly Subscription (Product ID: `com.fitmunch.ios.weekly`)
-  - Monthly Subscription (Product ID: `com.fitmunch.ios.monthly`)
-  - Annual Subscription (Product ID: `com.fitmunch.ios.annual`)
+  - Weekly Subscription (Product ID: `fitmunch_weekly`)
+  - Monthly Subscription (Product ID: `fitmunch_monthly`)
+  - Annual Subscription (Product ID: `fitmunch_annual`)
+☐ Lifetime purchase (Product ID: `fitmunch_lifetime`)
 ☐ Subscription group created: `FitMunch Premium`
 ☐ All subscriptions added to group
-☐ Annual subscription set as default
 ☐ IAPs submitted for review
 
 ## APP METADATA

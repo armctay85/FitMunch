@@ -50,13 +50,31 @@ All App Store submission materials have been prepared for FitMunch. This package
   4. xcodebuild -exportArchive
   5. Upload .ipa as GitHub artifact (7-day retention)
   6. Upload to App Store Connect via altool
-- Requires GitHub secrets:
-  - `CERTIFICATES_P12`
-  - `CERTIFICATES_P12_PASSWORD`
-  - `PROVISIONING_PROFILE`
-  - `DEVELOPMENT_TEAM`
-  - `ASC_USERNAME`
-  - `ASC_APP_SPECIFIC_PASSWORD`
+- Requires GitHub secrets (see `github-secrets-guide.md`):
+  - `CERTIFICATES_P12` (Base64 .p12)
+  - `CERTIFICATE_PASSWORD` (.p12 password)
+  - `ASC_USERNAME` (Apple ID)
+  - `ASC_APP_SPECIFIC_PASSWORD` (16-char app password)
+  - `ASC_ISSUER_ID` (`5e0496e7-e4ec-4467-a06a-210c64365371`)
+  - `ASC_KEY_ID` (`548GZGCWZ9`)
+  - `ASC_PRIVATE_KEY` (Base64 .p8 key)
+
+### 5. ASC Automation Script
+**File:** `asc-setup.js`
+**Contents:**
+- Node.js script to automate App Store Connect setup
+- Creates app with bundle ID `com.fitmunch.ios`
+- Sets up metadata, age rating, categories
+- Creates IAP products (weekly/monthly/annual/lifetime)
+- Uses existing ASC credentials from SubWise setup
+
+### 6. GitHub Secrets Guide
+**File:** `github-secrets-guide.md`
+**Contents:**
+- Step-by-step guide to set up GitHub Secrets
+- How to obtain and encode certificates
+- How to create app-specific passwords
+- Testing and troubleshooting guide
 
 **Supporting File:** `ExportOptions.plist`
 - Export configuration for App Store distribution
@@ -150,6 +168,8 @@ FitMunch/
 ├── submission-checklist.md
 ├── FINAL-DELIVERY.md
 ├── ExportOptions.plist
+├── asc-setup.js
+├── github-secrets-guide.md
 └── .github/workflows/
     ├── ios-build.yml (existing)
     └── ios-archive.yml (new)
