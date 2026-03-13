@@ -161,6 +161,31 @@
             opacity: 0.1;
         }
         
+        .hero-image {
+            position: absolute;
+            right: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 400px;
+            height: 600px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-heavy);
+            border: 8px solid white;
+            display: none;
+        }
+        
+        @media (min-width: 1200px) {
+            .hero-image {
+                display: block;
+            }
+            .hero-content {
+                text-align: left;
+                margin: 0;
+                max-width: 600px;
+            }
+        }
+        
         .hero-content {
             position: relative;
             z-index: 1;
@@ -348,7 +373,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: url('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80') center/cover;
+            background: url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80') center/cover;
             opacity: 0.1;
         }
         
@@ -569,6 +594,9 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="container hero-content">
+            <div class="hero-image">
+                <img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="FitMunch App Interface" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
             <h1>Nutrition Tracking<br>Reimagined for Australia</h1>
             <p class="hero-subtitle">The all-in-one platform for personal trainers and fitness enthusiasts. Track meals, hit macros, and grow your business with tools built for the Australian market.</p>
             
