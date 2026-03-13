@@ -1,0 +1,495 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Fitness Apps - FitMunch</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <link rel="stylesheet" href="fitness_connection.css">
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <img src="generated-icon.png" alt="FitMunch Logo">
+      <h1>FitMunch</h1>
+    </div>
+    
+    <nav>
+      <ul>
+        <li><a href="index.html" class="nav-item" data-section="dashboard"><i class="fas fa-home"></i> Home</a></li>
+        <li><a href="#" class="nav-item active" data-section="fitness-connect"><i class="fas fa-link"></i> Connect Apps</a></li>
+      </ul>
+    </nav>
+  </header>
+  
+  <main>
+    <section id="fitness-connect" class="active-section">
+      <div class="hero-banner">
+        <div class="hero-content">
+          <h1><i class="fas fa-sync-alt fa-spin-pulse"></i> Sync Your Fitness Data</h1>
+          <p>Connect your favorite fitness apps and devices to automatically import your health data, workouts, and nutrition information into FitMunch.</p>
+        </div>
+      </div>
+      
+      <div class="benefits-strip">
+        <div class="benefit">
+          <i class="fas fa-bolt"></i>
+          <h3>Automatic Syncing</h3>
+          <p>No manual entry needed</p>
+        </div>
+        <div class="benefit">
+          <i class="fas fa-chart-line"></i>
+          <h3>Enhanced Insights</h3>
+          <p>Get personalized recommendations</p>
+        </div>
+        <div class="benefit">
+          <i class="fas fa-shield-alt"></i>
+          <h3>Private & Secure</h3>
+          <p>Your data stays protected</p>
+        </div>
+      </div>
+      
+      <div class="connections-container">
+        <h2 class="section-title"><i class="fas fa-link"></i> Available Connections</h2>
+        <p class="section-description">Connect your fitness trackers and apps to automatically sync your health data with FitMunch</p>
+        
+        <div class="connection-grid">
+          <div class="connection-card">
+            <div class="connection-logo">
+              <i class="fab fa-google"></i>
+            </div>
+            <div class="connection-info">
+              <h3>Google Fit</h3>
+              <p>Sync steps, workouts, heart rate, and more from Google Fit</p>
+              <div class="connection-indicator" data-source="googleFit">
+                <span class="status-dot"></span>
+                <span class="status-text">Not Connected</span>
+              </div>
+            </div>
+            <div class="connection-actions">
+              <button class="connect-fitness-btn" data-source="googleFit">Connect</button>
+            </div>
+          </div>
+          
+          <div class="connection-card">
+            <div class="connection-logo">
+              <i class="fab fa-apple"></i>
+            </div>
+            <div class="connection-info">
+              <h3>Apple Health</h3>
+              <p>Connect to sync health data from your iPhone and Apple Watch</p>
+              <div class="connection-indicator" data-source="appleHealth">
+                <span class="status-dot"></span>
+                <span class="status-text">Not Connected</span>
+              </div>
+            </div>
+            <div class="connection-actions">
+              <button class="connect-fitness-btn" data-source="appleHealth">Connect</button>
+            </div>
+          </div>
+          
+          <div class="connection-card">
+            <div class="connection-logo">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Fitbit_logo.svg/1200px-Fitbit_logo.svg.png" alt="Fitbit logo">
+            </div>
+            <div class="connection-info">
+              <h3>Fitbit</h3>
+              <p>Connect to sync steps, workouts, sleep, and more from your Fitbit device</p>
+              <div class="connection-indicator" data-source="fitbit">
+                <span class="status-dot"></span>
+                <span class="status-text">Not Connected</span>
+              </div>
+            </div>
+            <div class="connection-actions">
+              <button class="connect-fitness-btn" data-source="fitbit">Connect</button>
+            </div>
+          </div>
+          
+          <div class="connection-card">
+            <div class="connection-logo">
+              <i class="fab fa-samsung"></i>
+            </div>
+            <div class="connection-info">
+              <h3>Samsung Health</h3>
+              <p>Connect to sync health data from your Samsung devices</p>
+              <div class="connection-indicator" data-source="samsungHealth">
+                <span class="status-dot"></span>
+                <span class="status-text">Not Connected</span>
+              </div>
+            </div>
+            <div class="connection-actions">
+              <button class="connect-fitness-btn" data-source="samsungHealth">Connect</button>
+            </div>
+          </div>
+          
+          <div class="connection-card">
+            <div class="connection-logo">
+              <img src="https://logos-download.com/wp-content/uploads/2016/10/Garmin_logo_turquoise.png" alt="Garmin logo">
+            </div>
+            <div class="connection-info">
+              <h3>Garmin Connect</h3>
+              <p>Connect to sync activities, body stats, and more from your Garmin device</p>
+              <div class="connection-indicator" data-source="garmin">
+                <span class="status-dot"></span>
+                <span class="status-text">Not Connected</span>
+              </div>
+            </div>
+            <div class="connection-actions">
+              <button class="connect-fitness-btn" data-source="garmin">Connect</button>
+            </div>
+          </div>
+
+          <div class="connection-card">
+            <div class="connection-logo">
+              <i class="fas fa-running"></i>
+            </div>
+            <div class="connection-info">
+              <h3>Strava</h3>
+              <p>Import running, cycling and swimming activities from Strava</p>
+              <div class="connection-indicator" data-source="strava">
+                <span class="status-dot"></span>
+                <span class="status-text">Not Connected</span>
+              </div>
+            </div>
+            <div class="connection-actions">
+              <button class="connect-fitness-btn" data-source="strava">Connect</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="data-visualization">
+        <h2 class="section-title"><i class="fas fa-chart-bar"></i> What You'll Get</h2>
+        <div class="viz-container">
+          <div class="viz-item">
+            <div class="viz-icon">
+              <i class="fas fa-heartbeat"></i>
+            </div>
+            <div class="viz-content">
+              <h3>Health Metrics</h3>
+              <ul class="viz-list">
+                <li>Heart rate monitoring</li>
+                <li>Sleep quality analysis</li>
+                <li>Weight tracking</li>
+                <li>Blood pressure trends</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="viz-item">
+            <div class="viz-icon">
+              <i class="fas fa-running"></i>
+            </div>
+            <div class="viz-content">
+              <h3>Activity Data</h3>
+              <ul class="viz-list">
+                <li>Daily step count</li>
+                <li>Workout history</li>
+                <li>Calories burned</li>
+                <li>Active minutes</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="viz-item">
+            <div class="viz-icon">
+              <i class="fas fa-brain"></i>
+            </div>
+            <div class="viz-content">
+              <h3>Smart Analysis</h3>
+              <ul class="viz-list">
+                <li>Personalized meal plans</li>
+                <li>Custom workout recommendations</li>
+                <li>Progress tracking</li>
+                <li>Nutrition optimization</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="manual-entry-section">
+        <h2 class="section-title"><i class="fas fa-pencil-alt"></i> Manual Data Entry</h2>
+        <p class="section-description">Don't have a fitness device? You can manually enter your health data below.</p>
+        
+        <div class="manual-entry-form">
+          <div class="form-group">
+            <label for="manualSteps">Steps Today</label>
+            <input type="number" id="manualSteps" placeholder="e.g., 8000">
+          </div>
+          
+          <div class="form-group">
+            <label for="manualWeight">Current Weight (kg)</label>
+            <input type="number" step="0.1" id="manualWeight" placeholder="e.g., 75.5">
+          </div>
+          
+          <div class="form-group">
+            <label for="manualCalories">Calories Burned Today</label>
+            <input type="number" id="manualCalories" placeholder="e.g., 2100">
+          </div>
+          
+          <button id="saveManualData" class="primary-button">Save Data</button>
+        </div>
+      </div>
+      
+      <div class="connected-data-section">
+        <h2 class="section-title"><i class="fas fa-chart-bar"></i> Your Fitness Data</h2>
+        <p class="section-description">View and manage your connected fitness data</p>
+        
+        <div class="fitness-data-cards">
+          <div class="data-card">
+            <div class="data-icon">
+              <i class="fas fa-walking"></i>
+            </div>
+            <div class="data-value" id="stepsDataValue">0</div>
+            <div class="data-label">Steps Today</div>
+          </div>
+          
+          <div class="data-card">
+            <div class="data-icon">
+              <i class="fas fa-fire"></i>
+            </div>
+            <div class="data-value" id="caloriesDataValue">0</div>
+            <div class="data-label">Calories Burned</div>
+          </div>
+          
+          <div class="data-card">
+            <div class="data-icon">
+              <i class="fas fa-weight"></i>
+            </div>
+            <div class="data-value" id="weightDataValue">--</div>
+            <div class="data-label">Current Weight</div>
+          </div>
+          
+          <div class="data-card">
+            <div class="data-icon">
+              <i class="fas fa-heart"></i>
+            </div>
+            <div class="data-value" id="heartRateDataValue">--</div>
+            <div class="data-label">Resting Heart Rate</div>
+          </div>
+        </div>
+        
+        <div class="sync-actions">
+          <button id="syncAllData" class="secondary-button">
+            <i class="fas fa-sync"></i> Sync All Data
+          </button>
+          <p id="lastSyncTime">Last synced: Never</p>
+        </div>
+      </div>
+
+      <div class="faq-section">
+        <h2 class="section-title"><i class="fas fa-question-circle"></i> Frequently Asked Questions</h2>
+        <div class="faq-container">
+          <div class="faq-item">
+            <div class="faq-question">How often is my data synced?</div>
+            <div class="faq-answer">Your data is automatically synced every 2 hours while the app is open, and you can manually sync anytime by clicking the "Sync All Data" button.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">Is my fitness data secure?</div>
+            <div class="faq-answer">Yes, we use industry-standard encryption and never share your personal data with third parties. Your privacy is our top priority.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">What if my fitness app isn't listed?</div>
+            <div class="faq-answer">We're constantly adding new integrations. You can use the manual entry option in the meantime, and contact us to request your preferred app.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">Can I disconnect my fitness app?</div>
+            <div class="faq-answer">Yes, you can disconnect any connected app at any time by clicking the "Disconnect" button that appears after connecting.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <footer class="fitness-footer">
+    <div class="footer-container">
+      <div class="footer-logo">
+        <img src="generated-icon.png" alt="FitMunch Logo" class="footer-logo-img">
+        <span>FitMunch</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Contact Us</a>
+      </div>
+      <div class="footer-social">
+        <a href="#" class="social-icon"><i class="fab fa-facebook"></i></a>
+        <a href="#" class="social-icon"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="social-icon"><i class="fab fa-instagram"></i></a>
+      </div>
+    </div>
+    <div class="footer-copyright">
+      © 2023 FitMunch. All rights reserved.
+    </div>
+  </footer>
+  
+  <script src="fitness_connector.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Initialize manual data entry functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      // Handle manual data save
+      const saveButton = document.getElementById('saveManualData');
+      if (saveButton) {
+        saveButton.addEventListener('click', function() {
+          const steps = document.getElementById('manualSteps').value;
+          const weight = document.getElementById('manualWeight').value;
+          const calories = document.getElementById('manualCalories').value;
+          
+          // Create mock data structure similar to fitness app data
+          const manualData = {
+            steps: { today: parseInt(steps) || 0 },
+            weight: { latest: parseFloat(weight) || null },
+            calories: { burned: parseInt(calories) || 0 }
+          };
+          
+          // Update with manual data
+          FitnessConnector.connectionStatus['manual'] = {
+            connected: true,
+            connectedAt: new Date().toISOString(),
+            lastSync: new Date().toISOString()
+          };
+          
+          // Save to cache and update profile
+          FitnessConnector.cachedData['manual'] = manualData;
+          FitnessConnector.updateUserProfileWithFitnessData(manualData);
+          
+          // Save connection status
+          localStorage.setItem('fitnessConnections', JSON.stringify(FitnessConnector.connectionStatus));
+          
+          // Update displayed data
+          updateDisplayedFitnessData();
+          
+          // Show confirmation
+          alert('Manual data saved successfully!');
+          
+          // Clear form
+          document.getElementById('manualSteps').value = '';
+          document.getElementById('manualWeight').value = '';
+          document.getElementById('manualCalories').value = '';
+        });
+      }
+      
+      // Handle sync all button
+      const syncButton = document.getElementById('syncAllData');
+      if (syncButton) {
+        syncButton.addEventListener('click', function() {
+          // Sync data from all connected sources
+          const connectedSources = Object.keys(FitnessConnector.connectionStatus).filter(
+            source => FitnessConnector.connectionStatus[source].connected
+          );
+          
+          if (connectedSources.length === 0) {
+            alert('No fitness apps connected yet. Please connect at least one fitness app or enter data manually.');
+            return;
+          }
+          
+          // Show syncing indicator
+          this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+          this.disabled = true;
+          
+          // Sync all sources
+          Promise.all(connectedSources.map(source => FitnessConnector.syncDataFromSource(source)))
+            .then(() => {
+              // Update display
+              updateDisplayedFitnessData();
+              
+              // Update last sync time
+              const lastSyncTime = document.getElementById('lastSyncTime');
+              if (lastSyncTime) {
+                lastSyncTime.textContent = 'Last synced: Just now';
+              }
+              
+              // Reset button
+              this.innerHTML = '<i class="fas fa-sync"></i> Sync All Data';
+              this.disabled = false;
+            })
+            .catch(error => {
+              console.error('Error syncing data:', error);
+              
+              // Reset button
+              this.innerHTML = '<i class="fas fa-sync"></i> Sync All Data';
+              this.disabled = false;
+              
+              alert('Error syncing data. Please try again.');
+            });
+        });
+      }
+      
+      // Initial update of displayed data
+      updateDisplayedFitnessData();
+
+      // Initialize FAQ accordion functionality
+      const faqQuestions = document.querySelectorAll('.faq-question');
+      faqQuestions.forEach(question => {
+        question.addEventListener('click', () => {
+          const answer = question.nextElementSibling;
+          const isActive = question.classList.contains('active');
+          
+          // Close all answers
+          document.querySelectorAll('.faq-question').forEach(q => {
+            q.classList.remove('active');
+            q.nextElementSibling.style.maxHeight = null;
+          });
+          
+          // If it wasn't active, open it
+          if (!isActive) {
+            question.classList.add('active');
+            answer.style.maxHeight = answer.scrollHeight + 'px';
+          }
+        });
+      });
+    });
+    
+    // Update displayed fitness data values
+    function updateDisplayedFitnessData() {
+      // Get data from all sources
+      const allData = FitnessConnector.getAllFitnessData();
+      
+      // Get current user profile
+      const userProfile = JSON.parse(localStorage.getItem('userProfile')) || {};
+      const dailyLog = JSON.parse(localStorage.getItem('dailyLog')) || {};
+      
+      // Update displayed values
+      document.getElementById('stepsDataValue').textContent = dailyLog.totalSteps || 0;
+      document.getElementById('caloriesDataValue').textContent = dailyLog.totalCalories || 0;
+      document.getElementById('weightDataValue').textContent = userProfile.weight || '--';
+      
+      // Heart rate comes directly from cache since we don't store it in profile
+      let heartRate = '--';
+      for (const source in FitnessConnector.cachedData) {
+        if (FitnessConnector.cachedData[source].heartRate?.resting) {
+          heartRate = FitnessConnector.cachedData[source].heartRate.resting;
+          break;
+        }
+      }
+      document.getElementById('heartRateDataValue').textContent = heartRate;
+      
+      // Update last sync time if we have any connections
+      const connectedSources = Object.keys(FitnessConnector.connectionStatus).filter(
+        source => FitnessConnector.connectionStatus[source].connected
+      );
+      
+      if (connectedSources.length > 0) {
+        // Find most recent sync
+        let lastSync = new Date(0);
+        connectedSources.forEach(source => {
+          const sourceSync = new Date(FitnessConnector.connectionStatus[source].lastSync);
+          if (sourceSync > lastSync) {
+            lastSync = sourceSync;
+          }
+        });
+        
+        const lastSyncTime = document.getElementById('lastSyncTime');
+        if (lastSyncTime) {
+          lastSyncTime.textContent = `Last synced: ${lastSync.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        }
+      }
+    }
+  </script>
+</body>
+</html>

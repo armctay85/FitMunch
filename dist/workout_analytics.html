@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitMunch - Workout Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="workout_analytics.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js" defer></script>
+  <script src="workout_analytics.js" defer></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Side Navigation -->
+    <nav class="side-nav">
+      <div class="logo">
+        <i class="fas fa-utensils"></i>
+        <span>FitMunch</span>
+      </div>
+      <div class="nav-items">
+        <div class="nav-item" data-section="dashboard">
+          <i class="fas fa-home"></i>
+          <span>Dashboard</span>
+        </div>
+        <div class="nav-item" data-section="meal">
+          <i class="fas fa-apple-alt"></i>
+          <span>Meal Planner</span>
+        </div>
+        <div class="nav-item" data-section="workout">
+          <i class="fas fa-dumbbell"></i>
+          <span>Workout</span>
+        </div>
+        <div class="nav-item active" data-section="analytics">
+          <i class="fas fa-chart-line"></i>
+          <span>Analytics</span>
+        </div>
+        <div class="nav-item" data-section="shopping">
+          <i class="fas fa-shopping-cart"></i>
+          <span>Shopping</span>
+        </div>
+        <div class="nav-item" data-section="progress">
+          <i class="fas fa-tasks"></i>
+          <span>Progress</span>
+        </div>
+        <div class="nav-item" data-section="settings">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="top-bar">
+        <div class="search-bar">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Search...">
+        </div>
+        <div class="user-actions">
+          <div class="notification-bell">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge">3</span>
+          </div>
+          <div class="user-profile">
+            <img src="https://randomuser.me/api/portraits/men/43.jpg" alt="User Profile">
+          </div>
+        </div>
+      </header>
+      
+      <section id="analytics" class="active-section">
+        <div class="section-header">
+          <h1>Workout Analytics</h1>
+          <div class="time-filter">
+            <select id="time-range">
+              <option value="7">Last 7 Days</option>
+              <option value="30" selected>Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+              <option value="365">Last Year</option>
+            </select>
+          </div>
+        </div>
+        
+        <div id="workout-analytics-container">
+          <!-- This will be populated by WorkoutAnalytics.renderDashboard() -->
+        </div>
+        
+        <div class="premium-feature-promo">
+          <div class="promo-content">
+            <h3>Want More Advanced Analytics?</h3>
+            <p>Upgrade to Premium to unlock AI-powered insights, custom reports, and advanced tracking features.</p>
+            <button class="upgrade-btn" onclick="showSection('subscription')">Upgrade to Premium</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <script>
+    // Initialize time range filter
+    document.addEventListener('DOMContentLoaded', function() {
+      const timeRangeSelect = document.getElementById('time-range');
+      if (timeRangeSelect) {
+        timeRangeSelect.addEventListener('change', function() {
+          const days = parseInt(this.value);
+          // Update analytics view with selected time range
+          if (window.WorkoutAnalytics) {
+            // This would update the charts and stats with the new time range
+            // For now we'll just reload the dashboard
+            WorkoutAnalytics.renderDashboard();
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

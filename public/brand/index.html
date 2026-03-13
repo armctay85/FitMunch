@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FitMunch Brand Assets</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0a0f0a;color:#f1f5f9;padding:40px 24px;min-height:100vh}
+h1{font-size:1.3rem;font-weight:800;color:#22c55e;margin-bottom:4px}
+.sub{font-size:.8rem;color:#64748b;margin-bottom:40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.card{background:#111b0f;border:1px solid #1e3a1e;border-radius:14px;padding:24px}
+.card-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#4ade80;margin-bottom:16px}
+.preview{background:#1a2e1a;border-radius:10px;padding:24px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;min-height:160px}
+.preview.light{background:#f0fdf4}
+.preview.dark{background:#052e16}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font-size:.75rem;font-weight:700;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;text-decoration:none;display:inline-block}
+.btn-green{background:#16a34a;color:#fff}.btn-green:hover{background:#15803d}
+.btn-ghost{background:rgba(255,255,255,.06);color:#94a3b8;border:1px solid rgba(255,255,255,.1)}.btn-ghost:hover{color:#fff}
+.size-note{font-size:.7rem;color:#4b5563;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>FitMunch — Brand Assets</h1>
+<p class="sub">Social-ready logos and icons. Right-click → Save image, or use the download buttons.</p>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-title">App Icon — 512×512</div>
+    <div class="preview dark">
+      <img src="logo-icon.svg" width="160" height="160" alt="FitMunch Icon"/>
+    </div>
+    <div class="actions">
+      <a href="logo-icon.svg" download class="btn btn-green">Download SVG</a>
+      <button class="btn btn-ghost" onclick="exportPNG('logo-icon.svg','fitmunch-icon',512)">Export PNG</button>
+    </div>
+    <div class="size-note">Use for: App store icon, favicon, website logo mark</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Social Profile — 1080×1080</div>
+    <div class="preview dark">
+      <img src="logo-social-profile.svg" width="200" height="200" alt="FitMunch Social"/>
+    </div>
+    <div class="actions">
+      <a href="logo-social-profile.svg" download class="btn btn-green">Download SVG</a>
+      <button class="btn btn-ghost" onclick="exportPNG('logo-social-profile.svg','fitmunch-social',1080)">Export PNG</button>
+    </div>
+    <div class="size-note">Use for: Instagram, TikTok, Facebook profile photo</div>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <div class="card-title">Horizontal Wordmark — 900×220</div>
+    <div class="preview dark" style="padding:16px">
+      <img src="logo-wordmark.svg" width="540" height="132" alt="FitMunch Wordmark"/>
+    </div>
+    <div class="preview light" style="padding:16px;margin-top:8px">
+      <!-- Dark version on light bg — show icon only for now -->
+      <img src="logo-wordmark.svg" width="540" height="132" alt="FitMunch Wordmark light"/>
+    </div>
+    <div class="actions" style="margin-top:16px">
+      <a href="logo-wordmark.svg" download class="btn btn-green">Download SVG</a>
+      <button class="btn btn-ghost" onclick="exportPNG('logo-wordmark.svg','fitmunch-wordmark',900)">Export PNG</button>
+    </div>
+    <div class="size-note">Use for: Twitter/X header, LinkedIn banner, email signatures, presentations</div>
+  </div>
+</div>
+
+<script>
+function exportPNG(svgFile, name, size) {
+  fetch(svgFile).then(r=>r.text()).then(svg => {
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    const blob = new Blob([svg], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      canvas.width = img.naturalWidth || size;
+      canvas.height = img.naturalHeight || size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const a = document.createElement('a');
+      a.download = name + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+}
+</script>
+</body>
+</html>

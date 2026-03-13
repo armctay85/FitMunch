@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#15803d"/>
+      <stop offset="100%" stop-color="#052e16"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- ═══════════════════════════════════════
+       ONE SHAPE: horizontal dumbbell where
+       the centre bar sprouts 3 fork tines upward.
+       Pure white. Reads at 32px.
+       ═══════════════════════════════════════ -->
+
+  <!-- Dumbbell bar — thick, horizontal, centred vertically at 296 -->
+  <rect x="80" y="274" width="352" height="44" rx="22" fill="#fff"/>
+
+  <!-- Left plate (tall, flanking bar) -->
+  <rect x="64"  y="222" width="60" height="148" rx="18" fill="#fff"/>
+
+  <!-- Right plate (exact mirror) -->
+  <rect x="388" y="222" width="60" height="148" rx="18" fill="#fff"/>
+
+  <!-- Fork tines — rise from bar centre upward -->
+  <!-- Space tines across 140px total, centred on 256 -->
+  <!-- Tine L -->
+  <rect x="194" y="96" width="36" height="188" rx="18" fill="#fff"/>
+  <!-- Tine C -->
+  <rect x="238" y="96" width="36" height="188" rx="18" fill="#fff"/>
+  <!-- Tine R -->
+  <rect x="282" y="96" width="36" height="188" rx="18" fill="#fff"/>
+
+  <!-- Tine connector — horizontal bridge joining tine bases -->
+  <rect x="188" y="248" width="136" height="32" rx="10" fill="#fff"/>
+
+</svg>

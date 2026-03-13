@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FitMunch — Nutrition Tracking App for Personal Trainers Australia</title>
+<meta name="description" content="FitMunch gives Australian personal trainers a full client management platform. Track client nutrition compliance, assign meal plans, monitor progress. 14-day free trial. $59/mo AUD."/>
+<meta name="keywords" content="personal trainer app australia, pt client nutrition tracking, fitness app for personal trainers, client management app pt, macro tracking app australia"/>
+<meta property="og:title" content="FitMunch — Nutrition Compliance for PT Businesses"/>
+<meta property="og:description" content="See every client's nutrition compliance in real time. Assign meal plans, track macros, send invite links. 14-day free PT trial. fitmunch.com.au"/>
+<meta property="og:url" content="https://fitmunch.com.au"/>
+<meta property="og:type" content="website"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="FitMunch — Nutrition App for Australian PTs"/>
+<meta name="twitter:description" content="Client compliance dashboard for personal trainers. Receipt scanner your clients actually use. 14-day free trial."/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316a34a'/><text y='24' x='4' font-size='22' font-family='system-ui' font-weight='900' fill='white'>F</text></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#22c55e;--green2:#16a34a;--green3:#15803d;
+  --bg:#f8fafc;--dark:#0a0f0a;--dark2:#111b0f;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --border:#e2e8f0;--surface:#ffffff;
+  --purple:#7c3aed;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;gap:16px}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:34px;height:34px;border-radius:9px;overflow:hidden;box-shadow:0 2px 8px rgba(22,163,74,.25);flex-shrink:0;display:block}
+.logo-mark svg{width:34px;height:34px;display:block}
+.logo-word{font-size:1.1rem;font-weight:900;color:var(--text);letter-spacing:-.03em}
+.logo-word span{color:var(--green2)}
+.nav-links{display:flex;gap:4px;margin-left:16px}
+.nav-links a{color:var(--text2);font-size:.85rem;font-weight:500;text-decoration:none;padding:6px 12px;border-radius:7px;transition:all .15s}
+.nav-links a:hover{background:#f1f5f9;color:var(--text)}
+.nav-spacer{flex:1}
+.nav-right{display:flex;align-items:center;gap:8px}
+.nav-signin{color:var(--text2);font-size:.85rem;font-weight:500;text-decoration:none;padding:8px 14px;border-radius:7px;transition:all .15s}
+.nav-signin:hover{color:var(--text);background:#f1f5f9}
+.nav-cta{background:var(--green2);color:#fff;font-size:.85rem;font-weight:700;text-decoration:none;padding:9px 20px;border-radius:8px;transition:all .15s;box-shadow:0 1px 3px rgba(22,163,74,.3)}
+.nav-cta:hover{background:var(--green3);transform:translateY(-1px)}
+
+/* ── HERO ── */
+.hero{padding:80px 40px 60px;text-align:center;max-width:860px;margin:0 auto}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green2);padding:5px 14px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:24px}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.hero h1{font-size:clamp(2.4rem,5vw,3.6rem);font-weight:900;line-height:1.08;letter-spacing:-.05em;color:var(--text);margin-bottom:20px}
+.hero h1 .gr{color:var(--green2)}
+.hero-sub{font-size:1.05rem;color:var(--text2);line-height:1.75;max-width:580px;margin:0 auto 36px}
+.hero-ctas{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.btn-primary{background:var(--green2);color:#fff;font-size:.95rem;font-weight:700;text-decoration:none;padding:13px 28px;border-radius:10px;border:none;cursor:pointer;transition:all .15s;box-shadow:0 2px 12px rgba(22,163,74,.3);display:inline-flex;align-items:center;gap:6px}
+.btn-primary:hover{background:var(--green3);transform:translateY(-1px);box-shadow:0 6px 20px rgba(22,163,74,.35)}
+.btn-ghost{background:#fff;color:var(--text);font-size:.95rem;font-weight:600;text-decoration:none;padding:13px 24px;border-radius:10px;border:1px solid var(--border);transition:all .15s}
+.btn-ghost:hover{border-color:#cbd5e1;background:var(--bg)}
+.hero-trust{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font-size:.78rem;color:var(--text3)}
+.trust-i{display:flex;align-items:center;gap:4px}
+.trust-sep{width:1px;height:12px;background:var(--border)}
+
+/* ── AUDIENCE TOGGLE ── */
+.audience-strip{background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:0;overflow:hidden}
+.audience-tabs{display:flex;max-width:900px;margin:0 auto}
+.aud-tab{flex:1;padding:18px 24px;cursor:pointer;transition:all .15s;border-bottom:3px solid transparent;text-align:center}
+.aud-tab:hover{background:var(--bg)}
+.aud-tab.active{border-bottom-color:var(--green2);background:#f0fdf4}
+.aud-tab-title{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:3px}
+.aud-tab.active .aud-tab-title{color:var(--green2)}
+.aud-tab-sub{font-size:.78rem;color:var(--text3)}
+
+/* ── RECEIPT SCANNER HIGHLIGHT ── */
+.receipt-section{background:linear-gradient(135deg,var(--dark) 0%,#0d2d1a 60%,var(--dark) 100%);padding:80px 40px}
+.receipt-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.receipt-left .label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:rgba(34,197,94,.12);color:var(--green);display:inline-block;padding:4px 12px;border-radius:4px;margin-bottom:16px}
+.receipt-left h2{font-size:clamp(1.8rem,3vw,2.6rem);font-weight:900;color:#fff;letter-spacing:-.04em;line-height:1.1;margin-bottom:14px}
+.receipt-left p{font-size:.95rem;color:#86efac;line-height:1.7;margin-bottom:24px}
+.receipt-bullets{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.receipt-bullet{display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#bbf7d0;line-height:1.5}
+.rb-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.tiktok-badge{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;font-size:.8rem;color:#e2e8f0}
+.tiktok-badge .tb-icon{font-size:18px}
+
+/* ── RECEIPT MOCKUP ── */
+.receipt-mockup{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.r-topbar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.72rem;color:#94a3b8}
+.r-dots{display:flex;gap:5px}.r-dot{width:10px;height:10px;border-radius:50%}
+.r-d1{background:#ff5f57}.r-d2{background:#ffbd2e}.r-d3{background:#28c840}
+.r-body{padding:18px}
+.r-header{text-align:center;margin-bottom:14px}
+.r-store{font-size:.95rem;font-weight:800;color:#0f172a}
+.r-sub{font-size:.72rem;color:#94a3b8;margin-top:2px}
+.r-scan-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#f0fdf4;border:2px dashed #86efac;border-radius:10px;padding:14px;font-size:.82rem;font-weight:700;color:var(--green2);margin-bottom:14px;cursor:pointer}
+.r-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9}
+.r-item:last-child{border:none}
+.r-item-name{flex:1;font-size:.78rem;color:#0f172a;font-weight:500}
+.r-item-macro{text-align:right}
+.r-item-p{font-size:.72rem;font-weight:700;color:#3b82f6}
+.r-item-c{font-size:.65rem;color:#94a3b8}
+.r-total{background:#f0fdf4;border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}
+.r-total-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green3)}
+.r-total-macros{display:flex;gap:10px}
+.r-macro{text-align:center}
+.r-macro-val{font-size:.88rem;font-weight:800;color:var(--text)}
+.r-macro-label{font-size:.6rem;color:var(--text3)}
+.r-share{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border-radius:8px;padding:9px;font-size:.78rem;font-weight:700;color:#fff;margin-top:10px;cursor:pointer}
+
+/* ── SOCIAL PROOF STRIP ── */
+.social-strip{padding:28px 40px;background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.social-inner{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:40px;flex-wrap:wrap}
+.social-stat{text-align:center;flex:1;min-width:120px}
+.ss-val{font-size:1.6rem;font-weight:900;color:var(--text);letter-spacing:-.04em}
+.ss-label{font-size:.75rem;color:var(--text3);margin-top:2px}
+.social-divider{width:1px;height:40px;background:var(--border)}
+
+/* ── SECTION BASE ── */
+.section{padding:80px 40px;max-width:1000px;margin:0 auto}
+.sec-tag{display:inline-block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:4px 11px;border-radius:4px;margin-bottom:14px}
+.tag-green{background:#f0fdf4;color:var(--green2)}
+.tag-purple{background:rgba(124,58,237,.08);color:var(--purple)}
+.tag-amber{background:#fef3c7;color:#92400e}
+.tag-blue{background:#eff6ff;color:#1e40af}
+.sec-h{font-size:clamp(1.8rem,3vw,2.5rem);font-weight:900;letter-spacing:-.04em;color:var(--text);line-height:1.12;margin-bottom:14px}
+.sec-sub{font-size:.95rem;color:var(--text2);line-height:1.7;max-width:520px}
+
+/* ── FEATURES GRID ── */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+.feat-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px;transition:box-shadow .2s}
+.feat-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.06);border-color:#cbd5e1}
+.feat-icon{font-size:28px;margin-bottom:12px;display:block}
+.feat-h{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:6px}
+.feat-p{font-size:.82rem;color:var(--text2);line-height:1.6}
+.feat-badge{margin-top:10px;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px;display:inline-block}
+.badge-free{background:#f0fdf4;color:var(--green2)}
+.badge-pro{background:rgba(124,58,237,.08);color:var(--purple)}
+.badge-pt{background:#fef3c7;color:#92400e}
+
+/* ── PT SECTION ── */
+.pt-section{background:var(--dark);padding:80px 40px}
+.pt-inner{max-width:1000px;margin:0 auto}
+.pt-section .sec-h{color:#fff}
+.pt-section .sec-sub{color:#94a3b8}
+.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;align-items:center}
+.pt-features{display:flex;flex-direction:column;gap:14px}
+.pt-feat{display:flex;align-items:flex-start;gap:12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px}
+.pt-feat-icon{font-size:20px;flex-shrink:0}
+.pt-feat-h{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:3px}
+.pt-feat-p{font-size:.78rem;color:#94a3b8;line-height:1.5}
+.pt-mockup{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.ptm-header{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 14px;font-size:.72rem;font-weight:700;color:#64748b;display:flex;align-items:center;justify-content:space-between}
+.ptm-body{padding:14px;display:flex;flex-direction:column;gap:8px}
+.ptm-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+.ptm-stat{background:#f8fafc;border-radius:7px;padding:9px;text-align:center}
+.ptm-stat-v{font-size:1.1rem;font-weight:900;color:var(--text)}
+.ptm-stat-l{font-size:.6rem;color:#94a3b8}
+.ptm-client{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0}
+.ptm-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#fff;flex-shrink:0}
+.ptm-name{font-size:.75rem;font-weight:600;flex:1}
+.ptm-chip{font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px}
+.chip-ok{background:#f0fdf4;color:var(--green2)}
+.chip-warn{background:#fef3c7;color:#92400e}
+.chip-err{background:#fef2f2;color:#991b1b}
+
+/* ── PRICING ── */
+.pricing-section{padding:80px 40px;background:#fff}
+.pricing-inner{max-width:900px;margin:0 auto}
+.pricing-tabs{display:flex;gap:8px;margin:28px 0;justify-content:center}
+.p-tab{padding:7px 20px;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:#fff;transition:all .15s}
+.p-tab.active{background:var(--green2);color:#fff;border-color:var(--green2)}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:0}
+.plan-card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:24px;position:relative;transition:all .2s}
+.plan-card.featured{background:#fff;border:2px solid var(--green2);box-shadow:0 8px 24px rgba(22,163,74,.12)}
+.plan-popular{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green2);color:#fff;font-size:.68rem;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap}
+.plan-name{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px}
+.plan-price{font-size:2.2rem;font-weight:900;color:var(--text);letter-spacing:-.05em;line-height:1;margin-bottom:6px}
+.plan-price sup{font-size:.9rem;font-weight:700;vertical-align:top;margin-top:7px;display:inline-block}
+.plan-price sub{font-size:.78rem;font-weight:400;color:var(--text3)}
+.plan-desc{font-size:.8rem;color:var(--text2);margin-bottom:18px;line-height:1.5}
+.plan-features{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.pf{display:flex;align-items:flex-start;gap:7px;font-size:.8rem;color:var(--text2)}
+.pf-check{color:var(--green2);flex-shrink:0;margin-top:1px;font-size:12px}
+.pf-x{color:var(--text3);flex-shrink:0;margin-top:1px}
+.plan-cta{display:block;text-align:center;padding:11px;border-radius:8px;font-size:.85rem;font-weight:700;text-decoration:none;transition:all .15s}
+.cta-outline{border:1px solid var(--border);color:var(--text2)}.cta-outline:hover{border-color:var(--green2);color:var(--green2)}
+.cta-green{background:var(--green2);color:#fff}.cta-green:hover{background:var(--green3)}
+
+/* ── TESTIMONIALS ── */
+.testi-section{background:#f8fafc;padding:80px 40px}
+.testi-inner{max-width:900px;margin:0 auto}
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+.testi-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:22px}
+.stars{color:var(--amber);font-size:.85rem;letter-spacing:2px;margin-bottom:10px}
+.testi-q{font-size:.85rem;color:var(--text2);line-height:1.7;margin-bottom:16px;font-style:italic}
+.testi-author{display:flex;align-items:center;gap:9px}
+.t-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;flex-shrink:0}
+.t-name{font-size:.8rem;font-weight:700;color:var(--text)}
+.t-role{font-size:.72rem;color:var(--text3)}
+
+/* ── FINAL CTA ── */
+.cta-section{background:linear-gradient(135deg,#0a0f0a 0%,#0d2d1a 50%,#0a0f0a 100%);padding:100px 40px;text-align:center}
+.cta-section h2{font-size:clamp(2rem,4vw,3rem);font-weight:900;color:#fff;letter-spacing:-.05em;margin-bottom:14px;line-height:1.1}
+.cta-section h2 em{color:var(--green);font-style:normal}
+.cta-section p{font-size:.95rem;color:#86efac;margin-bottom:36px;line-height:1.6}
+.cta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-white{background:#fff;color:var(--text);font-size:.95rem;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:10px;transition:all .15s}
+.btn-white:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.btn-outline-w{background:transparent;color:#fff;font-size:.95rem;font-weight:600;text-decoration:none;padding:14px 24px;border-radius:10px;border:1px solid rgba(255,255,255,.25);transition:all .15s}
+.btn-outline-w:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.05)}
+.cta-trust{margin-top:24px;font-size:.75rem;color:rgba(255,255,255,.35);display:flex;justify-content:center;gap:20px}
+
+/* ── FOOTER ── */
+footer{background:var(--dark);padding:48px 40px 28px}
+.footer-inner{max-width:1000px;margin:0 auto}
+.footer-top{display:flex;gap:60px;margin-bottom:36px;flex-wrap:wrap}
+.footer-brand{flex:1;min-width:180px}
+.f-logo{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.f-tagline{font-size:.8rem;color:#475569;line-height:1.6;max-width:220px}
+.footer-col{min-width:130px}
+.fc-title{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569;margin-bottom:12px}
+.fc-link{display:block;font-size:.8rem;color:#64748b;text-decoration:none;margin-bottom:9px;transition:color .15s}
+.fc-link:hover{color:#94a3b8}
+.footer-bottom{border-top:1px solid #1e293b;padding-top:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.footer-bottom p{font-size:.75rem;color:#334155}
+
+@media(max-width:768px){
+  nav{padding:0 16px}.hero{padding:40px 16px}.receipt-inner{grid-template-columns:1fr}.pt-grid{grid-template-columns:1fr}.features-grid{grid-template-columns:1fr}.pricing-grid{grid-template-columns:1fr}.testi-grid{grid-template-columns:1fr}.section{padding:50px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="nb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="nbr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="na" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#nb)"/><circle cx="256" cy="128" r="82" fill="url(#nbr)"/><circle cx="175" cy="168" r="68" fill="url(#nbr)"/><circle cx="337" cy="168" r="68" fill="url(#nbr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#nbr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#na)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#na)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#nb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#nb)"/></svg>
+    </div>
+    <span class="logo-word">Fit<span>Munch</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#for-pts">For PTs</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-right">
+    <a href="/login.html" class="nav-signin">Sign in</a>
+    <a href="/login.html" class="nav-cta">Start free →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow"><span class="pulse-dot"></span>Made in Australia 🇦🇺</div>
+  <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Hit your goals.</span></h1>
+  <p class="hero-sub">Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you've bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.</p>
+  <div class="hero-ctas">
+    <a href="/login.html" class="btn-primary">Start for free →</a>
+    <a href="#for-pts" class="btn-ghost">For personal trainers</a>
+  </div>
+  <div class="hero-trust">
+    <span class="trust-i">✓ Free to start</span>
+    <span class="trust-sep"></span>
+    <span class="trust-i">✓ No app to download</span>
+    <span class="trust-sep"></span>
+    <span class="trust-i">✓ Works on any phone</span>
+    <span class="trust-sep"></span>
+    <span class="trust-i">✓ AEST support</span>
+  </div>
+</div>
+
+<!-- AUDIENCE TABS -->
+<div class="audience-strip">
+  <div class="audience-tabs">
+    <div class="aud-tab active" onclick="setAud('individual',this)">
+      <div class="aud-tab-title">🏠 Home warriors &amp; gym-goers</div>
+      <div class="aud-tab-sub">Track macros, scan receipts, share progress</div>
+    </div>
+    <div class="aud-tab" onclick="setAud('pt',this)">
+      <div class="aud-tab-title">🏋️ Personal trainers</div>
+      <div class="aud-tab-sub">Manage clients, assign plans, track compliance</div>
+    </div>
+  </div>
+</div>
+
+<!-- SOCIAL STRIP -->
+<div class="social-strip">
+  <div class="social-inner">
+    <div class="social-stat"><div class="ss-val">📸</div><div class="ss-label">Scan any receipt</div></div>
+    <div class="social-divider"></div>
+    <div class="social-stat"><div class="ss-val">🥦</div><div class="ss-label">Instant macro breakdown</div></div>
+    <div class="social-divider"></div>
+    <div class="social-stat"><div class="ss-val">🛒</div><div class="ss-label">Smart shopping lists</div></div>
+    <div class="social-divider"></div>
+    <div class="social-stat"><div class="ss-val">📈</div><div class="ss-label">Progress charts</div></div>
+    <div class="social-divider"></div>
+    <div class="social-stat"><div class="ss-val">📲</div><div class="ss-label">Share to TikTok &amp; IG</div></div>
+  </div>
+</div>
+
+<!-- RECEIPT SCANNER -->
+<div class="receipt-section" id="features">
+  <div class="receipt-inner">
+    <div class="receipt-left">
+      <div class="label">🔥 The killer feature</div>
+      <h2>Snap your receipt. Know exactly what you're eating this week.</h2>
+      <p>No more guessing. Take a photo of your Woolies or Coles receipt and FitMunch instantly analyses everything you bought — total protein, macros, calorie budget — and adds it all to your pantry automatically.</p>
+      <div class="receipt-bullets">
+        <div class="receipt-bullet"><span class="rb-icon">📸</span>Photo your receipt from any supermarket</div>
+        <div class="receipt-bullet"><span class="rb-icon">🧠</span>AI reads every item and estimates macros</div>
+        <div class="receipt-bullet"><span class="rb-icon">📊</span>"Your weekly haul: 987g protein · 14,200 cal"</div>
+        <div class="receipt-bullet"><span class="rb-icon">📲</span>Generate a shareable card for TikTok or IG Stories</div>
+      </div>
+      <div class="tiktok-badge">
+        <span class="tb-icon">🎵</span>
+        <div>
+          <div style="font-weight:700;font-size:.82rem">"Rate my weekly shop" is one of the biggest fitness trends on TikTok</div>
+          <div style="color:#94a3b8;font-size:.75rem;margin-top:2px">FitMunch turns that into data — not just a vibe check</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="receipt-mockup">
+        <div class="r-topbar">
+          <div class="r-dots"><div class="r-dot r-d1"></div><div class="r-dot r-d2"></div><div class="r-dot r-d3"></div></div>
+          <span style="margin-left:8px">Receipt Scanner</span>
+        </div>
+        <div class="r-body">
+          <div class="r-header">
+            <div class="r-store">WOOLWORTHS</div>
+            <div class="r-sub">22 Feb 2026 · $143.60 · 24 items</div>
+          </div>
+          <div class="r-scan-btn">📸 &nbsp;Tap to scan your receipt</div>
+          <div class="r-item"><span class="r-item-name">🍗 Chicken Breast 1kg</span><div class="r-item-macro"><div class="r-item-p">220g protein</div><div class="r-item-c">1,100 cal</div></div></div>
+          <div class="r-item"><span class="r-item-name">🥚 Free Range Eggs ×12</span><div class="r-item-macro"><div class="r-item-p">72g protein</div><div class="r-item-c">936 cal</div></div></div>
+          <div class="r-item"><span class="r-item-name">🥛 Protein Milk 2L</span><div class="r-item-macro"><div class="r-item-p">100g protein</div><div class="r-item-c">560 cal</div></div></div>
+          <div class="r-item"><span class="r-item-name">🌾 Rolled Oats 1kg</span><div class="r-item-macro"><div class="r-item-p">130g protein</div><div class="r-item-c">3,800 cal</div></div></div>
+          <div class="r-item"><span class="r-item-name">🥦 Broccoli 500g</span><div class="r-item-macro"><div class="r-item-p">14g protein</div><div class="r-item-c">170 cal</div></div></div>
+          <div class="r-total">
+            <div class="r-total-label">Weekly haul total</div>
+            <div class="r-total-macros">
+              <div class="r-macro"><div class="r-macro-val" style="color:#3b82f6">987g</div><div class="r-macro-label">Protein</div></div>
+              <div class="r-macro"><div class="r-macro-val" style="color:#f59e0b">14.2K</div><div class="r-macro-label">Calories</div></div>
+              <div class="r-macro"><div class="r-macro-val" style="color:#22c55e">A+</div><div class="r-macro-label">Score</div></div>
+            </div>
+          </div>
+          <div class="r-share">📲 &nbsp;Share to TikTok &amp; Instagram</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES GRID -->
+<div class="section">
+  <div class="sec-tag tag-green">Everything you need</div>
+  <h2 class="sec-h">For the person who's serious<br/>about what they eat.</h2>
+  <p class="sec-sub">Whether you're smashing macros in a home gym or working with a PT, FitMunch has every tool in one place — no juggling five different apps.</p>
+  <div class="features-grid" id="features-grid">
+    <div class="feat-card">
+      <span class="feat-icon">📸</span>
+      <div class="feat-h">Receipt Scanner</div>
+      <div class="feat-p">Snap your Woolies or Coles receipt. AI reads every item, calculates protein, macros and weekly calorie budget. Share the summary to TikTok or IG.</div>
+      <span class="feat-badge badge-free">Free tier</span>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🥗</span>
+      <div class="feat-h">Macro Tracking</div>
+      <div class="feat-p">Log every meal with protein, carbs, fat and calories. See your daily totals at a glance. Set targets and track your deficit or bulk.</div>
+      <span class="feat-badge badge-free">Free tier</span>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🛒</span>
+      <div class="feat-h">Smart Shopping Lists</div>
+      <div class="feat-p">Tell FitMunch your protein goal and weekly budget. It builds the exact shopping list to hit your numbers — categorised by aisle.</div>
+      <span class="feat-badge badge-free">Free tier</span>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">📈</span>
+      <div class="feat-h">Progress Charts</div>
+      <div class="feat-p">Weight, body measurements, strength PRs over time. See your 12-week arc. Generate a shareable progress card for social.</div>
+      <span class="feat-badge badge-pro">Pro</span>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🏋️</span>
+      <div class="feat-h">Workout Logging</div>
+      <div class="feat-p">Log sessions, sets, reps and cardio. Track volume and PRs. Sync with your assigned program from your PT.</div>
+      <span class="feat-badge badge-free">Free tier</span>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">❤️</span>
+      <div class="feat-h">Favourites &amp; Plans</div>
+      <div class="feat-p">Save favourite meals, foods and workouts. Your PT can assign meal and workout plans directly to your account.</div>
+      <span class="feat-badge badge-free">Free tier</span>
+    </div>
+  </div>
+</div>
+
+<!-- FOR PTs -->
+<div class="pt-section" id="for-pts">
+  <div class="pt-inner">
+    <div class="sec-tag tag-amber" style="background:rgba(245,158,11,.1);color:var(--amber)">For Personal Trainers</div>
+    <h2 class="sec-h">Your clients are already<br/>tracking on their phones.</h2>
+    <p class="sec-sub">Give them FitMunch — then manage every client from your PT dashboard. See compliance, assign plans, track progress. Replace WhatsApp and spreadsheets for good.</p>
+    <div class="pt-grid">
+      <div class="pt-features">
+        <div class="pt-feat">
+          <span class="pt-feat-icon">👥</span>
+          <div><div class="pt-feat-h">Client roster dashboard</div><div class="pt-feat-p">See every client's compliance, last logged, current phase and progress trend in one view. Spot who needs a check-in instantly.</div></div>
+        </div>
+        <div class="pt-feat">
+          <span class="pt-feat-icon">📋</span>
+          <div><div class="pt-feat-h">Assign meal &amp; workout plans</div><div class="pt-feat-p">Build plans once, assign to multiple clients. Clients see their plan and shopping list in their portal automatically.</div></div>
+        </div>
+        <div class="pt-feat">
+          <span class="pt-feat-icon">🔗</span>
+          <div><div class="pt-feat-h">Invite clients with a link</div><div class="pt-feat-p">Generate an invite link. Client clicks it, registers, and instantly appears in your roster. Zero friction onboarding.</div></div>
+        </div>
+        <div class="pt-feat">
+          <span class="pt-feat-icon">📲</span>
+          <div><div class="pt-feat-h">Your clients go viral for you</div><div class="pt-feat-p">When clients share their FitMunch progress cards on TikTok and IG, your name is on it. Free marketing every time a client posts.</div></div>
+        </div>
+        <a href="/login.html?plan=starter" class="btn-primary" style="align-self:flex-start;margin-top:8px">Start PT trial — free 14 days →</a>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="email" id="pt-email-cap" placeholder="your@email.com" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;width:220px;outline:none;font-family:inherit"/>
+          <button onclick="capturePTEmail()" style="background:#fff;color:var(--green2);border:1px solid var(--green2);padding:10px 16px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">Get a personal walkthrough</button>
+        </div>
+        <div id="pt-email-msg" style="font-size:.78rem;color:var(--green2);margin-top:6px;display:none">✓ Got it — we'll reach out within 24h to set you up.</div>
+      </div>
+      <div class="pt-mockup">
+        <div class="ptm-header"><span>PT Dashboard</span><span style="color:var(--green2)">8 active clients</span></div>
+        <div class="ptm-body">
+          <div class="ptm-stat-row">
+            <div class="ptm-stat"><div class="ptm-stat-v" style="color:var(--green2)">8</div><div class="ptm-stat-l">Clients</div></div>
+            <div class="ptm-stat"><div class="ptm-stat-v">94%</div><div class="ptm-stat-l">Log rate</div></div>
+            <div class="ptm-stat"><div class="ptm-stat-v" style="color:var(--purple)">$792</div><div class="ptm-stat-l">This mo.</div></div>
+          </div>
+          <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">JM</div><div class="ptm-name">Jessica M.</div><div class="ptm-chip chip-ok">Logged</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">2h ago</div></div>
+          <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">CT</div><div class="ptm-name">Chris T.</div><div class="ptm-chip chip-ok">Logged</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">Today</div></div>
+          <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#dc2626,#f87171)">SK</div><div class="ptm-name">Sarah K.</div><div class="ptm-chip chip-err">3d quiet</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">⚠️ Follow up</div></div>
+          <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#d97706,#fbbf24)">MR</div><div class="ptm-name">Mike R.</div><div class="ptm-chip chip-ok">PR today</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">🔥</div></div>
+          <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#059669,#34d399)">LB</div><div class="ptm-name">Lauren B.</div><div class="ptm-chip chip-warn">1d ago</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">On track</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="pricing-section" id="pricing">
+  <div class="pricing-inner">
+    <div style="text-align:center">
+      <div class="sec-tag tag-green">Pricing</div>
+      <h2 class="sec-h">Start free. Upgrade when you're ready.</h2>
+      <p class="sec-sub" style="margin:0 auto 0;text-align:center">All prices in AUD. No lock-in. Cancel anytime.</p>
+    </div>
+    <div class="pricing-grid" style="margin-top:36px">
+      <div class="plan-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price"><sup>$</sup>0<sub> forever</sub></div>
+        <div class="plan-desc">Perfect for getting started and seeing if it clicks.</div>
+        <div class="plan-features">
+          <div class="pf"><span class="pf-check">✓</span>Macro tracking</div>
+          <div class="pf"><span class="pf-check">✓</span>5 receipt scans/month</div>
+          <div class="pf"><span class="pf-check">✓</span>Shopping lists</div>
+          <div class="pf"><span class="pf-check">✓</span>Workout logging</div>
+          <div class="pf"><span class="pf-x">–</span>Progress charts</div>
+          <div class="pf"><span class="pf-x">–</span>Social sharing cards</div>
+          <div class="pf"><span class="pf-x">–</span>PT management tools</div>
+        </div>
+        <a href="/login.html" class="plan-cta cta-outline">Start free</a>
+      </div>
+      <div class="plan-card featured">
+        <div class="plan-popular">Most popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price"><sup>$</sup>19<sub>.99/mo AUD</sub></div>
+        <div class="plan-desc">For serious athletes who want the full picture.</div>
+        <div class="plan-features">
+          <div class="pf"><span class="pf-check">✓</span>Everything in Free</div>
+          <div class="pf"><span class="pf-check">✓</span>Unlimited receipt scans</div>
+          <div class="pf"><span class="pf-check">✓</span>Progress charts + trends</div>
+          <div class="pf"><span class="pf-check">✓</span>Social sharing cards</div>
+          <div class="pf"><span class="pf-check">✓</span>AI meal suggestions</div>
+          <div class="pf"><span class="pf-check">✓</span>Budget shopping builder</div>
+        </div>
+        <a href="/login.html?plan=pro" class="plan-cta cta-green">Start 14-day trial →</a>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">PT Plan</div>
+        <div class="plan-price"><sup>$</sup>59<sub>–99/mo AUD</sub></div>
+        <div class="plan-desc">Everything a personal trainer needs to run their business.</div>
+        <div class="plan-features">
+          <div class="pf"><span class="pf-check">✓</span>Everything in Pro</div>
+          <div class="pf"><span class="pf-check">✓</span>Client roster dashboard</div>
+          <div class="pf"><span class="pf-check">✓</span>Assign meal + workout plans</div>
+          <div class="pf"><span class="pf-check">✓</span>Client portal for each client</div>
+          <div class="pf"><span class="pf-check">✓</span>Unlimited client invites</div>
+        </div>
+        <a href="/login.html?plan=starter" class="plan-cta cta-outline">Start PT trial →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TESTIMONIALS -->
+<div class="testi-section">
+  <div class="testi-inner">
+    <div style="text-align:center">
+      <div class="sec-tag tag-green">What people are saying</div>
+      <h2 class="sec-h">Real results. Real Australians.</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card">
+        <div class="stars">★★★★★</div>
+        <p class="testi-q">"The receipt scanner is genuinely insane. I scanned my Coles shop and instantly knew I had 900g of protein for the week. Posted it on TikTok and it went off."</p>
+        <div class="testi-author">
+          <div class="t-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">DK</div>
+          <div><div class="t-name">Dylan K.</div><div class="t-role">Home gym · Brisbane, QLD</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="stars">★★★★★</div>
+        <p class="testi-q">"I was sending spreadsheets to clients on WhatsApp. FitMunch changed that completely — I can see everything, clients actually log, and I've had zero cancellations since switching."</p>
+        <div class="testi-author">
+          <div class="t-av" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">JM</div>
+          <div><div class="t-name">Jessica M.</div><div class="t-role">Personal Trainer · Sydney, NSW</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="stars">★★★★★</div>
+        <p class="testi-q">"The budget shopping list is the best feature for me. I told it I want 150g protein/day on $80/week and it gave me exactly what to buy. Game changer for bulking on a budget."</p>
+        <div class="testi-author">
+          <div class="t-av" style="background:linear-gradient(135deg,#dc2626,#f87171)">MT</div>
+          <div><div class="t-name">Marcus T.</div><div class="t-role">Home gym · Melbourne, VIC</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h2>Stop guessing.<br/>Start <em>knowing.</em></h2>
+  <p>Scan your first receipt in under 60 seconds. No app. No credit card. Just a browser link.</p>
+  <div class="cta-row">
+    <a href="/login.html" class="btn-white">Start for free →</a>
+    <a href="#for-pts" class="btn-outline-w">For personal trainers</a>
+  </div>
+  <div class="cta-trust"><span>✓ Free forever plan</span><span>✓ No credit card</span><span>✓ Works on any phone</span></div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="f-logo">
+          <div class="logo-mark" style="width:26px;height:26px">
+            <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="width:26px;height:26px"><defs><linearGradient id="fb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="fbr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="fa" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#fb)"/><circle cx="256" cy="128" r="82" fill="url(#fbr)"/><circle cx="175" cy="168" r="68" fill="url(#fbr)"/><circle cx="337" cy="168" r="68" fill="url(#fbr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#fbr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#fa)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#fa)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#fb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#fb)"/></svg>
+          </div>
+          <span style="font-size:.95rem;font-weight:900;color:#f1f5f9;letter-spacing:-.03em">Fit<span style="color:var(--green)">Munch</span></span>
+        </div>
+        <p class="f-tagline">Track macros, scan receipts, hit your goals. Made in Australia.</p>
+      </div>
+      <div class="footer-col">
+        <div class="fc-title">Product</div>
+        <a href="#features" class="fc-link">Features</a>
+        <a href="#pricing" class="fc-link">Pricing</a>
+        <a href="#for-pts" class="fc-link">For PTs</a>
+        <a href="/login.html" class="fc-link">Sign in</a>
+      </div>
+      <div class="footer-col">
+        <div class="fc-title">Use cases</div>
+        <a href="#" class="fc-link">Home gym tracking</a>
+        <a href="#" class="fc-link">Receipt scanning</a>
+        <a href="#" class="fc-link">PT client management</a>
+        <a href="#" class="fc-link">Budget meal planning</a>
+      </div>
+      <div class="footer-col">
+        <div class="fc-title">Company</div>
+        <a href="#" class="fc-link">About</a>
+        <a href="#" class="fc-link">Contact</a>
+        <a href="#" class="fc-link">Privacy</a>
+        <a href="#" class="fc-link">Terms</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 FitMunch. Made in Australia 🇦🇺</p>
+      <p style="font-size:.75rem;color:#334155">Privacy · Terms</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+function setAud(type, el) {
+  document.querySelectorAll('.aud-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if (type === 'pt') {
+    document.querySelector('.hero h1').innerHTML = 'Manage every client.<br/>From one dashboard.<br/><span class="gr">Ditch the spreadsheets.</span>';
+    document.querySelector('.hero-sub').textContent = 'FitMunch gives personal trainers a full client management platform — compliance tracking, plan assignment, client portal and shopping lists. Your clients get the best tracking tool on the market. You get visibility over everything.';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter" class="btn-primary">Start PT trial — free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
+  } else {
+    document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Hit your goals.</span>';
+    document.querySelector('.hero-sub').textContent = 'Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you\'ve bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html" class="btn-primary">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
+  }
+}
+
+async function capturePTEmail() {
+  const input = document.getElementById('pt-email-cap');
+  const msg = document.getElementById('pt-email-msg');
+  const email = input.value.trim();
+  if (!email || !email.includes('@')) { input.style.borderColor='#ef4444'; return; }
+  try {
+    await fetch('/api/pt-leads', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, source: 'landing-pt-section' }) });
+  } catch(e) {}
+  input.style.display = 'none';
+  document.querySelector('[onclick="capturePTEmail()"]').style.display = 'none';
+  msg.style.display = 'block';
+}
+</script>
+</body>
+</html>

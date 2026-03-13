@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Personal Trainer Client Nutrition App Australia | FitMunch</title>
+<meta name="description" content="FitMunch is the nutrition tracking app built for Australian personal trainers. See every client's compliance in real time, assign meal plans, and grow your PT business. 14-day free trial."/>
+<meta name="keywords" content="personal trainer app australia, pt client nutrition tracking, client compliance app, fitness trainer software australia, personal trainer software melbourne, pt business app, macro tracking for personal trainers"/>
+<meta property="og:title" content="The Nutrition App Australian PTs Use to Grow Their Business"/>
+<meta property="og:description" content="Stop chasing client check-ins. FitMunch shows you exactly what every client is eating — in real time. 14-day free trial for PTs."/>
+<meta property="og:url" content="https://fitmunch.com.au/for-pts"/>
+<meta property="og:type" content="website"/>
+<link rel="canonical" href="https://fitmunch.com.au/for-pts"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#22c55e;--green2:#16a34a;--green3:#15803d;--bg:#f8fafc;--dark:#0a0f0a;--text:#0f172a;--text2:#475569;--text3:#94a3b8;--border:#e2e8f0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;gap:16px}
+.nav-logo{font-size:1.1rem;font-weight:900;color:var(--text);letter-spacing:-.03em;text-decoration:none}
+.nav-logo span{color:var(--green2)}
+.nav-spacer{flex:1}
+.btn{display:inline-flex;align-items:center;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:700;text-decoration:none;transition:all .15s;cursor:pointer;border:none;font-family:inherit}
+.btn-green{background:var(--green2);color:#fff;box-shadow:0 1px 3px rgba(22,163,74,.3)}.btn-green:hover{background:var(--green3)}
+.btn-outline{background:#fff;color:var(--text);border:1px solid var(--border)}.btn-outline:hover{border-color:var(--green2);color:var(--green2)}
+
+/* HERO */
+.hero{padding:80px 40px 60px;text-align:center;max-width:800px;margin:0 auto}
+.tag{display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green2);padding:5px 14px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px}
+.hero h1{font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:900;line-height:1.08;letter-spacing:-.05em;margin-bottom:18px}
+.hero h1 em{color:var(--green2);font-style:normal}
+.hero p{font-size:1.05rem;color:var(--text2);line-height:1.75;max-width:560px;margin:0 auto 32px}
+.ctas{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.trust{font-size:.75rem;color:var(--text3)}
+
+/* PROBLEM */
+.section{padding:70px 40px;max-width:960px;margin:0 auto}
+.section h2{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:900;letter-spacing:-.04em;margin-bottom:12px}
+.section p{font-size:.95rem;color:var(--text2);line-height:1.75}
+.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-top:36px}
+.pain-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px}
+.pain-icon{font-size:28px;margin-bottom:10px}
+.pain-h{font-size:.9rem;font-weight:700;margin-bottom:6px}
+.pain-p{font-size:.82rem;color:var(--text2);line-height:1.55}
+
+/* HOW IT WORKS */
+.how{background:var(--dark);padding:70px 40px}
+.how-inner{max-width:960px;margin:0 auto}
+.how h2{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:900;color:#fff;letter-spacing:-.04em;margin-bottom:8px;text-align:center}
+.how-sub{text-align:center;color:#94a3b8;font-size:.95rem;margin-bottom:44px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.step{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:24px}
+.step-num{width:32px;height:32px;background:var(--green2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:900;color:#fff;margin-bottom:14px}
+.step h3{font-size:.9rem;font-weight:700;color:#fff;margin-bottom:6px}
+.step p{font-size:.8rem;color:#94a3b8;line-height:1.6}
+
+/* FEATURES */
+.features{padding:70px 40px;max-width:960px;margin:0 auto}
+.features h2{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:900;letter-spacing:-.04em;margin-bottom:40px;text-align:center}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.feat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px}
+.feat-icon{font-size:28px;margin-bottom:10px}
+.feat h3{font-size:.95rem;font-weight:700;margin-bottom:8px}
+.feat p{font-size:.82rem;color:var(--text2);line-height:1.6}
+
+/* PRICING */
+.pricing{background:#f0fdf4;padding:70px 40px}
+.pricing-inner{max-width:700px;margin:0 auto;text-align:center}
+.pricing h2{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:900;letter-spacing:-.04em;margin-bottom:8px}
+.pricing-sub{color:var(--text2);font-size:.95rem;margin-bottom:40px}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px}
+.plan{background:#fff;border:1px solid var(--border);border-radius:14px;padding:28px;text-align:left}
+.plan.featured{border-color:var(--green2);box-shadow:0 0 0 3px rgba(22,163,74,.1)}
+.plan-badge{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:10px}
+.plan-name{font-size:1rem;font-weight:800;margin-bottom:4px}
+.plan-price{font-size:2rem;font-weight:900;letter-spacing:-.04em;margin-bottom:4px}
+.plan-price sub{font-size:.8rem;font-weight:500;color:var(--text2)}
+.plan-desc{font-size:.78rem;color:var(--text2);margin-bottom:18px}
+.plan-features{list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
+.plan-features li{font-size:.8rem;color:var(--text2);display:flex;align-items:flex-start;gap:7px}
+.plan-features li::before{content:'✓';color:var(--green2);font-weight:700;flex-shrink:0}
+.plan-cta{display:block;text-align:center;padding:10px;border-radius:8px;font-size:.85rem;font-weight:700;text-decoration:none;transition:all .15s}
+.cta-green{background:var(--green2);color:#fff}.cta-green:hover{background:var(--green3)}
+.cta-outline{border:1px solid var(--border);color:var(--text2)}.cta-outline:hover{border-color:var(--green2);color:var(--green2)}
+
+/* FAQ */
+.faq{padding:70px 40px;max-width:720px;margin:0 auto}
+.faq h2{font-size:clamp(1.4rem,2.5vw,2rem);font-weight:900;letter-spacing:-.04em;margin-bottom:32px;text-align:center}
+.faq-item{border-bottom:1px solid var(--border);padding:18px 0}
+.faq-q{font-size:.9rem;font-weight:700;margin-bottom:8px}
+.faq-a{font-size:.85rem;color:var(--text2);line-height:1.7}
+
+/* CTA FINAL */
+.cta-final{background:linear-gradient(135deg,#0a0f0a,#0d2d1a,#0a0f0a);padding:90px 40px;text-align:center}
+.cta-final h2{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:900;color:#fff;letter-spacing:-.05em;margin-bottom:12px}
+.cta-final p{color:#86efac;font-size:.95rem;margin-bottom:32px}
+.cta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-w{background:#fff;color:var(--text);padding:13px 28px;border-radius:10px;font-size:.95rem;font-weight:700;text-decoration:none;transition:all .15s}.btn-w:hover{background:var(--bg)}
+.btn-gw{background:var(--green2);color:#fff;padding:13px 28px;border-radius:10px;font-size:.95rem;font-weight:700;text-decoration:none;box-shadow:0 2px 12px rgba(22,163,74,.3);transition:all .15s}.btn-gw:hover{background:var(--green3)}
+
+footer{padding:24px 40px;text-align:center;font-size:.75rem;color:var(--text3);border-top:1px solid var(--border)}
+@media(max-width:640px){nav{padding:0 16px}.hero{padding:40px 16px}.section{padding:50px 20px}.plans{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="nav-logo">Fit<span>Munch</span></a>
+  <div class="nav-spacer"></div>
+  <a href="/login.html" style="color:var(--text2);font-size:.85rem;font-weight:500;text-decoration:none;padding:8px 14px;margin-right:4px">Sign in</a>
+  <a href="/login.html?plan=starter" class="btn btn-green">Start free trial →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="tag">For Australian Personal Trainers</div>
+  <h1>Stop guessing if your clients<br/>are <em>actually</em> eating right</h1>
+  <p>FitMunch gives you real-time visibility over every client's nutrition — without chasing check-ins. Your clients love using it. You see everything.</p>
+  <div class="ctas">
+    <a href="/login.html?plan=starter" class="btn btn-green" style="padding:13px 28px;font-size:.95rem">Start PT trial — free 14 days →</a>
+    <a href="/" class="btn btn-outline" style="padding:13px 24px;font-size:.95rem">See all features</a>
+  </div>
+  <div class="trust">No credit card required · Cancel anytime · Australian-built</div>
+</div>
+
+<!-- PROBLEM SECTION -->
+<div class="section">
+  <h2>Sound familiar?</h2>
+  <p>Most Australian PTs are running their nutrition coaching on WhatsApp screenshots, PDF meal plans, and guesswork. It doesn't have to be that way.</p>
+  <div class="pain-grid">
+    <div class="pain-card">
+      <div class="pain-icon">😤</div>
+      <div class="pain-h">Clients say they're eating right — but results don't show it</div>
+      <div class="pain-p">Without visibility, you can't coach nutrition. You're flying blind and taking the blame for their results.</div>
+    </div>
+    <div class="pain-card">
+      <div class="pain-icon">📲</div>
+      <div class="pain-h">Chasing clients for food logs every week</div>
+      <div class="pain-p">WhatsApp, email, verbal check-ins — it's reactive, inconsistent, and eats your time. There's a better way.</div>
+    </div>
+    <div class="pain-card">
+      <div class="pain-icon">📄</div>
+      <div class="pain-h">Sending the same PDF meal plan to every client</div>
+      <div class="pain-p">Generic plans with no feedback loop. You assign it, it disappears into their inbox, and you never know if they followed it.</div>
+    </div>
+    <div class="pain-card">
+      <div class="pain-icon">📉</div>
+      <div class="pain-h">Clients churn because they're "not seeing results"</div>
+      <div class="pain-p">When you can't see what they're eating, you can't fix it. The problem isn't your programming — it's the nutrition blind spot.</div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="how">
+  <div class="how-inner">
+    <h2>How FitMunch works for PTs</h2>
+    <p class="how-sub">From sign-up to full client roster in under 10 minutes.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Sign up for your PT trial</h3>
+        <p>Create your account in 60 seconds. No credit card. Instant access to your PT dashboard.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Invite your clients with one link</h3>
+        <p>Generate a unique invite link. Clients click it, register, and instantly appear in your roster — zero friction.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Clients start tracking (they actually will)</h3>
+        <p>The receipt scanner is the hook — snap a Woolies or Coles receipt and get instant macro breakdown. Clients log daily because it's effortless.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>You see everything in your dashboard</h3>
+        <p>Log rate, macro compliance, streak, last logged, plan adherence — for every client. Spot who needs a check-in before they tell you.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="features">
+  <h2>Everything you need to run nutrition coaching at scale</h2>
+  <div class="feat-grid">
+    <div class="feat">
+      <div class="feat-icon">👥</div>
+      <h3>Client roster dashboard</h3>
+      <p>See every client's compliance, log streak, macro trends and last logged date in one view. Flag who needs a follow-up instantly — no more missed check-ins.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🧾</div>
+      <h3>Receipt scanner (the feature clients love)</h3>
+      <p>Clients snap their Woolies or Coles shopping receipt. FitMunch reads every item and calculates macros automatically. Daily logging goes from chore to habit.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📋</div>
+      <h3>Assign meal & workout plans</h3>
+      <p>Build meal and workout plans once. Assign to individual clients or groups. Plans appear directly in their FitMunch portal — no more emailing PDFs.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔗</div>
+      <h3>Invite link onboarding</h3>
+      <p>Share one link. Clients register, immediately join your roster, and see their assigned plans. No manual setup, no back-and-forth.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📲</div>
+      <h3>Client viral sharing (free marketing)</h3>
+      <p>When clients share their FitMunch progress cards to TikTok or Instagram, your name is on it. Every post is free advertising for your PT business.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🤖</div>
+      <h3>AI coaching insights</h3>
+      <p>Smart coaching prompts surface automatically when clients are off track — under their protein target, skipping logs, or not hitting calories. You coach, the app flags.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="pricing">
+  <div class="pricing-inner">
+    <h2>Simple, transparent pricing</h2>
+    <p class="pricing-sub">14-day free trial on all PT plans. No credit card required to start.</p>
+    <div class="plans">
+      <div class="plan">
+        <div class="plan-badge">PT Starter</div>
+        <div class="plan-name">Starter Plan</div>
+        <div class="plan-price">$59<sub>/mo AUD</sub></div>
+        <div class="plan-desc">Perfect for independent PTs with up to 10 active clients.</div>
+        <ul class="plan-features">
+          <li>Up to 10 clients</li>
+          <li>Client roster dashboard</li>
+          <li>Meal & workout plan assignment</li>
+          <li>Receipt scanner for clients</li>
+          <li>Compliance tracking</li>
+          <li>Invite link onboarding</li>
+        </ul>
+        <a href="/login.html?plan=starter" class="plan-cta cta-outline">Start 14-day trial →</a>
+      </div>
+      <div class="plan featured">
+        <div class="plan-badge">PT Pro — Most Popular</div>
+        <div class="plan-name">Pro Plan</div>
+        <div class="plan-price">$99<sub>/mo AUD</sub></div>
+        <div class="plan-desc">For growing PT businesses with unlimited clients.</div>
+        <ul class="plan-features">
+          <li>Unlimited clients</li>
+          <li>Everything in Starter</li>
+          <li>Priority support</li>
+          <li>Advanced analytics</li>
+          <li>Client progress reports</li>
+          <li>AI coaching insights</li>
+        </ul>
+        <a href="/login.html?plan=pro" class="plan-cta cta-green">Start 14-day trial →</a>
+      </div>
+    </div>
+    <p style="font-size:.78rem;color:var(--text3)">Compare: Your clients pay nothing. The app is free for them — you cover the platform subscription.</p>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="faq">
+  <h2>Common questions from PTs</h2>
+  <div class="faq-item">
+    <div class="faq-q">Do my clients need to pay for FitMunch?</div>
+    <div class="faq-a">No. Your clients get free access to the full FitMunch app — macro tracking, receipt scanner, shopping lists, progress sharing. You pay the PT subscription; they get the app for free.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How does the receipt scanner work?</div>
+    <div class="faq-a">Clients snap a photo of their Woolworths or Coles shopping receipt. FitMunch reads every item and calculates the macro breakdown — protein, carbs, fats, calories. It's the feature that drives daily logging because it turns a 10-minute job into 30 seconds.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">What if my clients already use MyFitnessPal?</div>
+    <div class="faq-a">MyFitnessPal is great for consumers but gives PTs zero visibility. FitMunch is built around the trainer's dashboard — you see what every client logs, in real time, from one place. That's the difference.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How long does it take to onboard my clients?</div>
+    <div class="faq-a">Under 5 minutes total. You generate an invite link from your dashboard. Clients click it, create an account, and they're immediately in your roster with any plans you've assigned. No app store setup required from you.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Is FitMunch built for Australian supermarkets?</div>
+    <div class="faq-a">Yes — the receipt scanner is specifically built for Woolworths, Coles, and ALDI receipts. The nutrition database covers Australian products. This isn't a US app with a local price tag.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Can I cancel anytime?</div>
+    <div class="faq-a">Yes. Cancel from your dashboard at any time. No lock-in contracts, no cancellation fees. Your clients retain access until the end of your billing period.</div>
+  </div>
+</div>
+
+<!-- FINAL CTA -->
+<div class="cta-final">
+  <h2>Ready to actually see what<br/>your clients are eating?</h2>
+  <p>14-day free trial. No credit card. Set up in under 10 minutes.</p>
+  <div class="cta-row">
+    <a href="/login.html?plan=starter" class="btn-gw">Start PT trial — free 14 days →</a>
+    <a href="/" class="btn-w">Back to home</a>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 FitMunch. Made in Australia 🇦🇺 · <a href="/" style="color:inherit">Home</a> · <a href="/login.html" style="color:inherit">Sign in</a></p>
+</footer>
+
+<!-- Schema.org structured data for SEO -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FitMunch",
+  "applicationCategory": "HealthApplication",
+  "operatingSystem": "Web",
+  "description": "Nutrition tracking and client management app for personal trainers in Australia. Track client compliance, assign meal plans, and grow your PT business.",
+  "url": "https://fitmunch.com.au",
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "PT Starter",
+      "price": "59.00",
+      "priceCurrency": "AUD",
+      "description": "PT plan for up to 10 clients"
+    },
+    {
+      "@type": "Offer",
+      "name": "PT Pro",
+      "price": "99.00",
+      "priceCurrency": "AUD",
+      "description": "PT plan with unlimited clients"
+    }
+  ],
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.8",
+    "reviewCount": "12"
+  }
+}
+</script>
+</body>
+</html>

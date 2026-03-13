@@ -1,0 +1,236 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Progress Tracking - FitMunch</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <img src="generated-icon.png" alt="FitMunch Logo">
+      <h1>FitMunch</h1>
+    </div>
+    
+    <nav>
+      <ul>
+        <li><a href="index.html" class="nav-item" data-section="dashboard"><i class="fas fa-home"></i> Home</a></li>
+        <li><a href="#" class="nav-item active" data-section="progress"><i class="fas fa-chart-line"></i> Progress</a></li>
+      </ul>
+    </nav>
+  </header>
+  
+  <main>
+    <section id="progress" class="active-section">
+      <div class="section-header">
+        <h2><i class="fas fa-chart-line"></i> Progress Tracking</h2>
+        <p>Track your fitness journey and visualize your progress over time.</p>
+      </div>
+      
+      <div class="progress-grid">
+        <div class="progress-card">
+          <div class="card-header">
+            <h3>Weight Progress</h3>
+            <button id="logWeightBtn" class="action-btn"><i class="fas fa-plus"></i> Log Weight</button>
+          </div>
+          <div class="card-body">
+            <canvas id="weightProgressChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="progress-card">
+          <div class="card-header">
+            <h3>Body Measurements</h3>
+            <button id="logMeasurementsBtn" class="action-btn"><i class="fas fa-plus"></i> Log Measurements</button>
+          </div>
+          <div class="card-body">
+            <canvas id="measurementsChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="progress-card">
+          <div class="card-header">
+            <h3>Workout History</h3>
+          </div>
+          <div class="card-body">
+            <canvas id="workoutHistoryChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="progress-card">
+          <div class="card-header">
+            <h3>Nutrition History</h3>
+          </div>
+          <div class="card-body">
+            <canvas id="nutritionHistoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="progress-summary">
+        <h3>Progress Summary</h3>
+        <div class="summary-stats">
+          <div class="stat-item">
+            <span class="stat-value" id="weightChangeStat">0 kg</span>
+            <span class="stat-label">Weight Change</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="workoutsStat">0</span>
+            <span class="stat-label">Workouts (Last 30 Days)</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="waistChangeStat">0 cm</span>
+            <span class="stat-label">Waist Change</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="consistencyStat">0%</span>
+            <span class="stat-label">Consistency</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <!-- Weight Log Modal -->
+  <div id="weightLogModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Log Weight</h3>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="weightLogForm">
+          <div class="form-group">
+            <label for="weightInput">Weight (kg)</label>
+            <input type="number" id="weightInput" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="weightDateInput">Date</label>
+            <input type="date" id="weightDateInput">
+          </div>
+          <button type="submit" class="submit-btn">Save Weight</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Measurements Log Modal -->
+  <div id="measurementModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Log Measurements</h3>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="measurementForm">
+          <div class="form-group">
+            <label for="chestInput">Chest (cm)</label>
+            <input type="number" id="chestInput" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="waistInput">Waist (cm)</label>
+            <input type="number" id="waistInput" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="hipsInput">Hips (cm)</label>
+            <input type="number" id="hipsInput" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="thighsInput">Thighs (cm)</label>
+            <input type="number" id="thighsInput" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="armsInput">Arms (cm)</label>
+            <input type="number" id="armsInput" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="measureDateInput">Date</label>
+            <input type="date" id="measureDateInput">
+          </div>
+          <button type="submit" class="submit-btn">Save Measurements</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <script src="script.js"></script>
+  <script src="progress_tracker.js"></script>
+  <script>
+    // Add event listeners for modals
+    document.addEventListener('DOMContentLoaded', function() {
+      // Weight log modal
+      const weightLogModal = document.getElementById('weightLogModal');
+      const logWeightBtn = document.getElementById('logWeightBtn');
+      const closeWeightModal = weightLogModal.querySelector('.close-modal');
+      
+      logWeightBtn.addEventListener('click', function() {
+        weightLogModal.style.display = 'block';
+      });
+      
+      closeWeightModal.addEventListener('click', function() {
+        weightLogModal.style.display = 'none';
+      });
+      
+      // Measurements modal
+      const measurementModal = document.getElementById('measurementModal');
+      const logMeasurementsBtn = document.getElementById('logMeasurementsBtn');
+      const closeMeasureModal = measurementModal.querySelector('.close-modal');
+      
+      logMeasurementsBtn.addEventListener('click', function() {
+        measurementModal.style.display = 'block';
+      });
+      
+      closeMeasureModal.addEventListener('click', function() {
+        measurementModal.style.display = 'none';
+      });
+      
+      // Close modals when clicking outside
+      window.addEventListener('click', function(event) {
+        if (event.target === weightLogModal) {
+          weightLogModal.style.display = 'none';
+        }
+        if (event.target === measurementModal) {
+          measurementModal.style.display = 'none';
+        }
+      });
+      
+      // Update summary stats
+      function updateProgressSummary() {
+        if (window.ProgressTracker) {
+          const summary = window.ProgressTracker.getProgressSummary();
+          
+          // Update stats
+          document.getElementById('weightChangeStat').textContent = 
+            `${Math.abs(summary.weightChange).toFixed(1)} kg ${summary.weightChangeDirection}`;
+          
+          document.getElementById('workoutsStat').textContent = summary.workoutsLast30Days;
+          
+          if (summary.measurementChanges.waist) {
+            document.getElementById('waistChangeStat').textContent = 
+              `${summary.measurementChanges.waist > 0 ? '+' : ''}${summary.measurementChanges.waist.toFixed(1)} cm`;
+          }
+          
+          document.getElementById('consistencyStat').textContent = 
+            `${Math.round(summary.workoutConsistency)}%`;
+        }
+      }
+      
+      // Initial update
+      updateProgressSummary();
+      
+      // Update on form submit
+      document.getElementById('weightLogForm').addEventListener('submit', function() {
+        setTimeout(updateProgressSummary, 500);
+      });
+      
+      document.getElementById('measurementForm').addEventListener('submit', function() {
+        setTimeout(updateProgressSummary, 500);
+      });
+    });
+  </script>
+</body>
+</html>

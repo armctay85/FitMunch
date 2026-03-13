@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#15803d"/>
+      <stop offset="100%" stop-color="#052e16"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- ═══════════════════════════════════
+       CONCEPT: A stylised fork where the
+       long handle has a dumbbell knurl/grip
+       section — one object, instantly a fork,
+       subtly a weight bar.
+       ═══════════════════════════════════ -->
+
+  <!-- ── HANDLE (bottom, long) ── -->
+  <rect x="232" y="290" width="48" height="160" rx="24" fill="#fff"/>
+
+  <!-- Handle end cap (rounded, slightly wider — like a weight plate end) -->
+  <rect x="220" y="418" width="72" height="42" rx="21" fill="#fff"/>
+
+  <!-- Handle grip texture (green accent bands — like knurling on a barbell) -->
+  <rect x="228" y="330" width="56" height="10" rx="5" fill="url(#accent)"/>
+  <rect x="228" y="350" width="56" height="10" rx="5" fill="url(#accent)"/>
+  <rect x="228" y="370" width="56" height="10" rx="5" fill="url(#accent)"/>
+
+  <!-- ── NECK / SHOULDER ── -->
+  <path d="M 200 292 Q 190 250 200 230 L 312 230 Q 322 250 312 292 Z" fill="#fff"/>
+
+  <!-- ── TINES (3, tall, tapering slightly) ── -->
+  <!-- Left tine -->
+  <rect x="164" y="72" width="42" height="178" rx="21" fill="#fff"/>
+  <!-- Centre tine (tallest) -->
+  <rect x="235" y="58" width="42" height="192" rx="21" fill="#fff"/>
+  <!-- Right tine -->
+  <rect x="306" y="72" width="42" height="178" rx="21" fill="#fff"/>
+
+  <!-- Tine base fill — joins tines into shoulder smoothly -->
+  <rect x="164" y="218" width="184" height="20" rx="8" fill="#fff"/>
+</svg>

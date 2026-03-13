@@ -1,0 +1,56 @@
+
+# FitMunch - Your Complete Fitness & Nutrition Companion
+
+## App Store Short Description (170 characters)
+Plan healthy meals, track workouts, and achieve your fitness goals with FitMunch - the all-in-one app for your health and fitness journey.
+
+## App Store Full Description
+Transform your fitness journey with FitMunch, the ultimate health and fitness companion app that combines meal planning, workout tracking, and progress monitoring in one seamless experience.
+
+### Plan Your Meals with Precision
+- Create personalized meal plans based on your dietary preferences and goals
+- Access our extensive database of healthy, delicious recipes 
+- Generate shopping lists automatically from your meal plans
+- Track macros and calories with our intuitive nutrition counter
+
+### Optimize Your Workouts
+- Choose from hundreds of pre-designed workout routines or create your own
+- Follow step-by-step exercise instructions with HD video demonstrations
+- Track your progress with detailed workout logs and performance metrics
+- Receive personalized workout recommendations based on your goals
+
+### Monitor Your Progress
+- Track key metrics like weight, body measurements, and exercise performance
+- Visualize your progress with intuitive charts and analytics
+- Set achievable goals and celebrate milestones
+- Maintain motivation with progress insights and achievements
+
+### Features for Everyone
+- Beginners: Guided programs to help you start your fitness journey
+- Intermediate: Varied workouts and meal plans to keep you challenged
+- Advanced: Custom programming and detailed analytics for optimizing performance
+- Nutrition enthusiasts: Recipe creation, meal planning, and precise macro tracking
+
+### Sync Across All Your Devices
+Access your FitMunch data seamlessly across your iPhone, iPad, and Apple Watch. Your fitness journey stays with you, no matter which device you're using.
+
+### Premium Features
+Upgrade to FitMunch Premium to unlock:
+- Advanced workout analytics
+- Custom meal plan generation
+- AI-powered fitness recommendations
+- Priority support
+- Ad-free experience
+
+Take control of your fitness journey today with FitMunch - where nutrition meets exercise for a healthier you.
+
+## Keywords
+fitness tracker, meal planner, workout app, nutrition, diet plan, exercise tracker, healthy recipes, weight loss, muscle building, meal prep, fitness goals, calorie counter, macro tracking, workout log
+
+## What's New in Version 1.0.0
+- Initial release of FitMunch
+- Complete meal planning system
+- Comprehensive workout tracking
+- Progress monitoring dashboard
+- Recipe database
+- Shopping list functionality

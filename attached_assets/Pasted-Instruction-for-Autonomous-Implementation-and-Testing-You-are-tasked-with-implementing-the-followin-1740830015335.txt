@@ -1,0 +1,55 @@
+Instruction for Autonomous Implementation and Testing
+You are tasked with implementing the following list of tasks or functions independently. Your responsibility includes not only writing the code but also vetting and testing your implementations to confirm they are correct and fulfill the given requirements. You must operate autonomously—do not seek my input or approval during this process. Instead, rely on your judgment, the provided specifications, and available resources to ensure your work is accurate and complete.
+Key Responsibilities:
+Implementation:
+Write the code for each task or function according to the provided specifications.
+
+Ensure your code is clear, follows best practices, and includes comments where needed for clarity.
+Vetting and Testing:
+For every task or function, develop a set of test cases to validate your implementation thoroughly.
+
+Your tests should cover:
+Normal cases: Common inputs and their expected outputs.
+
+Edge cases: Boundary values, empty inputs, or unusual scenarios.
+
+Error conditions: If applicable, verify proper error handling.
+Execute these tests and ensure your code passes all of them.
+
+If any test fails, debug and refine your code until it succeeds.
+Self-Sufficiency:
+Do not depend on me to review or verify your work. Use the specifications and your test results to confirm correctness.
+
+If a requirement is unclear, make a logical assumption based on standard conventions and proceed.
+Documentation:
+Record your testing process for each task or function.
+
+Include:
+The test cases you created (inputs and expected outputs).
+
+The outcomes of these tests (pass or fail).
+
+Any adjustments made to the code due to test failures.
+Resource Utilization:
+Leverage any available tools or resources to aid your work, such as:
+Programming language documentation.
+
+Built-in testing or debugging tools.
+
+Online references for algorithms or techniques.
+Ensure your final code and testing reflect your own effort.
+Task Specifications:
+[Insert specific details for each task or function here, such as input/output expectations, constraints, and any unique requirements.]
+Example:
+Function: find_maximum(numbers)
+
+Input: A list of integers (e.g., [3, 1, 4, 1, 5])
+
+Output: The largest integer in the list (e.g., 5)
+
+Requirements: Handle empty lists by returning None
+Deliverable:
+Submit the completed code for all tasks or functions.
+
+Provide accompanying documentation detailing your test cases and results for each.
+

@@ -1,0 +1,374 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitMunch - Freelancer Proposals Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="freelancer_request.css">
+  <style>
+    .proposals-container {
+      overflow-x: auto;
+    }
+    
+    .proposals-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    
+    .proposals-table th, 
+    .proposals-table td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .proposals-table th {
+      background-color: var(--light-color);
+      font-weight: 600;
+    }
+    
+    .proposals-table tr:hover {
+      background-color: rgba(76, 175, 80, 0.05);
+    }
+    
+    .action-btn {
+      padding: 0.4rem 0.75rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-right: 0.5rem;
+    }
+    
+    .view-btn {
+      background-color: var(--info-color);
+      color: white;
+    }
+    
+    .approve-btn {
+      background-color: var(--success-color);
+      color: white;
+    }
+    
+    .reject-btn {
+      background-color: var(--danger-color);
+      color: white;
+    }
+    
+    .empty-state {
+      padding: 2rem;
+      text-align: center;
+      background-color: #fff;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+    
+    .empty-state i {
+      font-size: 3rem;
+      color: var(--very-light-text);
+      margin-bottom: 1rem;
+    }
+    
+    .empty-state p {
+      color: var(--light-text);
+      font-size: 1.1rem;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 700px;
+      width: 90%;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h3 {
+      margin: 0;
+    }
+    
+    .close-modal {
+      font-size: 1.5rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    
+    .proposal-details {
+      margin-bottom: 1.5rem;
+    }
+    
+    .detail-item {
+      margin-bottom: 1rem;
+    }
+    
+    .detail-item h4 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1rem;
+    }
+    
+    .detail-item p {
+      margin: 0;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="project-header">
+    <div class="logo">
+      <img src="generated-icon.png" alt="FitMunch Logo" class="logo-img">
+      <h1>FitMunch</h1>
+    </div>
+    <div class="header-actions">
+      <a href="freelancer_request.html" class="back-btn">
+        <i class="fas fa-external-link-alt"></i> View Project Page
+      </a>
+    </div>
+  </header>
+
+  <main class="project-container">
+    <section class="dashboard-overview">
+      <h2>Freelancer Proposals Dashboard</h2>
+      <div class="project-card">
+        <h3>Google Play Store Implementation Project</h3>
+        <p>Review and manage freelancer proposals for implementing Google Play Store requirements for the FitMunch app.</p>
+      </div>
+    </section>
+
+    <section class="proposals-section">
+      <h2>Submitted Proposals</h2>
+      <div class="proposals-container" id="proposals-container">
+        <!-- Proposals will be loaded here via JavaScript -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal for viewing proposal details -->
+  <div id="proposal-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Proposal Details</h3>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div class="proposal-details" id="proposal-details">
+        <!-- Proposal details will be loaded here -->
+      </div>
+      <div class="modal-actions">
+        <button class="action-btn reject-btn">Reject Proposal</button>
+        <button class="action-btn approve-btn">Approve Proposal</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="project-footer">
+    <p>&copy; 2023 FitMunch. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const proposalsContainer = document.getElementById('proposals-container');
+      const modal = document.getElementById('proposal-modal');
+      const proposalDetails = document.getElementById('proposal-details');
+      const closeModal = document.querySelector('.close-modal');
+      
+      // Close modal when clicking the X button
+      if (closeModal) {
+        closeModal.addEventListener('click', function() {
+          modal.style.display = 'none';
+        });
+      }
+      
+      // Close modal when clicking outside the modal content
+      window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
+      
+      // Load proposals from localStorage
+      function loadProposals() {
+        const proposals = JSON.parse(localStorage.getItem('fitMunchProposals') || '[]');
+        
+        if (proposalsContainer) {
+          if (proposals.length === 0) {
+            // Show empty state
+            proposalsContainer.innerHTML = `
+              <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No proposals have been submitted yet.</p>
+              </div>
+            `;
+          } else {
+            // Create table with proposals
+            proposalsContainer.innerHTML = `
+              <table class="proposals-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Timeline</th>
+                    <th>Cost</th>
+                    <th>Submitted</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="proposals-tbody">
+                </tbody>
+              </table>
+            `;
+            
+            const tbody = document.getElementById('proposals-tbody');
+            
+            proposals.forEach((proposal, index) => {
+              const row = document.createElement('tr');
+              
+              // Format date
+              const submittedDate = new Date(proposal.timestamp);
+              const formattedDate = submittedDate.toLocaleDateString() + ' ' + 
+                submittedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+              
+              // Format cost
+              const formattedCost = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+              }).format(proposal.cost);
+              
+              row.innerHTML = `
+                <td>${proposal.name}</td>
+                <td>${proposal.email}</td>
+                <td>${proposal.timeline} days</td>
+                <td>${formattedCost}</td>
+                <td>${formattedDate}</td>
+                <td>
+                  <button class="action-btn view-btn" data-index="${index}">View</button>
+                  <button class="action-btn approve-btn" data-index="${index}">Approve</button>
+                  <button class="action-btn reject-btn" data-index="${index}">Reject</button>
+                </td>
+              `;
+              
+              tbody.appendChild(row);
+            });
+            
+            // Add event listeners to buttons
+            document.querySelectorAll('.view-btn').forEach(btn => {
+              btn.addEventListener('click', function() {
+                const index = this.getAttribute('data-index');
+                viewProposal(proposals[index]);
+              });
+            });
+            
+            document.querySelectorAll('.approve-btn').forEach(btn => {
+              btn.addEventListener('click', function() {
+                const index = this.getAttribute('data-index');
+                approveProposal(index);
+              });
+            });
+            
+            document.querySelectorAll('.reject-btn').forEach(btn => {
+              btn.addEventListener('click', function() {
+                const index = this.getAttribute('data-index');
+                rejectProposal(index);
+              });
+            });
+          }
+        }
+      }
+      
+      // View proposal details
+      function viewProposal(proposal) {
+        if (proposalDetails && modal) {
+          // Format cost
+          const formattedCost = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(proposal.cost);
+          
+          // Format date
+          const submittedDate = new Date(proposal.timestamp);
+          const formattedDate = submittedDate.toLocaleDateString() + ' ' + 
+            submittedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          
+          proposalDetails.innerHTML = `
+            <div class="detail-item">
+              <h4>Freelancer</h4>
+              <p>${proposal.name} (${proposal.email})</p>
+            </div>
+            <div class="detail-item">
+              <h4>Relevant Experience</h4>
+              <p>${proposal.experience}</p>
+            </div>
+            <div class="detail-item">
+              <h4>Implementation Approach</h4>
+              <p>${proposal.approach}</p>
+            </div>
+            <div class="detail-item">
+              <h4>Timeline & Cost</h4>
+              <p>${proposal.timeline} days at ${formattedCost}</p>
+            </div>
+            <div class="detail-item">
+              <h4>Questions/Clarifications</h4>
+              <p>${proposal.questions || 'None provided'}</p>
+            </div>
+            <div class="detail-item">
+              <h4>Submitted</h4>
+              <p>${formattedDate}</p>
+            </div>
+          `;
+          
+          modal.style.display = 'block';
+        }
+      }
+      
+      // Approve proposal (in a real app, this would trigger an email/notification)
+      function approveProposal(index) {
+        if (confirm('Are you sure you want to approve this proposal?')) {
+          alert('Proposal approved! In a real application, this would trigger a notification to the freelancer.');
+        }
+      }
+      
+      // Reject proposal (in a real app, this would trigger an email/notification)
+      function rejectProposal(index) {
+        if (confirm('Are you sure you want to reject this proposal?')) {
+          const proposals = JSON.parse(localStorage.getItem('fitMunchProposals') || '[]');
+          proposals.splice(index, 1);
+          localStorage.setItem('fitMunchProposals', JSON.stringify(proposals));
+          
+          alert('Proposal rejected and removed from the list.');
+          loadProposals();
+        }
+      }
+      
+      // Initialize the dashboard
+      loadProposals();
+    });
+  </script>
+</body>
+</html>

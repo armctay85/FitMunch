@@ -1,0 +1,13 @@
+{
+  "instagram": {
+    "accessToken": "EAAMxFiCbbv0BQ2xELzNwUVF1HdmPt7A16bKPJCD3Qo1RdSzZBYJapeGzxAIQJywQ2ghUZCM9SYynYUdmBl0Fs8yQoCki9f35ToZCeuFvxVBsQvm6Pt2ztEdUfnQNpdt2QM53d75c94r3LF6PgSOYNXzqCC1iY7smFzwicUcucNaBZAPtCGyar0OpZB1NpfICnuUnB64GwFZCUK7sZCQ9aDinlEmVLEDiw3nYr2ihN2t53ldZAWZCbzXs4NW3xexEUEIgZBrVu23gaYe3zY7YZCQhOaEEal5qD0ooF0ZD",
+    "businessAccountId": "ENTER_YOUR_IG_BUSINESS_ACCOUNT_ID_HERE"
+  },
+  "facebook": {
+    "groupIds": {
+      "pt_business_au": "1086856985292859",
+      "fitness_business_owners": "813514840413639",
+      "personal_trainers_australia": "303270813417754"
+    }
+  }
+}
