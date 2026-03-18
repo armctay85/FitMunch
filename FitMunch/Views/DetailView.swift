@@ -318,7 +318,7 @@ private struct QuantitySheet: View {
                             let nutrition = foodItem.nutritionalValues(for: quantityNum)
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Nutrition for \(quantity, specifier: "%.1f") serving(s):")
+                                Text("Nutrition for \(quantityNum, specifier: "%.1f") serving(s):")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 
