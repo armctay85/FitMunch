@@ -61,17 +61,16 @@ jobs:
           -scheme FitMunch \
           -archivePath "$RUNNER_TEMP/FitMunch.xcarchive" \
           -destination 'generic/platform=iOS' \
-          CODE_SIGN_STYLE=Manual \
-          CODE_SIGN_IDENTITY="Apple Distribution" \
-          PROVISIONING_PROFILE="$PROFILE_UUID" \
-          DEVELOPMENT_TEAM=48SW62N9BZ
+          DEVELOPMENT_TEAM=48SW62N9BZ \
+          -allowProvisioningUpdates
 
     - name: Export IPA
       run: |
         xcodebuild -exportArchive \
           -archivePath "$RUNNER_TEMP/FitMunch.xcarchive" \
           -exportOptionsPlist ExportOptions.plist \
-          -exportPath "$RUNNER_TEMP/export"
+          -exportPath "$RUNNER_TEMP/export" \
+          -allowProvisioningUpdates
 
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
