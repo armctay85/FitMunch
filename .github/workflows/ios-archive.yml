@@ -46,15 +46,15 @@ jobs:
         PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
         mkdir -p "$PP_PATH"
         echo "$PROVISIONING_PROFILE" | base64 -D > "$PP_PATH/FitMunch.mobileprovision"
-        echo "Profile installed"
+        PROFILE_UUID=$(security cms -D -i "$PP_PATH/FitMunch.mobileprovision" | plutil -extract UUID raw -)
+        echo "Profile UUID: $PROFILE_UUID"
+        echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
         security find-identity -v -p codesigning
 
     - name: Resolve package dependencies
       run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
 
     - name: Archive
-      env:
-        PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
       run: |
         xcodebuild clean archive \
           -project FitMunch.xcodeproj \
@@ -63,11 +63,8 @@ jobs:
           -destination 'generic/platform=iOS' \
           CODE_SIGN_STYLE=Manual \
           CODE_SIGN_IDENTITY="Apple Distribution" \
-          "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]"="$PROVISIONING_PROFILE_NAME" \
-          DEVELOPMENT_TEAM=48SW62N9BZ \
-          ONLY_ACTIVE_ARCH=NO \
-          SKIP_INSTALL=NO \
-          BUILD_LIBRARY_FOR_DISTRIBUTION=NO
+          PROVISIONING_PROFILE="$PROFILE_UUID" \
+          DEVELOPMENT_TEAM=48SW62N9BZ
 
     - name: Export IPA
       run: |
