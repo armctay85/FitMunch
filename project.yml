@@ -4,10 +4,6 @@ options:
   deploymentTarget:
     iOS: "17.0"
 
-packages:
-  RevenueCat:
-    url: https://github.com/RevenueCat/purchases-ios-spm
-    from: "4.0.0"
 
 targets:
   FitMunch:
@@ -27,7 +23,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: FitMunch/Resources/Info.plist
         DEVELOPMENT_TEAM: 48SW62N9BZ
-        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_STYLE: Manual
     dependencies:
-      - package: RevenueCat
-        product: RevenueCat
+      - framework: RevenueCat.xcframework
+        embed: true

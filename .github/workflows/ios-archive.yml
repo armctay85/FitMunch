@@ -29,6 +29,16 @@ jobs:
     - name: Install XcodeGen
       run: brew install xcodegen
 
+    - name: Download RevenueCat XCFramework
+      run: |
+        curl -L -o RevenueCat.xcframework.zip \
+          https://github.com/RevenueCat/purchases-ios/releases/download/5.14.4/RevenueCat.xcframework.zip
+        unzip -q RevenueCat.xcframework.zip -d rc_tmp
+        XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+        mv "$XCFW" ./RevenueCat.xcframework
+        rm -rf rc_tmp
+        xattr -cr RevenueCat.xcframework || true
+
     - name: Generate Xcode project
       run: xcodegen generate
 
@@ -46,31 +56,29 @@ jobs:
         PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
         mkdir -p "$PP_PATH"
         echo "$PROVISIONING_PROFILE" | base64 -D > "$PP_PATH/FitMunch.mobileprovision"
-        PROFILE_UUID=$(security cms -D -i "$PP_PATH/FitMunch.mobileprovision" | plutil -extract UUID raw -)
-        echo "Profile UUID: $PROFILE_UUID"
-        echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+        echo "Profile installed"
         security find-identity -v -p codesigning
 
-    - name: Resolve package dependencies
-      run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
-
     - name: Archive
+      env:
+        PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
       run: |
         xcodebuild clean archive \
           -project FitMunch.xcodeproj \
           -scheme FitMunch \
           -archivePath "$RUNNER_TEMP/FitMunch.xcarchive" \
           -destination 'generic/platform=iOS' \
-          DEVELOPMENT_TEAM=48SW62N9BZ \
-          -allowProvisioningUpdates
+          CODE_SIGN_STYLE=Manual \
+          CODE_SIGN_IDENTITY="Apple Distribution" \
+          "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]"="$PROVISIONING_PROFILE_NAME" \
+          DEVELOPMENT_TEAM=48SW62N9BZ
 
     - name: Export IPA
       run: |
         xcodebuild -exportArchive \
           -archivePath "$RUNNER_TEMP/FitMunch.xcarchive" \
           -exportOptionsPlist ExportOptions.plist \
-          -exportPath "$RUNNER_TEMP/export" \
-          -allowProvisioningUpdates
+          -exportPath "$RUNNER_TEMP/export"
 
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
