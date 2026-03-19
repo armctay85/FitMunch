@@ -1,93 +1,96 @@
-name: iOS Archive and Upload to App Store Connect
+name: iOS Archive & Upload
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
+    inputs:
+      upload_to_asc:
+        description: 'Upload to App Store Connect'
+        required: false
+        default: 'true'
+        type: boolean
+  push:
+    branches:
+      - deploy
 
 jobs:
   archive:
-    runs-on: macos-latest
-    
+    runs-on: macos-14
+    timeout-minutes: 60
+
     steps:
-    - name: Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
-    
+
     - name: Select Xcode
-      run: sudo xcode-select -s $(ls -d /Applications/Xcode*.app | tail -1)/Contents/Developer
-    
-    - name: Setup automatic code signing
+      run: |
+        sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+        xcodebuild -version
+
+    - name: Install XcodeGen
+      run: brew install xcodegen
+
+    - name: Generate Xcode project
+      run: xcodegen generate
+
+    - name: Import certificate
+      uses: Apple-Actions/import-codesign-certs@v3
+      with:
+        p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
+        p12-password: ${{ secrets.CERTIFICATES_PASSWORD }}
+        keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+    - name: Install provisioning profile
       env:
-        ASC_USERNAME: ${{ secrets.ASC_USERNAME }}
-        ASC_APP_SPECIFIC_PASSWORD: ${{ secrets.ASC_APP_SPECIFIC_PASSWORD }}
+        PROVISIONING_PROFILE: ${{ secrets.PROVISIONING_PROFILE }}
       run: |
-        # Create keychain for automatic signing
-        security create-keychain -p "" build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "" build.keychain
-        
-        # Add to keychain search list
-        security list-keychains -s build.keychain
-        
-        # Set keychain timeout to 1 hour
-        security set-keychain-settings -t 3600 -u build.keychain
-        
-        # Import Apple ID credentials for automatic signing
-        echo "Setting up automatic code signing with Apple ID"
-    
-    - name: Resolve Swift Package Dependencies
+        PP_PATH="$HOME/Library/MobileDevice/Provisioning Profiles"
+        mkdir -p "$PP_PATH"
+        echo "$PROVISIONING_PROFILE" | base64 -D > "$PP_PATH/FitMunch.mobileprovision"
+        echo "Profile installed"
+        security find-identity -v -p codesigning
+
+    - name: Resolve package dependencies
       run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
-    
-    - name: Archive the app
+
+    - name: Archive
+      env:
+        PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
       run: |
-        xcodebuild archive \
+        xcodebuild clean archive \
           -project FitMunch.xcodeproj \
           -scheme FitMunch \
-          -configuration Release \
-          -archivePath ./build/FitMunch.xcarchive \
-          -destination generic/platform=iOS \
-          CODE_SIGN_STYLE=Automatic \
-          MARKETING_VERSION=1.0 \
-          CURRENT_PROJECT_VERSION=1
-    
+          -archivePath "$RUNNER_TEMP/FitMunch.xcarchive" \
+          -destination 'generic/platform=iOS' \
+          CODE_SIGN_STYLE=Manual \
+          CODE_SIGN_IDENTITY="Apple Distribution" \
+          PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
+          DEVELOPMENT_TEAM=48SW62N9BZ
+
     - name: Export IPA
-      env:
-        ASC_USERNAME: ${{ secrets.ASC_USERNAME }}
-        ASC_APP_SPECIFIC_PASSWORD: ${{ secrets.ASC_APP_SPECIFIC_PASSWORD }}
       run: |
         xcodebuild -exportArchive \
-          -archivePath ./build/FitMunch.xcarchive \
-          -exportOptionsPlist ./ExportOptions.plist \
-          -exportPath ./build \
-          -allowProvisioningUpdates \
-          -authenticationKeyID "${{ secrets.ASC_KEY_ID }}" \
-          -authenticationKeyIssuerID "${{ secrets.ASC_ISSUER_ID }}" \
-          -authenticationKeyPath ./AuthKey.p8
-    
-    - name: Upload IPA as artifact
+          -archivePath "$RUNNER_TEMP/FitMunch.xcarchive" \
+          -exportOptionsPlist ExportOptions.plist \
+          -exportPath "$RUNNER_TEMP/export"
+
+    - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
       with:
         name: FitMunch-IPA
-        path: ./build/FitMunch.ipa
-        retention-days: 7
-    
+        path: ${{ runner.temp }}/export/*.ipa
+        retention-days: 14
+
     - name: Upload to App Store Connect
+      if: ${{ inputs.upload_to_asc == 'true' || github.ref == 'refs/heads/deploy' }}
       env:
         ASC_USERNAME: ${{ secrets.ASC_USERNAME }}
-        ASC_APP_SPECIFIC_PASSWORD: ${{ secrets.ASC_APP_SPECIFIC_PASSWORD }}
+        ASC_PASSWORD: ${{ secrets.ASC_PASSWORD }}
       run: |
-        # Validate the IPA
-        xcrun altool --validate-app \
-          -f ./build/FitMunch.ipa \
-          -t ios \
-          -u "$ASC_USERNAME" \
-          -p "$ASC_APP_SPECIFIC_PASSWORD" \
-          --output-format xml
-        
-        # Upload to App Store Connect
+        IPA_PATH=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
+        echo "Uploading: $IPA_PATH"
         xcrun altool --upload-app \
-          -f ./build/FitMunch.ipa \
-          -t ios \
-          -u "$ASC_USERNAME" \
-          -p "$ASC_APP_SPECIFIC_PASSWORD" \
-          --output-format xml
-        
-        echo "App successfully uploaded to App Store Connect"
+          --type ios \
+          --file "$IPA_PATH" \
+          --username "$ASC_USERNAME" \
+          --password "$ASC_PASSWORD" \
+          --verbose
