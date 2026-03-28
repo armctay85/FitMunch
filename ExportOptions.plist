@@ -10,7 +10,7 @@
 	<string>app-store</string>
 	<key>provisioningProfiles</key>
 	<dict>
-		<key>com.fitmunch.ios</key>
+		<key>com.fitmunch.app</key>
 		<string>FitMunch iOS App Store</string>
 	</dict>
 	<key>signingStyle</key>
