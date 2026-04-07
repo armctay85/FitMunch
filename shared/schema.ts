@@ -134,6 +134,58 @@ export const analyticsEvents = pgTable('analytics_events', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ── B2B PT PLATFORM ADDITIONS ──────────────────────────────────────────────
+
+export const clientInvitations = pgTable('client_invitations', {
+  id: serial('id').primaryKey(),
+  ptId: uuid('pt_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  email: varchar('email', { length: 255 }),
+  token: varchar('token', { length: 64 }).notNull().unique(),
+  accepted: boolean('accepted').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+export const ptClients = pgTable('pt_clients', {
+  id: serial('id').primaryKey(),
+  ptId: uuid('pt_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid('client_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 20 }).default('active'),
+  phase: varchar('phase', { length: 50 }),
+  notes: text('notes'),
+  joinedAt: timestamp('joined_at').defaultNow().notNull(),
+});
+
+export const shoppingLists = pgTable('shopping_lists', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  mealPlanId: integer('meal_plan_id').references(() => mealPlans.id),
+  name: text('name').notNull(),
+  items: jsonb('items').default('[]'),
+  completed: boolean('completed').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const favourites = pgTable('favourites', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  itemType: varchar('item_type', { length: 50 }).notNull(),
+  itemId: text('item_id').notNull(),
+  itemData: jsonb('item_data').default('{}'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const planAssignments = pgTable('plan_assignments', {
+  id: serial('id').primaryKey(),
+  ptId: uuid('pt_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid('client_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  planType: varchar('plan_type', { length: 20 }).notNull(),
+  planId: integer('plan_id').notNull(),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+  active: boolean('active').default(true),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, {
