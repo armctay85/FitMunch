@@ -25,6 +25,18 @@ The repo is already configured (`vercel.json`, `api/index.js`, Express export in
 
 Optional: **Settings → Domains** attach `fitmunch.com.au` (or keep the `.vercel.app` URL only).
 
+## After custom domain DNS propagates
+
+1. Vercel **Domains** should show **Valid** for `fitmunch.com.au` / `www`.
+2. Set **`ALLOWED_ORIGINS`** (in `.env` → `npm run env:vercel`) to include your real origins, e.g.  
+   `https://fitmunch.com.au,https://www.fitmunch.com.au`  
+   (omit if you only use the default allowlist in `server.js` and it already matches.)
+3. Smoke-test:
+
+```bash
+FITMUNCH_SMOKE_URL=https://fitmunch.com.au npm run smoke:assets
+```
+
 ## After it is green
 
 ```bash

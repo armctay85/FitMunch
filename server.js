@@ -130,16 +130,20 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Rate limiting for API endpoints
-const rateLimit = require('express-rate-limit');
-// Railway proxies all traffic through one IP — must use X-Forwarded-For to get real client IP
-const realIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+// Behind Railway / Vercel proxy — prefer X-Forwarded-For; normalize IPv6 for express-rate-limit v8+
+const rateLimitKey = (req) => {
+  const raw =
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  return ipKeyGenerator(raw);
+};
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: realIp,
+  keyGenerator: rateLimitKey,
 });
 
 app.use('/api/', apiLimiter);
@@ -149,7 +153,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20, // 20 attempts per 15 min per real IP
   message: 'Too many login attempts, please try again in 15 minutes.',
-  keyGenerator: realIp,
+  keyGenerator: rateLimitKey,
 });
 
 app.use('/api/auth/login', authLimiter);
