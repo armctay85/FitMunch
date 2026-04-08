@@ -6,13 +6,12 @@
  *   1. Create a token: https://vercel.com/account/tokens  →  VERCEL_TOKEN
  *   2. Keep DATABASE_URL / JWT_SECRET etc. in a local .env (never committed)
  *
- * Usage:
- *   set VERCEL_TOKEN=xxxxxxxx
- *   set VERCEL_TARGET_PROJECT=fit-munch
- *   npm run env:vercel
+ * Usage (pick one):
+ *   A) Put in .env: VERCEL_TOKEN, VERCEL_TARGET_PROJECT (optional), DATABASE_URL, JWT_SECRET, …
+ *      then: npm run env:vercel
+ *   B) Export VERCEL_TOKEN in the shell + keep app secrets in .env
  *
- * Optional:
- *   VERCEL_TEAM_ID=<team_uuid>   if the API says the project is under a team
+ * VERCEL_TOKEN is never uploaded to the project — only used to call the API.
  */
 
 import fs from 'fs';
@@ -59,24 +58,31 @@ function loadDotEnv(filePath) {
 }
 
 async function main() {
-  const token = process.env.VERCEL_TOKEN;
+  const envPath = path.join(ROOT, '.env');
+  const local = loadDotEnv(envPath);
+
+  const token =
+    process.env.VERCEL_TOKEN ||
+    local.VERCEL_TOKEN ||
+    '';
   const project =
     process.env.VERCEL_TARGET_PROJECT ||
     process.env.VERCEL_PROJECT_NAME ||
+    local.VERCEL_TARGET_PROJECT ||
+    local.VERCEL_PROJECT_NAME ||
     'fit-munch';
-  const teamId = process.env.VERCEL_TEAM_ID || '';
+  const teamId =
+    process.env.VERCEL_TEAM_ID || local.VERCEL_TEAM_ID || '';
 
   if (!token) {
     console.error(
-      'Missing VERCEL_TOKEN. Create one at https://vercel.com/account/tokens and run again.'
+      'Missing VERCEL_TOKEN (shell or .env). Create one at https://vercel.com/account/tokens'
     );
     process.exit(1);
   }
 
-  const envPath = path.join(ROOT, '.env');
-  const local = loadDotEnv(envPath);
   if (Object.keys(local).length === 0) {
-    console.error(`No variables found in ${envPath}`);
+    console.error(`No ${envPath} file — create it from .env.example and add secrets.`);
     process.exit(1);
   }
 
