@@ -14,6 +14,9 @@ struct PaywallView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 32) {
+                    if !Constants.isRevenueCatConfigured {
+                        configurationWarningSection
+                    }
                     headerSection
                     featuresSection
                     pricingSection
@@ -57,6 +60,23 @@ struct PaywallView: View {
     }
 
     // MARK: - Sections
+
+    private var configurationWarningSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Configuration Required")
+                .font(.headline)
+                .foregroundColor(.orange)
+
+            Text("RevenueCat is not configured yet. Add your public SDK key to REVENUECAT_API_KEY in Info.plist to load live subscription plans.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.orange.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
 
     private var headerSection: some View {
         VStack(spacing: 16) {

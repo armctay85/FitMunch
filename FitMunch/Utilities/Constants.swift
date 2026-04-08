@@ -5,8 +5,18 @@ enum Constants {
     /// App name
     static let appName = "FitMunch"
     
-    /// RevenueCat API key (to be configured in production)
-    static let revenueCatApiKey = "appl_xxx" // Replace with actual API key
+    /// RevenueCat API key (configured via Info.plist)
+    static var revenueCatApiKey: String {
+        if let key = Bundle.main.object(forInfoDictionaryKey: "REVENUECAT_API_KEY") as? String,
+           !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return key
+        }
+        return "appl_xxx"
+    }
+
+    static var isRevenueCatConfigured: Bool {
+        revenueCatApiKey != "appl_xxx"
+    }
     
     /// Subscription entitlement IDs
     enum Entitlements {

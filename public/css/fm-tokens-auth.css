@@ -1,0 +1,11 @@
+/* FitMunch sign-in / auth dark theme (login.html). */
+:root {
+  --green: #22c55e;
+  --green2: #16a34a;
+  --bg: #060c06;
+  --card: #0d150d;
+  --border: #1a2e1a;
+  --muted: #4b5e4b;
+  --text: #e8f5e8;
+  --sub: #8fa98f;
+}

@@ -2,10 +2,13 @@
 module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
-  testMatch: ['**/test_app.js'],
+  testMatch: ['**/test_app.js', '**/test_fm_storage.js', '**/test_fm_identity.js'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
   collectCoverageFrom: [
-    'script.js',
+    'public/script.js',
+    'public/js/fm-storage.js',
+    'public/js/fm-identity.js',
     'grok_agent.js',
     'grok_assistant.js'
   ],

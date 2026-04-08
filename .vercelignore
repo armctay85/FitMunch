@@ -1,0 +1,10 @@
+# Smaller uploads, faster deploys — nothing here is needed at runtime for the Node app.
+.brv/
+coverage/
+legacy-html/
+FitMunch/
+*.test.js
+test_app.js
+test_fm_*.js
+jest.config.js
+jest.setup.js

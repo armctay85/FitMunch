@@ -18,6 +18,38 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 const app = express();
 
+const parseAllowedOrigins = () => {
+  const configured = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : [];
+
+  const defaults = [
+    'https://fitmunch.com.au',
+    'https://www.fitmunch.com.au',
+    'http://localhost:5000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5000',
+  ];
+
+  if (process.env.VERCEL_URL) {
+    defaults.push(`https://${process.env.VERCEL_URL.replace(/^https?:\/\//, '')}`);
+  }
+  ['VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL'].forEach((key) => {
+    const raw = process.env[key];
+    if (!raw) return;
+    const normalized = raw.startsWith('http') ? raw : `https://${raw}`;
+    try {
+      defaults.push(new URL(normalized).origin);
+    } catch (_) {
+      /* ignore */
+    }
+  });
+
+  return Array.from(new Set([...defaults, ...configured]));
+};
+
+const allowedOrigins = parseAllowedOrigins();
+
 // Security: Enhanced Helmet configuration with Replit preview support
 app.use(helmet({
   contentSecurityPolicy: {
@@ -43,11 +75,25 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
-// Enable CORS with security options
+// Enable CORS with explicit origin allowlist (credentials-safe)
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : ["*"]) 
-    : true,
+  origin: (origin, callback) => {
+    // Allow non-browser clients / same-origin requests without Origin header.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   maxAge: 86400
 }));
@@ -436,20 +482,24 @@ app.use((req, res, next) => {
 
 const port = process.env.PORT || 5000;
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 FitMunch running on port ${port}`);
-}).on('error', (err) => {
-  console.error('❌ Failed to start server:', err.message);
-  process.exit(1);
-});
+// Vercel (and tests) load this module without listening; `node server.js` / Railway start the server.
+if (require.main === module) {
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 FitMunch running on port ${port}`);
+  }).on('error', (err) => {
+    console.error('❌ Failed to start server:', err.message);
+    process.exit(1);
+  });
 
-// Handle process termination gracefully
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    process.exit(0);
+  });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
+  process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    process.exit(0);
+  });
+}
+
+module.exports = app;

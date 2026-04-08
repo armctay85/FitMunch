@@ -17,6 +17,12 @@ class PremiumManager: ObservableObject {
     
     /// Configure RevenueCat with API key
     private func configureRevenueCat() {
+        guard Constants.isRevenueCatConfigured else {
+            errorMessage = "RevenueCat is not configured. Add REVENUECAT_API_KEY in Info.plist."
+            print("RevenueCat not configured: missing REVENUECAT_API_KEY")
+            return
+        }
+
         Purchases.logLevel = .debug
         Purchases.configure(
             with: Configuration.Builder(withAPIKey: Constants.revenueCatApiKey)

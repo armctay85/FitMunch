@@ -6,19 +6,9 @@
   <title>FitMunch — Sign In</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --green:  #22c55e;
-      --green2: #16a34a;
-      --bg:     #060c06;
-      --card:   #0d150d;
-      --border: #1a2e1a;
-      --muted:  #4b5e4b;
-      --text:   #e8f5e8;
-      --sub:    #8fa98f;
-    }
 
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -219,11 +209,25 @@
   const urlParams = new URLSearchParams(window.location.search);
   const plan = urlParams.get('plan') || null; // 'starter' | 'pro' | null
 
+  async function parseApiJson(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('Unexpected server response. Please try again.');
+    }
+
+    const payload = await response.json();
+    if (!response.ok) {
+      const message = payload?.error || payload?.message || 'Request failed. Please try again.';
+      throw new Error(message);
+    }
+    return payload;
+  }
+
   // Redirect if already logged in
   const existingToken = localStorage.getItem('fm_token');
   if (existingToken) {
     fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
-      .then(r => r.json())
+      .then(parseApiJson)
       .then(d => { if (d.success) redirectAfterAuth(existingToken); })
       .catch(() => {});
   }
@@ -237,7 +241,7 @@
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ plan })
         });
-        const d = await r.json();
+        const d = await parseApiJson(r);
         if (d.url) { window.location.href = d.url; return; }
       } catch {}
     }
@@ -285,26 +289,26 @@
 
   async function doLogin() {
     hideMsg('login');
-    const email    = document.getElementById('login-email').value.trim();
+    const email    = document.getElementById('login-email').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
     if (!email || !password) { showError('login-error', 'Please enter your email and password.'); return; }
     setLoading('login-btn', true);
     try {
       const r    = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-      const data = await r.json();
-      if (!data.success) { showError('login-error', data.error); return; }
+      const data = await parseApiJson(r);
+      if (!data.success) { showError('login-error', data.error || 'Login failed.'); return; }
       localStorage.setItem('fm_token', data.token);
       localStorage.setItem('fm_user',  JSON.stringify(data.user));
       showSuccess('login-success', plan ? 'Logged in! Setting up your trial...' : 'Logged in! Redirecting...');
       setTimeout(() => redirectAfterAuth(data.token), 600);
-    } catch { showError('login-error', 'Network error. Please try again.'); }
+    } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
     finally   { setLoading('login-btn', false); }
   }
 
   async function doRegister() {
     hideMsg('register');
     const name     = document.getElementById('reg-name').value.trim();
-    const email    = document.getElementById('reg-email').value.trim();
+    const email    = document.getElementById('reg-email').value.trim().toLowerCase();
     const password = document.getElementById('reg-password').value;
     if (!name || !email || !password) { showError('register-error', 'All fields are required.'); return; }
     if (password.length < 8) { showError('register-error', 'Password must be at least 8 characters.'); return; }
@@ -312,13 +316,13 @@
     try {
       const inviteToken = new URLSearchParams(window.location.search).get('invite');
       const r    = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, ...(inviteToken ? { inviteToken } : {}) }) });
-      const data = await r.json();
-      if (!data.success) { showError('register-error', data.error); return; }
+      const data = await parseApiJson(r);
+      if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
       localStorage.setItem('fm_token', data.token);
       localStorage.setItem('fm_user',  JSON.stringify(data.user));
       showSuccess('register-success', plan ? 'Account created! Starting your 14-day trial...' : 'Account created! Redirecting...');
       setTimeout(() => redirectAfterAuth(data.token), 600);
-    } catch { showError('register-error', 'Network error. Please try again.'); }
+    } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
     finally   { setLoading('register-btn', false); }
   }
 

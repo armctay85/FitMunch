@@ -79,10 +79,10 @@ open FitMunch.xcodeproj
 
 1. Create a RevenueCat account at [revenuecat.com](https://www.revenuecat.com/)
 2. Create a new app in RevenueCat dashboard
-3. Update `Constants.swift` with your RevenueCat API key:
-   ```swift
-   static let revenueCatApiKey = "appl_your_api_key_here"
-   ```
+3. Add your RevenueCat public SDK key to `FitMunch/Resources/Info.plist`:
+   - Key: `REVENUECAT_API_KEY`
+   - Value: `appl_your_api_key_here`
+4. Keep `Constants.swift` unchanged; it now reads the key from `Info.plist` so local and release builds stay consistent.
 
 ### 4. Configure App Icons and Assets
 
@@ -128,6 +128,10 @@ The project includes a GitHub Actions workflow for automated testing:
 - Write unit tests for ViewModels
 - Write UI tests for critical user flows
 - Test freemium gate functionality
+
+## Web app (Express) & Vercel
+
+The same repo runs the **browser app** (`public/`, `server.js`). Deploy to **[Vercel](https://vercel.com)** with almost no config: import the GitHub project, paste env vars from **`.env.example`**, redeploy. Step-by-step: **`VERCEL.md`**.
 
 ## License
 

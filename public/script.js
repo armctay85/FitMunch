@@ -1,46 +1,81 @@
 // FitMunch App Core Functions - Fixed Version
+// Optional split loads (PWA precache order): /js/fm-storage.js → /js/fm-identity.js → /script.js
+// Standalone /script.js still works via inline fallbacks when modules are not preloaded.
 
-// Generate RFC 4122 v4 UUID
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-// One-time migration: clear old non-UUID user IDs
-function migrateOldUserId() {
-  // Check sessionStorage for old fitmunch_userId
-  const oldSessionId = sessionStorage.getItem('fitmunch_userId');
-  if (oldSessionId) {
-    console.log('Removing old sessionStorage user ID');
-    sessionStorage.removeItem('fitmunch_userId');
+(function ensureParseStoredJSON() {
+  if (typeof globalThis.parseStoredJSON === 'function') return;
+  if (typeof require !== 'undefined') {
+    try {
+      require('./js/fm-storage.js');
+    } catch (_) {
+      /* browser or wrong cwd */
+    }
   }
-
-  // Check localStorage for old non-UUID user IDs
-  const userId = localStorage.getItem('userId');
-  if (userId && !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-    console.log('Migrating old user ID to UUID format');
-    localStorage.removeItem('userId');
+  if (typeof globalThis.parseStoredJSON !== 'function') {
+    globalThis.parseStoredJSON = function parseStoredJSON(key, fallbackValue) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallbackValue;
+        return JSON.parse(raw);
+      } catch (error) {
+        console.warn(`Invalid JSON in localStorage for key: ${key}`, error);
+        return fallbackValue;
+      }
+    };
   }
-}
+})();
 
-// User ID Management
-function getCurrentUserId() {
-  let userId = localStorage.getItem('userId');
-  if (!userId) {
-    userId = generateUUID();
-    localStorage.setItem('userId', userId);
-    console.log('Generated new UUID:', userId);
+const parseStoredJSON = globalThis.parseStoredJSON;
+
+(function ensureIdentityHelpers() {
+  if (typeof globalThis.getCurrentUserId === 'function') return;
+  if (typeof require !== 'undefined') {
+    try {
+      require('./js/fm-identity.js');
+    } catch (_) {
+      /* browser or wrong cwd */
+    }
   }
-  return userId;
-}
+  if (typeof globalThis.getCurrentUserId !== 'function') {
+    globalThis.generateUUID = function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+    globalThis.migrateOldUserId = function migrateOldUserId() {
+      if (typeof sessionStorage === 'undefined') return;
+      const oldSessionId = sessionStorage.getItem('fitmunch_userId');
+      if (oldSessionId) {
+        console.log('Removing old sessionStorage user ID');
+        sessionStorage.removeItem('fitmunch_userId');
+      }
+      const userId = localStorage.getItem('userId');
+      if (userId && !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+        console.log('Migrating old user ID to UUID format');
+        localStorage.removeItem('userId');
+      }
+    };
+    globalThis.getCurrentUserId = function getCurrentUserId() {
+      let userId = localStorage.getItem('userId');
+      if (!userId) {
+        userId = globalThis.generateUUID();
+        localStorage.setItem('userId', userId);
+        console.log('Generated new UUID:', userId);
+      }
+      return userId;
+    };
+    globalThis.getCurrentDate = function getCurrentDate() {
+      return new Date().toISOString().split('T')[0];
+    };
+  }
+})();
 
-// Helper function to get current date in YYYY-MM-DD format
-function getCurrentDate() {
-  return new Date().toISOString().split('T')[0];
-}
+const generateUUID = globalThis.generateUUID;
+const migrateOldUserId = globalThis.migrateOldUserId;
+const getCurrentUserId = globalThis.getCurrentUserId;
+const getCurrentDate = globalThis.getCurrentDate;
 
 // Loading state helper
 window.showLoading = function(show = true) {
@@ -56,7 +91,7 @@ window.showLoading = function(show = true) {
 };
 
 // Global variables
-window.userProfile = {
+window.userProfile = parseStoredJSON('userProfile', {
   name: 'FitMunch User',
   height: '175',
   weight: '70',
@@ -72,9 +107,9 @@ window.userProfile = {
     },
     description: 'Maintain weight and improve fitness'
   }
-};
+});
 
-window.dailyLog = {
+window.dailyLog = parseStoredJSON('dailyLog', {
   meals: {
     breakfast: [],
     lunch: [],
@@ -85,7 +120,10 @@ window.dailyLog = {
   totalSteps: 0,
   water: 0,
   activities: []
-};
+});
+
+globalThis.userProfile = window.userProfile;
+globalThis.dailyLog = window.dailyLog;
 
 // Fixed Navigation Function
 window.showSection = function(sectionId) {
@@ -115,10 +153,10 @@ window.showSection = function(sectionId) {
       setTimeout(() => {
         switch(sectionId) {
           case 'meal':
-            if (typeof generateMealPlan === 'function') generateMealPlan();
+            if (typeof window.generateMealPlan === 'function') window.generateMealPlan(true);
             break;
           case 'workout':
-            if (typeof generateActivityPlan === 'function') generateActivityPlan();
+            if (typeof window.generateActivityPlan === 'function') window.generateActivityPlan();
             break;
           case 'shopping':
             if (typeof updateShoppingList === 'function') updateShoppingList();
@@ -127,7 +165,7 @@ window.showSection = function(sectionId) {
             if (typeof updateFoodLogDisplay === 'function') updateFoodLogDisplay();
             break;
           case 'dashboard':
-            if (typeof updateProfileDisplay === 'function') updateProfileDisplay();
+            if (typeof window.updateProfileDisplay === 'function') window.updateProfileDisplay();
             break;
           case 'fitness':
             if (typeof updateAnalytics === 'function') updateAnalytics();
@@ -159,6 +197,12 @@ async function loadProfileFromAPI() {
     
     if (profile) {
       window.userProfile = profile;
+      globalThis.userProfile = window.userProfile;
+      try {
+        localStorage.setItem('userProfile', JSON.stringify(window.userProfile));
+      } catch (e) {
+        console.warn('Could not persist profile to localStorage', e);
+      }
       console.log('Profile loaded from API:', profile);
     } else {
       console.log('No profile found in API, using defaults');
@@ -170,45 +214,46 @@ async function loadProfileFromAPI() {
   }
 }
 
-// Enhanced Profile Display
-window.updateProfileDisplay = async function() {
+function applyProfileDisplayUI() {
+  const userName = document.getElementById('userName');
+  const currentDate = document.getElementById('currentDate');
+
+  if (userName) userName.textContent = window.userProfile.name || 'FitMunch User';
+  if (currentDate) {
+    const today = new Date();
+    currentDate.textContent = today.toLocaleDateString('en-AU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  }
+
+  const wellnessScore = calculateWellnessScore();
+  const scoreElement = document.querySelector('.score');
+  if (scoreElement) {
+    scoreElement.textContent = wellnessScore;
+  }
+
+  const calorieDisplay = document.getElementById('calorieDisplay');
+  const stepsDisplay = document.getElementById('stepsDisplay');
+
+  if (calorieDisplay) calorieDisplay.textContent = window.userProfile.goals?.calories || 2000;
+  if (stepsDisplay) stepsDisplay.textContent = window.userProfile.goals?.steps || 10000;
+
+  updateProgressBars();
+}
+
+// Enhanced Profile Display (sync DOM update; optional API refresh in background)
+window.updateProfileDisplay = function() {
   console.log("Updating profile display");
 
   try {
-    // Load profile from API first
-    await loadProfileFromAPI();
-
-    // Update basic profile info
-    const userName = document.getElementById('userName');
-    const currentDate = document.getElementById('currentDate');
-
-    if (userName) userName.textContent = window.userProfile.name || 'FitMunch User';
-    if (currentDate) {
-      const today = new Date();
-      currentDate.textContent = today.toLocaleDateString('en-AU', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long'
-      });
+    applyProfileDisplayUI();
+    if (window.fitMunchAPI && typeof loadProfileFromAPI === 'function') {
+      loadProfileFromAPI()
+        .then(() => applyProfileDisplayUI())
+        .catch(() => {});
     }
-
-    // Update wellness score
-    const wellnessScore = calculateWellnessScore();
-    const scoreElement = document.querySelector('.score');
-    if (scoreElement) {
-      scoreElement.textContent = wellnessScore;
-    }
-
-    // Update goal displays
-    const calorieDisplay = document.getElementById('calorieDisplay');
-    const stepsDisplay = document.getElementById('stepsDisplay');
-
-    if (calorieDisplay) calorieDisplay.textContent = window.userProfile.goals?.calories || 2000;
-    if (stepsDisplay) stepsDisplay.textContent = window.userProfile.goals?.steps || 10000;
-
-    // Update progress indicators
-    updateProgressBars();
-
   } catch (error) {
     console.error("Error updating profile display:", error);
   }
@@ -273,11 +318,15 @@ function updateProgressBars() {
 }
 
 // Enhanced Meal Plan Generation
-window.generateMealPlan = function() {
+// `force` is accepted for compatibility with callers; generation runs whenever #meal exists.
+window.generateMealPlan = function(_force) {
   console.log("Generating enhanced meal plan");
 
   const mealSection = document.getElementById('meal');
-  if (!mealSection?.classList.contains('active-section')) return;
+  if (!mealSection) {
+    console.warn("generateMealPlan: #meal section not found in DOM");
+    return;
+  }
 
   const goalType = document.getElementById('goalType')?.value || "Maintenance";
 
@@ -777,6 +826,7 @@ function checkPrices() {
 async function updateShoppingList() {
   const shopList = document.getElementById("shopList");
   const shoppingSection = document.getElementById("shopping");
+  let shopLoadingIndicator;
 
   if (!shopList || !shoppingSection) {
     console.warn("Shopping list elements not found");
@@ -788,7 +838,7 @@ async function updateShoppingList() {
     ensureShoppingStatsElements();
 
     // Show loading indicator
-    let shopLoadingIndicator = shoppingSection.querySelector('.loading-indicator');
+    shopLoadingIndicator = shoppingSection.querySelector('.loading-indicator');
     if (!shopLoadingIndicator) {
       shopLoadingIndicator = document.createElement('div');
       shopLoadingIndicator.className = 'loading-indicator';
@@ -1306,22 +1356,32 @@ window.saveProfile = async function(event) {
   };
 
   window.userProfile = { ...window.userProfile, ...formData };
+  globalThis.userProfile = window.userProfile;
+  localStorage.setItem('userProfile', JSON.stringify(window.userProfile));
 
-  try {
-    showLoading(true);
-    const userId = getCurrentUserId();
-    await fitMunchAPI.saveProfile(userId, window.userProfile);
-    console.log('Profile saved to API successfully');
-    
-    updateProfileDisplay();
-    closeModal('profileModal');
-    showNotification('Profile updated successfully!', 'success');
-  } catch (error) {
-    console.error('Failed to save profile:', error);
-    showNotification('Failed to save profile. Please try again.', 'error');
-  } finally {
-    showLoading(false);
+  if (typeof window !== 'undefined' && window.fitMunchAPI && typeof window.fitMunchAPI.saveProfile === 'function') {
+    try {
+      window.showLoading(true);
+      const userId = getCurrentUserId();
+      await window.fitMunchAPI.saveProfile(userId, window.userProfile);
+      console.log('Profile saved to API successfully');
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      window.showNotification('Failed to save profile. Please try again.', 'error');
+      window.showLoading(false);
+      return;
+    } finally {
+      window.showLoading(false);
+    }
   }
+
+  window.updateProfileDisplay();
+  window.closeModal('profileModal');
+  window.showNotification('Profile updated successfully!', 'success');
+};
+
+window.saveGoals = function(event) {
+  window.saveProfile(event);
 };
 
 window.closeModal = function(modalId) {
@@ -2327,11 +2387,11 @@ window.toggleTheme = function() {
   if (isDark) {
     body.classList.remove('dark-theme');
     localStorage.setItem('theme', 'light');
-    showNotification('Switched to light theme', 'info');
+    window.showNotification('Switched to light theme', 'info');
   } else {
     body.classList.add('dark-theme');
     localStorage.setItem('theme', 'dark');
-    showNotification('Switched to dark theme', 'info');
+    window.showNotification('Switched to dark theme', 'info');
   }
 };
 
@@ -2339,7 +2399,7 @@ window.toggleTheme = function() {
 window.addItemToShoppingList = function() {
   const itemName = prompt('Enter item name:');
   if (itemName) {
-    const shoppingList = JSON.parse(localStorage.getItem('shoppingList')) || [];
+    const shoppingList = parseStoredJSON('shoppingList', []);
     shoppingList.push({
       name: itemName,
       quantity: '1',
@@ -2349,8 +2409,19 @@ window.addItemToShoppingList = function() {
     });
     localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
     updateShoppingList();
-    showNotification(`Added ${itemName} to shopping list!`, 'success');
+    window.showNotification(`Added ${itemName} to shopping list!`, 'success');
   }
 };
 
 console.log("🎯 FitMunch Enhanced Script Loaded - All Functions Available");
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    showSection: window.showSection,
+    updateProfileDisplay: window.updateProfileDisplay,
+    saveGoals: window.saveGoals,
+    generateMealPlan: window.generateMealPlan,
+    updateShoppingList,
+    generateActivityPlan: window.generateActivityPlan,
+  };
+}

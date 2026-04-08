@@ -342,11 +342,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Setup analytics navigation
+  // Setup analytics navigation (legacy workout_analytics.html is archived under legacy-html/)
   const analyticsNav = document.querySelector('[data-section="analytics"]');
   if (analyticsNav) {
     analyticsNav.addEventListener('click', function() {
-      window.location.href = 'workout_analytics.html';
+      if (typeof window.showSection === 'function') {
+        window.showSection('fitness');
+      }
     });
   }
 
