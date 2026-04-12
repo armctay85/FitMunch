@@ -1,11 +1,12 @@
 {
-  "name": "fitmunch",
+  "name": "crime-alert",
   "version": "1.0.0",
-  "description": "A fitness and nutrition management app",
+  "description": "Real-time community safety web platform with incident reporting and alert telemetry",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
+    "build": "node -e \"console.log('No build step required: static assets are served directly from /public')\"",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
