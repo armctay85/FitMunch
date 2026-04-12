@@ -10,6 +10,7 @@ const channelStats = document.getElementById('channelStats');
 const filterLat = document.getElementById('filterLat');
 const filterLon = document.getElementById('filterLon');
 const filterRadius = document.getElementById('filterRadius');
+const filterCountry = document.getElementById('filterCountry');
 const statusFilter = document.getElementById('statusFilter');
 
 const contrastToggle = document.getElementById('contrastToggle');
@@ -50,6 +51,7 @@ function incidentTemplate(incident) {
       </div>
       <p>${incident.description}</p>
       <small>${created} · ${distance} · ${incident.isAnonymous ? 'anonymous' : 'verified reporter'}</small>
+      <small>Country: ${incident.country}</small>
       ${verifyButton}
     </article>
   `;
@@ -107,6 +109,7 @@ async function loadIncidents() {
     latitude: filterLat.value,
     longitude: filterLon.value,
     radiusKm: filterRadius.value,
+    country: filterCountry.value,
     limit: '60',
   });
 
@@ -117,7 +120,7 @@ async function loadIncidents() {
 }
 
 async function loadHotspots() {
-  const data = await request('/analytics/hotspots');
+  const data = await request(`/analytics/hotspots?country=${encodeURIComponent(filterCountry.value)}`);
   renderHotspots(data.hotspots || []);
 }
 
@@ -142,6 +145,7 @@ incidentForm.addEventListener('submit', async (event) => {
     type: formData.get('type'),
     severity: formData.get('severity'),
     description: formData.get('description'),
+    country: formData.get('country'),
     latitude: Number(formData.get('latitude')),
     longitude: Number(formData.get('longitude')),
     locationMode: formData.get('locationMode'),
@@ -188,6 +192,7 @@ contrastToggle.addEventListener('click', () => {
 refreshBtn.addEventListener('click', refreshAll);
 loadIncidentsBtn.addEventListener('click', loadIncidents);
 statusFilter.addEventListener('change', loadIncidents);
+filterCountry.addEventListener('change', refreshAll);
 
 refreshAll();
 setInterval(loadTelemetry, 10000);

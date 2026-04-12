@@ -26,8 +26,8 @@
       <section class="card form-card" aria-labelledby="report-title">
         <h2 id="report-title">Report an Incident</h2>
         <p class="subtext">
-          Anonymous-first submission with optional identity trust boost. Expected moderation
-          latency is shown after submit.
+          Anonymous-first submission with optional identity trust boost. Initial deployment is
+          tuned for Australia, with additional countries available as bolt-on expansions.
         </p>
 
         <form id="incidentForm" class="stack">
@@ -67,12 +67,22 @@
 
           <div class="grid three">
             <label>
+              Country
+              <select name="country">
+                <option value="AU" selected>Australia (Initial)</option>
+                <option value="NZ">New Zealand</option>
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="CA">Canada</option>
+              </select>
+            </label>
+            <label>
               Latitude
-              <input type="number" step="0.000001" name="latitude" value="30.2672" required />
+              <input type="number" step="0.000001" name="latitude" value="-33.8688" required />
             </label>
             <label>
               Longitude
-              <input type="number" step="0.000001" name="longitude" value="-97.7431" required />
+              <input type="number" step="0.000001" name="longitude" value="151.2093" required />
             </label>
             <label>
               Location privacy
@@ -111,12 +121,22 @@
         <h2>Geo Filter</h2>
         <div class="grid three compact">
           <label>
+            Country
+            <select id="filterCountry">
+              <option value="AU" selected>Australia (Initial)</option>
+              <option value="NZ">New Zealand</option>
+              <option value="US">United States</option>
+              <option value="GB">United Kingdom</option>
+              <option value="CA">Canada</option>
+            </select>
+          </label>
+          <label>
             Latitude
-            <input id="filterLat" type="number" step="0.000001" value="30.2672" />
+            <input id="filterLat" type="number" step="0.000001" value="-33.8688" />
           </label>
           <label>
             Longitude
-            <input id="filterLon" type="number" step="0.000001" value="-97.7431" />
+            <input id="filterLon" type="number" step="0.000001" value="151.2093" />
           </label>
           <label>
             Radius (km)

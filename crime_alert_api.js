@@ -5,6 +5,14 @@ const router = express.Router();
 
 const incidents = [];
 const deliveryLog = [];
+const DEFAULT_COUNTRY = 'AU';
+const SUPPORTED_COUNTRIES = {
+  AU: { name: 'Australia', emergencyNumber: '000', defaultRadiusKm: 10 },
+  NZ: { name: 'New Zealand', emergencyNumber: '111', defaultRadiusKm: 8 },
+  US: { name: 'United States', emergencyNumber: '911', defaultRadiusKm: 12 },
+  GB: { name: 'United Kingdom', emergencyNumber: '999', defaultRadiusKm: 9 },
+  CA: { name: 'Canada', emergencyNumber: '911', defaultRadiusKm: 12 },
+};
 
 const VALID_TYPES = new Set([
   'assault',
@@ -39,6 +47,7 @@ function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
 function normalizeIncidentPayload(payload) {
   const latitude = Number(payload.latitude);
   const longitude = Number(payload.longitude);
+  const country = String(payload.country || DEFAULT_COUNTRY).toUpperCase();
 
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
     return { error: 'latitude must be a number between -90 and 90' };
@@ -53,6 +62,9 @@ function normalizeIncidentPayload(payload) {
 
   if (!VALID_SEVERITIES.has(payload.severity)) {
     return { error: `severity must be one of: ${Array.from(VALID_SEVERITIES).join(', ')}` };
+  }
+  if (!SUPPORTED_COUNTRIES[country]) {
+    return { error: `country must be one of: ${Object.keys(SUPPORTED_COUNTRIES).join(', ')}` };
   }
 
   const description = String(payload.description || '').trim();
@@ -78,6 +90,7 @@ function normalizeIncidentPayload(payload) {
       latitude,
       longitude,
       locationMode,
+      country,
       isAnonymous,
       source: payload.source || 'community',
       status: 'pending',
@@ -106,13 +119,29 @@ function recordDelivery(incident) {
 }
 
 router.get('/health', (_req, res) => {
+  const countryCounts = incidents.reduce((acc, incident) => {
+    acc[incident.country] = (acc[incident.country] || 0) + 1;
+    return acc;
+  }, {});
+
   res.json({
     ok: true,
     service: 'crime-alert-api',
+    defaultCountry: DEFAULT_COUNTRY,
+    supportedCountries: SUPPORTED_COUNTRIES,
     incidentCount: incidents.length,
     pendingCount: incidents.filter((incident) => incident.status === 'pending').length,
     verifiedCount: incidents.filter((incident) => incident.status === 'verified').length,
+    countryCounts,
     timestamp: new Date().toISOString(),
+  });
+});
+
+router.get('/config/countries', (_req, res) => {
+  res.json({
+    success: true,
+    defaultCountry: DEFAULT_COUNTRY,
+    countries: SUPPORTED_COUNTRIES,
   });
 });
 
@@ -139,12 +168,20 @@ router.get('/incidents', (req, res) => {
   const radiusKm = Math.min(Math.max(Number(req.query.radiusKm || 5), 0.25), 50);
   const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 200);
   const status = req.query.status;
+  const country = String(req.query.country || DEFAULT_COUNTRY).toUpperCase();
+  if (!SUPPORTED_COUNTRIES[country]) {
+    return res.status(400).json({
+      success: false,
+      error: `country must be one of: ${Object.keys(SUPPORTED_COUNTRIES).join(', ')}`,
+    });
+  }
 
   const latitude = Number(req.query.latitude);
   const longitude = Number(req.query.longitude);
   const hasGeoFilter = Number.isFinite(latitude) && Number.isFinite(longitude);
 
   const filtered = incidents
+    .filter((incident) => incident.country === country)
     .filter((incident) => (status ? incident.status === status : true))
     .map((incident) => {
       const distanceMeters = hasGeoFilter
@@ -166,6 +203,7 @@ router.get('/incidents', (req, res) => {
       radiusKm,
       limit,
       totalMatched: filtered.length,
+      country,
     },
   });
 });
@@ -210,10 +248,20 @@ router.get('/alerts/telemetry', (_req, res) => {
   });
 });
 
-router.get('/analytics/hotspots', (_req, res) => {
+router.get('/analytics/hotspots', (req, res) => {
+  const country = String(req.query.country || DEFAULT_COUNTRY).toUpperCase();
+  if (!SUPPORTED_COUNTRIES[country]) {
+    return res.status(400).json({
+      success: false,
+      error: `country must be one of: ${Object.keys(SUPPORTED_COUNTRIES).join(', ')}`,
+    });
+  }
+
   const buckets = new Map();
 
-  incidents.forEach((incident) => {
+  incidents
+    .filter((incident) => incident.country === country)
+    .forEach((incident) => {
     const latBucket = Math.round(incident.latitude * 20) / 20;
     const lonBucket = Math.round(incident.longitude * 20) / 20;
     const key = `${latBucket},${lonBucket}`;
@@ -231,7 +279,7 @@ router.get('/analytics/hotspots', (_req, res) => {
     bucket.incidents += 1;
     if (incident.status === 'verified') bucket.verified += 1;
     if (incident.severity === 'critical') bucket.critical += 1;
-  });
+    });
 
   const hotspots = Array.from(buckets.values())
     .sort((a, b) => b.incidents - a.incidents)
@@ -240,6 +288,7 @@ router.get('/analytics/hotspots', (_req, res) => {
   res.json({
     success: true,
     hotspots,
+    country,
     generatedAt: new Date().toISOString(),
   });
 });

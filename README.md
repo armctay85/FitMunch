@@ -2,7 +2,7 @@
 
 This repository now includes a production-oriented **Crime-Alert web application** focused on fast incident reporting, moderation, geofenced incident filtering, hotspot analytics, and alert-delivery telemetry.
 
-> Legacy FitMunch mobile assets are still present in the repository, but the primary web experience now lives at `public/index.html` and is backed by `/api/crime-alert/*` endpoints.
+> Legacy FitMunch mobile assets are still present in the repository, but the primary web experience now lives at `public/index.html` and is backed by `/api/crime-alert/*` endpoints. The initial operating country is **Australia (AU)**, with other supported countries available as bolt-on expansion.
 
 ## Quick Start (Web)
 
@@ -21,6 +21,7 @@ Then open `http://localhost:5000` and use the command center to:
 ## Crime-Alert API Endpoints
 
 - `GET /api/crime-alert/health`
+- `GET /api/crime-alert/config/countries`
 - `POST /api/crime-alert/incidents`
 - `GET /api/crime-alert/incidents`
 - `POST /api/crime-alert/incidents/:incidentId/verify`
