@@ -1,0 +1,174 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --border: #dbe3ee;
+  --text: #111827;
+  --muted: #4b5563;
+  --primary: #0f62fe;
+  --primary-dark: #0043ce;
+  --critical: #b91c1c;
+  --ok: #166534;
+}
+
+body.contrast {
+  --bg: #000;
+  --card: #0a0a0a;
+  --border: #fff;
+  --text: #fff;
+  --muted: #d1d5db;
+  --primary: #ffd60a;
+  --primary-dark: #ffea70;
+  --critical: #ff6b6b;
+  --ok: #4ade80;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 1.35rem; }
+.eyebrow { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; text-transform: uppercase; }
+.top-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+.layout {
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.span-2 { grid-column: span 2; }
+.form-card { grid-column: span 2; }
+.subtext { color: var(--muted); margin-top: 0.35rem; margin-bottom: 0.75rem; font-size: 0.92rem; }
+.stack { display: grid; gap: 0.8rem; }
+.grid { display: grid; gap: 0.7rem; }
+.grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.grid.three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.grid.compact label { font-size: 0.85rem; }
+
+label { display: grid; gap: 0.35rem; font-weight: 600; font-size: 0.9rem; }
+input, select, textarea, button {
+  font: inherit;
+}
+input, select, textarea {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+}
+textarea { min-height: 90px; resize: vertical; }
+
+.checkbox-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 600;
+}
+
+.btn {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.status { min-height: 1.2rem; color: var(--muted); font-size: 0.9rem; }
+.row-actions { display: flex; gap: 0.65rem; margin-top: 0.75rem; }
+
+.incident-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.incident {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.incident-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #e5e7eb;
+  color: #1f2937;
+}
+.chip.critical { background: #fee2e2; color: var(--critical); }
+.chip.verified { background: #dcfce7; color: var(--ok); }
+
+.kpis {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 0.55rem;
+}
+.kpi {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+.kpi .value { font-size: 1.2rem; font-weight: 800; }
+.kpi .label { font-size: 0.8rem; color: var(--muted); }
+
+.plain-list { list-style: none; padding: 0; margin: 0.8rem 0 0; display: grid; gap: 0.35rem; }
+.plain-list li { font-size: 0.9rem; color: var(--muted); }
+
+.table { width: 100%; border-collapse: collapse; }
+table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 0.45rem; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .span-2, .form-card { grid-column: span 1; }
+  .grid.two, .grid.three, .kpis { grid-template-columns: 1fr; }
+  .topbar { flex-direction: column; align-items: flex-start; }
+}
