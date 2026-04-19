@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Car Savings Tracker</title>
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; margin: 0; background: #0b1220; color: #e5e7eb; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:16px; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:16px; }
+    label { display:block; margin:8px 0 4px; font-size:13px; color:#9ca3af; }
+    input, select, button { width:100%; padding:10px; border:1px solid #374151; border-radius:8px; background:#0f172a; color:#e5e7eb; }
+    button { cursor:pointer; background:#2563eb; border-color:#2563eb; margin-top:10px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:8px; border-bottom: 1px solid #1f2937; text-align:left; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Car Savings Tracker</h1>
+    <p>Manual + extension-assisted workflow with 30-day capture token security.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Capture Authorization (30 days)</h2>
+        <button id="generate-token">Generate Capture Token</button>
+        <p id="token-status" class="mono">No active token.</p>
+      </div>
+
+      <div class="card">
+        <h2>Monetization Plan Preview</h2>
+        <div id="plans"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px;">
+      <div class="card">
+        <h2>Add Listing</h2>
+        <form id="listing-form">
+          <label>Source URL</label><input name="sourceUrl" required />
+          <label>Title</label><input name="title" required />
+          <label>Price</label><input name="price" required />
+          <label>Year</label><input name="year" />
+          <label>KMs</label><input name="kms" />
+          <label>Interior Confidence</label>
+          <select name="interiorConfidence">
+            <option value="unknown">Unknown</option>
+            <option value="likely">Likely tan</option>
+            <option value="confirmed">Confirmed tan</option>
+          </select>
+          <button type="submit">Track Listing</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Ownership & Depreciation</h2>
+        <form id="insights-form">
+          <label>Purchase Price</label><input name="purchasePrice" required value="220000" />
+          <label>Annual Depreciation Rate (e.g. 0.08)</label><input name="annualRate" value="0.08" />
+          <label>Years</label><input name="years" value="3" />
+          <label>Annual KM</label><input name="annualKms" value="12000" />
+          <button type="submit">Calculate</button>
+        </form>
+        <pre id="insights-output" class="mono">No calculations yet.</pre>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>Tracked Listings</h2>
+      <table>
+        <thead><tr><th>Car</th><th>Price</th><th>Interior</th><th>Score</th></tr></thead>
+        <tbody id="listing-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>Price Drop Alerts</h2>
+      <div id="alerts" class="mono"></div>
+      <a href="/api/car-tracker/export.csv" style="color:#93c5fd;">Download CSV Export</a>
+    </div>
+  </div>
+
+  <script src="/car-tracker.js"></script>
+</body>
+</html>

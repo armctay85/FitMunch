@@ -131,6 +131,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
+app.get('/car-tracker', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(PUBLIC_DIR, 'car-tracker.html'));
+});
+
 // Configure custom domain support
 configureCustomDomain(app);
 
@@ -222,6 +227,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
+
+const carTrackerRouter = require('./server/carTrackerRouter');
+app.use('/api/car-tracker', carTrackerRouter);
 
 // Receipt scanner (multer file upload — must mount separately)
 const receiptScanner = require('./receipt-scanner');
