@@ -1,7 +1,7 @@
 // FitMunch Enhanced Service Worker
-const CACHE_NAME = 'fitmunch-v1.3.3';
-const STATIC_CACHE = 'fitmunch-static-v1.3.3';
-const DYNAMIC_CACHE = 'fitmunch-dynamic-v1.3.3';
+const CACHE_NAME = 'fitmunch-v1.3.4';
+const STATIC_CACHE = 'fitmunch-static-v1.3.4';
+const DYNAMIC_CACHE = 'fitmunch-dynamic-v1.3.4';
 
 // Critical assets to cache immediately
 const STATIC_ASSETS = [
@@ -10,6 +10,7 @@ const STATIC_ASSETS = [
   '/api_service.js',
   '/js/fm-storage.js',
   '/js/fm-identity.js',
+  '/js/fm-api.js',
   '/css/fm-tokens.css',
   '/css/fm-tokens-auth.css',
   '/script.js',

@@ -92,7 +92,7 @@ app.use(cors({
     }
 
     console.warn(`CORS blocked origin: ${origin}`);
-    return callback(new Error('Not allowed by CORS'));
+    return callback(null, false);
   },
   credentials: true,
   maxAge: 86400
@@ -234,7 +234,21 @@ app.get('/best-pt-software-australia', (req, res) => res.sendFile('best-pt-softw
 app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/best-pt-software-australia'));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'fitmunch' });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'fitmunch',
+    deploy:
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.RAILWAY_GIT_COMMIT_SHA ||
+      process.env.RENDER_GIT_COMMIT ||
+      null,
+    runtime: process.env.VERCEL
+      ? 'vercel'
+      : process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_GIT_COMMIT_SHA
+        ? 'railway'
+        : 'node',
+  });
 });
 
 // Test Stripe API connection
@@ -463,9 +477,9 @@ app.post('/api/stripe/customers', async (req, res) => {
   }
 });
 
-// Authentication middleware — JWT or anonymous pass-through
+// Legacy pass-through: runs only for requests no earlier route handled.
+// /api/* auth is enforced in api_server.js (authMiddleware), not here.
 app.use((req, res, next) => {
-  // Support JWT Bearer token
   const authHeader = req.headers['authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
@@ -475,13 +489,39 @@ app.use((req, res, next) => {
       const decoded = jwt.verify(token, secret);
       req.user = { id: decoded.userId, name: decoded.name };
     } catch (e) {
-      // Invalid token — continue as anonymous
       req.user = null;
     }
   } else {
     req.user = null;
   }
   next();
+});
+
+// Unmatched /api/* → JSON 404 (consistent for clients and tools)
+app.use((req, res, next) => {
+  if ((req.path.startsWith('/api') || req.originalUrl.startsWith('/api')) && !res.headersSent) {
+    return res.status(404).json({ success: false, error: 'Not found' });
+  }
+  next();
+});
+
+// Central error handler — JSON for /api, otherwise fall through to Express default
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  const isApi = req.path.startsWith('/api') || req.originalUrl.startsWith('/api');
+  if (!isApi) {
+    return next(err);
+  }
+  console.error(err);
+  let code = Number(err.status || err.statusCode);
+  if (!Number.isFinite(code) || code < 400 || code >= 600) code = 500;
+  const message =
+    process.env.NODE_ENV === 'production' && code >= 500
+      ? 'Internal server error'
+      : err.message || 'Error';
+  res.status(code).json({ success: false, error: message });
 });
 
 const port = process.env.PORT || 5000;

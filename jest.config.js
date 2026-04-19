@@ -2,7 +2,12 @@
 module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
-  testMatch: ['**/test_app.js', '**/test_fm_storage.js', '**/test_fm_identity.js'],
+  testMatch: [
+    '**/test_app.js',
+    '**/test_fm_storage.js',
+    '**/test_fm_identity.js',
+    '**/test_server_api.js',
+  ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
   collectCoverageFrom: [

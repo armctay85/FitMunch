@@ -1,0 +1,3 @@
+Contact: https://fitmunch.com.au
+Preferred-Languages: en
+Canonical: https://fitmunch.com.au/.well-known/security.txt

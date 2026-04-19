@@ -14,6 +14,12 @@ const BASE = (process.env.FITMUNCH_SMOKE_URL || 'https://fitmunch.com.au').repla
 
 const checks = [
   { path: '/', label: 'home', critical: true },
+  {
+    path: '/api/health',
+    label: 'api-health',
+    critical: true,
+    expectJson: { status: 'ok', service: 'fitmunch' },
+  },
   { path: '/login.html', label: 'login', critical: true },
   { path: '/app.html', label: 'app', critical: true },
   { path: '/script.js', label: 'script.js', critical: true },
@@ -30,10 +36,22 @@ const checks = [
     hint: '404 until latest deploy',
   },
   {
+    path: '/js/fm-api.js',
+    label: 'fm-api.js',
+    critical: false,
+    hint: 'optional client API helper',
+  },
+  {
     path: '/css/fm-tokens.css',
     label: 'fm-tokens.css',
     critical: false,
     hint: '404 until latest deploy',
+  },
+  {
+    path: '/.well-known/security.txt',
+    label: 'security.txt',
+    critical: false,
+    hint: 'optional RFC 9116',
   },
 ];
 
@@ -41,7 +59,7 @@ async function main() {
   let failed = false;
   console.log(`FitMunch smoke: ${BASE}\n`);
 
-  for (const { path, label, critical, hint } of checks) {
+  for (const { path, label, critical, hint, expectJson } of checks) {
     const url = `${BASE}${path}`;
     try {
       const res = await fetch(url, {
@@ -50,6 +68,23 @@ async function main() {
         headers: { 'user-agent': 'fitmunch-smoke-assets/1.0' },
       });
       if (res.ok) {
+        if (expectJson) {
+          try {
+            const body = await res.json();
+            const bad = Object.entries(expectJson).some(
+              ([k, v]) => body[k] !== v
+            );
+            if (bad) {
+              console.error(`FAIL [${label}] JSON mismatch ${path}`, body);
+              failed = true;
+              continue;
+            }
+          } catch {
+            console.error(`FAIL [${label}] not JSON ${path}`);
+            failed = true;
+            continue;
+          }
+        }
         console.log(`OK   [${label}] ${res.status} ${path}`);
       } else if (critical) {
         console.error(`FAIL [${label}] ${res.status} ${path}`);
