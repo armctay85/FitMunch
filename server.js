@@ -110,9 +110,12 @@ app.use(compression({
   }
 }));
 
-// Serve only essential static files from public directory for security
-app.use(express.static('public', {
+// Serve only essential static files from public directory for security.
+// Absolute path so Vercel serverless cwd doesn't matter.
+const PUBLIC_DIR = path.join(__dirname, 'public');
+app.use(express.static(PUBLIC_DIR, {
   etag: true,
+  index: 'index.html',
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -121,6 +124,12 @@ app.use(express.static('public', {
     }
   }
 }));
+
+// Explicit root — Vercel rewrites can normalize "/" so static fallthrough may miss it.
+app.get('/', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
 
 // Configure custom domain support
 configureCustomDomain(app);
@@ -233,8 +242,9 @@ app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
 app.get('/best-pt-software-australia', (req, res) => res.sendFile('best-pt-software-australia.html', { root: 'public' }));
 app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/best-pt-software-australia'));
 
+const { ok: apiOk } = require('./lib/api-json');
 app.get('/api/health', (req, res) => {
-  res.json({
+  apiOk(res, {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'fitmunch',

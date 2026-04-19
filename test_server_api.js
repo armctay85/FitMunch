@@ -18,4 +18,10 @@ describe('Server API shell', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.error).toBeDefined();
   });
+
+  it('GET / serves the home page HTML', async () => {
+    const res = await request(app).get('/').expect(200);
+    expect(res.headers['content-type']).toMatch(/text\/html/);
+    expect(res.text.length).toBeGreaterThan(100);
+  });
 });
