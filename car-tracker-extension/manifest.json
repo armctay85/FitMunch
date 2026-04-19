@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Car Savings Tracker Capture",
+  "version": "0.1.0",
+  "description": "One-click listing capture for personal car research.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://www.carsales.com.au/*", "http://localhost:5000/*", "https://fitmunch.com.au/*"],
+  "action": {
+    "default_title": "Capture listing",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.carsales.com.au/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
