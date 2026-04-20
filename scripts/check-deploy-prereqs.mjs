@@ -31,6 +31,9 @@ const keys = [
   'VERCEL_TOKEN',
   'ALLOWED_ORIGINS',
   'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'OPENAI_CHAT_MODEL',
+  'AI_FREE_MONTHLY_LIMIT',
 ];
 
 const fromFile = loadDotEnv(path.join(root, '.env'));

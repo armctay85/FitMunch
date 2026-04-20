@@ -7,6 +7,8 @@ module.exports = {
     '**/test_fm_storage.js',
     '**/test_fm_identity.js',
     '**/test_server_api.js',
+    '**/test_ai_client.js',
+    '**/test_server_ai.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

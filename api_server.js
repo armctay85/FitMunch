@@ -634,47 +634,241 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
 });
 
 // ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
+// LLM-backed when OPENAI_API_KEY (or ANTHROPIC_API_KEY) is set. Falls back to the
+// deterministic coach tip if no provider is configured or the provider errors.
+const aiClient = require('./lib/ai-client');
+const aiUsage = require('./lib/ai-usage');
+
+function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCalories, targetProtein }) {
+  const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
+  const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
+  const goalLabel = { weight_loss: 'weight loss', muscle_gain: 'muscle gain', maintenance: 'maintenance', general_fitness: 'general fitness' }[goal] || 'your goals';
+
+  if (todayCalories === 0 && todayProtein === 0) {
+    const motivators = [
+      `Fresh day, fresh start 🌅 Log your first meal to kick off your ${goalLabel} journey today.`,
+      `Nothing logged yet — no stress. Your next meal is the only one that matters right now. Log it and let's go.`,
+      `Day ${streak > 0 ? streak + 1 : 1} begins. Log your first meal and keep the momentum going 💪`,
+    ];
+    return motivators[streak % motivators.length];
+  }
+  if (calPct < 40 && protPct < 40) {
+    return `You're at ${calPct}% of your calorie target and ${protPct}% of your protein goal for today. Front-loading food earlier in the day tends to reduce evening snacking — try fitting in a balanced meal soon.`;
+  }
+  if (protPct < 50 && calPct > 60) {
+    return `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without blowing your calorie budget.`;
+  }
+  if (calPct > 110) {
+    return goal === 'muscle_gain'
+      ? `You're at ${calPct}% of your calorie target — solid surplus for muscle growth. Make sure that extra energy is hitting with strong protein numbers too.`
+      : `You've hit ${calPct}% of your calorie target today. If you're still hungry, prioritise high-volume, low-calorie options like veggies or broth-based soups to stay satiated without overshooting.`;
+  }
+  if (calPct >= 80 && protPct >= 80) {
+    const wins = [
+      `On track — ${calPct}% calories and ${protPct}% protein hit for the day. Stay consistent and the results will follow 🏆`,
+      `Solid numbers today. ${streak > 2 ? `${streak}-day logging streak` : 'Keep this up'} and you'll be seeing results before you know it.`,
+      `You're dialled in: ${calPct}% of calories, ${protPct}% of protein. Keep that energy going into your workout.`,
+    ];
+    return wins[Math.floor(Math.random() * wins.length)];
+  }
+  if (streak >= 7) {
+    return `${streak}-day streak 🔥 — that kind of consistency is how results actually happen. Protein at ${protPct}% today; push it over the line for a perfect day.`;
+  }
+  return `${calPct}% of calories and ${protPct}% of protein logged so far. ${protPct < 70 ? `Boost protein with a high-protein snack to hit your ${targetProtein}g target.` : `You're on a good path — keep going.`}`;
+}
+
 router.post('/ai/insight', authMiddleware, async (req, res) => {
   try {
-    const { todayCalories = 0, todayProtein = 0, streak = 0, goal = 'general_fitness', targetCalories = 2000, targetProtein = 150 } = req.body;
-    const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
-    const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
+    const {
+      todayCalories = 0,
+      todayProtein = 0,
+      streak = 0,
+      goal = 'general_fitness',
+      targetCalories = 2000,
+      targetProtein = 150,
+    } = req.body || {};
 
-    const goalLabel = { weight_loss: 'weight loss', muscle_gain: 'muscle gain', maintenance: 'maintenance', general_fitness: 'general fitness' }[goal] || 'your goals';
+    const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
+    const fallback = heuristicInsight(facts);
 
-    let insight = '';
-
-    // Build smart coaching tip based on context
-    if (todayCalories === 0 && todayProtein === 0) {
-      const motivators = [
-        `Fresh day, fresh start 🌅 Log your first meal to kick off your ${goalLabel} journey today.`,
-        `Nothing logged yet — no stress. Your next meal is the only one that matters right now. Log it and let's go.`,
-        `Day ${streak > 0 ? streak + 1 : 1} begins. Log your first meal and keep the momentum going 💪`,
-      ];
-      insight = motivators[streak % motivators.length];
-    } else if (calPct < 40 && protPct < 40) {
-      insight = `You're at ${calPct}% of your calorie target and ${protPct}% of your protein goal for today. Front-loading food earlier in the day tends to reduce evening snacking — try fitting in a balanced meal soon.`;
-    } else if (protPct < 50 && calPct > 60) {
-      insight = `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without blowing your calorie budget.`;
-    } else if (calPct > 110) {
-      insight = goal === 'muscle_gain'
-        ? `You're at ${calPct}% of your calorie target — solid surplus for muscle growth. Make sure that extra energy is hitting with strong protein numbers too.`
-        : `You've hit ${calPct}% of your calorie target today. If you're still hungry, prioritise high-volume, low-calorie options like veggies or broth-based soups to stay satiated without overshooting.`;
-    } else if (calPct >= 80 && protPct >= 80) {
-      const wins = [
-        `On track — ${calPct}% calories and ${protPct}% protein hit for the day. Stay consistent and the results will follow 🏆`,
-        `Solid numbers today. ${streak > 2 ? `${streak}-day logging streak` : 'Keep this up'} and you'll be seeing results before you know it.`,
-        `You're dialled in: ${calPct}% of calories, ${protPct}% of protein. Keep that energy going into your workout.`,
-      ];
-      insight = wins[Math.floor(Math.random() * wins.length)];
-    } else if (streak >= 7) {
-      insight = `${streak}-day streak 🔥 — that kind of consistency is how results actually happen. Protein at ${protPct}% today; push it over the line for a perfect day.`;
-    } else {
-      insight = `${calPct}% of calories and ${protPct}% of protein logged so far. ${protPct < 70 ? `Boost protein with a high-protein snack to hit your ${targetProtein}g target.` : `You're on a good path — keep going.`}`;
+    if (!aiClient.hasProvider()) {
+      return res.json({ success: true, insight: fallback, provider: null });
     }
 
-    res.json({ success: true, insight });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    // Enforce free-tier monthly cap, paid tiers skip the cap.
+    let tier = 'free';
+    try {
+      const user = await getUserById(req.user.userId);
+      tier = user?.subscriptionTier || 'free';
+    } catch (_) {}
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
+    if (!gate.allowed) {
+      return res.json({ success: true, insight: fallback, provider: 'rate_limited', upgrade: true, limit: gate.limit, used: gate.used });
+    }
+
+    const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
+    const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
+    const system = [
+      'You are FitMunch, an Australian nutrition and fitness coach.',
+      'Speak directly to the user in 1-3 short sentences, max ~55 words.',
+      'Be specific, practical, and kind. No medical claims. Use Australian spelling and foods.',
+      'Never include a greeting or the user\'s name. Never mention that you are an AI.',
+    ].join(' ');
+    const prompt = [
+      `Goal: ${goal}.`,
+      `Today so far: ${todayCalories} kcal (${calPct}% of ${targetCalories}), ${todayProtein}g protein (${protPct}% of ${targetProtein}).`,
+      `Logging streak: ${streak} day(s).`,
+      'Write one concise coaching tip for right now.',
+    ].join('\n');
+
+    const r = await aiClient.chat({
+      system,
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 160,
+      temperature: 0.7,
+    });
+
+    if (!r.ok || !r.text.trim()) {
+      return res.json({ success: true, insight: fallback, provider: r.provider || null, error: r.error });
+    }
+    return res.json({
+      success: true,
+      insight: r.text.trim(),
+      provider: r.provider,
+      model: r.model,
+      remaining: gate.remaining,
+    });
+  } catch (err) {
+    console.error('[ai/insight]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── AI CHAT (conversational coach) ────────────────────────────────────────────
+const CHAT_INTENTS = {
+  nutrition: 'You are FitMunch, an Australian nutrition coach. Help the user plan meals, hit macros, shop at Woolworths/Coles, and troubleshoot cravings or dieting plateaus. Use Australian spelling and products.',
+  workout: 'You are FitMunch, an Australian strength and conditioning coach. Help the user plan sessions, pick accessories, manage fatigue, and fix form cues. Keep advice practical for home or gym users.',
+  progress: 'You are FitMunch, an Australian progress coach. Read the user\'s recent numbers, explain what they mean, and suggest one concrete change for next week. No medical claims.',
+  general: 'You are FitMunch, an Australian fitness and nutrition coach. Answer the user clearly and specifically.',
+};
+const CHAT_GLOBAL_RULES = [
+  'Always reply in under ~140 words unless the user explicitly asks for a plan or list.',
+  'Use plain English with Australian spelling. No medical or prescriptive claims.',
+  'Never mention that you are an AI. Never start with a greeting.',
+  'If the user asks something unsafe or clearly medical, recommend they speak to a GP or dietitian.',
+].join(' ');
+
+router.post('/ai/chat', authMiddleware, async (req, res) => {
+  try {
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
+    }
+
+    const { intent = 'general', messages = [], context = {} } = req.body || {};
+    const system = [
+      CHAT_INTENTS[intent] || CHAT_INTENTS.general,
+      CHAT_GLOBAL_RULES,
+    ].join('\n\n');
+
+    // Load profile + tier for context and gating.
+    let tier = 'free';
+    let profile = null;
+    try {
+      const user = await getUserById(req.user.userId);
+      tier = user?.subscriptionTier || 'free';
+      profile = await getProfile(req.user.userId).catch(() => null);
+    } catch (_) {}
+
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
+    if (!gate.allowed) {
+      return res.status(429).json({
+        success: false,
+        upgrade: true,
+        limit: gate.limit,
+        used: gate.used,
+        error: `Free plan includes ${gate.limit} AI messages/month. Upgrade for unlimited.`,
+      });
+    }
+
+    const safeMessages = (Array.isArray(messages) ? messages : [])
+      .slice(-20)
+      .map((m) => ({
+        role: m && m.role === 'assistant' ? 'assistant' : 'user',
+        content: String((m && m.content) || '').slice(0, 4000),
+      }))
+      .filter((m) => m.content.length);
+
+    if (safeMessages.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
+
+    // Profile + client-supplied context block appended as a system addendum.
+    const profileBits = [
+      profile?.age ? `Age: ${profile.age}` : '',
+      profile?.weight ? `Weight: ${profile.weight}kg` : '',
+      profile?.height ? `Height: ${profile.height}cm` : '',
+      profile?.goal ? `Goal: ${profile.goal}` : '',
+      profile?.dietary_preferences ? `Dietary: ${profile.dietary_preferences}` : '',
+      context?.targetCalories ? `Target calories: ${context.targetCalories}` : '',
+      context?.targetProtein ? `Target protein: ${context.targetProtein}g` : '',
+      context?.todayCalories !== undefined ? `Today calories: ${context.todayCalories}` : '',
+      context?.todayProtein !== undefined ? `Today protein: ${context.todayProtein}g` : '',
+      context?.streak ? `Streak: ${context.streak} days` : '',
+    ].filter(Boolean).join('\n');
+
+    const finalSystem = profileBits
+      ? `${system}\n\n--- User Context ---\n${profileBits}`
+      : system;
+
+    const r = await aiClient.chat({
+      system: finalSystem,
+      messages: safeMessages,
+      maxTokens: 500,
+      temperature: 0.7,
+    });
+
+    if (!r.ok) {
+      return res.status(502).json({ success: false, error: r.error || 'ai_error', provider: r.provider || null });
+    }
+
+    return res.json({
+      success: true,
+      reply: r.text.trim(),
+      provider: r.provider,
+      model: r.model,
+      usage: r.usage || null,
+      remaining: gate.remaining,
+    });
+  } catch (err) {
+    console.error('[ai/chat]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── AI USAGE (for the client to render remaining count) ───────────────────────
+router.get('/ai/usage', authMiddleware, async (req, res) => {
+  try {
+    const used = await aiUsage.getUsed(String(req.user.userId));
+    const limit = aiUsage.freeMonthlyLimit();
+    let tier = 'free';
+    try {
+      const user = await getUserById(req.user.userId);
+      tier = user?.subscriptionTier || 'free';
+    } catch (_) {}
+    const isPaid = tier && tier !== 'free';
+    res.json({
+      success: true,
+      used,
+      limit: isPaid ? null : limit,
+      remaining: isPaid ? null : Math.max(0, limit - used),
+      tier,
+      month: aiUsage.monthKey(),
+      provider: aiClient.providerName(),
+      model: aiClient.providerName() === 'openai' ? aiClient.openaiModel() : aiClient.anthropicModel(),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ── CLIENT PORTAL (for clients to get their assigned data) ───────────────────
