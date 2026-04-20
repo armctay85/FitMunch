@@ -14,7 +14,8 @@
     "test:coverage": "jest --coverage",
     "smoke:assets": "node scripts/smoke-assets.mjs",
     "env:vercel": "node scripts/push-env-to-vercel.mjs",
-    "deploy:check": "node scripts/check-deploy-prereqs.mjs"
+    "deploy:check": "node scripts/check-deploy-prereqs.mjs",
+    "github:publish-web-workflow": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-web-quality-workflow.ps1"
   },
   "keywords": [
     "fitness",

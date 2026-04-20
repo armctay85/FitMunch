@@ -45,6 +45,22 @@ git remote -v
 git log --oneline -3
 ```
 
+## 6. Pushing new GitHub Actions workflows (OAuth / “workflow scope”)
+
+If `git push` is rejected when adding a file under `.github/workflows/`, GitHub requires the **`workflow` scope** on the token (Cursor’s built-in HTTPS token often does not have it).
+
+**One-time per machine (GitHub CLI):**
+
+```powershell
+gh auth setup-git
+gh auth refresh -h github.com -s workflow
+```
+
+Complete the browser or device-code prompt. Then either:
+
+- `git push` as usual, or  
+- `npm run github:publish-web-workflow` — uploads `.github/workflows/web-quality.yml` via the same `gh` token (no SSH key required).
+
 ## Notes
 
 - The project uses Swift 5.9+ and requires Xcode 15.0+
