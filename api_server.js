@@ -295,14 +295,20 @@ router.post('/auth/register', async (req, res) => {
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
-    // TEMP: surface details unconditionally while we stabilise. Tighten before launch.
+    // TEMP: dump full error shape so we can pinpoint the underlying PG cause.
+    const all = {};
+    if (err) {
+      try { for (const k of Object.getOwnPropertyNames(err)) all[k] = err[k]; } catch (_) {}
+      if (err.cause) {
+        all._cause = {};
+        try { for (const k of Object.getOwnPropertyNames(err.cause)) all._cause[k] = err.cause[k]; } catch (_) {}
+      }
+    }
     res.status(500).json({
       success: false,
       error: 'Registration failed. Please try again.',
-      details: err && err.message,
-      cause: err && err.cause && err.cause.message,
-      code: (err && err.code) || (err && err.cause && err.cause.code),
-      detail: (err && err.detail) || (err && err.cause && err.cause.detail),
+      err: all,
+      hasDb: !!process.env.DATABASE_URL,
     });
   }
 });
