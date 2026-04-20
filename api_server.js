@@ -183,6 +183,52 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
 const JWT_EXPIRES = '30d';
 const SALT_ROUNDS = 12;
 
+// ── ONE-OFF, IDEMPOTENT SCHEMA MIGRATIONS ────────────────────────────────────
+// Some columns/tables referenced by the API aren't in shared/schema.js, so we
+// make sure they exist on first DB use. Safe to run repeatedly.
+let _migrationsPromise = null;
+async function ensureMigrations() {
+  if (!process.env.DATABASE_URL) return;
+  if (_migrationsPromise) return _migrationsPromise;
+  _migrationsPromise = (async () => {
+    try {
+      await _pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'pt';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS pt_id UUID;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ;
+        CREATE TABLE IF NOT EXISTS pt_clients (
+          pt_id UUID NOT NULL,
+          client_id UUID NOT NULL,
+          status TEXT DEFAULT 'active',
+          created_at TIMESTAMPTZ DEFAULT now(),
+          PRIMARY KEY (pt_id, client_id)
+        );
+        CREATE TABLE IF NOT EXISTS client_invitations (
+          token TEXT PRIMARY KEY,
+          pt_id UUID NOT NULL,
+          email TEXT,
+          accepted BOOLEAN DEFAULT FALSE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT now()
+        );
+      `);
+    } catch (err) {
+      console.error('[ensureMigrations]', err.message);
+      // reset so next call retries
+      _migrationsPromise = null;
+      throw err;
+    }
+  })();
+  return _migrationsPromise;
+}
+
+// Lightweight debug — set DEBUG_API_TOKEN in env, send `x-debug: <token>` to get
+// real error details in JSON responses (never leaks if token unset or wrong).
+function debugAllowed(req) {
+  const t = process.env.DEBUG_API_TOKEN;
+  return !!t && req.headers['x-debug'] === t;
+}
+
 // POST /api/auth/register
 router.post('/auth/register', async (req, res) => {
   try {
@@ -191,6 +237,8 @@ router.post('/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Name, email and password are required.' });
     if (password.length < 8)
       return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
+
+    await ensureMigrations();
 
     const existing = await getUserByEmail(email.toLowerCase());
     if (existing)
@@ -202,40 +250,54 @@ router.post('/auth/register', async (req, res) => {
     let role = 'pt';
     let ptId = null;
     if (req.body.inviteToken) {
-      const invite = await _pool.query(
-        'SELECT * FROM client_invitations WHERE token=$1 AND accepted=FALSE AND expires_at > NOW()',
-        [req.body.inviteToken]
-      );
-      if (invite.rows[0]) {
-        role = 'client';
-        ptId = invite.rows[0].pt_id;
+      try {
+        const invite = await _pool.query(
+          'SELECT * FROM client_invitations WHERE token=$1 AND accepted=FALSE AND expires_at > NOW()',
+          [req.body.inviteToken]
+        );
+        if (invite.rows[0]) {
+          role = 'client';
+          ptId = invite.rows[0].pt_id;
+        }
+      } catch (e) {
+        console.warn('[register] invite lookup failed (non-fatal):', e.message);
       }
     }
 
     const user = await createUser(email.toLowerCase(), name, passwordHash);
 
-    // Set role, pt_id, and 14-day trial
-    const trialExpiresAt = new Date();
-    trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
-    await _pool.query(
-      'UPDATE users SET role=$1, pt_id=$2, subscription_expires_at=$3 WHERE id=$4',
-      [role, ptId, trialExpiresAt, user.id]
-    );
+    // Set role, pt_id, and 14-day trial — non-fatal if columns missing.
+    try {
+      const trialExpiresAt = new Date();
+      trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
+      await _pool.query(
+        'UPDATE users SET role=$1, pt_id=$2, subscription_expires_at=$3 WHERE id=$4',
+        [role, ptId, trialExpiresAt, user.id]
+      );
+    } catch (e) {
+      console.warn('[register] trial/role update failed (non-fatal):', e.message);
+    }
 
     // If client, link to PT
     if (role === 'client' && ptId && req.body.inviteToken) {
-      await _pool.query(
-        'INSERT INTO pt_clients (pt_id, client_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [ptId, user.id]
-      );
-      await _pool.query('UPDATE client_invitations SET accepted=TRUE WHERE token=$1', [req.body.inviteToken]);
+      try {
+        await _pool.query(
+          'INSERT INTO pt_clients (pt_id, client_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [ptId, user.id]
+        );
+        await _pool.query('UPDATE client_invitations SET accepted=TRUE WHERE token=$1', [req.body.inviteToken]);
+      } catch (e) {
+        console.warn('[register] pt link failed (non-fatal):', e.message);
+      }
     }
 
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
+    const body = { success: false, error: 'Registration failed. Please try again.' };
+    if (debugAllowed(req)) body.details = err.message;
+    res.status(500).json(body);
   }
 });
 
@@ -254,8 +316,13 @@ router.post('/auth/login', async (req, res) => {
     if (!valid)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
 
-    const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
-    const role = roleRow.rows[0]?.role || 'pt';
+    let role = 'pt';
+    try {
+      const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
+      role = roleRow.rows[0]?.role || 'pt';
+    } catch (e) {
+      console.warn('[login] role lookup failed (non-fatal):', e.message);
+    }
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role } });
   } catch (err) {
