@@ -13,8 +13,11 @@
   - `.github/workflows/web-quality.yml`
 
 ## Production Domain
-- Primary domain: `https://fitmunch.com.au`
-- Expected additional origin: `https://www.fitmunch.com.au`
+- **Canonical public URL:** `https://www.fitmunch.com.au` (apex `https://fitmunch.com.au` issues a 307 redirect here — both are valid for users).
+- Smoke (critical paths + `/api/health`): from repo root  
+  `FITMUNCH_SMOKE_URL=https://www.fitmunch.com.au npm run smoke:assets`  
+  Last automated sweep: **2026-04-20** — all checks green (home, API health, login, app shell, modular JS/CSS, `security.txt`).
+- Vercel hosts the Express app via `api/index.js` + `vercel.json` rewrites; keep **Production** branch deploys tied to this repo’s `main`.
 - Local dev origins allowed for testing:
   - `http://localhost:5000`
   - `http://localhost:3000`

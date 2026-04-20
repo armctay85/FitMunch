@@ -7,6 +7,10 @@ The repo is already configured (`vercel.json`, `api/index.js`, Express export in
 1. **[vercel.com](https://vercel.com) → Add New… → Project** → import **this GitHub repo** → **Deploy**  
    (Redeploy after env sync if the first build ran without DB secrets.)
 
+**CLI (after `vercel login`):** this project lives under team **`armctay85s-projects`**, name **`fit-munch`**. In scripts or agents, pass `--scope armctay85s-projects` so commands do not hang waiting for a scope. Link once from the repo root:  
+`vercel link --project fit-munch -y --scope armctay85s-projects`  
+Then `vercel ls --scope armctay85s-projects` shows Production deployments (custom domain `www.fitmunch.com.au`).
+
 2. **Environment variables (no dashboard typing)**  
    - Create a token: [vercel.com/account/tokens](https://vercel.com/account/tokens)  
    - Put real values in a local **`.env`** (same as Railway — never commit).  
