@@ -300,8 +300,9 @@ router.post('/auth/register', async (req, res) => {
       success: false,
       error: 'Registration failed. Please try again.',
       details: err && err.message,
-      code: err && err.code,
-      where: err && err.where,
+      cause: err && err.cause && err.cause.message,
+      code: (err && err.code) || (err && err.cause && err.cause.code),
+      detail: (err && err.detail) || (err && err.cause && err.cause.detail),
     });
   }
 });
