@@ -295,9 +295,14 @@ router.post('/auth/register', async (req, res) => {
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
-    const body = { success: false, error: 'Registration failed. Please try again.' };
-    if (debugAllowed(req)) body.details = err.message;
-    res.status(500).json(body);
+    // TEMP: surface details unconditionally while we stabilise. Tighten before launch.
+    res.status(500).json({
+      success: false,
+      error: 'Registration failed. Please try again.',
+      details: err && err.message,
+      code: err && err.code,
+      where: err && err.where,
+    });
   }
 });
 
