@@ -222,6 +222,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
+app.use('/api/crime-alert', require('./crime_alert_api'));
 
 // Receipt scanner (multer file upload — must mount separately)
 const receiptScanner = require('./receipt-scanner');
