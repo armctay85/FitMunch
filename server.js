@@ -242,6 +242,14 @@ app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
 app.get('/best-pt-software-australia', (req, res) => res.sendFile('best-pt-software-australia.html', { root: 'public' }));
 app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/best-pt-software-australia'));
 
+app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
+app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
+app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));
+app.get('/pricing', (req, res) => res.sendFile('pricing.html', { root: 'public' }));
+app.get('/contact', (req, res) => res.sendFile('contact.html', { root: 'public' }));
+app.get('/privacy', (req, res) => res.sendFile('privacy.html', { root: 'public' }));
+
+
 const { ok: apiOk } = require('./lib/api-json');
 app.get('/api/health', (req, res) => {
   apiOk(res, {
@@ -340,9 +348,15 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
 
 // ── CLEAN CHECKOUT ENDPOINT (JWT-authenticated, 14-day trial) ──────────────────
 const PRICE_IDS = {
-  starter: 'price_1T3SvgGMuYRuJYDrOyR2hYoq', // FitMunch PT Starter $59.99 AUD/mo
-  pro:     'price_1T3SyDGMuYRuJYDrF8mvMrwi', // FitMunch PT Pro     $99.00 AUD/mo
+  'pt-starter': 'price_1T3SvgGMuYRuJYDrOyR2hYoq', // FitMunch PT Starter $59.99 AUD/mo
+  'pt-pro':     'price_1T3SyDGMuYRuJYDrF8mvMrwi', // FitMunch PT Pro     $99.00 AUD/mo
 };
+
+function normalizeCheckoutPlan(plan, role) {
+  if (role === 'pt' && plan === 'starter') return 'pt-starter';
+  if (role === 'pt' && plan === 'pro') return 'pt-pro';
+  return plan;
+}
 
 app.post('/api/checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
@@ -356,13 +370,46 @@ app.post('/api/checkout', async (req, res) => {
     const jwtLib = require('jsonwebtoken');
     const decoded = jwtLib.verify(authHeader.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key');
 
-    const { plan = 'pro' } = req.body;
+    const requestedPlan = typeof req.body?.plan === 'string' ? req.body.plan : null;
+    if (!requestedPlan) {
+      return res.status(400).json({ error: 'Plan is required.' });
+    }
+    const isPtPlan = ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(requestedPlan);
+    if (isPtPlan && decoded.role !== 'pt') {
+      return res.status(403).json({
+        error: 'PT checkout is only available for trainer accounts. Personal accounts stay on the free web plan for now.'
+      });
+    }
+    const plan = normalizeCheckoutPlan(requestedPlan, decoded.role);
     const priceId = PRICE_IDS[plan];
-    if (!priceId) return res.status(400).json({ error: 'Invalid plan.' });
+    if (!priceId) {
+      return res.status(400).json({
+        error: decoded.role === 'pt'
+          ? 'Invalid PT plan.'
+          : 'Consumer checkout is not configured on this web flow yet. Please create your free account first.'
+      });
+    }
 
     // Get or create Stripe customer
     const { getUserById, updateUserSubscription } = require('./server/storage.js');
-    const user = await getUserById(decoded.userId);
+    let user = null;
+    let checkoutSmokeFallback = false;
+    try {
+      user = await getUserById(decoded.userId);
+    } catch (dbErr) {
+      if (process.env.FITMUNCH_CHECKOUT_SMOKE_FALLBACK === 'true' && process.env.NODE_ENV !== 'production') {
+        checkoutSmokeFallback = true;
+        user = {
+          id: decoded.userId,
+          email: decoded.email || `smoke-${decoded.userId}@fitmunch.invalid`,
+          name: decoded.name || 'FitMunch Smoke User',
+          subscriptionTier: 'free',
+          stripeCustomerId: null,
+        };
+      } else {
+        throw dbErr;
+      }
+    }
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
     let customerId = user.stripeCustomerId;
@@ -370,13 +417,15 @@ app.post('/api/checkout', async (req, res) => {
       const customer = await stripe.customers.create({ email: user.email, name: user.name,
         metadata: { userId: user.id } });
       customerId = customer.id;
-      await updateUserSubscription(user.id, user.subscriptionTier || 'free', null);
-      // Persist stripe customer ID
-      const storage = require('./server/storage.js');
-      const { eq } = require('drizzle-orm');
-      await storage.db.update(storage.schema.users)
-        .set({ stripeCustomerId: customerId })
-        .where(eq(storage.schema.users.id, user.id));
+      if (!checkoutSmokeFallback) {
+        await updateUserSubscription(user.id, user.subscriptionTier || 'free', null);
+        // Persist stripe customer ID
+        const storage = require('./server/storage.js');
+        const { eq } = require('drizzle-orm');
+        await storage.db.update(storage.schema.users)
+          .set({ stripeCustomerId: customerId })
+          .where(eq(storage.schema.users.id, user.id));
+      }
     }
 
     const origin = req.headers.origin || 'https://fitmunch.com.au';
