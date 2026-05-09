@@ -251,6 +251,18 @@ app.get('/privacy', (req, res) => res.sendFile('privacy.html', { root: 'public' 
 
 
 const { ok: apiOk } = require('./lib/api-json');
+
+// Debug endpoint - remove after fixing DB
+app.get("/api/db-test", async (req, res) => {
+  try {
+    const pg = require("pg");
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5000 });
+    const r = await pool.query("SELECT 1 as connected");
+    const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
+    await pool.end();
+    res.json({ ok: true, tables: tables.rows.map(r=>r.table_name) });
+  } catch(e) { res.json({ ok: false, error: e.message }); }
+});
 app.get('/api/health', (req, res) => {
   apiOk(res, {
     status: 'ok',
