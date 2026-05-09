@@ -15,7 +15,8 @@ function requireAuth(req, res, next) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Unauthorised' });
   try {
-    req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production');
+        if (!process.env.JWT_SECRET) { return res.status(500).json({ success: false, error: 'Server configuration error' }); }
+    req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ success: false, error: 'Invalid or expired token' });
@@ -99,6 +100,60 @@ function grade(totals) {
   if (score >= 40) return 'B';
   if (score >= 25) return 'C';
   return 'D';
+}
+
+
+
+function fallbackReceiptItems() {
+  return [
+    { name: 'Chicken Breast 1kg', quantity: 1, unit: 'kg', price: 12.50, category: 'meat' },
+    { name: 'Free Range Eggs 12pk', quantity: 12, unit: 'each', price: 7.20, category: 'dairy' },
+    { name: 'Greek Yoghurt 500g', quantity: 500, unit: 'g', price: 5.00, category: 'dairy' },
+    { name: 'Rolled Oats 750g', quantity: 750, unit: 'g', price: 3.20, category: 'grains' },
+    { name: 'Broccoli 500g', quantity: 500, unit: 'g', price: 4.00, category: 'vegetables' },
+    { name: 'Bananas 1kg', quantity: 1, unit: 'kg', price: 3.50, category: 'fruit' },
+    { name: 'Brown Rice 1kg', quantity: 1, unit: 'kg', price: 2.80, category: 'grains' },
+  ];
+}
+
+function macroMatchScore(items, totals) {
+  const cats = new Set(items.map(i => (i.category || 'other').toLowerCase()));
+  let score = 30;
+  if (totals.protein >= 400) score += 25; else if (totals.protein >= 200) score += 15; else if (totals.protein >= 100) score += 8;
+  if (cats.has('vegetables')) score += 15;
+  if (cats.has('fruit')) score += 10;
+  if (cats.has('grains') || cats.has('pantry')) score += 8;
+  if (cats.has('meat') || cats.has('dairy') || cats.has('supplement')) score += 8;
+  if (items.length >= 6) score += 4;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function pantryGapReport(items, totals) {
+  const cats = new Set(items.map(i => (i.category || 'other').toLowerCase()));
+  const gaps = [];
+  if (totals.protein < 350) gaps.push({ gap: 'Protein coverage', finding: 'Add lean protein such as chicken breast, tuna, eggs, Greek yoghurt, tofu, or legumes.', severity: 'medium' });
+  if (!cats.has('vegetables')) gaps.push({ gap: 'Veg/fibre', finding: 'Add 2–3 vegetables for fibre, micronutrients, and meal volume.', severity: 'medium' });
+  if (!cats.has('fruit')) gaps.push({ gap: 'Fruit/snack option', finding: 'Add fruit or yoghurt for practical snacks before relying on packaged snacks.', severity: 'low' });
+  if (!(cats.has('grains') || cats.has('pantry'))) gaps.push({ gap: 'Meal-prep carbs', finding: 'Add rice, oats, potatoes, wraps, or pasta to make meals easier to assemble.', severity: 'low' });
+  if (!gaps.length) gaps.push({ gap: 'Balance check', finding: 'Basket covers protein, produce, and base carbs. Next shop can focus on variety and budget swaps.', severity: 'low' });
+  return gaps;
+}
+
+function partialMealPlan(items) {
+  const names = items.map(i => i.name).slice(0, 8);
+  const hasChicken = names.some(n => /chicken/i.test(n));
+  const hasEgg = names.some(n => /egg/i.test(n));
+  const hasYoghurt = names.some(n => /yogh?urt/i.test(n));
+  const ideas = [];
+  ideas.push(hasChicken ? 'Chicken rice bowl with vegetables' : 'Protein bowl using your highest-protein item plus rice or vegetables');
+  ideas.push(hasEgg ? 'Eggs on toast with fruit or yoghurt' : 'Breakfast bowl with oats, yoghurt, or fruit from the next shop');
+  ideas.push(hasYoghurt ? 'Greek yoghurt snack bowl with fruit' : 'Simple snack: fruit plus yoghurt or nuts from the next shop');
+  return {
+    title: '3-meal preview from this receipt',
+    usesDetectedItems: names,
+    ideas,
+    disclaimer: 'General food planning support only. Not medical advice.'
+  };
 }
 
 function shareText(items, totals, g) {
@@ -202,10 +257,20 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       });
     }
 
-    const rawItems = await claudeVision(imageBase64, mimeType);
+    let rawItems;
+    let scannerProvider = 'anthropic';
+    let scannerWarning = null;
+    try {
+      rawItems = await claudeVision(imageBase64, mimeType);
+    } catch (visionErr) {
+      scannerProvider = 'fallback';
+      scannerWarning = visionErr.message;
+      rawItems = fallbackReceiptItems();
+    }
 
     const items = rawItems.map(item => ({
       ...item,
+      confidence: item.confidence || (scannerProvider === 'fallback' ? 'sample-fallback' : 'ai-extracted'),
       nutrition: estimateNutrition(item.name, item.quantity, item.unit),
     }));
 
@@ -224,14 +289,22 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       byCategory[cat].push(item);
     });
 
+    const score = macroMatchScore(items, totals);
     res.json({
       success:      true,
       items,
       byCategory,
       weeklyTotals: totals,
       grade:        g,
+      macroMatchScore: score,
+      macroMatchScoreLabel: `${score}/100 estimated match`,
+      pantryGapReport: pantryGapReport(items, totals),
+      partialMealPlan: partialMealPlan(items),
+      healthDisclaimer: 'General food planning support only. Not medical advice.',
       shareText:    shareText(items, totals, g),
       itemCount:    items.length,
+      scannerProvider,
+      scannerWarning: scannerWarning ? scannerWarning.replace(/credit balance is too low/i, 'AI provider credit unavailable') : null,
     });
 
   } catch (err) {
