@@ -595,6 +595,12 @@ app.use((err, req, res, next) => {
   res.status(code).json({ success: false, error: message });
 });
 
+// Catch-all for unmatched non-API routes → custom 404 page
+app.use((req, res, next) => {
+  if (res.headersSent) return next();
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
 const port = process.env.PORT || 5000;
 
 // Vercel (and tests) load this module without listening; `node server.js` / Railway start the server.

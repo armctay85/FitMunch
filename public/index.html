@@ -252,7 +252,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Hit your goals.</span></h1>
   <p class="hero-sub">Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you've bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.</p>
   <div class="hero-ctas">
-    <a href="/login.html" class="btn-primary">Start for free →</a>
+    <a href="/login.html#register" class="btn-primary">Start for free →</a>
     <a href="#for-pts" class="btn-ghost">For personal trainers</a>
   </div>
   <div class="hero-trust">
@@ -262,7 +262,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
     <span class="trust-sep"></span>
     <span class="trust-i">✓ Works on any phone</span>
     <span class="trust-sep"></span>
-    <span class="trust-i">✓ AEST support</span>
+    <span class="trust-i">✓ Aussie support</span>
   </div>
 </div>
 
@@ -417,7 +417,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
           <span class="pt-feat-icon">📲</span>
           <div><div class="pt-feat-h">Your clients go viral for you</div><div class="pt-feat-p">When clients share their FitMunch progress cards on TikTok and IG, your name is on it. Free marketing every time a client posts.</div></div>
         </div>
-        <a href="/login.html?plan=starter" class="btn-primary" style="align-self:flex-start;margin-top:8px">Start PT trial — free 14 days →</a>
+        <a href="/login.html?plan=starter#register" class="btn-primary" style="align-self:flex-start;margin-top:8px">Start PT trial — free 14 days →</a>
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="email" id="pt-email-cap" placeholder="your@email.com" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;width:220px;outline:none;font-family:inherit"/>
           <button onclick="capturePTEmail()" style="background:#fff;color:var(--green2);border:1px solid var(--green2);padding:10px 16px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">Get a personal walkthrough</button>
@@ -480,7 +480,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
           <div class="pf"><span class="pf-check">✓</span>AI meal suggestions</div>
           <div class="pf"><span class="pf-check">✓</span>Budget shopping builder</div>
         </div>
-        <a href="/login.html?plan=pro" class="plan-cta cta-green">Start 14-day trial →</a>
+        <a href="/login.html?plan=pro#register" class="plan-cta cta-green">Start 14-day trial →</a>
       </div>
       <div class="plan-card">
         <div class="plan-name">PT Plan</div>
@@ -493,7 +493,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
           <div class="pf"><span class="pf-check">✓</span>Client portal for each client</div>
           <div class="pf"><span class="pf-check">✓</span>Unlimited client invites</div>
         </div>
-        <a href="/login.html?plan=starter" class="plan-cta cta-outline">Start PT trial →</a>
+        <a href="/login.html?plan=starter#register" class="plan-cta cta-outline">Start PT trial →</a>
       </div>
     </div>
   </div>
@@ -540,7 +540,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <h2>Stop guessing.<br/>Start <em>knowing.</em></h2>
   <p>Scan your first receipt in under 60 seconds. No app. No credit card. Just a browser link.</p>
   <div class="cta-row">
-    <a href="/login.html" class="btn-white">Start for free →</a>
+    <a href="/login.html#register" class="btn-white">Start for free →</a>
     <a href="#for-pts" class="btn-outline-w">For personal trainers</a>
   </div>
   <div class="cta-trust"><span>✓ Free forever plan</span><span>✓ No credit card</span><span>✓ Works on any phone</span></div>
@@ -567,18 +567,11 @@ footer{background:var(--dark);padding:48px 40px 28px}
         <a href="/login.html" class="fc-link">Sign in</a>
       </div>
       <div class="footer-col">
-        <div class="fc-title">Use cases</div>
-        <a href="#" class="fc-link">Home gym tracking</a>
-        <a href="#" class="fc-link">Receipt scanning</a>
-        <a href="#" class="fc-link">PT client management</a>
-        <a href="#" class="fc-link">Budget meal planning</a>
-      </div>
-      <div class="footer-col">
         <div class="fc-title">Company</div>
-        <a href="#" class="fc-link">About</a>
-        <a href="#" class="fc-link">Contact</a>
-        <a href="#" class="fc-link">Privacy</a>
-        <a href="#" class="fc-link">Terms</a>
+        <a href="/contact" class="fc-link">Contact</a>
+        <a href="/privacy" class="fc-link">Privacy</a>
+        <a href="/terms" class="fc-link">Terms</a>
+        <a href="/login.html" class="fc-link">Sign in</a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -595,11 +588,11 @@ function setAud(type, el) {
   if (type === 'pt') {
     document.querySelector('.hero h1').innerHTML = 'Manage every client.<br/>From one dashboard.<br/><span class="gr">Ditch the spreadsheets.</span>';
     document.querySelector('.hero-sub').textContent = 'FitMunch gives personal trainers a full client management platform — compliance tracking, plan assignment, client portal and shopping lists. Your clients get the best tracking tool on the market. You get visibility over everything.';
-    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter" class="btn-primary">Start PT trial — free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter#register" class="btn-primary">Start PT trial — free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
   } else {
     document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Hit your goals.</span>';
     document.querySelector('.hero-sub').textContent = 'Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you\'ve bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.';
-    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html" class="btn-primary">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html#register" class="btn-primary">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
   }
 }
 

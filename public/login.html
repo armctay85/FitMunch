@@ -326,6 +326,13 @@
     finally   { setLoading('register-btn', false); }
   }
 
+  // Hash-based tab switching (#register activates register panel)
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#register') showTab('register');
+    else if (window.location.hash === '#login') showTab('login');
+  });
+  if (window.location.hash === '#register') showTab('register');
+
   // Enter key support
   document.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
