@@ -1,4 +1,5 @@
 'use strict';
+const { vision: geminiVisionFn } = require('./lib/ai-client');
 /**
  * FitMunch Receipt Scanner
  * POST /api/receipt/scan — multipart file OR JSON {image: base64, mimeType}
@@ -162,39 +163,14 @@ function shareText(items, totals, g) {
 }
 
 // ── CLAUDE VISION CALL (raw HTTPS, no SDK dependency) ──────────────────────
-const { vision: geminiVisionFn } = require('./lib/ai-client');
-
-async function scanWithVision(imageBase64, mimeType) {
-  const prompt = `This is a supermarket receipt photo. Extract every food/grocery item purchased.
-
-Return ONLY a valid JSON array in this exact format (no markdown, no explanation):
-[
-  {"name":"Chicken Breast 1kg","quantity":1,"unit":"kg","price":12.50,"category":"meat"},
-  {"name":"Free Range Eggs 12pk","quantity":12,"unit":"each","price":7.20,"category":"dairy"}
-]
-
-Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other
-Rules:
-- Only food items (skip: cleaning, laundry, household)
-- Parse quantity/unit from item name (e.g. "2x 500g" = quantity:1000, unit:"g")
-- For egg multipacks, quantity = number of eggs
-- Return raw JSON array only`;
-  
-  const result = await geminiVisionFn({ imageBase64, mimeType: mimeType || 'image/jpeg', prompt });
-  if (!result.ok) throw new Error(result.error || 'vision_failed');
-  const match = result.text.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('No JSON array in response');
-  return JSON.parse(match[0]);
-}
-
-function claudeVision_DEPRECATED(imageBase64, mimeType) {
+function claudeVision(imageBase64, mimeType) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       model: 'claude-haiku-4-5',
       max_tokens: 2000,
       messages: [{
         role: 'user',
-        content: [[
+        content: [
           {
             type: 'image',
             source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBase64 },
@@ -277,21 +253,29 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     if (!process.env.GEMINI_API_KEY) {
       return res.status(503).json({
         success: false,
-        error: 'Receipt scanner not configured — GEMINI_API_KEY missing in Railway environment variables.',
-        setup: 'Add GEMINI_API_KEY to Railway → FitMunch project → Variables'
+        error: 'Receipt scanner not configured — GEMINI_API_KEY missing in Vercel environment variables.',
+        setup: 'Add GEMINI_API_KEY to Vercel → FitMunch project → Environment Variables'
       });
     }
 
     let rawItems;
     let scannerProvider = 'gemini';
     let scannerWarning = null;
-    try {
-      rawItems = await scanWithVision(imageBase64, mimeType);
-    } catch (visionErr) {
-      scannerProvider = 'fallback';
-      scannerWarning = visionErr.message;
-      rawItems = fallbackReceiptItems();
-    }
+      try {
+        const visionResult = await geminiVisionFn({
+          imageBase64,
+          mimeType: mimeType || 'image/jpeg',
+          prompt: 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items. Parse quantity from name. Raw JSON only.',
+        });
+        if (!visionResult.ok) throw new Error(visionResult.error || 'vision_failed');
+        const match = visionResult.text.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error('No JSON array in vision response');
+        rawItems = JSON.parse(match[0]);
+      } catch (visionErr) {
+        scannerProvider = 'fallback';
+        scannerWarning = visionErr.message;
+        rawItems = fallbackReceiptItems();
+      }
 
     const items = rawItems.map(item => ({
       ...item,
