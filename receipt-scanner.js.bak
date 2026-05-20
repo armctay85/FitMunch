@@ -162,39 +162,14 @@ function shareText(items, totals, g) {
 }
 
 // ── CLAUDE VISION CALL (raw HTTPS, no SDK dependency) ──────────────────────
-const { vision: geminiVisionFn } = require('./lib/ai-client');
-
-async function scanWithVision(imageBase64, mimeType) {
-  const prompt = `This is a supermarket receipt photo. Extract every food/grocery item purchased.
-
-Return ONLY a valid JSON array in this exact format (no markdown, no explanation):
-[
-  {"name":"Chicken Breast 1kg","quantity":1,"unit":"kg","price":12.50,"category":"meat"},
-  {"name":"Free Range Eggs 12pk","quantity":12,"unit":"each","price":7.20,"category":"dairy"}
-]
-
-Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other
-Rules:
-- Only food items (skip: cleaning, laundry, household)
-- Parse quantity/unit from item name (e.g. "2x 500g" = quantity:1000, unit:"g")
-- For egg multipacks, quantity = number of eggs
-- Return raw JSON array only`;
-  
-  const result = await geminiVisionFn({ imageBase64, mimeType: mimeType || 'image/jpeg', prompt });
-  if (!result.ok) throw new Error(result.error || 'vision_failed');
-  const match = result.text.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('No JSON array in response');
-  return JSON.parse(match[0]);
-}
-
-function claudeVision_DEPRECATED(imageBase64, mimeType) {
+function claudeVision(imageBase64, mimeType) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       model: 'claude-haiku-4-5',
       max_tokens: 2000,
       messages: [{
         role: 'user',
-        content: [[
+        content: [
           {
             type: 'image',
             source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBase64 },
@@ -225,7 +200,7 @@ Rules:
       path: '/v1/messages',
       method: 'POST',
       headers: {
-        'x-api-key': process.env.GEMINI_API_KEY,
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(body),
@@ -274,19 +249,19 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     }
 
     // Check API key is configured
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(503).json({
         success: false,
-        error: 'Receipt scanner not configured — GEMINI_API_KEY missing in Railway environment variables.',
-        setup: 'Add GEMINI_API_KEY to Railway → FitMunch project → Variables'
+        error: 'Receipt scanner not configured — ANTHROPIC_API_KEY missing in Railway environment variables.',
+        setup: 'Add ANTHROPIC_API_KEY to Railway → FitMunch project → Variables'
       });
     }
 
     let rawItems;
-    let scannerProvider = 'gemini';
+    let scannerProvider = 'anthropic';
     let scannerWarning = null;
     try {
-      rawItems = await scanWithVision(imageBase64, mimeType);
+      rawItems = await claudeVision(imageBase64, mimeType);
     } catch (visionErr) {
       scannerProvider = 'fallback';
       scannerWarning = visionErr.message;
