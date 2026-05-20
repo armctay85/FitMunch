@@ -253,4 +253,33 @@ router.post('/shopping', requireAuth, async (req, res) => {
   }
 });
 
+// ── INFO ENDPOINTS ──────────────────────────────────────────────────────────
+
+router.get('/', (_req, res) => res.json({
+  service: 'fitmunch-meal-planner',
+  version: '1.0.0',
+  endpoints: {
+    'POST /api/meal-plan/generate': 'AI-generated 7-day meal plan (requires auth + JWT)',
+    'GET /api/meal-plan/generate': 'Returns this info',
+    'POST /api/meal-plan/shopping': 'Consolidated shopping list with AU prices (requires auth + plan data)',
+  },
+  requiresAuth: true,
+  aiProvider: process.env.ANTHROPIC_API_KEY ? 'claude' : process.env.GEMINI_API_KEY ? 'gemini' : 'none',
+}));
+
+router.get('/generate', (_req, res) => res.json({
+  ok: true,
+  method: 'POST /api/meal-plan/generate',
+  description: 'Generate a 7-day AI meal plan using Claude/Gemini',
+  auth: 'Bearer JWT required',
+  body: {
+    goal: 'lose_weight | muscle_gain | maintain | general_fitness',
+    calories: 2000,
+    protein: 150,
+    budget: 120,
+    days: 7,
+    dietary: '[] (e.g. ["vegetarian", "gluten-free"])',
+  },
+}));
+
 module.exports = router;

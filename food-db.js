@@ -157,6 +157,19 @@ function searchFoods(query, limit = 8) {
 }
 
 // ── ROUTE ─────────────────────────────────────────────────────────────────────
+// ── INFO ENDPOINT ──────────────────────────────────────────────────────────
+router.get('/', (_req, res) => res.json({
+  service: 'fitmunch-food-db',
+  version: '1.0.0',
+  dbSize: FOODS.length,
+  endpoints: {
+    'GET /api/foods/search?q=<query>&limit=<n>': 'Search AU food database with per-100g macros',
+    'GET /api/foods': 'Returns this info',
+  },
+  noAuth: true,
+  categories: [...new Set(FOODS.flatMap(f => f.tags))].sort(),
+}));
+
 router.get('/search', (req, res) => {
   const q = (req.query.q || '').trim();
   const limit = Math.min(parseInt(req.query.limit) || 8, 20);

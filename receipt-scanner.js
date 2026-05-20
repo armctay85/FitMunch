@@ -8,7 +8,6 @@ const { vision: geminiVisionFn } = require('./lib/ai-client');
 
 const express = require('express');
 const multer = require('multer');
-const https = require('https');
 const jwt = require('jsonwebtoken');
 
 // ── AUTH GUARD ────────────────────────────────────────────────────────────────
@@ -162,72 +161,18 @@ function shareText(items, totals, g) {
   return `📸 Just scanned my weekly shop with FitMunch!\n\n🥩 ${totals.protein}g protein\n🔥 ${totals.calories.toLocaleString()} calories\n💪 Score: ${g}\n\nTop picks: ${top}\n\nRate my shop 👇 #FitMunch #MealPrep #FitnessAustralia #Macros #FitTok`;
 }
 
-// ── CLAUDE VISION CALL (raw HTTPS, no SDK dependency) ──────────────────────
-function claudeVision(imageBase64, mimeType) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 2000,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBase64 },
-          },
-          {
-            type: 'text',
-            text: `This is a supermarket receipt photo. Extract every food/grocery item purchased.
+// ── ROUTES ────────────────────────────────────────────────────────────────────
 
-Return ONLY a valid JSON array in this exact format (no markdown, no explanation):
-[
-  {"name":"Chicken Breast 1kg","quantity":1,"unit":"kg","price":12.50,"category":"meat"},
-  {"name":"Free Range Eggs 12pk","quantity":12,"unit":"each","price":7.20,"category":"dairy"}
-]
-
-Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other
-Rules:
-- Only food items (skip: cleaning, laundry, household)
-- Parse quantity/unit from item name (e.g. "2x 500g" → quantity:1000, unit:"g")
-- For egg multipacks, quantity = number of eggs
-- Return raw JSON array only`,
-          },
-        ],
-      }],
-    });
-
-    const req = https.request({
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      method: 'POST',
-      headers: {
-        'x-api-key': process.env.GEMINI_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(body),
-      },
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) { reject(new Error(parsed.error.message)); return; }
-          const text = parsed.content?.[0]?.text || '';
-          const match = text.match(/\[[\s\S]*\]/);
-          if (!match) { reject(new Error('No JSON array in response')); return; }
-          resolve(JSON.parse(match[0]));
-        } catch(e) { reject(e); }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
-// ── ROUTE ─────────────────────────────────────────────────────────────────────
+// Bare path — API info
+router.get('/', (_req, res) => res.json({
+  service: 'fitmunch-receipt-scanner',
+  version: '1.0.0',
+  endpoints: {
+    'POST /api/receipt/scan': 'Upload receipt image (multipart or base64 JSON) — requires auth',
+    'GET /api/receipt/scan': 'Returns method info',
+    'GET /api/receipt/sample': 'Smoke-test Gemini Vision receipt scanning (no auth, uses sample data)',
+  },
+}));
 router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => {
   try {
     let imageBase64, mimeType;
@@ -322,6 +267,68 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
   }
 });
 
-router.get('/scan', (_req, res) => res.json({ ok: true, method: 'POST /api/receipt/scan' }));
+router.get('/scan', (_req, res) => res.json({
+  ok: true,
+  method: 'POST /api/receipt/scan',
+  description: 'Upload a receipt image for AI-powered nutrition extraction',
+  auth: 'Bearer JWT required',
+  accepts: 'multipart/form-data (field: receipt) OR JSON {image: base64DataUrl, mimeType}',
+  seeAlso: 'GET /api/receipt/sample for a no-auth smoke test',
+}));
+
+// ── SAMPLE / SMOKE TEST ENDPOINT (no auth) ────────────────────────────────
+router.get('/sample', async (_req, res) => {
+  const result = {
+    endpoint: '/api/receipt/sample',
+    description: 'Smoke test for Gemini Vision receipt scanning',
+    aiClient: {
+      hasProvider: require('./lib/ai-client').hasProvider(),
+      providerName: require('./lib/ai-client').providerName(),
+    },
+  };
+
+  // If no API key configured, report and stop
+  if (!process.env.GEMINI_API_KEY) {
+    result.geminiConfigured = false;
+    result.error = 'GEMINI_API_KEY not set in environment';
+    result.setup = 'Add GEMINI_API_KEY to Vercel → fit-munch project → Environment Variables';
+    return res.json(result);
+  }
+
+  result.geminiConfigured = true;
+
+  try {
+    const { vision: geminiVisionFn } = require('./lib/ai-client');
+
+    // Simple text-only test first — verify Gemini API is reachable
+    const visionResult = await geminiVisionFn({
+      imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      mimeType: 'image/png',
+      prompt: 'This is a test. Respond with exactly: OK',
+    });
+
+    result.visionTest = {
+      ok: visionResult.ok,
+      provider: visionResult.provider,
+      model: visionResult.model,
+      responsePreview: (visionResult.text || '').slice(0, 100),
+    };
+
+    if (!visionResult.ok) {
+      result.visionTest.error = visionResult.error;
+    }
+
+    // Test receipt parsing capability
+    result.receiptCapability = {
+      note: 'Gemini Vision is reachable. POST /api/receipt/scan (with auth + receipt image) to test full extraction.',
+      geminiVisionModel: require('./lib/ai-client').geminiVisionModel(),
+      geminiChatModel: require('./lib/ai-client').geminiModel(),
+    };
+  } catch (err) {
+    result.visionTest = { ok: false, error: err.message };
+  }
+
+  res.json(result);
+});
 
 module.exports = router;
