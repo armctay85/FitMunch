@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
+const { sendWelcomeEmail } = require('./server/email.js');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
   // Basic configuration for Replit environment
@@ -188,6 +189,23 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
   try {
     switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const customerEmail = session.customer_details?.email || session.metadata?.email;
+        const customerName = session.customer_details?.name || '';
+        const planId = session.metadata?.plan || '';
+        const planLabels = { 'pt-starter': 'Starter', 'pt-pro': 'Pro' };
+        const planLabel = planLabels[planId] || planId || 'PT';
+        console.log(`Checkout completed: ${customerEmail} → plan ${planId}`);
+
+        // Send welcome email asynchronously (fire-and-forget, don't block webhook response)
+        if (customerEmail) {
+          sendWelcomeEmail(customerEmail, customerName, planLabel).then(r => {
+            console.log('Welcome email result:', r.success ? `sent (${r.messageId})` : `FAILED: ${r.error}`);
+          }).catch(e => console.error('Welcome email error:', e.message));
+        }
+        break;
+      }
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const sub = event.data.object;
@@ -241,6 +259,7 @@ app.get('/for-pts', (req, res) => res.sendFile('for-pts.html', { root: 'public' 
 app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
 app.get('/best-pt-software-australia', (req, res) => res.sendFile('best-pt-software-australia.html', { root: 'public' }));
 app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/best-pt-software-australia'));
+app.get('/receipt-nutrition-scanner', (req, res) => res.sendFile('receipt-nutrition-scanner.html', { root: 'public' }));
 
 app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
@@ -248,6 +267,7 @@ app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));
 app.get('/pricing', (req, res) => res.sendFile('pricing.html', { root: 'public' }));
 app.get('/contact', (req, res) => res.sendFile('contact.html', { root: 'public' }));
 app.get('/privacy', (req, res) => res.sendFile('privacy.html', { root: 'public' }));
+app.get('/checkout/success', (req, res) => res.sendFile('success.html', { root: 'public' }));
 
 
 const { ok: apiOk } = require('./lib/api-json');
@@ -369,6 +389,43 @@ function normalizeCheckoutPlan(plan, role) {
   if (role === 'pt' && plan === 'pro') return 'pt-pro';
   return plan;
 }
+
+// ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
+app.post('/api/quick-checkout', async (req, res) => {
+  if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
+
+  try {
+    const { email, plan } = req.body;
+    if (!email || !plan) {
+      return res.status(400).json({ success: false, error: 'Email and plan are required.' });
+    }
+
+    const priceId = PRICE_IDS[plan];
+    if (!priceId) {
+      return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use pt-starter or pt-pro.` });
+    }
+
+    // Create Stripe customer
+    const customer = await stripe.customers.create({ email });
+
+    // Create checkout session with 14-day trial
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      customer: customer.id,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: 14 },
+      success_url: `${req.protocol}://${req.get('host')}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/pricing`,
+      metadata: { plan, email }
+    });
+
+    return res.json({ success: true, url: session.url, id: session.id });
+  } catch (error) {
+    console.error('Quick checkout error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 app.post('/api/checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
@@ -545,6 +602,44 @@ app.post('/api/stripe/customers', async (req, res) => {
       message: 'Failed to create customer',
       error: error.message
     });
+  }
+});
+
+// ── SESSION LOOKUP (used by success page) ─────────────────────────────────────
+app.get('/api/checkout/session', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
+  const sessionId = req.query.session_id;
+  if (!sessionId) return res.status(400).json({ error: 'session_id required' });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    res.json({
+      plan: session.metadata?.plan || null,
+      planLabel: session.metadata?.plan || null,
+      email: session.customer_details?.email || null,
+      customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
+      paymentStatus: session.payment_status,
+    });
+  } catch (e) {
+    res.status(404).json({ error: 'Session not found.' });
+  }
+});
+
+// ── STRIPE CUSTOMER PORTAL (billing / cancel) ─────────────────────────────────
+app.post('/api/billing-portal', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
+  try {
+    const { customerId } = req.body;
+    if (!customerId) return res.status(400).json({ error: 'customerId required' });
+
+    const origin = req.headers.origin || 'https://www.fitmunch.com.au';
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${origin}/pricing`,
+    });
+    res.json({ success: true, url: portal.url });
+  } catch (e) {
+    console.error('Billing portal error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 

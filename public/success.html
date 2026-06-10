@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subscription Confirmed — FitMunch PT</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(160deg, #f0fdf4 0%, #ecfdf5 40%, #f8fafc 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      max-width: 520px;
+      width: 100%;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+    .card-header {
+      background: #10b981;
+      padding: 36px 28px;
+      text-align: center;
+    }
+    .card-header .check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+      background: #fff;
+      border-radius: 50%;
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+    .card-header h1 {
+      color: #fff;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .card-header p {
+      color: #d1fae5;
+      font-size: 15px;
+      margin-top: 6px;
+    }
+    .card-body {
+      padding: 28px;
+    }
+    .plan-badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1e40af;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    .info-block {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .info-block h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    .info-block ul {
+      list-style: none;
+      padding: 0;
+    }
+    .info-block ul li {
+      padding: 6px 0;
+      font-size: 14px;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .info-block ul li::before {
+      content: '✅';
+      flex-shrink: 0;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 24px;
+      border-radius: 10px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .btn-primary { background: #10b981; color: #fff; margin-bottom: 10px; }
+    .btn-ghost {
+      background: #fff;
+      color: #6b7280;
+      border: 1px solid #e5e7eb;
+      font-size: 14px;
+      padding: 12px;
+    }
+    .footer-note {
+      text-align: center;
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 20px;
+    }
+    .email-icon { font-size: 20px; }
+    .loading { text-align: center; padding: 20px; color: #6b7280; }
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="check">✅</div>
+      <h1>You're All Set!</h1>
+      <p>Your FitMunch PT subscription is live</p>
+    </div>
+    <div class="card-body">
+      <div id="loading" class="loading">
+        <div class="spinner" style="margin: 0 auto 12px"></div>
+        <p>Confirming your subscription…</p>
+      </div>
+      <div id="content" style="display:none">
+        <div class="plan-badge" id="planName">FitMunch PT</div>
+
+        <div class="info-block">
+          <h3>🧪 14-Day Free Trial</h3>
+          <ul>
+            <li>Full access — no charges until trial ends</li>
+            <li>Cancel anytime before trial ends</li>
+            <li>Your card won't be charged for 14 days</li>
+          </ul>
+        </div>
+
+        <div class="info-block">
+          <h3>📧 Check Your Email</h3>
+          <p style="font-size:14px;color:#4b5563">We've sent a welcome email with your getting-started guide. <strong>Check your inbox</strong> (and spam folder just in case).</p>
+        </div>
+
+        <div class="info-block">
+          <h3>🚀 Next Steps</h3>
+          <ul>
+            <li>Log in to your dashboard</li>
+            <li>Add your clients</li>
+            <li>Create and assign meal plans</li>
+            <li>Upload receipts for instant insights</li>
+          </ul>
+        </div>
+
+        <a href="/app.html" class="btn btn-primary">Go to Dashboard →</a>
+        <a href="#" id="manageBtn" class="btn btn-ghost" onclick="openBillingPortal(event)">Manage Subscription</a>
+      </div>
+    </div>
+    <div class="footer-note">
+      Questions? <a href="/support" style="color:#10b981">Contact Support</a> &nbsp;|&nbsp;
+      <a href="/terms" style="color:#9ca3af">Terms</a> &nbsp;|&nbsp;
+      <a href="/privacy" style="color:#9ca3af">Privacy</a>
+    </div>
+  </div>
+
+  <script>
+  let sessionCustomerId = null;
+
+  async function openBillingPortal(e) {
+    e.preventDefault();
+    const btn = document.getElementById('manageBtn');
+    if (!sessionCustomerId) {
+      window.location.href = '/pricing';
+      return;
+    }
+    btn.textContent = 'Redirecting…';
+    btn.style.pointerEvents = 'none';
+    try {
+      const resp = await fetch('/api/billing-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: sessionCustomerId }),
+      });
+      const data = await resp.json();
+      if (data.success) window.location.href = data.url;
+      else window.location.href = '/pricing';
+    } catch (e) {
+      window.location.href = '/pricing';
+    }
+  }
+
+  (async () => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const planNameEl = document.getElementById('planName');
+
+    if (!sessionId) {
+      loadingEl.innerHTML = '<p style="color:#ef4444">⚠️ No session ID found. Your subscription should still be active.</p>';
+      contentEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/checkout/session?session_id=${encodeURIComponent(sessionId)}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        sessionCustomerId = data.customerId;
+        if (data.plan) {
+          const labels = {
+            'pt-starter': 'FitMunch PT Starter — $59/mo AUD',
+            'pt-pro': 'FitMunch PT Pro — $99/mo AUD',
+          };
+          planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch PT';
+        }
+      }
+    } catch (e) {
+      console.log('Session lookup skipped:', e.message);
+    }
+
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+  })();
+  </script>
+</body>
+</html>

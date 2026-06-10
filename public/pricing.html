@@ -1,1 +1,26 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pricing | FitMunch</title><link rel="stylesheet" href="/style.css"></head><body><main style="max-width:860px;margin:48px auto;padding:24px;font-family:system-ui"><a href="/">← FitMunch</a><h1>Pricing</h1><p>FitMunch helps you turn receipts into meal plans and nutrition insights. Plans for individuals and personal trainers.</p><h2>Consumer plans</h2><p>Free sample scan available. Starter and premium meal planning coming soon. Sign up to get early access.</p><h2>PT Starter</h2><p>$59/month — Client management, meal-plan assignment, progress tracking, receipt-to-plan support, and white-label reporting.</p><h2>PT Pro</h2><p>$99.00/month — Everything in PT Starter plus unlimited clients, advanced analytics, team features, and priority support.</p><p>All prices in AUD. Cancel anytime. <a href="/refund">Refund policy</a>.</p><p style="margin-top:32px;color:#667">General food planning support only. Not medical advice.</p></main></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pricing | FitMunch</title><link rel="stylesheet" href="/style.css"></head><body><main style="max-width:860px;margin:48px auto;padding:24px;font-family:system-ui"><a href="/">← FitMunch</a><h1>Pricing</h1><p>FitMunch helps you turn receipts into meal plans and nutrition insights. Plans for individuals and personal trainers.</p><h2>Consumer plans</h2><p>Free sample scan available. Starter and premium meal planning coming soon. Sign up to get early access.</p><h2>PT Starter</h2><p>$59/month — Client management, meal-plan assignment, progress tracking, receipt-to-plan support, and white-label reporting.</p><button onclick="startCheckout('pt-starter')" style="background:#10b981;color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;cursor:pointer;margin-bottom:24px">Start 14-Day Free Trial</button>
+<h2>PT Pro</h2><p>$99.00/month — Everything in PT Starter plus unlimited clients, advanced analytics, team features, and priority support.</p><button onclick="startCheckout('pt-pro')" style="background:#6366f1;color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;cursor:pointer;margin-bottom:24px">Start 14-Day Free Trial</button>
+<p>All prices in AUD. Cancel anytime. <a href="/refund">Refund policy</a>.</p><p style="margin-top:32px;color:#667">General food planning support only. Not medical advice.</p>
+<script>
+async function startCheckout(plan) {
+  const email = prompt('Enter your email to start your free trial:');
+  if (!email) return;
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Redirecting...';
+  try {
+    const res = await fetch('/api/quick-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, plan })
+    });
+    const data = await res.json();
+    if (data.success) window.location.href = data.url;
+    else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Start 14-Day Free Trial'; }
+  } catch(e) {
+    alert('Network error. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'Start 14-Day Free Trial';
+  }
+}
+</script></main></body></html>

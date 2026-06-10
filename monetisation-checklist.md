@@ -7,17 +7,15 @@
    - Go to [RevenueCat.com](https://www.revenuecat.com) and sign up
    - Create new organization if needed
 
-⬜ **1.2 Create New App in RevenueCat**
-   - Click "Add App" in dashboard
+✅ **1.2 Create New App in RevenueCat**
    - App Name: `FitMunch`
    - Platform: `iOS`
-   - Bundle ID: `com.fitmunch.ios` (must match App Store Connect)
-   - ⚠️ **NOTE**: Current Xcode bundle ID is `com.example.FitMunch` - update in Xcode first!
+   - Bundle ID: `com.fitmunch.ios`
+   - Verified by Drew dashboard screenshot and RevenueCat API read-back on 2026-06-09.
 
-⬜ **1.3 Copy API Key**
-   - Navigate to Project Settings → API Keys
-   - Copy the **Public SDK Key**
-   - Update in `Constants.swift`: `static let revenueCatApiKey = "appl_xxx"`
+✅ **1.3 Copy API Key**
+   - Public SDK key copied from RevenueCat dashboard/API.
+   - Wired through `REVENUECAT_API_KEY` in `FitMunch/Resources/Info.plist`.
 
 ⬜ **1.4 Configure Entitlement**
    - Go to Products → Entitlements
@@ -197,8 +195,9 @@
    - Current: Menu shows export button for premium users
    - Fix: Implement actual CSV/JSON export functionality
 
-4. **RevenueCat API key**: Still placeholder `appl_xxx`
-   - Must be replaced with actual Public SDK Key
+4. **RevenueCat API key**: Solved on 2026-06-09
+   - Public SDK key is wired through `REVENUECAT_API_KEY` in `FitMunch/Resources/Info.plist`.
+   - Remaining RevenueCat blocker is ASC/In-App Purchase key configuration, not the public SDK key.
 
 5. **Subscription management**: "Manage Subscription" button in Settings doesn't work
    - Current: Opens generic App Store URL

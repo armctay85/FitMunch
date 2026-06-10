@@ -5,22 +5,51 @@
 
 describe('lib/ai-client provider routing', () => {
   const ORIG = { ...process.env };
+  function clearProviderKeys() {
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.XAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+  }
+
   afterEach(() => {
     process.env = { ...ORIG };
     jest.resetModules();
   });
 
   it('reports no provider when no keys set', () => {
-    delete process.env.OPENAI_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
+    clearProviderKeys();
     const ai = require('./lib/ai-client');
     expect(ai.hasProvider()).toBe(false);
     expect(ai.providerName()).toBe(null);
   });
 
-  it('prefers openai when OPENAI_API_KEY is set', () => {
+  it('prefers gemini when GEMINI_API_KEY is set', () => {
+    clearProviderKeys();
+    process.env.GEMINI_API_KEY = 'gem-test';
+    process.env.XAI_API_KEY = 'xai-test';
     process.env.OPENAI_API_KEY = 'sk-test-123';
-    delete process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'ant-test';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    expect(ai.hasProvider()).toBe(true);
+    expect(ai.providerName()).toBe('gemini');
+  });
+
+  it('prefers grok over openai when XAI_API_KEY is set', () => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-test';
+    process.env.OPENAI_API_KEY = 'sk-test-123';
+    process.env.ANTHROPIC_API_KEY = 'ant-test';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    expect(ai.hasProvider()).toBe(true);
+    expect(ai.providerName()).toBe('grok');
+  });
+
+  it('prefers openai when only OPENAI_API_KEY is set', () => {
+    clearProviderKeys();
+    process.env.OPENAI_API_KEY = 'sk-test-123';
     jest.resetModules();
     const ai = require('./lib/ai-client');
     expect(ai.hasProvider()).toBe(true);
@@ -28,7 +57,7 @@ describe('lib/ai-client provider routing', () => {
   });
 
   it('falls back to anthropic when only ANTHROPIC_API_KEY is set', () => {
-    delete process.env.OPENAI_API_KEY;
+    clearProviderKeys();
     process.env.ANTHROPIC_API_KEY = 'ant-test';
     jest.resetModules();
     const ai = require('./lib/ai-client');
@@ -37,6 +66,7 @@ describe('lib/ai-client provider routing', () => {
   });
 
   it('openai model defaults to gpt-4o-mini, respects override', () => {
+    clearProviderKeys();
     process.env.OPENAI_API_KEY = 'sk-test';
     delete process.env.OPENAI_CHAT_MODEL;
     jest.resetModules();
@@ -47,8 +77,7 @@ describe('lib/ai-client provider routing', () => {
   });
 
   it('chat() returns { ok:false, error:no_provider } with no keys', async () => {
-    delete process.env.OPENAI_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
+    clearProviderKeys();
     jest.resetModules();
     const ai = require('./lib/ai-client');
     const r = await ai.chat({ messages: [{ role: 'user', content: 'hi' }] });
