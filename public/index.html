@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch — Nutrition Tracking App for Personal Trainers Australia</title>
-<meta name="description" content="FitMunch gives Australian personal trainers a full client management platform. Track client nutrition compliance, assign meal plans, monitor progress. 14-day free trial. $59/mo AUD."/>
-<meta name="keywords" content="personal trainer app australia, pt client nutrition tracking, fitness app for personal trainers, client management app pt, macro tracking app australia"/>
-<meta property="og:title" content="FitMunch — Nutrition Compliance for PT Businesses"/>
-<meta property="og:description" content="See every client's nutrition compliance in real time. Assign meal plans, track macros, send invite links. 14-day free PT trial. fitmunch.com.au"/>
+<title>FitMunch — Receipt, Barcode, Macros, Recipes and Meal Plans Australia</title>
+<meta name="description" content="FitMunch turns Australian grocery receipts and food logs into macro tracking, price-aware shopping lists, recipe ideas, meal plans, and PT accountability."/>
+<meta name="keywords" content="macro tracking app australia, receipt nutrition scanner, barcode food scanner australia, supermarket meal planner, budget meal planning app, personal trainer nutrition software australia"/>
+<meta property="og:title" content="FitMunch — Scan Your Shop. Track Macros. Plan the Week."/>
+<meta property="og:description" content="The Australian nutrition loop for receipts, macros, shopping lists, recipe ideas, meal plans, and PT accountability."/>
 <meta property="og:url" content="https://fitmunch.com.au"/>
 <meta property="og:type" content="website"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="FitMunch — Nutrition App for Australian PTs"/>
-<meta name="twitter:description" content="Client compliance dashboard for personal trainers. Receipt scanner your clients actually use. 14-day free trial."/>
+<meta name="twitter:title" content="FitMunch — Receipt-first Macro and Meal Planning"/>
+<meta name="twitter:description" content="Scan the shop, see macros, build meals, and tighten the next grocery run."/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316a34a'/><text y='24' x='4' font-size='22' font-family='system-ui' font-weight='900' fill='white'>F</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 
 /* ── NAV ── */
 nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;gap:16px}
@@ -248,9 +248,9 @@ footer{background:var(--dark);padding:48px 40px 28px}
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-eyebrow"><span class="pulse-dot"></span>Made in Australia 🇦🇺</div>
-  <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Hit your goals.</span></h1>
-  <p class="hero-sub">Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you've bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.</p>
+  <div class="hero-eyebrow"><span class="pulse-dot"></span>Australian grocery-to-goal nutrition</div>
+  <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span></h1>
+  <p class="hero-sub">FitMunch links the whole food loop: receipt scans, barcode-style food logging, macro targets, price-aware shopping lists, recipe ideas, meal plans, and PT accountability when you want coaching behind it.</p>
   <div class="hero-ctas">
     <a href="/login.html#register" class="btn-primary">Start for free →</a>
     <a href="#for-pts" class="btn-ghost">For personal trainers</a>
@@ -258,11 +258,11 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <div class="hero-trust">
     <span class="trust-i">✓ Free to start</span>
     <span class="trust-sep"></span>
-    <span class="trust-i">✓ No app to download</span>
+    <span class="trust-i">✓ Receipt-first</span>
     <span class="trust-sep"></span>
-    <span class="trust-i">✓ Works on any phone</span>
+    <span class="trust-i">✓ Price-aware planning</span>
     <span class="trust-sep"></span>
-    <span class="trust-i">✓ Aussie support</span>
+    <span class="trust-i">✓ PT-ready</span>
   </div>
 </div>
 
@@ -270,11 +270,11 @@ footer{background:var(--dark);padding:48px 40px 28px}
 <div class="audience-strip">
   <div class="audience-tabs">
     <div class="aud-tab active" onclick="setAud('individual',this)">
-      <div class="aud-tab-title">🏠 Home warriors &amp; gym-goers</div>
-      <div class="aud-tab-sub">Track macros, scan receipts, share progress</div>
+      <div class="aud-tab-title">Home warriors &amp; gym-goers</div>
+      <div class="aud-tab-sub">Receipts, macros, prices, recipes, plans</div>
     </div>
     <div class="aud-tab" onclick="setAud('pt',this)">
-      <div class="aud-tab-title">🏋️ Personal trainers</div>
+      <div class="aud-tab-title">Personal trainers</div>
       <div class="aud-tab-sub">Manage clients, assign plans, track compliance</div>
     </div>
   </div>
@@ -283,15 +283,15 @@ footer{background:var(--dark);padding:48px 40px 28px}
 <!-- SOCIAL STRIP -->
 <div class="social-strip">
   <div class="social-inner">
-    <div class="social-stat"><div class="ss-val">📸</div><div class="ss-label">Scan any receipt</div></div>
+    <div class="social-stat"><div class="ss-val">01</div><div class="ss-label">Scan receipts</div></div>
     <div class="social-divider"></div>
-    <div class="social-stat"><div class="ss-val">🥦</div><div class="ss-label">Instant macro breakdown</div></div>
+    <div class="social-stat"><div class="ss-val">02</div><div class="ss-label">Macro breakdown</div></div>
     <div class="social-divider"></div>
-    <div class="social-stat"><div class="ss-val">🛒</div><div class="ss-label">Smart shopping lists</div></div>
+    <div class="social-stat"><div class="ss-val">03</div><div class="ss-label">Price-aware shops</div></div>
     <div class="social-divider"></div>
-    <div class="social-stat"><div class="ss-val">📈</div><div class="ss-label">Progress charts</div></div>
+    <div class="social-stat"><div class="ss-val">04</div><div class="ss-label">Recipes and meal plans</div></div>
     <div class="social-divider"></div>
-    <div class="social-stat"><div class="ss-val">📲</div><div class="ss-label">Share to TikTok &amp; IG</div></div>
+    <div class="social-stat"><div class="ss-val">05</div><div class="ss-label">PT accountability</div></div>
   </div>
 </div>
 
@@ -299,20 +299,20 @@ footer{background:var(--dark);padding:48px 40px 28px}
 <div class="receipt-section" id="features">
   <div class="receipt-inner">
     <div class="receipt-left">
-      <div class="label">🔥 The killer feature</div>
+      <div class="label">The linkage</div>
       <h2>Snap your receipt. Know exactly what you're eating this week.</h2>
-      <p>No more guessing. Take a photo of your Woolies or Coles receipt and FitMunch instantly analyses everything you bought — total protein, macros, calorie budget — and adds it all to your pantry automatically.</p>
+      <p>No more disconnected apps. Take a photo of your Woolies, Coles, Aldi or IGA receipt and FitMunch turns the shop into macro context, meal ideas, budget gaps and the next practical plan.</p>
       <div class="receipt-bullets">
-        <div class="receipt-bullet"><span class="rb-icon">📸</span>Photo your receipt from any supermarket</div>
-        <div class="receipt-bullet"><span class="rb-icon">🧠</span>AI reads every item and estimates macros</div>
-        <div class="receipt-bullet"><span class="rb-icon">📊</span>"Your weekly haul: 987g protein · 14,200 cal"</div>
-        <div class="receipt-bullet"><span class="rb-icon">📲</span>Generate a shareable card for TikTok or IG Stories</div>
+        <div class="receipt-bullet"><span class="rb-icon">1</span>Receipt intake gives the week a real starting point</div>
+        <div class="receipt-bullet"><span class="rb-icon">2</span>Macros and calories show whether the shop matches the goal</div>
+        <div class="receipt-bullet"><span class="rb-icon">3</span>Price-aware planning tightens the next supermarket run</div>
+        <div class="receipt-bullet"><span class="rb-icon">4</span>Recipes and meal plans turn the food into action</div>
       </div>
       <div class="tiktok-badge">
         <span class="tb-icon">🎵</span>
         <div>
-          <div style="font-weight:700;font-size:.82rem">"Rate my weekly shop" is one of the biggest fitness trends on TikTok</div>
-          <div style="color:#94a3b8;font-size:.75rem;margin-top:2px">FitMunch turns that into data — not just a vibe check</div>
+          <div style="font-weight:700;font-size:.82rem">The wedge is the receipt. The product is the full nutrition operating loop.</div>
+          <div style="color:#94a3b8;font-size:.75rem;margin-top:2px">Useful for solo lifters, busy households, and PT-led clients.</div>
         </div>
       </div>
     </div>
@@ -350,45 +350,45 @@ footer{background:var(--dark);padding:48px 40px 28px}
 
 <!-- FEATURES GRID -->
 <div class="section">
-  <div class="sec-tag tag-green">Everything you need</div>
-  <h2 class="sec-h">For the person who's serious<br/>about what they eat.</h2>
-  <p class="sec-sub">Whether you're smashing macros in a home gym or working with a PT, FitMunch has every tool in one place — no juggling five different apps.</p>
+  <div class="sec-tag tag-green">One connected loop</div>
+  <h2 class="sec-h">Macros, shopping, recipes<br/>and plans in one place.</h2>
+  <p class="sec-sub">FitMunch is built around the thing people already do every week: buy food. From there it connects logging, price-aware planning, recipes, meal prep and coach visibility.</p>
   <div class="features-grid" id="features-grid">
     <div class="feat-card">
-      <span class="feat-icon">📸</span>
+      <span class="feat-icon">01</span>
       <div class="feat-h">Receipt Scanner</div>
-      <div class="feat-p">Snap your Woolies or Coles receipt. AI reads every item, calculates protein, macros and weekly calorie budget. Share the summary to TikTok or IG.</div>
+      <div class="feat-p">Snap a supermarket receipt and turn the weekly shop into structured food data: items, rough spend, macro context and pantry direction.</div>
       <span class="feat-badge badge-free">Free tier</span>
     </div>
     <div class="feat-card">
-      <span class="feat-icon">🥗</span>
-      <div class="feat-h">Macro Tracking</div>
-      <div class="feat-p">Log every meal with protein, carbs, fat and calories. See your daily totals at a glance. Set targets and track your deficit or bulk.</div>
+      <span class="feat-icon">02</span>
+      <div class="feat-h">Macro and Food Logging</div>
+      <div class="feat-p">Track meals, protein, carbs, fat and calories against a target. Barcode-style logging sits beside receipt intake for day-to-day food capture.</div>
       <span class="feat-badge badge-free">Free tier</span>
     </div>
     <div class="feat-card">
-      <span class="feat-icon">🛒</span>
-      <div class="feat-h">Smart Shopping Lists</div>
-      <div class="feat-p">Tell FitMunch your protein goal and weekly budget. It builds the exact shopping list to hit your numbers — categorised by aisle.</div>
+      <span class="feat-icon">03</span>
+      <div class="feat-h">Price-Aware Shopping Lists</div>
+      <div class="feat-p">Use budget and protein targets to generate practical Australian shopping lists with estimated item costs and aisle-style grouping.</div>
       <span class="feat-badge badge-free">Free tier</span>
     </div>
     <div class="feat-card">
-      <span class="feat-icon">📈</span>
-      <div class="feat-h">Progress Charts</div>
-      <div class="feat-p">Weight, body measurements, strength PRs over time. See your 12-week arc. Generate a shareable progress card for social.</div>
+      <span class="feat-icon">04</span>
+      <div class="feat-h">Recipe Advice</div>
+      <div class="feat-p">Turn what you already bought into meals that fit your goal instead of starting from a fantasy recipe list.</div>
       <span class="feat-badge badge-pro">Pro</span>
     </div>
     <div class="feat-card">
-      <span class="feat-icon">🏋️</span>
-      <div class="feat-h">Workout Logging</div>
-      <div class="feat-p">Log sessions, sets, reps and cardio. Track volume and PRs. Sync with your assigned program from your PT.</div>
+      <span class="feat-icon">05</span>
+      <div class="feat-h">Meal Plans and Prep</div>
+      <div class="feat-p">Generate a plan from calories, protein, budget and dietary needs, then turn it straight into a shopping list.</div>
       <span class="feat-badge badge-free">Free tier</span>
     </div>
     <div class="feat-card">
-      <span class="feat-icon">❤️</span>
-      <div class="feat-h">Favourites &amp; Plans</div>
-      <div class="feat-p">Save favourite meals, foods and workouts. Your PT can assign meal and workout plans directly to your account.</div>
-      <span class="feat-badge badge-free">Free tier</span>
+      <span class="feat-icon">06</span>
+      <div class="feat-h">PT Accountability</div>
+      <div class="feat-p">If you work with a trainer, the same loop becomes coaching evidence: receipts, plans, check-ins, compliance and follow-up.</div>
+      <span class="feat-badge badge-pt">PT lane</span>
     </div>
   </div>
 </div>
@@ -398,12 +398,12 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <div class="pt-inner">
     <div class="sec-tag tag-amber" style="background:rgba(245,158,11,.1);color:var(--amber)">For Personal Trainers</div>
     <h2 class="sec-h">Your clients are already<br/>tracking on their phones.</h2>
-    <p class="sec-sub">Give them FitMunch — then manage every client from your PT dashboard. See compliance, assign plans, track progress. Replace WhatsApp and spreadsheets for good.</p>
+    <p class="sec-sub">Give them the same FitMunch consumer loop — then manage the coaching layer from your PT dashboard. See receipt evidence, plans, compliance, progress and the clients who need attention.</p>
     <div class="pt-grid">
       <div class="pt-features">
         <div class="pt-feat">
           <span class="pt-feat-icon">👥</span>
-          <div><div class="pt-feat-h">Client roster dashboard</div><div class="pt-feat-p">See every client's compliance, last logged, current phase and progress trend in one view. Spot who needs a check-in instantly.</div></div>
+          <div><div class="pt-feat-h">Client roster dashboard</div><div class="pt-feat-p">See receipt activity, plan adherence, last logged, current phase and progress trend in one view. Spot who needs a check-in instantly.</div></div>
         </div>
         <div class="pt-feat">
           <span class="pt-feat-icon">📋</span>
@@ -415,7 +415,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
         </div>
         <div class="pt-feat">
           <span class="pt-feat-icon">📲</span>
-          <div><div class="pt-feat-h">Your clients go viral for you</div><div class="pt-feat-p">When clients share their FitMunch progress cards on TikTok and IG, your name is on it. Free marketing every time a client posts.</div></div>
+          <div><div class="pt-feat-h">A nutrition layer, not a platform migration</div><div class="pt-feat-p">Use FitMunch where clients actually slip: the shop, the log, the plan and the check-in. Keep your existing coaching stack if it already works.</div></div>
         </div>
         <a href="/login.html?plan=starter#register" class="btn-primary" style="align-self:flex-start;margin-top:8px">Start PT trial — free 14 days →</a>
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -448,21 +448,21 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <div class="pricing-inner">
     <div style="text-align:center">
       <div class="sec-tag tag-green">Pricing</div>
-      <h2 class="sec-h">Start free. Upgrade when you're ready.</h2>
-      <p class="sec-sub" style="margin:0 auto 0;text-align:center">All prices in AUD. No lock-in. Cancel anytime.</p>
+      <h2 class="sec-h">Start with the shop. Upgrade when the loop sticks.</h2>
+      <p class="sec-sub" style="margin:0 auto 0;text-align:center">Consumer plans validate the habit. PT plans monetise the accountability layer. All prices in AUD.</p>
     </div>
     <div class="pricing-grid" style="margin-top:36px">
       <div class="plan-card">
         <div class="plan-name">Free</div>
         <div class="plan-price"><sup>$</sup>0<sub> forever</sub></div>
-        <div class="plan-desc">Perfect for getting started and seeing if it clicks.</div>
+        <div class="plan-desc">For testing the receipt-to-macro loop before paying.</div>
         <div class="plan-features">
-          <div class="pf"><span class="pf-check">✓</span>Macro tracking</div>
+          <div class="pf"><span class="pf-check">✓</span>Macro and food logging</div>
           <div class="pf"><span class="pf-check">✓</span>5 receipt scans/month</div>
-          <div class="pf"><span class="pf-check">✓</span>Shopping lists</div>
-          <div class="pf"><span class="pf-check">✓</span>Workout logging</div>
-          <div class="pf"><span class="pf-x">–</span>Progress charts</div>
-          <div class="pf"><span class="pf-x">–</span>Social sharing cards</div>
+          <div class="pf"><span class="pf-check">✓</span>Basic shopping lists</div>
+          <div class="pf"><span class="pf-check">✓</span>Starter meal planning</div>
+          <div class="pf"><span class="pf-x">–</span>Unlimited scans</div>
+          <div class="pf"><span class="pf-x">–</span>Advanced recipe advice</div>
           <div class="pf"><span class="pf-x">–</span>PT management tools</div>
         </div>
         <a href="/login.html" class="plan-cta cta-outline">Start free</a>
@@ -471,27 +471,27 @@ footer{background:var(--dark);padding:48px 40px 28px}
         <div class="plan-popular">Most popular</div>
         <div class="plan-name">Pro</div>
         <div class="plan-price"><sup>$</sup>19<sub>.99/mo AUD</sub></div>
-        <div class="plan-desc">For serious athletes who want the full picture.</div>
+        <div class="plan-desc">For lifters, busy households and goal-driven eaters who want the full loop.</div>
         <div class="plan-features">
           <div class="pf"><span class="pf-check">✓</span>Everything in Free</div>
           <div class="pf"><span class="pf-check">✓</span>Unlimited receipt scans</div>
-          <div class="pf"><span class="pf-check">✓</span>Progress charts + trends</div>
-          <div class="pf"><span class="pf-check">✓</span>Social sharing cards</div>
-          <div class="pf"><span class="pf-check">✓</span>AI meal suggestions</div>
-          <div class="pf"><span class="pf-check">✓</span>Budget shopping builder</div>
+          <div class="pf"><span class="pf-check">✓</span>Barcode-style food logging</div>
+          <div class="pf"><span class="pf-check">✓</span>Price-aware shopping builder</div>
+          <div class="pf"><span class="pf-check">✓</span>Recipe advice from your groceries</div>
+          <div class="pf"><span class="pf-check">✓</span>Meal plans from budget and macros</div>
         </div>
         <a href="/login.html?plan=pro#register" class="plan-cta cta-green">Start 14-day trial →</a>
       </div>
       <div class="plan-card">
         <div class="plan-name">PT Plan</div>
         <div class="plan-price"><sup>$</sup>59<sub>–99/mo AUD</sub></div>
-        <div class="plan-desc">Everything a personal trainer needs to run their business.</div>
+        <div class="plan-desc">The paid coaching lane for trainers who need nutrition accountability.</div>
         <div class="plan-features">
-          <div class="pf"><span class="pf-check">✓</span>Everything in Pro</div>
+          <div class="pf"><span class="pf-check">✓</span>Everything clients get in Pro</div>
           <div class="pf"><span class="pf-check">✓</span>Client roster dashboard</div>
           <div class="pf"><span class="pf-check">✓</span>Assign meal + workout plans</div>
-          <div class="pf"><span class="pf-check">✓</span>Client portal for each client</div>
-          <div class="pf"><span class="pf-check">✓</span>Unlimited client invites</div>
+          <div class="pf"><span class="pf-check">✓</span>Receipt compliance signals</div>
+          <div class="pf"><span class="pf-check">✓</span>Client portals and invite links</div>
         </div>
         <a href="/login.html?plan=starter#register" class="plan-cta cta-outline">Start PT trial →</a>
       </div>
@@ -499,36 +499,36 @@ footer{background:var(--dark);padding:48px 40px 28px}
   </div>
 </div>
 
-<!-- TESTIMONIALS -->
+<!-- PROOF -->
 <div class="testi-section">
   <div class="testi-inner">
     <div style="text-align:center">
-      <div class="sec-tag tag-green">What people are saying</div>
-      <h2 class="sec-h">Real results. Real Australians.</h2>
+      <div class="sec-tag tag-green">What is wired</div>
+      <h2 class="sec-h">The product spine is already in place.</h2>
     </div>
     <div class="testi-grid">
       <div class="testi-card">
-        <div class="stars">★★★★★</div>
-        <p class="testi-q">"The receipt scanner is genuinely insane. I scanned my Coles shop and instantly knew I had 900g of protein for the week. Posted it on TikTok and it went off."</p>
+        <div class="stars">LIVE</div>
+        <p class="testi-q">Receipt scanner, macro snapshot and meal planner are exposed in the live health check, with fallback planning when AI is unavailable.</p>
         <div class="testi-author">
-          <div class="t-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">DK</div>
-          <div><div class="t-name">Dylan K.</div><div class="t-role">Home gym · Brisbane, QLD</div></div>
+          <div class="t-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">CL</div>
+          <div><div class="t-name">Consumer Loop</div><div class="t-role">Receipt -> macros -> meal plan -> shopping list</div></div>
         </div>
       </div>
       <div class="testi-card">
-        <div class="stars">★★★★★</div>
-        <p class="testi-q">"I was sending spreadsheets to clients on WhatsApp. FitMunch changed that completely — I can see everything, clients actually log, and I've had zero cancellations since switching."</p>
+        <div class="stars">LIVE</div>
+        <p class="testi-q">PT accounts, client invites, plan assignment and compliance tracking are part of the trainer loop, so the paid lane sits on top of the consumer habit.</p>
         <div class="testi-author">
-          <div class="t-av" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">JM</div>
-          <div><div class="t-name">Jessica M.</div><div class="t-role">Personal Trainer · Sydney, NSW</div></div>
+          <div class="t-av" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">TL</div>
+          <div><div class="t-name">Trainer Loop</div><div class="t-role">Roster -> invites -> plans -> accountability</div></div>
         </div>
       </div>
       <div class="testi-card">
-        <div class="stars">★★★★★</div>
-        <p class="testi-q">"The budget shopping list is the best feature for me. I told it I want 150g protein/day on $80/week and it gave me exactly what to buy. Game changer for bulking on a budget."</p>
+        <div class="stars">NEXT</div>
+        <p class="testi-q">Barcode and supermarket pricing are present as product surfaces or estimates, but need a separate verification pass before being sold as fully complete.</p>
         <div class="testi-author">
-          <div class="t-av" style="background:linear-gradient(135deg,#dc2626,#f87171)">MT</div>
-          <div><div class="t-name">Marcus T.</div><div class="t-role">Home gym · Melbourne, VIC</div></div>
+          <div class="t-av" style="background:linear-gradient(135deg,#dc2626,#f87171)">CG</div>
+          <div><div class="t-name">Completion Gate</div><div class="t-role">Barcode + live price feeds + app-store readiness</div></div>
         </div>
       </div>
     </div>
@@ -537,13 +537,13 @@ footer{background:var(--dark);padding:48px 40px 28px}
 
 <!-- CTA -->
 <div class="cta-section">
-  <h2>Stop guessing.<br/>Start <em>knowing.</em></h2>
-  <p>Scan your first receipt in under 60 seconds. No app. No credit card. Just a browser link.</p>
+  <h2>Stop guessing.<br/>Run the <em>whole food loop.</em></h2>
+  <p>Start with one shop: scan the receipt, see the macros, build the meals, tighten the next grocery run.</p>
   <div class="cta-row">
     <a href="/login.html#register" class="btn-white">Start for free →</a>
-    <a href="#for-pts" class="btn-outline-w">For personal trainers</a>
+    <a href="/pricing" class="btn-outline-w">Compare plans</a>
   </div>
-  <div class="cta-trust"><span>✓ Free forever plan</span><span>✓ No credit card</span><span>✓ Works on any phone</span></div>
+  <div class="cta-trust"><span>✓ Free consumer start</span><span>✓ Pro nutrition loop</span><span>✓ PT accountability lane</span></div>
 </div>
 
 <!-- FOOTER -->
@@ -557,7 +557,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
           </div>
           <span style="font-size:.95rem;font-weight:900;color:#f1f5f9;letter-spacing:-.03em">Fit<span style="color:var(--green)">Munch</span></span>
         </div>
-        <p class="f-tagline">Track macros, scan receipts, hit your goals. Made in Australia.</p>
+        <p class="f-tagline">Receipts, macros, recipe advice, shopping lists and meal plans. Made in Australia.</p>
       </div>
       <div class="footer-col">
         <div class="fc-title">Product</div>
@@ -586,12 +586,12 @@ function setAud(type, el) {
   document.querySelectorAll('.aud-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   if (type === 'pt') {
-    document.querySelector('.hero h1').innerHTML = 'Manage every client.<br/>From one dashboard.<br/><span class="gr">Ditch the spreadsheets.</span>';
-    document.querySelector('.hero-sub').textContent = 'FitMunch gives personal trainers a full client management platform — compliance tracking, plan assignment, client portal and shopping lists. Your clients get the best tracking tool on the market. You get visibility over everything.';
+    document.querySelector('.hero h1').innerHTML = 'Coach the food loop.<br/>Not just the check-in.<br/><span class="gr">See the evidence.</span>';
+    document.querySelector('.hero-sub').textContent = 'FitMunch gives clients the receipt-to-meal-plan habit, then gives trainers the accountability layer: client roster, receipt evidence, plan assignment and compliance signals.';
     document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter#register" class="btn-primary">Start PT trial — free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
   } else {
-    document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Hit your goals.</span>';
-    document.querySelector('.hero-sub').textContent = 'Snap a photo of your supermarket receipt and FitMunch breaks down exactly what you\'ve bought — macros, protein haul, calorie budget. Then tracks every meal, builds your shopping list, and shares your progress to TikTok and IG.';
+    document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span>';
+    document.querySelector('.hero-sub').textContent = 'FitMunch links the whole food loop: receipt scans, barcode-style food logging, macro targets, price-aware shopping lists, recipe ideas, meal plans, and PT accountability when you want coaching behind it.';
     document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html#register" class="btn-primary">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
   }
 }

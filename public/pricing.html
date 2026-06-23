@@ -1,26 +1,130 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pricing | FitMunch</title><meta name="description" content="FitMunch pricing for receipt scanning, meal planning, nutrition insights, and personal trainer client management in Australia."><link rel="canonical" href="https://fitmunch.com.au/pricing"><link rel="stylesheet" href="/style.css"></head><body><main style="max-width:860px;margin:48px auto;padding:24px;font-family:system-ui"><a href="/">← FitMunch</a><h1>Pricing</h1><p>FitMunch helps you turn receipts into meal plans and nutrition insights. Plans for individuals and personal trainers.</p><h2>Consumer plans</h2><p>Free sample scan available. Starter and premium meal planning coming soon. Sign up to get early access.</p><h2>PT Starter</h2><p>$59/month — Client management, meal-plan assignment, progress tracking, receipt-to-plan support, and white-label reporting.</p><button onclick="startCheckout('pt-starter')" style="background:#10b981;color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;cursor:pointer;margin-bottom:24px">Start 14-Day Free Trial</button>
-<h2>PT Pro</h2><p>$99.00/month — Everything in PT Starter plus unlimited clients, advanced analytics, team features, and priority support.</p><button onclick="startCheckout('pt-pro')" style="background:#6366f1;color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;cursor:pointer;margin-bottom:24px">Start 14-Day Free Trial</button>
-<p>All prices in AUD. Cancel anytime. <a href="/refund">Refund policy</a>.</p><p style="margin-top:32px;color:#667">General food planning support only. Not medical advice.</p>
-<script>
-async function startCheckout(plan) {
-  const email = prompt('Enter your email to start your free trial:');
-  if (!email) return;
-  const btn = event.target;
-  btn.disabled = true;
-  btn.textContent = 'Redirecting...';
-  try {
-    const res = await fetch('/api/quick-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, plan })
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>FitMunch Pricing | Macros, Shopping, Recipes, Meal Plans and PTs</title>
+  <meta name="description" content="FitMunch pricing for Australian receipt scanning, macro tracking, price-aware shopping lists, recipe advice, meal plans, and personal trainer accountability."/>
+  <link rel="canonical" href="https://fitmunch.com.au/pricing"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--ink:#0f172a;--muted:#526070;--line:#dbe4ef;--bg:#f7faf7;--green:#16a34a;--dark:#07130d;--amber:#b45309}
+    *{box-sizing:border-box}body{margin:0;font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+    nav{height:58px;display:flex;align-items:center;gap:18px;padding:0 28px;border-bottom:1px solid var(--line);background:rgba(247,250,247,.94);position:sticky;top:0}
+    nav a{color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:700}.brand{font-size:1.05rem!important;font-weight:900!important;color:var(--ink)!important}.brand span{color:var(--green)}
+    .spacer{flex:1}.wrap{max-width:1060px;margin:0 auto;padding:54px 24px}.hero{max-width:780px}.kicker{display:inline-flex;border:1px solid #bbf7d0;background:#eefdf3;color:#15803d;border-radius:999px;padding:5px 12px;font-size:.72rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+    h1{font-size:clamp(2.2rem,5vw,4rem);letter-spacing:-.05em;line-height:1.02;margin:18px 0 16px}p{color:var(--muted);line-height:1.7}.hero p{font-size:1.05rem;max-width:680px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:36px}.plan{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px;position:relative}.plan.main{border:2px solid var(--green);box-shadow:0 16px 42px rgba(22,163,74,.12)}
+    .badge{position:absolute;top:-13px;left:20px;background:var(--green);color:#fff;border-radius:999px;padding:4px 11px;font-size:.68rem;font-weight:900}.name{font-size:.78rem;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em}.price{font-size:2.35rem;font-weight:900;letter-spacing:-.05em;margin:8px 0}.price small{font-size:.78rem;color:var(--muted);font-weight:700}.desc{min-height:58px}
+    ul{list-style:none;padding:0;margin:18px 0 22px;display:grid;gap:9px}li{font-size:.86rem;color:#334155;line-height:1.45}li:before{content:"✓";color:var(--green);font-weight:900;margin-right:8px}.muted:before{content:"–";color:#94a3b8}
+    .btn{display:flex;justify-content:center;align-items:center;min-height:45px;border-radius:9px;text-decoration:none;font-weight:900;border:1px solid var(--line);color:var(--ink);background:#fff;cursor:pointer;width:100%}.btn.green{background:var(--green);border-color:var(--green);color:#fff}.btn:disabled{opacity:.6;cursor:wait}
+    .proof{margin-top:42px;display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px}.box h2{margin:0 0 10px;font-size:1.2rem}.checks{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.check{background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:12px}.check strong{display:block;font-size:.82rem}.check span{font-size:.76rem;color:var(--muted);line-height:1.45}
+    .note{font-size:.78rem;color:#64748b;margin-top:24px}.err{margin-top:10px;font-size:.82rem;color:#b91c1c;min-height:20px}
+    @media(max-width:820px){nav{padding:0 16px}.wrap{padding:36px 16px}.grid,.proof{grid-template-columns:1fr}.desc{min-height:0}.checks{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="brand" href="/">Fit<span>Munch</span></a>
+    <a href="/#features">Features</a>
+    <a href="/for-pts">For PTs</a>
+    <div class="spacer"></div>
+    <a href="/login.html">Sign in</a>
+  </nav>
+  <main class="wrap">
+    <section class="hero">
+      <div class="kicker">Consumer loop + PT revenue lane</div>
+      <h1>Start with the shop. Upgrade when the food loop sticks.</h1>
+      <p>FitMunch connects receipt scans, barcode-style food logging, macro targets, price-aware shopping lists, recipe advice and meal plans. PT plans add the accountability layer for coaches managing real clients.</p>
+    </section>
+    <section class="grid" aria-label="FitMunch pricing plans">
+      <article class="plan">
+        <div class="name">Free</div>
+        <div class="price">$0 <small>forever</small></div>
+        <p class="desc">For testing whether receipt-first macro tracking fits your week.</p>
+        <ul>
+          <li>Macro and food logging</li>
+          <li>5 receipt scans per month</li>
+          <li>Starter meal planning</li>
+          <li>Basic shopping lists</li>
+          <li class="muted">Advanced recipe advice</li>
+          <li class="muted">PT accountability tools</li>
+        </ul>
+        <a class="btn" href="/login.html#register">Start free</a>
+      </article>
+      <article class="plan main">
+        <div class="badge">Core offer</div>
+        <div class="name">Pro</div>
+        <div class="price">$19.99 <small>/mo AUD</small></div>
+        <p class="desc">For lifters, households and goal-driven eaters who want the full grocery-to-meal-plan loop.</p>
+        <ul>
+          <li>Unlimited receipt scans</li>
+          <li>Barcode-style food logging</li>
+          <li>Macro targets and trends</li>
+          <li>Estimated price-aware shopping builder</li>
+          <li>Recipe advice from groceries</li>
+          <li>Meal plans from budget and macros</li>
+        </ul>
+        <a class="btn green" href="/login.html?plan=pro#register">Start Pro</a>
+      </article>
+      <article class="plan">
+        <div class="name">PT Starter / Pro</div>
+        <div class="price">$59-99 <small>/mo AUD</small></div>
+        <p class="desc">For trainers who want client nutrition evidence without chasing screenshots.</p>
+        <ul>
+          <li>Client roster dashboard</li>
+          <li>Invite links and client portals</li>
+          <li>Receipt compliance signals</li>
+          <li>Assign meal and workout plans</li>
+          <li>Progress and check-in context</li>
+          <li>14-day PT trial via Stripe checkout</li>
+        </ul>
+        <button class="btn green" data-plan="pt-starter" type="button">Start PT trial</button>
+        <div class="err" id="checkout-msg"></div>
+      </article>
+    </section>
+    <section class="proof">
+      <div class="box">
+        <h2>What the pricing now reflects</h2>
+        <p>FitMunch is not just a PT compliance page. The consumer habit is the base: scan the shop, see the macros, build the list, make the meals. PTs pay for visibility and accountability on top of that habit.</p>
+      </div>
+      <div class="box">
+        <h2>Completion gate</h2>
+        <div class="checks">
+          <div class="check"><strong>Live</strong><span>Receipt scanner, meal planner, auth, Stripe, customer email.</span></div>
+          <div class="check"><strong>Verify next</strong><span>Barcode flow, live supermarket price feeds, app-store readiness.</span></div>
+        </div>
+      </div>
+    </section>
+    <p class="note">All prices are in AUD. Cancel anytime. General food planning support only, not medical advice.</p>
+  </main>
+  <script>
+    async function startCheckout(plan, button) {
+      const email = prompt('Enter your email to start your free trial:');
+      const msg = document.getElementById('checkout-msg');
+      if (!email) return;
+      button.disabled = true;
+      button.textContent = 'Opening checkout...';
+      msg.textContent = '';
+      try {
+        const res = await fetch('/api/quick-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, plan })
+        });
+        const data = await res.json();
+        if (data.success && data.url) window.location.href = data.url;
+        else throw new Error(data.error || 'Checkout failed');
+      } catch (err) {
+        msg.textContent = 'Checkout did not open. Email hello@fitmunch.com.au and mention ' + plan + '.';
+        button.disabled = false;
+        button.textContent = 'Start PT trial';
+      }
+    }
+    document.querySelectorAll('[data-plan]').forEach((button) => {
+      button.addEventListener('click', () => startCheckout(button.dataset.plan, button));
     });
-    const data = await res.json();
-    if (data.success) window.location.href = data.url;
-    else { alert('Error: ' + (data.error || 'Unknown')); btn.disabled = false; btn.textContent = 'Start 14-Day Free Trial'; }
-  } catch(e) {
-    alert('Network error. Please try again.');
-    btn.disabled = false;
-    btn.textContent = 'Start 14-Day Free Trial';
-  }
-}
-</script></main></body></html>
+  </script>
+</body>
+</html>
