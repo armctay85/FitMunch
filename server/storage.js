@@ -16,8 +16,12 @@ const pool = new Pool({
 // Initialize Drizzle ORM
 const db = drizzle(pool, { schema });
 
+// Self-healing schema — ensures all tables exist on first DB use (cached).
+const { ensureSchema } = require('../lib/db-migrate');
+
 // User operations
 async function createUser(email, name, passwordHash) {
+  await ensureSchema();
   const [user] = await db.insert(schema.users).values({
     email,
     name,
@@ -27,11 +31,13 @@ async function createUser(email, name, passwordHash) {
 }
 
 async function getUserByEmail(email) {
+  await ensureSchema();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email));
   return user;
 }
 
 async function getUserById(id) {
+  await ensureSchema();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
   return user;
 }
@@ -70,6 +76,7 @@ async function ensureUserExists(userId, email = null, name = 'Anonymous User') {
 
 // Profile operations
 async function createOrUpdateProfile(userId, profileData) {
+  await ensureSchema();
   await ensureUserExists(userId);
   
   const existing = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId));
@@ -87,6 +94,7 @@ async function createOrUpdateProfile(userId, profileData) {
 }
 
 async function getProfile(userId) {
+  await ensureSchema();
   const [profile] = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId));
   return profile;
 }
