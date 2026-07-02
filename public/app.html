@@ -1452,6 +1452,17 @@ window.onunhandledrejection = e => console.error('[FitMunch promise]', e.reason?
 async function boot() {
   if (!S.token) { window.location.href = '/login.html'; return; }
   try {
+    // Returning from Stripe checkout: sync tier from Stripe directly so the
+    // upgrade shows even if the webhook is delayed or misrouted.
+    if (new URLSearchParams(location.search).get('subscribed') === '1') {
+      try {
+        const sync = await API('/stripe/sync-subscription', { method: 'POST' });
+        if (sync.success && sync.tier && sync.tier !== 'free') {
+          toast('Premium active — welcome aboard! 🎉');
+        }
+      } catch (_) {}
+      window.history.replaceState({}, '', '/app.html');
+    }
     const me = await API('/auth/me');
     if (!me.success) { logout(); return; }
     S.user = me.user;

@@ -530,6 +530,48 @@ app.post('/api/checkout', async (req, res) => {
   }
 });
 
+// ── SUBSCRIPTION SYNC (webhook-independent) ───────────────────────────────────
+// Called by the app when returning from Stripe checkout (?subscribed=1) and
+// available any time from Billing. Reads the customer's subscriptions straight
+// from Stripe and updates the tier — so a missed/misrouted webhook can never
+// leave a paying customer stuck on free.
+app.post('/api/stripe/sync-subscription', async (req, res) => {
+  if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader?.startsWith('Bearer '))
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    const jwtLib = require('jsonwebtoken');
+    const decoded = jwtLib.verify(authHeader.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key');
+
+    const { getUserById, updateUserSubscription } = require('./server/storage.js');
+    const user = await getUserById(decoded.userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+    if (!user.stripeCustomerId) {
+      return res.json({ success: true, tier: user.subscriptionTier || 'free', synced: false });
+    }
+
+    const subs = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: 'all', limit: 10 });
+    const live = subs.data.find(s => ['active', 'trialing'].includes(s.status));
+    let tier = 'free';
+    let expiresAt = null;
+    if (live) {
+      const priceId = live.items?.data[0]?.price?.id;
+      tier = PRICE_TO_TIER[priceId] || 'starter';
+      const periodEnd = live.current_period_end || live.items?.data[0]?.current_period_end;
+      expiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
+    }
+    if ((user.subscriptionTier || 'free') !== tier) {
+      await updateUserSubscription(user.id, tier, expiresAt);
+      console.log(`[sync-subscription] ${user.email}: ${user.subscriptionTier || 'free'} → ${tier}`);
+    }
+    return res.json({ success: true, tier, status: live?.status || 'none', synced: true });
+  } catch (err) {
+    console.error('[sync-subscription]', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint to complete subscription after payment success
 app.post('/api/complete-subscription', async (req, res) => {
   if (!stripe) {
