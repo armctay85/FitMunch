@@ -6,9 +6,18 @@
  */
 
 const express = require('express');
-const https   = require('https');
 const jwt     = require('jsonwebtoken');
+const aiClient = require('./lib/ai-client');
+const aiUsage  = require('./lib/ai-usage');
 const router  = express.Router();
+
+async function userTier(userId) {
+  try {
+    const { getUserById } = require('./server/storage.js');
+    const user = await getUserById(userId);
+    return user?.subscriptionTier || 'free';
+  } catch { return 'free'; }
+}
 
 // ── AUTH GUARD ────────────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -81,34 +90,8 @@ function lookupPrice(name) {
   return { price: 2.50, unit: 'item', per: '1', aisle: 'Other' }; // default estimate
 }
 
-// ── CLAUDE API CALL ───────────────────────────────────────────────────────────
-function callClaude(prompt) {
-  return new Promise((resolve, reject) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return reject(new Error('ANTHROPIC_API_KEY not set'));
-    const body = JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const req = https.request({
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: { 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','Content-Length':Buffer.byteLength(body) }
-    }, res => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        try {
-          const r = JSON.parse(data);
-          if (r.error) return reject(new Error(r.error.message));
-          resolve(r.content[0].text);
-        } catch(e) { reject(new Error('Failed to parse Claude response')); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body); req.end();
-  });
-}
+// AI calls go through lib/ai-client (Gemini-first, falls back through Grok →
+// OpenAI → Anthropic), so a single provider outage can't break plan generation.
 
 // ── GENERATE MEAL PLAN ────────────────────────────────────────────────────────
 router.post('/generate', requireAuth, async (req, res) => {
@@ -165,17 +148,32 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
   "avgDailyProtein": number
 }`;
 
-    const raw = await callClaude(prompt);
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
+    }
 
-    // Extract JSON from response (handle any wrapping)
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in response');
-    const plan = JSON.parse(jsonMatch[0]);
+    // Free-tier gating — plan generation is a heavyweight AI call.
+    const tier = await userTier(req.user.userId);
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
+    if (!gate.allowed) {
+      return res.status(429).json({
+        success: false, upgrade: true, limit: gate.limit, used: gate.used,
+        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
+      });
+    }
+
+    const r = await aiClient.chatJson({
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 4096,
+      temperature: 0.6,
+    });
+    if (!r.ok) throw new Error(r.error || 'AI generation failed');
+    const plan = r.data;
 
     // Validate structure
     if (!plan.days || !Array.isArray(plan.days)) throw new Error('Invalid plan structure');
 
-    res.json({ success: true, plan });
+    res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch(err) {
     console.error('[meal-planner]', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -264,7 +262,7 @@ router.get('/', (_req, res) => res.json({
     'POST /api/meal-plan/shopping': 'Consolidated shopping list with AU prices (requires auth + plan data)',
   },
   requiresAuth: true,
-  aiProvider: process.env.ANTHROPIC_API_KEY ? 'claude' : process.env.GEMINI_API_KEY ? 'gemini' : 'none',
+  aiProvider: aiClient.providerName() || 'none',
 }));
 
 router.get('/generate', (_req, res) => res.json({

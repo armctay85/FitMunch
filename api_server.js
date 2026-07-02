@@ -935,9 +935,165 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       tier,
       month: aiUsage.monthKey(),
       provider: aiClient.providerName(),
-      model: aiClient.providerName() === 'openai' ? aiClient.openaiModel() : aiClient.anthropicModel(),
+      model: {
+        gemini: aiClient.geminiModel,
+        grok: aiClient.grokModel,
+        openai: aiClient.openaiModel,
+        anthropic: aiClient.anthropicModel,
+      }[aiClient.providerName()]?.() || null,
     });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── AI WORKOUT PLAN GENERATION ────────────────────────────────────────────────
+router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
+  try {
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
+    }
+    const {
+      goal = 'general_fitness',
+      level = 'intermediate',
+      daysPerWeek = 3,
+      equipment = 'gym',       // 'gym' | 'home' | 'bodyweight'
+      focus = '',              // free text, e.g. "bigger arms, protect lower back"
+      sessionMinutes = 60,
+    } = req.body || {};
+
+    let tier = 'free';
+    try {
+      const user = await getUserById(req.user.userId);
+      tier = user?.subscriptionTier || 'free';
+    } catch (_) {}
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
+    if (!gate.allowed) {
+      return res.status(429).json({
+        success: false, upgrade: true, limit: gate.limit, used: gate.used,
+        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
+      });
+    }
+
+    const days = Math.min(Math.max(parseInt(daysPerWeek, 10) || 3, 1), 7);
+    const prompt = `You are an Australian strength and conditioning coach building a weekly program.
+
+Goal: ${goal}
+Experience level: ${level}
+Training days per week: ${days}
+Equipment: ${equipment}
+Session length: ~${sessionMinutes} minutes
+${focus ? `Special focus / constraints: ${focus}` : ''}
+
+Design a practical ${days}-day weekly program. Progressive overload friendly, sensible exercise order (compounds first), realistic volume.
+
+Return ONLY valid JSON, no markdown:
+{
+  "planName": "string",
+  "summary": "one sentence",
+  "level": "${level}",
+  "frequency": ${days},
+  "workouts": [
+    {"day": 1, "name": "e.g. Push A", "sets": 4, "reps": "8-10", "rest": 90, "notes": "optional cue"}
+  ]
+}
+Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give 4-7 exercises per day. "name" is the exercise name prefixed by nothing. Include a short warm-up note in "notes" of each day's first exercise.`;
+
+    const r = await aiClient.chatJson({
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 3000,
+      temperature: 0.6,
+    });
+    if (!r.ok) {
+      return res.status(502).json({ success: false, error: r.error || 'ai_error', provider: r.provider || null });
+    }
+    const plan = r.data;
+    if (!plan.workouts || !Array.isArray(plan.workouts)) {
+      return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
+    }
+    res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
+  } catch (err) {
+    console.error('[ai/workout-plan]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
+router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
+  try {
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
+    }
+    let tier = 'free';
+    let profile = null;
+    try {
+      const user = await getUserById(req.user.userId);
+      tier = user?.subscriptionTier || 'free';
+      profile = await getProfile(req.user.userId).catch(() => null);
+    } catch (_) {}
+
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
+    if (!gate.allowed) {
+      return res.status(429).json({
+        success: false, upgrade: true, limit: gate.limit, used: gate.used,
+        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited reviews.`,
+      });
+    }
+
+    // Gather the last 7 days of real data.
+    const since = new Date(Date.now() - 7 * 86400000);
+    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
+    const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
+    const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
+
+    const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
+    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
+    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
+    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
+
+    const dataBlock = [
+      `Days with meals logged (last 7): ${daysLogged}`,
+      `Total calories logged: ${totCal} (avg ${daysLogged ? Math.round(totCal / daysLogged) : 0}/logged day)`,
+      `Total protein logged: ${Math.round(totProt)}g (avg ${daysLogged ? Math.round(totProt / daysLogged) : 0}g/logged day)`,
+      `Workouts completed: ${weekWorkouts.length}` + (weekWorkouts.length ? ` (${weekWorkouts.map(w => w.workoutType).slice(0, 5).join(', ')})` : ''),
+      progress?.length ? `Recent weigh-ins: ${progress.slice(0, 3).map(p => `${p.weight}kg`).join(' → ')}` : 'No weigh-ins recorded',
+      profile?.fitnessGoal ? `Goal: ${profile.fitnessGoal}` : '',
+      profile?.targetCalories ? `Calorie target: ${profile.targetCalories}/day` : '',
+      profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
+    ].filter(Boolean).join('\n');
+
+    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.';
+    const prompt = `Here is the user's last 7 days of real logged data:
+
+${dataBlock}
+
+Write a weekly review as JSON only, no markdown:
+{
+  "headline": "one punchy sentence summarising the week",
+  "wins": ["2-3 short specific wins based on the data"],
+  "focus": ["2-3 short specific improvements for next week"],
+  "score": <integer 1-10 for overall week consistency>
+}
+If very little data was logged, be encouraging about starting and make "focus" about building a logging habit.`;
+
+    const r = await aiClient.chatJson({
+      system,
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 700,
+      temperature: 0.7,
+    });
+    if (!r.ok) {
+      return res.status(502).json({ success: false, error: r.error || 'ai_error', provider: r.provider || null });
+    }
+    res.json({
+      success: true,
+      review: r.data,
+      stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
+      provider: r.provider,
+      remaining: gate.remaining,
+    });
+  } catch (err) {
+    console.error('[ai/weekly-review]', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

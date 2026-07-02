@@ -135,6 +135,9 @@ app.get('/', (req, res) => {
 // Configure custom domain support
 configureCustomDomain(app);
 
+// Stripe webhooks must see the raw request body. Register this before global JSON parsing.
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 // Add body size limits for security and parse JSON/URL-encoded data
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
@@ -194,7 +197,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const customerEmail = session.customer_details?.email || session.metadata?.email;
         const customerName = session.customer_details?.name || '';
         const planId = session.metadata?.plan || '';
-        const planLabels = { 'pt-starter': 'Starter', 'pt-pro': 'Pro' };
+        const planLabels = { 'pt-starter': 'Starter', 'pt-pro': 'Pro', 'premium': 'Premium' };
         const planLabel = planLabels[planId] || planId || 'PT';
         console.log(`Checkout completed: ${customerEmail} → plan ${planId}`);
 
@@ -210,7 +213,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       case 'customer.subscription.updated': {
         const sub = event.data.object;
         const priceId = sub.items?.data[0]?.price?.id;
-        const tier = priceId === 'price_1T3SyDGMuYRuJYDrF8mvMrwi' ? 'pro' : 'starter';
+        const tier = PRICE_TO_TIER[priceId] || 'starter';
         const active = ['active','trialing'].includes(sub.status);
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
         if (users[0]) await updateUserSubscription(users[0].id, active ? tier : 'free', sub.id);
@@ -382,11 +385,21 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
 const PRICE_IDS = {
   'pt-starter': 'price_1T3SvgGMuYRuJYDrOyR2hYoq', // FitMunch PT Starter $59.99 AUD/mo
   'pt-pro':     'price_1T3SyDGMuYRuJYDrF8mvMrwi', // FitMunch PT Pro     $99.00 AUD/mo
+  'premium':    'price_1ToYrXGMuYRuJYDrwHtvWD1c', // FitMunch Premium    $19.99 AUD/mo (consumer)
+};
+
+// Maps a Stripe price back to the subscription tier stored on the user.
+const PRICE_TO_TIER = {
+  'price_1T3SvgGMuYRuJYDrOyR2hYoq': 'starter',
+  'price_1T3SyDGMuYRuJYDrF8mvMrwi': 'pro',
+  'price_1ToYrXGMuYRuJYDrwHtvWD1c': 'premium',
 };
 
 function normalizeCheckoutPlan(plan, role) {
   if (role === 'pt' && plan === 'starter') return 'pt-starter';
   if (role === 'pt' && plan === 'pro') return 'pt-pro';
+  // Consumers upgrading from the app always land on premium.
+  if (role !== 'pt' && ['premium', 'starter', 'pro'].includes(plan)) return 'premium';
   return plan;
 }
 
@@ -443,20 +456,16 @@ app.post('/api/checkout', async (req, res) => {
     if (!requestedPlan) {
       return res.status(400).json({ error: 'Plan is required.' });
     }
-    const isPtPlan = ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(requestedPlan);
+    const isPtPlan = ['pt-starter', 'pt-pro'].includes(requestedPlan);
     if (isPtPlan && decoded.role !== 'pt') {
       return res.status(403).json({
-        error: 'PT checkout is only available for trainer accounts. Personal accounts stay on the free web plan for now.'
+        error: 'PT plans are only available for trainer accounts.'
       });
     }
     const plan = normalizeCheckoutPlan(requestedPlan, decoded.role);
     const priceId = PRICE_IDS[plan];
     if (!priceId) {
-      return res.status(400).json({
-        error: decoded.role === 'pt'
-          ? 'Invalid PT plan.'
-          : 'Consumer checkout is not configured on this web flow yet. Please create your free account first.'
-      });
+      return res.status(400).json({ error: `Unknown plan: ${requestedPlan}` });
     }
 
     // Get or create Stripe customer

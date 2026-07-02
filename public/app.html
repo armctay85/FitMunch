@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch v1771841022</title>
+<title>FitMunch — Your AI Health Partner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
@@ -295,25 +295,33 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 </nav>
 
 <div class="shell">
-<!-- SIDEBAR — PT VIEW -->
+<!-- SIDEBAR — MAIN (consumer-first; Trainer tools as secondary lane) -->
 <nav class="sidebar" id="sidebar-pt" style="display:none">
-  <div class="sb-section-label">Manage</div>
-  <button class="sb-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="sb-icon">⚡</span>Dashboard</button>
-  <button class="sb-item" onclick="nav('clients')" id="nav-clients"><span class="sb-icon">👥</span>Clients<span class="sb-badge" id="sb-clients">0</span></button>
-  <div class="sb-section-label">Plans</div>
-  <button class="sb-item" onclick="nav('meal-plans')" id="nav-meal-plans"><span class="sb-icon">🥗</span>Meal Plans</button>
-  <button class="sb-item" onclick="nav('workout-plans')" id="nav-workout-plans"><span class="sb-icon">🏋️</span>Workout Plans</button>
-  <div class="sb-section-label">Tools</div>
+  <div class="sb-section-label">Today</div>
+  <button class="sb-item active" data-nav="portal-home" onclick="nav('portal-home')"><span class="sb-icon">🏠</span>Home</button>
+  <button class="sb-item" data-nav="ai-coach" onclick="nav('ai-coach')" id="nav-ai-coach"><span class="sb-icon">🤖</span>AI Coach</button>
+  <div class="sb-section-label">Track</div>
+  <button class="sb-item" data-nav="portal-meals" onclick="nav('portal-meals')"><span class="sb-icon">🍽️</span>Log Meals</button>
+  <button class="sb-item" data-nav="portal-workouts" onclick="nav('portal-workouts')"><span class="sb-icon">💪</span>Log Workout</button>
+  <button class="sb-item" data-nav="portal-progress" onclick="nav('portal-progress')"><span class="sb-icon">📈</span>Progress</button>
+  <div class="sb-section-label">Plan</div>
+  <button class="sb-item" onclick="nav('meal-plans')" id="nav-meal-plans"><span class="sb-icon">🥗</span>Meal Planner</button>
+  <button class="sb-item" onclick="nav('workout-plans')" id="nav-workout-plans"><span class="sb-icon">🏋️</span>Workout Planner</button>
   <button class="sb-item" onclick="nav('shopping-lists')" id="nav-shopping-lists"><span class="sb-icon">🛒</span>Shopping Lists</button>
-  <button class="sb-item" onclick="nav('favourites')" id="nav-favourites"><span class="sb-icon">❤️</span>Favourites</button>
   <button class="sb-item" onclick="nav('receipt-scanner')" id="nav-receipt-scanner"><span class="sb-icon">📸</span>Receipt Scanner</button>
+  <div class="sb-section-label">More</div>
+  <button class="sb-item" onclick="nav('favourites')" id="nav-favourites"><span class="sb-icon">❤️</span>Favourites</button>
   <button class="sb-item" onclick="nav('billing')" id="nav-billing"><span class="sb-icon">💳</span>Billing</button>
+  <div class="sb-section-label">Trainer</div>
+  <button class="sb-item" onclick="nav('dashboard')" id="nav-dashboard"><span class="sb-icon">⚡</span>Trainer Dashboard</button>
+  <button class="sb-item" onclick="nav('clients')" id="nav-clients"><span class="sb-icon">👥</span>Clients<span class="sb-badge" id="sb-clients">0</span></button>
 </nav>
 
 <!-- SIDEBAR — CLIENT VIEW -->
 <nav class="sidebar" id="sidebar-client" style="display:none">
   <div class="sb-section-label">Today</div>
   <button class="sb-item active" onclick="nav('portal-home')" id="nav-portal-home"><span class="sb-icon">🏠</span>Home</button>
+  <button class="sb-item" data-nav="ai-coach" onclick="nav('ai-coach')"><span class="sb-icon">🤖</span>AI Coach</button>
   <button class="sb-item" onclick="nav('portal-plan')" id="nav-portal-plan"><span class="sb-icon">📋</span>My Plan</button>
   <div class="sb-section-label">Log</div>
   <button class="sb-item" onclick="nav('portal-meals')" id="nav-portal-meals"><span class="sb-icon">🥗</span>Log Meals</button>
@@ -327,8 +335,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 <div class="main" id="app-main">
 
-<!-- ══ PT: DASHBOARD ══ -->
-<div class="view active" id="view-dashboard">
+<!-- ══ TRAINER: DASHBOARD ══ -->
+<div class="view" id="view-dashboard">
   <div class="view-header">
     <div><div class="view-title" id="dash-greeting">Good morning</div><div class="view-sub" id="dash-sub">Welcome to FitMunch</div></div>
     <div class="view-actions"><button class="btn btn-green" onclick="openInviteModal()">+ Invite Client</button></div>
@@ -468,7 +476,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
           <span style="font-size:28px">🤖</span>
           <div>
             <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly meal plan</div>
-            <div style="font-size:.75rem;color:#166534">Claude AI · takes ~15 seconds · real Woolies/Coles ingredients</div>
+            <div style="font-size:.75rem;color:#166534">FitMunch AI · takes ~15 seconds · real Woolies/Coles ingredients</div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -523,7 +531,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <!-- Loading state -->
     <div id="mp-loading" style="display:none;text-align:center;padding:48px 20px">
       <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
-      <div style="font-size:.9rem;font-weight:700;color:var(--text)">Claude is writing your meal plan…</div>
+      <div style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is writing your meal plan…</div>
       <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and budget. Usually 10–20 seconds.</div>
     </div>
 
@@ -556,13 +564,106 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
-<!-- ══ PT: WORKOUT PLANS ══ -->
+<!-- ══ WORKOUT PLANS — AI-POWERED ══ -->
 <div class="view" id="view-workout-plans">
   <div class="view-header">
-    <div><div class="view-title">Workout Plans</div><div class="view-sub">Design programs and assign to clients.</div></div>
-    <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-workoutplan')">+ New Plan</button></div>
+    <div><div class="view-title">🏋️ Workout Planner</div><div class="view-sub">AI builds your weekly program. You train.</div></div>
+    <div class="view-actions"><button class="btn btn-ghost2 btn-sm" onclick="openModal('modal-workoutplan')">+ Manual plan</button></div>
   </div>
   <div class="scroll-body">
+
+    <!-- AI Generator Card -->
+    <div class="card" id="wp-generator" style="margin-bottom:16px;border:2px solid #bbf7d0;background:linear-gradient(135deg,#f0fdf4,#fff)">
+      <div class="card-body" style="padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="font-size:28px">🤖</span>
+          <div>
+            <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly program</div>
+            <div style="font-size:.75rem;color:#166534">FitMunch AI · sensible volume, compounds first, progressive overload friendly</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-field">
+            <label class="form-label">My goal</label>
+            <select id="wpg-goal" class="form-select">
+              <option value="muscle_gain">💪 Build muscle</option>
+              <option value="lose_weight">🔥 Lose fat</option>
+              <option value="strength">🏋️ Get stronger</option>
+              <option value="general_fitness">🏃 General fitness</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Experience</label>
+            <select id="wpg-level" class="form-select">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate" selected>Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-field">
+            <label class="form-label">Days per week</label>
+            <select id="wpg-days" class="form-select">
+              <option value="2">2 days</option>
+              <option value="3" selected>3 days</option>
+              <option value="4">4 days</option>
+              <option value="5">5 days</option>
+              <option value="6">6 days</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Equipment</label>
+            <select id="wpg-equipment" class="form-select">
+              <option value="gym" selected>Full gym</option>
+              <option value="home">Home (dumbbells/bands)</option>
+              <option value="bodyweight">Bodyweight only</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Session length</label>
+            <select id="wpg-minutes" class="form-select">
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60" selected>60 min</option>
+              <option value="90">90 min</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field" style="margin-bottom:16px">
+          <label class="form-label">Anything specific? <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input class="form-input" id="wpg-focus" placeholder="e.g. bigger arms, dodgy left knee, hate burpees"/>
+        </div>
+        <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="wpg-gen-btn" onclick="generateWorkoutPlan()">
+          ✨ Generate my program →
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="wpg-loading" style="display:none;text-align:center;padding:48px 20px">
+      <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
+      <div style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is building your program…</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Usually 10–20 seconds.</div>
+    </div>
+
+    <!-- Generated plan preview -->
+    <div id="wpg-output" style="display:none;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:.92rem;font-weight:800" id="wpg-plan-name"></div>
+          <div style="font-size:.75rem;color:var(--text3)" id="wpg-plan-summary"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost2 btn-sm" onclick="generateWorkoutPlan()">↻ Regenerate</button>
+          <button class="btn btn-green btn-sm" onclick="saveGeneratedWorkoutPlan()">💾 Save program</button>
+        </div>
+      </div>
+      <div id="wpg-days-out"></div>
+    </div>
+
+    <!-- Saved plans -->
+    <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">Saved Programs</div>
     <div class="plan-grid" id="workout-plans-grid">
       <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
     </div>
@@ -624,33 +725,63 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
-<!-- ══ PT: BILLING ══ -->
+<!-- ══ BILLING ══ -->
 <div class="view" id="view-billing">
-  <div class="view-header"><div><div class="view-title">Billing</div><div class="view-sub">Manage your subscription.</div></div></div>
+  <div class="view-header"><div><div class="view-title">Upgrade</div><div class="view-sub">Unlimited AI, no monthly caps. Cancel anytime.</div></div></div>
   <div class="scroll-body">
+    <div id="billing-usage" style="max-width:700px;margin-bottom:14px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px">
       <div class="card" style="border:2px solid var(--border)">
         <div class="card-body">
-          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Starter</div>
-          <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$59<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
-          <div style="font-size:.78rem;color:var(--text2);margin:10px 0">Up to 10 clients</div>
-          <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('starter')">Select plan</button>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Free</div>
+          <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+          <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
+            <li>Meal, workout &amp; progress logging</li>
+            <li>10 AI actions per month</li>
+            <li>Shopping lists &amp; favourites</li>
+          </ul>
+          <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" disabled>Your current plan</button>
         </div>
       </div>
       <div class="card" style="border:2px solid var(--green2)">
         <div class="card-body">
-          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:8px">Pro — Most popular</div>
-          <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
-          <div style="font-size:.78rem;color:var(--text2);margin:10px 0">Unlimited clients + all features</div>
-          <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('pro')">Select plan →</button>
+          <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:8px">Premium — 14 days free</div>
+          <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+          <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
+            <li><strong>Unlimited</strong> AI coach chat</li>
+            <li><strong>Unlimited</strong> meal &amp; workout plans</li>
+            <li><strong>Unlimited</strong> receipt scans &amp; weekly reviews</li>
+          </ul>
+          <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium')">Start free trial →</button>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:700px;margin-top:24px">
+      <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">For personal trainers</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="card" style="border:1px solid var(--border)">
+          <div class="card-body">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Starter</div>
+            <div style="font-size:1.3rem;font-weight:900;letter-spacing:-.04em">$59.99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+            <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients + client portal</div>
+            <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter')">Select</button>
+          </div>
+        </div>
+        <div class="card" style="border:1px solid var(--border)">
+          <div class="card-body">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Pro</div>
+            <div style="font-size:1.3rem;font-weight:900;letter-spacing:-.04em">$99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+            <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients + all features</div>
+            <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro')">Select</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ══ CLIENT: HOME ══ -->
-<div class="view" id="view-portal-home">
+<!-- ══ HOME (default for everyone) ══ -->
+<div class="view active" id="view-portal-home">
   <div class="view-header">
     <div><div class="view-title" id="portal-greeting">Good morning</div><div class="view-sub" id="portal-pt-name">Loading your data…</div></div>
   </div>
@@ -687,11 +818,58 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       </div>
     </div>
 
+    <!-- Weekly AI Review -->
+    <div class="card" id="weekly-review-card" style="margin-top:14px">
+      <div class="card-header">
+        <span class="card-title">📅 Weekly Review</span>
+        <button class="btn btn-ghost2 btn-sm" id="wr-btn" onclick="loadWeeklyReview()">Get my review →</button>
+      </div>
+      <div class="card-body" id="wr-body">
+        <div style="font-size:.78rem;color:var(--text3)">Your AI coach reads your last 7 days of meals, workouts and weigh-ins — then tells you what worked and what to fix next week.</div>
+      </div>
+    </div>
+
     <div id="portal-onboard-cta" style="margin-top:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:20px;text-align:center">
       <div style="font-size:28px;margin-bottom:8px">📸</div>
       <div style="font-size:.92rem;font-weight:800;color:#14532d;margin-bottom:6px">Scan your first receipt</div>
       <div style="font-size:.78rem;color:#166534;line-height:1.5;margin-bottom:14px">Snap your Woolies or Coles receipt — get your full macro breakdown in seconds.</div>
       <button class="btn btn-green" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AI COACH (chat) ══ -->
+<div class="view" id="view-ai-coach">
+  <div class="view-header">
+    <div><div class="view-title">🤖 AI Coach</div><div class="view-sub">Ask anything — meals, macros, training, plateaus. Aussie foods, real advice.</div></div>
+    <div class="view-actions"><span id="chat-remaining" style="font-size:.72rem;color:var(--text3)"></span></div>
+  </div>
+  <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;padding:0 20px 14px">
+    <!-- Intent chips -->
+    <div style="display:flex;gap:6px;padding:10px 0;flex-shrink:0;flex-wrap:wrap">
+      <button class="diet-tag chat-intent active" data-intent="general" onclick="setChatIntent(this)">💬 General</button>
+      <button class="diet-tag chat-intent" data-intent="nutrition" onclick="setChatIntent(this)">🥗 Nutrition</button>
+      <button class="diet-tag chat-intent" data-intent="workout" onclick="setChatIntent(this)">🏋️ Training</button>
+      <button class="diet-tag chat-intent" data-intent="progress" onclick="setChatIntent(this)">📈 Progress</button>
+    </div>
+    <!-- Thread -->
+    <div id="chat-thread" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px">
+      <div id="chat-empty" style="margin:auto;text-align:center;max-width:420px">
+        <div style="font-size:34px;margin-bottom:10px">🤖</div>
+        <div style="font-size:.95rem;font-weight:800;margin-bottom:6px">Your AI training partner</div>
+        <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
+          <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a cheap high-protein Woolies shop for the week')">Build me a cheap high-protein Woolies shop</button>
+          <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('I keep snacking at 9pm. How do I stop?')">I keep snacking at 9pm. How do I stop?</button>
+        </div>
+      </div>
+    </div>
+    <!-- Composer -->
+    <div style="display:flex;gap:8px;padding-top:10px;flex-shrink:0">
+      <input class="form-input" id="chat-input" placeholder="Ask your coach anything…" style="flex:1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"/>
+      <button class="btn btn-green" id="chat-send-btn" onclick="sendChat()">Send</button>
     </div>
   </div>
 </div>
@@ -1306,6 +1484,7 @@ function nav(id) {
     view.classList.add('active');
     const btn = document.getElementById('nav-'+id);
     if (btn) btn.classList.add('active');
+    document.querySelectorAll('.sb-item[data-nav="'+id+'"]').forEach(b => b.classList.add('active'));
     // Sync mobile nav
     if (moreOpen) { moreOpen=false; const me=document.getElementById('mob-nav-more'); if(me) me.classList.remove('open'); }
     document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
@@ -1314,6 +1493,7 @@ function nav(id) {
     currentView = id;
     // Lazy load
     if (id === 'clients' && !S.clients.length) loadClients();
+    if (id === 'dashboard' && !S.clients.length) loadClients();
     if (id === 'meal-plans') loadMealPlans();
     if (id === 'workout-plans') loadWorkoutPlans();
     if (id === 'shopping-lists') loadShoppingLists();
@@ -1323,6 +1503,8 @@ function nav(id) {
     if (id === 'portal-progress') loadProgressLog();
     if (id === 'portal-plan') renderPortalPlan();
     if (id === 'portal-shopping') renderPortalShopping();
+    if (id === 'ai-coach') initChatView();
+    if (id === 'billing') loadBillingUsage();
   } catch(e) { showErr('nav('+id+'): '+e.message); }
 }
 
@@ -1350,27 +1532,33 @@ function openLogMealModal() { resetMealModal && resetMealModal(); openModal('mod
 let moreOpen = false;
 function setupMobileNav(role) {
   const ptMain = [
-    {id:'dashboard', icon:'⚡', label:'Home'},
-    {id:'clients',   icon:'👥', label:'Clients'},
-    {id:'meal-plans',icon:'🥗', label:'Plans'},
-    {id:'receipt-scanner',icon:'📸',label:'Scanner'},
-    {id:'__more',   icon:'☰',  label:'More'},
+    {id:'portal-home',    icon:'🏠', label:'Home'},
+    {id:'ai-coach',       icon:'🤖', label:'Coach'},
+    {id:'portal-meals',   icon:'🍽️', label:'Meals'},
+    {id:'receipt-scanner',icon:'📸', label:'Scanner'},
+    {id:'__more',         icon:'☰',  label:'More'},
   ];
   const ptMore = [
-    {id:'workout-plans', icon:'🏋️', label:'Workout Plans'},
-    {id:'shopping-lists',icon:'🛒', label:'Shopping'},
-    {id:'favourites',    icon:'❤️', label:'Favourites'},
-    {id:'billing',       icon:'💳', label:'Billing'},
+    {id:'portal-workouts', icon:'💪', label:'Log Workout'},
+    {id:'portal-progress', icon:'📈', label:'Progress'},
+    {id:'meal-plans',      icon:'🥗', label:'Meal Planner'},
+    {id:'workout-plans',   icon:'🏋️', label:'Workout Planner'},
+    {id:'shopping-lists',  icon:'🛒', label:'Shopping'},
+    {id:'favourites',      icon:'❤️', label:'Favourites'},
+    {id:'dashboard',       icon:'⚡', label:'Trainer Dashboard'},
+    {id:'clients',         icon:'👥', label:'Clients'},
+    {id:'billing',         icon:'💳', label:'Billing'},
   ];
   const clientMain = [
     {id:'portal-home',      icon:'🏠', label:'Home'},
-    {id:'portal-meals',     icon:'🍽️', label:'Log Meals'},
+    {id:'ai-coach',         icon:'🤖', label:'Coach'},
+    {id:'portal-meals',     icon:'🍽️', label:'Meals'},
     {id:'portal-workouts',  icon:'💪', label:'Workout'},
-    {id:'portal-progress',  icon:'📈', label:'Progress'},
     {id:'__more',           icon:'☰',  label:'More'},
   ];
   const clientMore = [
     {id:'portal-plan',      icon:'📋', label:'My Plan'},
+    {id:'portal-progress',  icon:'📈', label:'Progress'},
     {id:'portal-shopping',  icon:'🛒', label:'Shopping'},
     {id:'portal-favourites',icon:'❤️', label:'Favourites'},
     {id:'receipt-scanner',  icon:'📸', label:'Receipt'},
@@ -1386,9 +1574,8 @@ function setupMobileNav(role) {
   moreEl.innerHTML = moreItems.map(item =>
     `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${item.icon} ${item.label}</button>`
   ).join('') + `<button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
-  // Highlight first active
-  const firstId = role === 'client' ? 'portal-home' : 'dashboard';
-  const firstBtn = document.getElementById('mob-nav-'+firstId);
+  // Highlight first active — everyone lands on Home now
+  const firstBtn = document.getElementById('mob-nav-portal-home');
   if (firstBtn) firstBtn.classList.add('active');
 }
 function toggleMobMore() {
@@ -1413,12 +1600,14 @@ function mobNav(id) {
 }
 
 async function setupPT() {
+  // Consumer-first: self-registered accounts land on the personal Home view.
+  // Trainer tools (dashboard/clients) stay one click away in the sidebar.
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('dash-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 👋';
   setupMobileNav('pt');
-  await loadClients();
-  loadMealPlans();
+  nav('portal-home');
+  await loadPortalHome();
 }
 
 async function loadClients() {
@@ -2093,13 +2282,16 @@ async function removeFav(type, id) {
   loadFavourites();
 }
 
-// ── CLIENT PORTAL ─────────────────────────────────────────────────────────────
+// ── HOME (shared by consumer-first accounts and PT-invited clients) ───────────
 async function setupClientPortal() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('portal-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 💪';
   setupMobileNav('client');
+  await loadPortalHome();
+}
 
+async function loadPortalHome() {
   // Load user profile / goals
   try {
     const prof = await API('/user/profile/' + S.user.id);
@@ -2115,7 +2307,7 @@ async function setupClientPortal() {
     if (r.pt) {
       document.getElementById('portal-pt-name').textContent = 'Managed by ' + r.pt.name;
     } else {
-      document.getElementById('portal-pt-name').textContent = 'Solo tracking — no trainer yet';
+      document.getElementById('portal-pt-name').textContent = 'Your AI health partner — receipts to meals to macros';
       // Show goals modal if no goals set and no plan
       if (!S.goals && !r.mealPlan) {
         setTimeout(() => openModal('modal-goals'), 800);
@@ -2780,7 +2972,10 @@ async function generateMealPlan() {
 
   try {
     const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, budget, dietary }) });
-    if (!r.success) throw new Error(r.error || 'Generation failed');
+    if (!r.success) {
+      if (maybeUpgrade(r)) return;
+      throw new Error(r.error || 'Generation failed');
+    }
     S_activePlan = r.plan;
     renderMealPlan(r.plan);
     toast('Meal plan ready! 🎉');
@@ -3021,6 +3216,243 @@ async function startCheckout(plan) {
 }
 
 // ── TOAST NOTIFICATIONS ───────────────────────────────────────────────────────
+// ── UPGRADE HANDLING ─────────────────────────────────────────────────────────
+// Any AI endpoint can return { upgrade: true } when the free monthly cap is hit.
+function maybeUpgrade(r) {
+  if (r && r.upgrade) {
+    toast(r.error || 'Free AI limit reached — upgrade for unlimited', 'warn');
+    setTimeout(() => nav('billing'), 900);
+    return true;
+  }
+  return false;
+}
+
+async function loadBillingUsage() {
+  const el = document.getElementById('billing-usage');
+  if (!el) return;
+  try {
+    const r = await API('/ai/usage');
+    if (!r.success) return;
+    if (r.limit === null) {
+      el.innerHTML = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;font-size:.8rem;color:#14532d"><strong>${(r.tier||'premium').charAt(0).toUpperCase()+(r.tier||'premium').slice(1)} plan</strong> — unlimited AI. You've used ${r.used} AI actions this month. 🎉</div>`;
+    } else {
+      const pct = Math.min(100, Math.round((r.used / r.limit) * 100));
+      el.innerHTML = `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px">
+        <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:6px">
+          <span style="font-weight:700">AI actions this month</span>
+          <span style="color:var(--text3)">${r.used} of ${r.limit} used</span>
+        </div>
+        <div style="background:var(--bg2);border-radius:4px;height:8px;overflow:hidden">
+          <div style="background:${pct>=100?'#ef4444':pct>=70?'#f59e0b':'var(--green2)'};height:100%;width:${pct}%;border-radius:4px"></div>
+        </div>
+      </div>`;
+    }
+  } catch(e) { /* non-critical */ }
+}
+
+// ── AI COACH CHAT ────────────────────────────────────────────────────────────
+const CHAT = { intent: 'general', messages: [], busy: false, initialised: false };
+
+function initChatView() {
+  if (CHAT.initialised) return;
+  CHAT.initialised = true;
+  refreshChatRemaining();
+}
+
+async function refreshChatRemaining() {
+  try {
+    const r = await API('/ai/usage');
+    const el = document.getElementById('chat-remaining');
+    if (r.success && el) {
+      el.textContent = r.limit === null ? 'Unlimited AI ✓' : `${r.remaining} of ${r.limit} free AI actions left`;
+    }
+  } catch(e) {}
+}
+
+function setChatIntent(btn) {
+  document.querySelectorAll('.chat-intent').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  CHAT.intent = btn.dataset.intent;
+}
+
+function chatStarter(text) {
+  document.getElementById('chat-input').value = text;
+  sendChat();
+}
+
+function appendChatMsg(role, text) {
+  const empty = document.getElementById('chat-empty');
+  if (empty) empty.remove();
+  const thread = document.getElementById('chat-thread');
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.style.cssText = `max-width:78%;padding:10px 14px;border-radius:14px;font-size:.85rem;line-height:1.55;white-space:pre-wrap;word-break:break-word;` +
+    (isUser
+      ? 'align-self:flex-end;background:var(--green2);color:#fff;border-bottom-right-radius:4px'
+      : 'align-self:flex-start;background:#fff;border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px');
+  div.textContent = text;
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+  return div;
+}
+
+async function sendChat() {
+  if (CHAT.busy) return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  CHAT.busy = true;
+  document.getElementById('chat-send-btn').disabled = true;
+
+  appendChatMsg('user', text);
+  CHAT.messages.push({ role: 'user', content: text });
+  const typing = appendChatMsg('assistant', '…');
+
+  // Give the coach today's real numbers for grounded answers.
+  const todayMeals = (S.portalData?.recentMeals || []).filter(m => new Date(m.date).toDateString() === new Date().toDateString());
+  const context = {
+    targetCalories: S.goals?.targetCalories,
+    targetProtein: S.goals?.targetProtein,
+    todayCalories: todayMeals.reduce((s, m) => s + (m.calories || 0), 0),
+    todayProtein: Math.round(todayMeals.reduce((s, m) => s + (Number(m.protein) || 0), 0)),
+    streak: calcStreak(S.portalData?.recentMeals || []),
+  };
+
+  try {
+    const r = await API('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ intent: CHAT.intent, messages: CHAT.messages.slice(-12), context }),
+    });
+    if (r.success && r.reply) {
+      typing.textContent = r.reply;
+      CHAT.messages.push({ role: 'assistant', content: r.reply });
+      const el = document.getElementById('chat-remaining');
+      if (el && r.remaining !== null && r.remaining !== undefined) el.textContent = `${r.remaining} free AI actions left`;
+    } else if (r.upgrade) {
+      typing.textContent = r.error || 'You\'ve hit this month\'s free AI limit.';
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-green btn-sm';
+      btn.style.marginTop = '8px';
+      btn.textContent = 'Upgrade for unlimited →';
+      btn.onclick = () => nav('billing');
+      typing.appendChild(document.createElement('br'));
+      typing.appendChild(btn);
+    } else {
+      typing.textContent = 'Hmm, that didn\'t work — ' + (r.error || 'try again in a moment.');
+    }
+  } catch (e) {
+    typing.textContent = 'Network hiccup — try again.';
+  } finally {
+    CHAT.busy = false;
+    document.getElementById('chat-send-btn').disabled = false;
+    document.getElementById('chat-input').focus();
+  }
+}
+
+// ── WEEKLY REVIEW ────────────────────────────────────────────────────────────
+async function loadWeeklyReview() {
+  const body = document.getElementById('wr-body');
+  const btn = document.getElementById('wr-btn');
+  btn.disabled = true;
+  body.innerHTML = '<div style="text-align:center;padding:16px"><div class="loader"></div><div style="font-size:.75rem;color:var(--text3);margin-top:10px">Reading your week…</div></div>';
+  try {
+    const r = await API('/ai/weekly-review');
+    if (!r.success) {
+      if (maybeUpgrade(r)) { body.innerHTML = '<div style="font-size:.78rem;color:var(--text3)">Upgrade to Premium for unlimited weekly reviews.</div>'; return; }
+      throw new Error(r.error || 'failed');
+    }
+    const rev = r.review || {};
+    const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
+    body.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
+        <div style="width:54px;height:54px;border-radius:50%;background:${score>=7?'#f0fdf4':score>=4?'#fffbeb':'#fef2f2'};border:2px solid ${score>=7?'#bbf7d0':score>=4?'#fde68a':'#fecaca'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:1.05rem;font-weight:900;color:${score>=7?'#16a34a':score>=4?'#d97706':'#dc2626'}">${score}<span style="font-size:.6rem;color:var(--text3)">/10</span></span>
+        </div>
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:.88rem;font-weight:800;margin-bottom:8px">${rev.headline || 'Your week in review'}</div>
+          ${(rev.wins||[]).map(w => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">✅ ${w}</div>`).join('')}
+          ${(rev.focus||[]).map(f => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">🎯 ${f}</div>`).join('')}
+        </div>
+      </div>`;
+  } catch (e) {
+    body.innerHTML = '<div style="font-size:.78rem;color:var(--text3)">Couldn\'t load your review — try again shortly.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh';
+  }
+}
+
+// ── AI WORKOUT PLAN GENERATION ───────────────────────────────────────────────
+let S_activeWorkoutPlan = null;
+
+async function generateWorkoutPlan() {
+  const payload = {
+    goal: document.getElementById('wpg-goal').value,
+    level: document.getElementById('wpg-level').value,
+    daysPerWeek: parseInt(document.getElementById('wpg-days').value) || 3,
+    equipment: document.getElementById('wpg-equipment').value,
+    sessionMinutes: parseInt(document.getElementById('wpg-minutes').value) || 60,
+    focus: document.getElementById('wpg-focus').value.trim(),
+  };
+  document.getElementById('wpg-loading').style.display = '';
+  document.getElementById('wpg-output').style.display = 'none';
+  document.getElementById('wpg-gen-btn').disabled = true;
+  try {
+    const r = await API('/ai/workout-plan', { method: 'POST', body: JSON.stringify(payload) });
+    if (!r.success) {
+      if (maybeUpgrade(r)) return;
+      throw new Error(r.error || 'Generation failed');
+    }
+    S_activeWorkoutPlan = r.plan;
+    renderGeneratedWorkoutPlan(r.plan);
+    toast('Program ready! 💪');
+  } catch (err) {
+    toast('Could not generate program: ' + err.message, 'error');
+  } finally {
+    document.getElementById('wpg-loading').style.display = 'none';
+    document.getElementById('wpg-gen-btn').disabled = false;
+  }
+}
+
+function renderGeneratedWorkoutPlan(plan) {
+  document.getElementById('wpg-plan-name').textContent = plan.planName || 'Your program';
+  document.getElementById('wpg-plan-summary').textContent = plan.summary || '';
+  const byDay = {};
+  (plan.workouts || []).forEach(w => { const d = w.day || 1; (byDay[d] = byDay[d] || []).push(w); });
+  document.getElementById('wpg-days-out').innerHTML = Object.keys(byDay).sort((a,b)=>a-b).map(d => `
+    <div class="card" style="margin-bottom:10px">
+      <div class="card-header"><span class="card-title">Day ${d}${byDay[d][0]?.name && !/^day/i.test(byDay[d][0].name) ? '' : ''}</span></div>
+      <div class="card-body" style="padding:10px 14px">
+        ${byDay[d].map(e => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.8rem">
+          <span style="font-weight:600">${e.name}</span>
+          <span style="color:var(--text3);flex-shrink:0">${e.sets || 3}×${e.reps || '10'}${e.rest ? ' · ' + e.rest + 's' : ''}</span>
+        </div>${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;padding:2px 0 4px">${e.notes}</div>` : ''}`).join('')}
+      </div>
+    </div>`).join('');
+  document.getElementById('wpg-output').style.display = '';
+}
+
+async function saveGeneratedWorkoutPlan() {
+  if (!S_activeWorkoutPlan) return;
+  const p = S_activeWorkoutPlan;
+  const r = await API('/workout-plans', { method: 'POST', body: JSON.stringify({
+    name: p.planName || 'AI Program',
+    description: p.summary || '',
+    level: p.level || 'intermediate',
+    frequency: p.frequency || 3,
+    workouts: p.workouts || [],
+  })});
+  if (r.success) {
+    toast('Program saved ✓');
+    document.getElementById('wpg-output').style.display = 'none';
+    S_activeWorkoutPlan = null;
+    loadWorkoutPlans();
+  } else {
+    toast('Failed to save program', 'error');
+  }
+}
+
 function toast(msg, type='success') {
   const t = document.createElement('div');
   t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${type==='error'?'#ef4444':type==='warn'?'#f59e0b':'#16a34a'};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;

@@ -7,6 +7,8 @@ jest.mock('./lib/ai-client', () => {
   return {
     hasProvider: jest.fn(() => true),
     providerName: jest.fn(() => 'openai'),
+    geminiModel: jest.fn(() => 'gemini-2.5-flash'),
+    grokModel: jest.fn(() => 'grok-4.3'),
     openaiModel: jest.fn(() => 'gpt-4o-mini'),
     anthropicModel: jest.fn(() => 'claude-haiku-4-5'),
     chat: jest.fn(async () => ({
@@ -16,6 +18,26 @@ jest.mock('./lib/ai-client', () => {
       text: 'Solid effort today — aim for one more protein hit before bed.',
       usage: { promptTokens: 50, completionTokens: 15 },
     })),
+    chatJson: jest.fn(async () => ({
+      ok: true,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      data: {
+        planName: 'Test Program',
+        summary: 'A test program',
+        level: 'intermediate',
+        frequency: 3,
+        workouts: [
+          { day: 1, name: 'Bench Press', sets: 4, reps: '8-10', rest: 90 },
+          { day: 2, name: 'Squat', sets: 4, reps: '6-8', rest: 120 },
+        ],
+        headline: 'Solid week of logging',
+        wins: ['Logged 5 days'],
+        focus: ['Hit protein target daily'],
+        score: 7,
+      },
+    })),
+    vision: jest.fn(async () => ({ ok: true, provider: 'gemini', text: '[]' })),
   };
 });
 
@@ -121,5 +143,44 @@ describe('AI routes', () => {
     expect(r.body.success).toBe(true);
     expect(r.body.limit).toBe(10);
     expect(r.body.provider).toBe('openai');
+  });
+
+  it('POST /api/ai/workout-plan generates a structured program', async () => {
+    const r = await request(app)
+      .post('/api/ai/workout-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ goal: 'muscle_gain', level: 'intermediate', daysPerWeek: 3, equipment: 'gym' });
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+    expect(Array.isArray(r.body.plan.workouts)).toBe(true);
+    expect(r.body.plan.workouts.length).toBeGreaterThan(0);
+    expect(r.body.plan.frequency).toBe(3);
+  });
+
+  it('POST /api/ai/workout-plan rejects missing auth', async () => {
+    const r = await request(app).post('/api/ai/workout-plan').send({ goal: 'muscle_gain' });
+    expect(r.status).toBe(401);
+  });
+
+  it('GET /api/ai/weekly-review returns review + stats', async () => {
+    const r = await request(app)
+      .get('/api/ai/weekly-review')
+      .set('Authorization', `Bearer ${token}`);
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+    expect(r.body.review).toBeDefined();
+    expect(r.body.stats).toBeDefined();
+    expect(typeof r.body.stats.daysLogged).toBe('number');
+  });
+
+  it('AI endpoints return 429 with upgrade flag when free cap is hit', async () => {
+    const aiUsage = require('./lib/ai-usage');
+    aiUsage.checkAndConsume.mockResolvedValueOnce({ allowed: false, limit: 10, used: 10, upgrade: true });
+    const r = await request(app)
+      .post('/api/ai/workout-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ goal: 'muscle_gain' });
+    expect(r.status).toBe(429);
+    expect(r.body.upgrade).toBe(true);
   });
 });
