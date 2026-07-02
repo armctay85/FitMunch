@@ -437,6 +437,79 @@ router.post('/auth/reset-password', async (req, res) => {
   }
 });
 
+// DELETE /api/auth/account — full account deletion (App Store requirement:
+// apps with account creation must offer in-app account deletion).
+router.delete('/auth/account', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await getUserById(userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+
+    // Best-effort: cancel any live Stripe subscription so we don't keep billing.
+    try {
+      if (user.stripeCustomerId && process.env.STRIPE_SECRET_KEY) {
+        const stripeLib = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const subs = await stripeLib.subscriptions.list({ customer: user.stripeCustomerId, status: 'all', limit: 10 });
+        for (const s of subs.data) {
+          if (['active', 'trialing', 'past_due'].includes(s.status)) {
+            await stripeLib.subscriptions.cancel(s.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[delete-account] stripe cancel failed (continuing):', e.message);
+    }
+
+    // users row deletion CASCADEs to profiles, logs, plans, favourites, etc.
+    await _pool.query('DELETE FROM users WHERE id=$1', [userId]);
+    console.log(`[delete-account] deleted user ${user.email}`);
+    res.json({ success: true, message: 'Account and all data deleted.' });
+  } catch (err) {
+    console.error('[delete-account]', err.message);
+    res.status(500).json({ success: false, error: 'Could not delete account. Contact support@fitmunch.com.au.' });
+  }
+});
+
+// ── REVENUECAT WEBHOOK ────────────────────────────────────────────────────────
+// Apple/Google subscriptions bought in the iOS app (RevenueCat) sync the same
+// `users.subscription_tier` that Stripe web subscriptions use. Configure in
+// RevenueCat dashboard: Webhooks → URL https://www.fitmunch.com.au/api/revenuecat/webhook
+// with Authorization header = REVENUECAT_WEBHOOK_AUTH env value.
+// The iOS app must call Purchases.logIn(<fitmunch user id>) so app_user_id matches.
+router.post('/revenuecat/webhook', async (req, res) => {
+  const expected = process.env.REVENUECAT_WEBHOOK_AUTH;
+  if (!expected) return res.status(503).json({ success: false, error: 'RevenueCat webhook not configured.' });
+  if ((req.headers['authorization'] || '') !== expected) {
+    return res.status(401).json({ success: false, error: 'Unauthorised' });
+  }
+  try {
+    const event = req.body?.event || {};
+    const userId = event.app_user_id;
+    if (!userId || /^\$RCAnonymousID/.test(userId)) {
+      return res.json({ success: true, skipped: 'anonymous or missing app_user_id' });
+    }
+    const user = await getUserById(userId).catch(() => null);
+    if (!user) return res.json({ success: true, skipped: 'unknown user' });
+
+    const PREMIUM_EVENTS = ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE', 'SUBSCRIPTION_EXTENDED'];
+    const FREE_EVENTS = ['EXPIRATION'];
+    let newTier = null;
+    if (PREMIUM_EVENTS.includes(event.type)) newTier = 'premium';
+    else if (FREE_EVENTS.includes(event.type)) newTier = 'free';
+    // CANCELLATION = auto-renew off but still entitled until expiration — no change.
+
+    if (newTier && (user.subscriptionTier || 'free') !== newTier) {
+      const expiresAt = event.expiration_at_ms ? new Date(event.expiration_at_ms) : null;
+      await updateUserSubscription(userId, newTier, expiresAt);
+      console.log(`[revenuecat] ${user.email}: ${user.subscriptionTier || 'free'} → ${newTier} (${event.type})`);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[revenuecat/webhook]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/auth/me  — verify token + return user info
 router.get('/auth/me', async (req, res) => {
   try {
