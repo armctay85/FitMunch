@@ -146,8 +146,35 @@
     <button class="btn" id="login-btn" onclick="doLogin()">Sign In</button>
 
     <div class="foot">
-      Don't have an account? <a href="#" onclick="showTab('register'); return false;">Create one free</a>
+      Don't have an account? <a href="#" onclick="showTab('register'); return false;">Create one free</a><br/>
+      <a href="#" onclick="showForgot(); return false;" style="font-size:.78rem">Forgot your password?</a>
     </div>
+  </div>
+
+  <!-- FORGOT PASSWORD PANEL -->
+  <div class="panel" id="panel-forgot">
+    <div class="error-msg"   id="forgot-error"></div>
+    <div class="success-msg" id="forgot-success"></div>
+    <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px">Enter your email and we'll send you a reset link — valid for 1 hour.</p>
+    <div class="form-group">
+      <label for="forgot-email">Email</label>
+      <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <button class="btn" id="forgot-btn" onclick="doForgot()">Send reset link</button>
+    <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
+  </div>
+
+  <!-- RESET PASSWORD PANEL (via emailed link ?reset=TOKEN) -->
+  <div class="panel" id="panel-reset">
+    <div class="error-msg"   id="reset-error"></div>
+    <div class="success-msg" id="reset-success"></div>
+    <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px">Choose a new password for your account.</p>
+    <div class="form-group">
+      <label for="reset-password">New password</label>
+      <input type="password" id="reset-password" placeholder="Min. 8 characters" autocomplete="new-password" />
+    </div>
+    <button class="btn" id="reset-btn" onclick="doReset()">Set new password</button>
+    <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
   </div>
 
   <!-- REGISTER PANEL -->
@@ -227,7 +254,62 @@
       document.getElementById('tab-' + t).classList.toggle('active', t === tab);
       document.getElementById('panel-' + t).classList.toggle('active', t === tab);
     });
+    // Aux panels (no tab of their own)
+    document.getElementById('panel-forgot').classList.remove('active');
+    document.getElementById('panel-reset').classList.remove('active');
   }
+
+  function showForgot() {
+    ['login','register'].forEach(t => {
+      document.getElementById('tab-' + t).classList.remove('active');
+      document.getElementById('panel-' + t).classList.remove('active');
+    });
+    document.getElementById('panel-reset').classList.remove('active');
+    document.getElementById('panel-forgot').classList.add('active');
+  }
+
+  function showReset() {
+    ['login','register'].forEach(t => {
+      document.getElementById('tab-' + t).classList.remove('active');
+      document.getElementById('panel-' + t).classList.remove('active');
+    });
+    document.getElementById('panel-forgot').classList.remove('active');
+    document.getElementById('panel-reset').classList.add('active');
+  }
+
+  async function doForgot() {
+    hideMsg('forgot');
+    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+    if (!email) { showError('forgot-error', 'Please enter your email.'); return; }
+    const btn = document.getElementById('forgot-btn');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sending...';
+    try {
+      const r = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const data = await parseApiJson(r);
+      showSuccess('forgot-success', data.message || 'If that email has an account, a reset link is on its way.');
+    } catch (error) { showError('forgot-error', error.message || 'Network error. Please try again.'); }
+    finally { btn.disabled = false; btn.textContent = 'Send reset link'; }
+  }
+
+  async function doReset() {
+    hideMsg('reset');
+    const password = document.getElementById('reset-password').value;
+    const token = urlParams.get('reset');
+    if (!password || password.length < 8) { showError('reset-error', 'Password must be at least 8 characters.'); return; }
+    if (!token) { showError('reset-error', 'Missing reset token — use the link from your email.'); return; }
+    const btn = document.getElementById('reset-btn');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+    try {
+      const r = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }) });
+      const data = await parseApiJson(r);
+      showSuccess('reset-success', (data.message || 'Password updated.') + ' Taking you to sign in…');
+      setTimeout(() => { window.history.replaceState({}, '', '/login.html'); showTab('login'); }, 1400);
+    } catch (error) { showError('reset-error', error.message || 'Network error. Please try again.'); }
+    finally { btn.disabled = false; btn.textContent = 'Set new password'; }
+  }
+
+  // Deep links: ?reset=TOKEN opens the reset panel
+  if (urlParams.get('reset')) showReset();
 
   function setLoading(btnId, loading) {
     const btn = document.getElementById(btnId);

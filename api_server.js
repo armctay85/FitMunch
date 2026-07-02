@@ -335,6 +335,86 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
+// ── PASSWORD RESET ────────────────────────────────────────────────────────────
+// POST /api/auth/forgot-password — always 200 (no account enumeration).
+router.post('/auth/forgot-password', async (req, res) => {
+  const generic = { success: true, message: 'If that email has an account, a reset link is on its way.' };
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email) return res.json(generic);
+
+    const user = await getUserByEmail(email);
+    if (!user) return res.json(generic);
+
+    const cryptoLib = require('crypto');
+    const token = cryptoLib.randomBytes(32).toString('hex');
+    const tokenHash = cryptoLib.createHash('sha256').update(token).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await require('./lib/db-migrate').ensureSchema(); // creates password_resets if missing
+    await _pool.query(
+      'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1,$2,$3)',
+      [user.id, tokenHash, expires]
+    );
+
+    const resetUrl = `https://www.fitmunch.com.au/login.html?reset=${token}`;
+    const { sendEmail } = require('./server/email.js');
+    const r = await sendEmail({
+      to: email,
+      subject: 'Reset your FitMunch password',
+      bodyHtml: `
+<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f7faf7;margin:0;padding:0">
+<div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+  <div style="background:#16a34a;padding:26px;text-align:center"><h1 style="color:#fff;margin:0;font-size:22px">🥦 FitMunch</h1></div>
+  <div style="padding:26px">
+    <p style="font-size:15px;color:#333">Hi ${user.name ? user.name.split(' ')[0] : 'there'},</p>
+    <p style="font-size:15px;color:#333">Someone (hopefully you) asked to reset your FitMunch password. This link works for <strong>1 hour</strong>:</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${resetUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600">Reset my password →</a>
+    </div>
+    <p style="font-size:13px;color:#999">Didn't ask for this? You can safely ignore it — your password stays as-is.</p>
+  </div>
+</div></body></html>`.trim(),
+      bodyText: `Reset your FitMunch password (link valid 1 hour):\n${resetUrl}\n\nDidn't ask for this? Ignore this email.`,
+    });
+    if (!r.success) console.error('[forgot-password] email send failed:', r.error);
+    return res.json(generic);
+  } catch (err) {
+    console.error('[forgot-password]', err.message);
+    return res.json(generic);
+  }
+});
+
+// POST /api/auth/reset-password {token, password}
+router.post('/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    if (!token || !password)
+      return res.status(400).json({ success: false, error: 'Token and new password are required.' });
+    if (String(password).length < 8)
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
+
+    const cryptoLib = require('crypto');
+    const tokenHash = cryptoLib.createHash('sha256').update(String(token)).digest('hex');
+    await require('./lib/db-migrate').ensureSchema();
+    const row = await _pool.query(
+      'SELECT * FROM password_resets WHERE token_hash=$1 AND used=FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+      [tokenHash]
+    );
+    if (!row.rows[0])
+      return res.status(400).json({ success: false, error: 'This reset link is invalid or has expired. Request a new one.' });
+
+    const passwordHash = await bcrypt.hash(String(password), SALT_ROUNDS);
+    await _pool.query('UPDATE users SET password_hash=$1, updated_at=now() WHERE id=$2', [passwordHash, row.rows[0].user_id]);
+    await _pool.query('UPDATE password_resets SET used=TRUE WHERE id=$1', [row.rows[0].id]);
+
+    return res.json({ success: true, message: 'Password updated. You can sign in now.' });
+  } catch (err) {
+    console.error('[reset-password]', err.message);
+    return res.status(500).json({ success: false, error: 'Could not reset password. Please try again.' });
+  }
+});
+
 // GET /api/auth/me  — verify token + return user info
 router.get('/auth/me', async (req, res) => {
   try {

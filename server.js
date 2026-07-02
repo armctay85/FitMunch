@@ -509,10 +509,15 @@ app.post('/api/checkout', async (req, res) => {
     const origin = req.headers.origin || 'https://fitmunch.com.au';
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card'],
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: { trial_period_days: 14 },
+      // Card-free trial: no card needed to start; Stripe cancels at trial end
+      // if no payment method was added. Lower signup friction for launch.
+      payment_method_collection: 'if_required',
+      subscription_data: {
+        trial_period_days: 14,
+        trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
+      },
       success_url: `${origin}/app.html?subscribed=1`,
       cancel_url:  `${origin}/?cancelled=1`,
       allow_promotion_codes: true,
