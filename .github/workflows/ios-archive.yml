@@ -88,7 +88,7 @@ jobs:
         retention-days: 14
 
     - name: Upload to App Store Connect
-      if: ${{ inputs.upload_to_asc == 'true' || github.ref == 'refs/heads/deploy' }}
+      if: ${{ github.event.inputs.upload_to_asc == 'true' || inputs.upload_to_asc == true || github.ref == 'refs/heads/deploy' }}
       env:
         ASC_USERNAME: ${{ secrets.ASC_USERNAME }}
         ASC_PASSWORD: ${{ secrets.ASC_PASSWORD }}
