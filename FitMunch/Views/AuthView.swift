@@ -50,7 +50,7 @@ struct AuthView: View {
                                 .textContentType(.name)
                         }
                         field("Email", text: $email, focus: .email)
-                            .textContentType(.email)
+                            .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
