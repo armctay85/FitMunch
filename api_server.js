@@ -1001,7 +1001,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 
     const r = await aiClient.chatJson({
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: 3000,
+      maxTokens: 4000,
       temperature: 0.6,
     });
     if (!r.ok) {
@@ -1079,7 +1079,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     const r = await aiClient.chatJson({
       system,
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: 700,
+      maxTokens: 1500,
       temperature: 0.7,
     });
     if (!r.ok) {

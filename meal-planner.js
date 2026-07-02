@@ -164,7 +164,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
 
     const r = await aiClient.chatJson({
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: 4096,
+      maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
       temperature: 0.6,
     });
     if (!r.ok) throw new Error(r.error || 'AI generation failed');
