@@ -51,9 +51,11 @@ jobs:
       run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
 
     - name: Build
+      # generic simulator destination: compiles for any sim without depending on
+      # which device models the runner image ships (varies across macOS images)
       run: |
         xcodebuild clean build \
           -project FitMunch.xcodeproj \
           -scheme FitMunch \
-          -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+          -destination 'generic/platform=iOS Simulator' \
           CODE_SIGNING_ALLOWED=NO
