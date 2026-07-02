@@ -1,7 +1,7 @@
 // FitMunch Enhanced Service Worker
-const CACHE_NAME = 'fitmunch-v1.4.0';
-const STATIC_CACHE = 'fitmunch-static-v1.4.0';
-const DYNAMIC_CACHE = 'fitmunch-dynamic-v1.4.0';
+const CACHE_NAME = 'fitmunch-v1.5.0';
+const STATIC_CACHE = 'fitmunch-static-v1.5.0';
+const DYNAMIC_CACHE = 'fitmunch-dynamic-v1.5.0';
 
 // Critical assets to cache immediately
 const STATIC_ASSETS = [

@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FitMunch — Sign In</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,19 +18,24 @@
       background: var(--bg); color: var(--text);
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
       padding: 20px;
+      background-image:
+        radial-gradient(ellipse 640px 420px at 12% -8%, rgba(34,197,94,.09), transparent 60%),
+        radial-gradient(ellipse 560px 400px at 95% 105%, rgba(34,197,94,.07), transparent 60%);
     }
 
     .card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 420px;
       box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+      animation: cardIn .5s cubic-bezier(.2,.7,.3,1);
     }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
 
     .logo {
       display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center;
     }
-    .logo img { width: 40px; height: 40px; border-radius: 10px; }
-    .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); }
+    .logo img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 18px rgba(34,197,94,.28); }
+    .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', 'Inter', sans-serif; letter-spacing: -.02em; }
     .logo-text span { color: var(--green); }
 
     .tabs {
@@ -112,41 +120,7 @@
 
 <div class="card">
   <div class="logo">
-    <svg width="44" height="44" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-      <defs>
-        <linearGradient id="lb" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/>
-        </linearGradient>
-        <linearGradient id="lbr" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/>
-        </linearGradient>
-        <linearGradient id="la" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/>
-        </linearGradient>
-      </defs>
-      <rect width="512" height="512" rx="115" fill="url(#lb)"/>
-      <!-- Broccoli -->
-      <circle cx="256" cy="128" r="82" fill="url(#lbr)"/>
-      <circle cx="175" cy="168" r="68" fill="url(#lbr)"/>
-      <circle cx="337" cy="168" r="68" fill="url(#lbr)"/>
-      <ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#lbr)"/>
-      <circle cx="232" cy="108" r="22" fill="#16a34a" opacity="0.5"/>
-      <circle cx="278" cy="100" r="18" fill="#16a34a" opacity="0.5"/>
-      <circle cx="162" cy="150" r="18" fill="#16a34a" opacity="0.45"/>
-      <circle cx="322" cy="148" r="18" fill="#16a34a" opacity="0.45"/>
-      <!-- Stalk -->
-      <rect x="228" y="228" width="56" height="108" rx="12" fill="white"/>
-      <!-- Dumbbell bar -->
-      <rect x="142" y="348" width="228" height="26" rx="13" fill="white"/>
-      <!-- Collars -->
-      <rect x="166" y="334" width="34" height="54" rx="9" fill="url(#la)"/>
-      <rect x="312" y="334" width="34" height="54" rx="9" fill="url(#la)"/>
-      <!-- Plates -->
-      <rect x="118" y="316" width="62" height="90" rx="16" fill="white"/>
-      <rect x="134" y="334" width="26" height="54" rx="8" fill="url(#lb)"/>
-      <rect x="332" y="316" width="62" height="90" rx="16" fill="white"/>
-      <rect x="352" y="334" width="26" height="54" rx="8" fill="url(#lb)"/>
-    </svg>
+    <img src="/assets/logo.svg" alt="FitMunch" width="44" height="44" style="flex-shrink:0;display:block"/>
     <div class="logo-text">Fit<span>Munch</span></div>
   </div>
 

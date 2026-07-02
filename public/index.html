@@ -10,18 +10,25 @@
 <meta property="og:description" content="The Australian nutrition loop for receipts, macros, shopping lists, recipe ideas, meal plans, and PT accountability."/>
 <meta property="og:url" content="https://fitmunch.com.au"/>
 <meta property="og:type" content="website"/>
+<meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="FitMunch — Receipt-first Macro and Meal Planning"/>
 <meta name="twitter:description" content="Scan the shop, see macros, build meals, and tighten the next grocery run."/>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2316a34a'/><text y='24' x='4' font-size='22' font-family='system-ui' font-weight='900' fill='white'>F</text></svg>"/>
+<meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 html,body{max-width:100%;overflow-x:hidden}
 body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+h1,h2,.sec-h,.logo-word{font-family:'Bricolage Grotesque','Manrope',system-ui,sans-serif}
 
 /* ── NAV ── */
 nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;gap:16px}
@@ -41,14 +48,42 @@ nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-
 .nav-cta:hover{background:var(--green3);transform:translateY(-1px)}
 
 /* ── HERO ── */
-.hero{padding:80px 40px 60px;text-align:center;max-width:860px;margin:0 auto}
+.hero{position:relative;padding:72px 40px 84px;max-width:1120px;margin:0 auto;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;overflow:visible}
+.hero::before{content:'';position:absolute;top:-120px;right:-180px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(34,197,94,.10),transparent 65%);pointer-events:none}
+.hero-copy{text-align:left}
 .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green2);padding:5px 14px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:24px}
 .pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
-.hero h1{font-size:clamp(2.4rem,5vw,3.6rem);font-weight:900;line-height:1.08;letter-spacing:-.05em;color:var(--text);margin-bottom:20px}
+.hero h1{font-size:clamp(2.4rem,4.6vw,3.7rem);font-weight:800;line-height:1.04;letter-spacing:-.045em;color:var(--text);margin-bottom:20px}
 .hero h1 .gr{color:var(--green2)}
-.hero-sub{font-size:1.05rem;color:var(--text2);line-height:1.75;max-width:580px;margin:0 auto 36px}
-.hero-ctas{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.hero-sub{font-size:1.02rem;color:var(--text2);line-height:1.75;max-width:520px;margin:0 0 32px}
+.hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+/* Hero visual — photo with floating macro chips */
+.hero-visual{position:relative}
+.hero-photo{width:100%;aspect-ratio:4/3.1;object-fit:cover;border-radius:22px;box-shadow:0 24px 70px rgba(5,46,22,.22),0 4px 16px rgba(5,46,22,.10);display:block}
+.hero-chip{position:absolute;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid rgba(226,232,240,.9);border-radius:14px;padding:10px 16px;box-shadow:0 10px 34px rgba(5,46,22,.16);display:flex;align-items:center;gap:10px}
+.hero-chip .hc-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.hero-chip .hc-val{font-size:.95rem;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.hero-chip .hc-label{font-size:.66rem;color:var(--text3);font-weight:600}
+.chip-protein{top:8%;left:-34px;animation:chipFloat 5.5s ease-in-out infinite}
+.chip-score{bottom:14%;right:-26px;animation:chipFloat 6.5s ease-in-out 1.2s infinite}
+.chip-plan{bottom:-20px;left:12%;animation:chipFloat 6s ease-in-out .6s infinite}
+@keyframes chipFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+/* Staggered load */
+.hero-copy>*{opacity:0;transform:translateY(14px);animation:heroIn .65s cubic-bezier(.2,.7,.3,1) forwards}
+.hero-copy>*:nth-child(1){animation-delay:.05s}.hero-copy>*:nth-child(2){animation-delay:.14s}
+.hero-copy>*:nth-child(3){animation-delay:.23s}.hero-copy>*:nth-child(4){animation-delay:.32s}
+.hero-copy>*:nth-child(5){animation-delay:.41s}
+.hero-visual{opacity:0;transform:translateY(18px) scale(.985);animation:heroIn .8s cubic-bezier(.2,.7,.3,1) .25s forwards}
+@keyframes heroIn{to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr;gap:36px;padding:52px 24px 72px;text-align:center}
+  .hero-copy{text-align:center}
+  .hero-sub{margin:0 auto 30px}
+  .hero-ctas{justify-content:center}
+  .hero-trust{justify-content:center}
+  .chip-protein{left:6px}.chip-score{right:6px}
+}
 .btn-primary{background:var(--green2);color:#fff;font-size:.95rem;font-weight:700;text-decoration:none;padding:13px 28px;border-radius:10px;border:none;cursor:pointer;transition:all .15s;box-shadow:0 2px 12px rgba(22,163,74,.3);display:inline-flex;align-items:center;gap:6px}
 .btn-primary:hover{background:var(--green3);transform:translateY(-1px);box-shadow:0 6px 20px rgba(22,163,74,.35)}
 .btn-ghost{background:#fff;color:var(--text);font-size:.95rem;font-weight:600;text-decoration:none;padding:13px 24px;border-radius:10px;border:1px solid var(--border);transition:all .15s}
@@ -120,6 +155,29 @@ nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-
 .tag-blue{background:#eff6ff;color:#1e40af}
 .sec-h{font-size:clamp(1.8rem,3vw,2.5rem);font-weight:900;letter-spacing:-.04em;color:var(--text);line-height:1.12;margin-bottom:14px}
 .sec-sub{font-size:.95rem;color:var(--text2);line-height:1.7;max-width:520px}
+
+/* ── AI COACH SECTION ── */
+.coach-section{background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:84px 40px}
+.coach-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+.coach-visual{position:relative}
+.coach-visual img{width:100%;aspect-ratio:4/3.4;object-fit:cover;border-radius:20px;box-shadow:0 20px 56px rgba(5,46,22,.18)}
+.coach-bubble{position:absolute;max-width:78%;padding:11px 15px;border-radius:14px;font-size:.78rem;line-height:1.5;box-shadow:0 10px 30px rgba(5,46,22,.18)}
+.cb-user{top:-18px;right:-14px;background:var(--green2);color:#fff;border-bottom-right-radius:4px}
+.cb-ai{bottom:-24px;left:-14px;background:#fff;border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
+.cb-ai-tag{display:block;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:4px}
+.coach-points{display:flex;flex-direction:column;gap:12px}
+.coach-point{display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:var(--text2);line-height:1.5}
+.coach-point span{font-size:17px;flex-shrink:0}
+@media(max-width:860px){
+  .coach-inner{grid-template-columns:1fr;gap:48px}
+  .cb-user{right:4px}.cb-ai{left:4px}
+}
+
+/* ── LOOP BANNER PHOTOS ── */
+.loop-banner{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:36px}
+.loop-banner img{width:100%;height:280px;object-fit:cover;border-radius:18px;box-shadow:0 14px 44px rgba(5,46,22,.14);transition:transform .35s cubic-bezier(.2,.7,.3,1)}
+.loop-banner img:hover{transform:translateY(-4px) scale(1.01)}
+@media(max-width:760px){.loop-banner{grid-template-columns:1fr}.loop-banner img{height:200px}}
 
 /* ── FEATURES GRID ── */
 .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
@@ -244,9 +302,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
 <!-- NAV -->
 <nav>
   <a href="/" class="nav-logo">
-    <div class="logo-mark">
-      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="nb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="nbr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="na" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#nb)"/><circle cx="256" cy="128" r="82" fill="url(#nbr)"/><circle cx="175" cy="168" r="68" fill="url(#nbr)"/><circle cx="337" cy="168" r="68" fill="url(#nbr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#nbr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#na)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#na)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#nb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#nb)"/></svg>
-    </div>
+    <div class="logo-mark"><img src="/assets/logo.svg" alt="FitMunch" width="34" height="34" style="display:block;width:100%;height:100%"/></div>
     <span class="logo-word">Fit<span>Munch</span></span>
   </a>
   <div class="nav-links">
@@ -263,21 +319,36 @@ footer{background:var(--dark);padding:48px 40px 28px}
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-eyebrow"><span class="pulse-dot"></span>Australian grocery-to-goal nutrition</div>
-  <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span></h1>
-  <p class="hero-sub">FitMunch links the whole food loop: receipt scans, barcode-style food logging, macro targets, price-aware shopping lists, recipe ideas, meal plans, and PT accountability when you want coaching behind it.</p>
-  <div class="hero-ctas">
-    <a href="/login.html#register" class="btn-primary">Start for free →</a>
-    <a href="#for-pts" class="btn-ghost">For personal trainers</a>
+  <div class="hero-copy">
+    <div><span class="hero-eyebrow"><span class="pulse-dot"></span>Australian grocery-to-goal nutrition</span></div>
+    <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span></h1>
+    <p class="hero-sub">FitMunch links the whole food loop: receipt scans, food logging, macro targets, price-aware shopping lists, meal plans and an AI coach that knows your week.</p>
+    <div class="hero-ctas">
+      <a href="/login.html#register" class="btn-primary">Start for free →</a>
+      <a href="#for-pts" class="btn-ghost">For personal trainers</a>
+    </div>
+    <div class="hero-trust">
+      <span class="trust-i">✓ Free to start</span>
+      <span class="trust-sep"></span>
+      <span class="trust-i">✓ Receipt-first</span>
+      <span class="trust-sep"></span>
+      <span class="trust-i">✓ AI coach built in</span>
+    </div>
   </div>
-  <div class="hero-trust">
-    <span class="trust-i">✓ Free to start</span>
-    <span class="trust-sep"></span>
-    <span class="trust-i">✓ Receipt-first</span>
-    <span class="trust-sep"></span>
-    <span class="trust-i">✓ Price-aware planning</span>
-    <span class="trust-sep"></span>
-    <span class="trust-i">✓ PT-ready</span>
+  <div class="hero-visual">
+    <img class="hero-photo" src="/assets/fm-hero-mealprep.webp" alt="A week of healthy meal-prep containers — chicken, broccoli, avocado, berries" fetchpriority="high"/>
+    <div class="hero-chip chip-protein">
+      <div class="hc-icon" style="background:#eff6ff">💪</div>
+      <div><div class="hc-val" style="color:#3b82f6">987g protein</div><div class="hc-label">This week's shop</div></div>
+    </div>
+    <div class="hero-chip chip-score">
+      <div class="hc-icon" style="background:#f0fdf4">🏆</div>
+      <div><div class="hc-val" style="color:var(--green2)">A+ score</div><div class="hc-label">Receipt scanned</div></div>
+    </div>
+    <div class="hero-chip chip-plan">
+      <div class="hc-icon" style="background:#fef3c7">🤖</div>
+      <div><div class="hc-val" style="color:#b45309">Week planned</div><div class="hc-label">By your AI coach</div></div>
+    </div>
   </div>
 </div>
 
@@ -368,6 +439,10 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <div class="sec-tag tag-green">One connected loop</div>
   <h2 class="sec-h">Macros, shopping, recipes<br/>and plans in one place.</h2>
   <p class="sec-sub">FitMunch is built around the thing people already do every week: buy food. From there it connects logging, price-aware planning, recipes, meal prep and coach visibility.</p>
+  <div class="loop-banner">
+    <img src="/assets/fm-groceries.webp" alt="Fresh Australian groceries — broccoli, spinach, eggs, salmon, yoghurt and oats" loading="lazy"/>
+    <img src="/assets/fm-receipt-scan.webp" alt="Scanning a supermarket receipt with the FitMunch app" loading="lazy"/>
+  </div>
   <div class="features-grid" id="features-grid">
     <div class="feat-card">
       <span class="feat-icon">01</span>
@@ -404,6 +479,28 @@ footer{background:var(--dark);padding:48px 40px 28px}
       <div class="feat-h">PT Accountability</div>
       <div class="feat-p">If you work with a trainer, the same loop becomes coaching evidence: receipts, plans, check-ins, compliance and follow-up.</div>
       <span class="feat-badge badge-pt">PT lane</span>
+    </div>
+  </div>
+</div>
+
+<!-- AI COACH -->
+<div class="coach-section">
+  <div class="coach-inner">
+    <div class="coach-visual">
+      <img src="/assets/fm-workout.webp" alt="Getting ready to train at home with dumbbells and the FitMunch app" loading="lazy"/>
+      <div class="coach-bubble cb-user">What should I eat tonight to hit my protein target?</div>
+      <div class="coach-bubble cb-ai"><span class="cb-ai-tag">🤖 AI Coach</span>You're 62g short. Grab the chicken from Tuesday's shop — a 250g breast plus greek yoghurt dessert gets you there under your calories.</div>
+    </div>
+    <div class="coach-copy">
+      <div class="sec-tag tag-green">Your AI training partner</div>
+      <h2 class="sec-h">A coach that already knows<br/>what's in your fridge.</h2>
+      <p class="sec-sub" style="margin-bottom:22px">The FitMunch AI coach reads your receipts, goals and today's macros — then answers like a mate who happens to be a nutritionist. Meal ideas from food you already bought, weekly programs built for your equipment, and a Sunday review of how the week actually went.</p>
+      <div class="coach-points">
+        <div class="coach-point"><span>💬</span>Chat grounded in your real logs — not generic advice</div>
+        <div class="coach-point"><span>🏋️</span>Weekly training programs generated for your gear and time</div>
+        <div class="coach-point"><span>📅</span>Weekly reviews: wins, focus areas, and a consistency score</div>
+      </div>
+      <a href="/login.html#register" class="btn-primary" style="margin-top:26px;display:inline-flex">Meet your coach →</a>
     </div>
   </div>
 </div>
@@ -567,9 +664,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
     <div class="footer-top">
       <div class="footer-brand">
         <div class="f-logo">
-          <div class="logo-mark" style="width:26px;height:26px">
-            <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="width:26px;height:26px"><defs><linearGradient id="fb" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#14532d"/><stop offset="100%" stop-color="#052e16"/></linearGradient><linearGradient id="fbr" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="fa" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#16a34a"/></linearGradient></defs><rect width="512" height="512" fill="url(#fb)"/><circle cx="256" cy="128" r="82" fill="url(#fbr)"/><circle cx="175" cy="168" r="68" fill="url(#fbr)"/><circle cx="337" cy="168" r="68" fill="url(#fbr)"/><ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#fbr)"/><rect x="228" y="228" width="56" height="108" rx="12" fill="white"/><rect x="142" y="348" width="228" height="26" rx="13" fill="white"/><rect x="166" y="334" width="34" height="54" rx="9" fill="url(#fa)"/><rect x="312" y="334" width="34" height="54" rx="9" fill="url(#fa)"/><rect x="118" y="316" width="62" height="90" rx="16" fill="white"/><rect x="134" y="334" width="26" height="54" rx="8" fill="url(#fb)"/><rect x="332" y="316" width="62" height="90" rx="16" fill="white"/><rect x="352" y="334" width="26" height="54" rx="8" fill="url(#fb)"/></svg>
-          </div>
+          <div class="logo-mark" style="width:26px;height:26px"><img src="/assets/logo.svg" alt="" width="26" height="26" style="display:block;width:100%;height:100%"/></div>
           <span style="font-size:.95rem;font-weight:900;color:#f1f5f9;letter-spacing:-.03em">Fit<span style="color:var(--green)">Munch</span></span>
         </div>
         <p class="f-tagline">Receipts, macros, recipe advice, shopping lists and meal plans. Made in Australia.</p>
