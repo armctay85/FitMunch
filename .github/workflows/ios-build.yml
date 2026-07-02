@@ -1,10 +1,22 @@
 name: iOS Build and Test
 
+# The iOS lane is parked while the web product leads. Only build when iOS
+# sources actually change (or on manual dispatch) so web pushes don't
+# generate failure noise.
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - "FitMunch/**"
+      - "project.yml"
+      - ".github/workflows/ios-build.yml"
   pull_request:
     branches: [ main, master ]
+    paths:
+      - "FitMunch/**"
+      - "project.yml"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,6 +30,19 @@ jobs:
 
     - name: Install XcodeGen
       run: brew install xcodegen
+
+    # The project references RevenueCat.xcframework at repo root (not vendored).
+    # Same download used by ios-archive.yml — without it every build fails with
+    # "There is no XCFramework found".
+    - name: Download RevenueCat XCFramework
+      run: |
+        curl -L -o RevenueCat.xcframework.zip \
+          https://github.com/RevenueCat/purchases-ios/releases/download/5.14.4/RevenueCat.xcframework.zip
+        unzip -q RevenueCat.xcframework.zip -d rc_tmp
+        XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+        mv "$XCFW" ./RevenueCat.xcframework
+        rm -rf rc_tmp
+        xattr -cr RevenueCat.xcframework || true
 
     - name: Generate Xcode project
       run: xcodegen generate
