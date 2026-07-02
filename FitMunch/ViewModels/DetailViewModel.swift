@@ -142,6 +142,15 @@ class DetailViewModel: ObservableObject {
             }
             
             try modelContext.save()
+            // Mirror to the FitMunch backend so web + AI coach see this meal.
+            MealSync.push(
+                name: meal.name,
+                calories: meal.totalCalories,
+                protein: meal.totalProtein,
+                carbs: meal.totalCarbs,
+                fats: meal.totalFats,
+                date: meal.date
+            )
             errorMessage = nil
             return true
         } catch {
