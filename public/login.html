@@ -210,6 +210,19 @@
   const urlParams = new URLSearchParams(window.location.search);
   const plan = urlParams.get('plan') || null; // 'starter' | 'pro' | null
 
+  // First-touch marketing attribution — captured once, sent with registration.
+  try {
+    if (!localStorage.getItem('fm_attribution')) {
+      const attr = {};
+      ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
+        const v = urlParams.get(k); if (v) attr[k] = v;
+      });
+      if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
+      attr.landing = location.pathname;
+      if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+    }
+  } catch {}
+
   async function parseApiJson(response) {
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
@@ -371,7 +384,9 @@
     setLoading('register-btn', true);
     try {
       const inviteToken = new URLSearchParams(window.location.search).get('invite');
-      const r    = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, ...(inviteToken ? { inviteToken } : {}) }) });
+      let attribution = null;
+      try { attribution = JSON.parse(localStorage.getItem('fm_attribution') || 'null'); } catch {}
+      const r    = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, ...(inviteToken ? { inviteToken } : {}), ...(attribution ? { attribution } : {}) }) });
       const data = await parseApiJson(r);
       if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
       localStorage.setItem('fm_token', data.token);

@@ -266,6 +266,28 @@ router.post('/auth/register', async (req, res) => {
 
     const user = await createUser(email.toLowerCase(), name, passwordHash);
 
+    // Marketing attribution — where did this signup come from? Stored in
+    // users.settings JSONB so IG/TikTok/SEO campaigns can be measured
+    // end-to-end (post → UTM link → signup → trial). Non-fatal.
+    try {
+      const a = req.body.attribution;
+      if (a && typeof a === 'object') {
+        const clean = {};
+        for (const k of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'referrer', 'landing']) {
+          if (typeof a[k] === 'string' && a[k].length) clean[k] = a[k].slice(0, 300);
+        }
+        if (Object.keys(clean).length) {
+          clean.captured_at = new Date().toISOString();
+          await _pool.query(
+            `UPDATE users SET settings = COALESCE(settings,'{}'::jsonb) || jsonb_build_object('attribution', $1::jsonb) WHERE id=$2`,
+            [JSON.stringify(clean), user.id]
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('[register] attribution save failed (non-fatal):', e.message);
+    }
+
     // Set role, pt_id, and 14-day trial — non-fatal if columns missing.
     try {
       const trialExpiresAt = new Date();

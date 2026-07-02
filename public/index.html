@@ -692,6 +692,20 @@ footer{background:var(--dark);padding:48px 40px 28px}
 </footer>
 
 <script>
+// First-touch marketing attribution — persists through to registration.
+try {
+  if (!localStorage.getItem('fm_attribution')) {
+    const p = new URLSearchParams(location.search);
+    const attr = {};
+    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
+      const v = p.get(k); if (v) attr[k] = v;
+    });
+    if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
+    attr.landing = location.pathname + location.search.slice(0, 120);
+    if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+  }
+} catch {}
+
 function setAud(type, el) {
   document.querySelectorAll('.aud-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
