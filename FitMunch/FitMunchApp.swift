@@ -6,6 +6,7 @@ import RevenueCat
 @main
 struct FitMunchApp: App {
     @StateObject private var premiumManager = PremiumManager.shared
+    @StateObject private var auth = AuthManager.shared
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -24,12 +25,22 @@ struct FitMunchApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .modelContainer(sharedModelContainer)
-                .environmentObject(premiumManager)
-                .onAppear {
-                    configureAppearance()
+            Group {
+                if auth.isRestoring {
+                    ProgressView()
+                        .task { await auth.bootstrap() }
+                } else if auth.isAuthenticated {
+                    ContentView()
+                } else {
+                    AuthView()
                 }
+            }
+            .modelContainer(sharedModelContainer)
+            .environmentObject(premiumManager)
+            .environmentObject(auth)
+            .onAppear {
+                configureAppearance()
+            }
         }
     }
     

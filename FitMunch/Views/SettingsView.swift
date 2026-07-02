@@ -3,8 +3,10 @@ import SwiftUI
 /// Settings screen for user preferences and app management
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
+    @EnvironmentObject private var auth: AuthManager
     @State private var showLogoutAlert = false
     @State private var showResetAlert = false
+    @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
     
     var body: some View {
@@ -162,11 +164,22 @@ struct SettingsView: View {
                 }
                 
                 // Account section
-                Section {
+                Section("Account") {
+                    if let user = auth.user {
+                        HStack {
+                            Text("Signed in as")
+                            Spacer()
+                            Text(user.email)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                     Button("Log Out", role: .destructive) {
                         showLogoutAlert = true
                     }
-                    .frame(maxWidth: .infinity)
+                    Button("Delete Account", role: .destructive) {
+                        showDeleteAlert = true
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -195,10 +208,18 @@ struct SettingsView: View {
                 Button("Cancel", role: .cancel) { }
                 Button("Log Out", role: .destructive) {
                     viewModel.logOut()
-                    navigateToOnboarding = true
+                    auth.logout()
                 }
             } message: {
                 Text("Are you sure you want to log out? Your local data will be preserved.")
+            }
+            .alert("Delete Account", isPresented: $showDeleteAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete Everything", role: .destructive) {
+                    Task { _ = await auth.deleteAccount() }
+                }
+            } message: {
+                Text("This permanently deletes your FitMunch account and all data — meals, plans, progress and subscriptions — on all devices. This cannot be undone.")
             }
             .alert("Reset Data", isPresented: $showResetAlert) {
                 Button("Cancel", role: .cancel) { }

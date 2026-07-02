@@ -24,34 +24,31 @@ struct ContentView: View {
                 }
                 .tag(0)
             
-            // Placeholder for log meal - will be replaced with actual view
-            Text("Log Meal")
+            CoachView()
                 .tabItem {
-                    Label("Log", systemImage: "plus.circle.fill")
+                    Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill")
                 }
                 .tag(1)
-                .onAppear {
-                    // When this tab is selected, show the log meal sheet
-                    // and then return to home tab
-                    DispatchQueue.main.async {
-                        selectedTab = 0
-                        // In a real app, you would trigger sheet presentation here
-                    }
+            
+            ReceiptScanView()
+                .tabItem {
+                    Label("Scan", systemImage: "camera.viewfinder")
                 }
+                .tag(2)
             
             HistoryView(modelContext: modelContext)
                 .tabItem {
                     Label("History", systemImage: "chart.line.uptrend.xyaxis")
                 }
-                .tag(2)
+                .tag(3)
             
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(3)
+                .tag(4)
         }
-        .tint(.blue)
+        .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
     }
 }
 
