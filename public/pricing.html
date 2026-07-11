@@ -37,7 +37,7 @@
     <a href="/#features">Features</a>
     <a href="/for-pts">For PTs</a>
     <div class="spacer"></div>
-    <a href="/login.html">Sign in</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
   </nav>
   <main class="wrap">
     <section class="hero">
@@ -58,7 +58,7 @@
           <li>Basic shopping lists</li>
           <li class="muted">Unlimited AI plans</li>
         </ul>
-        <a class="btn" href="/login.html#register">Start free</a>
+        <a class="btn" href="/login.html#register" data-fm-auth="register">Start free</a>
       </article>
       <article class="plan main">
         <div class="badge">Most popular</div>
@@ -71,9 +71,10 @@
           <li>Unlimited receipt scans</li>
           <li>Weekly AI reviews</li>
           <li>Macro targets and trends</li>
-          <li>14-day card-free trial</li>
+          <li>14-day trial (card on file, cancel anytime)</li>
         </ul>
-        <a class="btn green" href="/login.html?plan=premium#register">Start Premium trial</a>
+        <a class="btn green" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial →</a>
+        <p class="note" style="margin-top:10px;text-align:center">Creates your account, then opens Stripe checkout.</p>
       </article>
       <article class="plan">
         <div class="name">For trainers</div>
@@ -106,31 +107,36 @@
     <p class="note">All prices are in AUD. Cancel anytime. General food planning support only, not medical advice.</p>
   </main>
   <script>
-    async function startCheckout(plan, button) {
-      const email = prompt('Enter your email to start your free trial:');
-      const msg = document.getElementById('checkout-msg');
-      if (!email) return;
-      button.disabled = true;
-      button.textContent = 'Opening checkout...';
-      msg.textContent = '';
-      try {
-        const res = await fetch('/api/quick-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, plan })
+    try {
+      if (!localStorage.getItem('fm_attribution')) {
+        const p = new URLSearchParams(location.search);
+        const attr = {};
+        ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
+          const v = p.get(k); if (v) attr[k] = v;
         });
-        const data = await res.json();
-        if (data.success && data.url) window.location.href = data.url;
-        else throw new Error(data.error || 'Checkout failed');
-      } catch (err) {
-        msg.textContent = 'Checkout did not open. Email hello@fitmunch.com.au and mention ' + plan + '.';
-        button.disabled = false;
-        button.textContent = 'Start PT trial';
+        if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
+        attr.landing = location.pathname + location.search.slice(0, 120);
+        if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
       }
-    }
-    document.querySelectorAll('[data-plan]').forEach((button) => {
-      button.addEventListener('click', () => startCheckout(button.dataset.plan, button));
-    });
+    } catch {}
+    (function preserveAuthUtms() {
+      const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+      const fromUrl = new URLSearchParams(location.search);
+      let attr = {};
+      try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
+      const params = new URLSearchParams();
+      keys.forEach(k => { const v = fromUrl.get(k) || attr[k]; if (v) params.set(k, v); });
+      if (![...params.keys()].length) return;
+      document.querySelectorAll('a[data-fm-auth]').forEach(a => {
+        try {
+          const u = new URL(a.getAttribute('href'), location.origin);
+          keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
+          const plan = a.getAttribute('data-fm-plan');
+          if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
+          a.href = u.pathname + u.search + u.hash;
+        } catch {}
+      });
+    })();
   </script>
 </body>
 </html>

@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const LEDGER = process.env.FITMUNCH_IG_LEDGER
   || path.join(process.env.HOME || process.env.USERPROFILE, '.openclaw/workspace/state/fitmunch-ig-performance.jsonl');
-const IG_INTEGRATION = 'cmmfq68sp0293pe0yzqbotaqa';
+const IG_INTEGRATION = 'cmrfmv3bq0efglk0y3tc2cydy'; // @fitmunchaus reconnected 2026-07-11
 const BASE = 'https://www.fitmunch.com.au';
 
 function loadPostizKey() {

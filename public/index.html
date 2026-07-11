@@ -281,7 +281,10 @@ footer{background:var(--dark);padding:48px 40px 28px}
 @media(max-width:768px){
   nav{padding:0 16px;gap:10px}
   .nav-logo{gap:8px}.logo-mark{width:30px;height:30px}.logo-mark svg{width:30px;height:30px}.logo-word{font-size:1rem}
-  .nav-links{gap:0;margin-left:4px}.nav-links a{font-size:.82rem;padding:6px 8px}.nav-right{display:none}
+  .nav-links{gap:0;margin-left:4px}.nav-links a{font-size:.82rem;padding:6px 8px}  .nav-links{display:none}
+  .nav-right{display:flex}
+  .nav-signin{display:none}
+  .nav-cta{padding:8px 14px;font-size:.8rem}
   .hero{padding:42px 16px 44px;max-width:100%}
   .hero-eyebrow{max-width:100%;white-space:normal;text-align:center;line-height:1.3}
   .hero h1{font-size:clamp(1.9rem,8.3vw,2.12rem);letter-spacing:-.025em;line-height:1.1;overflow-wrap:normal;text-wrap:balance}
@@ -312,8 +315,8 @@ footer{background:var(--dark);padding:48px 40px 28px}
   </div>
   <div class="nav-spacer"></div>
   <div class="nav-right">
-    <a href="/login.html" class="nav-signin">Sign in</a>
-    <a href="/login.html" class="nav-cta">Start free →</a>
+    <a href="/login.html" class="nav-signin" data-fm-auth="login">Sign in</a>
+    <a href="/login.html#register" class="nav-cta" data-fm-auth="register">Start free →</a>
   </div>
 </nav>
 
@@ -324,7 +327,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
     <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span></h1>
     <p class="hero-sub">FitMunch links the whole food loop: receipt scans, food logging, macro targets, price-aware shopping lists, meal plans and an AI coach that knows your week.</p>
     <div class="hero-ctas">
-      <a href="/login.html#register" class="btn-primary">Start for free →</a>
+      <a href="/login.html#register" class="btn-primary" data-fm-auth="register">Start for free →</a>
       <a href="#for-pts" class="btn-ghost">For personal trainers</a>
     </div>
     <div class="hero-trust">
@@ -466,7 +469,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
       <span class="feat-icon">04</span>
       <div class="feat-h">Recipe Advice</div>
       <div class="feat-p">Turn what you already bought into meals that fit your goal instead of starting from a fantasy recipe list.</div>
-      <span class="feat-badge badge-pro">Pro</span>
+      <span class="feat-badge badge-pro">Premium</span>
     </div>
     <div class="feat-card">
       <span class="feat-icon">05</span>
@@ -500,7 +503,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
         <div class="coach-point"><span>🏋️</span>Weekly training programs generated for your gear and time</div>
         <div class="coach-point"><span>📅</span>Weekly reviews: wins, focus areas, and a consistency score</div>
       </div>
-      <a href="/login.html#register" class="btn-primary" style="margin-top:26px;display:inline-flex">Meet your coach →</a>
+      <a href="/login.html#register" class="btn-primary" style="margin-top:26px;display:inline-flex" data-fm-auth="register">Meet your coach →</a>
     </div>
   </div>
 </div>
@@ -529,7 +532,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
           <span class="pt-feat-icon">📲</span>
           <div><div class="pt-feat-h">A nutrition layer, not a platform migration</div><div class="pt-feat-p">Use FitMunch where clients actually slip: the shop, the log, the plan and the check-in. Keep your existing coaching stack if it already works.</div></div>
         </div>
-        <a href="/login.html?plan=starter#register" class="btn-primary" style="align-self:flex-start;margin-top:8px">Start PT trial — free 14 days →</a>
+        <a href="/login.html?plan=starter#register" class="btn-primary" style="align-self:flex-start;margin-top:8px" data-fm-auth="register" data-fm-plan="starter">Start PT trial — free 14 days →</a>
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="email" id="pt-email-cap" placeholder="your@email.com" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;width:220px;outline:none;font-family:inherit"/>
           <button onclick="capturePTEmail()" style="background:#fff;color:var(--green2);border:1px solid var(--green2);padding:10px 16px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">Get a personal walkthrough</button>
@@ -570,42 +573,42 @@ footer{background:var(--dark);padding:48px 40px 28px}
         <div class="plan-desc">For testing the receipt-to-macro loop before paying.</div>
         <div class="plan-features">
           <div class="pf"><span class="pf-check">✓</span>Macro and food logging</div>
-          <div class="pf"><span class="pf-check">✓</span>5 receipt scans/month</div>
-          <div class="pf"><span class="pf-check">✓</span>Basic shopping lists</div>
+          <div class="pf"><span class="pf-check">✓</span>10 AI actions/month</div>
+          <div class="pf"><span class="pf-check">✓</span>Receipt scan + AI coach teaser</div>
           <div class="pf"><span class="pf-check">✓</span>Starter meal planning</div>
-          <div class="pf"><span class="pf-x">–</span>Unlimited scans</div>
-          <div class="pf"><span class="pf-x">–</span>Advanced recipe advice</div>
+          <div class="pf"><span class="pf-check">✓</span>Basic shopping lists</div>
+          <div class="pf"><span class="pf-x">–</span>Unlimited AI</div>
           <div class="pf"><span class="pf-x">–</span>PT management tools</div>
         </div>
-        <a href="/login.html" class="plan-cta cta-outline">Start free</a>
+        <a href="/login.html#register" class="plan-cta cta-outline" data-fm-auth="register">Start free</a>
       </div>
       <div class="plan-card featured">
         <div class="plan-popular">Most popular</div>
-        <div class="plan-name">Pro</div>
+        <div class="plan-name">Premium</div>
         <div class="plan-price"><sup>$</sup>19<sub>.99/mo AUD</sub></div>
         <div class="plan-desc">For lifters, busy households and goal-driven eaters who want the full loop.</div>
         <div class="plan-features">
           <div class="pf"><span class="pf-check">✓</span>Everything in Free</div>
+          <div class="pf"><span class="pf-check">✓</span>Unlimited AI coach chat</div>
           <div class="pf"><span class="pf-check">✓</span>Unlimited receipt scans</div>
-          <div class="pf"><span class="pf-check">✓</span>Barcode-style food logging</div>
-          <div class="pf"><span class="pf-check">✓</span>Price-aware shopping builder</div>
-          <div class="pf"><span class="pf-check">✓</span>Recipe advice from your groceries</div>
-          <div class="pf"><span class="pf-check">✓</span>Meal plans from budget and macros</div>
+          <div class="pf"><span class="pf-check">✓</span>Unlimited meal + workout plans</div>
+          <div class="pf"><span class="pf-check">✓</span>Weekly AI reviews</div>
+          <div class="pf"><span class="pf-check">✓</span>14-day Premium trial</div>
         </div>
-        <a href="/login.html?plan=pro#register" class="plan-cta cta-green">Start 14-day trial →</a>
+        <a href="/login.html?plan=premium#register" class="plan-cta cta-green" data-fm-auth="register" data-fm-plan="premium">Start Premium trial →</a>
       </div>
       <div class="plan-card">
         <div class="plan-name">PT Plan</div>
         <div class="plan-price"><sup>$</sup>59<sub>–99/mo AUD</sub></div>
         <div class="plan-desc">The paid coaching lane for trainers who need nutrition accountability.</div>
         <div class="plan-features">
-          <div class="pf"><span class="pf-check">✓</span>Everything clients get in Pro</div>
+          <div class="pf"><span class="pf-check">✓</span>Everything clients get in Premium</div>
           <div class="pf"><span class="pf-check">✓</span>Client roster dashboard</div>
           <div class="pf"><span class="pf-check">✓</span>Assign meal + workout plans</div>
           <div class="pf"><span class="pf-check">✓</span>Receipt compliance signals</div>
           <div class="pf"><span class="pf-check">✓</span>Client portals and invite links</div>
         </div>
-        <a href="/login.html?plan=starter#register" class="plan-cta cta-outline">Start PT trial →</a>
+        <a href="/login.html?plan=starter#register" class="plan-cta cta-outline" data-fm-auth="register" data-fm-plan="starter">Start PT trial →</a>
       </div>
     </div>
   </div>
@@ -652,10 +655,10 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <h2>Stop guessing.<br/>Run the <em>whole food loop.</em></h2>
   <p>Start with one shop: scan the receipt, see the macros, build the meals, tighten the next grocery run.</p>
   <div class="cta-row">
-    <a href="/login.html#register" class="btn-white">Start for free →</a>
+    <a href="/login.html#register" class="btn-white" data-fm-auth="register">Start for free →</a>
     <a href="/pricing" class="btn-outline-w">Compare plans</a>
   </div>
-  <div class="cta-trust"><span>✓ Free consumer start</span><span>✓ Pro nutrition loop</span><span>✓ PT accountability lane</span></div>
+  <div class="cta-trust"><span>✓ Free consumer start</span><span>✓ Premium nutrition loop</span><span>✓ PT accountability lane</span></div>
 </div>
 
 <!-- FOOTER -->
@@ -706,18 +709,58 @@ try {
   }
 } catch {}
 
+// Keep UTM params on auth CTAs so signup still attributes if localStorage is cleared.
+(function preserveAuthUtms() {
+  const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+  const fromUrl = new URLSearchParams(location.search);
+  let attr = {};
+  try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
+  const params = new URLSearchParams();
+  keys.forEach(k => {
+    const v = fromUrl.get(k) || attr[k];
+    if (v) params.set(k, v);
+  });
+  if (![...params.keys()].length) return;
+  document.querySelectorAll('a[data-fm-auth]').forEach(a => {
+    try {
+      const u = new URL(a.getAttribute('href'), location.origin);
+      keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
+      const plan = a.getAttribute('data-fm-plan');
+      if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
+      a.href = u.pathname + u.search + u.hash;
+    } catch {}
+  });
+})();
+
 function setAud(type, el) {
   document.querySelectorAll('.aud-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   if (type === 'pt') {
     document.querySelector('.hero h1').innerHTML = 'Coach the food loop.<br/>Not just the check-in.<br/><span class="gr">See the evidence.</span>';
     document.querySelector('.hero-sub').textContent = 'FitMunch gives clients the receipt-to-meal-plan habit, then gives trainers the accountability layer: client roster, receipt evidence, plan assignment and compliance signals.';
-    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter#register" class="btn-primary">Start PT trial — free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter#register" class="btn-primary" data-fm-auth="register" data-fm-plan="starter">Start PT trial — free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
   } else {
     document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span>';
     document.querySelector('.hero-sub').textContent = 'FitMunch links the whole food loop: receipt scans, barcode-style food logging, macro targets, price-aware shopping lists, recipe ideas, meal plans, and PT accountability when you want coaching behind it.';
-    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html#register" class="btn-primary">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html#register" class="btn-primary" data-fm-auth="register">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
   }
+  // Re-apply UTMs to any CTAs rewritten by the audience toggle.
+  try {
+    const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    const fromUrl = new URLSearchParams(location.search);
+    let attr = {};
+    try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
+    const params = new URLSearchParams();
+    keys.forEach(k => { const v = fromUrl.get(k) || attr[k]; if (v) params.set(k, v); });
+    if (![...params.keys()].length) return;
+    document.querySelectorAll('.hero-ctas a[data-fm-auth]').forEach(a => {
+      const u = new URL(a.getAttribute('href'), location.origin);
+      keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
+      const plan = a.getAttribute('data-fm-plan');
+      if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
+      a.href = u.pathname + u.search + u.hash;
+    });
+  } catch {}
 }
 
 async function capturePTEmail() {

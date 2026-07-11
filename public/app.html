@@ -758,7 +758,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
             <li><strong>Unlimited</strong> meal &amp; workout plans</li>
             <li><strong>Unlimited</strong> receipt scans &amp; weekly reviews</li>
           </ul>
-          <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium')">Start free trial →</button>
+          <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium')">Start Premium trial →</button>
+          <div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:8px">Opens Stripe checkout · cancel anytime</div>
         </div>
       </div>
     </div>
@@ -1462,6 +1463,11 @@ async function boot() {
         }
       } catch (_) {}
       window.history.replaceState({}, '', '/app.html');
+    }
+    if (new URLSearchParams(location.search).get('cancelled') === '1') {
+      toast('Checkout cancelled — you can start Premium anytime from Billing.', 'warn');
+      window.history.replaceState({}, '', '/app.html');
+      setTimeout(() => nav('billing'), 400);
     }
     const me = await API('/auth/me');
     if (!me.success) { logout(); return; }
@@ -3240,8 +3246,8 @@ async function startCheckout(plan) {
 // Any AI endpoint can return { upgrade: true } when the free monthly cap is hit.
 function maybeUpgrade(r) {
   if (r && r.upgrade) {
-    toast(r.error || 'Free AI limit reached — upgrade for unlimited', 'warn');
-    setTimeout(() => nav('billing'), 900);
+    toast(r.error || 'Free AI limit reached — starting Premium checkout…', 'warn');
+    setTimeout(() => startCheckout('premium'), 700);
     return true;
   }
   return false;
@@ -3354,10 +3360,17 @@ async function sendChat() {
       const btn = document.createElement('button');
       btn.className = 'btn btn-green btn-sm';
       btn.style.marginTop = '8px';
-      btn.textContent = 'Upgrade for unlimited →';
-      btn.onclick = () => nav('billing');
+      btn.textContent = 'Start Premium trial →';
+      btn.onclick = () => startCheckout('premium');
       typing.appendChild(document.createElement('br'));
       typing.appendChild(btn);
+      const alt = document.createElement('button');
+      alt.className = 'btn btn-ghost2 btn-sm';
+      alt.style.marginTop = '6px';
+      alt.style.marginLeft = '6px';
+      alt.textContent = 'See plans';
+      alt.onclick = () => nav('billing');
+      typing.appendChild(alt);
     } else {
       typing.textContent = 'Hmm, that didn\'t work — ' + (r.error || 'try again in a moment.');
     }
