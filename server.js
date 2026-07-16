@@ -263,6 +263,13 @@ app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
 app.get('/best-pt-software-australia', (req, res) => res.sendFile('best-pt-software-australia.html', { root: 'public' }));
 app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/best-pt-software-australia'));
 app.get('/receipt-nutrition-scanner', (req, res) => res.sendFile('receipt-nutrition-scanner.html', { root: 'public' }));
+app.get('/receipt-to-meal-plan', (req, res) => res.sendFile('receipt-nutrition-scanner.html', { root: 'public' }));
+
+// Clean auth/app URLs (marketing + IG often omit .html)
+app.get('/login', (req, res) => res.redirect(301, '/login.html' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
+app.get('/register', (req, res) => res.redirect(301, '/login.html?plan=premium#register'));
+app.get('/app', (req, res) => res.redirect(301, '/app.html' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
+app.get('/checkout', (req, res) => res.redirect(301, '/pricing'));
 
 app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));

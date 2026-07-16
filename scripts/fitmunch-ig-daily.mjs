@@ -167,11 +167,13 @@ async function main() {
 
   console.log('\nNEXT ACTIONS:');
   if (!publishedToday) {
-    console.log(`  - Schedule 1 post today (pillar suggestion: ${nextPillar})`);
-    console.log('  - Pass 8-point quality gate before Postiz schedule');
+    console.log(`  - Publish 1 post today (pillar suggestion: ${nextPillar})`);
+    console.log('  - HARD GATE: node scripts/make-ig-carousel.mjs && node scripts/publish-ig-gated.mjs');
+    console.log('  - NO raw URLs in IG captions (link in bio only)');
   } else {
     console.log('  - Post cadence OK for today');
   }
+  console.log('  - DELETE slop if still live: DaojVEgjZHW + DaogDdTgaop (Meta UI — Graph lacks delete perms)');
   if (platformMetrics.length === 0) {
     console.log('  - Analytics API empty: retry at 72h post-publish; check IG native insights if urgent');
   }

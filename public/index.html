@@ -316,7 +316,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
   <div class="nav-spacer"></div>
   <div class="nav-right">
     <a href="/login.html" class="nav-signin" data-fm-auth="login">Sign in</a>
-    <a href="/login.html#register" class="nav-cta" data-fm-auth="register">Start free →</a>
+    <a href="/login.html?plan=premium#register" class="nav-cta" data-fm-auth="register" data-fm-plan="premium">Start Premium trial →</a>
   </div>
 </nav>
 
@@ -331,7 +331,7 @@ footer{background:var(--dark);padding:48px 40px 28px}
       <a href="#for-pts" class="btn-ghost">For personal trainers</a>
     </div>
     <div class="hero-trust">
-      <span class="trust-i">✓ Free to start</span>
+      <span class="trust-i">✓ Card on file · cancel anytime</span>
       <span class="trust-sep"></span>
       <span class="trust-i">✓ Receipt-first</span>
       <span class="trust-sep"></span>
@@ -742,7 +742,7 @@ function setAud(type, el) {
   } else {
     document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span>';
     document.querySelector('.hero-sub').textContent = 'FitMunch links the whole food loop: receipt scans, barcode-style food logging, macro targets, price-aware shopping lists, recipe ideas, meal plans, and PT accountability when you want coaching behind it.';
-    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html#register" class="btn-primary" data-fm-auth="register">Start for free →</a><a href="#for-pts" class="btn-ghost">For personal trainers</a>';
+    document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=premium#register" class="btn-primary" data-fm-auth="register" data-fm-plan="premium">Start 14-day Premium trial →</a><a href="/pricing" class="btn-ghost">See pricing</a>';
   }
   // Re-apply UTMs to any CTAs rewritten by the audience toggle.
   try {
