@@ -8,13 +8,18 @@ import fs from 'fs';
 const cfg = JSON.parse(fs.readFileSync('.ig-config.json', 'utf8')).instagram;
 const OUT = 'C:/Users/Drew/.openclaw/workspace/state/fitmunch-ig-contacts.jsonl';
 const HANDLES = [
-  'mealpreponadime',
-  'australian.fitness',
   'highproteinsnacks',
-  'macrofriendlyrecipes',
-  'fitnessaustralia',
-  'healthy.aussie.eats',
   'theproteinchef',
+  'gymshark',
+  'myproteinau',
+  'bulk_nutrients',
+  'musclefood',
+  'tasty',
+  'bbcgoodfood',
+  'feelgoodfoodie',
+  'minimalistbaker',
+  'budgetbytes',
+  'skinnytaste',
 ];
 
 async function g(path) {
