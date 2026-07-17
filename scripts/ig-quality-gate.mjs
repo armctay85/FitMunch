@@ -43,8 +43,12 @@ export function assertIgQualityGate(input) {
   // 1. Hook
   const firstLine = caption.split('\n').map((l) => l.trim()).find(Boolean) || '';
   if (wordCount(firstLine) < 3) errors.push('Hook too weak: first line needs a stop-worthy hook');
-  if (/budget protein tip|stop comparing shelf price/i.test(firstLine)) {
-    errors.push('Hook is a near-duplicate of recent failed posts — rewrite');
+  if (
+    /budget protein tip|stop comparing shelf price|same grocery budget|same weekly shop|snap the woolies|price per 25g protein wins|987g protein from one woolies/i.test(
+      firstLine
+    )
+  ) {
+    errors.push('Hook is a near-duplicate of the dead receipt/protein loop — rotate pillar/hook');
   }
 
   // 2. Link discipline — IG captions must NOT contain raw URLs (not clickable in feed)

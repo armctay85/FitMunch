@@ -166,18 +166,20 @@ async function main() {
   const nextPillar = pillars.find(p => !usedPillars.has(p)) || pillars[0];
 
   console.log('\nNEXT ACTIONS:');
+  console.log('  1) REQUIRED: node scripts/fitmunch-ig-learning-loop.mjs');
+  console.log('     → writes state/fitmunch-ig-daily-decision.json (NEXT_PILLAR / NEXT_HOOK / outreach)');
+  console.log('  2) Publish ONLY the decision pillar (no receipt/protein dupes)');
+  console.log('  3) Do ≥5 outreach comments from fitmunch-ig-outreach-queue.jsonl');
+  console.log('  4) Drew is NOT the reviewer — agent executes the decision file');
   if (!publishedToday) {
-    console.log(`  - Publish 1 post today (pillar suggestion: ${nextPillar})`);
-    console.log('  - HARD GATE: node scripts/make-ig-carousel.mjs && node scripts/publish-ig-gated.mjs');
+    console.log(`  - Fallback pillar hint: ${nextPillar}`);
     console.log('  - NO raw URLs in IG captions (link in bio only)');
   } else {
-    console.log('  - Post cadence OK for today');
+    console.log('  - Feed cadence may be OK; still run learning loop + outreach');
   }
-  console.log('  - DELETE slop if still live: DaojVEgjZHW + DaogDdTgaop (Meta UI — Graph lacks delete perms)');
   if (platformMetrics.length === 0) {
-    console.log('  - Analytics API empty: retry at 72h post-publish; check IG native insights if urgent');
+    console.log('  - Postiz analytics flaky — learning loop uses Graph insights instead');
   }
-  console.log('  - Prepare 3 drafts if none queued for next 3 days');
   console.log(`\nLedger: ${LEDGER}\n`);
 }
 
