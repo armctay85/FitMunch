@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var showResetAlert = false
     @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
+    @State private var showPaywall = false
     
     var body: some View {
         NavigationStack {
@@ -41,7 +42,7 @@ struct SettingsView: View {
                             
                             if !viewModel.isSubscribed {
                                 Button("Upgrade") {
-                                    // This would open paywall
+                                    showPaywall = true
                                 }
                                 .font(.caption2)
                                 .buttonStyle(.borderedProminent)
@@ -93,7 +94,7 @@ struct SettingsView: View {
                         .foregroundColor(.blue)
                     } else {
                         Button("Upgrade to Premium") {
-                            // This would open paywall
+                            showPaywall = true
                         }
                         .foregroundColor(.blue)
                     }
@@ -125,8 +126,7 @@ struct SettingsView: View {
                     .foregroundColor(.blue)
                     
                     Button("Rate the App") {
-                        // This would open App Store review
-                        if let url = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review") {
+                        if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)
                         }
                     }
@@ -136,7 +136,7 @@ struct SettingsView: View {
                 // Data section
                 Section("Data") {
                     Button("Export Data") {
-                        // This would export user data
+                        // Premium history export lives on History tab for now.
                     }
                     .foregroundColor(.blue)
                     .disabled(!viewModel.isSubscribed)
@@ -231,6 +231,9 @@ struct SettingsView: View {
             }
             .navigationDestination(isPresented: $navigateToOnboarding) {
                 OnboardingView()
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
             }
         }
     }

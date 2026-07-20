@@ -8,6 +8,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { assertFreshImages } from './ig-image-freshness.mjs';
 
 const FORBIDDEN_IG_URL = /https?:\/\/|www\.fitmunch\.com\.au\/\?/i;
 const LINK_IN_BIO_OK = /link in bio/i;
@@ -44,11 +45,18 @@ export function assertIgQualityGate(input) {
   const firstLine = caption.split('\n').map((l) => l.trim()).find(Boolean) || '';
   if (wordCount(firstLine) < 3) errors.push('Hook too weak: first line needs a stop-worthy hook');
   if (
-    /budget protein tip|stop comparing shelf price|same grocery budget|same weekly shop|snap the woolies|price per 25g protein wins|987g protein from one woolies/i.test(
+    /budget protein tip|stop comparing shelf price|same grocery budget|same weekly shop|snap the woolies|price per 25g protein wins|987g protein from one woolies|monday protein check|sunday shop check|build the week from the shop|protein check from the real shop|meal-plan draft/i.test(
       firstLine
     )
   ) {
     errors.push('Hook is a near-duplicate of the dead receipt/protein loop — rotate pillar/hook');
+  }
+  // Soft / no-conflict hooks die on IG
+  if (/^(monday|sunday|tuesday|wednesday|thursday|friday|saturday)\b/i.test(firstLine) && wordCount(firstLine) < 8) {
+    errors.push('Hook is calendar filler, not a stop-scroll conflict — rewrite');
+  }
+  if (/check from the real shop|before the week starts|shop you already did/i.test(firstLine)) {
+    errors.push('Hook has no conflict/curiosity — rewrite with a punchier first line');
   }
 
   // 2. Link discipline — IG captions must NOT contain raw URLs (not clickable in feed)
@@ -102,6 +110,15 @@ export function assertIgQualityGate(input) {
   if (tags.length > 6) errors.push(`Too many hashtags (${tags.length}) — max 5–6 AU-relevant`);
   if (tags.some((t) => /#fyp|#viral|#explorepage/i.test(t))) {
     errors.push('Spam hashtags banned');
+  }
+
+  // 8. Image freshness (no more recycled groceries/mealprep/receipt loop)
+  try {
+    assertFreshImages(imagePaths, { allowRecycledBrand: input.allowRecycledBrand === true });
+  } catch (e) {
+    for (const line of String(e.message || e).split('\n').slice(1)) {
+      if (line.trim()) errors.push(line.replace(/^\s*-\s*/, ''));
+    }
   }
 
   if (errors.length) {
