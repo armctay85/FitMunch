@@ -35,18 +35,24 @@ struct ContentView: View {
                     Label("Scan", systemImage: "camera.viewfinder")
                 }
                 .tag(2)
+
+            MealPlanView()
+                .tabItem {
+                    Label("Meals", systemImage: "fork.knife")
+                }
+                .tag(3)
             
             HistoryView(modelContext: modelContext)
                 .tabItem {
                     Label("History", systemImage: "chart.line.uptrend.xyaxis")
                 }
-                .tag(3)
+                .tag(4)
             
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(4)
+                .tag(5)
         }
         .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
     }

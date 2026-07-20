@@ -96,6 +96,51 @@ struct MeResponse: Decodable {
     let error: String?
 }
 
+struct MealPlanGenerateResponse: Decodable {
+    let success: Bool?
+    let upgrade: Bool?
+    let error: String?
+    let plan: MealPlanPayload?
+}
+
+struct MealPlanPayload: Decodable {
+    let planName: String?
+    let summary: String?
+    let days: [MealPlanDay]?
+    let weeklyBudgetEst: Int?
+    let avgDailyCalories: Int?
+    let avgDailyProtein: Int?
+}
+
+struct MealPlanDay: Decodable {
+    let day: String?
+    let meals: MealPlanMeals?
+    let dailyTotals: MealPlanTotals?
+}
+
+struct MealPlanMeals: Decodable {
+    let breakfast: MealPlanMeal?
+    let lunch: MealPlanMeal?
+    let dinner: MealPlanMeal?
+    let snack: MealPlanMeal?
+}
+
+struct MealPlanMeal: Decodable {
+    let name: String?
+    let calories: Int?
+    let protein: Int?
+    let carbs: Int?
+    let fat: Int?
+    let prepMins: Int?
+}
+
+struct MealPlanTotals: Decodable {
+    let calories: Int?
+    let protein: Int?
+    let carbs: Int?
+    let fat: Int?
+}
+
 struct ChatResponse: Decodable {
     let success: Bool
     let reply: String?
