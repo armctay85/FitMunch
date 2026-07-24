@@ -58,6 +58,15 @@ export function assertIgQualityGate(input) {
   if (/check from the real shop|before the week starts|shop you already did/i.test(firstLine)) {
     errors.push('Hook has no conflict/curiosity — rewrite with a punchier first line');
   }
+  if (/sunday prep|monday confidence|know every macro|midweek fridge|snap your woolies shop\.|protein check from the real shop/i.test(firstLine)) {
+    errors.push('Generic meal-prep voice — fails Specificity Test (see fitmunch-anti-generic-creative-2026-07-24.md)');
+  }
+  // Specificity: need a number, $, store, or hard conflict word
+  const hasProof = /\d|\$|Woolies|Coles|Aldi|Mars|graded|B\+|A\+|protein bar|yoghurt/i.test(firstLine);
+  const hasConflict = /vs|lied|skip|beat|short|no gym|candy|dessert|swap|don't|didn't/i.test(firstLine);
+  if (!hasProof && !hasConflict) {
+    errors.push('Hook lacks AU proof OR conflict — too generic to ship');
+  }
 
   // 2. Link discipline — IG captions must NOT contain raw URLs (not clickable in feed)
   if (FORBIDDEN_IG_URL.test(caption)) {
