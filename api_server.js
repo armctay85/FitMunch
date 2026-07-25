@@ -246,9 +246,15 @@ router.post('/auth/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Check for invite token — if present, register as client
-    let role = 'pt';
+    // Consumer-first default (Drew 2026-07): organic SEO/IG traffic is everyday Aussies.
+    // Only mark PT when explicitly requested (plan=starter / role=pt) or invite flow.
+    let role = 'client';
     let ptId = null;
+    const wantPt =
+      req.body.role === 'pt' ||
+      req.body.plan === 'starter' ||
+      req.body.accountType === 'pt';
+    if (wantPt) role = 'pt';
     if (req.body.inviteToken) {
       try {
         const invite = await _pool.query(

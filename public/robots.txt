@@ -1,5 +1,6 @@
+Sitemap: https://www.fitmunch.com.au/sitemap.xml
+
 User-agent: *
 Allow: /
 Disallow: /api/
-
-Sitemap: https://fitmunch.com.au/sitemap.xml
+Disallow: /app.html
