@@ -63,7 +63,10 @@ export function assertIgQualityGate(input) {
   }
   // Specificity: need a number, $, store, or hard conflict word
   const hasProof = /\d|\$|Woolies|Coles|Aldi|Mars|graded|B\+|A\+|protein bar|yoghurt/i.test(firstLine);
-  const hasConflict = /vs|lied|skip|beat|short|no gym|candy|dessert|swap|don't|didn't/i.test(firstLine);
+  const hasConflict =
+    /vs|lied|skip|beat|short|no gym|candy|dessert|swap|don't|didn't|said|wouldn't|shut up|exposed|bomb/i.test(
+      firstLine
+    );
   if (!hasProof && !hasConflict) {
     errors.push('Hook lacks AU proof OR conflict — too generic to ship');
   }
