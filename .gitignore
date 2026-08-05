@@ -8,3 +8,7 @@ coverage/
 .brv/
 .tmp-*
 .vercel
+
+.env.vercel.production
+.env.vercel*
+

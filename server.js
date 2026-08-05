@@ -533,6 +533,36 @@ app.post('/api/checkout', async (req, res) => {
       }
     }
 
+    // Prevent duplicate Premium/PT subs (first payer was double-charged).
+    const existingSubs = await stripe.subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 20,
+    });
+    const liveSubs = existingSubs.data.filter((s) =>
+      ['active', 'trialing'].includes(s.status)
+    );
+    if (liveSubs.length) {
+      // Keep the newest live sub; cancel any extras immediately.
+      liveSubs.sort((a, b) => (b.created || 0) - (a.created || 0));
+      for (const dup of liveSubs.slice(1)) {
+        try {
+          await stripe.subscriptions.cancel(dup.id, {
+            invoice_now: false,
+            prorate: false,
+          });
+          console.warn('[checkout] cancelled duplicate sub', dup.id, 'for', customerId);
+        } catch (e) {
+          console.warn('[checkout] duplicate cancel failed', dup.id, e.message);
+        }
+      }
+      return res.json({
+        alreadySubscribed: true,
+        url: null,
+        message: 'You already have an active FitMunch subscription. Open Billing to manage it.',
+      });
+    }
+
     const origin = req.headers.origin || 'https://fitmunch.com.au';
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',

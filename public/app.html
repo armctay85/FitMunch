@@ -3498,8 +3498,13 @@ function downloadScanCard() {
 async function startCheckout(plan) {
  try {
  const r = await API('/checkout', { method:'POST', body: JSON.stringify({ plan }) });
- if (r.url) window.location.href = r.url;
- else toast('Checkout unavailable - ' + (r.error || 'please try again'), 'error');
+ if (r.url) { window.location.href = r.url; return; }
+ if (r.alreadySubscribed) {
+ toast(r.message || 'You already have an active subscription. Check Billing.', 'success');
+ nav('billing');
+ return;
+ }
+ toast('Checkout unavailable. ' + (r.error || 'Please try again.'), 'error');
  } catch { toast('Could not start checkout. Try again.', 'error'); }
 }
 
