@@ -30,28 +30,26 @@ struct SettingsView: View {
                         
                         Spacer()
                         
-                        VStack {
-                            Text(viewModel.subscriptionStatus)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(viewModel.subscriptionStatusColor.opacity(0.2))
-                                .foregroundColor(viewModel.subscriptionStatusColor)
-                                .cornerRadius(4)
-                            
-                            if !viewModel.isSubscribed {
-                                Button("Upgrade") {
-                                    showPaywall = true
-                                }
-                                .font(.caption2)
-                                .buttonStyle(.borderedProminent)
-                                .buttonBorderShape(.capsule)
-                                .controlSize(.mini)
-                            }
-                        }
+                        Text(viewModel.subscriptionStatus)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(viewModel.subscriptionStatusColor.opacity(0.2))
+                            .foregroundColor(viewModel.subscriptionStatusColor)
+                            .cornerRadius(4)
                     }
                     .padding(.vertical, 8)
+
+                    // Dedicated List row so taps work on iPad (nested button in HStack was dead for App Review).
+                    if !viewModel.isSubscribed {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Label("Upgrade", systemImage: "crown.fill")
+                        }
+                        .buttonStyle(.borderless)
+                    }
                 } header: {
                     Text("Profile")
                 }
@@ -93,9 +91,12 @@ struct SettingsView: View {
                         }
                         .foregroundColor(.blue)
                     } else {
-                        Button("Upgrade to Premium") {
+                        Button {
                             showPaywall = true
+                        } label: {
+                            Label("Upgrade to Premium", systemImage: "crown.fill")
                         }
+                        .buttonStyle(.borderless)
                         .foregroundColor(.blue)
                     }
                     

@@ -4,11 +4,14 @@ import RevenueCat
 /// Paywall screen for subscription purchases
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var premiumManager = PremiumManager.shared
+    @ObservedObject private var premiumManager = PremiumManager.shared
     @State private var packages: [Package] = []
     @State private var selectedPackage: Package?
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
+    @State private var isLoadingPackages = false
+    @State private var showErrorAlert = false
+    @State private var alertError = ""
 
     var body: some View {
         NavigationStack {
@@ -33,20 +36,18 @@ struct PaywallView: View {
                 }
             }
             .overlay {
-                if premiumManager.isLoading && packages.isEmpty {
-                    ProgressView()
-                        .scaleEffect(1.5)
+                // Local loading only — never block on shared PremiumManager.isLoading (ASC: Upgrade felt dead).
+                if isLoadingPackages && packages.isEmpty {
+                    ProgressView("Loading plans…")
                         .padding()
                         .background(.regularMaterial)
                         .cornerRadius(16)
                 }
             }
-            .alert("Error", isPresented: .constant(premiumManager.errorMessage != nil)) {
-                Button("OK") { premiumManager.errorMessage = nil }
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) { }
             } message: {
-                if let error = premiumManager.errorMessage {
-                    Text(error)
-                }
+                Text(alertError)
             }
             .alert("Restore Purchases", isPresented: $showRestoreAlert) {
                 Button("OK", role: .cancel) { }
@@ -126,8 +127,14 @@ struct PaywallView: View {
                 }
             }
             .padding(.horizontal)
-        } else if premiumManager.isLoading {
-            ProgressView("Loading plans...").padding()
+        } else if isLoadingPackages {
+            ProgressView("Loading plans…").padding()
+        } else {
+            Text("Subscription plans will appear here when StoreKit products are available. You can still close this screen.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
         }
     }
 
@@ -203,8 +210,14 @@ struct PaywallView: View {
     // MARK: - Methods
 
     private func loadPackages() async {
+        isLoadingPackages = true
+        defer { isLoadingPackages = false }
         packages = await premiumManager.getPackages()
         selectedPackage = packages.first
+        if packages.isEmpty, let err = premiumManager.errorMessage, !err.isEmpty {
+            alertError = err
+            showErrorAlert = true
+        }
     }
 }
 

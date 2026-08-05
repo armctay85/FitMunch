@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import AVFoundation
 
 /// Receipt scanner — snap a supermarket receipt, get the macro breakdown.
 struct ReceiptScanView: View {
@@ -11,6 +12,7 @@ struct ReceiptScanView: View {
     @State private var errorMessage: String?
     @State private var isLogging = false
     @State private var loggedCount: Int?
+    @State private var isRequestingCamera = false
 
     private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290)
 
@@ -35,7 +37,8 @@ struct ReceiptScanView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showCamera) {
+            // fullScreenCover avoids iPad sheet + UIImagePickerController camera crashes (ASC 2.1a).
+            .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker { image in
                     receiptImage = image
                     startScan(image)
@@ -79,9 +82,9 @@ struct ReceiptScanView: View {
             } else {
                 VStack(spacing: 10) {
                     Button {
-                        showCamera = true
+                        Task { await openCameraSafely() }
                     } label: {
-                        Label("Take a photo", systemImage: "camera.fill")
+                        Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
                             .fontWeight(.bold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -89,6 +92,7 @@ struct ReceiptScanView: View {
                             .foregroundColor(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .disabled(isRequestingCamera)
                     PhotosPicker(selection: $pickedItem, matching: .images) {
                         Label("Choose from library", systemImage: "photo.on.rectangle")
                             .fontWeight(.semibold)
@@ -214,6 +218,35 @@ struct ReceiptScanView: View {
         loggedCount = nil
     }
 
+    /// Request permission first; never present camera UI without authorization (iPad review crash).
+    @MainActor
+    private func openCameraSafely() async {
+        errorMessage = nil
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            errorMessage = "Camera not available on this device. Use Choose from library instead."
+            return
+        }
+        isRequestingCamera = true
+        defer { isRequestingCamera = false }
+
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            showCamera = true
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            if granted {
+                showCamera = true
+            } else {
+                errorMessage = "Camera access is off. Enable it in Settings, or choose a photo from your library."
+            }
+        case .denied, .restricted:
+            errorMessage = "Camera access is off. Enable it in Settings → FitMunch, or choose a photo from your library."
+        @unknown default:
+            errorMessage = "Couldn't open the camera. Use Choose from library instead."
+        }
+    }
+
     private func startScan(_ image: UIImage) {
         guard let jpeg = image.jpegData(compressionQuality: 0.7) else {
             errorMessage = "Couldn't read that image — try another photo."
@@ -267,19 +300,18 @@ struct ReceiptScanView: View {
     }
 }
 
-/// UIKit camera bridge (rear camera, still photos).
+/// UIKit camera bridge. Host VC presents the picker full-screen (safer on iPad than embedding picker as the sheet root).
 struct CameraPicker: UIViewControllerRepresentable {
     let onImage: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
-        picker.delegate = context.coordinator
-        return picker
+    func makeUIViewController(context: Context) -> CameraHostController {
+        let host = CameraHostController()
+        host.coordinator = context.coordinator
+        return host
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: CameraHostController, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -292,12 +324,53 @@ struct CameraPicker: UIViewControllerRepresentable {
             if let image = info[.originalImage] as? UIImage {
                 parent.onImage(image)
             }
-            parent.dismiss()
+            picker.dismiss(animated: false) {
+                self.parent.dismiss()
+            }
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
+            picker.dismiss(animated: false) {
+                self.parent.dismiss()
+            }
         }
+    }
+}
+
+final class CameraHostController: UIViewController {
+    weak var coordinator: CameraPicker.Coordinator?
+    private var didPresent = false
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !didPresent else { return }
+        didPresent = true
+        presentPicker()
+    }
+
+    private func presentPicker() {
+        let picker = UIImagePickerController()
+        picker.delegate = coordinator
+        picker.allowsEditing = false
+        picker.modalPresentationStyle = .fullScreen
+
+        if UIImagePickerController.isSourceTypeAvailable(.camera),
+           AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
+            picker.sourceType = .camera
+            if UIImagePickerController.isCameraDeviceAvailable(.rear) {
+                picker.cameraDevice = .rear
+            }
+            // Leave capture mode at default (.photo). Forcing cameraCaptureMode has crashed on some iPads.
+            picker.showsCameraControls = true
+        } else {
+            picker.sourceType = .photoLibrary
+        }
+        present(picker, animated: true)
     }
 }
 
