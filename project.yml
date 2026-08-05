@@ -14,7 +14,9 @@ targets:
       - path: FitMunch
     info:
       path: FitMunch/Resources/Info.plist
-      properties: {}
+      properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app
