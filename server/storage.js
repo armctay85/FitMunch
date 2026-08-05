@@ -20,13 +20,26 @@ const db = drizzle(pool, { schema });
 const { ensureSchema } = require('../lib/db-migrate');
 
 // User operations
-async function createUser(email, name, passwordHash) {
+async function createUser(email, name, passwordHash, extras = {}) {
   await ensureSchema();
   const [user] = await db.insert(schema.users).values({
     email,
     name,
     passwordHash,
   }).returning();
+  // Role/pt_id are raw SQL columns (not in drizzle schema yet) — set immediately after insert.
+  if (extras.role || extras.ptId != null || extras.trialExpiresAt) {
+    await pool.query(
+      `UPDATE users SET
+         role = COALESCE($1, role),
+         pt_id = COALESCE($2, pt_id),
+         subscription_expires_at = COALESCE($3, subscription_expires_at),
+         updated_at = NOW()
+       WHERE id = $4`,
+      [extras.role || null, extras.ptId || null, extras.trialExpiresAt || null, user.id]
+    );
+    if (extras.role) user.role = extras.role;
+  }
   return user;
 }
 
@@ -197,13 +210,17 @@ async function getProgressHistory(userId, limit = 30) {
 
 // Analytics operations
 async function trackEvent(userId, eventType, eventData, sessionId) {
-  await ensureUserExists(userId);
-  
+  // Anonymous analytics must not try to auto-provision a users row.
+  const uid = userId || null;
+  if (uid) {
+    try { await ensureUserExists(uid); } catch (_) { /* non-fatal */ }
+  }
+
   await db.insert(schema.analyticsEvents).values({
-    userId,
+    userId: uid,
     eventType,
-    eventData,
-    sessionId,
+    eventData: eventData || {},
+    sessionId: sessionId || null,
   });
 }
 

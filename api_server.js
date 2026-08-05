@@ -100,9 +100,22 @@ router.get('/meals/daily/:userId/:date', authMiddleware, async (req, res) => {
 // Workout Logging API routes
 router.post('/workouts/log', authMiddleware, async (req, res) => {
   try {
-    const workoutData = { ...req.body };
-    delete workoutData.userId; // ignore body userId — use token
-    if (workoutData.date) workoutData.date = new Date(workoutData.date);
+    const b = req.body || {};
+    // Accept camelCase (web/iOS) and snake_case; drizzle schema expects camelCase keys.
+    const workoutType = (b.workoutType || b.workout_type || b.exerciseName || b.type || '').toString().trim();
+    if (!workoutType) {
+      return res.status(400).json({ success: false, error: 'workoutType is required' });
+    }
+    const workoutData = {
+      workoutType,
+      duration: b.duration != null ? parseInt(b.duration, 10) || 0 : null,
+      caloriesBurned: b.caloriesBurned != null ? parseInt(b.caloriesBurned, 10) || 0
+        : (b.calories_burned != null ? parseInt(b.calories_burned, 10) || 0 : null),
+      exercises: Array.isArray(b.exercises) ? b.exercises : [],
+      notes: b.notes != null ? String(b.notes) : null,
+      rating: b.rating != null ? parseInt(b.rating, 10) || null : null,
+    };
+    if (b.date) workoutData.date = new Date(b.date);
     const workout = await logWorkout(req.user.userId, workoutData);
     res.json({ success: true, workout });
   } catch (error) {
@@ -156,19 +169,32 @@ router.get('/progress/history/:userId', authMiddleware, async (req, res) => {
 // Analytics API routes
 router.post('/analytics/events', async (req, res) => {
   try {
-    const { events } = req.body;
-    if (!events || !Array.isArray(events)) {
+    const body = req.body || {};
+    let events = body.events;
+    if (!events && (body.event || body.eventType || body.name)) {
+      events = [{
+        userId: body.userId || null,
+        eventType: body.eventType || body.event || body.name,
+        eventData: body.eventData || body.properties || body.data || {},
+        sessionId: body.sessionId || null,
+      }];
+    }
+    if (!events || !Array.isArray(events) || !events.length) {
       return res.status(400).json({ success: false, error: 'Invalid events data' });
     }
+    let processed = 0;
     for (const event of events) {
+      const eventType = event.eventType || event.event || event.name;
+      if (!eventType) continue;
       await trackEvent(
         event.userId || null,
-        event.eventType,
-        event.eventData,
-        event.sessionId
+        eventType,
+        event.eventData || event.properties || event.data || {},
+        event.sessionId || null
       );
+      processed += 1;
     }
-    res.json({ success: true, eventsProcessed: events.length });
+    res.json({ success: true, eventsProcessed: processed });
   } catch (error) {
     console.error('Error tracking analytics events:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -203,12 +229,36 @@ async function ensureMigrations() {
           created_at TIMESTAMPTZ DEFAULT now(),
           PRIMARY KEY (pt_id, client_id)
         );
+        -- Legacy pt_clients was created without phase/notes/joined_at; heal in place.
+        ALTER TABLE pt_clients ADD COLUMN IF NOT EXISTS phase VARCHAR(50);
+        ALTER TABLE pt_clients ADD COLUMN IF NOT EXISTS notes TEXT;
+        ALTER TABLE pt_clients ADD COLUMN IF NOT EXISTS joined_at TIMESTAMPTZ DEFAULT now();
+        ALTER TABLE pt_clients ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
         CREATE TABLE IF NOT EXISTS client_invitations (
           token TEXT PRIMARY KEY,
           pt_id UUID NOT NULL,
           email TEXT,
           accepted BOOLEAN DEFAULT FALSE,
           expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS favourites (
+          id SERIAL PRIMARY KEY,
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          item_type VARCHAR(50) NOT NULL,
+          item_id TEXT NOT NULL,
+          item_data JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS favourites_user_type_item_uidx
+          ON favourites (user_id, item_type, item_id);
+        -- pt_id must be UUID (users.id is UUID). Drop broken integer-FK versions if present.
+        CREATE TABLE IF NOT EXISTS pt_referrals (
+          id SERIAL PRIMARY KEY,
+          pt_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          code TEXT UNIQUE NOT NULL,
+          uses INTEGER DEFAULT 0,
+          credits INTEGER DEFAULT 0,
           created_at TIMESTAMPTZ DEFAULT now()
         );
       `);
@@ -252,8 +302,8 @@ router.post('/auth/register', async (req, res) => {
     let ptId = null;
     const wantPt =
       req.body.role === 'pt' ||
-      req.body.plan === 'starter' ||
-      req.body.accountType === 'pt';
+      req.body.accountType === 'pt' ||
+      ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(req.body.plan);
     if (wantPt) role = 'pt';
     if (req.body.inviteToken) {
       try {
@@ -270,7 +320,14 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
-    const user = await createUser(email.toLowerCase(), name, passwordHash);
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
+    // Atomic role + trial on create — never leave consumers stuck on DB default 'pt'.
+    const user = await createUser(email.toLowerCase(), name, passwordHash, {
+      role,
+      ptId,
+      trialExpiresAt,
+    });
 
     // Marketing attribution — where did this signup come from? Stored in
     // users.settings JSONB so IG/TikTok/SEO campaigns can be measured
@@ -292,18 +349,6 @@ router.post('/auth/register', async (req, res) => {
       }
     } catch (e) {
       console.warn('[register] attribution save failed (non-fatal):', e.message);
-    }
-
-    // Set role, pt_id, and 14-day trial — non-fatal if columns missing.
-    try {
-      const trialExpiresAt = new Date();
-      trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
-      await _pool.query(
-        'UPDATE users SET role=$1, pt_id=$2, subscription_expires_at=$3 WHERE id=$4',
-        [role, ptId, trialExpiresAt, user.id]
-      );
-    } catch (e) {
-      console.warn('[register] trial/role update failed (non-fatal):', e.message);
     }
 
     // If client, link to PT
@@ -348,10 +393,10 @@ router.post('/auth/login', async (req, res) => {
     if (!valid)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
 
-    let role = 'pt';
+    let role = 'client';
     try {
       const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
-      role = roleRow.rows[0]?.role || 'pt';
+      role = roleRow.rows[0]?.role || 'client';
     } catch (e) {
       console.warn('[login] role lookup failed (non-fatal):', e.message);
     }
@@ -530,7 +575,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'User not found.' });
 
     const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
-    const role = roleRow.rows[0]?.role || 'pt';
+    const role = roleRow.rows[0]?.role || 'client';
     const ptId = roleRow.rows[0]?.pt_id;
     res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role, ptId } });
   } catch (err) {
@@ -583,6 +628,7 @@ router.get('/clients/invite/:token', async (req, res) => {
 // GET /api/clients — PT gets their client list with recent activity
 router.get('/clients', authMiddleware, async (req, res) => {
   try {
+    await ensureMigrations();
     const r = await _pool.query(`
       SELECT u.id, u.name, u.email, u.created_at, pc.status, pc.phase, pc.joined_at,
         (SELECT COUNT(*) FROM meal_logs ml WHERE ml.user_id=u.id AND ml.date > NOW()-INTERVAL '7 days') as meals_7d,
@@ -771,13 +817,23 @@ router.get('/favourites', authMiddleware, async (req, res) => {
 // POST /api/favourites — add a favourite
 router.post('/favourites', authMiddleware, async (req, res) => {
   try {
-    const { itemType, itemId, itemData } = req.body;
+    await ensureMigrations();
+    const b = req.body || {};
+    const itemType = b.itemType || b.type || b.item_type;
+    const itemId = b.itemId != null ? b.itemId : b.item_id;
+    const itemData = b.itemData || b.item_data || b.data || {};
+    if (!itemType || itemId == null || itemId === '') {
+      return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
+    }
     const r = await _pool.query(
-      'INSERT INTO favourites (user_id, item_type, item_id, item_data) VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, item_type, item_id) DO NOTHING RETURNING *',
-      [req.user.userId, itemType, String(itemId), JSON.stringify(itemData || {})]
+      `INSERT INTO favourites (user_id, item_type, item_id, item_data)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id, item_type, item_id) DO UPDATE SET item_data = EXCLUDED.item_data
+       RETURNING *`,
+      [req.user.userId, String(itemType), String(itemId), JSON.stringify(itemData || {})]
     );
-    res.json({ success: true, favourite: r.rows[0] || null, alreadyExists: !r.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    res.json({ success: true, favourite: r.rows[0] || null, alreadyExists: false });
+  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 // DELETE /api/favourites/:type/:itemId — remove a favourite
@@ -1320,14 +1376,7 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
 router.get('/referral/code', authMiddleware, async (req, res) => {
   try {
     const pool = _pool;
-    await pool.query(`CREATE TABLE IF NOT EXISTS pt_referrals (
-      id SERIAL PRIMARY KEY,
-      pt_id INTEGER UNIQUE REFERENCES users(id),
-      code TEXT UNIQUE NOT NULL,
-      uses INTEGER DEFAULT 0,
-      credits INTEGER DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )`);
+    await ensureMigrations();
     let row = await pool.query('SELECT * FROM pt_referrals WHERE pt_id=$1', [req.user.userId]);
     if (!row.rows.length) {
       const code = 'FM-' + Math.random().toString(36).substring(2,8).toUpperCase();

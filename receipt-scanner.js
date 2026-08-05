@@ -9,6 +9,15 @@ const { vision: geminiVisionFn } = require('./lib/ai-client');
 const express = require('express');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
+const aiUsage = require('./lib/ai-usage');
+
+async function userTier(userId) {
+  try {
+    const { getUserById } = require('./server/storage.js');
+    const user = await getUserById(userId);
+    return user?.subscriptionTier || 'free';
+  } catch { return 'free'; }
+}
 
 // ── AUTH GUARD ────────────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -203,6 +212,22 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       });
     }
 
+    const tier = await userTier(req.user.userId);
+    const gate = await aiUsage.checkAndConsume({
+      userId: String(req.user.userId),
+      tier,
+      feature: 'receipt_scan',
+    });
+    if (!gate.allowed) {
+      return res.status(429).json({
+        success: false,
+        upgrade: true,
+        limit: gate.limit,
+        used: gate.used,
+        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited scans.`,
+      });
+    }
+
     let rawItems;
     let scannerProvider = 'gemini';
     let scannerWarning = null;
@@ -216,6 +241,9 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
         const match = visionResult.text.match(/\[[\s\S]*\]/);
         if (!match) throw new Error('No JSON array in vision response');
         rawItems = JSON.parse(match[0]);
+        if (!Array.isArray(rawItems) || rawItems.length === 0) {
+          throw new Error('Vision returned no grocery items');
+        }
       } catch (visionErr) {
         scannerProvider = 'fallback';
         scannerWarning = visionErr.message;
@@ -244,6 +272,14 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     });
 
     const score = macroMatchScore(items, totals);
+    // Ops signal for fallback rate (searchable in Vercel logs).
+    console.info('[receipt-scan]', JSON.stringify({
+      event: scannerProvider === 'fallback' ? 'scan_fallback' : 'scan_success',
+      provider: scannerProvider,
+      itemCount: items.length,
+      userId: req.user?.userId || null,
+      warning: scannerWarning ? String(scannerWarning).slice(0, 160) : null,
+    }));
     res.json({
       success:      true,
       items,

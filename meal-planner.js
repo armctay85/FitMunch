@@ -186,17 +186,39 @@ router.post('/shopping', requireAuth, async (req, res) => {
     const { plan, excludeOwned = [] } = req.body;
     if (!plan || !plan.days) return res.status(400).json({ success: false, error: 'Plan required' });
 
-    // Aggregate all ingredients across all days/meals
-    const aggregated = {}; // key: normalized name, value: { items, qty_mentions }
+    // Aggregate ingredients — supports AI shape (meals.breakfast.ingredients)
+    // and manual/saved shape (meals[] with name/foods/ingredients).
+    const aggregated = {};
+    const addIng = (name, qty) => {
+      if (!name || typeof name !== 'string') return;
+      const key = name.toLowerCase().trim();
+      if (!key) return;
+      if (!aggregated[key]) aggregated[key] = { name: name.trim(), mentions: 0, qtys: [] };
+      aggregated[key].mentions++;
+      if (qty) aggregated[key].qtys.push(qty);
+    };
     for (const day of plan.days) {
+      const meals = day.meals;
+      if (!meals) continue;
+      if (Array.isArray(meals)) {
+        for (const meal of meals) {
+          if (Array.isArray(meal.ingredients)) {
+            for (const ing of meal.ingredients) {
+              addIng(ing.item || ing.name || ing, ing.qty || ing.quantity);
+            }
+          } else if (Array.isArray(meal.foods)) {
+            for (const f of meal.foods) addIng(typeof f === 'string' ? f : (f.name || f.item), f.qty || f.quantity || '1');
+          } else if (meal.name) {
+            addIng(meal.name, meal.qty || '1');
+          }
+        }
+        continue;
+      }
       for (const mealType of ['breakfast','lunch','dinner','snack']) {
-        const meal = day.meals?.[mealType];
+        const meal = meals[mealType];
         if (!meal?.ingredients) continue;
         for (const ing of meal.ingredients) {
-          const key = ing.item.toLowerCase().trim();
-          if (!aggregated[key]) aggregated[key] = { name: ing.item, mentions: 0, qtys: [] };
-          aggregated[key].mentions++;
-          aggregated[key].qtys.push(ing.qty);
+          addIng(ing.item || ing.name, ing.qty || ing.quantity);
         }
       }
     }

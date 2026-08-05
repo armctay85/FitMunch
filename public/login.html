@@ -1,415 +1,418 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FitMunch — Sign In</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ <meta charset="UTF-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ <title>FitMunch - Sign In</title>
+ <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+ <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
+ <link rel="preconnect" href="https://fonts.googleapis.com"/>
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+ <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+ <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
+ <style>
+ *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: var(--bg); color: var(--text);
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 20px;
-      background-image:
-        radial-gradient(ellipse 640px 420px at 12% -8%, rgba(34,197,94,.09), transparent 60%),
-        radial-gradient(ellipse 560px 400px at 95% 105%, rgba(34,197,94,.07), transparent 60%);
-    }
+ body {
+ font-family: 'Inter', system-ui, -apple-system, sans-serif;
+ background: var(--bg); color: var(--text);
+ min-height: 100vh; display: flex; align-items: center; justify-content: center;
+ padding: 20px;
+ background-image:
+ radial-gradient(ellipse 640px 420px at 12% -8%, rgba(34,197,94,.09), transparent 60%),
+ radial-gradient(ellipse 560px 400px at 95% 105%, rgba(34,197,94,.07), transparent 60%);
+ }
 
-    .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 420px;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
-      animation: cardIn .5s cubic-bezier(.2,.7,.3,1);
-    }
-    @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
+ .card {
+ background: var(--card); border: 1px solid var(--border);
+ border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 420px;
+ box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+ animation: cardIn .5s cubic-bezier(.2,.7,.3,1);
+ }
+ @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
 
-    .logo {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center;
-    }
-    .logo img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 18px rgba(34,197,94,.28); }
-    .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', 'Inter', sans-serif; letter-spacing: -.02em; }
-    .logo-text span { color: var(--green); }
+ .logo {
+ display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center;
+ }
+ .logo img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 18px rgba(34,197,94,.28); }
+ .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', 'Inter', sans-serif; letter-spacing: -.02em; }
+ .logo-text span { color: var(--green); }
 
-    .tabs {
-      display: flex; background: #0f160f; border-radius: 10px;
-      padding: 4px; margin-bottom: 28px; border: 1px solid var(--border);
-    }
-    .tab {
-      flex: 1; text-align: center; padding: 9px; border-radius: 7px;
-      font-size: 0.88rem; font-weight: 600; cursor: pointer;
-      color: var(--muted); transition: all 0.2s;
-    }
-    .tab.active {
-      background: var(--green2); color: white;
-      box-shadow: 0 2px 8px rgba(34,197,94,0.3);
-    }
+ .tabs {
+ display: flex; background: #0f160f; border-radius: 10px;
+ padding: 4px; margin-bottom: 28px; border: 1px solid var(--border);
+ }
+ .tab {
+ flex: 1; text-align: center; padding: 9px; border-radius: 7px;
+ font-size: 0.88rem; font-weight: 600; cursor: pointer;
+ color: var(--muted); transition: all 0.2s;
+ }
+ .tab.active {
+ background: var(--green2); color: white;
+ box-shadow: 0 2px 8px rgba(34,197,94,0.3);
+ }
 
-    .form-group { margin-bottom: 16px; }
-    label {
-      display: block; font-size: 0.76rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.5px;
-      color: var(--sub); margin-bottom: 7px;
-    }
-    input {
-      width: 100%; background: #0f160f; border: 1px solid var(--border);
-      color: var(--text); padding: 12px 14px; border-radius: 10px;
-      font-size: 0.92rem; font-family: inherit; outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus { border-color: var(--green); }
-    input::placeholder { color: var(--muted); }
+ .form-group { margin-bottom: 16px; }
+ label {
+ display: block; font-size: 0.76rem; font-weight: 700;
+ text-transform: uppercase; letter-spacing: 0.5px;
+ color: var(--sub); margin-bottom: 7px;
+ }
+ input {
+ width: 100%; background: #0f160f; border: 1px solid var(--border);
+ color: var(--text); padding: 12px 14px; border-radius: 10px;
+ font-size: 0.92rem; font-family: inherit; outline: none;
+ transition: border-color 0.2s;
+ }
+ input:focus { border-color: var(--green); }
+ input::placeholder { color: var(--muted); }
 
-    .btn {
-      width: 100%; background: var(--green2); color: white;
-      border: none; padding: 13px; border-radius: 10px;
-      font-size: 0.95rem; font-weight: 700; cursor: pointer;
-      transition: background 0.2s, transform 0.1s; margin-top: 6px;
-      letter-spacing: 0.3px;
-    }
-    .btn:hover  { background: #15803d; }
-    .btn:active { transform: scale(0.98); }
-    .btn:disabled { background: var(--muted); cursor: not-allowed; }
+ .btn {
+ width: 100%; background: var(--green2); color: white;
+ border: none; padding: 13px; border-radius: 10px;
+ font-size: 0.95rem; font-weight: 700; cursor: pointer;
+ transition: background 0.2s, transform 0.1s; margin-top: 6px;
+ letter-spacing: 0.3px;
+ }
+ .btn:hover { background: #15803d; }
+ .btn:active { transform: scale(0.98); }
+ .btn:disabled { background: var(--muted); cursor: not-allowed; }
 
-    .error-msg {
-      background: #2d0f0f; border: 1px solid #7f1d1d; color: #f87171;
-      padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
-      margin-bottom: 16px; display: none;
-    }
-    .error-msg.show { display: block; }
+ .error-msg {
+ background: #2d0f0f; border: 1px solid #7f1d1d; color: #f87171;
+ padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+ margin-bottom: 16px; display: none;
+ }
+ .error-msg.show { display: block; }
 
-    .success-msg {
-      background: #0d2d1a; border: 1px solid #166534; color: #4ade80;
-      padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
-      margin-bottom: 16px; display: none;
-    }
-    .success-msg.show { display: block; }
+ .success-msg {
+ background: #0d2d1a; border: 1px solid #166534; color: #4ade80;
+ padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+ margin-bottom: 16px; display: none;
+ }
+ .success-msg.show { display: block; }
 
-    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+ .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
-    .foot {
-      text-align: center; font-size: 0.78rem; color: var(--muted); margin-top: 20px;
-    }
-    .foot a { color: var(--green); text-decoration: none; }
-    .foot a:hover { text-decoration: underline; }
+ .foot {
+ text-align: center; font-size: 0.78rem; color: var(--muted); margin-top: 20px;
+ }
+ .foot a { color: var(--green); text-decoration: none; }
+ .foot a:hover { text-decoration: underline; }
 
-    .spinner {
-      display: inline-block; width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
-      border-radius: 50%; animation: spin 0.7s linear infinite;
-      vertical-align: middle; margin-right: 6px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+ .spinner {
+ display: inline-block; width: 16px; height: 16px;
+ border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+ border-radius: 50%; animation: spin 0.7s linear infinite;
+ vertical-align: middle; margin-right: 6px;
+ }
+ @keyframes spin { to { transform: rotate(360deg); } }
 
-    .panel { display: none; }
-    .panel.active { display: block; }
+ .panel { display: none; }
+ .panel.active { display: block; }
 
-    .strength-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
-    .strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; width: 0%; }
-    .strength-label { font-size: 0.65rem; color: var(--muted); margin-top: 3px; }
-  </style>
+ .strength-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+ .strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; width: 0%; }
+ .strength-label { font-size: 0.65rem; color: var(--muted); margin-top: 3px; }
+ </style>
 </head>
 <body>
 
 <div class="card">
-  <div class="logo">
-    <img src="/assets/logo.svg" alt="FitMunch" width="44" height="44" style="flex-shrink:0;display:block"/>
-    <div class="logo-text">Fit<span>Munch</span></div>
-  </div>
+ <div class="logo">
+ <img src="/assets/logo.svg" alt="FitMunch" width="44" height="44" style="flex-shrink:0;display:block"/>
+ <div class="logo-text">Fit<span>Munch</span></div>
+ </div>
 
-  <div class="tabs">
-    <div class="tab active" id="tab-login"    onclick="showTab('login')">Sign In</div>
-    <div class="tab"        id="tab-register" onclick="showTab('register')">Create Account</div>
-  </div>
+ <div class="tabs">
+ <div class="tab active" id="tab-login" onclick="showTab('login')">Sign In</div>
+ <div class="tab" id="tab-register" onclick="showTab('register')">Create Account</div>
+ </div>
 
-  <!-- LOGIN PANEL -->
-  <div class="panel active" id="panel-login">
-    <div class="error-msg"   id="login-error"></div>
-    <div class="success-msg" id="login-success"></div>
+ <!-- LOGIN PANEL -->
+ <div class="panel active" id="panel-login">
+ <div class="error-msg" id="login-error"></div>
+ <div class="success-msg" id="login-success"></div>
 
-    <div class="form-group">
-      <label for="login-email">Email</label>
-      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
-    </div>
-    <div class="form-group">
-      <label for="login-password">Password</label>
-      <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password" />
-    </div>
+ <div class="form-group">
+ <label for="login-email">Email</label>
+ <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+ </div>
+ <div class="form-group">
+ <label for="login-password">Password</label>
+ <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password" />
+ </div>
 
-    <button class="btn" id="login-btn" onclick="doLogin()">Sign In</button>
+ <button class="btn" id="login-btn" onclick="doLogin()">Sign In</button>
 
-    <div class="foot">
-      Don't have an account? <a href="#" onclick="showTab('register'); return false;">Create one free</a><br/>
-      <a href="#" onclick="showForgot(); return false;" style="font-size:.78rem">Forgot your password?</a>
-    </div>
-  </div>
+ <div class="foot">
+ Don't have an account? <a href="#" onclick="showTab('register'); return false;">Create one free</a><br/>
+ <a href="#" onclick="showForgot(); return false;" style="font-size:.78rem">Forgot your password?</a>
+ </div>
+ </div>
 
-  <!-- FORGOT PASSWORD PANEL -->
-  <div class="panel" id="panel-forgot">
-    <div class="error-msg"   id="forgot-error"></div>
-    <div class="success-msg" id="forgot-success"></div>
-    <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px">Enter your email and we'll send you a reset link — valid for 1 hour.</p>
-    <div class="form-group">
-      <label for="forgot-email">Email</label>
-      <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
-    </div>
-    <button class="btn" id="forgot-btn" onclick="doForgot()">Send reset link</button>
-    <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
-  </div>
+ <!-- FORGOT PASSWORD PANEL -->
+ <div class="panel" id="panel-forgot">
+ <div class="error-msg" id="forgot-error"></div>
+ <div class="success-msg" id="forgot-success"></div>
+ <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px">Enter your email and we'll send you a reset link - valid for 1 hour.</p>
+ <div class="form-group">
+ <label for="forgot-email">Email</label>
+ <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
+ </div>
+ <button class="btn" id="forgot-btn" onclick="doForgot()">Send reset link</button>
+ <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
+ </div>
 
-  <!-- RESET PASSWORD PANEL (via emailed link ?reset=TOKEN) -->
-  <div class="panel" id="panel-reset">
-    <div class="error-msg"   id="reset-error"></div>
-    <div class="success-msg" id="reset-success"></div>
-    <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px">Choose a new password for your account.</p>
-    <div class="form-group">
-      <label for="reset-password">New password</label>
-      <input type="password" id="reset-password" placeholder="Min. 8 characters" autocomplete="new-password" />
-    </div>
-    <button class="btn" id="reset-btn" onclick="doReset()">Set new password</button>
-    <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
-  </div>
+ <!-- RESET PASSWORD PANEL (via emailed link ?reset=TOKEN) -->
+ <div class="panel" id="panel-reset">
+ <div class="error-msg" id="reset-error"></div>
+ <div class="success-msg" id="reset-success"></div>
+ <p style="font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px">Choose a new password for your account.</p>
+ <div class="form-group">
+ <label for="reset-password">New password</label>
+ <input type="password" id="reset-password" placeholder="Min. 8 characters" autocomplete="new-password" />
+ </div>
+ <button class="btn" id="reset-btn" onclick="doReset()">Set new password</button>
+ <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
+ </div>
 
-  <!-- REGISTER PANEL -->
-  <div class="panel" id="panel-register">
-    <div class="error-msg"   id="register-error"></div>
-    <div class="success-msg" id="register-success"></div>
+ <!-- REGISTER PANEL -->
+ <div class="panel" id="panel-register">
+ <div class="error-msg" id="register-error"></div>
+ <div class="success-msg" id="register-success"></div>
 
-    <div class="form-group">
-      <label for="reg-name">Your Name</label>
-      <input type="text" id="reg-name" placeholder="Alex Smith" autocomplete="name" />
-    </div>
-    <div class="form-group">
-      <label for="reg-email">Email</label>
-      <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" />
-    </div>
-    <div class="form-group">
-      <label for="reg-password">Password</label>
-      <input type="password" id="reg-password" placeholder="Min. 8 characters" autocomplete="new-password"
-             oninput="checkStrength(this.value)" />
-      <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
-      <div class="strength-label" id="strength-label"></div>
-    </div>
+ <div class="form-group">
+ <label for="reg-name">Your Name</label>
+ <input type="text" id="reg-name" placeholder="Alex Smith" autocomplete="name" />
+ </div>
+ <div class="form-group">
+ <label for="reg-email">Email</label>
+ <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" />
+ </div>
+ <div class="form-group">
+ <label for="reg-password">Password</label>
+ <input type="password" id="reg-password" placeholder="Min. 8 characters" autocomplete="new-password"
+ oninput="checkStrength(this.value)" />
+ <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+ <div class="strength-label" id="strength-label"></div>
+ </div>
 
-    <button class="btn" id="register-btn" onclick="doRegister()">Create Free Account</button>
+ <button class="btn" id="register-btn" onclick="doRegister()">Create Free Account</button>
 
-    <div class="foot">
-      Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
-    </div>
-  </div>
+ <div class="foot">
+ Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
+ </div>
+ </div>
 </div>
 
 <script>
-  const urlParams = new URLSearchParams(window.location.search);
-  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
+ const urlParams = new URLSearchParams(window.location.search);
+ const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
 
-  // First-touch marketing attribution — captured once, sent with registration.
-  try {
-    if (!localStorage.getItem('fm_attribution')) {
-      const attr = {};
-      ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
-        const v = urlParams.get(k); if (v) attr[k] = v;
-      });
-      if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
-      attr.landing = location.pathname;
-      if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
-    }
-  } catch {}
+ // First-touch marketing attribution - captured once, sent with registration.
+ try {
+ if (!localStorage.getItem('fm_attribution')) {
+ const attr = {};
+ ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
+ const v = urlParams.get(k); if (v) attr[k] = v;
+ });
+ if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
+ attr.landing = location.pathname;
+ if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+ }
+ } catch {}
 
-  async function parseApiJson(response) {
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      throw new Error('Unexpected server response. Please try again.');
-    }
+ async function parseApiJson(response) {
+ const contentType = response.headers.get('content-type') || '';
+ if (!contentType.includes('application/json')) {
+ throw new Error('Unexpected server response. Please try again.');
+ }
 
-    const payload = await response.json();
-    if (!response.ok) {
-      const message = payload?.error || payload?.message || 'Request failed. Please try again.';
-      throw new Error(message);
-    }
-    return payload;
-  }
+ const payload = await response.json();
+ if (!response.ok) {
+ const message = payload?.error || payload?.message || 'Request failed. Please try again.';
+ throw new Error(message);
+ }
+ return payload;
+ }
 
-  // Redirect if already logged in
-  const existingToken = localStorage.getItem('fm_token');
-  if (existingToken) {
-    fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
-      .then(parseApiJson)
-      .then(d => { if (d.success) redirectAfterAuth(existingToken); })
-      .catch(() => {});
-  }
+ // Redirect if already logged in
+ const existingToken = localStorage.getItem('fm_token');
+ if (existingToken) {
+ fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
+ .then(parseApiJson)
+ .then(d => { if (d.success) redirectAfterAuth(existingToken); })
+ .catch(() => {});
+ }
 
-  async function redirectAfterAuth(token) {
-    if (plan) {
-      // Go straight to Stripe checkout with trial
-      try {
-        const r = await fetch('/api/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ plan })
-        });
-        const d = await parseApiJson(r);
-        if (d.url) { window.location.href = d.url; return; }
-      } catch {}
-    }
-    window.location.href = '/app.html';
-  }
+ async function redirectAfterAuth(token) {
+ if (plan) {
+ // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
+ const checkoutPlan = plan === 'starter' ? 'pt-starter'
+ : plan === 'pro' ? 'pt-pro'
+ : plan;
+ try {
+ const r = await fetch('/api/checkout', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+ body: JSON.stringify({ plan: checkoutPlan })
+ });
+ const d = await parseApiJson(r);
+ if (d.url) { window.location.href = d.url; return; }
+ } catch {}
+ }
+ window.location.href = '/app.html';
+ }
 
-  function showTab(tab) {
-    ['login','register'].forEach(t => {
-      document.getElementById('tab-' + t).classList.toggle('active', t === tab);
-      document.getElementById('panel-' + t).classList.toggle('active', t === tab);
-    });
-    // Aux panels (no tab of their own)
-    document.getElementById('panel-forgot').classList.remove('active');
-    document.getElementById('panel-reset').classList.remove('active');
-  }
+ function showTab(tab) {
+ ['login','register'].forEach(t => {
+ document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+ document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+ });
+ // Aux panels (no tab of their own)
+ document.getElementById('panel-forgot').classList.remove('active');
+ document.getElementById('panel-reset').classList.remove('active');
+ }
 
-  function showForgot() {
-    ['login','register'].forEach(t => {
-      document.getElementById('tab-' + t).classList.remove('active');
-      document.getElementById('panel-' + t).classList.remove('active');
-    });
-    document.getElementById('panel-reset').classList.remove('active');
-    document.getElementById('panel-forgot').classList.add('active');
-  }
+ function showForgot() {
+ ['login','register'].forEach(t => {
+ document.getElementById('tab-' + t).classList.remove('active');
+ document.getElementById('panel-' + t).classList.remove('active');
+ });
+ document.getElementById('panel-reset').classList.remove('active');
+ document.getElementById('panel-forgot').classList.add('active');
+ }
 
-  function showReset() {
-    ['login','register'].forEach(t => {
-      document.getElementById('tab-' + t).classList.remove('active');
-      document.getElementById('panel-' + t).classList.remove('active');
-    });
-    document.getElementById('panel-forgot').classList.remove('active');
-    document.getElementById('panel-reset').classList.add('active');
-  }
+ function showReset() {
+ ['login','register'].forEach(t => {
+ document.getElementById('tab-' + t).classList.remove('active');
+ document.getElementById('panel-' + t).classList.remove('active');
+ });
+ document.getElementById('panel-forgot').classList.remove('active');
+ document.getElementById('panel-reset').classList.add('active');
+ }
 
-  async function doForgot() {
-    hideMsg('forgot');
-    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
-    if (!email) { showError('forgot-error', 'Please enter your email.'); return; }
-    const btn = document.getElementById('forgot-btn');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sending...';
-    try {
-      const r = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
-      const data = await parseApiJson(r);
-      showSuccess('forgot-success', data.message || 'If that email has an account, a reset link is on its way.');
-    } catch (error) { showError('forgot-error', error.message || 'Network error. Please try again.'); }
-    finally { btn.disabled = false; btn.textContent = 'Send reset link'; }
-  }
+ async function doForgot() {
+ hideMsg('forgot');
+ const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+ if (!email) { showError('forgot-error', 'Please enter your email.'); return; }
+ const btn = document.getElementById('forgot-btn');
+ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sending...';
+ try {
+ const r = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+ const data = await parseApiJson(r);
+ showSuccess('forgot-success', data.message || 'If that email has an account, a reset link is on its way.');
+ } catch (error) { showError('forgot-error', error.message || 'Network error. Please try again.'); }
+ finally { btn.disabled = false; btn.textContent = 'Send reset link'; }
+ }
 
-  async function doReset() {
-    hideMsg('reset');
-    const password = document.getElementById('reset-password').value;
-    const token = urlParams.get('reset');
-    if (!password || password.length < 8) { showError('reset-error', 'Password must be at least 8 characters.'); return; }
-    if (!token) { showError('reset-error', 'Missing reset token — use the link from your email.'); return; }
-    const btn = document.getElementById('reset-btn');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
-    try {
-      const r = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }) });
-      const data = await parseApiJson(r);
-      showSuccess('reset-success', (data.message || 'Password updated.') + ' Taking you to sign in…');
-      setTimeout(() => { window.history.replaceState({}, '', '/login.html'); showTab('login'); }, 1400);
-    } catch (error) { showError('reset-error', error.message || 'Network error. Please try again.'); }
-    finally { btn.disabled = false; btn.textContent = 'Set new password'; }
-  }
+ async function doReset() {
+ hideMsg('reset');
+ const password = document.getElementById('reset-password').value;
+ const token = urlParams.get('reset');
+ if (!password || password.length < 8) { showError('reset-error', 'Password must be at least 8 characters.'); return; }
+ if (!token) { showError('reset-error', 'Missing reset token - use the link from your email.'); return; }
+ const btn = document.getElementById('reset-btn');
+ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...';
+ try {
+ const r = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }) });
+ const data = await parseApiJson(r);
+ showSuccess('reset-success', (data.message || 'Password updated.') + ' Taking you to sign in…');
+ setTimeout(() => { window.history.replaceState({}, '', '/login.html'); showTab('login'); }, 1400);
+ } catch (error) { showError('reset-error', error.message || 'Network error. Please try again.'); }
+ finally { btn.disabled = false; btn.textContent = 'Set new password'; }
+ }
 
-  // Deep links: ?reset=TOKEN opens the reset panel
-  if (urlParams.get('reset')) showReset();
+ // Deep links: ?reset=TOKEN opens the reset panel
+ if (urlParams.get('reset')) showReset();
 
-  function setLoading(btnId, loading) {
-    const btn = document.getElementById(btnId);
-    btn.disabled = loading;
-    btn.innerHTML = loading
-      ? '<span class="spinner"></span>Please wait...'
-      : (btnId === 'login-btn' ? 'Sign In' : 'Create Free Account');
-  }
+ function setLoading(btnId, loading) {
+ const btn = document.getElementById(btnId);
+ btn.disabled = loading;
+ btn.innerHTML = loading
+ ? '<span class="spinner"></span>Please wait...'
+ : (btnId === 'login-btn' ? 'Sign In' : 'Create Free Account');
+ }
 
-  function showError(id, msg)   { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
-  function hideMsg(prefix)      { ['-error','-success'].forEach(s => { const el = document.getElementById(prefix+s); el.classList.remove('show'); }); }
-  function showSuccess(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
+ function showError(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
+ function hideMsg(prefix) { ['-error','-success'].forEach(s => { const el = document.getElementById(prefix+s); el.classList.remove('show'); }); }
+ function showSuccess(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
 
-  function checkStrength(pw) {
-    const fill  = document.getElementById('strength-fill');
-    const label = document.getElementById('strength-label');
-    let score = 0;
-    if (pw.length >= 8)  score++;
-    if (pw.length >= 12) score++;
-    if (/[A-Z]/.test(pw)) score++;
-    if (/[0-9]/.test(pw)) score++;
-    if (/[^a-zA-Z0-9]/.test(pw)) score++;
-    const levels = [
-      { pct: '20%', bg: '#ef4444', text: 'Very weak' },
-      { pct: '40%', bg: '#f97316', text: 'Weak' },
-      { pct: '60%', bg: '#eab308', text: 'Fair' },
-      { pct: '80%', bg: '#22c55e', text: 'Good' },
-      { pct: '100%', bg: '#16a34a', text: 'Strong ✓' },
-    ];
-    const l = levels[Math.max(0, score - 1)] || { pct: '0%', bg: '#2d3148', text: '' };
-    fill.style.width = l.pct; fill.style.background = l.bg; label.textContent = l.text;
-  }
+ function checkStrength(pw) {
+ const fill = document.getElementById('strength-fill');
+ const label = document.getElementById('strength-label');
+ let score = 0;
+ if (pw.length >= 8) score++;
+ if (pw.length >= 12) score++;
+ if (/[A-Z]/.test(pw)) score++;
+ if (/[0-9]/.test(pw)) score++;
+ if (/[^a-zA-Z0-9]/.test(pw)) score++;
+ const levels = [
+ { pct: '20%', bg: '#ef4444', text: 'Very weak' },
+ { pct: '40%', bg: '#f97316', text: 'Weak' },
+ { pct: '60%', bg: '#eab308', text: 'Fair' },
+ { pct: '80%', bg: '#22c55e', text: 'Good' },
+ { pct: '100%', bg: '#16a34a', text: 'Strong ✓' },
+ ];
+ const l = levels[Math.max(0, score - 1)] || { pct: '0%', bg: '#2d3148', text: '' };
+ fill.style.width = l.pct; fill.style.background = l.bg; label.textContent = l.text;
+ }
 
-  async function doLogin() {
-    hideMsg('login');
-    const email    = document.getElementById('login-email').value.trim().toLowerCase();
-    const password = document.getElementById('login-password').value;
-    if (!email || !password) { showError('login-error', 'Please enter your email and password.'); return; }
-    setLoading('login-btn', true);
-    try {
-      const r    = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-      const data = await parseApiJson(r);
-      if (!data.success) { showError('login-error', data.error || 'Login failed.'); return; }
-      localStorage.setItem('fm_token', data.token);
-      localStorage.setItem('fm_user',  JSON.stringify(data.user));
-      showSuccess('login-success', plan ? 'Logged in! Setting up your trial...' : 'Logged in! Redirecting...');
-      setTimeout(() => redirectAfterAuth(data.token), 600);
-    } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
-    finally   { setLoading('login-btn', false); }
-  }
+ async function doLogin() {
+ hideMsg('login');
+ const email = document.getElementById('login-email').value.trim().toLowerCase();
+ const password = document.getElementById('login-password').value;
+ if (!email || !password) { showError('login-error', 'Please enter your email and password.'); return; }
+ setLoading('login-btn', true);
+ try {
+ const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+ const data = await parseApiJson(r);
+ if (!data.success) { showError('login-error', data.error || 'Login failed.'); return; }
+ localStorage.setItem('fm_token', data.token);
+ localStorage.setItem('fm_user', JSON.stringify(data.user));
+ showSuccess('login-success', plan ? 'Logged in! Setting up your trial...' : 'Logged in! Redirecting...');
+ setTimeout(() => redirectAfterAuth(data.token), 600);
+ } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
+ finally { setLoading('login-btn', false); }
+ }
 
-  async function doRegister() {
-    hideMsg('register');
-    const name     = document.getElementById('reg-name').value.trim();
-    const email    = document.getElementById('reg-email').value.trim().toLowerCase();
-    const password = document.getElementById('reg-password').value;
-    if (!name || !email || !password) { showError('register-error', 'All fields are required.'); return; }
-    if (password.length < 8) { showError('register-error', 'Password must be at least 8 characters.'); return; }
-    setLoading('register-btn', true);
-    try {
-      const inviteToken = new URLSearchParams(window.location.search).get('invite');
-      let attribution = null;
-      try { attribution = JSON.parse(localStorage.getItem('fm_attribution') || 'null'); } catch {}
-      const r    = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, ...(inviteToken ? { inviteToken } : {}), ...(attribution ? { attribution } : {}) }) });
-      const data = await parseApiJson(r);
-      if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
-      localStorage.setItem('fm_token', data.token);
-      localStorage.setItem('fm_user',  JSON.stringify(data.user));
-      showSuccess('register-success', plan ? 'Account created! Starting your 14-day trial...' : 'Account created! Redirecting...');
-      setTimeout(() => redirectAfterAuth(data.token), 600);
-    } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
-    finally   { setLoading('register-btn', false); }
-  }
+ async function doRegister() {
+ hideMsg('register');
+ const name = document.getElementById('reg-name').value.trim();
+ const email = document.getElementById('reg-email').value.trim().toLowerCase();
+ const password = document.getElementById('reg-password').value;
+ if (!name || !email || !password) { showError('register-error', 'All fields are required.'); return; }
+ if (password.length < 8) { showError('register-error', 'Password must be at least 8 characters.'); return; }
+ setLoading('register-btn', true);
+ try {
+ const inviteToken = new URLSearchParams(window.location.search).get('invite');
+ let attribution = null;
+ try { attribution = JSON.parse(localStorage.getItem('fm_attribution') || 'null'); } catch {}
+ const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, ...(plan ? { plan } : {}), ...(inviteToken ? { inviteToken } : {}), ...(attribution ? { attribution } : {}) }) });
+ const data = await parseApiJson(r);
+ if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
+ localStorage.setItem('fm_token', data.token);
+ localStorage.setItem('fm_user', JSON.stringify(data.user));
+ showSuccess('register-success', plan ? 'Account created! Starting your 14-day trial...' : 'Account created! Redirecting...');
+ setTimeout(() => redirectAfterAuth(data.token), 600);
+ } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
+ finally { setLoading('register-btn', false); }
+ }
 
-  // Hash-based tab switching (#register activates register panel)
-  window.addEventListener('hashchange', () => {
-    if (window.location.hash === '#register') showTab('register');
-    else if (window.location.hash === '#login') showTab('login');
-  });
-  if (window.location.hash === '#register') showTab('register');
+ // Hash-based tab switching (#register activates register panel)
+ window.addEventListener('hashchange', () => {
+ if (window.location.hash === '#register') showTab('register');
+ else if (window.location.hash === '#login') showTab('login');
+ });
+ if (window.location.hash === '#register') showTab('register');
 
-  // Enter key support
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Enter') return;
-    if (document.getElementById('panel-login').classList.contains('active'))    doLogin();
-    else if (document.getElementById('panel-register').classList.contains('active')) doRegister();
-  });
+ // Enter key support
+ document.addEventListener('keydown', e => {
+ if (e.key !== 'Enter') return;
+ if (document.getElementById('panel-login').classList.contains('active')) doLogin();
+ else if (document.getElementById('panel-register').classList.contains('active')) doRegister();
+ });
 </script>
 </body>
 </html>

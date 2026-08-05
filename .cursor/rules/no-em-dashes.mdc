@@ -1,0 +1,16 @@
+---
+description: Ban em dashes and double-hyphen dash punctuation in all FitMunch copy
+alwaysApply: true
+---
+
+# No em dashes
+
+Never use em dashes (`—`) or double-hyphen dash punctuation (` -- `) in:
+
+- Customer emails, in-app copy, marketing pages, App Store text
+- Discord/team messages about FitMunch
+- Chat replies to Drew about FitMunch
+
+Use commas, periods, colons, or parentheses instead.
+
+CSS custom properties like `var(--green)` are fine. Do not replace those.

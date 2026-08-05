@@ -317,6 +317,15 @@ app.get('/api/health', (req, res) => {
       : process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_GIT_COMMIT_SHA
         ? 'railway'
         : 'node',
+    // Readiness only (booleans). Never leak secrets or connection strings.
+    ready: {
+      database: Boolean(process.env.DATABASE_URL),
+      jwt: Boolean(process.env.JWT_SECRET),
+      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
+      stripeWebhook: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+      resend: Boolean(process.env.RESEND_API_KEY),
+    },
   });
 });
 
@@ -412,10 +421,12 @@ const PRICE_TO_TIER = {
 };
 
 function normalizeCheckoutPlan(plan, role) {
+  if (plan === 'pt-starter' || plan === 'pt-pro' || plan === 'premium') return plan;
   if (role === 'pt' && plan === 'starter') return 'pt-starter';
   if (role === 'pt' && plan === 'pro') return 'pt-pro';
-  // Consumers upgrading from the app always land on premium.
-  if (role !== 'pt' && ['premium', 'starter', 'pro'].includes(plan)) return 'premium';
+  // Consumers upgrading from the app always land on premium — never silently remap PT aliases.
+  if (role !== 'pt' && plan === 'premium') return 'premium';
+  if (role !== 'pt' && ['starter', 'pro'].includes(plan)) return 'premium';
   return plan;
 }
 
