@@ -268,11 +268,24 @@ app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planne
 app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
 
 // Clean auth/app URLs (marketing + IG often omit .html)
-app.get('/login', (req, res) => res.redirect(301, '/login.html' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
-app.get('/register', (req, res) => res.redirect(301, '/login.html?plan=premium#register'));
-app.get('/app', (req, res) => res.redirect(301, '/app.html' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '')));
+function authQuery(req) {
+  return req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+}
+function registerRedirectTarget(req) {
+  // Preserve inbound query (plan/invite/etc). Default plan=premium only when none provided.
+  const q = authQuery(req);
+  if (!q) return '/login.html?plan=premium#register';
+  const params = new URLSearchParams(q.startsWith('?') ? q.slice(1) : q);
+  if (!params.has('plan')) params.set('plan', 'premium');
+  return `/login.html?${params.toString()}#register`;
+}
+app.get('/login', (req, res) => res.redirect(301, '/login.html' + authQuery(req)));
+app.get('/register', (req, res) => res.redirect(301, registerRedirectTarget(req)));
+// Common aliases people/typeahead/bookmarks hit — must not 404
+app.get('/signup', (req, res) => res.redirect(301, registerRedirectTarget(req)));
+app.get('/sign-up', (req, res) => res.redirect(301, registerRedirectTarget(req)));
+app.get('/app', (req, res) => res.redirect(302, '/app.html' + authQuery(req)));
 app.get('/checkout', (req, res) => res.redirect(301, '/pricing'));
-
 app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
 app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));
