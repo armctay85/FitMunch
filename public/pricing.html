@@ -75,28 +75,18 @@ html,body{max-width:100%;overflow-x:hidden}
 </nav>
 
 <header class="fm-hero-band pr-hero">
-  <div class="kicker">Consumer AI health partner</div>
-  <h1>Start free. Upgrade when the food loop sticks.</h1>
-  <p>FitMunch connects receipt scans, macros, shopping lists, meal plans and an AI coach. Start free, Premium unlocks unlimited AI. Trainer tools stay available as a secondary lane.</p>
+  <div class="kicker">Premium closes the grocery loop</div>
+  <h1>Unlimited scans and coach. $19.99 AUD/mo.</h1>
+  <p>Free proves the receipt scan. Premium is how you run the loop every week: unlimited AI coach, meal plans, and haul scores from Woolies and Coles shops. 14-day trial, cancel anytime.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px">
+    <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=mrr_sprint#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+    <a class="fm-btn fm-btn-ghost" href="/haul-teardown">See a haul teardown</a>
+  </div>
 </header>
 
 <section class="fm-section" style="padding-top:0">
   <div class="fm-section-inner">
     <div class="plans" aria-label="FitMunch pricing plans">
-      <article class="plan">
-        <div class="p-name">Free</div>
-        <div class="p-price">$0 <small>forever</small></div>
-        <p class="p-desc">For testing whether receipt-first macro tracking fits your week.</p>
-        <ul>
-          <li>Macro and food logging</li>
-          <li>10 AI actions per month</li>
-          <li>Receipt scan + AI coach teaser</li>
-          <li>Starter meal planning</li>
-          <li>Basic shopping lists</li>
-          <li class="muted">Unlimited AI plans</li>
-        </ul>
-        <a class="fm-btn fm-btn-ink" href="/login.html#register" data-fm-auth="register" style="width:100%">Start free</a>
-      </article>
       <article class="plan main">
         <div class="badge">Most popular</div>
         <div class="p-name">Premium</div>
@@ -110,20 +100,31 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>Macro targets and trends</li>
           <li>14-day trial (card on file, cancel anytime)</li>
         </ul>
-        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
+        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=plan_card&utm_campaign=mrr_sprint#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
         <p class="p-note">Creates your account, then opens Stripe checkout.</p>
       </article>
       <article class="plan">
+        <div class="p-name">Free</div>
+        <div class="p-price">$0 <small>forever</small></div>
+        <p class="p-desc">Prove the scan works. Limited AI actions so you can try the loop once.</p>
+        <ul>
+          <li>Macro and food logging</li>
+          <li>Limited AI actions per month</li>
+          <li>Receipt scan teaser</li>
+          <li>Starter meal planning</li>
+          <li class="muted">Unlimited weekly AI plans</li>
+        </ul>
+        <a class="fm-btn fm-btn-ink" href="/login.html?utm_source=pricing&utm_medium=free_card&utm_campaign=mrr_sprint#register" data-fm-auth="register" style="width:100%">Start free</a>
+      </article>
+      <article class="plan">
         <div class="p-name">For trainers</div>
-        <div class="p-price">$59&ndash;99 <small>/mo AUD</small></div>
-        <p class="p-desc">Optional PT lane: client roster, invites and plan assignment on top of the consumer product.</p>
+        <div class="p-price">$59 to $99 <small>/mo AUD</small></div>
+        <p class="p-desc">Secondary lane. Client roster and plan assignment after the consumer product works for you.</p>
         <ul>
           <li>Client roster dashboard</li>
           <li>Invite links and client portals</li>
           <li>Assign meal and workout plans</li>
-          <li>Progress and check-in context</li>
-          <li>14-day PT trial via Stripe</li>
-          <li class="muted">Not required for personal use</li>
+          <li class="muted">Not required for personal Premium</li>
         </ul>
         <a class="fm-btn fm-btn-ink" href="/for-pts.html" style="width:100%">See trainer plans</a>
       </article>
@@ -152,6 +153,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <div class="fm-footer-links">
       <a href="/#loop">How it works</a>
       <a href="/pricing">Pricing</a>
+      <a href="/haul-teardown">Haul teardown</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
       <a href="/for-pts.html">For trainers</a>
       <a href="/contact">Contact</a>

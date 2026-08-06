@@ -12,3 +12,6 @@ coverage/
 .env.vercel.production
 .env.vercel*
 
+# Local social credentials (use .ig-config.example.json)
+.ig-config.json
+

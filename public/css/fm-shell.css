@@ -110,6 +110,30 @@
 }
 .fm-section .lead{color:var(--mute);font-size:1.05rem;line-height:1.65;max-width:42ch;margin:0 0 28px}
 
+/* Proof tables + conversion strips (MRR content) */
+.fm-table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);background:#fff}
+.fm-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.fm-table th,.fm-table td{padding:12px 14px;text-align:left;border-bottom:1px dashed var(--line)}
+.fm-table th{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--mute2);background:var(--paper2);
+}
+.fm-table td:last-child,.fm-table th:last-child{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;color:var(--leaf2);white-space:nowrap}
+.fm-table tr:last-child td{border-bottom:0}
+.fm-score-row{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end;margin:20px 0}
+.fm-score-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
+.fm-score-meta{color:var(--mute);font-size:.9rem;line-height:1.45}
+.fm-score-meta strong{display:block;color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1rem}
+.fm-convert{
+  margin:36px 0 8px;padding:28px 24px;
+  background:var(--fridge);color:#fff;
+}
+.fm-convert h2{color:#fff;margin:0 0 10px;font-size:clamp(1.4rem,3vw,1.9rem)}
+.fm-convert p{color:rgba(238,242,238,.78);margin:0 0 18px;max-width:40ch}
+.fm-convert .fm-ctas{display:flex;flex-wrap:wrap;gap:10px}
+.fm-note{font-size:.8rem;color:var(--mute2);margin-top:10px}
+
 @media(max-width:720px){
   .fm-nav-links a:not(.fm-nav-cta){display:none}
 }

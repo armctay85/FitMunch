@@ -29,6 +29,7 @@ html,body{max-width:100%;overflow-x:hidden}
 }
 .bp-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:14px;max-width:22ch}
 .bp-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:46ch;margin-bottom:26px}
+.bp-ctas{display:flex;flex-wrap:wrap;gap:10px}
 
 .callout{background:#fff;border-left:3px solid var(--leaf2);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:18px 22px;margin:28px 0;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.9rem;color:var(--ink)}
 .callout strong{color:var(--leaf2)}
@@ -36,6 +37,24 @@ html,body{max-width:100%;overflow-x:hidden}
 .content-inner li{margin:0 0 10px 0;color:var(--mute);line-height:1.65;padding-left:14px;position:relative;list-style:none}
 .content-inner li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:1px;background:var(--leaf2)}
 .content-inner ul{margin-bottom:20px}
+
+.fm-steps{counter-reset:bp-step;list-style:none;margin:0 0 8px;padding:0;border-top:1px solid var(--line)}
+.fm-steps li{counter-increment:bp-step;position:relative;padding:16px 0 16px 44px;border-bottom:1px dashed var(--line);color:var(--mute);line-height:1.6}
+.fm-steps li::before{
+  content:counter(bp-step);position:absolute;left:0;top:14px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;font-size:.82rem;
+  color:var(--leaf2);border:1px solid rgba(31,157,74,.4);border-radius:3px;
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+}
+.fm-steps strong{color:var(--ink)}
+
+.meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.meal{background:#fff;padding:18px 16px}
+.meal h3{font-size:.95rem;margin:0 0 6px}
+.meal p{margin:0;color:var(--mute);font-size:.88rem;line-height:1.55}
+.day-total{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.88rem;color:var(--leaf2);font-weight:600;margin:14px 0 0}
+
+@media(max-width:640px){.meal-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body class="fm-body">
@@ -46,7 +65,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <a href="/#loop">How it works</a>
     <a href="/pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
-    <a class="fm-nav-cta" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner#register" data-fm-auth="register">Start free</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner-premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
   </div>
 </nav>
 
@@ -54,21 +73,76 @@ html,body{max-width:100%;overflow-x:hidden}
   <div class="kicker">Budget meal planner Australia</div>
   <h1>Budget meal planner that starts from the receipt.</h1>
   <p>Ignore shelf price. Compare protein per ~25g. FitMunch turns a Woolies or Coles haul into cheap high-protein meals for the week, without a US recipe blog rabbit hole.</p>
-  <a class="fm-btn fm-btn-leaf" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner#register" data-fm-auth="register">Plan a cheap week free</a>
+  <div class="bp-ctas">
+    <a class="fm-btn fm-btn-leaf" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner#register" data-fm-auth="register">Plan a cheap week free</a>
+    <a class="fm-btn fm-btn-ghost" href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner-premium#register" data-fm-auth="register" data-fm-plan="premium">Premium trial $19.99</a>
+  </div>
 </header>
 
 <section class="fm-section">
-  <div class="fm-section-inner content-inner" style="max-width:760px">
-    <div class="callout"><strong>AU tip:</strong> eggs, Greek yoghurt, tuna, lentils, cottage cheese, tofu and marked-down chicken rotate as winners week to week.</div>
-    <h2>How it works</h2>
-    <ul>
-      <li>Scan the receipt (or enter targets)</li>
-      <li>See protein density of the real shop</li>
-      <li>Generate meals that fit the budget and macros</li>
-      <li>Upgrade only when you want unlimited AI</li>
-    </ul>
-    <h2>Pricing</h2>
-    <p style="color:var(--mute);line-height:1.7">Free to start. Premium <strong style="color:var(--ink)">$19.99 AUD/mo</strong>, 14-day trial, card on file, cancel anytime.</p>
+  <div class="fm-section-inner content-inner" style="max-width:800px">
+    <div class="callout"><strong>AU tip:</strong> eggs, Greek yoghurt, tuna, lentils, cottage cheese, tofu and marked-down chicken rotate as winners week to week. Rank them by protein per dollar, not price on the shelf tag.</div>
+
+    <h2>What protein actually costs per 25g</h2>
+    <p style="color:var(--mute);line-height:1.7">Shelf price lies to you. A $7 pack of eggs and a $7 tub of yoghurt are not the same value once you divide by protein. This is the sort every FitMunch scan runs automatically, ranked cheapest first.</p>
+    <div class="fm-table-wrap">
+      <table class="fm-table">
+        <thead>
+          <tr><th>Item</th><th>Approx AUD</th><th>Protein</th><th>$/25g protein</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Red lentils, dried 500g</td><td>$2.80</td><td>120g</td><td>$0.58</td></tr>
+          <tr><td>Chicken breast 1kg</td><td>$11.50</td><td>220g</td><td>$1.31</td></tr>
+          <tr><td>Tuna in springwater, 4x95g</td><td>$5.60</td><td>100g</td><td>$1.40</td></tr>
+          <tr><td>Greek yoghurt, natural 1kg</td><td>$6.50</td><td>90g</td><td>$1.81</td></tr>
+          <tr><td>Firm tofu 300g</td><td>$3.50</td><td>48g</td><td>$1.82</td></tr>
+          <tr><td>High-protein milk 2L</td><td>$7.00</td><td>80g</td><td>$2.19</td></tr>
+          <tr><td>Cottage cheese 500g</td><td>$5.80</td><td>65g</td><td>$2.23</td></tr>
+          <tr><td>Free range eggs x12</td><td>$7.20</td><td>72g</td><td>$2.50</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fm-note">Illustrative mid-2026 AU supermarket range (Woolworths/Coles style pricing), for education. Your scan uses your actual receipt. See a full worked example in the <a href="/haul-teardown">haul teardown</a>.</p>
+
+    <h2>How to shop the method</h2>
+    <ol class="fm-steps">
+      <li><strong>Set a weekly protein target.</strong> Bodyweight in kg times 1.6 to 2.2g, spread across 7 days.</li>
+      <li><strong>Rank the shelf by $/25g protein</strong>, not the sticker price you see first.</li>
+      <li><strong>Anchor the trolley with 3 to 4 of the cheapest proteins</strong> from the list above before anything else goes in.</li>
+      <li><strong>Add one carb base</strong> (rice, oats, wholemeal wraps) and one bag of frozen veg to round out volume.</li>
+      <li><strong>Scan the receipt when you get home.</strong> FitMunch confirms the macros and drafts the gaps for next week's shop.</li>
+    </ol>
+
+    <h2>Sample cheap high-protein day</h2>
+    <p style="color:var(--mute);line-height:1.7">Built from the staples above. No supplements, no specialty health-aisle items.</p>
+    <div class="meal-grid">
+      <div class="meal">
+        <h3>Breakfast: yoghurt and egg bowl</h3>
+        <p>Greek yoghurt, two eggs, a scoop of oats. About 40g protein for roughly $2.50.</p>
+      </div>
+      <div class="meal">
+        <h3>Lunch: chicken and lentil bowl</h3>
+        <p>Chicken breast, red lentils, rice. About 55g protein for roughly $3.00.</p>
+      </div>
+      <div class="meal">
+        <h3>Snack: cottage cheese and tuna stack</h3>
+        <p>Cottage cheese with a tin of tuna mixed through. About 35g protein for roughly $2.20.</p>
+      </div>
+      <div class="meal">
+        <h3>Dinner: tofu stir fry</h3>
+        <p>Tofu, frozen veg, rice. About 35g protein for roughly $2.80.</p>
+      </div>
+    </div>
+    <p class="day-total">~165g protein for the day, about $10.50 in staples.</p>
+
+    <div class="fm-convert">
+      <h2>Stop pricing by memory. Start pricing by protein.</h2>
+      <p>Premium runs the $/25g comparison on your real receipt every week: unlimited AI, weekly plans, no manual maths. $19.99 AUD/mo, 14-day trial.</p>
+      <div class="fm-ctas">
+        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner-premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+        <a class="fm-btn fm-btn-ghost" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=budget-meal-planner#register" data-fm-auth="register">Or start free</a>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -78,6 +152,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <div class="fm-footer-links">
       <a href="/#loop">How it works</a>
       <a href="/pricing">Pricing</a>
+      <a href="/haul-teardown">Haul teardown</a>
       <a href="/ai-meal-planner-australia">AI meal planner</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
       <a href="/for-pts.html">For trainers</a>

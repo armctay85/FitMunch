@@ -37,6 +37,14 @@ html,body{max-width:100%;overflow-x:hidden}
 .content-inner li{margin:0 0 10px 0;color:var(--mute);line-height:1.65;padding-left:14px;position:relative;list-style:none}
 .content-inner li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:1px;background:var(--leaf2)}
 .content-inner ul{margin-bottom:20px}
+
+.vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.vs-col{background:#fff;padding:20px 18px}
+.vs-col h3{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.vs-col.bad h3{color:var(--mute2)}
+.vs-col.good h3{color:var(--leaf2)}
+.vs-col p{margin:0;color:var(--mute);font-size:.9rem;line-height:1.6}
+@media(max-width:640px){.vs-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body class="fm-body">
@@ -47,7 +55,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <a href="/#loop">How it works</a>
     <a href="/pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
-    <a class="fm-nav-cta" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=ai-meal-planner#register" data-fm-auth="register">Start free</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=ai-meal-planner-premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
   </div>
 </nav>
 
@@ -62,7 +70,7 @@ html,body{max-width:100%;overflow-x:hidden}
 </header>
 
 <section class="fm-section">
-  <div class="fm-section-inner content-inner" style="max-width:760px">
+  <div class="fm-section-inner content-inner" style="max-width:800px">
     <h2>What you get</h2>
     <ul>
       <li>7-day plan with breakfast, lunch, dinner, snack</li>
@@ -76,6 +84,50 @@ html,body{max-width:100%;overflow-x:hidden}
       <li>People tracking macros without a blank food diary</li>
       <li>Home cooks who want protein without living in the health aisle</li>
     </ul>
+
+    <h2>A sample 7-day mini plan</h2>
+    <p style="color:var(--mute);line-height:1.7">Every day is anchored to a small set of AU staples, not a shopping list of things you can't find at Coles. This is a mini version of what a full FitMunch plan builds.</p>
+    <div class="fm-table-wrap">
+      <table class="fm-table">
+        <thead>
+          <tr><th>Day</th><th>Focus</th><th>AU anchor foods</th><th>Protein target</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Day 1</td><td>Reset day</td><td>Chicken breast, jasmine rice, frozen veg</td><td>150g</td></tr>
+          <tr><td>Day 2</td><td>Budget day</td><td>Red lentils, eggs, Greek yoghurt</td><td>140g</td></tr>
+          <tr><td>Day 3</td><td>Batch cook day</td><td>Beef mince, wholemeal pasta, passata</td><td>155g</td></tr>
+          <tr><td>Day 4</td><td>Training day</td><td>Tuna, rolled oats, banana</td><td>165g</td></tr>
+          <tr><td>Day 5</td><td>Easy day</td><td>Cottage cheese, wraps, mixed salad</td><td>130g</td></tr>
+          <tr><td>Day 6</td><td>Social day</td><td>Eggs, high-protein milk, seasonal fruit</td><td>120g</td></tr>
+          <tr><td>Day 7</td><td>Shop and reset</td><td>Leftovers, next haul planning</td><td>140g</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fm-note">Illustrative targets for a mid-size adult. Your plan is built from your actual protein target, budget and receipt.</p>
+
+    <h2>Receipt-first beats blank recipe dumps</h2>
+    <p style="color:var(--mute);line-height:1.7">Most AI meal planners start from a blank US recipe database: cups of quinoa, imperial ounces, and ingredients that don't exist on an Aldi shelf. FitMunch starts from what's actually in your trolley or your receipt scan, in AUD, in grams, matched to Woolworths, Coles and Aldi product lines. The plan bends to fit the shop, not the other way round.</p>
+    <div class="vs-grid">
+      <div class="vs-col bad">
+        <h3>Blank recipe dump</h3>
+        <p>Generic recipes, US measurements, ingredients you then have to hunt for or substitute. You do the matching work yourself.</p>
+      </div>
+      <div class="vs-col good">
+        <h3>Receipt-first plan</h3>
+        <p>Starts from your actual shop or scan. AUD pricing, grams, AU brands. The plan already matches what's in the fridge.</p>
+      </div>
+    </div>
+    <p style="color:var(--mute);line-height:1.7">See it worked end to end on a real shop in the <a href="/haul-teardown">haul teardown</a>, or compare protein prices item by item in the <a href="/budget-meal-planner">budget meal planner</a>.</p>
+
+    <div class="fm-convert">
+      <h2>Get the plan built around your real shop.</h2>
+      <p>Premium removes the AI plan limit and adds the weekly coach loop: scan, macros, plan, next list. $19.99 AUD/mo, 14-day trial.</p>
+      <div class="fm-ctas">
+        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=ai-meal-planner-premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+        <a class="fm-btn fm-btn-ghost" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=ai-meal-planner#register" data-fm-auth="register">Build a free plan</a>
+      </div>
+    </div>
+
     <h2>Pricing truth</h2>
     <p style="color:var(--mute);line-height:1.7">Free to start. Premium is <strong style="color:var(--ink)">$19.99 AUD/month</strong> with a 14-day trial (card on file, cancel anytime). Trainer tools are separate.</p>
   </div>
@@ -87,6 +139,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <div class="fm-footer-links">
       <a href="/#loop">How it works</a>
       <a href="/pricing">Pricing</a>
+      <a href="/haul-teardown">Haul teardown</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
       <a href="/budget-meal-planner">Budget planner</a>
       <a href="/for-pts.html">For trainers</a>

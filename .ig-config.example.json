@@ -1,0 +1,15 @@
+{
+  "instagram": {
+    "accessToken": "SET_VIA_ENV_IG_ACCESS_TOKEN",
+    "businessAccountId": "17841446523975954",
+    "facebookPageId": "961121103754316",
+    "pageName": "FitMunch"
+  },
+  "facebook": {
+    "groupIds": {
+      "pt_business_au": "1086856985292859",
+      "fitness_business_owners": "813514840413639",
+      "personal_trainers_australia": "303270813417754"
+    }
+  }
+}
