@@ -1,5 +1,6 @@
-/* FitMunch shared light UI tokens — marketing + app shell (index, app, for-pts). */
+/* FitMunch shared UI tokens: marketing + app shell (index, app, for-pts). */
 :root {
+  /* App shell (stable) */
   --green: #22c55e;
   --green2: #16a34a;
   --green3: #15803d;
@@ -18,4 +19,17 @@
   --amber: #f59e0b;
   --red: #ef4444;
   --blue: #3b82f6;
+
+  /* Receipt cinema (marketing) */
+  --fridge: #07130d;
+  --fridge2: #0c1c14;
+  --leaf: #1f9d4a;
+  --leaf2: #16803c;
+  --leaf-glow: rgba(31, 157, 74, 0.35);
+  --paper: #eef2ee;
+  --paper2: #e4ebe4;
+  --ink: #0c1210;
+  --mute: #5c6d64;
+  --mute2: #8a9a91;
+  --line: #cfd9d2;
 }

@@ -3,781 +3,593 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch - Receipt Macros, Recipes and Meal Plans Australia</title>
-<meta name="description" content="FitMunch turns Australian grocery receipts and food logs into macro tracking, price-aware shopping lists, recipe ideas, meal plans, and PT accountability."/>
-<meta name="keywords" content="macro tracking app australia, receipt nutrition scanner, supermarket meal planner, budget meal planning app, personal trainer nutrition software australia"/>
-<meta property="og:title" content="FitMunch - Scan Your Shop. Track Macros. Plan the Week."/>
-<meta property="og:description" content="The Australian nutrition loop for receipts, macros, shopping lists, recipe ideas, meal plans, and PT accountability."/>
-<meta property="og:url" content="https://fitmunch.com.au"/>
+<title>FitMunch - Scan your shop. See the macros.</title>
+<meta name="description" content="FitMunch turns Australian supermarket receipts into macros, meal plans and the next grocery run. Built for Woolies, Coles, Aldi and IGA shops."/>
+<meta name="theme-color" content="#07130d"/>
+<link rel="canonical" href="https://www.fitmunch.com.au/"/>
+<meta property="og:title" content="FitMunch - Scan your shop. See the macros."/>
+<meta property="og:description" content="Receipt to macros to plan to next shop. The Australian grocery nutrition loop."/>
+<meta property="og:url" content="https://www.fitmunch.com.au"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
-<meta property="og:image:width" content="1200"/>
-<meta property="og:image:height" content="630"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="FitMunch - Receipt-first Macro and Meal Planning"/>
-<meta name="twitter:description" content="Scan the shop, see macros, build meals, and tighten the next grocery run."/>
+<meta name="twitter:title" content="FitMunch - Scan your shop. See the macros."/>
+<meta name="twitter:description" content="Turn your Woolies or Coles shop into protein, calories and a week of meals."/>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
+<link rel="preload" as="image" href="/assets/fm-receipt-scan.webp" fetchpriority="high"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 html,body{max-width:100%;overflow-x:hidden}
-body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
-h1,h2,.sec-h,.logo-word{font-family:'Bricolage Grotesque','Manrope',system-ui,sans-serif}
-
-/* ── NAV ── */
-nav{position:sticky;top:0;z-index:100;background:rgba(248,250,252,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;gap:16px}
-.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.logo-mark{width:34px;height:34px;border-radius:9px;overflow:hidden;box-shadow:0 2px 8px rgba(22,163,74,.25);flex-shrink:0;display:block}
-.logo-mark svg{width:34px;height:34px;display:block}
-.logo-word{font-size:1.1rem;font-weight:900;color:var(--text);letter-spacing:-.03em}
-.logo-word span{color:var(--green2)}
-.nav-links{display:flex;gap:4px;margin-left:16px}
-.nav-links a{color:var(--text2);font-size:.85rem;font-weight:500;text-decoration:none;padding:6px 12px;border-radius:7px;transition:all .15s}
-.nav-links a:hover{background:#f1f5f9;color:var(--text)}
-.nav-spacer{flex:1}
-.nav-right{display:flex;align-items:center;gap:8px}
-.nav-signin{color:var(--text2);font-size:.85rem;font-weight:500;text-decoration:none;padding:8px 14px;border-radius:7px;transition:all .15s}
-.nav-signin:hover{color:var(--text);background:#f1f5f9}
-.nav-cta{background:var(--green2);color:#fff;font-size:.85rem;font-weight:700;text-decoration:none;padding:9px 20px;border-radius:8px;transition:all .15s;box-shadow:0 1px 3px rgba(22,163,74,.3)}
-.nav-cta:hover{background:var(--green3);transform:translateY(-1px)}
-
-/* ── HERO ── */
-.hero{position:relative;padding:72px 40px 84px;max-width:1120px;margin:0 auto;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;overflow:visible}
-.hero::before{content:'';position:absolute;top:-120px;right:-180px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(34,197,94,.10),transparent 65%);pointer-events:none}
-.hero-copy{text-align:left}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green2);padding:5px 14px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:24px}
-.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
-.hero h1{font-size:clamp(2.4rem,4.6vw,3.7rem);font-weight:800;line-height:1.04;letter-spacing:-.045em;color:var(--text);margin-bottom:20px}
-.hero h1 .gr{color:var(--green2)}
-.hero-sub{font-size:1.02rem;color:var(--text2);line-height:1.75;max-width:520px;margin:0 0 32px}
-.hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
-/* Hero visual - photo with floating macro chips */
-.hero-visual{position:relative}
-.hero-photo{width:100%;aspect-ratio:4/3.1;object-fit:cover;border-radius:22px;box-shadow:0 24px 70px rgba(5,46,22,.22),0 4px 16px rgba(5,46,22,.10);display:block}
-.hero-chip{position:absolute;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid rgba(226,232,240,.9);border-radius:14px;padding:10px 16px;box-shadow:0 10px 34px rgba(5,46,22,.16);display:flex;align-items:center;gap:10px}
-.hero-chip .hc-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-.hero-chip .hc-val{font-size:.95rem;font-weight:800;letter-spacing:-.02em;line-height:1.1}
-.hero-chip .hc-label{font-size:.66rem;color:var(--text3);font-weight:600}
-.chip-protein{top:8%;left:-34px;animation:chipFloat 5.5s ease-in-out infinite}
-.chip-score{bottom:14%;right:-26px;animation:chipFloat 6.5s ease-in-out 1.2s infinite}
-.chip-plan{bottom:-20px;left:12%;animation:chipFloat 6s ease-in-out .6s infinite}
-@keyframes chipFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-/* Staggered load */
-.hero-copy>*{opacity:0;transform:translateY(14px);animation:heroIn .65s cubic-bezier(.2,.7,.3,1) forwards}
-.hero-copy>*:nth-child(1){animation-delay:.05s}.hero-copy>*:nth-child(2){animation-delay:.14s}
-.hero-copy>*:nth-child(3){animation-delay:.23s}.hero-copy>*:nth-child(4){animation-delay:.32s}
-.hero-copy>*:nth-child(5){animation-delay:.41s}
-.hero-visual{opacity:0;transform:translateY(18px) scale(.985);animation:heroIn .8s cubic-bezier(.2,.7,.3,1) .25s forwards}
-@keyframes heroIn{to{opacity:1;transform:translateY(0) scale(1)}}
-@media(max-width:900px){
- .hero{grid-template-columns:1fr;gap:36px;padding:52px 24px 72px;text-align:center}
- .hero-copy{text-align:center}
- .hero-sub{margin:0 auto 30px}
- .hero-ctas{justify-content:center}
- .hero-trust{justify-content:center}
- .chip-protein{left:6px}.chip-score{right:6px}
+body{
+  font-family:'Literata',Georgia,serif;
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
 }
-.btn-primary{background:var(--green2);color:#fff;font-size:.95rem;font-weight:700;text-decoration:none;padding:13px 28px;border-radius:10px;border:none;cursor:pointer;transition:all .15s;box-shadow:0 2px 12px rgba(22,163,74,.3);display:inline-flex;align-items:center;gap:6px}
-.btn-primary:hover{background:var(--green3);transform:translateY(-1px);box-shadow:0 6px 20px rgba(22,163,74,.35)}
-.btn-ghost{background:#fff;color:var(--text);font-size:.95rem;font-weight:600;text-decoration:none;padding:13px 24px;border-radius:10px;border:1px solid var(--border);transition:all .15s}
-.btn-ghost:hover{border-color:#cbd5e1;background:var(--bg)}
-.hero-trust{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;font-size:.78rem;color:var(--text3)}
-.trust-i{display:flex;align-items:center;gap:4px}
-.trust-sep{width:1px;height:12px;background:var(--border)}
+:focus-visible{
+  outline:2px solid var(--leaf);
+  outline-offset:3px;
+}
+.skip{
+  position:absolute;left:16px;top:12px;z-index:40;
+  background:var(--leaf);color:#fff;padding:10px 14px;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.85rem;
+  text-decoration:none;border-radius:4px;
+  transform:translateY(-140%);transition:transform .2s;
+}
+.skip:focus{transform:none}
+h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+}
+.score-n,.price-n,.step-n,.row-val{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
-/* ── AUDIENCE TOGGLE ── */
-.audience-strip{background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:0;overflow:hidden}
-.audience-tabs{display:flex;max-width:900px;margin:0 auto}
-.aud-tab{flex:1;padding:18px 24px;cursor:pointer;transition:all .15s;border-bottom:3px solid transparent;text-align:center}
-.aud-tab:hover{background:var(--bg)}
-.aud-tab.active{border-bottom-color:var(--green2);background:#f0fdf4}
-.aud-tab-title{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:3px}
-.aud-tab.active .aud-tab-title{color:var(--green2)}
-.aud-tab-sub{font-size:.78rem;color:var(--text3)}
+/* NAV */
+.site-nav{
+  position:absolute;top:0;left:0;right:0;z-index:20;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px clamp(20px,4vw,48px);
+  color:#fff;
+}
+.brand{
+  display:inline-flex;align-items:center;gap:10px;
+  text-decoration:none;color:#fff;
+  font-size:clamp(1.2rem,2vw,1.45rem);font-weight:800;letter-spacing:-.04em;
+}
+.brand img{width:34px;height:34px;border-radius:8px;display:block}
+.brand span{color:var(--leaf)}
+.nav-links{display:flex;align-items:center;gap:4px}
+.nav-links a{
+  color:rgba(255,255,255,.76);text-decoration:none;
+  font-size:.84rem;font-weight:600;padding:8px 12px;
+}
+.nav-links a:hover{color:#fff}
+.nav-cta{
+  background:var(--leaf);color:#fff;text-decoration:none;
+  font-size:.84rem;font-weight:700;padding:10px 16px;border-radius:4px;
+  transition:background .2s, transform .2s;
+}
+.nav-cta:hover{background:var(--leaf2);transform:translateY(-1px)}
 
-/* ── RECEIPT SCANNER HIGHLIGHT ── */
-.receipt-section{background:linear-gradient(135deg,var(--dark) 0%,#0d2d1a 60%,var(--dark) 100%);padding:80px 40px}
-.receipt-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
-.receipt-left .label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;background:rgba(34,197,94,.12);color:var(--green);display:inline-block;padding:4px 12px;border-radius:4px;margin-bottom:16px}
-.receipt-left h2{font-size:clamp(1.8rem,3vw,2.6rem);font-weight:900;color:#fff;letter-spacing:-.04em;line-height:1.1;margin-bottom:14px}
-.receipt-left p{font-size:.95rem;color:#86efac;line-height:1.7;margin-bottom:24px}
-.receipt-bullets{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
-.receipt-bullet{display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:#bbf7d0;line-height:1.5}
-.rb-icon{font-size:16px;flex-shrink:0;margin-top:1px}
-.tiktok-badge{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;font-size:.8rem;color:#e2e8f0}
-.tiktok-badge .tb-icon{font-size:18px}
+/* HERO */
+.hero{
+  position:relative;min-height:100svh;
+  display:flex;align-items:flex-end;
+  color:#fff;overflow:hidden;
+  background:var(--fridge);
+}
+.hero-media{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(112deg, rgba(7,19,13,.94) 0%, rgba(7,19,13,.62) 38%, rgba(7,19,13,.28) 72%, rgba(7,19,13,.45) 100%),
+    url('/assets/fm-receipt-scan.webp') center/cover no-repeat;
+  transform:scale(1.045);
+  animation:heroPush 16s cubic-bezier(.15,.7,.2,1) forwards;
+}
+.hero-grain{
+  position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.18;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+@keyframes heroPush{to{transform:scale(1)}}
+.hero-inner{
+  position:relative;z-index:2;
+  width:min(1120px,100%);
+  padding:0 clamp(20px,4vw,48px) clamp(52px,9vw,96px);
+  opacity:0;transform:translateY(20px);
+  animation:rise .95s cubic-bezier(.2,.7,.3,1) .12s forwards;
+}
+@keyframes rise{to{opacity:1;transform:none}}
+.hero-brand{
+  font-size:clamp(3.6rem,11vw,7.6rem);
+  font-weight:800;letter-spacing:-.065em;line-height:.9;
+  margin-bottom:20px;
+}
+.hero-brand span{color:var(--leaf)}
+.hero h1{
+  font-size:clamp(1.4rem,2.9vw,2.05rem);
+  font-weight:700;letter-spacing:-.035em;line-height:1.18;
+  max-width:16ch;margin-bottom:14px;
+}
+.hero-sub{
+  font-size:clamp(1.02rem,1.55vw,1.14rem);
+  line-height:1.55;color:rgba(238,242,238,.84);
+  max-width:34ch;margin-bottom:30px;
+}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:10px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:48px;padding:0 22px;border-radius:4px;
+  font-size:.95rem;font-weight:700;text-decoration:none;border:1px solid transparent;
+  transition:transform .2s, background .2s, border-color .2s, color .2s;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-leaf{background:var(--leaf);color:#fff}
+.btn-leaf:hover{background:var(--leaf2)}
+.btn-ghost{
+  background:transparent;color:#fff;
+  border-color:rgba(255,255,255,.38);
+}
+.btn-ghost:hover{border-color:rgba(255,255,255,.78)}
+.btn-ink{
+  background:transparent;color:var(--ink);
+  border-color:var(--line);
+}
+.btn-ink:hover{border-color:var(--mute)}
 
-/* ── RECEIPT MOCKUP ── */
-.receipt-mockup{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.r-topbar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.72rem;color:#94a3b8}
-.r-dots{display:flex;gap:5px}.r-dot{width:10px;height:10px;border-radius:50%}
-.r-d1{background:#ff5f57}.r-d2{background:#ffbd2e}.r-d3{background:#28c840}
-.r-body{padding:18px}
-.r-header{text-align:center;margin-bottom:14px}
-.r-store{font-size:.95rem;font-weight:800;color:#0f172a}
-.r-sub{font-size:.72rem;color:#94a3b8;margin-top:2px}
-.r-scan-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#f0fdf4;border:2px dashed #86efac;border-radius:10px;padding:14px;font-size:.82rem;font-weight:700;color:var(--green2);margin-bottom:14px;cursor:pointer}
-.r-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9}
-.r-item:last-child{border:none}
-.r-item-name{flex:1;font-size:.78rem;color:#0f172a;font-weight:500}
-.r-item-macro{text-align:right}
-.r-item-p{font-size:.72rem;font-weight:700;color:#3b82f6}
-.r-item-c{font-size:.65rem;color:#94a3b8}
-.r-total{background:#f0fdf4;border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center}
-.r-total-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green3)}
-.r-total-macros{display:flex;gap:10px}
-.r-macro{text-align:center}
-.r-macro-val{font-size:.88rem;font-weight:800;color:var(--text)}
-.r-macro-label{font-size:.6rem;color:var(--text3)}
-.r-share{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#7c3aed,#a78bfa);border-radius:8px;padding:9px;font-size:.78rem;font-weight:700;color:#fff;margin-top:10px;cursor:pointer}
+/* LOOP */
+.loop{
+  position:relative;
+  background:var(--paper);
+  padding:clamp(68px,11vw,124px) clamp(20px,4vw,48px);
+}
+.loop::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.035;
+  background-image:repeating-linear-gradient(
+    0deg, transparent, transparent 27px, var(--ink) 27px, var(--ink) 28px
+  );
+}
+.loop-inner{position:relative;width:min(1040px,100%);margin:0 auto}
+.loop-head{max-width:32ch;margin-bottom:52px}
+.loop-head h2{
+  font-size:clamp(2.05rem,4.6vw,3.2rem);
+  font-weight:800;letter-spacing:-.055em;line-height:1.02;
+  margin-bottom:14px;
+}
+.loop-head p{color:var(--mute);font-size:1.06rem;line-height:1.65}
+.loop-rail{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:0;border-top:1px solid var(--line);
+}
+.step{
+  padding:30px 24px 6px 0;
+  border-right:1px solid var(--line);
+  opacity:0;transform:translateY(14px);
+  transition:opacity .55s cubic-bezier(.2,.7,.3,1), transform .55s cubic-bezier(.2,.7,.3,1);
+}
+.step:nth-child(2){transition-delay:.08s}
+.step:nth-child(3){transition-delay:.16s}
+.step:nth-child(4){transition-delay:.24s}
+.step.show{opacity:1;transform:none}
+.step:last-child{border-right:0;padding-right:0}
+.step-n{
+  display:block;font-size:.76rem;font-weight:600;
+  color:var(--leaf2);letter-spacing:.1em;margin-bottom:14px;
+}
+.step h3{
+  font-size:1.18rem;font-weight:800;letter-spacing:-.03em;
+  margin-bottom:8px;
+}
+.step p{color:var(--mute);font-size:.95rem;line-height:1.55;max-width:21ch}
 
-/* ── SOCIAL PROOF STRIP ── */
-.social-strip{padding:28px 40px;background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.social-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;gap:0}
-.social-stat{text-align:center;flex:1;min-width:120px}
-.ss-val{font-size:1.6rem;font-weight:900;color:var(--text);letter-spacing:-.04em}
-.ss-label{font-size:.75rem;color:var(--text3);margin-top:2px}
-.social-divider{display:none}
+/* PROOF */
+.proof{
+  background:var(--fridge);
+  color:#fff;
+  padding:clamp(68px,11vw,116px) clamp(20px,4vw,48px);
+}
+.proof-inner{
+  width:min(1040px,100%);margin:0 auto;
+  display:grid;grid-template-columns:1.05fr .95fr;
+  gap:clamp(36px,6vw,72px);align-items:center;
+}
+.proof-copy h2{
+  font-size:clamp(2.05rem,4.3vw,3.1rem);
+  font-weight:800;letter-spacing:-.055em;line-height:1.02;
+  margin-bottom:14px;
+}
+.proof-copy p{
+  color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.65;
+  max-width:32ch;margin-bottom:28px;
+}
+.receipt{
+  position:relative;
+  background:var(--paper);
+  color:var(--ink);
+  padding:22px 20px 26px;
+  clip-path:polygon(
+    0 0, 100% 0, 100% calc(100% - 10px),
+    97% 100%, 94% calc(100% - 10px), 91% 100%, 88% calc(100% - 10px),
+    85% 100%, 82% calc(100% - 10px), 79% 100%, 76% calc(100% - 10px),
+    73% 100%, 70% calc(100% - 10px), 67% 100%, 64% calc(100% - 10px),
+    61% 100%, 58% calc(100% - 10px), 55% 100%, 52% calc(100% - 10px),
+    49% 100%, 46% calc(100% - 10px), 43% 100%, 40% calc(100% - 10px),
+    37% 100%, 34% calc(100% - 10px), 31% 100%, 28% calc(100% - 10px),
+    25% 100%, 22% calc(100% - 10px), 19% 100%, 16% calc(100% - 10px),
+    13% 100%, 10% calc(100% - 10px), 7% 100%, 4% calc(100% - 10px), 0 100%
+  );
+  box-shadow:0 28px 70px rgba(0,0,0,.38);
+  opacity:0;transform:translateY(22px) rotate(-.4deg);
+}
+.receipt.in{animation:receiptIn .85s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes receiptIn{to{opacity:1;transform:translateY(0) rotate(-.4deg)}}
+.device-top{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:.72rem;font-weight:700;color:var(--mute);margin-bottom:18px;
+  gap:12px;
+}
+.device-store{font-size:.92rem;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.haul{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  gap:16px;margin:4px 0 18px;
+}
+.score-n{
+  font-size:clamp(3.8rem,8vw,4.6rem);font-weight:600;line-height:.88;
+  color:var(--leaf2);letter-spacing:-.06em;
+}
+.haul-label{
+  font-size:.72rem;font-weight:700;color:var(--mute);
+  letter-spacing:.08em;margin-top:10px;
+}
+.haul-meta{text-align:right;color:var(--mute);font-size:.82rem;line-height:1.45}
+.haul-meta strong{
+  display:block;color:var(--ink);
+  font-size:1rem;font-weight:800;margin-bottom:2px;
+}
+.rows{border-top:1px dashed var(--line)}
+.row{
+  display:flex;justify-content:space-between;gap:12px;
+  padding:11px 0;border-bottom:1px dashed var(--line);
+  font-size:.88rem;
+}
+.row-val{font-weight:500;color:var(--leaf2)}
 
-/* ── SECTION BASE ── */
-.section{padding:80px 40px;max-width:1000px;margin:0 auto}
-.sec-tag{display:inline-block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:4px 11px;border-radius:4px;margin-bottom:14px}
-.tag-green{background:#f0fdf4;color:var(--green2)}
-.tag-purple{background:rgba(124,58,237,.08);color:var(--purple)}
-.tag-amber{background:#fef3c7;color:#92400e}
-.tag-blue{background:#eff6ff;color:#1e40af}
-.sec-h{font-size:clamp(1.8rem,3vw,2.5rem);font-weight:900;letter-spacing:-.04em;color:var(--text);line-height:1.12;margin-bottom:14px}
-.sec-sub{font-size:.95rem;color:var(--text2);line-height:1.7;max-width:520px}
+/* PRICING */
+.pricing{
+  background:var(--paper2);
+  padding:clamp(68px,11vw,116px) clamp(20px,4vw,48px);
+}
+.pricing-inner{width:min(860px,100%);margin:0 auto}
+.pricing-inner h2{
+  font-size:clamp(2.05rem,4.1vw,2.9rem);
+  font-weight:800;letter-spacing:-.055em;line-height:1.02;
+  margin-bottom:10px;
+}
+.pricing-lead{color:var(--mute);font-size:1.05rem;line-height:1.6;margin-bottom:36px;max-width:38ch}
+.plans{
+  display:grid;grid-template-columns:1.25fr .9fr;
+  gap:0;border:1px solid var(--line);background:var(--paper);
+}
+.plan{
+  padding:30px 28px;
+  border-right:1px solid var(--line);
+}
+.plan:last-child{border-right:0}
+.plan.main{background:linear-gradient(180deg, rgba(31,157,74,.07), transparent 42%)}
+.plan-kicker{
+  font-size:.72rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--leaf2);margin-bottom:12px;
+}
+.price-n{
+  font-size:2.55rem;font-weight:600;letter-spacing:-.05em;line-height:1;
+  margin-bottom:10px;
+}
+.price-n small{font-size:.88rem;font-weight:500;color:var(--mute)}
+.plan > p{color:var(--mute);font-size:.95rem;line-height:1.55;margin-bottom:22px}
+.plan ul{list-style:none;display:grid;gap:9px;margin-bottom:26px}
+.plan li{
+  font-size:.9rem;color:var(--ink);
+  padding-left:14px;position:relative;
+}
+.plan li::before{
+  content:"";position:absolute;left:0;top:.55em;
+  width:6px;height:6px;border-radius:1px;background:var(--leaf2);
+}
 
-/* ── AI COACH SECTION ── */
-.coach-section{background:#fff;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:84px 40px}
-.coach-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
-.coach-visual{position:relative}
-.coach-visual img{width:100%;aspect-ratio:4/3.4;object-fit:cover;border-radius:20px;box-shadow:0 20px 56px rgba(5,46,22,.18)}
-.coach-bubble{position:absolute;max-width:78%;padding:11px 15px;border-radius:14px;font-size:.78rem;line-height:1.5;box-shadow:0 10px 30px rgba(5,46,22,.18)}
-.cb-user{top:-18px;right:-14px;background:var(--green2);color:#fff;border-bottom-right-radius:4px}
-.cb-ai{bottom:-24px;left:-14px;background:#fff;border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px}
-.cb-ai-tag{display:block;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:4px}
-.coach-points{display:flex;flex-direction:column;gap:12px}
-.coach-point{display:flex;align-items:flex-start;gap:10px;font-size:.88rem;color:var(--text2);line-height:1.5}
-.coach-point span{font-size:17px;flex-shrink:0}
+/* FINAL */
+.final{
+  background:var(--fridge);
+  color:#fff;
+  padding:clamp(76px,12vw,128px) clamp(20px,4vw,48px);
+}
+.final-inner{width:min(880px,100%);margin:0 auto}
+.final h2{
+  font-size:clamp(2.25rem,5.1vw,3.5rem);
+  font-weight:800;letter-spacing:-.055em;line-height:1.02;
+  margin-bottom:14px;max-width:13ch;
+}
+.final h2 em{font-style:normal;color:var(--leaf)}
+.final p{color:rgba(238,242,238,.76);font-size:1.05rem;line-height:1.6;max-width:34ch;margin-bottom:28px}
+
+/* FOOTER */
+footer{
+  background:var(--fridge2);
+  color:rgba(238,242,238,.55);
+  padding:40px clamp(20px,4vw,48px) 28px;
+}
+.footer-inner{
+  width:min(1040px,100%);margin:0 auto;
+  display:flex;flex-wrap:wrap;gap:24px 48px;
+  justify-content:space-between;align-items:flex-start;
+}
+.footer-brand{font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.03em}
+.footer-brand span{color:var(--leaf)}
+.footer-links{display:flex;flex-wrap:wrap;gap:14px 22px}
+.footer-links a{color:rgba(238,242,238,.55);text-decoration:none;font-size:.85rem;font-weight:600}
+.footer-links a:hover{color:#fff}
+.footer-note{width:100%;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:18px;font-size:.78rem}
+
 @media(max-width:860px){
- .coach-inner{grid-template-columns:1fr;gap:48px}
- .cb-user{right:4px}.cb-ai{left:4px}
+  .nav-links a:not(.nav-cta):not([data-fm-auth="login"]){display:none}
+  .loop-rail{grid-template-columns:1fr 1fr}
+  .step{border-right:0;border-bottom:1px solid var(--line);padding:24px 0}
+  .step:nth-child(odd){padding-right:18px}
+  .step:nth-child(1),.step:nth-child(2){border-bottom:1px solid var(--line)}
+  .proof-inner{grid-template-columns:1fr}
+  .plans{grid-template-columns:1fr}
+  .plan{border-right:0;border-bottom:1px solid var(--line)}
+  .plan:last-child{border-bottom:0}
+  .hero-inner{padding-bottom:56px}
 }
-
-/* ── LOOP BANNER PHOTOS ── */
-.loop-banner{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:36px}
-.loop-banner img{width:100%;height:280px;object-fit:cover;border-radius:18px;box-shadow:0 14px 44px rgba(5,46,22,.14);transition:transform .35s cubic-bezier(.2,.7,.3,1)}
-.loop-banner img:hover{transform:translateY(-4px) scale(1.01)}
-@media(max-width:760px){.loop-banner{grid-template-columns:1fr}.loop-banner img{height:200px}}
-
-/* ── FEATURES GRID ── */
-.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
-.feat-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px;transition:box-shadow .2s}
-.feat-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.06);border-color:#cbd5e1}
-.feat-icon{font-size:28px;margin-bottom:12px;display:block}
-.feat-h{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:6px}
-.feat-p{font-size:.82rem;color:var(--text2);line-height:1.6}
-.feat-badge{margin-top:10px;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px;display:inline-block}
-.badge-free{background:#f0fdf4;color:var(--green2)}
-.badge-pro{background:rgba(124,58,237,.08);color:var(--purple)}
-.badge-pt{background:#fef3c7;color:#92400e}
-
-/* ── PT SECTION ── */
-.pt-section{background:var(--dark);padding:80px 40px}
-.pt-inner{max-width:1000px;margin:0 auto}
-.pt-section .sec-h{color:#fff}
-.pt-section .sec-sub{color:#94a3b8}
-.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;align-items:center}
-.pt-features{display:flex;flex-direction:column;gap:14px}
-.pt-feat{display:flex;align-items:flex-start;gap:12px;padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px}
-.pt-feat-icon{font-size:20px;flex-shrink:0}
-.pt-feat-h{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:3px}
-.pt-feat-p{font-size:.78rem;color:#94a3b8;line-height:1.5}
-.pt-mockup{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.3)}
-.ptm-header{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 14px;font-size:.72rem;font-weight:700;color:#64748b;display:flex;align-items:center;justify-content:space-between}
-.ptm-body{padding:14px;display:flex;flex-direction:column;gap:8px}
-.ptm-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
-.ptm-stat{background:#f8fafc;border-radius:7px;padding:9px;text-align:center}
-.ptm-stat-v{font-size:1.1rem;font-weight:900;color:var(--text)}
-.ptm-stat-l{font-size:.6rem;color:#94a3b8}
-.ptm-client{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8fafc;border-radius:7px;border:1px solid #e2e8f0}
-.ptm-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#fff;flex-shrink:0}
-.ptm-name{font-size:.75rem;font-weight:600;flex:1}
-.ptm-chip{font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px}
-.chip-ok{background:#f0fdf4;color:var(--green2)}
-.chip-warn{background:#fef3c7;color:#92400e}
-.chip-err{background:#fef2f2;color:#991b1b}
-
-/* ── PRICING ── */
-.pricing-section{padding:80px 40px;background:#fff}
-.pricing-inner{max-width:900px;margin:0 auto}
-.pricing-tabs{display:flex;gap:8px;margin:28px 0;justify-content:center}
-.p-tab{padding:7px 20px;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:#fff;transition:all .15s}
-.p-tab.active{background:var(--green2);color:#fff;border-color:var(--green2)}
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:0}
-.plan-card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:24px;position:relative;transition:all .2s}
-.plan-card.featured{background:#fff;border:2px solid var(--green2);box-shadow:0 8px 24px rgba(22,163,74,.12)}
-.plan-popular{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green2);color:#fff;font-size:.68rem;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap}
-.plan-name{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px}
-.plan-price{font-size:2.2rem;font-weight:900;color:var(--text);letter-spacing:-.05em;line-height:1;margin-bottom:6px}
-.plan-price sup{font-size:.9rem;font-weight:700;vertical-align:top;margin-top:7px;display:inline-block}
-.plan-price sub{font-size:.78rem;font-weight:400;color:var(--text3)}
-.plan-desc{font-size:.8rem;color:var(--text2);margin-bottom:18px;line-height:1.5}
-.plan-features{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
-.pf{display:flex;align-items:flex-start;gap:7px;font-size:.8rem;color:var(--text2)}
-.pf-check{color:var(--green2);flex-shrink:0;margin-top:1px;font-size:12px}
-.pf-x{color:var(--text3);flex-shrink:0;margin-top:1px}
-.plan-cta{display:block;text-align:center;padding:11px;border-radius:8px;font-size:.85rem;font-weight:700;text-decoration:none;transition:all .15s}
-.cta-outline{border:1px solid var(--border);color:var(--text2)}.cta-outline:hover{border-color:var(--green2);color:var(--green2)}
-.cta-green{background:var(--green2);color:#fff}.cta-green:hover{background:var(--green3)}
-
-/* ── TESTIMONIALS ── */
-.testi-section{background:#f8fafc;padding:80px 40px}
-.testi-inner{max-width:900px;margin:0 auto}
-.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
-.testi-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:22px}
-.stars{color:var(--amber);font-size:.85rem;letter-spacing:2px;margin-bottom:10px}
-.testi-q{font-size:.85rem;color:var(--text2);line-height:1.7;margin-bottom:16px;font-style:italic}
-.testi-author{display:flex;align-items:center;gap:9px}
-.t-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;flex-shrink:0}
-.t-name{font-size:.8rem;font-weight:700;color:var(--text)}
-.t-role{font-size:.72rem;color:var(--text3)}
-
-/* ── FINAL CTA ── */
-.cta-section{background:linear-gradient(135deg,#0a0f0a 0%,#0d2d1a 50%,#0a0f0a 100%);padding:100px 40px;text-align:center}
-.cta-section h2{font-size:clamp(2rem,4vw,3rem);font-weight:900;color:#fff;letter-spacing:-.05em;margin-bottom:14px;line-height:1.1}
-.cta-section h2 em{color:var(--green);font-style:normal}
-.cta-section p{font-size:.95rem;color:#86efac;margin-bottom:36px;line-height:1.6}
-.cta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.btn-white{background:#fff;color:var(--text);font-size:.95rem;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:10px;transition:all .15s}
-.btn-white:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
-.btn-outline-w{background:transparent;color:#fff;font-size:.95rem;font-weight:600;text-decoration:none;padding:14px 24px;border-radius:10px;border:1px solid rgba(255,255,255,.25);transition:all .15s}
-.btn-outline-w:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.05)}
-.cta-trust{margin-top:24px;font-size:.75rem;color:rgba(255,255,255,.35);display:flex;justify-content:center;gap:20px}
-
-/* ── FOOTER ── */
-footer{background:var(--dark);padding:48px 40px 28px}
-.footer-inner{max-width:1000px;margin:0 auto}
-.footer-top{display:flex;gap:60px;margin-bottom:36px;flex-wrap:wrap}
-.footer-brand{flex:1;min-width:180px}
-.f-logo{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.f-tagline{font-size:.8rem;color:#475569;line-height:1.6;max-width:220px}
-.footer-col{min-width:130px}
-.fc-title{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569;margin-bottom:12px}
-.fc-link{display:block;font-size:.8rem;color:#64748b;text-decoration:none;margin-bottom:9px;transition:color .15s}
-.fc-link:hover{color:#94a3b8}
-.footer-bottom{border-top:1px solid #1e293b;padding-top:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.footer-bottom p{font-size:.75rem;color:#334155}
-
-@media(max-width:768px){
- nav{padding:0 16px;gap:10px}
- .nav-logo{gap:8px}.logo-mark{width:30px;height:30px}.logo-mark svg{width:30px;height:30px}.logo-word{font-size:1rem}
- .nav-links{gap:0;margin-left:4px}.nav-links a{font-size:.82rem;padding:6px 8px} .nav-links{display:none}
- .nav-right{display:flex}
- .nav-signin{display:none}
- .nav-cta{padding:8px 14px;font-size:.8rem}
- .hero{padding:42px 16px 44px;max-width:100%}
- .hero-eyebrow{max-width:100%;white-space:normal;text-align:center;line-height:1.3}
- .hero h1{font-size:clamp(1.9rem,8.3vw,2.12rem);letter-spacing:-.025em;line-height:1.1;overflow-wrap:normal;text-wrap:balance}
- .hero-sub{font-size:.98rem;max-width:100%;line-height:1.65}
- .hero-ctas{display:grid;grid-template-columns:1fr;gap:10px;max-width:280px;margin-left:auto;margin-right:auto}
- .btn-primary,.btn-ghost{width:100%;justify-content:center}
- .hero-trust{gap:10px}.trust-sep{display:none}
- .audience-tabs{display:grid;grid-template-columns:1fr 1fr}.aud-tab{padding:16px 8px}.aud-tab-title{font-size:.84rem;line-height:1.25}.aud-tab-sub{font-size:.7rem;line-height:1.35}
- .social-inner{grid-template-columns:repeat(2,1fr);row-gap:22px}.social-stat{min-width:0;padding:0 6px}.social-stat:last-child{grid-column:1/-1}.ss-label{font-size:.7rem;line-height:1.25}
- .receipt-inner{grid-template-columns:1fr;gap:28px}.receipt-section{padding:54px 18px}.receipt-left h2{font-size:2rem}
- .pt-grid{grid-template-columns:1fr}.features-grid{grid-template-columns:1fr}.pricing-grid{grid-template-columns:1fr}.testi-grid{grid-template-columns:1fr}.section{padding:54px 18px}
- .cta-section{padding:70px 18px}.cta-trust{flex-direction:column;gap:8px}
+@media(max-width:520px){
+  .loop-rail{grid-template-columns:1fr}
+  .step:nth-child(odd){padding-right:0}
+  .hero-ctas{display:grid;grid-template-columns:1fr}
+  .hero-ctas .btn{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-media,.hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
 </style>
 </head>
 <body>
+<a class="skip" href="#loop">Skip to content</a>
 
-<!-- NAV -->
-<nav>
- <a href="/" class="nav-logo">
- <div class="logo-mark"><img src="/assets/logo.svg" alt="FitMunch" width="34" height="34" style="display:block;width:100%;height:100%"/></div>
- <span class="logo-word">Fit<span>Munch</span></span>
- </a>
- <div class="nav-links">
- <a href="#features">Features</a>
- <a href="#for-pts">For PTs</a>
- <a href="#pricing">Pricing</a>
- </div>
- <div class="nav-spacer"></div>
- <div class="nav-right">
- <a href="/login.html" class="nav-signin" data-fm-auth="login">Sign in</a>
- <a href="/login.html?plan=premium#register" class="nav-cta" data-fm-auth="register" data-fm-plan="premium">Start Premium trial →</a>
- </div>
+<nav class="site-nav" aria-label="Primary">
+  <a class="brand" href="/" aria-label="FitMunch">
+    <img src="/assets/logo.svg" alt="" width="34" height="34"/>
+    Fit<span>Munch</span>
+  </a>
+  <div class="nav-links">
+    <a href="#loop">How it works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
+  </div>
 </nav>
 
-<!-- HERO -->
-<div class="hero">
- <div class="hero-copy">
- <div><span class="hero-eyebrow"><span class="pulse-dot"></span>Australian grocery-to-goal nutrition</span></div>
- <h1>Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span></h1>
- <p class="hero-sub">FitMunch links the whole food loop: receipt scans, food logging, macro targets, price-aware shopping lists, meal plans and an AI coach that knows your week.</p>
- <div class="hero-ctas">
- <a href="/login.html?plan=premium#register" class="btn-primary" data-fm-auth="register" data-fm-plan="premium">Start 14-day Premium trial →</a>
- <a href="/pricing" class="btn-ghost">See pricing</a>
- </div>
- <div class="hero-trust">
- <span class="trust-i">✓ Card on file · cancel anytime</span>
- <span class="trust-sep"></span>
- <span class="trust-i">✓ Receipt-first</span>
- <span class="trust-sep"></span>
- <span class="trust-i">✓ AI coach built in</span>
- </div>
- </div>
- <div class="hero-visual">
- <img class="hero-photo" src="/assets/fm-hero-mealprep.webp" alt="A week of healthy meal-prep containers - chicken, broccoli, avocado, berries" fetchpriority="high"/>
- <div class="hero-chip chip-protein">
- <div class="hc-icon" style="background:#eff6ff">💪</div>
- <div><div class="hc-val" style="color:#3b82f6">987g protein</div><div class="hc-label">This week's shop</div></div>
- </div>
- <div class="hero-chip chip-score">
- <div class="hc-icon" style="background:#f0fdf4">🏆</div>
- <div><div class="hc-val" style="color:var(--green2)">A+ score</div><div class="hc-label">Receipt scanned</div></div>
- </div>
- <div class="hero-chip chip-plan">
- <div class="hc-icon" style="background:#fef3c7">🤖</div>
- <div><div class="hc-val" style="color:#b45309">Week planned</div><div class="hc-label">By your AI coach</div></div>
- </div>
- </div>
-</div>
+<header class="hero">
+  <div class="hero-media" aria-hidden="true"></div>
+  <div class="hero-grain" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <p class="hero-brand" aria-hidden="true">Fit<span>Munch</span></p>
+    <h1>Scan your shop. See the macros.</h1>
+    <p class="hero-sub">Turn a Woolies, Coles, Aldi or IGA receipt into protein, calories and a week you can actually cook.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-leaf" href="/login.html#register" data-fm-auth="register">Start free</a>
+      <a class="btn btn-ghost" href="#loop">See how it works</a>
+    </div>
+  </div>
+</header>
 
-<!-- AUDIENCE TABS -->
-<div class="audience-strip">
- <div class="audience-tabs">
- <div class="aud-tab active" onclick="setAud('individual',this)">
- <div class="aud-tab-title">Home warriors &amp; gym-goers</div>
- <div class="aud-tab-sub">Receipts, macros, prices, recipes, plans</div>
- </div>
- <div class="aud-tab" onclick="setAud('pt',this)">
- <div class="aud-tab-title">Personal trainers</div>
- <div class="aud-tab-sub">Manage clients, assign plans, track compliance</div>
- </div>
- </div>
-</div>
+<section class="loop" id="loop">
+  <div class="loop-inner">
+    <div class="loop-head">
+      <h2>The grocery loop, closed.</h2>
+      <p>One weekly shop becomes the source of truth for macros, meals and the next trolley.</p>
+    </div>
+    <div class="loop-rail" id="loop-rail" aria-label="Product loop">
+      <article class="step">
+        <span class="step-n">01</span>
+        <h3>Receipt</h3>
+        <p>Snap the paper from the checkout. FitMunch reads the shop.</p>
+      </article>
+      <article class="step">
+        <span class="step-n">02</span>
+        <h3>Macros</h3>
+        <p>See protein, calories and a haul score against your goal.</p>
+      </article>
+      <article class="step">
+        <span class="step-n">03</span>
+        <h3>Plan</h3>
+        <p>Build meals from what you already bought, not a fantasy list.</p>
+      </article>
+      <article class="step">
+        <span class="step-n">04</span>
+        <h3>Next shop</h3>
+        <p>A tighter list for the gaps. Same aisle energy, better maths.</p>
+      </article>
+    </div>
+  </div>
+</section>
 
-<!-- SOCIAL STRIP -->
-<div class="social-strip">
- <div class="social-inner">
- <div class="social-stat"><div class="ss-val">01</div><div class="ss-label">Scan receipts</div></div>
- <div class="social-divider"></div>
- <div class="social-stat"><div class="ss-val">02</div><div class="ss-label">Macro breakdown</div></div>
- <div class="social-divider"></div>
- <div class="social-stat"><div class="ss-val">03</div><div class="ss-label">Price-aware shops</div></div>
- <div class="social-divider"></div>
- <div class="social-stat"><div class="ss-val">04</div><div class="ss-label">Recipes and meal plans</div></div>
- <div class="social-divider"></div>
- <div class="social-stat"><div class="ss-val">05</div><div class="ss-label">PT accountability</div></div>
- </div>
-</div>
+<section class="proof" id="proof">
+  <div class="proof-inner">
+    <div class="proof-copy">
+      <h2>One haul. Clear numbers.</h2>
+      <p>No collage of features. Just the score from a real Australian shop, ready to cook from.</p>
+      <a class="btn btn-leaf" href="/login.html#register" data-fm-auth="register">Scan a receipt</a>
+    </div>
+    <div class="receipt" id="proof-device" aria-label="Example haul score from Woolworths">
+      <div class="device-top">
+        <span class="device-store">WOOLWORTHS</span>
+        <span>22 items · $143.60</span>
+      </div>
+      <div class="haul">
+        <div>
+          <div class="score-n" data-count="92">0</div>
+          <div class="haul-label">HAUL SCORE</div>
+        </div>
+        <div class="haul-meta">
+          <strong data-count-protein="987">0g protein</strong>
+          This week's shop
+        </div>
+      </div>
+      <div class="rows">
+        <div class="row"><span>Chicken breast 1kg</span><span class="row-val">220g</span></div>
+        <div class="row"><span>Free range eggs x12</span><span class="row-val">72g</span></div>
+        <div class="row"><span>Protein milk 2L</span><span class="row-val">100g</span></div>
+        <div class="row"><span>Greek yoghurt 1kg</span><span class="row-val">90g</span></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-<!-- RECEIPT SCANNER -->
-<div class="receipt-section" id="features">
- <div class="receipt-inner">
- <div class="receipt-left">
- <div class="label">The linkage</div>
- <h2>Snap your receipt. Know exactly what you're eating this week.</h2>
- <p>No more disconnected apps. Take a photo of your Woolies, Coles, Aldi or IGA receipt and FitMunch turns the shop into macro context, meal ideas, budget gaps and the next practical plan.</p>
- <div class="receipt-bullets">
- <div class="receipt-bullet"><span class="rb-icon">1</span>Receipt intake gives the week a real starting point</div>
- <div class="receipt-bullet"><span class="rb-icon">2</span>Macros and calories show whether the shop matches the goal</div>
- <div class="receipt-bullet"><span class="rb-icon">3</span>Price-aware planning tightens the next supermarket run</div>
- <div class="receipt-bullet"><span class="rb-icon">4</span>Recipes and meal plans turn the food into action</div>
- </div>
- <div class="tiktok-badge">
- <span class="tb-icon">🎵</span>
- <div>
- <div style="font-weight:700;font-size:.82rem">The wedge is the receipt. The product is the full nutrition operating loop.</div>
- <div style="color:#94a3b8;font-size:.75rem;margin-top:2px">Useful for solo lifters, busy households, and PT-led clients.</div>
- </div>
- </div>
- </div>
- <div>
- <div class="receipt-mockup">
- <div class="r-topbar">
- <div class="r-dots"><div class="r-dot r-d1"></div><div class="r-dot r-d2"></div><div class="r-dot r-d3"></div></div>
- <span style="margin-left:8px">Receipt Scanner</span>
- </div>
- <div class="r-body">
- <div class="r-header">
- <div class="r-store">WOOLWORTHS</div>
- <div class="r-sub">22 Feb 2026 · $143.60 · 24 items</div>
- </div>
- <div class="r-scan-btn">📸 &nbsp;Tap to scan your receipt</div>
- <div class="r-item"><span class="r-item-name">🍗 Chicken Breast 1kg</span><div class="r-item-macro"><div class="r-item-p">220g protein</div><div class="r-item-c">1,100 cal</div></div></div>
- <div class="r-item"><span class="r-item-name">🥚 Free Range Eggs ×12</span><div class="r-item-macro"><div class="r-item-p">72g protein</div><div class="r-item-c">936 cal</div></div></div>
- <div class="r-item"><span class="r-item-name">🥛 Protein Milk 2L</span><div class="r-item-macro"><div class="r-item-p">100g protein</div><div class="r-item-c">560 cal</div></div></div>
- <div class="r-item"><span class="r-item-name">🌾 Rolled Oats 1kg</span><div class="r-item-macro"><div class="r-item-p">130g protein</div><div class="r-item-c">3,800 cal</div></div></div>
- <div class="r-item"><span class="r-item-name">🥦 Broccoli 500g</span><div class="r-item-macro"><div class="r-item-p">14g protein</div><div class="r-item-c">170 cal</div></div></div>
- <div class="r-total">
- <div class="r-total-label">Weekly haul total</div>
- <div class="r-total-macros">
- <div class="r-macro"><div class="r-macro-val" style="color:#3b82f6">987g</div><div class="r-macro-label">Protein</div></div>
- <div class="r-macro"><div class="r-macro-val" style="color:#f59e0b">14.2K</div><div class="r-macro-label">Calories</div></div>
- <div class="r-macro"><div class="r-macro-val" style="color:#22c55e">A+</div><div class="r-macro-label">Score</div></div>
- </div>
- </div>
- <div class="r-share">📲 &nbsp;Share to TikTok &amp; Instagram</div>
- </div>
- </div>
- </div>
- </div>
-</div>
+<section class="pricing" id="pricing">
+  <div class="pricing-inner">
+    <h2>Start with the shop.</h2>
+    <p class="pricing-lead">Free to try the loop. Premium when you want unlimited AI coach, scans and weekly plans.</p>
+    <div class="plans">
+      <article class="plan main">
+        <div class="plan-kicker">Premium</div>
+        <div class="price-n">$19.99 <small>/mo AUD</small></div>
+        <p>Unlimited coach, receipt scans, meal plans and weekly reviews. 14-day trial, cancel anytime.</p>
+        <ul>
+          <li>Unlimited AI coach grounded in your logs</li>
+          <li>Unlimited receipt scans and haul scores</li>
+          <li>Meal plans and shopping lists from your shop</li>
+        </ul>
+        <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+      </article>
+      <article class="plan">
+        <div class="plan-kicker">Free</div>
+        <div class="price-n">$0 <small>forever</small></div>
+        <p>Receipt scan teaser, macro logging and a starter plan allowance.</p>
+        <ul>
+          <li>Macro and meal logging</li>
+          <li>Limited AI actions each month</li>
+          <li>Starter shopping lists</li>
+        </ul>
+        <a class="btn btn-ink" href="/login.html#register" data-fm-auth="register">Start free</a>
+      </article>
+    </div>
+  </div>
+</section>
 
-<!-- FEATURES GRID -->
-<div class="section">
- <div class="sec-tag tag-green">One connected loop</div>
- <h2 class="sec-h">Macros, shopping, recipes<br/>and plans in one place.</h2>
- <p class="sec-sub">FitMunch is built around the thing people already do every week: buy food. From there it connects logging, price-aware planning, recipes, meal prep and coach visibility.</p>
- <div class="loop-banner">
- <img src="/assets/fm-groceries.webp" alt="Fresh Australian groceries - broccoli, spinach, eggs, salmon, yoghurt and oats" loading="lazy"/>
- <img src="/assets/fm-receipt-scan.webp" alt="Scanning a supermarket receipt with the FitMunch app" loading="lazy"/>
- </div>
- <div class="features-grid" id="features-grid">
- <div class="feat-card">
- <span class="feat-icon">01</span>
- <div class="feat-h">Receipt Scanner</div>
- <div class="feat-p">Snap a supermarket receipt and turn the weekly shop into structured food data: items, rough spend, macro context and pantry direction.</div>
- <span class="feat-badge badge-free">Free tier</span>
- </div>
- <div class="feat-card">
- <span class="feat-icon">02</span>
- <div class="feat-h">Macro and Food Logging</div>
- <div class="feat-p">Track meals, protein, carbs, fat and calories against a target. Receipt intake and meal logging cover day-to-day food capture.</div>
- <span class="feat-badge badge-free">Free tier</span>
- </div>
- <div class="feat-card">
- <span class="feat-icon">03</span>
- <div class="feat-h">Price-Aware Shopping Lists</div>
- <div class="feat-p">Use budget and protein targets to generate practical Australian shopping lists with estimated item costs and aisle-style grouping.</div>
- <span class="feat-badge badge-free">Free tier</span>
- </div>
- <div class="feat-card">
- <span class="feat-icon">04</span>
- <div class="feat-h">Recipe Advice</div>
- <div class="feat-p">Turn what you already bought into meals that fit your goal instead of starting from a fantasy recipe list.</div>
- <span class="feat-badge badge-pro">Premium</span>
- </div>
- <div class="feat-card">
- <span class="feat-icon">05</span>
- <div class="feat-h">Meal Plans and Prep</div>
- <div class="feat-p">Generate a plan from calories, protein, budget and dietary needs, then turn it straight into a shopping list.</div>
- <span class="feat-badge badge-free">Free tier</span>
- </div>
- <div class="feat-card">
- <span class="feat-icon">06</span>
- <div class="feat-h">PT Accountability</div>
- <div class="feat-p">If you work with a trainer, the same loop becomes coaching evidence: receipts, plans, check-ins, compliance and follow-up.</div>
- <span class="feat-badge badge-pt">PT lane</span>
- </div>
- </div>
-</div>
+<section class="final">
+  <div class="final-inner">
+    <h2>Stop guessing the trolley. Run the <em>whole loop.</em></h2>
+    <p>One receipt. Clear macros. Meals from food you already own. A sharper list next week.</p>
+    <a class="btn btn-leaf" href="/login.html#register" data-fm-auth="register">Start free</a>
+  </div>
+</section>
 
-<!-- AI COACH -->
-<div class="coach-section">
- <div class="coach-inner">
- <div class="coach-visual">
- <img src="/assets/fm-workout.webp" alt="Getting ready to train at home with dumbbells and the FitMunch app" loading="lazy"/>
- <div class="coach-bubble cb-user">What should I eat tonight to hit my protein target?</div>
- <div class="coach-bubble cb-ai"><span class="cb-ai-tag">🤖 AI Coach</span>You're 62g short. Grab the chicken from Tuesday's shop - a 250g breast plus greek yoghurt dessert gets you there under your calories.</div>
- </div>
- <div class="coach-copy">
- <div class="sec-tag tag-green">Your AI training partner</div>
- <h2 class="sec-h">A coach that already knows<br/>what's in your fridge.</h2>
- <p class="sec-sub" style="margin-bottom:22px">The FitMunch AI coach reads your receipts, goals and today's macros - then answers like a mate who happens to be a nutritionist. Meal ideas from food you already bought, weekly programs built for your equipment, and a Sunday review of how the week actually went.</p>
- <div class="coach-points">
- <div class="coach-point"><span>💬</span>Chat grounded in your real logs - not generic advice</div>
- <div class="coach-point"><span>🏋️</span>Weekly training programs generated for your gear and time</div>
- <div class="coach-point"><span>📅</span>Weekly reviews: wins, focus areas, and a consistency score</div>
- </div>
- <a href="/login.html#register" class="btn-primary" style="margin-top:26px;display:inline-flex" data-fm-auth="register">Meet your coach →</a>
- </div>
- </div>
-</div>
-
-<!-- FOR PTs -->
-<div class="pt-section" id="for-pts">
- <div class="pt-inner">
- <div class="sec-tag tag-amber" style="background:rgba(245,158,11,.1);color:var(--amber)">For Personal Trainers</div>
- <h2 class="sec-h">Your clients are already<br/>tracking on their phones.</h2>
- <p class="sec-sub">Give them the same FitMunch consumer loop - then manage the coaching layer from your PT dashboard. See receipt evidence, plans, compliance, progress and the clients who need attention.</p>
- <div class="pt-grid">
- <div class="pt-features">
- <div class="pt-feat">
- <span class="pt-feat-icon">👥</span>
- <div><div class="pt-feat-h">Client roster dashboard</div><div class="pt-feat-p">See receipt activity, plan adherence, last logged, current phase and progress trend in one view. Spot who needs a check-in instantly.</div></div>
- </div>
- <div class="pt-feat">
- <span class="pt-feat-icon">📋</span>
- <div><div class="pt-feat-h">Assign meal &amp; workout plans</div><div class="pt-feat-p">Build plans once, assign to multiple clients. Clients see their plan and shopping list in their portal automatically.</div></div>
- </div>
- <div class="pt-feat">
- <span class="pt-feat-icon">🔗</span>
- <div><div class="pt-feat-h">Invite clients with a link</div><div class="pt-feat-p">Generate an invite link. Client clicks it, registers, and instantly appears in your roster. Zero friction onboarding.</div></div>
- </div>
- <div class="pt-feat">
- <span class="pt-feat-icon">📲</span>
- <div><div class="pt-feat-h">A nutrition layer, not a platform migration</div><div class="pt-feat-p">Use FitMunch where clients actually slip: the shop, the log, the plan and the check-in. Keep your existing coaching stack if it already works.</div></div>
- </div>
- <a href="/login.html?plan=starter#register" class="btn-primary" style="align-self:flex-start;margin-top:8px" data-fm-auth="register" data-fm-plan="starter">Start PT trial - free 14 days →</a>
- <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
- <input type="email" id="pt-email-cap" placeholder="your@email.com" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;width:220px;outline:none;font-family:inherit"/>
- <button onclick="capturePTEmail()" style="background:#fff;color:var(--green2);border:1px solid var(--green2);padding:10px 16px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">Get a personal walkthrough</button>
- </div>
- <div id="pt-email-msg" style="font-size:.78rem;color:var(--green2);margin-top:6px;display:none">✓ Got it - we'll reach out within 24h to set you up.</div>
- </div>
- <div class="pt-mockup">
- <div class="ptm-header"><span>PT Dashboard</span><span style="color:var(--green2)">8 active clients</span></div>
- <div class="ptm-body">
- <div class="ptm-stat-row">
- <div class="ptm-stat"><div class="ptm-stat-v" style="color:var(--green2)">8</div><div class="ptm-stat-l">Clients</div></div>
- <div class="ptm-stat"><div class="ptm-stat-v">94%</div><div class="ptm-stat-l">Log rate</div></div>
- <div class="ptm-stat"><div class="ptm-stat-v" style="color:var(--purple)">$792</div><div class="ptm-stat-l">This mo.</div></div>
- </div>
- <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">JM</div><div class="ptm-name">Jessica M.</div><div class="ptm-chip chip-ok">Logged</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">2h ago</div></div>
- <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">CT</div><div class="ptm-name">Chris T.</div><div class="ptm-chip chip-ok">Logged</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">Today</div></div>
- <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#dc2626,#f87171)">SK</div><div class="ptm-name">Sarah K.</div><div class="ptm-chip chip-err">3d quiet</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">⚠️ Follow up</div></div>
- <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#d97706,#fbbf24)">MR</div><div class="ptm-name">Mike R.</div><div class="ptm-chip chip-ok">PR today</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">🔥</div></div>
- <div class="ptm-client"><div class="ptm-av" style="background:linear-gradient(135deg,#059669,#34d399)">LB</div><div class="ptm-name">Lauren B.</div><div class="ptm-chip chip-warn">1d ago</div><div style="font-size:.62rem;color:#94a3b8;margin-left:4px">On track</div></div>
- </div>
- </div>
- </div>
- </div>
-</div>
-
-<!-- PRICING -->
-<div class="pricing-section" id="pricing">
- <div class="pricing-inner">
- <div style="text-align:center">
- <div class="sec-tag tag-green">Pricing</div>
- <h2 class="sec-h">Start with the shop. Upgrade when the loop sticks.</h2>
- <p class="sec-sub" style="margin:0 auto 0;text-align:center">Consumer plans validate the habit. PT plans monetise the accountability layer. All prices in AUD.</p>
- </div>
- <div class="pricing-grid" style="margin-top:36px">
- <div class="plan-card">
- <div class="plan-name">Free</div>
- <div class="plan-price"><sup>$</sup>0<sub> forever</sub></div>
- <div class="plan-desc">For testing the receipt-to-macro loop before paying.</div>
- <div class="plan-features">
- <div class="pf"><span class="pf-check">✓</span>Macro and food logging</div>
- <div class="pf"><span class="pf-check">✓</span>10 AI actions/month</div>
- <div class="pf"><span class="pf-check">✓</span>Receipt scan + AI coach teaser</div>
- <div class="pf"><span class="pf-check">✓</span>Starter meal planning</div>
- <div class="pf"><span class="pf-check">✓</span>Basic shopping lists</div>
- <div class="pf"><span class="pf-x">–</span>Unlimited AI</div>
- <div class="pf"><span class="pf-x">–</span>PT management tools</div>
- </div>
- <a href="/login.html#register" class="plan-cta cta-outline" data-fm-auth="register">Start free</a>
- </div>
- <div class="plan-card featured">
- <div class="plan-popular">Most popular</div>
- <div class="plan-name">Premium</div>
- <div class="plan-price"><sup>$</sup>19<sub>.99/mo AUD</sub></div>
- <div class="plan-desc">For lifters, busy households and goal-driven eaters who want the full loop.</div>
- <div class="plan-features">
- <div class="pf"><span class="pf-check">✓</span>Everything in Free</div>
- <div class="pf"><span class="pf-check">✓</span>Unlimited AI coach chat</div>
- <div class="pf"><span class="pf-check">✓</span>Unlimited receipt scans</div>
- <div class="pf"><span class="pf-check">✓</span>Unlimited meal + workout plans</div>
- <div class="pf"><span class="pf-check">✓</span>Weekly AI reviews</div>
- <div class="pf"><span class="pf-check">✓</span>14-day Premium trial</div>
- </div>
- <a href="/login.html?plan=premium#register" class="plan-cta cta-green" data-fm-auth="register" data-fm-plan="premium">Start Premium trial →</a>
- </div>
- <div class="plan-card">
- <div class="plan-name">PT Plan</div>
- <div class="plan-price"><sup>$</sup>59<sub>–99/mo AUD</sub></div>
- <div class="plan-desc">The paid coaching lane for trainers who need nutrition accountability.</div>
- <div class="plan-features">
- <div class="pf"><span class="pf-check">✓</span>Everything clients get in Premium</div>
- <div class="pf"><span class="pf-check">✓</span>Client roster dashboard</div>
- <div class="pf"><span class="pf-check">✓</span>Assign meal + workout plans</div>
- <div class="pf"><span class="pf-check">✓</span>Receipt compliance signals</div>
- <div class="pf"><span class="pf-check">✓</span>Client portals and invite links</div>
- </div>
- <a href="/login.html?plan=starter#register" class="plan-cta cta-outline" data-fm-auth="register" data-fm-plan="starter">Start PT trial →</a>
- </div>
- </div>
- </div>
-</div>
-
-<!-- PROOF -->
-<div class="testi-section">
- <div class="testi-inner">
- <div style="text-align:center">
- <div class="sec-tag tag-green">What is wired</div>
- <h2 class="sec-h">The product spine is already in place.</h2>
- </div>
- <div class="testi-grid">
- <div class="testi-card">
- <div class="stars">LIVE</div>
- <p class="testi-q">Receipt scanner, macro snapshot and meal planner are exposed in the live health check, with fallback planning when AI is unavailable.</p>
- <div class="testi-author">
- <div class="t-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">CL</div>
- <div><div class="t-name">Consumer Loop</div><div class="t-role">Receipt -> macros -> meal plan -> shopping list</div></div>
- </div>
- </div>
- <div class="testi-card">
- <div class="stars">LIVE</div>
- <p class="testi-q">PT accounts, client invites, plan assignment and compliance tracking are part of the trainer loop, so the paid lane sits on top of the consumer habit.</p>
- <div class="testi-author">
- <div class="t-av" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">TL</div>
- <div><div class="t-name">Trainer Loop</div><div class="t-role">Roster -> invites -> plans -> accountability</div></div>
- </div>
- </div>
- <div class="testi-card">
- <div class="stars">LIVE</div>
- <p class="testi-q">Stripe Premium checkout, free consumer start, and trainer accountability sit on the same habit loop - shop, macros, meals, list.</p>
- <div class="testi-author">
- <div class="t-av" style="background:linear-gradient(135deg,#059669,#34d399)">$$</div>
- <div><div class="t-name">Paid Path</div><div class="t-role">Trial → Premium · cancel anytime</div></div>
- </div>
- </div>
- </div>
- </div>
-</div>
-
-<!-- CTA -->
-<div class="cta-section">
- <h2>Stop guessing.<br/>Run the <em>whole food loop.</em></h2>
- <p>Start with one shop: scan the receipt, see the macros, build the meals, tighten the next grocery run.</p>
- <div class="cta-row">
- <a href="/login.html?plan=premium#register" class="btn-white" data-fm-auth="register" data-fm-plan="premium">Start Premium trial →</a>
- <a href="/pricing" class="btn-outline-w">Compare plans</a>
- </div>
- <div class="cta-trust"><span>✓ Free consumer start</span><span>✓ Premium nutrition loop</span><span>✓ PT accountability lane</span></div>
-</div>
-
-<!-- FOOTER -->
 <footer>
- <div class="footer-inner">
- <div class="footer-top">
- <div class="footer-brand">
- <div class="f-logo">
- <div class="logo-mark" style="width:26px;height:26px"><img src="/assets/logo.svg" alt="" width="26" height="26" style="display:block;width:100%;height:100%"/></div>
- <span style="font-size:.95rem;font-weight:900;color:#f1f5f9;letter-spacing:-.03em">Fit<span style="color:var(--green)">Munch</span></span>
- </div>
- <p class="f-tagline">Receipts, macros, recipe advice, shopping lists and meal plans. Made in Australia.</p>
- </div>
- <div class="footer-col">
- <div class="fc-title">Product</div>
- <a href="#features" class="fc-link">Features</a>
- <a href="#pricing" class="fc-link">Pricing</a>
- <a href="/receipt-nutrition-scanner" class="fc-link">Receipt scanner</a>
- <a href="/ai-meal-planner-australia" class="fc-link">AI meal planner</a>
- <a href="/budget-meal-planner" class="fc-link">Budget meal planner</a>
- <a href="#for-pts" class="fc-link">For PTs</a>
- <a href="/login.html" class="fc-link">Sign in</a>
- </div>
- <div class="footer-col">
- <div class="fc-title">Company</div>
- <a href="/contact" class="fc-link">Contact</a>
- <a href="/privacy" class="fc-link">Privacy</a>
- <a href="/terms" class="fc-link">Terms</a>
- <a href="/login.html" class="fc-link">Sign in</a>
- </div>
- </div>
- <div class="footer-bottom">
- <p>© 2026 FitMunch. Made in Australia 🇦🇺</p>
- <p style="font-size:.75rem;color:#334155">Privacy · Terms</p>
- </div>
- </div>
+  <div class="footer-inner">
+    <div class="footer-brand">Fit<span>Munch</span></div>
+    <div class="footer-links">
+      <a href="#loop">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="/receipt-nutrition-scanner">Receipt scanner</a>
+      <a href="/for-pts.html">For trainers</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/login.html" data-fm-auth="login">Sign in</a>
+    </div>
+    <p class="footer-note">© 2026 FitMunch. Made in Australia for Australian shops.</p>
+  </div>
 </footer>
 
 <script>
-// First-touch marketing attribution - persists through to registration.
 try {
- if (!localStorage.getItem('fm_attribution')) {
- const p = new URLSearchParams(location.search);
- const attr = {};
- ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
- const v = p.get(k); if (v) attr[k] = v;
- });
- if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
- attr.landing = location.pathname + location.search.slice(0, 120);
- if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
- }
+  if (!localStorage.getItem('fm_attribution')) {
+    const p = new URLSearchParams(location.search);
+    const attr = {};
+    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
+      const v = p.get(k); if (v) attr[k] = v;
+    });
+    if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
+    attr.landing = location.pathname + location.search.slice(0, 120);
+    if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+  }
 } catch {}
 
-// Keep UTM params on auth CTAs so signup still attributes if localStorage is cleared.
 (function preserveAuthUtms() {
- const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
- const fromUrl = new URLSearchParams(location.search);
- let attr = {};
- try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
- const params = new URLSearchParams();
- keys.forEach(k => {
- const v = fromUrl.get(k) || attr[k];
- if (v) params.set(k, v);
- });
- if (![...params.keys()].length) return;
- document.querySelectorAll('a[data-fm-auth]').forEach(a => {
- try {
- const u = new URL(a.getAttribute('href'), location.origin);
- keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
- const plan = a.getAttribute('data-fm-plan');
- if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
- a.href = u.pathname + u.search + u.hash;
- } catch {}
- });
+  const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+  const fromUrl = new URLSearchParams(location.search);
+  let attr = {};
+  try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
+  const params = new URLSearchParams();
+  keys.forEach(k => {
+    const v = fromUrl.get(k) || attr[k];
+    if (v) params.set(k, v);
+  });
+  if (![...params.keys()].length) return;
+  document.querySelectorAll('a[data-fm-auth]').forEach(a => {
+    try {
+      const u = new URL(a.getAttribute('href'), location.origin);
+      keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
+      const plan = a.getAttribute('data-fm-plan');
+      if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
+      a.href = u.pathname + u.search + u.hash;
+    } catch {}
+  });
 })();
 
-function setAud(type, el) {
- document.querySelectorAll('.aud-tab').forEach(t=>t.classList.remove('active'));
- el.classList.add('active');
- if (type === 'pt') {
- document.querySelector('.hero h1').innerHTML = 'Coach the food loop.<br/>Not just the check-in.<br/><span class="gr">See the evidence.</span>';
- document.querySelector('.hero-sub').textContent = 'FitMunch gives clients the receipt-to-meal-plan habit, then gives trainers the accountability layer: client roster, receipt evidence, plan assignment and compliance signals.';
- document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=starter#register" class="btn-primary" data-fm-auth="register" data-fm-plan="starter">Start PT trial - free 14 days →</a><a href="#features" class="btn-ghost">See all features</a>';
- } else {
- document.querySelector('.hero h1').innerHTML = 'Scan your shop.<br/>Track your macros.<br/><span class="gr">Plan the week.</span>';
- document.querySelector('.hero-sub').textContent = 'FitMunch links the whole food loop: receipt scans, macro targets, price-aware shopping lists, recipe ideas, meal plans, and PT accountability when you want coaching behind it.';
- document.querySelector('.hero-ctas').innerHTML = '<a href="/login.html?plan=premium#register" class="btn-primary" data-fm-auth="register" data-fm-plan="premium">Start 14-day Premium trial →</a><a href="/pricing" class="btn-ghost">See pricing</a>';
- }
- // Re-apply UTMs to any CTAs rewritten by the audience toggle.
- try {
- const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
- const fromUrl = new URLSearchParams(location.search);
- let attr = {};
- try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
- const params = new URLSearchParams();
- keys.forEach(k => { const v = fromUrl.get(k) || attr[k]; if (v) params.set(k, v); });
- if (![...params.keys()].length) return;
- document.querySelectorAll('.hero-ctas a[data-fm-auth]').forEach(a => {
- const u = new URL(a.getAttribute('href'), location.origin);
- keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
- const plan = a.getAttribute('data-fm-plan');
- if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
- a.href = u.pathname + u.search + u.hash;
- });
- } catch {}
-}
+(function revealLoop() {
+  const steps = document.querySelectorAll('.step');
+  if (!steps.length) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced) { steps.forEach(s => s.classList.add('show')); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some(e => e.isIntersecting)) {
+      steps.forEach(s => s.classList.add('show'));
+      io.disconnect();
+    }
+  }, { threshold: 0.25 });
+  io.observe(document.getElementById('loop-rail'));
+})();
 
-async function capturePTEmail() {
- const input = document.getElementById('pt-email-cap');
- const msg = document.getElementById('pt-email-msg');
- const email = input.value.trim();
- if (!email || !email.includes('@')) { input.style.borderColor='#ef4444'; return; }
- try {
- await fetch('/api/pt-leads', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, source: 'landing-pt-section' }) });
- } catch(e) {}
- input.style.display = 'none';
- document.querySelector('[onclick="capturePTEmail()"]').style.display = 'none';
- msg.style.display = 'block';
-}
+(function haulScoreMotion() {
+  const device = document.getElementById('proof-device');
+  const score = document.querySelector('[data-count]');
+  const protein = document.querySelector('[data-count-protein]');
+  if (!device || !score || !protein) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const run = () => {
+    device.classList.add('in');
+    if (reduced) {
+      score.textContent = score.getAttribute('data-count');
+      protein.textContent = protein.getAttribute('data-count-protein') + 'g protein';
+      return;
+    }
+    const target = Number(score.getAttribute('data-count') || 0);
+    const pTarget = Number(protein.getAttribute('data-count-protein') || 0);
+    const start = performance.now();
+    const dur = 1100;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      score.textContent = String(Math.round(target * e));
+      protein.textContent = Math.round(pTarget * e) + 'g protein';
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) { run(); io.disconnect(); }
+    }, { threshold: 0.35 });
+    io.observe(device);
+  } else run();
+})();
 </script>
 </body>
 </html>
