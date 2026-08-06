@@ -6,21 +6,36 @@
 <title>Support | FitMunch</title>
 <meta name="description" content="Get FitMunch support for receipt scanning, meal planning, billing, cancellation, privacy, and personal trainer account questions.">
 <link rel="canonical" href="https://fitmunch.com.au/support">
-<link rel="stylesheet" href="/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
 </head>
-<body>
-<main style="max-width:860px;margin:48px auto;padding:24px;font-family:system-ui">
-<a href="/">← FitMunch</a>
+<body class="fm-body">
+
+<nav class="fm-nav">
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <div class="fm-nav-links">
+    <a href="/#loop">How it works</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="fm-nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
+  </div>
+</nav>
+
+<main class="fm-doc">
+<a class="fm-back" href="/">&larr; FitMunch</a>
 <h1>Support</h1>
 
 <h2>Contact</h2>
 <p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
-<p>Response time: 1–2 business days</p>
+<p>Response time: 1&ndash;2 business days</p>
 
-<h2>Getting Started</h2>
+<h2>Getting started</h2>
 <p>FitMunch helps you track nutrition, scan receipts, plan meals, and stay on top of your food goals. New to FitMunch? Start with our <a href="/">homepage</a> or check <a href="/pricing">pricing</a>.</p>
 
-<h2>Common Questions</h2>
+<h2>Common questions</h2>
 <h3>How does receipt scanning work?</h3>
 <p>Upload a photo of your supermarket receipt. FitMunch extracts items, matches nutrition data, and adds everything to your pantry and meal plan.</p>
 
@@ -36,7 +51,25 @@
 <h2>Billing</h2>
 <p>All payments processed securely via Stripe. For billing questions, refund requests, or invoice copies, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</p>
 
-<p style="margin-top:32px;color:#667">General food planning support only. Not medical advice.</p>
+<p style="margin-top:32px;color:var(--mute2);font-size:.9rem">General food planning support only. Not medical advice.</p>
 </main>
+
+<footer class="fm-footer">
+  <div class="fm-footer-inner">
+    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-links">
+      <a href="/#loop">How it works</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/receipt-nutrition-scanner">Receipt scanner</a>
+      <a href="/for-pts.html">For trainers</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/login.html" data-fm-auth="login">Sign in</a>
+    </div>
+    <p class="fm-footer-note">© 2026 FitMunch. Made in Australia for Australian shops.</p>
+  </div>
+</footer>
+
 </body>
 </html>

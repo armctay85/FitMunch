@@ -8,25 +8,26 @@
  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
  <link rel="preconnect" href="https://fonts.googleapis.com"/>
  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
- <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+ <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
  <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
  <style>
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
  body {
- font-family: 'Inter', system-ui, -apple-system, sans-serif;
+ font-family: 'Literata', Georgia, serif;
  background: var(--bg); color: var(--text);
  min-height: 100vh; display: flex; align-items: center; justify-content: center;
  padding: 20px;
  background-image:
- radial-gradient(ellipse 640px 420px at 12% -8%, rgba(34,197,94,.09), transparent 60%),
- radial-gradient(ellipse 560px 400px at 95% 105%, rgba(34,197,94,.07), transparent 60%);
+ radial-gradient(ellipse 640px 420px at 12% -8%, rgba(31,157,74,.12), transparent 60%),
+ radial-gradient(ellipse 560px 400px at 95% 105%, rgba(31,157,74,.08), transparent 60%);
  }
+ :focus-visible { outline: 2px solid var(--green2); outline-offset: 2px; }
 
  .card {
  background: var(--card); border: 1px solid var(--border);
- border-radius: 20px; padding: 40px 36px; width: 100%; max-width: 420px;
- box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+ border-radius: 8px; padding: 40px 36px; width: 100%; max-width: 420px;
+ box-shadow: 0 24px 60px rgba(0,0,0,0.45);
  animation: cardIn .5s cubic-bezier(.2,.7,.3,1);
  }
  @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
@@ -34,33 +35,35 @@
  .logo {
  display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center;
  }
- .logo img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 18px rgba(34,197,94,.28); }
- .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', 'Inter', sans-serif; letter-spacing: -.02em; }
+ .logo img { width: 44px; height: 44px; border-radius: 8px; box-shadow: 0 4px 18px rgba(31,157,74,.28); }
+ .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', system-ui, sans-serif; letter-spacing: -.03em; }
  .logo-text span { color: var(--green); }
 
  .tabs {
- display: flex; background: #0f160f; border-radius: 10px;
+ display: flex; background: #0a1610; border-radius: 4px;
  padding: 4px; margin-bottom: 28px; border: 1px solid var(--border);
  }
  .tab {
- flex: 1; text-align: center; padding: 9px; border-radius: 7px;
+ flex: 1; text-align: center; padding: 9px; border-radius: 3px;
  font-size: 0.88rem; font-weight: 600; cursor: pointer;
  color: var(--muted); transition: all 0.2s;
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
  }
  .tab.active {
  background: var(--green2); color: white;
- box-shadow: 0 2px 8px rgba(34,197,94,0.3);
+ box-shadow: none;
  }
 
  .form-group { margin-bottom: 16px; }
  label {
  display: block; font-size: 0.76rem; font-weight: 700;
- text-transform: uppercase; letter-spacing: 0.5px;
+ text-transform: uppercase; letter-spacing: 0.06em;
  color: var(--sub); margin-bottom: 7px;
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
  }
  input {
- width: 100%; background: #0f160f; border: 1px solid var(--border);
- color: var(--text); padding: 12px 14px; border-radius: 10px;
+ width: 100%; background: #0a1610; border: 1px solid var(--border);
+ color: var(--text); padding: 12px 14px; border-radius: 4px;
  font-size: 0.92rem; font-family: inherit; outline: none;
  transition: border-color 0.2s;
  }
@@ -69,25 +72,26 @@
 
  .btn {
  width: 100%; background: var(--green2); color: white;
- border: none; padding: 13px; border-radius: 10px;
+ border: none; padding: 13px; border-radius: 4px;
  font-size: 0.95rem; font-weight: 700; cursor: pointer;
  transition: background 0.2s, transform 0.1s; margin-top: 6px;
- letter-spacing: 0.3px;
+ letter-spacing: 0.02em;
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
  }
- .btn:hover { background: #15803d; }
+ .btn:hover { background: #16803c; }
  .btn:active { transform: scale(0.98); }
  .btn:disabled { background: var(--muted); cursor: not-allowed; }
 
  .error-msg {
  background: #2d0f0f; border: 1px solid #7f1d1d; color: #f87171;
- padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+ padding: 10px 14px; border-radius: 4px; font-size: 0.82rem;
  margin-bottom: 16px; display: none;
  }
  .error-msg.show { display: block; }
 
  .success-msg {
  background: #0d2d1a; border: 1px solid #166534; color: #4ade80;
- padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+ padding: 10px 14px; border-radius: 4px; font-size: 0.82rem;
  margin-bottom: 16px; display: none;
  }
  .success-msg.show { display: block; }

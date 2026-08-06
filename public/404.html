@@ -4,36 +4,48 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>404 - Page not found | FitMunch</title>
+<meta name="theme-color" content="#07130d"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,sans-serif;background:#f8fafc;color:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
+body.fm-body{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:var(--fridge);color:#fff;padding:24px;
+}
 .card{text-align:center;max-width:480px}
-.code{font-size:7rem;font-weight:900;line-height:1;color:#e2e8f0;letter-spacing:-.08em;margin-bottom:8px}
-h1{font-size:1.4rem;font-weight:800;margin-bottom:8px;color:#0f172a}
-p{font-size:.92rem;color:#64748b;line-height:1.7;margin-bottom:28px}
+.code{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:6.5rem;font-weight:600;line-height:1;color:var(--leaf);
+  letter-spacing:-.04em;margin-bottom:10px;
+}
+.card h1{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:1.4rem;font-weight:800;letter-spacing:-.03em;margin-bottom:10px;
+}
+.card p{font-size:.94rem;color:rgba(238,242,238,.72);line-height:1.7;margin-bottom:30px}
 .links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.btn-primary{background:#16a34a;color:#fff;font-size:.9rem;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:10px;transition:all .15s;box-shadow:0 2px 8px rgba(22,163,74,.25)}
-.btn-primary:hover{background:#15803d;transform:translateY(-1px)}
-.btn-ghost{background:#fff;color:#0f172a;font-size:.9rem;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:10px;border:1px solid #e2e8f0;transition:all .15s}
-.btn-ghost:hover{border-color:#cbd5e1;background:#f1f5f9}
-.foot{font-size:.75rem;color:#94a3b8;margin-top:28px}
-.foot a{color:#16a34a;text-decoration:none}
+.foot{font-size:.8rem;color:rgba(238,242,238,.5);margin-top:30px}
+.foot a{color:var(--leaf);text-decoration:none;font-weight:600}
 </style>
 </head>
-<body>
+<body class="fm-body">
 <div class="card">
- <div class="code">404</div>
- <h1>This page doesn't exist</h1>
- <p>Looks like you've wandered off the path. The page you're looking for isn't here - but there's plenty more worth finding.</p>
- <div class="links">
- <a href="/" class="btn-primary">Back to home</a>
- <a href="/support" class="btn-ghost">Get support</a>
- </div>
- <div class="foot">
- <a href="/login.html">Sign in</a> · <a href="/contact">Contact us</a>
- </div>
+  <div class="code fm-mono">404</div>
+  <h1>This page doesn't exist</h1>
+  <p>Looks like you've wandered off the path. The page you're looking for isn't here, but there's plenty more worth finding.</p>
+  <div class="links">
+    <a class="fm-btn fm-btn-leaf" href="/">Back to home</a>
+    <a class="fm-btn fm-btn-ghost" href="/support">Get support</a>
+  </div>
+  <div class="foot">
+    <a href="/login.html" data-fm-auth="login">Sign in</a> &middot; <a href="/contact">Contact us</a>
+  </div>
 </div>
 </body>
 </html>

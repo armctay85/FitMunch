@@ -1,0 +1,115 @@
+/* FitMunch marketing shell: shared nav + footer for public pages. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap');
+
+.fm-body{
+  font-family:'Literata',Georgia,serif;
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  margin:0;
+}
+.fm-body h1,.fm-body h2,.fm-body h3,.fm-brand,.fm-nav a,.fm-btn,.fm-footer-brand,.fm-footer-links a{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+}
+.fm-mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+
+.fm-nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px clamp(20px,4vw,48px);
+  background:var(--fridge);color:#fff;
+}
+.fm-nav.fm-nav-abs{position:absolute;top:0;left:0;right:0;z-index:20;background:transparent}
+.fm-brand{
+  display:inline-flex;align-items:center;gap:10px;
+  text-decoration:none;color:#fff;
+  font-size:1.25rem;font-weight:800;letter-spacing:-.04em;
+}
+.fm-brand img{width:32px;height:32px;border-radius:8px;display:block}
+.fm-brand span{color:var(--leaf)}
+.fm-nav-links{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.fm-nav-links a{
+  color:rgba(255,255,255,.76);text-decoration:none;
+  font-size:.84rem;font-weight:600;padding:8px 12px;
+}
+.fm-nav-links a:hover{color:#fff}
+.fm-nav-cta{
+  background:var(--leaf);color:#fff!important;text-decoration:none;
+  font-size:.84rem;font-weight:700;padding:10px 16px;border-radius:4px;
+}
+.fm-nav-cta:hover{background:var(--leaf2)}
+
+.fm-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:48px;padding:0 22px;border-radius:4px;
+  font-size:.95rem;font-weight:700;text-decoration:none;border:1px solid transparent;
+  transition:transform .2s, background .2s, border-color .2s;
+  cursor:pointer;
+}
+.fm-btn:hover{transform:translateY(-1px)}
+.fm-btn-leaf{background:var(--leaf);color:#fff;border:none}
+.fm-btn-leaf:hover{background:var(--leaf2)}
+.fm-btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.38)}
+.fm-btn-ink{background:transparent;color:var(--ink);border-color:var(--line)}
+
+.fm-footer{
+  background:var(--fridge2);
+  color:rgba(238,242,238,.55);
+  padding:40px clamp(20px,4vw,48px) 28px;
+}
+.fm-footer-inner{
+  width:min(1040px,100%);margin:0 auto;
+  display:flex;flex-wrap:wrap;gap:24px 48px;
+  justify-content:space-between;align-items:flex-start;
+}
+.fm-footer-brand{font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.03em}
+.fm-footer-brand span{color:var(--leaf)}
+.fm-footer-links{display:flex;flex-wrap:wrap;gap:14px 22px}
+.fm-footer-links a{color:rgba(238,242,238,.55);text-decoration:none;font-size:.85rem;font-weight:600}
+.fm-footer-links a:hover{color:#fff}
+.fm-footer-note{width:100%;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:18px;font-size:.78rem;margin-bottom:0}
+
+.fm-doc{
+  width:min(760px,100%);
+  margin:0 auto;
+  padding:48px clamp(20px,4vw,32px) 72px;
+}
+.fm-doc h1{
+  font-size:clamp(1.8rem,3.5vw,2.4rem);
+  font-weight:800;letter-spacing:-.04em;line-height:1.1;
+  margin:0 0 12px;
+}
+.fm-doc h2{
+  font-size:1.15rem;font-weight:800;letter-spacing:-.02em;
+  margin:28px 0 10px;
+}
+.fm-doc p,.fm-doc li{color:var(--mute);font-size:1rem;line-height:1.7}
+.fm-doc a{color:var(--leaf2)}
+.fm-back{
+  display:inline-block;margin-bottom:24px;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.85rem;font-weight:700;color:var(--leaf2);text-decoration:none;
+}
+.fm-back:hover{color:var(--ink)}
+
+.fm-hero-band{
+  background:var(--fridge);color:#fff;
+  padding:clamp(56px,8vw,96px) clamp(20px,4vw,48px);
+}
+.fm-hero-band h1{
+  font-size:clamp(2rem,4.5vw,3.2rem);
+  font-weight:800;letter-spacing:-.05em;line-height:1.05;
+  margin:0 0 14px;max-width:16ch;
+}
+.fm-hero-band p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:40ch;margin:0 0 24px}
+.fm-section{padding:clamp(48px,8vw,88px) clamp(20px,4vw,48px)}
+.fm-section-inner{width:min(960px,100%);margin:0 auto}
+.fm-section h2{
+  font-size:clamp(1.7rem,3.5vw,2.4rem);
+  font-weight:800;letter-spacing:-.045em;line-height:1.05;
+  margin:0 0 12px;
+}
+.fm-section .lead{color:var(--mute);font-size:1.05rem;line-height:1.65;max-width:42ch;margin:0 0 28px}
+
+@media(max-width:720px){
+  .fm-nav-links a:not(.fm-nav-cta){display:none}
+}

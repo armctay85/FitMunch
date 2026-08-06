@@ -1,138 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>Receipt Nutrition Scanner - Turn Receipts Into Meal Plans | FitMunch</title>
- <meta name="description" content="Scan your supermarket receipts and get instant nutrition breakdowns, meal plans, and shopping lists. Free receipt scanner for Woolworths, Coles, Aldi. Australian-made.">
- <meta name="keywords" content="receipt nutrition scanner, scan receipts nutrition, receipt calorie tracker, supermarket receipt scanner, australian receipt scanner, woolworths receipt nutrition, coles receipt scanner, free receipt scanner, receipt to meal plan">
- <link rel="canonical" href="https://fitmunch.com.au/receipt-nutrition-scanner">
- <meta property="og:title" content="Receipt Nutrition Scanner - Turn Receipts Into Meal Plans | FitMunch">
- <meta property="og:description" content="Snap a photo of your supermarket receipt and get instant macros, meal suggestions, and a smart shopping list. Works with Woolworths, Coles, Aldi receipts.">
- <meta property="og:url" content="https://fitmunch.com.au/receipt-nutrition-scanner">
- <meta property="og:type" content="website">
- <style>
- * { box-sizing: border-box; margin: 0; padding: 0; }
- body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.7; }
- nav { background: #fff; border-bottom: 1px solid #eee; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
- nav .logo { font-weight: 800; font-size: 1.3rem; color: #16a34a; text-decoration: none; }
- nav a.cta { background: #16a34a; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem; }
- .hero { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); padding: 60px 24px 48px; text-align: center; }
- .hero h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 900; color: #065f46; max-width: 800px; margin: 0 auto 16px; line-height: 1.2; }
- .hero p { font-size: 1.1rem; color: #047857; max-width: 640px; margin: 0 auto 32px; }
- .hero .cta-btn { background: #16a34a; color: #fff; padding: 16px 36px; border-radius: 10px; font-size: 1.1rem; font-weight: 700; text-decoration: none; display: inline-block; }
- .content { max-width: 860px; margin: 0 auto; padding: 48px 24px; }
- h2 { font-size: 1.7rem; font-weight: 800; color: #065f46; margin: 48px 0 16px; }
- h3 { font-size: 1.2rem; font-weight: 700; color: #1a1a1a; margin: 32px 0 12px; }
- p, li { margin-bottom: 16px; color: #374151; }
- ul { margin-left: 24px; margin-bottom: 24px; }
- .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin: 32px 0; }
- .step-card { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; text-align: center; }
- .step-card .number { background: #16a34a; color: #fff; width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; margin-bottom: 12px; }
- .step-card h3 { font-size: 1rem; margin: 8px 0 4px; }
- .step-card p { font-size: 0.9rem; color: #6b7280; }
- .stores { display: flex; gap: 16px; flex-wrap: wrap; margin: 24px 0; }
- .store-badge { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px 20px; font-weight: 600; color: #374151; }
- .faq { margin: 48px 0; }
- .faq dt { font-weight: 700; color: #1a1a1a; margin-top: 24px; }
- .faq dd { color: #6b7280; margin: 8px 0 0 0; }
- footer { border-top: 1px solid #e5e7eb; padding: 32px 24px; text-align: center; color: #9ca3af; font-size: 0.85rem; max-width: 860px; margin: 0 auto; }
- footer a { color: #16a34a; text-decoration: none; }
- </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt Nutrition Scanner - Turn Receipts Into Meal Plans | FitMunch</title>
+<meta name="description" content="Scan your supermarket receipts and get instant nutrition breakdowns, meal plans, and shopping lists. Free receipt scanner for Woolworths, Coles, Aldi. Australian-made.">
+<meta name="keywords" content="receipt nutrition scanner, scan receipts nutrition, receipt calorie tracker, supermarket receipt scanner, australian receipt scanner, woolworths receipt nutrition, coles receipt scanner, free receipt scanner, receipt to meal plan">
+<link rel="canonical" href="https://fitmunch.com.au/receipt-nutrition-scanner">
+<meta property="og:title" content="Receipt Nutrition Scanner - Turn Receipts Into Meal Plans | FitMunch">
+<meta property="og:description" content="Snap a photo of your supermarket receipt and get instant macros, meal suggestions, and a smart shopping list. Works with Woolworths, Coles, Aldi receipts.">
+<meta property="og:url" content="https://fitmunch.com.au/receipt-nutrition-scanner">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#07130d"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
+
+.rn-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(48px,7vw,72px)}
+.rn-hero .kicker{
+  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
+  padding:6px 12px;margin-bottom:20px;
+}
+.rn-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:14px;max-width:24ch}
+.rn-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:44ch;margin-bottom:26px}
+.rn-hero .sub-link{color:rgba(238,242,238,.7);font-size:.9rem;margin-top:16px}
+.rn-hero .sub-link a{color:var(--leaf);font-weight:700}
+
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);margin-top:8px}
+.step-card{padding:24px 22px 6px 0;border-right:1px solid var(--line)}
+.step-card:last-child{border-right:0;padding-right:0}
+.step-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.76rem;font-weight:600;color:var(--leaf2);letter-spacing:.1em;display:block;margin-bottom:14px}
+.step-card h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.98rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.step-card p{color:var(--mute);font-size:.85rem;line-height:1.55;max-width:20ch}
+
+.stores{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 8px}
+.store-badge{font-family:'IBM Plex Mono',ui-monospace,monospace;background:#fff;border:1px solid var(--line);padding:8px 16px;font-weight:600;font-size:.82rem;color:var(--ink)}
+
+.get-list li{margin-bottom:14px;color:var(--mute);line-height:1.65}
+.get-list li strong{color:var(--ink)}
+
+.faq dt{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:.95rem}
+.faq dd{color:var(--mute);margin:6px 0 0 0;line-height:1.65;font-size:.9rem}
+
+.rn-final{text-align:center;margin:52px 0 8px}
+</style>
 </head>
-<body>
- <nav>
- <a href="/" class="logo">🥦 FitMunch</a>
- <a href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=receipt-scanner#register" class="cta">Scan a receipt free</a>
- </nav>
+<body class="fm-body">
 
- <section class="hero">
- <h1>Snap Your Supermarket Receipt.<br>Get Instant Nutrition Insights.</h1>
- <p>Turn any Woolworths, Coles, or Aldi receipt into a full nutrition breakdown - macros, meal suggestions, and a smarter shopping list. Free to try.</p>
- <a href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=receipt-scanner#register" class="cta-btn">Scan a Woolies receipt free →</a>
- <p style="margin-top:16px;font-size:.95rem;color:#047857">Want unlimited AI? <a href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=receipt-scanner-premium#register" style="color:#065f46;font-weight:700">Start Premium trial - $19.99/mo</a></p>
- </section>
+<nav class="fm-nav fm-nav-abs">
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <div class="fm-nav-links">
+    <a href="/#loop">How it works</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="fm-nav-cta" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=receipt-scanner#register" data-fm-auth="register">Scan a receipt free</a>
+  </div>
+</nav>
 
- <div class="content">
- <h2>How the Receipt Nutrition Scanner Works</h2>
- <div class="steps">
- <div class="step-card">
- <div class="number">1</div>
- <h3>Snap Your Receipt</h3>
- <p>Take a photo of any Australian supermarket receipt with your phone.</p>
- </div>
- <div class="step-card">
- <div class="number">2</div>
- <h3>AI Reads It</h3>
- <p>Our vision AI identifies every item, quantity, and price instantly.</p>
- </div>
- <div class="step-card">
- <div class="number">3</div>
- <h3>Get Your Breakdown</h3>
- <p>See total calories, protein, carbs, fats - and smarter alternatives.</p>
- </div>
- <div class="step-card">
- <div class="number">4</div>
- <h3>Get a Meal Plan</h3>
- <p>AI builds a weekly meal plan around what you actually buy and eat.</p>
- </div>
- </div>
+<header class="fm-hero-band rn-hero">
+  <div class="kicker">Receipt nutrition scanner</div>
+  <h1>Snap your supermarket receipt. Get instant nutrition insights.</h1>
+  <p>Turn any Woolworths, Coles or Aldi receipt into a full nutrition breakdown: macros, meal suggestions, and a smarter shopping list. Free to try.</p>
+  <a class="fm-btn fm-btn-leaf" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=receipt-scanner#register" data-fm-auth="register">Scan a Woolies receipt free</a>
+  <p class="sub-link">Want unlimited AI? <a href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=receipt-scanner-premium#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial, $19.99/mo</a></p>
+</header>
 
- <h2>Works With All Major Australian Supermarkets</h2>
- <div class="stores">
- <span class="store-badge">🟢 Woolworths</span>
- <span class="store-badge">🔴 Coles</span>
- <span class="store-badge">🔵 Aldi</span>
- <span class="store-badge">🟠 IGA</span>
- <span class="store-badge">🟡 Costco</span>
- </div>
- <p>Paper receipts, e-receipts, and EveryDay Rewards / Flybuys digital receipts all supported. OCR + AI handles crumpled paper, faded ink, and long scrolls.</p>
+<section class="fm-section">
+  <div class="fm-section-inner" style="max-width:860px">
+    <h2>How the receipt nutrition scanner works</h2>
+    <div class="steps">
+      <div class="step-card">
+        <span class="step-n">01</span>
+        <h3>Snap your receipt</h3>
+        <p>Take a photo of any Australian supermarket receipt with your phone.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-n">02</span>
+        <h3>AI reads it</h3>
+        <p>Our vision AI identifies every item, quantity and price instantly.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-n">03</span>
+        <h3>Get your breakdown</h3>
+        <p>See total calories, protein, carbs, fats, and smarter alternatives.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-n">04</span>
+        <h3>Get a meal plan</h3>
+        <p>AI builds a weekly meal plan around what you actually buy and eat.</p>
+      </div>
+    </div>
 
- <h2>What You Get</h2>
- <ul>
- <li><strong>Full nutrition snapshot</strong> - total calories, protein, carbs, fats, fibre, sugar across your whole shop.</li>
- <li><strong>Per-item breakdown</strong> - see which items are driving your macro numbers.</li>
- <li><strong>Smarter swaps</strong> - AI suggests lower-sugar, higher-protein alternatives from the same store.</li>
- <li><strong>Weekly meal plan</strong> - auto-generated meal plan using what you already bought, plus a few fresh ingredients.</li>
- <li><strong>Shopping list sync</strong> - generates a next-shop list based on your meal plan and what you ran out of.</li>
- <li><strong>Trend tracking</strong> - see how your shop nutrition changes week over week.</li>
- </ul>
+    <h2>Works with all major Australian supermarkets</h2>
+    <div class="stores">
+      <span class="store-badge">Woolworths</span>
+      <span class="store-badge">Coles</span>
+      <span class="store-badge">Aldi</span>
+      <span class="store-badge">IGA</span>
+      <span class="store-badge">Costco</span>
+    </div>
+    <p>Paper receipts, e-receipts, and Everyday Rewards / Flybuys digital receipts all supported. OCR plus AI handles crumpled paper, faded ink and long scrolls.</p>
 
- <h2>Why Use a Receipt Scanner for Nutrition?</h2>
- <p>Manual food logging is tedious. Most people give up after three days. A receipt scanner eliminates data entry - just snap and go. It catches everything you bought, not just what you remembered to log. And it surfaces patterns you'd miss: "Your Saturday shops are 40% higher in sugar" or "You buy 3x more snacks when you shop hungry."</p>
- <p>FitMunch is built in Australia, for Australian products. Our food database covers Coles, Woolworths, and Aldi house brands - not US-centric barcode databases that miss half your shop.</p>
+    <h2>What you get</h2>
+    <ul class="get-list">
+      <li><strong>Full nutrition snapshot</strong>: total calories, protein, carbs, fats, fibre and sugar across your whole shop.</li>
+      <li><strong>Per-item breakdown</strong>: see which items are driving your macro numbers.</li>
+      <li><strong>Smarter swaps</strong>: AI suggests lower-sugar, higher-protein alternatives from the same store.</li>
+      <li><strong>Weekly meal plan</strong>: auto-generated using what you already bought, plus a few fresh ingredients.</li>
+      <li><strong>Shopping list sync</strong>: generates a next-shop list based on your meal plan and what you ran out of.</li>
+      <li><strong>Trend tracking</strong>: see how your shop nutrition changes week over week.</li>
+    </ul>
 
- <h2>More Than Just Receipts</h2>
- <ul>
- <li><strong>Macro Tracker</strong> - set protein, carb, and fat targets. FitMunch tracks them from your receipts and manual entries.</li>
- <li><strong>Meal Planner</strong> - AI-generated weekly meal plans tuned to your macros, preferences, and budget.</li>
- <li><strong>Shopping List</strong> - auto-generated from your meal plan. Know exactly what to buy before you walk in.</li>
- <li><strong>Personal Trainers</strong> - assign meal plans, track client compliance, and get white-label reports. <a href="/for-pts">Learn more →</a></li>
- </ul>
+    <h2>Why use a receipt scanner for nutrition?</h2>
+    <p>Manual food logging is tedious. Most people give up after three days. A receipt scanner eliminates data entry, just snap and go. It catches everything you bought, not just what you remembered to log. And it surfaces patterns you'd miss: your Saturday shops running higher in sugar, or buying more snacks when you shop hungry.</p>
+    <p>FitMunch is built in Australia, for Australian products. Our food database covers Coles, Woolworths and Aldi house brands, not US-centric barcode databases that miss half your shop.</p>
 
- <div class="faq">
- <h2>Frequently Asked Questions</h2>
- <dl>
- <dt>Is the receipt scanner free?</dt>
- <dd>Free to start with a monthly AI allowance. FitMunch Premium is $19.99 AUD/mo with a 14-day trial (card on file, cancel anytime). Trainer tools are a separate lane.</dd>
- <dt>Does it work with crumpled or faded receipts?</dt>
- <dd>Yes. Our AI handles poor lighting, wrinkles, and faded thermal paper. If it can't read something, it'll flag the item for manual confirmation.</dd>
- <dt>Do you store my receipts?</dt>
- <dd>Receipt images are processed and discarded. We store the structured nutrition data to power your trends and meal plans. You can delete your data anytime.</dd>
- <dt>How accurate is the nutrition data?</dt>
- <dd>We use Australian food composition databases matched to supermarket product catalogues. Accuracy is typically within 5–10% for macro estimates. This is a food planning tool, not a medical device.</dd>
- <dt>Can my personal trainer see my receipts?</dt>
- <dd>Only if you connect with them through FitMunch for PTs and explicitly share your nutrition data. Your data is private by default.</dd>
- </dl>
- </div>
+    <h2>More than just receipts</h2>
+    <ul class="get-list">
+      <li><strong>Macro tracker</strong>: set protein, carb and fat targets. FitMunch tracks them from your receipts and manual entries.</li>
+      <li><strong>Meal planner</strong>: AI-generated weekly meal plans tuned to your macros, preferences and budget.</li>
+      <li><strong>Shopping list</strong>: auto-generated from your meal plan. Know exactly what to buy before you walk in.</li>
+      <li><strong>Personal trainers</strong>: assign meal plans, track client compliance, and get white-label reports. <a href="/for-pts">Learn more</a></li>
+    </ul>
 
- <p style="text-align:center; margin: 48px 0;">
- <a href="/pricing" style="background:#16a34a;color:#fff;padding:16px 36px;border-radius:10px;font-size:1.1rem;font-weight:700;text-decoration:none;display:inline-block;">Start Your Free Scan →</a>
- </p>
- </div>
+    <div class="faq">
+      <h2>Frequently asked questions</h2>
+      <dl>
+        <dt>Is the receipt scanner free?</dt>
+        <dd>Free to start with a monthly AI allowance. FitMunch Premium is $19.99 AUD/mo with a 14-day trial (card on file, cancel anytime). Trainer tools are a separate lane.</dd>
+        <dt>Does it work with crumpled or faded receipts?</dt>
+        <dd>Yes. Our AI handles poor lighting, wrinkles and faded thermal paper. If it can't read something, it'll flag the item for manual confirmation.</dd>
+        <dt>Do you store my receipts?</dt>
+        <dd>Receipt images are processed and discarded. We store the structured nutrition data to power your trends and meal plans. You can delete your data anytime.</dd>
+        <dt>How accurate is the nutrition data?</dt>
+        <dd>We use Australian food composition databases matched to supermarket product catalogues. Accuracy is typically within 5 to 10% for macro estimates. This is a food planning tool, not a medical device.</dd>
+        <dt>Can my personal trainer see my receipts?</dt>
+        <dd>Only if you connect with them through FitMunch for PTs and explicitly share your nutrition data. Your data is private by default.</dd>
+      </dl>
+    </div>
 
- <footer>
- <p>FitMunch is a food planning and nutrition insight tool. Not medical advice. <a href="/privacy">Privacy</a> · <a href="/support">Support</a> · <a href="/refund">Refund Policy</a></p>
- </footer>
+    <p class="rn-final">
+      <a class="fm-btn fm-btn-leaf" href="/pricing">Start your free scan</a>
+    </p>
+  </div>
+</section>
+
+<footer class="fm-footer">
+  <div class="fm-footer-inner">
+    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-links">
+      <a href="/#loop">How it works</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/receipt-nutrition-scanner">Receipt scanner</a>
+      <a href="/for-pts.html">For trainers</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/login.html" data-fm-auth="login">Sign in</a>
+    </div>
+    <p class="fm-footer-note">FitMunch is a food planning and nutrition insight tool. Not medical advice.</p>
+  </div>
+</footer>
+
+<script>
+try {
+  if (!localStorage.getItem('fm_attribution')) {
+    const p = new URLSearchParams(location.search);
+    const attr = {};
+    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k => {
+      const v = p.get(k); if (v) attr[k] = v;
+    });
+    if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
+    attr.landing = location.pathname + location.search.slice(0, 120);
+    if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+  }
+} catch {}
+(function preserveAuthUtms() {
+  const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+  const fromUrl = new URLSearchParams(location.search);
+  let attr = {};
+  try { attr = JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {}; } catch {}
+  const params = new URLSearchParams();
+  keys.forEach(k => { const v = fromUrl.get(k) || attr[k]; if (v) params.set(k, v); });
+  if (![...params.keys()].length) return;
+  document.querySelectorAll('a[data-fm-auth]').forEach(a => {
+    try {
+      const u = new URL(a.getAttribute('href'), location.origin);
+      keys.forEach(k => { if (params.get(k) && !u.searchParams.get(k)) u.searchParams.set(k, params.get(k)); });
+      const plan = a.getAttribute('data-fm-plan');
+      if (plan && !u.searchParams.get('plan')) u.searchParams.set('plan', plan);
+      a.href = u.pathname + u.search + u.hash;
+    } catch {}
+  });
+})();
+</script>
 </body>
 </html>

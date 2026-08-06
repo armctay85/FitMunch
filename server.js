@@ -281,11 +281,11 @@ function registerRedirectTarget(req) {
 }
 app.get('/login', (req, res) => res.redirect(301, '/login.html' + authQuery(req)));
 app.get('/register', (req, res) => res.redirect(301, registerRedirectTarget(req)));
-// Common aliases people/typeahead/bookmarks hit — must not 404
+// Common aliases people/typeahead/bookmarks hit - must not 404
 app.get('/signup', (req, res) => res.redirect(301, registerRedirectTarget(req)));
 app.get('/sign-up', (req, res) => res.redirect(301, registerRedirectTarget(req)));
 app.get('/app', (req, res) => res.redirect(302, '/app.html' + authQuery(req)));
-app.get('/checkout', (req, res) => res.redirect(301, '/pricing'));
+app.get('/checkout', (req, res) => res.redirect(302, '/pricing'));
 app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
 app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));

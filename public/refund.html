@@ -6,15 +6,30 @@
 <title>Refund Policy | FitMunch</title>
 <meta name="description" content="FitMunch refund policy for monthly subscriptions, the 14-day refund window, cancellation, and Stripe refund processing times.">
 <link rel="canonical" href="https://fitmunch.com.au/refund">
-<link rel="stylesheet" href="/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
 </head>
-<body>
-<main style="max-width:860px;margin:48px auto;padding:24px;font-family:system-ui">
-<a href="/">← FitMunch</a>
+<body class="fm-body">
+
+<nav class="fm-nav">
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <div class="fm-nav-links">
+    <a href="/#loop">How it works</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="fm-nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
+  </div>
+</nav>
+
+<main class="fm-doc">
+<a class="fm-back" href="/">&larr; FitMunch</a>
 <h1>Refund Policy</h1>
 
 <h2>Subscription refunds</h2>
-<p>FitMunch subscriptions are billed monthly via Stripe. You can cancel at any time - your access continues until the end of the current billing period.</p>
+<p>FitMunch subscriptions are billed monthly via Stripe. You can cancel at any time, your access continues until the end of the current billing period.</p>
 
 <h2>14-day refund window</h2>
 <p>If you're not satisfied within your first 14 days, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a> for a full refund. After 14 days, refunds are at our discretion on a case-by-case basis.</p>
@@ -25,12 +40,30 @@
 <li>Your account email address</li>
 <li>The reason for your refund request</li>
 </ul>
-<p>We'll respond within 1–2 business days.</p>
+<p>We'll respond within 1&ndash;2 business days.</p>
 
 <h2>Processing</h2>
-<p>Approved refunds are processed via Stripe and typically appear in your account within 5–10 business days, depending on your bank.</p>
+<p>Approved refunds are processed via Stripe and typically appear in your account within 5&ndash;10 business days, depending on your bank.</p>
 
-<p style="margin-top:32px;color:#667">General food planning support only. Not medical advice.</p>
+<p style="margin-top:32px;color:var(--mute2);font-size:.9rem">General food planning support only. Not medical advice.</p>
 </main>
+
+<footer class="fm-footer">
+  <div class="fm-footer-inner">
+    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-links">
+      <a href="/#loop">How it works</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/receipt-nutrition-scanner">Receipt scanner</a>
+      <a href="/for-pts.html">For trainers</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/login.html" data-fm-auth="login">Sign in</a>
+    </div>
+    <p class="fm-footer-note">© 2026 FitMunch. Made in Australia for Australian shops.</p>
+  </div>
+</footer>
+
 </body>
 </html>
