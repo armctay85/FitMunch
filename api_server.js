@@ -436,16 +436,18 @@ router.post('/auth/forgot-password', async (req, res) => {
       to: email,
       subject: 'Reset your FitMunch password',
       bodyHtml: `
-<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f7faf7;margin:0;padding:0">
-<div style="max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:#16a34a;padding:26px;text-align:center"><h1 style="color:#fff;margin:0;font-size:22px">🥦 FitMunch</h1></div>
+<!DOCTYPE html><html><body style="font-family:Georgia,serif;background:#eef2ee;margin:0;padding:0">
+<div style="max-width:520px;margin:40px auto;background:#fff;border:1px solid #cfd9d2;overflow:hidden">
+  <div style="background:#07130d;padding:26px">
+    <div style="font-family:system-ui,sans-serif;font-size:18px;font-weight:800;color:#fff">Fit<span style="color:#1f9d4a">Munch</span></div>
+  </div>
   <div style="padding:26px">
-    <p style="font-size:15px;color:#333">Hi ${user.name ? user.name.split(' ')[0] : 'there'},</p>
-    <p style="font-size:15px;color:#333">Someone (hopefully you) asked to reset your FitMunch password. This link works for <strong>1 hour</strong>:</p>
-    <div style="text-align:center;margin:24px 0">
-      <a href="${resetUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600">Reset my password →</a>
+    <p style="font-size:15px;color:#0c1210">Hi ${user.name ? user.name.split(' ')[0] : 'there'},</p>
+    <p style="font-size:15px;color:#5c6d64;line-height:1.6">Someone (hopefully you) asked to reset your FitMunch password. This link works for <strong>1 hour</strong>:</p>
+    <div style="margin:24px 0">
+      <a href="${resetUrl}" style="display:inline-block;background:#1f9d4a;color:#fff;text-decoration:none;padding:13px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Reset my password</a>
     </div>
-    <p style="font-size:13px;color:#999">Didn't ask for this? You can safely ignore it — your password stays as-is.</p>
+    <p style="font-size:13px;color:#8a9a91">Didn't ask for this? Ignore this email. Your password stays the same.</p>
   </div>
 </div></body></html>`.trim(),
       bodyText: `Reset your FitMunch password (link valid 1 hour):\n${resetUrl}\n\nDidn't ask for this? Ignore this email.`,

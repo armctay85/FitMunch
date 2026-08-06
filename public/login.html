@@ -128,6 +128,11 @@
  <div class="logo-text">Fit<span>Munch</span></div>
  </div>
 
+ <div id="premium-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(31,157,74,.35);background:rgba(31,157,74,.1);border-radius:4px">
+ <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
+ <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens for the 14-day Premium trial at $19.99 AUD/mo after. Cancel anytime.</div>
+ </div>
+
  <div class="tabs">
  <div class="tab active" id="tab-login" onclick="showTab('login')">Sign In</div>
  <div class="tab" id="tab-register" onclick="showTab('register')">Create Account</div>
@@ -213,6 +218,10 @@
 <script>
  const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
+ if (plan === 'premium') {
+  const banner = document.getElementById('premium-intent');
+  if (banner) banner.style.display = 'block';
+ }
 
  // First-touch marketing attribution - captured once, sent with registration.
  try {
@@ -410,6 +419,7 @@
  else if (window.location.hash === '#login') showTab('login');
  });
  if (window.location.hash === '#register') showTab('register');
+ if (plan === 'premium' && window.location.hash !== '#login') showTab('register');
 
  // Enter key support
  document.addEventListener('keydown', e => {

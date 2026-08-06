@@ -752,51 +752,52 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 
 <!-- ══ BILLING ══ -->
 <div class="view" id="view-billing">
- <div class="view-header"><div><div class="view-title">Upgrade</div><div class="view-sub">Unlimited AI, no monthly caps. Cancel anytime.</div></div></div>
+ <div class="view-header"><div><div class="view-title">Upgrade to Premium</div><div class="view-sub">Unlimited scans, coach and weekly plans. 14-day trial, cancel anytime.</div></div></div>
  <div class="scroll-body">
  <div id="billing-usage" style="max-width:700px;margin-bottom:14px"></div>
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px">
- <div class="card" style="border:2px solid var(--border)">
+ <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:14px;max-width:700px">
+ <div class="card" style="border:1px solid var(--leaf)">
  <div class="card-body">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Free</div>
- <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
- <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
- <li>Meal, workout &amp; progress logging</li>
- <li>10 AI actions per month</li>
- <li>Shopping lists &amp; favourites</li>
- </ul>
- <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" disabled>Your current plan</button>
- </div>
- </div>
- <div class="card" style="border:2px solid var(--green2)">
- <div class="card-body">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green2);margin-bottom:8px">Premium - 14 days free</div>
- <div style="font-size:1.8rem;font-weight:900;letter-spacing:-.04em">$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Premium</div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li><strong>Unlimited</strong> AI coach chat</li>
- <li><strong>Unlimited</strong> meal &amp; workout plans</li>
- <li><strong>Unlimited</strong> receipt scans &amp; weekly reviews</li>
+ <li><strong>Unlimited</strong> meal and workout plans</li>
+ <li><strong>Unlimited</strong> receipt scans and weekly reviews</li>
+ <li>14-day trial (card on file, cancel anytime)</li>
  </ul>
- <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium')">Start Premium trial →</button>
- <div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:8px">Opens Stripe checkout · cancel anytime</div>
+ <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium')">Start Premium trial</button>
+ <div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:8px">Opens Stripe checkout</div>
+ </div>
+ </div>
+ <div class="card">
+ <div class="card-body">
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+ <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
+ <li>Meal, workout and progress logging</li>
+ <li>Limited AI actions per month</li>
+ <li>Shopping lists and favourites</li>
+ </ul>
+ <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" disabled>Current free plan</button>
  </div>
  </div>
  </div>
- <div style="max-width:700px;margin-top:24px">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">For personal trainers</div>
+ <div style="max-width:700px;margin-top:28px;padding-top:18px;border-top:1px dashed var(--line)">
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Trainer lane (optional)</div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
- <div class="card" style="border:1px solid var(--border)">
+ <div class="card">
  <div class="card-body">
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Starter</div>
- <div style="font-size:1.3rem;font-weight:900;letter-spacing:-.04em">$59.99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$59.99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients + client portal</div>
  <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter')">Select</button>
  </div>
  </div>
- <div class="card" style="border:1px solid var(--border)">
+ <div class="card">
  <div class="card-body">
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Pro</div>
- <div style="font-size:1.3rem;font-weight:900;letter-spacing:-.04em">$99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients + all features</div>
  <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro')">Select</button>
  </div>
@@ -824,6 +825,11 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  <button class="quick-action" onclick="nav('receipt-scanner')"><div class="qi">📸</div><div class="ql">Scan receipt</div></button>
  <button class="quick-action" onclick="nav('ai-coach')"><div class="qi">🤖</div><div class="ql">Ask coach</div></button>
  <button class="quick-action" onclick="nav('meal-plans')"><div class="qi">🧠</div><div class="ql">Meal plan</div></button>
+ </div>
+
+ <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
+ <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is $19.99 AUD/mo with a 14-day trial. Unlimited scans, coach and weekly plans.</span></div>
+ <button class="btn btn-green btn-sm" onclick="startCheckout('premium')">Start Premium trial</button>
  </div>
 
  <!-- Goals banner -->
@@ -1539,8 +1545,12 @@ async function boot() {
  const badge = document.getElementById('nav-plan-badge');
  badge.textContent = me.user.subscriptionTier.charAt(0).toUpperCase()+me.user.subscriptionTier.slice(1);
  badge.style.display = '';
+ const nudge = document.getElementById('home-upgrade-nudge');
+ if (nudge) nudge.style.display = 'none';
  } else {
  document.getElementById('btn-upgrade').style.display = '';
+ const nudge = document.getElementById('home-upgrade-nudge');
+ if (nudge) nudge.style.display = 'flex';
  }
  // Show correct sidebar
  if (S.role === 'client') {
@@ -3487,8 +3497,8 @@ async function startCheckout(plan) {
 // Any AI endpoint can return { upgrade: true } when the free monthly cap is hit.
 function maybeUpgrade(r) {
  if (r && r.upgrade) {
- toast(r.error || 'Free AI limit reached - starting Premium checkout…', 'warn');
- setTimeout(() => startCheckout('premium'), 700);
+ toast(r.error || 'Free AI limit reached. Opening Premium trial…', 'warn');
+ setTimeout(() => startCheckout('premium'), 500);
  return true;
  }
  return false;
@@ -3501,17 +3511,19 @@ async function loadBillingUsage() {
  const r = await API('/ai/usage');
  if (!r.success) return;
  if (r.limit === null) {
- el.innerHTML = `<div style="background:rgba(31,157,74,.08);border:1px solid rgba(31,157,74,.28);border-radius:10px;padding:12px 16px;font-size:.8rem;color:#14532d"><strong>${(r.tier||'premium').charAt(0).toUpperCase()+(r.tier||'premium').slice(1)} plan</strong> - unlimited AI. You've used ${r.used} AI actions this month. 🎉</div>`;
+ el.innerHTML = `<div style="background:rgba(31,157,74,.08);border:1px solid rgba(31,157,74,.28);border-radius:6px;padding:12px 16px;font-size:.8rem;color:#14532d"><strong>${(r.tier||'premium').charAt(0).toUpperCase()+(r.tier||'premium').slice(1)} plan</strong> · unlimited AI · ${r.used} actions this month</div>`;
  } else {
  const pct = Math.min(100, Math.round((r.used / r.limit) * 100));
- el.innerHTML = `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px">
- <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:6px">
+ const hot = pct >= 70;
+ el.innerHTML = `<div style="background:#fff;border:1px solid ${hot ? 'var(--leaf)' : 'var(--border)'};border-radius:6px;padding:12px 16px">
+ <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.78rem;margin-bottom:6px;flex-wrap:wrap">
  <span style="font-weight:700">AI actions this month</span>
- <span style="color:var(--text3)">${r.used} of ${r.limit} used</span>
+ <span style="color:var(--text3);font-family:'IBM Plex Mono',monospace">${r.used} of ${r.limit} used</span>
  </div>
- <div style="background:var(--bg2);border-radius:4px;height:8px;overflow:hidden">
- <div style="background:${pct>=100?'#ef4444':pct>=70?'#f59e0b':'var(--green2)'};height:100%;width:${pct}%;border-radius:4px"></div>
+ <div style="background:var(--bg2);border-radius:4px;height:8px;overflow:hidden;margin-bottom:${hot ? '10px' : '0'}">
+ <div style="background:${pct>=100?'var(--red)':pct>=70?'var(--amber)':'var(--leaf)'};height:100%;width:${pct}%;border-radius:4px"></div>
  </div>
+ ${hot ? `<button class="btn btn-green btn-sm" onclick="startCheckout('premium')" style="width:100%">Start Premium trial · keep the grocery loop running</button>` : ''}
  </div>`;
  }
  } catch(e) { /* non-critical */ }
