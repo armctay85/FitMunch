@@ -262,9 +262,9 @@
  async function redirectAfterAuth(token) {
  if (plan) {
  // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
- const checkoutPlan = plan === 'starter' ? 'pt-starter'
- : plan === 'pro' ? 'pt-pro'
- : plan;
+ // Server normalizeCheckoutPlan owns PT vs consumer mapping.
+ // Never force pt-* aliases here — that 403s consumer Premium/starter/pro funnels.
+ const checkoutPlan = plan;
  try {
  const r = await fetch('/api/checkout', {
  method: 'POST',
