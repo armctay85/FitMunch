@@ -212,12 +212,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const sub = event.data.object;
-        const priceId = sub.items?.data[0]?.price?.id;
-        const tier = PRICE_TO_TIER[priceId] || 'starter';
-        const active = ['active','trialing'].includes(sub.status);
+        const { tier, expiresAt } = subscriptionTierUpdateFromStripe(sub);
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
-        if (users[0]) await updateUserSubscription(users[0].id, active ? tier : 'free', sub.id);
-        console.log(`Subscription ${event.type}: customer ${sub.customer} → ${active ? tier : 'free'}`);
+        if (users[0]) await updateUserSubscription(users[0].id, tier, expiresAt);
+        console.log(`Subscription ${event.type}: customer ${sub.customer} → ${tier}`);
         break;
       }
       case 'customer.subscription.deleted': {
@@ -438,6 +436,18 @@ const PRICE_TO_TIER = {
   'price_1T3SyDGMuYRuJYDrF8mvMrwi': 'pro',
   'price_1ToYrXGMuYRuJYDrwHtvWD1c': 'premium',
 };
+
+function subscriptionTierUpdateFromStripe(sub) {
+  const priceId = sub.items?.data[0]?.price?.id;
+  const active = ['active', 'trialing'].includes(sub.status);
+  if (!active) return { tier: 'free', expiresAt: null };
+
+  const periodEnd = sub.current_period_end || sub.items?.data[0]?.current_period_end;
+  return {
+    tier: PRICE_TO_TIER[priceId] || 'starter',
+    expiresAt: periodEnd ? new Date(periodEnd * 1000) : null,
+  };
+}
 
 function normalizeCheckoutPlan(plan, role) {
   if (plan === 'pt-starter' || plan === 'pt-pro' || plan === 'premium') return plan;
@@ -850,3 +860,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports._private = { subscriptionTierUpdateFromStripe };
