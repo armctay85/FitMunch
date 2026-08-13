@@ -24,4 +24,11 @@ describe('Server API shell', () => {
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.text.length).toBeGreaterThan(100);
   });
+
+  it('GET auth aliases redirect to register/login surfaces', async () => {
+    await request(app).get('/signup').expect(301).expect('Location', '/login.html?plan=premium#register');
+    await request(app).get('/sign-up').expect(301).expect('Location', '/login.html?plan=premium#register');
+    await request(app).get('/register').expect(301).expect('Location', '/login.html?plan=premium#register');
+    await request(app).get('/auth').expect(301).expect('Location', '/login.html?plan=premium#register');
+  });
 });

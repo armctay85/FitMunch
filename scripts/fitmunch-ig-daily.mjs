@@ -81,11 +81,11 @@ function updateLedgerEntry(postId, patch) {
 }
 
 async function smokeAssets() {
-  const paths = ['/', '/api/health', '/login.html', '/app.html'];
+  const paths = ['/', '/api/health', '/login.html', '/app.html', '/signup', '/sign-up', '/register', '/auth'];
   const results = [];
   for (const p of paths) {
     const r = await fetch(BASE + p);
-    results.push({ path: p, ok: r.status === 200 });
+    results.push({ path: p, ok: r.status >= 200 && r.status < 400 });
   }
   return results.every(x => x.ok);
 }
