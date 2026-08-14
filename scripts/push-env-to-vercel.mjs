@@ -35,6 +35,11 @@ const ALLOW = new Set([
   'AI_FREE_MONTHLY_LIMIT',
   'INSTAGRAM_ACCESS_TOKEN',
   'IG_BUSINESS_ACCOUNT_ID',
+  'RESEND_API_KEY',
+  'RESEND_FROM',
+  'RESEND_REPLY_TO',
+  'GEMINI_API_KEY',
+  'FM_ANALYTICS_KEY',
 ]);
 
 function loadDotEnv(filePath) {
