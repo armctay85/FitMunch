@@ -15,3 +15,7 @@ coverage/
 # Local social credentials (use .ig-config.example.json)
 .ig-config.json
 
+
+.funnel-url.local
+.tmp-fm-analytics-key.txt
+
