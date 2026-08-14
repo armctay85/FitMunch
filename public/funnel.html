@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>FitMunch funnel (private)</title>
+<meta name="robots" content="noindex,nofollow"/>
+<meta name="theme-color" content="#07130d"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+.fn{padding:calc(96px + 40px) clamp(20px,4vw,48px) 72px;max-width:920px;margin:0 auto}
+.fn h1{font-size:1.8rem;font-weight:800;letter-spacing:-.04em;margin:0 0 8px}
+.fn .sub{color:var(--mute);margin-bottom:24px;font-size:.92rem;line-height:1.55}
+.fn label{display:block;font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.fn input{width:min(420px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:4px;font:inherit;margin-bottom:12px}
+.fn button{min-height:44px;padding:0 18px;border:none;border-radius:4px;background:var(--leaf);color:#fff;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;cursor:pointer}
+.fn table{width:100%;border-collapse:collapse;margin-top:28px;background:#fff;border:1px solid var(--line);font-size:.88rem}
+.fn th,.fn td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+.fn th{font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);background:var(--paper2)}
+.fn .err{color:#b42318;margin-top:12px}
+.fn .meta{margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--mute)}
+</style>
+</head>
+<body class="fm-body">
+<nav class="fm-nav">
+  <a class="fm-brand" href="/"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+</nav>
+<main class="fn">
+  <h1>Conversion funnel</h1>
+  <p class="sub">Private view of marketing events (page views and CTA clicks). Needs <code>FM_ANALYTICS_KEY</code> from Vercel env. Key is kept in the URL hash only on this device.</p>
+  <label for="key">Analytics key</label>
+  <input id="key" type="password" autocomplete="off" placeholder="FM_ANALYTICS_KEY"/>
+  <label for="days">Days</label>
+  <input id="days" type="number" min="1" max="90" value="14"/>
+  <div><button type="button" id="load">Load funnel</button></div>
+  <p class="err" id="err" hidden></p>
+  <p class="meta" id="meta"></p>
+  <table id="tbl" hidden>
+    <thead><tr><th>Event</th><th>Count</th><th>Sessions</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</main>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  if (params.get('key')) document.getElementById('key').value = params.get('key');
+  document.getElementById('load').onclick = async function () {
+    var err = document.getElementById('err');
+    var meta = document.getElementById('meta');
+    var tbl = document.getElementById('tbl');
+    err.hidden = true;
+    var key = document.getElementById('key').value.trim();
+    var days = document.getElementById('days').value || '14';
+    if (!key) { err.textContent = 'Enter the analytics key.'; err.hidden = false; return; }
+    try {
+      var r = await fetch('/api/analytics/funnel?days=' + encodeURIComponent(days) + '&key=' + encodeURIComponent(key));
+      var j = await r.json();
+      if (!r.ok || !j.success) throw new Error(j.error || ('HTTP ' + r.status));
+      meta.textContent = 'Last ' + j.days + ' days · ' + j.totalEvents + ' events · updated ' + new Date(j.asOf).toLocaleString();
+      var tb = tbl.querySelector('tbody');
+      tb.innerHTML = (j.events || []).map(function (row) {
+        return '<tr><td>' + row.eventType + '</td><td>' + row.count + '</td><td>' + row.sessions + '</td></tr>';
+      }).join('') || '<tr><td colspan="3">No events yet.</td></tr>';
+      tbl.hidden = false;
+    } catch (e) {
+      err.textContent = e.message || String(e);
+      err.hidden = false;
+      tbl.hidden = true;
+    }
+  };
+})();
+</script>
+</body>
+</html>

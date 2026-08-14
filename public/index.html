@@ -317,6 +317,26 @@ h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,
 .final h2 em{font-style:normal;color:var(--leaf)}
 .final p{color:rgba(238,242,238,.76);font-size:1.05rem;line-height:1.6;max-width:34ch;margin-bottom:28px}
 
+/* TRUST */
+.trust{
+  background:var(--paper2);
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  padding:22px clamp(20px,4vw,48px);
+}
+.trust-inner{
+  width:min(1040px,100%);margin:0 auto;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:18px 24px;
+}
+.trust-item{
+  font-size:.84rem;line-height:1.45;color:var(--mute);
+  padding-left:12px;border-left:2px solid var(--leaf);
+}
+.trust-item strong{
+  display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.88rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin-bottom:3px;
+}
+
 /* FOOTER */
 footer{
   background:var(--fridge2);
@@ -346,12 +366,14 @@ footer{
   .plan{border-right:0;border-bottom:1px solid var(--line)}
   .plan:last-child{border-bottom:0}
   .hero-inner{padding-bottom:56px}
+  .trust-inner{grid-template-columns:1fr 1fr}
 }
 @media(max-width:520px){
   .loop-rail{grid-template-columns:1fr}
   .step:nth-child(odd){padding-right:0}
   .hero-ctas{display:grid;grid-template-columns:1fr}
   .hero-ctas .btn{width:100%}
+  .trust-inner{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){
   .hero-media,.hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
@@ -387,6 +409,15 @@ footer{
     </div>
   </div>
 </header>
+
+<section class="trust" aria-label="Product proof">
+  <div class="trust-inner">
+    <div class="trust-item"><strong>AU supermarket receipts</strong>Woolworths, Coles, Aldi and IGA paper, read into macros.</div>
+    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a $143 Woolies shop. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
+    <div class="trust-item"><strong>Premium trial</strong>$19.99 AUD/mo after 14 days. Cancel anytime in billing.</div>
+    <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
+  </div>
+</section>
 
 <section class="loop" id="loop">
   <div class="loop-inner">
@@ -593,5 +624,6 @@ try {
   } else run();
 })();
 </script>
+<script src="/js/fm-track.js" defer></script>
 </body>
 </html>

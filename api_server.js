@@ -22,6 +22,7 @@ const {
   logProgress,
   getProgressHistory,
   trackEvent,
+  getFunnelStats,
   db,
   schema,
 } = require('./server/storage.js');
@@ -197,6 +198,21 @@ router.post('/analytics/events', async (req, res) => {
     res.json({ success: true, eventsProcessed: processed });
   } catch (error) {
     console.error('Error tracking analytics events:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/analytics/funnel', async (req, res) => {
+  try {
+    const expected = process.env.FM_ANALYTICS_KEY;
+    const provided = req.query.key || req.headers['x-fm-analytics-key'];
+    if (!expected || !provided || String(provided) !== String(expected)) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    const stats = await getFunnelStats(req.query.days);
+    res.json({ success: true, ...stats });
+  } catch (error) {
+    console.error('Error loading funnel stats:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

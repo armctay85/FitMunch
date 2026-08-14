@@ -266,6 +266,10 @@ app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planne
 app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
 app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { root: 'public' }));
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
+app.get('/funnel', (req, res) => {
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  res.sendFile('funnel.html', { root: 'public' });
+});
 
 // Clean auth/app URLs (marketing + IG often omit .html)
 function authQuery(req) {

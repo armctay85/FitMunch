@@ -224,6 +224,38 @@ async function trackEvent(userId, eventType, eventData, sessionId) {
   });
 }
 
+async function getFunnelStats(days = 14) {
+  const d = Math.min(90, Math.max(1, Number(days) || 14));
+  const since = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+  const rows = await db.select({
+    eventType: schema.analyticsEvents.eventType,
+    sessionId: schema.analyticsEvents.sessionId,
+  })
+    .from(schema.analyticsEvents)
+    .where(gte(schema.analyticsEvents.createdAt, since))
+    .limit(20000);
+
+  const byType = new Map();
+  for (const row of rows) {
+    const key = row.eventType || 'unknown';
+    let bucket = byType.get(key);
+    if (!bucket) {
+      bucket = { eventType: key, count: 0, sessions: new Set() };
+      byType.set(key, bucket);
+    }
+    bucket.count += 1;
+    if (row.sessionId) bucket.sessions.add(row.sessionId);
+  }
+
+  const events = [...byType.values()]
+    .map((b) => ({ eventType: b.eventType, count: b.count, sessions: b.sessions.size }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
+
+  const totalEvents = events.reduce((n, r) => n + r.count, 0);
+  return { days: d, totalEvents, events, asOf: new Date().toISOString() };
+}
+
 // Export all functions and database instance
 module.exports = {
   db,
@@ -243,5 +275,6 @@ module.exports = {
   logProgress,
   getProgressHistory,
   trackEvent,
+  getFunnelStats,
   schema,
 };

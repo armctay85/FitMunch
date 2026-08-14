@@ -4,3 +4,5 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /app.html
+Disallow: /funnel
+Disallow: /brand/
