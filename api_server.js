@@ -417,6 +417,11 @@ router.post('/auth/login', async (req, res) => {
       console.warn('[login] role lookup failed (non-fatal):', e.message);
     }
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    try {
+      await _pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+    } catch (e) {
+      console.warn('[login] last_login_at update failed (non-fatal):', e.message);
+    }
     res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role } });
   } catch (err) {
     console.error('Login error:', err);
