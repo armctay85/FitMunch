@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Try a Woolworths haul score | FitMunch demo</title>
+<meta name="description" content="Run a sample Woolworths docket in your browser. See the haul score, protein lines, and next shop. No account required. Then scan your own receipt."/>
+<link rel="canonical" href="https://www.fitmunch.com.au/demo"/>
+<meta property="og:title" content="FitMunch demo: score a sample Woolies haul"/>
+<meta property="og:description" content="No signup to see the loop. Sample docket, haul score 92, then scan your own."/>
+<meta property="og:url" content="https://www.fitmunch.com.au/demo"/>
+<meta name="theme-color" content="#07130d"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+.dm-hero{padding-top:calc(96px + clamp(40px,6vw,64px));padding-bottom:clamp(36px,5vw,56px)}
+.dm-hero .kicker{
+  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
+  padding:6px 12px;margin-bottom:20px;
+}
+.dm-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:14px;max-width:16ch}
+.dm-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:42ch;margin-bottom:22px}
+.docket{
+  background:#fff;border:1px solid var(--line);padding:22px 20px;max-width:420px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.78rem;
+}
+.docket h2{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:var(--mute)}
+.docket .line{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);color:var(--ink)}
+.docket .tot{display:flex;justify-content:space-between;margin-top:12px;font-weight:700}
+.stage{margin-top:28px}
+.stage[hidden]{display:none}
+.result-head{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end;margin-bottom:20px}
+#score-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
+</style>
+</head>
+<body class="fm-body">
+
+<nav class="fm-nav fm-nav-abs">
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <div class="fm-nav-links">
+    <a href="/pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium&utm_source=demo&utm_medium=nav&utm_campaign=value_first#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+  </div>
+</nav>
+
+<header class="fm-hero-band dm-hero">
+  <div class="kicker">No account · sample Woolworths docket</div>
+  <h1>See the score before you sign up.</h1>
+  <p>This is a real-style $143.60 Woolies shop. Run it here. Then scan your own receipt to save the loop.</p>
+</header>
+
+<section class="fm-section" style="padding-top:36px">
+  <div class="fm-section-inner" style="max-width:820px">
+    <div class="docket" aria-label="Sample Woolworths receipt">
+      <h2>Woolworths · sample docket</h2>
+      <div class="line"><span>Chicken breast 1kg</span><span>$12.50</span></div>
+      <div class="line"><span>Greek yoghurt 1kg</span><span>$6.50</span></div>
+      <div class="line"><span>Protein milk 2L</span><span>$5.20</span></div>
+      <div class="line"><span>Free range eggs x12</span><span>$6.80</span></div>
+      <div class="line"><span>Tuna + cottage cheese</span><span>$8.40</span></div>
+      <div class="line"><span>Plus 17 other lines</span><span>$104.20</span></div>
+      <div class="tot"><span>22 items</span><span>$143.60</span></div>
+    </div>
+
+    <div class="stage" id="stage-run">
+      <p class="fm-note" style="margin:18px 0 16px">Illustrative AU shop used for the demo. Your live scan uses your receipt. No image leaves this page.</p>
+      <button class="fm-btn fm-btn-leaf" type="button" id="run-demo" data-fm-track="demo_run">Run this haul</button>
+    </div>
+
+    <div class="stage" id="stage-result" hidden>
+      <div class="result-head">
+        <div>
+          <div id="score-n">0</div>
+          <div class="fm-note" style="margin:8px 0 0;font-family:'Bricolage Grotesque',system-ui,sans-serif;letter-spacing:.08em">HAUL SCORE</div>
+        </div>
+        <div class="fm-score-meta">
+          <strong id="score-meta">0g protein · $143.60 · 22 items</strong>
+          Protein-heavy week. Next shop needs carbs and veg.
+        </div>
+      </div>
+      <div class="fm-table-wrap">
+        <table class="fm-table">
+          <thead><tr><th>Item</th><th>Why it matters</th><th>Protein</th></tr></thead>
+          <tbody>
+            <tr><td>Chicken breast 1kg</td><td>Batch cook base for lunches</td><td>220g</td></tr>
+            <tr><td>Greek yoghurt 1kg</td><td>Breakfast and snacks</td><td>90g</td></tr>
+            <tr><td>Protein milk 2L</td><td>Easy liquid protein</td><td>100g</td></tr>
+            <tr><td>Free range eggs x12</td><td>Cheap complete protein</td><td>72g</td></tr>
+            <tr><td>Tuna + cottage stack</td><td>Fills busy-day gaps</td><td>~110g</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fm-convert">
+        <h2>That is the loop. Now run it on your docket.</h2>
+        <p>Create a free account to scan your Woolies, Coles, Aldi or IGA receipt. Premium is $19.99 AUD/mo after a 14-day trial if you want unlimited scans and coach.</p>
+        <div class="fm-ctas">
+          <a class="fm-btn fm-btn-leaf" href="/login.html?utm_source=demo&utm_medium=result&utm_campaign=value_first#register" data-fm-auth="register" data-fm-track="demo_scan_mine">Scan my receipt</a>
+          <a class="fm-btn fm-btn-ghost" href="/login.html?plan=premium&utm_source=demo&utm_medium=result&utm_campaign=value_first#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="fm-footer">
+  <div class="fm-footer-inner">
+    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-links">
+      <a href="/demo">Demo</a>
+      <a href="/haul-teardown">Haul teardown</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/login.html" data-fm-auth="login">Sign in</a>
+    </div>
+    <p class="fm-footer-note">© 2026 FitMunch. Food planning support only. Not medical advice.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var btn = document.getElementById('run-demo');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    document.getElementById('stage-run').hidden = true;
+    document.getElementById('stage-result').hidden = false;
+    var scoreEl = document.getElementById('score-n');
+    var metaEl = document.getElementById('score-meta');
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      scoreEl.textContent = '92';
+      metaEl.textContent = '987g protein · $143.60 · 22 items';
+    } else {
+      var start = performance.now();
+      var tick = function (now) {
+        var t = Math.min(1, (now - start) / 900);
+        var e = 1 - Math.pow(1 - t, 3);
+        scoreEl.textContent = String(Math.round(92 * e));
+        metaEl.textContent = Math.round(987 * e) + 'g protein · $143.60 · 22 items';
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+    if (window.FMTrack && FMTrack.send) FMTrack.send('demo_run', { sample: 'woolies_143' });
+  });
+})();
+</script>
+<script src="/js/fm-track.js" defer></script>
+</body>
+</html>
