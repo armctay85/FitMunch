@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch - Scan your shop. See the macros.</title>
-<meta name="description" content="FitMunch turns Australian supermarket receipts into macros, meal plans and the next grocery run. Built for Woolies, Coles, Aldi and IGA shops."/>
+<title>FitMunch — Your food, macros, meal plan &amp; training. One system.</title>
+<meta name="description" content="FitMunch turns Australian supermarket receipts into macros, meal plans, a training plan and the next grocery run. Built for Woolies, Coles, Aldi and IGA shops."/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
-<meta property="og:title" content="FitMunch - Scan your shop. See the macros."/>
-<meta property="og:description" content="Receipt to macros to plan to next shop. The Australian grocery nutrition loop."/>
+<meta property="og:title" content="FitMunch — Your food, macros, meal plan &amp; training. One system."/>
+<meta property="og:description" content="Nutrition and training, one system. Receipt to macros to meals to workout plan — built for Australian shops."/>
 <meta property="og:url" content="https://www.fitmunch.com.au"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="FitMunch - Scan your shop. See the macros."/>
-<meta name="twitter:description" content="Turn your Woolies or Coles shop into protein, calories and a week of meals."/>
+<meta name="twitter:title" content="FitMunch — Your food, macros, meal plan &amp; training. One system."/>
+<meta name="twitter:description" content="Turn your Woolies or Coles shop into protein, calories, a week of meals and a training plan to match."/>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
@@ -164,7 +164,7 @@ h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,
 }
 .loop-head p{color:var(--mute);font-size:1.06rem;line-height:1.65}
 .loop-rail{
-  display:grid;grid-template-columns:repeat(4,1fr);
+  display:grid;grid-template-columns:repeat(5,1fr);
   gap:0;border-top:1px solid var(--line);
 }
 .step{
@@ -176,6 +176,7 @@ h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,
 .step:nth-child(2){transition-delay:.08s}
 .step:nth-child(3){transition-delay:.16s}
 .step:nth-child(4){transition-delay:.24s}
+.step:nth-child(5){transition-delay:.32s}
 .step.show{opacity:1;transform:none}
 .step:last-child{border-right:0;padding-right:0}
 .step-n{
@@ -401,8 +402,8 @@ footer{
   <div class="hero-grain" aria-hidden="true"></div>
   <div class="hero-inner">
     <p class="hero-brand" aria-hidden="true">Fit<span>Munch</span></p>
-    <h1>Scan your shop. See the macros.</h1>
-    <p class="hero-sub">Turn a Woolies, Coles, Aldi or IGA receipt into protein, calories and a week you can actually cook.</p>
+    <h1>Your food &amp; training. One system.</h1>
+    <p class="hero-sub">Scan a Woolies, Coles, Aldi or IGA receipt for protein and calories — then get meals to cook and a training plan to match. One place.</p>
     <div class="hero-ctas">
       <a class="btn btn-leaf" href="/demo?utm_source=homepage&utm_medium=hero&utm_campaign=value_first" data-fm-track="hero_demo">Try a sample haul</a>
       <a class="btn btn-ghost" href="/login.html#register" data-fm-auth="register">Start free</a>
@@ -422,8 +423,8 @@ footer{
 <section class="loop" id="loop">
   <div class="loop-inner">
     <div class="loop-head">
-      <h2>The grocery loop, closed.</h2>
-      <p>One weekly shop becomes the source of truth for macros, meals and the next trolley.</p>
+      <h2>Food in. Training to match.</h2>
+      <p>One weekly shop becomes the source of truth for macros, meals, a training plan and the next trolley.</p>
     </div>
     <div class="loop-rail" id="loop-rail" aria-label="Product loop">
       <article class="step">
@@ -443,6 +444,11 @@ footer{
       </article>
       <article class="step">
         <span class="step-n">04</span>
+        <h3>Train</h3>
+        <p>A weekly workout plan and tracker, matched to your goals and your food.</p>
+      </article>
+      <article class="step">
+        <span class="step-n">05</span>
         <h3>Next shop</h3>
         <p>A tighter list for the gaps. Same aisle energy, better maths.</p>
       </article>
@@ -485,7 +491,7 @@ footer{
 <section class="pricing" id="pricing">
   <div class="pricing-inner">
     <h2>Start with the shop.</h2>
-    <p class="pricing-lead">Free to try the loop. Premium when you want unlimited AI coach, scans and weekly plans.</p>
+    <p class="pricing-lead">Free to try the loop. Premium when you want unlimited AI coach, scans, meal plans and training.</p>
     <div class="plans">
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
@@ -495,6 +501,7 @@ footer{
           <li>Unlimited AI coach grounded in your logs</li>
           <li>Unlimited receipt scans and haul scores</li>
           <li>Meal plans and shopping lists from your shop</li>
+          <li>Weekly training plans and workout tracking</li>
         </ul>
         <a class="btn btn-leaf" href="/login.html?plan=premium&utm_source=homepage&utm_medium=pricing&utm_campaign=mrr_sprint#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
       </article>
@@ -516,8 +523,8 @@ footer{
 
 <section class="final">
   <div class="final-inner">
-    <h2>Stop guessing the trolley. Run the <em>whole loop.</em></h2>
-    <p>One receipt. Clear macros. Meals from food you already own. A sharper list next week.</p>
+    <h2>Stop guessing the trolley. Run the <em>whole system.</em></h2>
+    <p>One receipt. Clear macros. Meals from food you already own. A training plan to match. A sharper list next week.</p>
     <a class="btn btn-leaf" href="/login.html#register" data-fm-auth="register">Start free</a>
   </div>
 </section>
