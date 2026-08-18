@@ -41,18 +41,24 @@ struct ContentView: View {
                     Label("Meals", systemImage: "fork.knife")
                 }
                 .tag(3)
+
+            WorkoutView()
+                .tabItem {
+                    Label("Workout", systemImage: "figure.strengthtraining.traditional")
+                }
+                .tag(4)
             
             HistoryView(modelContext: modelContext)
                 .tabItem {
                     Label("History", systemImage: "chart.line.uptrend.xyaxis")
                 }
-                .tag(4)
+                .tag(5)
             
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(5)
+                .tag(6)
         }
         .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
     }

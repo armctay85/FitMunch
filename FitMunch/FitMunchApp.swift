@@ -13,6 +13,7 @@ struct FitMunchApp: App {
             UserProfile.self,
             Meal.self,
             FoodItem.self,
+            WorkoutLog.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         
