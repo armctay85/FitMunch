@@ -29,9 +29,9 @@
 </nav>
 <main class="fn">
   <h1>Conversion funnel</h1>
-  <p class="sub">Private view of marketing events (page views and CTA clicks). Needs <code>FM_ANALYTICS_KEY</code> from Vercel env. Key is kept in the URL hash only on this device.</p>
+  <p class="sub">Private view of marketing events (page views and CTA clicks). Requires the server analytics key. Do not share this URL.</p>
   <label for="key">Analytics key</label>
-  <input id="key" type="password" autocomplete="off" placeholder="FM_ANALYTICS_KEY"/>
+  <input id="key" type="password" autocomplete="off" placeholder="Analytics key"/>
   <label for="days">Days</label>
   <input id="days" type="number" min="1" max="90" value="14"/>
   <div><button type="button" id="load">Load funnel</button></div>

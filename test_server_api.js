@@ -5,10 +5,24 @@ const request = require('supertest');
 const app = require('./server.js');
 
 describe('Server API shell', () => {
-  it('GET /api/health returns ok JSON', async () => {
+  it('GET /api/health returns ok JSON without deploy or config internals', async () => {
     const res = await request(app).get('/api/health').expect(200);
     expect(res.body.status).toBe('ok');
     expect(res.body.service).toBe('fitmunch');
+    expect(res.body.deploy).toBeUndefined();
+    expect(res.body.ready).toBeUndefined();
+    expect(res.body.runtime).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toMatch(/jwt|stripeWebhook|gemini|resend/i);
+  });
+
+  it('GET /funnel and /funnel.html require an analytics key', async () => {
+    await request(app).get('/funnel').expect(401);
+    await request(app).get('/funnel.html').expect(401);
+  });
+
+  it('GET /api/stripe-test is not a public probe', async () => {
+    const res = await request(app).get('/api/stripe-test').expect(404);
+    expect(res.body.success).toBe(false);
   });
 
   it('GET unknown /api path returns JSON 404', async () => {
@@ -19,6 +33,17 @@ describe('Server API shell', () => {
     expect(res.body.error).toBeDefined();
   });
 
+  it('GET /app.html is a login wall until the client has a session', async () => {
+    const res = await request(app).get('/app.html').expect(200);
+    expect(res.text).toContain('Sign in to FitMunch');
+    expect(res.text).toContain('html:not(.fm-authed)');
+    expect(res.text).toContain("localStorage.getItem('fm_token')");
+  });
+
+  it('GET /app redirects to /app.html', async () => {
+    await request(app).get('/app').expect(302).expect('Location', '/app.html');
+  });
+
   it('GET / serves the home page HTML', async () => {
     const res = await request(app).get('/').expect(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
@@ -26,10 +51,11 @@ describe('Server API shell', () => {
   });
 
   it('GET auth aliases redirect to register/login surfaces', async () => {
-    await request(app).get('/signup').expect(301).expect('Location', '/login.html?plan=premium#register');
-    await request(app).get('/sign-up').expect(301).expect('Location', '/login.html?plan=premium#register');
-    await request(app).get('/register').expect(301).expect('Location', '/login.html?plan=premium#register');
-    await request(app).get('/auth').expect(301).expect('Location', '/login.html?plan=premium#register');
+    await request(app).get('/signup').expect(301).expect('Location', '/login.html#register');
+    await request(app).get('/sign-up').expect(301).expect('Location', '/login.html#register');
+    await request(app).get('/register').expect(301).expect('Location', '/login.html#register');
+    await request(app).get('/auth').expect(301).expect('Location', '/login.html#register');
+    await request(app).get('/register?plan=premium').expect(301).expect('Location', '/login.html?plan=premium#register');
   });
 });
 

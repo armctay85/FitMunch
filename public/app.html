@@ -302,9 +302,47 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .metrics-row{grid-template-columns:repeat(2,1fr) !important}
  .topnav{padding:0 12px}
 }
+html:not(.fm-authed) .topnav,
+html:not(.fm-authed) .shell,
+html:not(.fm-authed) .mobile-nav,
+html:not(.fm-authed) .mob-nav-more{display:none!important}
+#app-gate{
+ min-height:100%;display:flex;align-items:center;justify-content:center;
+ padding:32px 20px;background:var(--paper);
+}
+html.fm-authed #app-gate{display:none}
+.gate-card{
+ width:min(420px,100%);background:var(--surface);border:1px solid var(--line);
+ border-radius:var(--radius);padding:32px 28px;text-align:center;
+}
+.gate-card h1{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1.35rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
+.gate-card p{color:var(--mute);font-size:.9rem;line-height:1.55;margin-bottom:18px}
+.gate-card a{display:block;text-align:center;text-decoration:none;min-height:44px;line-height:44px;border-radius:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700}
+.gate-card .gate-in{background:var(--leaf);color:#fff;margin-bottom:8px}
+.gate-card .gate-reg{border:1px solid var(--line);color:var(--ink)}
 </style>
+<script>
+(function () {
+  try {
+    if (!localStorage.getItem('fm_token')) {
+      location.replace('/login.html');
+    }
+  } catch (e) {
+    location.replace('/login.html');
+  }
+})();
+</script>
 </head>
 <body>
+
+<div id="app-gate">
+ <div class="gate-card">
+  <h1>Sign in to FitMunch</h1>
+  <p>The product cockpit is for signed-in accounts. Create a free account or sign in to continue.</p>
+  <a class="gate-in" href="/login.html">Sign in</a>
+  <a class="gate-reg" href="/login.html#register">Create a free account</a>
+ </div>
+</div>
 
 <!-- TOP NAV -->
 <nav class="topnav">
@@ -1491,7 +1529,7 @@ const S = {
  goals: null,
  lastScan: null,
  user: null,
- role: 'pt',
+ role: 'client',
  clients: [],
  mealPlans: [],
  workoutPlans: [],
@@ -1516,7 +1554,7 @@ window.onerror = (msg, src, line) => console.error('[FitMunch error]', msg, 'lin
 window.onunhandledrejection = e => console.error('[FitMunch promise]', e.reason?.message || e.reason);
 
 async function boot() {
- if (!S.token) { window.location.href = '/login.html'; return; }
+ if (!S.token) { window.location.replace('/login.html'); return; }
  try {
  // Returning from Stripe checkout: sync tier from Stripe directly so the
  // upgrade shows even if the webhook is delayed or misrouted.
@@ -1537,7 +1575,8 @@ async function boot() {
  const me = await API('/auth/me');
  if (!me.success) { logout(); return; }
  S.user = me.user;
- S.role = me.user.role || 'pt';
+ S.role = me.user.role || 'client';
+ document.documentElement.classList.add('fm-authed');
  // Update nav
  document.getElementById('nav-name').textContent = me.user.name.split(' ')[0];
  document.getElementById('nav-av').textContent = me.user.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();

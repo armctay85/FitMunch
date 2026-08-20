@@ -130,7 +130,11 @@
 
  <div id="premium-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(31,157,74,.35);background:rgba(31,157,74,.1);border-radius:4px">
  <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
- <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens for the 14-day Premium trial at $19.99 AUD/mo after. Cancel anytime.</div>
+ <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens for a 14-day Premium trial ($19.99 AUD/mo after). Card on file. Cancel before the trial ends and you are not charged.</div>
+ </div>
+ <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
+ <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
+ <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
  </div>
 
  <div class="tabs">
@@ -218,9 +222,18 @@
 <script>
  const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
- if (plan === 'premium') {
+ if (plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro') {
   const banner = document.getElementById('premium-intent');
-  if (banner) banner.style.display = 'block';
+  if (banner) {
+    banner.style.display = 'block';
+    if (plan !== 'premium') {
+      banner.querySelector('div').textContent = 'Paid trial';
+      banner.querySelectorAll('div')[1].textContent = 'Create your account, then Stripe opens for a 14-day trial. Card on file. Cancel before the trial ends and you are not charged.';
+    }
+  }
+ } else {
+  const freeBanner = document.getElementById('free-intent');
+  if (freeBanner) freeBanner.style.display = 'block';
  }
 
  // First-touch marketing attribution - captured once, sent with registration.
