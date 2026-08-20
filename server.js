@@ -114,6 +114,36 @@ app.use(compression({
 // Serve only essential static files from public directory for security.
 // Absolute path so Vercel serverless cwd doesn't matter.
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+function providedAnalyticsKey(req) {
+  return req.query.key || req.headers['x-fm-analytics-key'] || '';
+}
+
+function analyticsKeyMatches(req) {
+  const expected = process.env.FM_ANALYTICS_KEY;
+  const provided = String(providedAnalyticsKey(req) || '');
+  if (!expected || !provided) return false;
+  const a = Buffer.from(String(expected));
+  const b = Buffer.from(provided);
+  if (a.length !== b.length) return false;
+  return require('crypto').timingSafeEqual(a, b);
+}
+
+// Private analytics UI is not a public page. Block before static so /funnel.html
+// cannot be fetched without the server-side key.
+app.use((req, res, next) => {
+  const pathOnly = (req.path || '').replace(/\/$/, '') || '/';
+  if (pathOnly !== '/funnel' && pathOnly !== '/funnel.html') return next();
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  if (!analyticsKeyMatches(req)) {
+    return res.status(401).sendFile(path.join(PUBLIC_DIR, '404.html'));
+  }
+  if (pathOnly === '/funnel') {
+    return res.sendFile(path.join(PUBLIC_DIR, 'funnel.html'));
+  }
+  return next();
+});
+
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   index: 'index.html',
@@ -268,22 +298,18 @@ app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { roo
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
 app.get('/try', (req, res) => res.redirect(301, '/demo'));
-app.get('/funnel', (req, res) => {
-  res.set('X-Robots-Tag', 'noindex, nofollow');
-  res.sendFile('funnel.html', { root: 'public' });
-});
+// /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)
 function authQuery(req) {
   return req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
 }
 function registerRedirectTarget(req) {
-  // Preserve inbound query (plan/invite/etc). Default plan=premium only when none provided.
+  // Preserve inbound query (plan/invite/etc). Do not default plan=premium:
+  // "Start free" / /register must open a free account, not Stripe checkout.
   const q = authQuery(req);
-  if (!q) return '/login.html?plan=premium#register';
-  const params = new URLSearchParams(q.startsWith('?') ? q.slice(1) : q);
-  if (!params.has('plan')) params.set('plan', 'premium');
-  return `/login.html?${params.toString()}#register`;
+  if (!q) return '/login.html#register';
+  return `/login.html${q}#register`;
 }
 app.get('/login', (req, res) => res.redirect(301, '/login.html' + authQuery(req)));
 app.get('/register', (req, res) => res.redirect(301, registerRedirectTarget(req)));
@@ -327,58 +353,12 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'fitmunch',
-    deploy:
-      process.env.VERCEL_GIT_COMMIT_SHA ||
-      process.env.RAILWAY_GIT_COMMIT_SHA ||
-      process.env.RENDER_GIT_COMMIT ||
-      null,
-    runtime: process.env.VERCEL
-      ? 'vercel'
-      : process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_GIT_COMMIT_SHA
-        ? 'railway'
-        : 'node',
-    // Readiness only (booleans). Never leak secrets or connection strings.
-    ready: {
-      database: Boolean(process.env.DATABASE_URL),
-      jwt: Boolean(process.env.JWT_SECRET),
-      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
-      stripeWebhook: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-      gemini: Boolean(process.env.GEMINI_API_KEY),
-      resend: Boolean(process.env.RESEND_API_KEY),
-      receiptScanner: true,
-      mealPlanner: true,
-      auth: Boolean(process.env.JWT_SECRET),
-    },
   });
 });
 
-// Test Stripe API connection
-app.get('/api/stripe-test', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({
-      success: false,
-      message: 'Stripe is not configured. Please add STRIPE_SECRET_KEY to environment variables.',
-      connectionStatus: 'disabled'
-    });
-  }
-  
-  try {
-    // Attempt to list customers as a basic test
-    const customers = await stripe.customers.list({ limit: 1 });
-    res.json({ 
-      success: true, 
-      message: 'Stripe API connected successfully',
-      connectionStatus: 'active',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Stripe API connection error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Stripe API connection failed',
-      error: error.message
-    });
-  }
+// Old public Stripe probe. Do not publish payment-test internals.
+app.get('/api/stripe-test', (_req, res) => {
+  return res.status(404).json({ success: false, error: 'Not found' });
 });
 
 // Endpoint to create a Stripe checkout session

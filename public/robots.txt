@@ -3,6 +3,8 @@ Sitemap: https://www.fitmunch.com.au/sitemap.xml
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /app
 Disallow: /app.html
 Disallow: /funnel
+Disallow: /funnel.html
 Disallow: /brand/

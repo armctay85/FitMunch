@@ -1,0 +1,202 @@
+/**
+ * Honesty / trust bar for FitMunch PR #5.
+ * Each case maps to a paying-customer audit item. Do not weaken these.
+ */
+const fs = require('fs');
+const path = require('path');
+const request = require('supertest');
+const app = require('./server.js');
+
+function startFreeHrefs(html) {
+  const hrefs = [];
+  const re = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = re.exec(html))) {
+    const attrs = match[1];
+    const label = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    if (label !== 'Start free') continue;
+    const href = /href="([^"]+)"/.exec(attrs);
+    if (href) hrefs.push(href[1]);
+  }
+  return hrefs;
+}
+
+describe('Trust bar 1: app is gated', () => {
+  it('GET /app.html hides the cockpit until fm-authed and sends visitors to login', async () => {
+    const res = await request(app).get('/app.html').expect(200);
+    expect(res.text).toContain('id="app-gate"');
+    expect(res.text).toContain('Sign in to FitMunch');
+    expect(res.text).toContain('html:not(.fm-authed) .shell');
+    expect(res.text).toContain('display:none!important');
+    expect(res.text).toContain("location.replace('/login.html')");
+    expect(res.text).toContain("role: 'client'");
+    expect(res.text).not.toMatch(/<html[^>]*\bfm-authed\b/);
+    const meIdx = res.text.indexOf("API('/auth/me')");
+    const authedIdx = res.text.indexOf("classList.add('fm-authed')");
+    expect(meIdx).toBeGreaterThan(0);
+    expect(authedIdx).toBeGreaterThan(meIdx);
+  });
+
+  it('GET /app redirects to the gated app.html surface', async () => {
+    await request(app).get('/app').expect(302).expect('Location', '/app.html');
+  });
+});
+
+describe('Trust bar 2: health does not leak internals', () => {
+  it('GET /api/health is ok and only publishes safe fields', async () => {
+    const res = await request(app).get('/api/health').expect(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.service).toBe('fitmunch');
+    expect(Object.keys(res.body).sort()).toEqual(['service', 'status', 'success', 'timestamp']);
+    expect(JSON.stringify(res.body)).not.toMatch(/jwt|stripe|gemini|resend|sha|deploy|webhook/i);
+  });
+});
+
+describe('Trust bar 3: funnel is not a public analytics UI', () => {
+  const prevKey = process.env.FM_ANALYTICS_KEY;
+
+  afterEach(() => {
+    if (prevKey === undefined) delete process.env.FM_ANALYTICS_KEY;
+    else process.env.FM_ANALYTICS_KEY = prevKey;
+  });
+
+  it('refuses /funnel and /funnel.html without a matching key', async () => {
+    process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
+    await request(app).get('/funnel').expect(401);
+    await request(app).get('/funnel.html').expect(401);
+    await request(app).get('/funnel?key=wrong-key').expect(401);
+    await request(app).get('/funnel.html?key=wrong-key').expect(401);
+  });
+
+  it('serves the private UI only with the matching key and does not name the env var', async () => {
+    process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
+    const res = await request(app).get('/funnel?key=trust-bar-funnel-key').expect(200);
+    expect(res.text).toContain('Conversion funnel');
+    expect(res.text).not.toContain('FM_ANALYTICS_KEY');
+    expect(res.headers['x-robots-tag']).toMatch(/noindex/i);
+  });
+
+  it('GET /api/analytics/funnel stays unauthorized without the key', async () => {
+    process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
+    const res = await request(app).get('/api/analytics/funnel').expect(401);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('Trust bar 4: one Stripe trial story', () => {
+  it('live checkout code is a 14-day trial with card collection always', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    expect(src).toContain("payment_method_collection: 'always'");
+    expect(src).toContain('trial_period_days: 14');
+    expect(src).not.toMatch(/trial_period_days:\s*(7|21|30)/);
+  });
+
+  it('public legal and marketing pages do not invent a post-charge refund window', async () => {
+    const pages = ['/refund', '/terms', '/pricing', '/for-pts', '/', '/login.html', '/success.html'];
+    for (const route of pages) {
+      const res = await request(app).get(route).expect(200);
+      expect(res.text).not.toContain('14-day refund window');
+      expect(res.text).not.toContain('Refunds are available within 7 days');
+      expect(res.text).not.toContain('no credit card');
+      expect(res.text).not.toContain('No credit card');
+    }
+    const refund = await request(app).get('/refund').expect(200);
+    expect(refund.text).toContain('card on file');
+    expect(refund.text).toContain('It is not a 14-day refund after a paid charge');
+    expect(refund.text).toContain('support@fitmunch.com.au');
+  });
+});
+
+describe('Trust bar 5: web app, not store', () => {
+  it('homepage and scanner say browser / Add to Home Screen and do not use store badges', async () => {
+    const home = await request(app).get('/').expect(200);
+    expect(home.text).toContain('web app');
+    expect(home.text).toContain('Add to Home Screen');
+    expect(home.text).toContain('App Store listing is not live');
+    expect(home.text).not.toContain('Download on the App Store');
+    expect(home.text).not.toContain('Get it on Google Play');
+
+    const scanner = await request(app).get('/receipt-nutrition-scanner').expect(200);
+    expect(scanner.text).toContain('web app');
+    expect(scanner.text).toContain('Add to Home Screen');
+  });
+});
+
+describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
+  const surfaces = [
+    ['/', ['92', '143', '987']],
+    ['/demo', ['92', '143', '987']],
+    ['/haul-teardown', ['92', '143', '987']],
+    ['/receipt-nutrition-scanner', ['92', '143', '987']],
+    ['/pricing', ['92', '143']],
+  ];
+
+  it.each(surfaces)('%s labels those numbers as an example', async (route, tokens) => {
+    const res = await request(app).get(route).expect(200);
+    for (const token of tokens) {
+      expect(res.text).toContain(token);
+    }
+    expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
+    expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+  });
+});
+
+describe('Trust bar 7: receipt photo story matches the scanner', () => {
+  it('scanner keeps the upload in memory and does not persist the image', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'receipt-scanner.js'), 'utf8');
+    expect(src).toContain('multer.memoryStorage()');
+    expect(src).not.toMatch(/writeFile|createWriteStream|INSERT INTO.*receipt/i);
+  });
+
+  it('privacy, terms, FAQ, and support say the photo is discarded on FitMunch servers', async () => {
+    const privacy = await request(app).get('/privacy').expect(200);
+    expect(privacy.text).toContain('does not keep the original receipt photo');
+    expect(privacy.text).not.toContain('Original receipt images are stored securely');
+
+    const terms = await request(app).get('/terms').expect(200);
+    expect(terms.text).toContain('does not keep the original receipt photo');
+
+    const scanner = await request(app).get('/receipt-nutrition-scanner').expect(200);
+    expect(scanner.text).toContain('does not keep the original photo on our servers');
+
+    const support = await request(app).get('/support').expect(200);
+    expect(support.text).toContain('not stored on our servers');
+  });
+});
+
+describe('Trust bar 8: Start free does not force Premium Stripe', () => {
+  it('register aliases omit plan=premium unless the request asked for it', async () => {
+    await request(app).get('/register').expect(301).expect('Location', '/login.html#register');
+    await request(app).get('/signup').expect(301).expect('Location', '/login.html#register');
+    await request(app).get('/register?plan=premium').expect(301).expect('Location', '/login.html?plan=premium#register');
+  });
+
+  it('homepage Start free links do not set plan=premium', async () => {
+    const home = await request(app).get('/').expect(200);
+    const hrefs = startFreeHrefs(home.text);
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href).not.toMatch(/[?&]plan=premium\b/);
+    }
+  });
+
+  it('login without a plan is a free account, not an immediate Stripe checkout', async () => {
+    const login = await request(app).get('/login.html').expect(200);
+    expect(login.text).toContain('id="free-intent"');
+    expect(login.text).toContain('This creates a free account. No card and no Stripe checkout');
+    expect(login.text).toContain('Create Free Account');
+    expect(login.text).toMatch(/if \(plan\) \{[\s\S]*\/api\/checkout/);
+  });
+});
+
+describe('Trust bar 9: no invented ABN', () => {
+  it('contact, terms, and refund do not invent an ABN, ACN, or street address', async () => {
+    for (const route of ['/contact', '/terms', '/refund', '/privacy']) {
+      const res = await request(app).get(route).expect(200);
+      expect(res.text).not.toMatch(/\bABN\b/);
+      expect(res.text).not.toMatch(/\bACN\b/);
+      expect(res.text).toContain('support@fitmunch.com.au');
+    }
+  });
+});
