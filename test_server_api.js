@@ -48,6 +48,34 @@ describe('Server API shell', () => {
     const res = await request(app).get('/').expect(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.text.length).toBeGreaterThan(100);
+    expect(res.text).toContain('href="/refund"');
+    expect(res.text).toContain('web app');
+    expect(res.text).toContain('Worked example');
+    expect(res.text).not.toContain('snap the paper from the checkout');
+    expect(res.text).toContain('App Store listing is not live');
+    expect(res.text).not.toContain('Download on the App Store');
+    expect(res.text).not.toContain('Get it on Google Play');
+  });
+
+  it('refund, terms, privacy, and PT pages share the Stripe trial story', async () => {
+    const refund = await request(app).get('/refund').expect(200);
+    expect(refund.text).toContain('card on file');
+    expect(refund.text).toContain('support@fitmunch.com.au');
+    expect(refund.text).not.toContain('14-day refund window');
+
+    const terms = await request(app).get('/terms').expect(200);
+    expect(terms.text).toContain('14-day trial');
+    expect(terms.text).toContain('/refund');
+    expect(terms.text).not.toContain('Refunds are available within 7 days');
+
+    const privacy = await request(app).get('/privacy').expect(200);
+    expect(privacy.text).toContain('does not keep the original receipt photo');
+    expect(privacy.text).not.toContain('Original receipt images are stored securely');
+
+    const pts = await request(app).get('/for-pts').expect(200);
+    expect(pts.text).toContain('Card on file');
+    expect(pts.text).not.toContain('No credit card');
+    expect(pts.text).not.toContain('reviewCount');
   });
 
   it('GET auth aliases redirect to register/login surfaces', async () => {
