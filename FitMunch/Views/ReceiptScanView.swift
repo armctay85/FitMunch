@@ -13,6 +13,9 @@ struct ReceiptScanView: View {
     @State private var isLogging = false
     @State private var loggedCount: Int?
     @State private var isRequestingCamera = false
+    @State private var showLibraryPicker = false
+    @State private var showCameraFallback = false
+    @State private var cameraFallbackMessage = ""
 
     private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290)
 
@@ -37,13 +40,25 @@ struct ReceiptScanView: View {
                     }
                 }
             }
-            // fullScreenCover avoids iPad sheet + UIImagePickerController camera crashes (ASC 2.1a).
+            // Camera is the cover root. Nested present() of UIImagePickerController still crashes on iPad.
             .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker { image in
-                    receiptImage = image
-                    startScan(image)
-                }
+                CameraPicker(
+                    onImage: { image in
+                        receiptImage = image
+                        startScan(image)
+                    },
+                    onUnavailable: {
+                        presentCameraFallback("Couldn't open the camera. Choose a photo from your library instead.")
+                    }
+                )
                 .ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showLibraryPicker, selection: $pickedItem, matching: .images)
+            .alert("Camera not available", isPresented: $showCameraFallback) {
+                Button("Choose from library") { showLibraryPicker = true }
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(cameraFallbackMessage)
             }
             .onChange(of: pickedItem) { _, newItem in
                 guard let newItem = newItem else { return }
@@ -65,7 +80,7 @@ struct ReceiptScanView: View {
             Text("📸").font(.system(size: 52)).padding(.top, 28)
             Text("Scan your shop")
                 .font(.title2.weight(.heavy))
-            Text("Snap your Woolies, Coles, Aldi or IGA receipt — get every item's macros, a haul score, and meal ideas in seconds.")
+            Text("Snap your Woolies, Coles, Aldi or IGA receipt. Get every item's macros, a haul score, and meal ideas in seconds.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -218,12 +233,12 @@ struct ReceiptScanView: View {
         loggedCount = nil
     }
 
-    /// Request permission first; never present camera UI without authorization (iPad review crash).
+    /// Never present UIImagePickerController unless the camera exists and is authorized.
     @MainActor
     private func openCameraSafely() async {
         errorMessage = nil
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
-            errorMessage = "Camera not available on this device. Use Choose from library instead."
+            presentCameraFallback("This device has no camera. Choose a receipt photo from your library instead.")
             return
         }
         isRequestingCamera = true
@@ -238,18 +253,31 @@ struct ReceiptScanView: View {
             if granted {
                 showCamera = true
             } else {
-                errorMessage = "Camera access is off. Enable it in Settings, or choose a photo from your library."
+                presentCameraFallback("Camera access is off. Enable it in Settings, or choose a photo from your library.")
             }
         case .denied, .restricted:
-            errorMessage = "Camera access is off. Enable it in Settings → FitMunch, or choose a photo from your library."
+            presentCameraFallback("Camera access is off. Enable it in Settings, or choose a photo from your library.")
         @unknown default:
-            errorMessage = "Couldn't open the camera. Use Choose from library instead."
+            presentCameraFallback("Couldn't open the camera. Choose a photo from your library instead.")
+        }
+    }
+
+    private func presentCameraFallback(_ message: String) {
+        errorMessage = message
+        cameraFallbackMessage = message
+        if showCamera {
+            showCamera = false
+            DispatchQueue.main.async {
+                showCameraFallback = true
+            }
+        } else {
+            showCameraFallback = true
         }
     }
 
     private func startScan(_ image: UIImage) {
         guard let jpeg = image.jpegData(compressionQuality: 0.7) else {
-            errorMessage = "Couldn't read that image — try another photo."
+            errorMessage = "Couldn't read that image. Try another photo."
             return
         }
         isScanning = true
@@ -266,7 +294,7 @@ struct ReceiptScanView: View {
                 if res.success {
                     scan = res
                 } else {
-                    errorMessage = res.error ?? "Couldn't read that receipt — try a clearer photo."
+                    errorMessage = res.error ?? "Couldn't read that receipt. Try a clearer photo."
                 }
             } catch {
                 errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
@@ -300,18 +328,31 @@ struct ReceiptScanView: View {
     }
 }
 
-/// UIKit camera bridge. Host VC presents the picker full-screen (safer on iPad than embedding picker as the sheet root).
+/// Camera is the representable root (no second present). Never fall back to photoLibrary here: that picker requires a popover on iPad and crashes.
 struct CameraPicker: UIViewControllerRepresentable {
     let onImage: (UIImage) -> Void
+    var onUnavailable: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
-    func makeUIViewController(context: Context) -> CameraHostController {
-        let host = CameraHostController()
-        host.coordinator = context.coordinator
-        return host
+    func makeUIViewController(context: Context) -> UIViewController {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            let host = UIViewController()
+            host.view.backgroundColor = .black
+            DispatchQueue.main.async {
+                context.coordinator.handleUnavailable()
+            }
+            return host
+        }
+
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.allowsEditing = false
+        picker.mediaTypes = ["public.image"]
+        picker.sourceType = .camera
+        return picker
     }
 
-    func updateUIViewController(_ uiViewController: CameraHostController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -319,58 +360,22 @@ struct CameraPicker: UIViewControllerRepresentable {
         let parent: CameraPicker
         init(_ parent: CameraPicker) { self.parent = parent }
 
+        func handleUnavailable() {
+            parent.onUnavailable()
+            parent.dismiss()
+        }
+
         func imagePickerController(_ picker: UIImagePickerController,
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
                 parent.onImage(image)
             }
-            picker.dismiss(animated: false) {
-                self.parent.dismiss()
-            }
+            parent.dismiss()
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            picker.dismiss(animated: false) {
-                self.parent.dismiss()
-            }
+            parent.dismiss()
         }
-    }
-}
-
-final class CameraHostController: UIViewController {
-    weak var coordinator: CameraPicker.Coordinator?
-    private var didPresent = false
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .black
-    }
-
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        guard !didPresent else { return }
-        didPresent = true
-        presentPicker()
-    }
-
-    private func presentPicker() {
-        let picker = UIImagePickerController()
-        picker.delegate = coordinator
-        picker.allowsEditing = false
-        picker.modalPresentationStyle = .fullScreen
-
-        if UIImagePickerController.isSourceTypeAvailable(.camera),
-           AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
-            picker.sourceType = .camera
-            if UIImagePickerController.isCameraDeviceAvailable(.rear) {
-                picker.cameraDevice = .rear
-            }
-            // Leave capture mode at default (.photo). Forcing cameraCaptureMode has crashed on some iPads.
-            picker.showsCameraControls = true
-        } else {
-            picker.sourceType = .photoLibrary
-        }
-        present(picker, animated: true)
     }
 }
 

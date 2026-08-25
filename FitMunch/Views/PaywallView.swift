@@ -45,6 +45,7 @@ struct PaywallView: View {
                 }
             }
             .alert("Error", isPresented: $showErrorAlert) {
+                Button("Continue on the web") { openWebPremium() }
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(alertError)
@@ -68,9 +69,13 @@ struct PaywallView: View {
                 .font(.headline)
                 .foregroundColor(.orange)
 
-            Text("RevenueCat is not configured yet. Add your public SDK key to REVENUECAT_API_KEY in Info.plist to load live subscription plans.")
+            Text("In-app plans are not configured. You can start Premium on the web instead.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
+            Button("Continue on the web") {
+                openWebPremium()
+            }
+            .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
@@ -130,11 +135,22 @@ struct PaywallView: View {
         } else if isLoadingPackages {
             ProgressView("Loading plans…").padding()
         } else {
-            Text("Subscription plans will appear here when StoreKit products are available. You can still close this screen.")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+            VStack(spacing: 14) {
+                Text("Premium plans did not load from the App Store.")
+                    .font(.subheadline.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                Text(alertError.isEmpty
+                     ? "You can still start Premium on the web. fitmunch.com.au is the live pay path."
+                     : alertError)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Continue on the web") {
+                    openWebPremium()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal)
         }
     }
 
@@ -144,7 +160,14 @@ struct PaywallView: View {
             Button {
                 Task {
                     let success = await premiumManager.purchase(package: pkg)
-                    if success { dismiss() }
+                    if success {
+                        dismiss()
+                    } else {
+                        alertError = premiumManager.errorMessage?.isEmpty == false
+                            ? premiumManager.errorMessage!
+                            : "Purchase did not complete. Try again, or continue on the web."
+                        showErrorAlert = true
+                    }
                 }
             } label: {
                 if premiumManager.isLoading {
@@ -214,9 +237,25 @@ struct PaywallView: View {
         defer { isLoadingPackages = false }
         packages = await premiumManager.getPackages()
         selectedPackage = packages.first
-        if packages.isEmpty, let err = premiumManager.errorMessage, !err.isEmpty {
-            alertError = err
+        if packages.isEmpty {
+            alertError = premiumManager.errorMessage ?? "App Store plans are not available right now. Continue on fitmunch.com.au to start Premium."
             showErrorAlert = true
+        }
+    }
+
+    private func openWebPremium() {
+        guard let url = Constants.premiumWebURL else {
+            alertError = "Could not open the Premium page. Visit www.fitmunch.com.au in Safari."
+            showErrorAlert = true
+            return
+        }
+        UIApplication.shared.open(url) { success in
+            if !success {
+                DispatchQueue.main.async {
+                    alertError = "Could not open the Premium page. Visit www.fitmunch.com.au in Safari."
+                    showErrorAlert = true
+                }
+            }
         }
     }
 }

@@ -99,7 +99,7 @@ struct CoachView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showPaywall) {
+            .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
         }
