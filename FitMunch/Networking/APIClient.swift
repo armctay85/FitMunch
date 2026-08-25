@@ -81,6 +81,14 @@ struct APIUser: Decodable {
     let email: String
     let subscriptionTier: String?
     let role: String?
+
+    init(id: String, name: String, email: String, subscriptionTier: String?, role: String?) {
+        self.id = id
+        self.name = name
+        self.email = email
+        self.subscriptionTier = subscriptionTier
+        self.role = role
+    }
 }
 
 struct AuthResponse: Decodable {

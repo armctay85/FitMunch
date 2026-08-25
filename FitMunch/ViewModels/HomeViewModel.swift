@@ -21,6 +21,7 @@ class HomeViewModel: ObservableObject {
     /// Initialize with model context
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
         loadMealsForSelectedDate()
     }
     

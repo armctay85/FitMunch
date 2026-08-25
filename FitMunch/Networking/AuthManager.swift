@@ -18,10 +18,28 @@ final class AuthManager: ObservableObject {
         (user?.subscriptionTier ?? "free") != "free"
     }
 
-    private init() {}
+    private init() {
+        if ScreenshotLaunch.isActive {
+            ScreenshotLaunch.prepareSession()
+            user = APIUser(
+                id: "screenshot-user",
+                name: "Alex Chen",
+                email: "alex@fitmunch.com.au",
+                subscriptionTier: "premium",
+                role: "client"
+            )
+            isAuthenticated = true
+            isRestoring = false
+        }
+    }
 
     /// Restore the session on launch.
     func bootstrap() async {
+        if ScreenshotLaunch.isActive {
+            isRestoring = false
+            isAuthenticated = true
+            return
+        }
         defer { isRestoring = false }
         guard KeychainStore.token != nil else { return }
         do {

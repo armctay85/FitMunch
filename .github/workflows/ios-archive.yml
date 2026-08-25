@@ -67,6 +67,8 @@ jobs:
       env:
         PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
       run: |
+        # Source of truth is project.yml (PR #7, build 6). A stale override
+        # of the previous build number re-uploads a duplicate and ASC rejects it.
         xcodebuild clean archive \
           -project FitMunch.xcodeproj \
           -scheme FitMunch \
@@ -77,10 +79,15 @@ jobs:
           PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
           DEVELOPMENT_TEAM=48SW62N9BZ \
           MARKETING_VERSION=1.0 \
-          CURRENT_PROJECT_VERSION=5 \
+          CURRENT_PROJECT_VERSION=6 \
           VERSIONING_SYSTEM="Apple Generic"
-        /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
-          "$RUNNER_TEMP/FitMunch.xcarchive/Products/Applications/FitMunch.app/Info.plist"
+        VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
+          "$RUNNER_TEMP/FitMunch.xcarchive/Products/Applications/FitMunch.app/Info.plist")
+        echo "Archived CFBundleVersion=$VERSION"
+        if [ "$VERSION" != "6" ]; then
+          echo "Refusing to export: archive is build $VERSION, expected 6"
+          exit 1
+        fi
 
     - name: Export IPA
       run: |

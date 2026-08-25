@@ -22,24 +22,28 @@ struct ContentView: View {
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
+                .accessibilityIdentifier("tab-home")
                 .tag(0)
             
             CoachView()
                 .tabItem {
                     Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill")
                 }
+                .accessibilityIdentifier("tab-coach")
                 .tag(1)
             
             ReceiptScanView()
                 .tabItem {
                     Label("Scan", systemImage: "camera.viewfinder")
                 }
+                .accessibilityIdentifier("tab-scan")
                 .tag(2)
 
             MealPlanView()
                 .tabItem {
                     Label("Meals", systemImage: "fork.knife")
                 }
+                .accessibilityIdentifier("tab-plan")
                 .tag(3)
 
             WorkoutView()
@@ -58,9 +62,13 @@ struct ContentView: View {
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
+                .accessibilityIdentifier("tab-settings")
                 .tag(6)
         }
         .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
+        .onAppear {
+            ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
+        }
     }
 }
 

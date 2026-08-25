@@ -1,3 +1,6 @@
+artifacts/
+.derived-screenshots/
+
 node_modules/
 .env
 .env.*

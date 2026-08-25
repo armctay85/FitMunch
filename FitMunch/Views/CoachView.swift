@@ -102,6 +102,11 @@ struct CoachView: View {
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .onAppear {
+                if ScreenshotLaunch.isActive && messages.isEmpty {
+                    messages = ScreenshotLaunch.coachMessages()
+                }
+            }
         }
     }
 

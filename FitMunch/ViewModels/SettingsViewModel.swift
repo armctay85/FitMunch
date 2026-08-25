@@ -64,6 +64,7 @@ class SettingsViewModel: ObservableObject {
     
     /// Request notification permission
     private func requestNotificationPermission() {
+        if ScreenshotLaunch.isActive { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             DispatchQueue.main.async {
                 if let error = error {
