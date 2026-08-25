@@ -222,7 +222,9 @@
 <script>
  const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
- if (plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro') {
+ const paidPlan = plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
+ const registerLabel = plan === 'premium' ? 'Start Premium trial' : 'Create Free Account';
+ if (paidPlan) {
   const banner = document.getElementById('premium-intent');
   if (banner) {
     banner.style.display = 'block';
@@ -231,6 +233,8 @@
       banner.querySelectorAll('div')[1].textContent = 'Create your account, then Stripe opens for a 14-day trial. Card on file. Cancel before the trial ends and you are not charged.';
     }
   }
+  const regBtn = document.getElementById('register-btn');
+  if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
  } else {
   const freeBanner = document.getElementById('free-intent');
   if (freeBanner) freeBanner.style.display = 'block';
@@ -268,27 +272,40 @@
  if (existingToken) {
  fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
  .then(parseApiJson)
- .then(d => { if (d.success) redirectAfterAuth(existingToken); })
+ .then(async d => {
+   if (!d.success) return;
+   try {
+     await redirectAfterAuth(existingToken);
+   } catch (error) {
+     showError(plan ? 'register-error' : 'login-error', error.message || 'Could not open Stripe checkout.');
+   }
+ })
  .catch(() => {});
  }
 
  async function redirectAfterAuth(token) {
- if (plan) {
+ if (!plan) {
+ window.location.href = '/app.html';
+ return;
+ }
  // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
  // Server normalizeCheckoutPlan owns PT vs consumer mapping.
  // Never force pt-* aliases here — that 403s consumer Premium/starter/pro funnels.
  const checkoutPlan = plan;
- try {
  const r = await fetch('/api/checkout', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
  body: JSON.stringify({ plan: checkoutPlan })
  });
  const d = await parseApiJson(r);
- if (d.url) { window.location.href = d.url; return; }
- } catch {}
- }
+ if (d.alreadySubscribed) {
  window.location.href = '/app.html';
+ return;
+ }
+ if (!d.url) {
+ throw new Error(d.error || 'Checkout did not return a Stripe card form URL.');
+ }
+ window.location.href = d.url;
  }
 
  function showTab(tab) {
@@ -358,7 +375,7 @@
  btn.disabled = loading;
  btn.innerHTML = loading
  ? '<span class="spinner"></span>Please wait...'
- : (btnId === 'login-btn' ? 'Sign In' : 'Create Free Account');
+ : (btnId === 'login-btn' ? 'Sign In' : registerLabel);
  }
 
  function showError(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
@@ -397,8 +414,8 @@
  if (!data.success) { showError('login-error', data.error || 'Login failed.'); return; }
  localStorage.setItem('fm_token', data.token);
  localStorage.setItem('fm_user', JSON.stringify(data.user));
- showSuccess('login-success', plan ? 'Logged in! Setting up your trial...' : 'Logged in! Redirecting...');
- setTimeout(() => redirectAfterAuth(data.token), 600);
+ showSuccess('login-success', plan ? 'Logged in! Opening Stripe checkout...' : 'Logged in! Redirecting...');
+ await redirectAfterAuth(data.token);
  } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
  finally { setLoading('login-btn', false); }
  }
@@ -420,8 +437,8 @@
  if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
  localStorage.setItem('fm_token', data.token);
  localStorage.setItem('fm_user', JSON.stringify(data.user));
- showSuccess('register-success', plan ? 'Account created! Starting your 14-day trial...' : 'Account created! Redirecting...');
- setTimeout(() => redirectAfterAuth(data.token), 600);
+ showSuccess('register-success', plan ? 'Account created! Opening Stripe checkout...' : 'Account created! Redirecting...');
+ await redirectAfterAuth(data.token);
  } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
  finally { setLoading('register-btn', false); }
  }

@@ -86,9 +86,13 @@ describe('Trust bar 3: funnel is not a public analytics UI', () => {
 
 describe('Trust bar 4: one Stripe trial story', () => {
   it('live checkout code is a 14-day trial with card collection always', () => {
-    const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    const src = fs.readFileSync(path.join(__dirname, 'lib/fitmunch-checkout.js'), 'utf8');
     expect(src).toContain("payment_method_collection: 'always'");
     expect(src).toContain('trial_period_days: 14');
+    expect(src).toContain('adaptive_pricing: { enabled: false }');
+    expect(src).toContain("display_name: FITMUNCH_CHECKOUT_BRAND");
+    expect(src).toContain("FITMUNCH_CHECKOUT_BRAND = 'FitMunch'");
+    expect(src).not.toMatch(/Wipper|wipper|client hub/i);
     expect(src).not.toMatch(/trial_period_days:\s*(7|21|30)/);
   });
 
@@ -186,7 +190,7 @@ describe('Trust bar 8: Start free does not force Premium Stripe', () => {
     expect(login.text).toContain('id="free-intent"');
     expect(login.text).toContain('This creates a free account. No card and no Stripe checkout');
     expect(login.text).toContain('Create Free Account');
-    expect(login.text).toMatch(/if \(plan\) \{[\s\S]*\/api\/checkout/);
+    expect(login.text).toMatch(/if \(!plan\) \{[\s\S]*\/api\/checkout/);
   });
 });
 

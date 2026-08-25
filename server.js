@@ -60,8 +60,9 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.stripe.com"],
-      frameSrc: ["'self'", "https://js.stripe.com"],
+      connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://checkout.stripe.com"],
+      formAction: ["'self'", "https://checkout.stripe.com"],
       frameAncestors: ["'self'"], // Allow Replit preview
       scriptSrcAttr: ["'unsafe-inline'"], // Allow onclick="" handlers (app uses inline event handlers throughout)
     },
@@ -409,41 +410,16 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
   }
 });
 
-// ── CLEAN CHECKOUT ENDPOINT (JWT-authenticated, 14-day trial) ──────────────────
-const PRICE_IDS = {
-  'pt-starter': 'price_1T3SvgGMuYRuJYDrOyR2hYoq', // FitMunch PT Starter $59.99 AUD/mo
-  'pt-pro':     'price_1T3SyDGMuYRuJYDrF8mvMrwi', // FitMunch PT Pro     $99.00 AUD/mo
-  'premium':    'price_1ToYrXGMuYRuJYDrwHtvWD1c', // FitMunch Premium    $19.99 AUD/mo (consumer)
-};
-
-// Maps a Stripe price back to the subscription tier stored on the user.
-const PRICE_TO_TIER = {
-  'price_1T3SvgGMuYRuJYDrOyR2hYoq': 'starter',
-  'price_1T3SyDGMuYRuJYDrF8mvMrwi': 'pro',
-  'price_1ToYrXGMuYRuJYDrwHtvWD1c': 'premium',
-};
-
-function subscriptionTierUpdateFromStripe(sub) {
-  const priceId = sub.items?.data[0]?.price?.id;
-  const active = ['active', 'trialing'].includes(sub.status);
-  if (!active) return { tier: 'free', expiresAt: null };
-
-  const periodEnd = sub.current_period_end || sub.items?.data[0]?.current_period_end;
-  return {
-    tier: PRICE_TO_TIER[priceId] || 'starter',
-    expiresAt: periodEnd ? new Date(periodEnd * 1000) : null,
-  };
-}
-
-function normalizeCheckoutPlan(plan, role) {
-  if (plan === 'pt-starter' || plan === 'pt-pro' || plan === 'premium') return plan;
-  if (role === 'pt' && plan === 'starter') return 'pt-starter';
-  if (role === 'pt' && plan === 'pro') return 'pt-pro';
-  // Consumers upgrading from the app always land on premium — never silently remap PT aliases.
-  if (role !== 'pt' && plan === 'premium') return 'premium';
-  if (role !== 'pt' && ['starter', 'pro'].includes(plan)) return 'premium';
-  return plan;
-}
+const {
+  PRICE_IDS,
+  PRICE_TO_TIER,
+  jwtSecret,
+  checkoutOrigin,
+  normalizeCheckoutPlan,
+  subscriptionTierUpdateFromStripe,
+  buildSubscriptionCheckoutParams,
+  createFitMunchCheckoutSession,
+} = require('./lib/fitmunch-checkout');
 
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
 app.post('/api/quick-checkout', async (req, res) => {
@@ -457,23 +433,19 @@ app.post('/api/quick-checkout', async (req, res) => {
 
     const priceId = PRICE_IDS[plan];
     if (!priceId) {
-      return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use pt-starter or pt-pro.` });
+      return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use premium, pt-starter, or pt-pro.` });
     }
 
     // Create Stripe customer
     const customer = await stripe.customers.create({ email });
 
-    // Create checkout session with 14-day trial
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      customer: customer.id,
-      line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: { trial_period_days: 14 },
-      success_url: `${req.protocol}://${req.get('host')}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.protocol}://${req.get('host')}/pricing`,
-      metadata: { plan, email }
-    });
+    const session = await createFitMunchCheckoutSession(stripe, buildSubscriptionCheckoutParams({
+      customerId: customer.id,
+      priceId,
+      origin: checkoutOrigin(req),
+      plan,
+      email,
+    }));
 
     return res.json({ success: true, url: session.url, id: session.id });
   } catch (error) {
@@ -492,7 +464,7 @@ app.post('/api/checkout', async (req, res) => {
       return res.status(401).json({ error: 'Authentication required.' });
 
     const jwtLib = require('jsonwebtoken');
-    const decoded = jwtLib.verify(authHeader.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key');
+    const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
 
     const requestedPlan = typeof req.body?.plan === 'string' ? req.body.plan : null;
     if (!requestedPlan) {
@@ -578,24 +550,19 @@ app.post('/api/checkout', async (req, res) => {
       });
     }
 
-    const origin = req.headers.origin || 'https://fitmunch.com.au';
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      // Cash sprint: collect card up front so trials can convert.
-      // Users still get 14 days free; cancel anytime before trial ends.
-      payment_method_collection: 'always',
-      subscription_data: {
-        trial_period_days: 14,
-      },
-      success_url: `${origin}/app.html?subscribed=1`,
-      cancel_url:  `${origin}/app.html?cancelled=1`,
-      allow_promotion_codes: true,
-    });
+    const session = await createFitMunchCheckoutSession(stripe, buildSubscriptionCheckoutParams({
+      customerId,
+      priceId,
+      origin: checkoutOrigin(req),
+      plan,
+      email: user.email,
+    }));
 
-    res.json({ url: session.url });
+    res.json({ url: session.url, id: session.id });
   } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
     console.error('Checkout error:', err.message);
     res.status(500).json({ error: 'Checkout failed: ' + err.message });
   }
@@ -613,7 +580,7 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     if (!authHeader?.startsWith('Bearer '))
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     const jwtLib = require('jsonwebtoken');
-    const decoded = jwtLib.verify(authHeader.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key');
+    const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
 
     const { getUserById, updateUserSubscription } = require('./server/storage.js');
     const user = await getUserById(decoded.userId);
@@ -778,8 +745,7 @@ app.use((req, res, next) => {
     try {
       const jwt = require('jsonwebtoken');
       const token = authHeader.slice(7);
-      const secret = process.env.JWT_SECRET || 'fitmunch-secret-key';
-      const decoded = jwt.verify(token, secret);
+      const decoded = jwt.verify(token, jwtSecret());
       req.user = { id: decoded.userId, name: decoded.name };
     } catch (e) {
       req.user = null;
@@ -845,5 +811,14 @@ if (require.main === module) {
   });
 }
 
+function setStripeForTests(next) {
+  stripe = next;
+}
+
 module.exports = app;
-module.exports._private = { subscriptionTierUpdateFromStripe };
+module.exports._private = {
+  subscriptionTierUpdateFromStripe,
+  setStripeForTests,
+  PRICE_IDS,
+  jwtSecret,
+};

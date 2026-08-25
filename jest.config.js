@@ -8,6 +8,7 @@ module.exports = {
     '**/test_fm_identity.js',
     '**/test_server_api.js',
     '**/test_trust_bar.js',
+    '**/test_pay_path.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
   ],
