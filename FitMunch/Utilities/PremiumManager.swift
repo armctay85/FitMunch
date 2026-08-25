@@ -12,6 +12,10 @@ class PremiumManager: ObservableObject {
     static let shared = PremiumManager()
     
     private init() {
+        if ScreenshotLaunch.isActive {
+            isPremium = true
+            return
+        }
         configureRevenueCat()
     }
     

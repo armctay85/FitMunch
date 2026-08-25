@@ -4,6 +4,15 @@ options:
   deploymentTarget:
     iOS: "17.0"
 
+schemes:
+  FitMunch:
+    build:
+      targets:
+        FitMunch: all
+        FitMunchUITests: [test]
+    test:
+      targets:
+        - FitMunchUITests
 
 targets:
   FitMunch:
@@ -36,3 +45,19 @@ targets:
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
+
+  FitMunchUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: FitMunchUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        TEST_TARGET_NAME: FitMunch
+    dependencies:
+      - target: FitMunch

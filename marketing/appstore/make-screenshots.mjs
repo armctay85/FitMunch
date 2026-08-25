@@ -1,6 +1,8 @@
 /**
- * Render iOS-style App Store screenshots (1290x2796) from local frames.
- * No price / "free" copy. Distinct app-in-use screens for ASC 2.3.3 / 2.3.7.
+ * HTML mockups only. Do NOT use these PNGs as App Store screenshots.
+ * Guideline 2.3.3 rejected this path (frames are not the SwiftUI app, and
+ * they still contain a "$60" coach line). Real store art is captured by
+ * FitMunchUITests on the macos-26 runner: scripts/capture-appstore-screenshots.sh
  */
 import { chromium } from 'playwright';
 import sharp from 'sharp';

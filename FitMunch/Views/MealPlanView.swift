@@ -37,7 +37,7 @@ struct MealPlanView: View {
                         HStack {
                             labeledField("Calories", text: $calories)
                             labeledField("Protein g", text: $protein)
-                            labeledField("Budget $", text: $budget)
+                            labeledField(ScreenshotLaunch.isActive ? "Shop budget" : "Budget $", text: $budget)
                         }
 
                         Button {
@@ -76,7 +76,9 @@ struct MealPlanView: View {
                             HStack(spacing: 16) {
                                 if let c = plan.avgDailyCalories { metric("Avg kcal", "\(c)") }
                                 if let p = plan.avgDailyProtein { metric("Avg protein", "\(p)g") }
-                                if let b = plan.weeklyBudgetEst { metric("Est. shop", "$\(b)") }
+                                if let b = plan.weeklyBudgetEst, !ScreenshotLaunch.isActive {
+                                    metric("Est. shop", "$\(b)")
+                                }
                             }
                         }
 
@@ -106,6 +108,11 @@ struct MealPlanView: View {
             .navigationTitle("Meal Plan")
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
+            }
+            .onAppear {
+                if ScreenshotLaunch.isActive && plan == nil {
+                    plan = ScreenshotLaunch.mealPlan()
+                }
             }
         }
     }

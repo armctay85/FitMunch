@@ -15,7 +15,10 @@ struct FitMunchApp: App {
             FoodItem.self,
             WorkoutLog.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: ScreenshotLaunch.isActive
+        )
         
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
