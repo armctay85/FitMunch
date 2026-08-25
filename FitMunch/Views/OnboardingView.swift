@@ -100,7 +100,7 @@ struct OnboardingView: View {
                     Text(error)
                 }
             }
-            .sheet(isPresented: $showPaywall) {
+            .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
         }

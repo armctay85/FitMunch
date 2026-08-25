@@ -104,7 +104,7 @@ struct MealPlanView: View {
                 .padding()
             }
             .navigationTitle("Meal Plan")
-            .sheet(isPresented: $showPaywall) {
+            .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
         }

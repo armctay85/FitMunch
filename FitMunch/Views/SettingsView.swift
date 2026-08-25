@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
+    @EnvironmentObject private var premium: PremiumManager
     
     var body: some View {
         NavigationStack {
@@ -30,23 +31,25 @@ struct SettingsView: View {
                         
                         Spacer()
                         
-                        Text(viewModel.subscriptionStatus)
+                        Text(premium.isPremium ? "Premium Subscriber" : "Free Tier")
                             .font(.caption)
                             .fontWeight(.semibold)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(viewModel.subscriptionStatusColor.opacity(0.2))
-                            .foregroundColor(viewModel.subscriptionStatusColor)
+                            .background((premium.isPremium ? Color.green : Color.orange).opacity(0.2))
+                            .foregroundColor(premium.isPremium ? .green : .orange)
                             .cornerRadius(4)
                     }
                     .padding(.vertical, 8)
 
-                    // Dedicated List row so taps work on iPad (nested button in HStack was dead for App Review).
-                    if !viewModel.isSubscribed {
+                    // Dedicated full-width List row. Nested buttons inside the profile HStack were untappable on iPad.
+                    if !premium.isPremium {
                         Button {
                             showPaywall = true
                         } label: {
                             Label("Upgrade", systemImage: "crown.fill")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
                     }
@@ -74,7 +77,7 @@ struct SettingsView: View {
                 
                 // Subscription section
                 Section("Subscription") {
-                    if viewModel.isSubscribed {
+                    if premium.isPremium {
                         HStack {
                             Text("Status")
                             Spacer()
@@ -84,7 +87,6 @@ struct SettingsView: View {
                         }
                         
                         Button("Manage Subscription") {
-                            // This would open App Store subscription management
                             if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
                                 UIApplication.shared.open(url)
                             }
@@ -95,6 +97,8 @@ struct SettingsView: View {
                             showPaywall = true
                         } label: {
                             Label("Upgrade to Premium", systemImage: "crown.fill")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
                         .foregroundColor(.blue)
@@ -140,7 +144,7 @@ struct SettingsView: View {
                         // Premium history export lives on History tab for now.
                     }
                     .foregroundColor(.blue)
-                    .disabled(!viewModel.isSubscribed)
+                    .disabled(!premium.isPremium)
                     
                     Button("Reset Data", role: .destructive) {
                         showResetAlert = true
@@ -220,7 +224,7 @@ struct SettingsView: View {
                     Task { _ = await auth.deleteAccount() }
                 }
             } message: {
-                Text("This permanently deletes your FitMunch account and all data — meals, plans, progress and subscriptions — on all devices. This cannot be undone.")
+                Text("This permanently deletes your FitMunch account and all data (meals, plans, progress and subscriptions) on all devices. This cannot be undone.")
             }
             .alert("Reset Data", isPresented: $showResetAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -233,7 +237,7 @@ struct SettingsView: View {
             .navigationDestination(isPresented: $navigateToOnboarding) {
                 OnboardingView()
             }
-            .sheet(isPresented: $showPaywall) {
+            .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
         }
@@ -268,4 +272,6 @@ private struct SettingsRow: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(AuthManager.shared)
+        .environmentObject(PremiumManager.shared)
 }

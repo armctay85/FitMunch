@@ -48,7 +48,7 @@ struct HomeView: View {
             .sheet(isPresented: $showLogMeal) {
                 DetailView(modelContext: modelContext)
             }
-            .sheet(isPresented: $showPaywall) {
+            .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
             .overlay {

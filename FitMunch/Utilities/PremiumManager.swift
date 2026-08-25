@@ -53,6 +53,11 @@ class PremiumManager: ObservableObject {
     
     /// Purchase a subscription package
     func purchase(package: Package) async -> Bool {
+        guard Constants.isRevenueCatConfigured else {
+            errorMessage = "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
+            return false
+        }
+
         isLoading = true
         defer { isLoading = false }
         
@@ -77,6 +82,11 @@ class PremiumManager: ObservableObject {
     
     /// Restore previous purchases
     func restorePurchases() async -> Bool {
+        guard Constants.isRevenueCatConfigured else {
+            errorMessage = "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
+            return false
+        }
+
         isLoading = true
         defer { isLoading = false }
         
@@ -94,14 +104,20 @@ class PremiumManager: ObservableObject {
     
     /// Get available subscription packages
     func getPackages() async -> [Package] {
+        guard Constants.isRevenueCatConfigured else {
+            errorMessage = "In-app plans are not configured. Continue on fitmunch.com.au to start Premium."
+            return []
+        }
         do {
             let offerings = try await Purchases.shared.offerings()
-            guard let offering = offerings.current else {
+            guard let offering = offerings.current, !offering.availablePackages.isEmpty else {
+                errorMessage = "App Store plans are not available right now. Continue on fitmunch.com.au to start Premium."
                 return []
             }
+            errorMessage = nil
             return offering.availablePackages
         } catch {
-            errorMessage = "Failed to load packages: \(error.localizedDescription)"
+            errorMessage = "Could not load plans: \(error.localizedDescription)"
             print("Offerings error: \(error)")
             return []
         }

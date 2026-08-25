@@ -3,6 +3,8 @@
  * A new person clicks pricing, creates an account, and must reach a real
  * Stripe Checkout session: AUD $19.99/mo, 14-day trial, card on file.
  */
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('./server.js');
@@ -276,5 +278,40 @@ describe('POST /api/checkout pay path', () => {
     expect(created[0].params.metadata.plan).toBe('premium');
     expect(JSON.stringify(created[0].params)).not.toMatch(/Wipper|wipper|Develoop/i);
     expect(mockStripe.rawRequest.mock.calls[0][3]).toEqual({ apiVersion: '2026-03-25.dahlia' });
+  });
+});
+
+describe('iOS ASC review blockers (source contract)', () => {
+  const scan = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/ReceiptScanView.swift'), 'utf8');
+  const settings = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/SettingsView.swift'), 'utf8');
+  const paywall = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/PaywallView.swift'), 'utf8');
+  const constants = fs.readFileSync(path.join(__dirname, 'FitMunch/Utilities/Constants.swift'), 'utf8');
+  const premium = fs.readFileSync(path.join(__dirname, 'FitMunch/Utilities/PremiumManager.swift'), 'utf8');
+
+  it('Take a photo does not nest UIImagePickerController or fall back to photoLibrary', () => {
+    expect(scan).toContain('openCameraSafely');
+    expect(scan).toContain('isSourceTypeAvailable(.camera)');
+    expect(scan).toContain('presentCameraFallback');
+    expect(scan).toContain('photosPicker(isPresented: $showLibraryPicker');
+    expect(scan).not.toMatch(/picker\.sourceType\s*=\s*\.photoLibrary/);
+    expect(scan).not.toContain('CameraHostController');
+    expect(scan).not.toContain('picker.cameraDevice');
+  });
+
+  it('Upgrade opens a full-screen paywall, not a dead iPad sheet tap', () => {
+    expect(settings).toContain('Label("Upgrade"');
+    expect(settings).toContain('Label("Upgrade to Premium"');
+    expect(settings).toContain('.fullScreenCover(isPresented: $showPaywall)');
+    expect(settings).toContain('.contentShape(Rectangle())');
+    expect(settings).not.toMatch(/\.sheet\(isPresented: \$showPaywall\)/);
+  });
+
+  it('empty StoreKit offerings surface an error and the live web Premium path', () => {
+    expect(constants).toContain('login.html?plan=premium');
+    expect(constants).toContain('www.fitmunch.com.au');
+    expect(premium).toContain('App Store plans are not available right now');
+    expect(paywall).toContain('Continue on the web');
+    expect(paywall).toContain('openWebPremium');
+    expect(paywall).toContain('Constants.premiumWebURL');
   });
 });
