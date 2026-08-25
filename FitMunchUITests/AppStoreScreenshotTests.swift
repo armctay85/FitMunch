@@ -109,15 +109,22 @@ final class AppStoreScreenshotTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        let dir = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"]
-            ?? "/tmp/fitmunch-appstore-screenshots"
-        let folder = URL(fileURLWithPath: dir, isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let url = folder.appendingPathComponent("\(name).png")
-        do {
-            try screenshot.pngRepresentation.write(to: url)
-        } catch {
-            XCTFail("Failed to write \(url.path): \(error)")
+        // Always write a known path. TEST_RUNNER_* env does not always reach XCTest on GHA.
+        let dirs = [
+            "/tmp/fitmunch-appstore-screenshots",
+            ProcessInfo.processInfo.environment["SCREENSHOT_DIR"],
+        ].compactMap { $0 }.filter { !$0.isEmpty }
+
+        for dir in dirs {
+            let folder = URL(fileURLWithPath: dir, isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                let url = folder.appendingPathComponent("\(name).png")
+                try screenshot.pngRepresentation.write(to: url)
+                print("Wrote \(url.path)")
+            } catch {
+                XCTFail("Failed to write \(name).png to \(dir): \(error)")
+            }
         }
     }
 }

@@ -108,15 +108,22 @@ run_capture() {
   prepare_sim "$udid"
 
   echo "Capturing on $udid -> $folder (${expected_w}x${expected_h})"
+  rm -rf /tmp/fitmunch-appstore-screenshots
+  mkdir -p /tmp/fitmunch-appstore-screenshots
   xcodebuild test \
     -project FitMunch.xcodeproj \
     -scheme FitMunch \
     -destination "platform=iOS Simulator,id=$udid" \
     -only-testing:FitMunchUITests/AppStoreScreenshotTests \
+    -resultBundlePath "$folder/Test.xcresult" \
     CODE_SIGNING_ALLOWED=NO \
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY=- \
     TEST_RUNNER_SCREENSHOT_DIR="$folder"
+  if [[ ! -f "$folder/home.png" && -f /tmp/fitmunch-appstore-screenshots/home.png ]]; then
+    echo "Copying PNGs from /tmp/fitmunch-appstore-screenshots"
+    cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
+  fi
 
   verify_pngs "$folder" "$expected_w" "$expected_h"
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
