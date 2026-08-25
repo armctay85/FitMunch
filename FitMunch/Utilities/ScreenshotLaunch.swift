@@ -20,6 +20,9 @@ enum ScreenshotLaunch {
         UserDefaults.standard.set("Alex Chen", forKey: "userDisplayName")
         UserDefaults.standard.set("alex@fitmunch.com.au", forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "useMetricUnits")
+        // Match SettingsViewModel's initial toggle so loadPreferences does not
+        // flip Notifications and present the system permission alert.
+        UserDefaults.standard.set(true, forKey: "notificationsEnabled")
         UIView.setAnimationsEnabled(false)
     }
 

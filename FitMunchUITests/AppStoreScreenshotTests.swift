@@ -24,6 +24,7 @@ final class AppStoreScreenshotTests: XCTestCase {
 
         for screen in screens {
             openTab(screen.tab)
+            dismissSystemAlerts()
             XCTAssertTrue(
                 app.navigationBars[screen.proof].waitForExistence(timeout: 8)
                     || app.staticTexts[screen.proof].waitForExistence(timeout: 2),
@@ -54,6 +55,18 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertFalse(app.buttons["Upgrade to Premium"].exists)
         default:
             break
+        }
+    }
+
+    private func dismissSystemAlerts() {
+        let alert = app.alerts.firstMatch
+        guard alert.waitForExistence(timeout: 1) else { return }
+        for title in ["Don’t Allow", "Don't Allow", "Allow", "OK"] {
+            let button = alert.buttons[title]
+            if button.exists {
+                button.tap()
+                return
+            }
         }
     }
 
