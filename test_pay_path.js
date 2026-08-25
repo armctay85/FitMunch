@@ -11,9 +11,12 @@ const {
   FITMUNCH_CHECKOUT_BRAND,
   PREMIUM_PRICE_AUD_CENTS,
   TRIAL_PERIOD_DAYS,
+  STRIPE_CHECKOUT_API_VERSION,
+  STRIPE_CHECKOUT_LOCALE,
   jwtSecret,
   buildSubscriptionCheckoutParams,
   createFitMunchCheckoutSession,
+  honestyFailures,
   normalizeCheckoutPlan,
 } = require('./lib/fitmunch-checkout');
 
@@ -62,14 +65,18 @@ describe('Checkout session contract', () => {
     expect(params.adaptive_pricing).toEqual({ enabled: false });
     expect(params.branding_settings).toEqual({ display_name: 'FitMunch' });
     expect(params.branding_settings.display_name).toBe(FITMUNCH_CHECKOUT_BRAND);
+    expect(params.locale).toBe('en-GB');
+    expect(params.locale).not.toBe('en-AU');
+    expect(params.locale).toBe(STRIPE_CHECKOUT_LOCALE);
     expect(params.subscription_data.trial_period_days).toBe(TRIAL_PERIOD_DAYS);
     expect(params.metadata.plan).toBe('premium');
     expect(params.metadata.brand).toBe('FitMunch');
     expect(JSON.stringify(params)).not.toMatch(/Wipper|wipper|Develoop/i);
+    expect(JSON.stringify(params)).not.toContain('en-AU');
     expect(params.success_url).toBe('https://www.fitmunch.com.au/app.html?subscribed=1');
   });
 
-  it('retries without branding_settings if this Stripe API version rejects it', async () => {
+  it('creates the session with rawRequest + dahlia and never strips branding', async () => {
     const params = buildSubscriptionCheckoutParams({
       customerId: 'cus_test',
       priceId: PRICE_IDS.premium,
@@ -77,18 +84,73 @@ describe('Checkout session contract', () => {
       plan: 'premium',
       email: 'stranger@example.com',
     });
-    const create = jest.fn()
-      .mockRejectedValueOnce(Object.assign(new Error('Received unknown parameter: branding_settings'), { code: 'parameter_unknown' }))
-      .mockResolvedValueOnce({ id: 'cs_retry', url: 'https://checkout.stripe.com/c/pay/cs_retry' });
+    const rawRequest = jest.fn(async () => ({
+      id: 'cs_ok',
+      url: 'https://checkout.stripe.com/c/pay/cs_ok',
+      currency: 'aud',
+      locale: 'en-GB',
+      adaptive_pricing: { enabled: false },
+      branding_settings: { display_name: 'FitMunch' },
+    }));
 
-    const session = await createFitMunchCheckoutSession({
-      checkout: { sessions: { create } },
-    }, params);
+    const session = await createFitMunchCheckoutSession({ rawRequest }, params);
 
     expect(session.url).toContain('checkout.stripe.com');
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(create.mock.calls[1][0].branding_settings).toBeUndefined();
-    expect(create.mock.calls[1][0].adaptive_pricing).toEqual({ enabled: false });
+    expect(rawRequest).toHaveBeenCalledTimes(1);
+    expect(rawRequest.mock.calls[0][0]).toBe('POST');
+    expect(rawRequest.mock.calls[0][1]).toBe('/v1/checkout/sessions');
+    expect(rawRequest.mock.calls[0][2].branding_settings.display_name).toBe('FitMunch');
+    expect(rawRequest.mock.calls[0][2].adaptive_pricing).toEqual({ enabled: false });
+    expect(rawRequest.mock.calls[0][2].locale).toBe('en-GB');
+    expect(rawRequest.mock.calls[0][3]).toEqual({ apiVersion: STRIPE_CHECKOUT_API_VERSION });
+  });
+
+  it('expires and never returns a USD or Develoop session', async () => {
+    const params = buildSubscriptionCheckoutParams({
+      customerId: 'cus_test',
+      priceId: PRICE_IDS.premium,
+      origin: 'https://www.fitmunch.com.au',
+      plan: 'premium',
+      email: 'stranger@example.com',
+    });
+    const rawRequest = jest.fn(async (method, path) => {
+      if (path.endsWith('/expire')) return { status: 'expired' };
+      return {
+        id: 'cs_bad',
+        url: 'https://checkout.stripe.com/c/pay/cs_bad',
+        currency: 'usd',
+        amount_total: 1487,
+        adaptive_pricing: { enabled: true },
+        branding_settings: { display_name: 'Develoop' },
+      };
+    });
+
+    await expect(createFitMunchCheckoutSession({ rawRequest }, params)).rejects.toThrow(/FitMunch AUD/);
+    expect(rawRequest).toHaveBeenCalledWith(
+      'POST',
+      '/v1/checkout/sessions/cs_bad/expire',
+      {},
+      { apiVersion: STRIPE_CHECKOUT_API_VERSION }
+    );
+    expect(rawRequest.mock.calls[0][1]).toBe('/v1/checkout/sessions');
+  });
+
+  it('honestyFailures flags USD, Adaptive Pricing, and foreign brand', () => {
+    expect(honestyFailures({
+      id: 'cs_x',
+      url: 'https://checkout.stripe.com/c/pay/cs_x',
+      currency: 'usd',
+      adaptive_pricing: { enabled: true },
+      branding_settings: { display_name: 'Develoop' },
+    })).toEqual(expect.arrayContaining(['currency=usd', 'adaptive-on', 'brand=Develoop', 'foreign-brand']));
+    expect(honestyFailures({
+      id: 'cs_ok',
+      url: 'https://checkout.stripe.com/c/pay/cs_ok',
+      currency: 'aud',
+      locale: 'en-GB',
+      adaptive_pricing: { enabled: false },
+      branding_settings: { display_name: 'FitMunch' },
+    })).toEqual([]);
   });
 
   it('consumer starter/pro aliases still map to Premium, not PT prices', () => {
@@ -99,6 +161,18 @@ describe('Checkout session contract', () => {
   });
 });
 
+function honestSession(overrides = {}) {
+  return {
+    id: 'cs_pay_path',
+    url: 'https://checkout.stripe.com/c/pay/cs_pay_path',
+    currency: 'aud',
+    locale: 'en-GB',
+    adaptive_pricing: { enabled: false },
+    branding_settings: { display_name: 'FitMunch' },
+    ...overrides,
+  };
+}
+
 describe('POST /api/checkout pay path', () => {
   const created = [];
   const mockStripe = {
@@ -108,14 +182,13 @@ describe('POST /api/checkout pay path', () => {
     subscriptions: {
       list: jest.fn(async () => ({ data: [] })),
     },
-    checkout: {
-      sessions: {
-        create: jest.fn(async (params) => {
-          created.push(params);
-          return { id: 'cs_pay_path', url: 'https://checkout.stripe.com/c/pay/cs_pay_path' };
-        }),
-      },
-    },
+    rawRequest: jest.fn(async (method, path, params) => {
+      if (method === 'POST' && path === '/v1/checkout/sessions') {
+        created.push({ params });
+        return honestSession();
+      }
+      throw new Error('unexpected rawRequest ' + method + ' ' + path);
+    }),
   };
 
   const storage = require('./server/storage.js');
@@ -132,7 +205,7 @@ describe('POST /api/checkout pay path', () => {
 
   beforeEach(() => {
     created.length = 0;
-    mockStripe.checkout.sessions.create.mockClear();
+    mockStripe.rawRequest.mockClear();
     storage.getUserById = jest.fn(async (id) => ({
       id,
       email: 'stranger@example.com',
@@ -148,7 +221,7 @@ describe('POST /api/checkout pay path', () => {
       .send({ plan: 'premium' })
       .expect(401);
     expect(res.body.error).toMatch(/authentication required/i);
-    expect(mockStripe.checkout.sessions.create).not.toHaveBeenCalled();
+    expect(mockStripe.rawRequest).not.toHaveBeenCalled();
   });
 
   it('rejects a token signed with a drifted secret as 401, not a 500', async () => {
@@ -177,12 +250,14 @@ describe('POST /api/checkout pay path', () => {
     expect(res.body.url).toBe('https://checkout.stripe.com/c/pay/cs_pay_path');
     expect(res.body.id).toBe('cs_pay_path');
     expect(created).toHaveLength(1);
-    expect(created[0].adaptive_pricing).toEqual({ enabled: false });
-    expect(created[0].payment_method_collection).toBe('always');
-    expect(created[0].subscription_data.trial_period_days).toBe(14);
-    expect(created[0].branding_settings.display_name).toBe('FitMunch');
-    expect(created[0].line_items[0].price).toBe(PRICE_IDS.premium);
-    expect(created[0].metadata.plan).toBe('premium');
-    expect(JSON.stringify(created[0])).not.toMatch(/Wipper|wipper/i);
+    expect(created[0].params.adaptive_pricing).toEqual({ enabled: false });
+    expect(created[0].params.payment_method_collection).toBe('always');
+    expect(created[0].params.subscription_data.trial_period_days).toBe(14);
+    expect(created[0].params.branding_settings.display_name).toBe('FitMunch');
+    expect(created[0].params.locale).toBe('en-GB');
+    expect(created[0].params.line_items[0].price).toBe(PRICE_IDS.premium);
+    expect(created[0].params.metadata.plan).toBe('premium');
+    expect(JSON.stringify(created[0].params)).not.toMatch(/Wipper|wipper|Develoop/i);
+    expect(mockStripe.rawRequest.mock.calls[0][3]).toEqual({ apiVersion: '2026-03-25.dahlia' });
   });
 });

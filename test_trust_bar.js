@@ -93,6 +93,11 @@ describe('Trust bar 4: one Stripe trial story', () => {
     expect(src).toContain('adaptive_pricing: { enabled: false }');
     expect(src).toContain("display_name: FITMUNCH_CHECKOUT_BRAND");
     expect(src).toContain("FITMUNCH_CHECKOUT_BRAND = 'FitMunch'");
+    expect(src).toContain("STRIPE_CHECKOUT_API_VERSION = '2026-03-25.dahlia'");
+    expect(src).toContain("STRIPE_CHECKOUT_LOCALE = 'en-GB'");
+    expect(src).toMatch(/rawRequest\(\s*'POST',\s*'\/v1\/checkout\/sessions'/);
+    expect(src).not.toMatch(/locale:\s*['"]en-AU['"]/);
+    expect(src).not.toContain('delete retry.branding_settings');
     expect(src).not.toMatch(/client hub/i);
     expect(src).not.toMatch(/trial_period_days:\s*(7|21|30)/);
   });
