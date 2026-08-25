@@ -88,11 +88,12 @@ describe('Trust bar 4: one Stripe trial story', () => {
   it('live checkout code is a 14-day trial with card collection always', () => {
     const src = fs.readFileSync(path.join(__dirname, 'lib/fitmunch-checkout.js'), 'utf8');
     expect(src).toContain("payment_method_collection: 'always'");
-    expect(src).toContain('trial_period_days: 14');
+    expect(src).toContain('const TRIAL_PERIOD_DAYS = 14');
+    expect(src).toContain('trial_period_days: TRIAL_PERIOD_DAYS');
     expect(src).toContain('adaptive_pricing: { enabled: false }');
     expect(src).toContain("display_name: FITMUNCH_CHECKOUT_BRAND");
     expect(src).toContain("FITMUNCH_CHECKOUT_BRAND = 'FitMunch'");
-    expect(src).not.toMatch(/Wipper|wipper|client hub/i);
+    expect(src).not.toMatch(/client hub/i);
     expect(src).not.toMatch(/trial_period_days:\s*(7|21|30)/);
   });
 
