@@ -60,7 +60,9 @@ describe('Checkout session contract', () => {
     expect(PRICE_IDS.premium).toBe('price_1ToYrXGMuYRuJYDrwHtvWD1c');
     expect(PREMIUM_PRICE_AUD_CENTS).toBe(1999);
     expect(params.mode).toBe('subscription');
-    expect(params.line_items).toEqual([{ price: PRICE_IDS.premium, quantity: 1 }]);
+    expect(params.line_items).toEqual([{ price: 'price_1ToYrXGMuYRuJYDrwHtvWD1c', quantity: 1 }]);
+    expect(params.line_items[0].price_data).toBeUndefined();
+    expect(JSON.stringify(params)).not.toMatch(/price_data|prices\.create|products\.create/);
     expect(params.payment_method_collection).toBe('always');
     expect(params.adaptive_pricing).toEqual({ enabled: false });
     expect(params.branding_settings).toEqual({ display_name: 'FitMunch' });
@@ -151,6 +153,21 @@ describe('Checkout session contract', () => {
       adaptive_pricing: { enabled: false },
       branding_settings: { display_name: 'FitMunch' },
     })).toEqual([]);
+  });
+
+  it('refuses to create a session with a new Price or a non-catalog Price', async () => {
+    const rawRequest = jest.fn();
+    await expect(createFitMunchCheckoutSession({ rawRequest }, {
+      mode: 'subscription',
+      line_items: [{ price_data: { currency: 'aud', unit_amount: 1999 }, quantity: 1 }],
+      metadata: { plan: 'premium' },
+    })).rejects.toThrow(/existing catalog Price/);
+    await expect(createFitMunchCheckoutSession({ rawRequest }, {
+      mode: 'subscription',
+      line_items: [{ price: 'price_new_from_agent', quantity: 1 }],
+      metadata: { plan: 'premium' },
+    })).rejects.toThrow(/existing FitMunch catalog Price/);
+    expect(rawRequest).not.toHaveBeenCalled();
   });
 
   it('consumer starter/pro aliases still map to Premium, not PT prices', () => {
