@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const receiptRouter = require('./receipt-scanner');
@@ -92,5 +94,51 @@ describe('POST /api/receipt/first-scan', () => {
     expect(res.body.error).toBe(core.GUEST_READ_FAIL);
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY/);
     expect(res.body.items).toBeUndefined();
+  });
+});
+
+describe('Homepage first screen is the receipt camera job', () => {
+  it('puts file input and getUserMedia capture on the first screen', async () => {
+    const home = await request(app).get('/').expect(200);
+    const job = home.text.split('class="job-screen"')[1].split('</header>')[0];
+    const capture = job.split('data-fs-results')[0];
+
+    expect(job).toContain('id="first-scan"');
+    expect(job).toContain('data-first-scan');
+    expect(job).toContain('data-fs-camera');
+    expect(job).toContain('capture="environment"');
+    expect(job).toContain('data-fs-library');
+    expect(job).toContain('data-fs-live');
+    expect(job).toContain('data-fs-open-camera');
+    expect(job).toContain('type="button"');
+    expect(job).toContain('class="trial-bar"');
+    expect(job).toContain('$19.99 AUD/mo');
+    expect(job).toContain('14-day trial');
+    expect(capture).toContain('Photograph your receipt');
+    expect(capture).not.toContain('href="#first-scan"');
+    expect(capture).not.toMatch(/>\s*Start free\s*</);
+    expect(capture).not.toMatch(/>\s*Start Premium trial\s*</);
+    expect(job).not.toContain('class="hero-brand"');
+    expect(job).not.toContain('fm-receipt-scan.webp');
+  });
+
+  it('keeps Start free below the first screen and off the Premium plan', async () => {
+    const home = await request(app).get('/').expect(200);
+    const job = home.text.split('class="job-screen"')[1].split('</header>')[0];
+    expect(job).not.toMatch(/>\s*Start free\s*</);
+    expect(home.text).toContain('>Start free<');
+    expect(home.text).toMatch(/id="pricing"[\s\S]*>Start free</);
+  });
+
+  it('first-scan script is ready for file input and getUserMedia, and still fails closed', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'public/js/fm-first-scan.js'), 'utf8');
+    expect(src).toContain("querySelector('[data-fs-camera]')");
+    expect(src).toContain('getUserMedia');
+    expect(src).toContain("facingMode: { ideal: 'environment' }");
+    expect(src).toContain("fetch('/api/receipt/first-scan'");
+    expect(src).toContain("scannerProvider === 'fallback'");
+    expect(src).toContain('sample-fallback');
+    expect(src).toContain('Could not read that receipt');
+    expect(src).not.toContain('Try a sample haul');
   });
 });

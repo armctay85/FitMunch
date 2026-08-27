@@ -1,13 +1,12 @@
 /**
  * Stranger first haul: photograph YOUR receipt, get YOUR score and tonight's dinner.
  * Never paints a sample Woolies shop as the visitor's trolley.
+ * First screen is the job: file input + getUserMedia capture, not a later-step link.
  */
 (function () {
   if (window.FMFirstScan) return;
 
   var PREMIUM_HREF = '/login.html?plan=premium&utm_source=homepage&utm_medium=first_scan&utm_campaign=value_first#register';
-
-  function $(id) { return document.getElementById(id); }
 
   function setText(el, text) {
     if (el) el.textContent = text;
@@ -17,6 +16,13 @@
     if (!el) return;
     el.hidden = !on;
     el.style.display = on ? '' : 'none';
+  }
+
+  function preferNativeCapture() {
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+    } catch (_) {}
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
   }
 
   function compressFile(file, maxEdge, quality) {
@@ -119,13 +125,50 @@
     var camera = root.querySelector('[data-fs-camera]');
     var library = root.querySelector('[data-fs-library]');
     var preview = root.querySelector('[data-fs-preview]');
+    var previewWrap = root.querySelector('[data-fs-preview-wrap]');
     var drop = root.querySelector('[data-fs-drop]');
+    var photoBtn = root.querySelector('[data-fs-open-camera]');
+    var uploadBtn = root.querySelector('[data-fs-open-library]');
+    var shutter = root.querySelector('[data-fs-shutter]');
     var scanBtn = root.querySelector('[data-fs-scan]');
     var clearBtn = root.querySelector('[data-fs-clear]');
     var loading = root.querySelector('[data-fs-loading]');
     var empty = root.querySelector('[data-fs-empty]');
     var results = root.querySelector('[data-fs-results]');
+    var video = root.querySelector('[data-fs-live]');
+    var out = root.querySelector('[data-fs-out]');
     var blob = null;
+    var stream = null;
+
+    function markOut(state) {
+      if (!out) return;
+      out.setAttribute('data-fs-state', state);
+    }
+
+    function setMode(mode) {
+      root.setAttribute('data-fs-mode', mode);
+      show(drop, mode === 'ready');
+      show(video, mode === 'live');
+      show(previewWrap, mode === 'preview');
+      show(photoBtn, mode === 'ready');
+      show(uploadBtn, mode === 'ready');
+      show(shutter, mode === 'live');
+      show(scanBtn, mode === 'preview');
+      show(clearBtn, mode === 'live' || mode === 'preview');
+    }
+
+    function stopLive() {
+      if (stream) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (_) {}
+        });
+        stream = null;
+      }
+      if (video) {
+        try { video.pause(); } catch (_) {}
+        video.srcObject = null;
+      }
+    }
 
     function openInput(input) {
       if (!input) {
@@ -134,21 +177,100 @@
       }
       setError(root, '');
       try { input.value = ''; input.click(); }
-      catch (_) { setError(root, 'Could not open the camera or library. Try the other button.'); }
+      catch (_) { setError(root, 'Could not open the camera or library. Try upload a photo.'); }
     }
 
-    root.querySelectorAll('[data-fs-open-camera]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
+    function startLiveCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return Promise.reject(new Error('no getUserMedia'));
+      }
+      return navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 1920 },
+        },
+      }).then(function (next) {
+        stream = next;
+        if (!video) throw new Error('Live view missing');
+        video.srcObject = next;
+        video.setAttribute('playsinline', '');
+        video.muted = true;
+        var play = video.play();
+        if (play && play.catch) play.catch(function () {});
+        setMode('live');
+        setError(root, '');
+      });
+    }
+
+    function photograph() {
+      setError(root, '');
+      if (preferNativeCapture()) {
+        openInput(camera);
+        return;
+      }
+      startLiveCamera().catch(function () {
         openInput(camera);
       });
-    });
-    root.querySelectorAll('[data-fs-open-library]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
+    }
+
+    function applyBlob(next) {
+      blob = next;
+      if (!preview) {
+        setMode('preview');
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        preview.src = ev.target.result;
+        setMode('preview');
+      };
+      reader.onerror = function () {
+        setError(root, 'Could not read that image. Try another photo.');
+      };
+      reader.readAsDataURL(next);
+    }
+
+    function captureLiveFrame() {
+      if (!video || !video.videoWidth) {
+        setError(root, 'Camera is still starting. Try again in a moment.');
+        return;
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.toBlob(function (next) {
+        stopLive();
+        if (!next) {
+          setError(root, 'Could not capture that frame. Try upload a photo.');
+          setMode('ready');
+          return;
+        }
+        applyBlob(next);
+      }, 'image/jpeg', 0.86);
+    }
+
+    if (photoBtn) {
+      photoBtn.addEventListener('click', function (e) {
         e.preventDefault();
+        photograph();
+      });
+    }
+    if (uploadBtn) {
+      uploadBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        stopLive();
         openInput(library);
       });
-    });
+    }
+    if (shutter) {
+      shutter.addEventListener('click', function (e) {
+        e.preventDefault();
+        captureLiveFrame();
+      });
+    }
 
     function onFile(e) {
       var file = e.target && e.target.files && e.target.files[0];
@@ -161,17 +283,7 @@
       }
       var looksHeic = /heic|heif/i.test(file.type || '') || /\.heic$/i.test(file.name || '');
       compressFile(file).then(function (next) {
-        blob = next;
-        var reader = new FileReader();
-        reader.onload = function (ev) {
-          if (preview) preview.src = ev.target.result;
-          show(preview && preview.closest('[data-fs-preview-wrap]'), true);
-          show(drop, false);
-        };
-        reader.onerror = function () {
-          setError(root, 'Could not read that image. Try another photo.');
-        };
-        reader.readAsDataURL(next);
+        applyBlob(next);
       }).catch(function () {
         setError(root, looksHeic
           ? 'This HEIC photo could not be prepared. On iPhone, set Camera > Formats to Most Compatible, then retake as JPG.'
@@ -187,13 +299,15 @@
       clearBtn.addEventListener('click', function (e) {
         e.preventDefault();
         blob = null;
+        stopLive();
         if (camera) camera.value = '';
         if (library) library.value = '';
         if (preview) preview.src = '';
-        show(preview && preview.closest('[data-fs-preview-wrap]'), false);
-        show(drop, true);
+        setMode('ready');
         show(results, false);
         show(empty, true);
+        show(loading, false);
+        markOut('idle');
         setError(root, '');
       });
     }
@@ -209,6 +323,7 @@
         show(loading, true);
         show(empty, false);
         show(results, false);
+        markOut('loading');
         scanBtn.disabled = true;
         var fd = new FormData();
         fd.append('receipt', blob, 'receipt.jpg');
@@ -235,11 +350,13 @@
               renderResult(root, data);
               show(results, true);
               show(empty, false);
+              markOut('result');
             });
           })
           .catch(function (err) {
             show(empty, true);
             show(results, false);
+            markOut('error');
             setError(root, (err && err.message) || 'Could not read that receipt. Try a flatter photo in better light.');
           })
           .then(function () {
@@ -248,6 +365,17 @@
           });
       });
     }
+
+    function release() {
+      stopLive();
+    }
+    window.addEventListener('pagehide', release);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) release();
+    });
+
+    setMode('ready');
+    markOut('idle');
   }
 
   function init(scope) {

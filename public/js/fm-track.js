@@ -70,7 +70,7 @@
   function bind() {
     document.addEventListener('click', function (e) {
       var a = e.target && e.target.closest
-        ? e.target.closest('a[data-fm-auth], a[data-fm-track], a.fm-btn, a.btn, a.fm-nav-cta, a.nav-cta')
+        ? e.target.closest('a[data-fm-auth], a[data-fm-track], button[data-fm-track], a.fm-btn, a.btn, a.fm-nav-cta, a.nav-cta')
         : null;
       if (!a) return;
       trackCta(a);
