@@ -227,6 +227,13 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(res.text).toContain('Secondary lane');
   });
 
+  it('haul teardown hero sends the stranger to photograph their own receipt', async () => {
+    const res = await request(app).get('/haul-teardown').expect(200);
+    expect(res.text).toContain('Photograph your receipt');
+    expect(res.text).toContain('href="/#first-scan"');
+    expect(res.text).not.toContain('Scan a receipt free');
+  });
+
   it('scanner landing leads with photograph, not the sample haul', async () => {
     const res = await request(app).get('/receipt-nutrition-scanner').expect(200);
     expect(res.text).toContain('Photograph your receipt');
