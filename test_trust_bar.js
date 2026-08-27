@@ -204,12 +204,22 @@ describe('Trust bar 8: Start free does not force Premium Stripe', () => {
 describe('Trust bar 10: stranger first run is their receipt', () => {
   it('homepage primary hero path photographs their receipt, not the sample haul', async () => {
     const home = await request(app).get('/').expect(200);
-    const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
+    const hero = home.text.split('<header class="hero"')[1].split('</header>')[0];
+    const capture = hero.split('data-fs-results')[0];
     expect(hero).toContain('Photograph your receipt');
-    expect(hero).toContain('href="#first-scan"');
+    expect(hero).toContain('data-first-scan');
+    expect(hero).toContain('data-fs-camera');
+    expect(hero).toContain('capture="environment"');
+    expect(hero).toContain('data-fs-open-camera');
+    expect(hero).toContain('data-fs-live');
     expect(hero).toContain('data-fm-track="hero_scan_mine"');
+    expect(hero).not.toContain('href="#first-scan"');
     expect(hero).not.toContain('Try a sample haul');
     expect(hero).not.toContain('/demo');
+    expect(capture).not.toMatch(/>\s*Start free\s*</);
+    expect(capture).not.toMatch(/>\s*Start Premium trial\s*</);
+    expect(home.text).toContain('class="trial-bar"');
+    expect(home.text).toContain('$19.99 AUD/mo');
     expect(home.text).toContain('id="first-scan"');
     expect(home.text).toContain('data-first-scan');
     expect(home.text).toContain('/js/fm-first-scan.js');
