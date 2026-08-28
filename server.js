@@ -285,6 +285,10 @@ app.use('/api/meal-plan', mealPlanner);
 const foodDb = require('./food-db');
 app.use('/api/foods', foodDb);
 
+// Fitness Butler shopper (own surface, not the homepage)
+const shopper = require('./shopper');
+app.use('/api/shopper', shopper);
+
 // Health check — used by Railway to verify the app is running
 // Clean URLs for SEO landing pages
 app.get('/for-pts', (req, res) => res.sendFile('for-pts.html', { root: 'public' }));
@@ -299,6 +303,8 @@ app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { roo
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
 app.get('/try', (req, res) => res.redirect(301, '/demo'));
+app.get('/shopper', (req, res) => res.sendFile('shopper.html', { root: 'public' }));
+app.get('/butler', (req, res) => res.redirect(302, '/shopper'));
 // /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)

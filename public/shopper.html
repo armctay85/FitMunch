@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fitness Butler shopper | FitMunch</title>
+<meta name="description" content="Commit the week. FitMunch writes a draft trolley from public Woolies, Coles and Aldi specials, then you approve. Finish checkout at the store."/>
+<link rel="canonical" href="https://www.fitmunch.com.au/shopper"/>
+<meta name="theme-color" content="#07130d"/>
+<meta property="og:title" content="Fitness Butler shopper | FitMunch"/>
+<meta property="og:description" content="Commit the week. Approve the trolley. Public specials only. You finish at the store."/>
+<meta property="og:url" content="https://www.fitmunch.com.au/shopper"/>
+<meta property="og:type" content="website"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
+
+.price-bar{
+  position:absolute;top:64px;left:0;right:0;z-index:19;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:7px 16px;
+  background:rgba(7,19,13,.72);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  color:rgba(238,242,238,.82);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.02em;
+}
+.price-bar a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+
+.hero{
+  background:var(--fridge);color:#fff;
+  padding:118px 16px 28px;
+}
+.hero-inner{width:min(720px,100%);margin:0 auto}
+.kicker{
+  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
+  padding:5px 10px;margin-bottom:14px;
+}
+.hero h1{
+  font-size:clamp(1.85rem,8vw,2.7rem);
+  font-weight:800;letter-spacing:-.05em;line-height:1.02;
+  margin:0 0 10px;max-width:14ch;
+}
+.hero .lead{
+  color:rgba(238,242,238,.78);font-size:.95rem;line-height:1.45;
+  max-width:36ch;margin:0 0 16px;
+}
+
+.commit{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:6px;padding:14px;
+}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.label{
+  width:100%;font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(238,242,238,.55);margin-bottom:2px;
+}
+.chip{
+  appearance:none;border:1px solid rgba(255,255,255,.2);background:transparent;
+  color:#fff;border-radius:4px;padding:8px 12px;cursor:pointer;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.82rem;font-weight:700;
+}
+.chip[aria-pressed="true"]{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{
+  width:36px;height:36px;border-radius:4px;border:1px solid rgba(255,255,255,.2);
+  background:transparent;color:#fff;font-size:1.1rem;cursor:pointer;
+}
+.stepper strong{font-family:'IBM Plex Mono',ui-monospace,monospace;min-width:1.2ch;text-align:center}
+.commit-btn{
+  width:100%;min-height:48px;margin-top:4px;border:0;border-radius:4px;
+  background:var(--leaf);color:#fff;cursor:pointer;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1rem;font-weight:800;
+}
+.commit-btn:hover{background:var(--leaf2)}
+.commit-btn:disabled{opacity:.55;cursor:wait}
+
+.refine{
+  width:min(720px,100%);margin:0 auto;padding:18px 16px 8px;
+}
+.refine h2{font-size:1.05rem;margin:0 0 6px}
+.refine p{color:var(--mute);font-size:.88rem;line-height:1.5;margin:0 0 14px}
+.refine-grid{display:grid;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field span{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute2);
+}
+.toggles{display:flex;flex-wrap:wrap;gap:8px}
+.toggle{
+  appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink);
+  border-radius:4px;padding:8px 12px;cursor:pointer;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.8rem;font-weight:700;
+}
+.toggle[aria-pressed="true"]{background:rgba(31,157,74,.12);border-color:var(--leaf);color:var(--leaf2)}
+.trip{
+  display:flex;align-items:center;gap:8px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+}
+.trip input{
+  width:88px;border:1px solid var(--line);border-radius:4px;padding:8px 10px;
+  font:inherit;background:#fff;color:var(--ink);
+}
+
+.board{width:min(720px,100%);margin:0 auto;padding:8px 16px 56px}
+.hidden{display:none}
+.err{
+  background:#fff;border:1px solid rgba(194,59,59,.35);color:var(--red);
+  padding:12px 14px;border-radius:4px;margin:0 0 14px;font-size:.88rem;
+}
+
+.verdict{
+  background:#fff;border:1px solid var(--line);border-left:3px solid var(--leaf);
+  padding:16px 16px 14px;margin-bottom:14px;
+}
+.verdict .state{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--leaf2);margin-bottom:6px;
+}
+.verdict h2{font-size:1.25rem;margin:0 0 6px}
+.verdict p{color:var(--mute);font-size:.9rem;line-height:1.5;margin:0 0 12px}
+.math{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.math div{border:1px solid var(--line);padding:10px}
+.math strong{display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:1.05rem}
+.math span{font-size:.68rem;color:var(--mute2);text-transform:uppercase;letter-spacing:.04em}
+
+.draft-banner{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--fridge);color:#fff;padding:14px 16px;margin-bottom:14px;
+}
+.draft-banner p{margin:0;font-size:.88rem;color:rgba(238,242,238,.8);max-width:34ch}
+.draft-banner strong{display:block;color:#fff;font-size:1rem;margin-bottom:2px}
+.approve-btn{
+  min-height:48px;padding:0 18px;border:0;border-radius:4px;cursor:pointer;
+  background:var(--leaf);color:#fff;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.95rem;font-weight:800;
+}
+.approve-btn:hover{background:var(--leaf2)}
+.approved-banner{
+  background:rgba(31,157,74,.1);border:1px solid rgba(31,157,74,.28);
+  padding:12px 14px;margin-bottom:14px;
+}
+.approved-banner strong{display:block;font-size:.95rem;margin-bottom:2px}
+.approved-banner span{color:var(--mute);font-size:.84rem}
+
+.aisle{margin:0 0 16px}
+.aisle h3{
+  font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute2);
+  margin:0 0 8px;
+}
+.line{
+  display:grid;grid-template-columns:1fr auto;gap:8px 12px;
+  background:#fff;border:1px solid var(--line);padding:12px 14px;margin-bottom:6px;
+}
+.line .name{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.92rem}
+.line .meta{font-size:.78rem;color:var(--mute);margin-top:2px}
+.line .price{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;text-align:right}
+.line .store{font-size:.72rem;color:var(--mute2);text-align:right}
+.special{display:inline-block;margin-left:6px;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--leaf2);font-weight:800}
+
+.tickets{display:grid;gap:12px;margin-top:8px}
+.ticket{background:#fff;border:1px solid var(--line);padding:16px}
+.ticket h3{margin:0 0 4px;font-size:1.05rem}
+.ticket .tot{font-family:'IBM Plex Mono',ui-monospace,monospace;color:var(--leaf2);font-weight:600;margin-bottom:10px}
+.ticket ol{margin:0 0 14px;padding-left:18px;color:var(--mute);font-size:.88rem}
+.ticket a{
+  display:inline-flex;align-items:center;justify-content:center;min-height:42px;
+  padding:0 14px;margin:0 8px 8px 0;border-radius:4px;text-decoration:none;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.82rem;font-weight:700;
+}
+.ticket .open-specials{background:var(--leaf);color:#fff}
+.ticket .open-search{border:1px solid var(--line);color:var(--ink)}
+
+.copy-btn{
+  width:100%;min-height:44px;border:1px solid var(--line);background:#fff;border-radius:4px;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;cursor:pointer;
+}
+
+.gate{opacity:.42;pointer-events:none}
+.note{font-size:.8rem;color:var(--mute2);margin-top:16px;line-height:1.5}
+
+@media(max-width:720px){
+  .fm-nav-links a:not(.fm-nav-cta){display:none}
+  .math{grid-template-columns:1fr}
+}
+@media(max-width:420px){
+  .hero{padding-top:112px;padding-bottom:22px}
+  .hero h1{font-size:1.9rem}
+  .price-bar{font-size:.62rem;padding:6px 12px}
+}
+</style>
+</head>
+<body class="fm-body">
+
+<nav class="fm-nav fm-nav-abs">
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <div class="fm-nav-links">
+    <a href="/pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium&utm_source=shopper&utm_medium=nav&utm_campaign=fitness-butler#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+  </div>
+</nav>
+
+<div class="price-bar">
+  Premium $19.99 AUD/mo after a 14-day trial, card on file.
+  <a href="/login.html?plan=premium&utm_source=shopper&utm_medium=bar&utm_campaign=fitness-butler#register" data-fm-auth="register" data-fm-plan="premium">See pricing</a>
+</div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="kicker">Fitness Butler</div>
+    <h1>Commit the week. Approve the trolley.</h1>
+    <p class="lead">FitMunch writes a draft from public Woolies, Coles and Aldi specials. One tap to approve. You finish at the store.</p>
+
+    <form class="commit" id="commit-form">
+      <div class="label">This week’s job</div>
+      <div class="row" role="group" aria-label="Goal">
+        <button type="button" class="chip" data-goal="cut" aria-pressed="true">Cut</button>
+        <button type="button" class="chip" data-goal="maintain" aria-pressed="false">Maintain</button>
+        <button type="button" class="chip" data-goal="build" aria-pressed="false">Build</button>
+      </div>
+      <div class="label">People in the house</div>
+      <div class="row">
+        <div class="stepper">
+          <button type="button" id="people-down" aria-label="Fewer people">−</button>
+          <strong id="people-n">1</strong>
+          <button type="button" id="people-up" aria-label="More people">+</button>
+        </div>
+      </div>
+      <button class="commit-btn" id="commit-btn" type="submit">Commit this week</button>
+    </form>
+  </div>
+</header>
+
+<section class="refine" id="refine">
+  <h2>How you shop</h2>
+  <p>Defaults cover a normal week. Change stores or trip cost, then commit again.</p>
+  <div class="refine-grid">
+    <div class="field">
+      <span>Eat</span>
+      <div class="toggles" id="diet-toggles">
+        <button type="button" class="toggle" data-diet="none" aria-pressed="true">No restriction</button>
+        <button type="button" class="toggle" data-diet="high-protein" aria-pressed="false">High protein</button>
+        <button type="button" class="toggle" data-diet="vegetarian" aria-pressed="false">Vegetarian</button>
+      </div>
+    </div>
+    <div class="field">
+      <span>Stores I can reach</span>
+      <div class="toggles" id="store-toggles">
+        <button type="button" class="toggle" data-store="woolworths" aria-pressed="true">Woolworths</button>
+        <button type="button" class="toggle" data-store="coles" aria-pressed="true">Coles</button>
+        <button type="button" class="toggle" data-store="aldi" aria-pressed="true">Aldi</button>
+      </div>
+    </div>
+    <div class="field">
+      <span>A second trip costs me</span>
+      <div class="trip">$<input id="trip-cost" type="number" min="0" max="80" step="1" value="18" inputmode="decimal"/> AUD</div>
+    </div>
+    <div class="field">
+      <span>Already in the pantry</span>
+      <div class="toggles" id="pantry-toggles">
+        <button type="button" class="toggle" data-pantry="eggs" aria-pressed="false">Eggs</button>
+        <button type="button" class="toggle" data-pantry="oats" aria-pressed="false">Oats</button>
+        <button type="button" class="toggle" data-pantry="rice" aria-pressed="false">Rice</button>
+        <button type="button" class="toggle" data-pantry="milk" aria-pressed="false">Milk</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="board" id="board">
+  <div class="err hidden" id="err"></div>
+  <div id="result" class="hidden"></div>
+  <p class="note">FitMunch is a health engine. This page writes the week’s trolley from a week you commit. A receipt is one input, not the product. Prices come from public catalogue and specials pages. Confirm on the store page before you pay.</p>
+</main>
+
+<footer class="fm-footer">
+  <div class="fm-footer-inner">
+    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-links">
+      <a href="/">Home</a>
+      <a href="/shopper">Shopper</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/refund">Refunds</a>
+    </div>
+    <p class="fm-footer-note">© 2026 FitMunch. Made in Australia. Premium is $19.99 AUD/mo after a 14-day trial.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  const state = {
+    goal: 'cut',
+    diet: 'none',
+    people: 1,
+    stores: ['woolworths', 'coles', 'aldi'],
+    pantry: [],
+    draft: null,
+    approved: false
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => '$' + Number(n || 0).toFixed(2);
+
+  function pressed(group, attr, value) {
+    group.querySelectorAll('[' + attr + ']').forEach((btn) => {
+      btn.setAttribute('aria-pressed', btn.getAttribute(attr) === value ? 'true' : 'false');
+    });
+  }
+
+  document.querySelectorAll('[data-goal]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.goal = btn.getAttribute('data-goal');
+      pressed(btn.parentElement, 'data-goal', state.goal);
+    });
+  });
+
+  document.querySelectorAll('[data-diet]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.diet = btn.getAttribute('data-diet');
+      pressed(btn.parentElement, 'data-diet', state.diet);
+    });
+  });
+
+  $('people-down').addEventListener('click', () => {
+    state.people = Math.max(1, state.people - 1);
+    $('people-n').textContent = String(state.people);
+  });
+  $('people-up').addEventListener('click', () => {
+    state.people = Math.min(6, state.people + 1);
+    $('people-n').textContent = String(state.people);
+  });
+
+  document.querySelectorAll('[data-store]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-store');
+      const on = btn.getAttribute('aria-pressed') === 'true';
+      if (on && state.stores.length === 1) return;
+      btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+      state.stores = [...document.querySelectorAll('[data-store][aria-pressed="true"]')].map((b) => b.getAttribute('data-store'));
+    });
+  });
+
+  document.querySelectorAll('[data-pantry]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const on = btn.getAttribute('aria-pressed') === 'true';
+      btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+      state.pantry = [...document.querySelectorAll('[data-pantry][aria-pressed="true"]')].map((b) => b.getAttribute('data-pantry'));
+    });
+  });
+
+  function showError(msg) {
+    const el = $('err');
+    el.textContent = msg;
+    el.classList.toggle('hidden', !msg);
+  }
+
+  function lineHtml(item) {
+    return (
+      '<div class="line">' +
+        '<div><div class="name">' + item.name + '</div>' +
+        '<div class="meta">×' + item.qty + ' · ' + item.pack + (item.onSpecial ? '<span class="special">Special</span>' : '') + '</div></div>' +
+        '<div><div class="price">' + money(item.linePrice) + '</div>' +
+        '<div class="store">' + (item.assignedLabel || '') + '</div></div>' +
+      '</div>'
+    );
+  }
+
+  function ticketHtml(ticket, open) {
+    const items = ticket.items.map((it) => '<li>' + it.qty + ' × ' + it.name + ' (' + it.pack + ') · ' + money(it.price) + '</li>').join('');
+    const links = open
+      ? '<a class="open-specials" href="' + ticket.specialsUrl + '" target="_blank" rel="noopener">Open ' + ticket.label + ' specials</a>' +
+        '<a class="open-search" href="' + ticket.cataloguesUrl + '" target="_blank" rel="noopener">Open catalogue</a>'
+      : '';
+    return (
+      '<article class="ticket">' +
+        '<h3>' + ticket.label + '</h3>' +
+        '<div class="tot">' + money(ticket.total) + ' · ' + ticket.lineCount + ' lines</div>' +
+        '<ol>' + items + '</ol>' +
+        links +
+      '</article>'
+    );
+  }
+
+  function render(plan, approved) {
+    const split = plan.split;
+    const aisles = (plan.trolley.aisles || []).map((g) => {
+      return '<div class="aisle"><h3>' + g.aisle + '</h3>' + g.items.map(lineHtml).join('') + '</div>';
+    }).join('');
+
+    const draft = approved ? '' : (
+      '<div class="draft-banner" id="draft-banner">' +
+        '<p><strong>Draft trolley</strong>Check the mix. One tap approves this shop. You still finish at the store.</p>' +
+        '<button type="button" class="approve-btn" id="approve-btn">Approve this shop</button>' +
+      '</div>'
+    );
+    const done = approved
+      ? '<div class="approved-banner" id="approved-banner"><strong>Approved. Finish at the store.</strong><span>This trolley is locked. Open the store specials and complete checkout yourself.</span></div>'
+      : '';
+
+    const takeaway = (
+      '<section id="takeaway" class="' + (approved ? '' : 'gate') + '">' +
+        '<h2 style="font-size:1.15rem;margin:18px 0 8px">Takeaway checkout</h2>' +
+        '<p style="color:var(--mute);font-size:.9rem;margin:0 0 12px">A clear trolley plus the public store pages. Approve first, then take these links.</p>' +
+        '<div class="tickets">' + (plan.takeaway.tickets || []).map((t) => ticketHtml(t, approved)).join('') + '</div>' +
+        (approved ? '<button type="button" class="copy-btn" id="copy-list">Copy trolley list</button>' : '') +
+      '</section>'
+    );
+
+    $('result').classList.remove('hidden');
+    $('result').innerHTML =
+      draft + done +
+      '<div class="verdict">' +
+        '<div class="state">' + (split.verdict === 'split' ? 'Split earns the trip' : 'One shop') + '</div>' +
+        '<h2>' + split.headline + '</h2>' +
+        '<p>' + split.reason + '</p>' +
+        '<div class="math">' +
+          '<div><span>Stay total</span><strong>' + money(split.stayTotal) + '</strong></div>' +
+          '<div><span>Cheapest mix</span><strong>' + money(split.splitTotal) + '</strong></div>' +
+          '<div><span>Second trip</span><strong>' + money(split.secondTripCost) + '</strong></div>' +
+        '</div>' +
+      '</div>' +
+      '<p style="color:var(--mute);font-size:.88rem;margin:0 0 10px">' + plan.intent + ' · ' + plan.catalogue.week + '</p>' +
+      aisles +
+      takeaway;
+
+    const approveBtn = $('approve-btn');
+    if (approveBtn) approveBtn.addEventListener('click', approveShop);
+    const copyBtn = $('copy-list');
+    if (copyBtn) copyBtn.addEventListener('click', copyList);
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function commitWeek(ev) {
+    ev.preventDefault();
+    showError('');
+    const btn = $('commit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Writing the trolley…';
+    try {
+      const res = await fetch('/api/shopper/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goal: state.goal,
+          diet: state.diet,
+          people: state.people,
+          days: 7,
+          stores: state.stores,
+          pantry: state.pantry,
+          secondTripCost: Number($('trip-cost').value || 18)
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Could not write this week.');
+      state.draft = data;
+      state.approved = false;
+      render(data, false);
+    } catch (err) {
+      showError(err.message || 'Could not write this week.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Commit this week';
+    }
+  }
+
+  async function approveShop() {
+    if (!state.draft) return;
+    const btn = $('approve-btn');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/shopper/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.draft)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Could not approve.');
+      state.draft = data;
+      state.approved = true;
+      render(data, true);
+    } catch (err) {
+      showError(err.message || 'Could not approve this trolley.');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function copyList() {
+    if (!state.draft) return;
+    const lines = (state.draft.takeaway.tickets || []).map((ticket) => {
+      const body = ticket.items.map((it) => '- ' + it.qty + ' × ' + it.name + ' (' + it.pack + ')').join('\n');
+      return ticket.label + '\n' + body;
+    }).join('\n\n');
+    navigator.clipboard.writeText(lines).then(() => {
+      const btn = $('copy-list');
+      if (btn) btn.textContent = 'Copied';
+    }).catch(() => {});
+  }
+
+  $('commit-form').addEventListener('submit', commitWeek);
+})();
+</script>
+<script src="/js/fm-track.js" defer></script>
+</body>
+</html>
