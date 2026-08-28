@@ -213,6 +213,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(hero).toContain('daily health engine');
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/pricing"');
+    expect(hero).toContain('Approve this trolley');
+    expect(hero).toContain('Not a shop charge');
     expect(hero).not.toContain('plan=premium');
     expect(hero).not.toContain('$19.99');
     expect(hero).not.toMatch(/photograph your receipt/i);
@@ -230,6 +232,9 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('Tonight from this shop');
     expect(home.text).toContain('not a demo shop');
     expect(home.text.indexOf('id="loop"')).toBeLessThan(home.text.indexOf('id="first-scan"'));
+    expect(home.text).toContain('Fitness Butler');
+    expect(home.text).toContain('Commit to the week. We buy the food.');
+    expect(home.text).not.toMatch(/Stripe Link|link\.stripe/i);
   });
 
   it('pricing Free does not claim unlimited weekly AI plans', async () => {

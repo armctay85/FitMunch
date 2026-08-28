@@ -171,6 +171,24 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .phone-list em{
   display:block;font-style:normal;font-size:.78rem;line-height:1.35;color:#3a4540;margin-top:1px;
 }
+.phone-list li.line{grid-template-columns:4.8rem 1fr auto;align-items:center}
+.phone-list li.line strong{font-size:.88rem}
+.phone-list .src{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.62rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5c6d64;
+}
+.phone-approve{
+  display:block;width:100%;border:0;border-top:1px solid #ece6db;
+  background:#17833c;color:#fff;text-align:center;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.92rem;font-weight:700;padding:13px 14px 4px;
+  text-decoration:none;
+}
+.phone-honest{
+  background:#17833c;color:#d9f5e3;
+  font-size:.72rem;line-height:1.35;text-align:center;
+  padding:0 14px 12px;
+}
 
 /* FIRST SCAN */
 .first-scan{
@@ -514,35 +532,31 @@ footer{
         <a class="btn btn-leaf" href="/pricing" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
     </div>
-    <aside class="phone" aria-label="Sample day in FitMunch">
+    <aside class="phone" aria-label="Fitness Butler sample trolley">
       <div class="phone-bezel">
         <figure class="phone-photo">
           <img src="/assets/fm-hero-mealprep.webp" alt="Prepared meals: chicken, greens, and yoghurt bowls." width="800" height="500"/>
-          <figcaption>Sample day</figcaption>
+          <figcaption>This week · sample</figcaption>
         </figure>
         <ol class="phone-list">
-          <li>
-            <b>Eat</b>
-            <div>
-              <strong>Chicken, greens, rice</strong>
-              <em>Meals written from this body</em>
-            </div>
+          <li class="line">
+            <b>Woolies</b>
+            <strong>Chicken 1kg</strong>
+            <span class="src">specials</span>
           </li>
-          <li>
-            <b>Train</b>
-            <div>
-              <strong>40 min upper</strong>
-              <em>Work that matches that food</em>
-            </div>
+          <li class="line">
+            <b>Coles</b>
+            <strong>Eggs x12</strong>
+            <span class="src">last shop</span>
           </li>
-          <li>
-            <b>Shop</b>
-            <div>
-              <strong>Trolley drafted</strong>
-              <em>Specials, last shop, body need</em>
-            </div>
+          <li class="line">
+            <b>Aldi</b>
+            <strong>Oats</strong>
+            <span class="src">body</span>
           </li>
         </ol>
+        <a class="phone-approve" href="#loop">Approve this trolley</a>
+        <p class="phone-honest">Not a shop charge. You take this list.</p>
       </div>
     </aside>
   </div>
@@ -575,13 +589,13 @@ footer{
     <aside class="butler" aria-label="Fitness Butler">
       <p class="butler-k">Fitness Butler</p>
       <h3>Commit to the week. We buy the food.</h3>
-      <p>You approve the plan. Until a card-from-the-app can pay Australian shops for you, you take this trolley. We do not log into Woolies or Coles, and we do not charge the supermarket from here.</p>
+      <p>You approve the plan. The engine writes the ingredients and prices them from public Woolies, Coles and Aldi specials, plus last shop and body need. We split the shop only if the save beats a second trip. Until a card-from-the-app can pay Australian shops for you, you take this trolley. We do not log into Woolies or Coles, and we do not charge the supermarket from here.</p>
       <div class="trolley-draft" aria-label="Draft trolley, sample week">
         <div class="row"><span>Woolies · chicken 1kg</span><span class="row-val">specials</span></div>
         <div class="row"><span>Coles · eggs x12</span><span class="row-val">last shop</span></div>
         <div class="row"><span>Aldi · oats</span><span class="row-val">body need</span></div>
       </div>
-      <p class="butler-note">One-tap approve is the plan, not a live supermarket checkout. No Apple Watch, HealthKit, or Health Connect on this page. FitMunch is a web app today.</p>
+      <p class="butler-note">Approve is the plan, not a live supermarket checkout. FitMunch is a web app today. Native is next. We do not connect a shop card from this page.</p>
     </aside>
   </div>
 </section>
