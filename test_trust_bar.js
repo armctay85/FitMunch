@@ -210,7 +210,7 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(fold).toContain('$19.99 AUD/mo');
     expect(fold).toContain('card on file');
     expect(hero).toContain('Your body wrote the trolley.');
-    expect(hero).toContain('daily health engine');
+    expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/pricing"');
     expect(hero).toContain('Approve this trolley');
@@ -234,7 +234,13 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text.indexOf('id="loop"')).toBeLessThan(home.text.indexOf('id="first-scan"'));
     expect(home.text).toContain('Fitness Butler');
     expect(home.text).toContain('Commit to the week. We buy the food.');
+    expect(home.text).toContain('Until Link agents land in AU, they get a trolley they can take.');
+    expect(home.text).toContain('No Link logo');
+    expect(home.text).toContain('>Commit</h3>');
+    expect(home.text).toContain('>The trolley</h3>');
+    expect(home.text).toContain('>Cook and train</h3>');
     expect(home.text).not.toMatch(/Stripe Link|link\.stripe/i);
+    expect(home.text).not.toMatch(/logo\.stripe\.com|link-logo/i);
   });
 
   it('pricing Free does not claim unlimited weekly AI plans', async () => {
