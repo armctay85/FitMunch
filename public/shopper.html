@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fitness Butler shopper: commit a week, take the trolley | FitMunch</title>
+<meta name="description" content="Commit a week of meals. FitMunch writes the ingredients, prices Woolies, Coles and Aldi from public specials, and only splits stores if the save beats a second trip. Draft trolley, then a checkout you take."/>
+<link rel="canonical" href="https://www.fitmunch.com.au/shopper"/>
+<meta property="og:title" content="Fitness Butler shopper | FitMunch"/>
+<meta property="og:description" content="Lock seven meals. We write the trolley from public specials. You check out at the store."/>
+<meta property="og:url" content="https://www.fitmunch.com.au/shopper"/>
+<meta property="og:type" content="website"/>
+<meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
+<meta name="theme-color" content="#07130d"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="preload" as="image" href="/assets/fm-groceries.webp" fetchpriority="high"/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
+<link rel="stylesheet" href="/css/fm-shopper.css"/>
+</head>
+<body class="fm-body">
+<a class="skip" href="#commit" style="position:absolute;left:16px;top:12px;z-index:40;background:var(--leaf);color:#fff;padding:10px 14px;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.85rem;text-decoration:none;border-radius:4px">Skip to commit the week</a>
+
+<nav class="fm-nav fm-nav-abs" aria-label="Primary">
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <div class="fm-nav-links">
+    <a href="#week">The week</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/login.html" data-fm-auth="login">Sign in</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium&amp;utm_source=shopper&amp;utm_medium=nav&amp;utm_campaign=butler#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+  </div>
+</nav>
+
+<header class="sp-hero" id="commit">
+  <div class="sp-hero-media" aria-hidden="true"></div>
+  <div class="sp-hero-grain" aria-hidden="true"></div>
+  <div class="sp-hero-inner">
+    <div class="sp-kicker">Fitness Butler · Shopper</div>
+    <h1>Commit the week. Take the trolley.</h1>
+    <p class="lead">Lock seven days of meals. FitMunch writes the ingredients, prices Woolies, Coles and Aldi from this week's public specials, and only splits stores if the save beats a second trip.</p>
+    <div class="sp-pricebar">Premium <strong>$19.99 AUD/mo</strong> after a 14-day trial, card on file</div>
+    <div class="sp-week-strip" data-sp-strip aria-label="Seven dinners in this week">
+      <div class="sp-day"><b>Mon</b><span>Mince</span></div>
+      <div class="sp-day"><b>Tue</b><span>Salmon</span></div>
+      <div class="sp-day"><b>Wed</b><span>Thigh</span></div>
+      <div class="sp-day"><b>Thu</b><span>Mince</span></div>
+      <div class="sp-day"><b>Fri</b><span>Salmon</span></div>
+      <div class="sp-day"><b>Sat</b><span>Chicken</span></div>
+      <div class="sp-day"><b>Sun</b><span>Pasta</span></div>
+    </div>
+    <div class="sp-ctas">
+      <button type="button" class="fm-btn fm-btn-leaf" data-sp-commit data-fm-track="shopper_commit">Commit this week</button>
+      <a class="fm-btn fm-btn-ghost" href="#split-rule">How the split works</a>
+    </div>
+    <p class="sp-honest">Draft trolley. You check out at the store. We do not pay Woolies. Prices are public catalogue specials, not a live trolley scrape. No Apple Watch. No HealthKit.</p>
+    <p class="sp-status" data-sp-status></p>
+    <p class="sp-err" data-sp-error hidden></p>
+  </div>
+</header>
+
+<section class="sp-section" id="week">
+  <div class="sp-inner">
+    <h2>The week you lock.</h2>
+    <p class="lead" data-sp-example>Worked week. Lock it to draft this trolley. Breakfast, lunch, dinner, and a protein snack, written from AU staples.</p>
+    <div class="sp-meals" data-sp-week></div>
+  </div>
+</section>
+
+<section class="sp-section" id="split-rule" style="padding-top:0">
+  <div class="sp-inner">
+    <h2>One store, unless a second trip is cheaper.</h2>
+    <p class="lead">A second supermarket run costs time and fuel. We price that trip at $22. If the catalogue save is smaller, you stay put.</p>
+    <div class="sp-rule">
+      <article>
+        <h3>Public specials only</h3>
+        <p>Woolworths, Coles and Aldi quotes come from published specials catalogues. FitMunch does not scrape trolley APIs and does not watch your cart.</p>
+      </article>
+      <article>
+        <h3>Draft, then one tap</h3>
+        <p>Commit writes the trolley. Approve locks it. Nothing is charged. Nothing is sent to Woolies as a paid order.</p>
+      </article>
+      <article>
+        <h3>A checkout you can take</h3>
+        <p>Copy the list, print it, or open each store's public search page. You pay at the supermarket. Stripe Link is not used for this shop.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="sp-section" id="draft" style="padding-top:0">
+  <div class="sp-inner">
+    <h2>Draft trolley.</h2>
+    <p class="lead">After you commit, the butler prices every line and says whether a split is worth the extra trip.</p>
+    <div data-sp-draft>
+      <div class="sp-ticket">
+        <p class="sp-note">Commit the week above. The draft stays empty until the engine writes the ingredients. Approve this trolley with one tap when the split looks right.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sp-section sp-checkout" id="checkout" data-sp-checkout hidden></section>
+
+<section class="sp-section" style="padding-top:0">
+  <div class="sp-inner">
+    <div class="fm-convert">
+      <h2>Run the week every week.</h2>
+      <p>The shopper is here. Premium is still $19.99 AUD/mo after a 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
+      <div class="fm-ctas">
+        <button type="button" class="fm-btn fm-btn-leaf" data-sp-commit>Commit this week</button>
+        <a class="fm-btn fm-btn-ghost" href="/login.html?plan=premium&amp;utm_source=shopper&amp;utm_medium=footer&amp;utm_campaign=butler#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial, $19.99/mo</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="fm-footer">
+  <div class="fm-footer-inner">
+    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-links">
+      <a href="/">Home</a>
+      <a href="/shopper">Shopper</a>
+      <a href="/haul-teardown">Haul teardown</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/refund">Refunds</a>
+      <a href="/login.html" data-fm-auth="login">Sign in</a>
+    </div>
+    <p class="fm-footer-note">© 2026 FitMunch. FitMunch is a web app in your browser. On iPhone you can Add to Home Screen. An App Store listing is not live yet. Food planning support only. Not medical advice. We do not pay Woolworths, Coles or Aldi for you.</p>
+  </div>
+</footer>
+
+<script src="/js/fm-shopper.js" defer></script>
+<script src="/js/fm-track.js" defer></script>
+</body>
+</html>

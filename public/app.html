@@ -736,8 +736,9 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
  <div class="view-header">
- <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles.</div></div>
+ <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles. The Fitness Butler shopper drafts a week trolley from public specials.</div></div>
  <div class="view-actions">
+ <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
  <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
  <button class="btn btn-green btn-sm" onclick="openModal('modal-manual-list')">+ Manual list</button>
  </div>
@@ -1114,7 +1115,10 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ CLIENT: SHOPPING LIST ══ -->
 <div class="view" id="view-portal-shopping">
  <div class="view-header">
- <div><div class="view-title">Shopping List</div><div class="view-sub">Generated from your assigned meal plan.</div></div>
+ <div><div class="view-title">Shopping List</div><div class="view-sub">Generated from your assigned meal plan. Or open the Fitness Butler shopper for a week trolley.</div></div>
+ <div class="view-actions">
+ <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
+ </div>
  </div>
  <div class="scroll-body" id="portal-shopping-body">
  <div style="padding:20px;text-align:center"><div class="loader"></div></div>
