@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>FitMunch: your body wrote the trolley</title>
 <meta name="description" content="FitMunch is the daily health engine between body and trolley. It writes eat, train, and shop from the body you log. Premium is $19.99 AUD/mo after a 14-day trial."/>
-<meta name="theme-color" content="#eef2ee"/>
+<meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
 <meta property="og:title" content="FitMunch: your body wrote the trolley"/>
 <meta property="og:description" content="Eat, train, and shop from your body. The list is drafted from body signals, last shop, and public specials."/>
@@ -18,7 +18,6 @@
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preload" as="image" href="/assets/fm-hero-mealprep.webp" fetchpriority="high"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
@@ -45,21 +44,26 @@ body{
   transform:translateY(-140%);transition:transform .2s;
 }
 .skip:focus{transform:none}
-h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k{
+h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
 }
-.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
-/* FIRST FOLD: product, not a poster. Price only in this thin bar. */
+/* FIRST FOLD: dark studio product. Price only in this thin bar. */
 .fold{
   min-height:100svh;display:flex;flex-direction:column;
-  background:#f4efe6;
+  background:#07130d;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 80% 110%, rgba(31,157,74,.18), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 0%, rgba(255,255,255,.04), transparent 50%);
+  color:#eef2ee;
 }
 .trial-bar{
-  background:#11180f;color:#e8efe6;
+  background:#04100a;color:#e8efe6;
   text-align:center;font-size:.72rem;font-weight:600;line-height:1.3;
-  padding:7px 14px;
+  padding:8px 14px;
   letter-spacing:.01em;
+  border-bottom:1px solid rgba(255,255,255,.06);
 }
 .trial-bar span{color:#7dffa3;font-weight:600}
 .trial-bar a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:2px}
@@ -67,25 +71,25 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 /* NAV */
 .site-nav{
   display:flex;align-items:center;justify-content:space-between;
-  padding:14px 20px;
+  padding:12px 20px;
   background:transparent;
-  color:var(--ink);
+  color:#eef2ee;
 }
 .brand{
   display:inline-flex;align-items:center;gap:8px;
-  text-decoration:none;color:#11180f;
+  text-decoration:none;color:#f4f7f4;
   font-size:1.05rem;font-weight:800;letter-spacing:-.045em;
 }
 .brand img{width:28px;height:28px;border-radius:7px;display:block}
-.brand span{color:var(--leaf2)}
+.brand span{color:#7dffa3}
 .nav-links{display:flex;align-items:center;gap:2px}
 .nav-links a{
-  color:#3a4540;text-decoration:none;
+  color:rgba(238,242,238,.72);text-decoration:none;
   font-size:.82rem;font-weight:600;padding:8px 10px;
 }
-.nav-links a:hover{color:#11180f}
+.nav-links a:hover{color:#fff}
 .nav-cta{
-  background:transparent;color:#11180f;text-decoration:none;
+  background:transparent;color:#fff;text-decoration:none;
   font-size:.82rem;font-weight:700;padding:8px 0 8px 10px;
 }
 
@@ -93,34 +97,34 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .hero{
   flex:1 1 auto;
   display:flex;align-items:flex-end;
-  padding:8px 20px 28px;
+  padding:6px 20px 24px;
 }
 .hero-inner{
   width:min(1080px,100%);
   margin:0 auto;
   display:grid;
-  gap:22px;
+  gap:20px;
 }
 .hero-kicker{display:none}
 .hero h1{
-  font-size:clamp(2.35rem,10.4vw,4rem);
+  font-size:clamp(2.2rem,9.6vw,4rem);
   font-weight:800;letter-spacing:-.068em;line-height:.96;
-  max-width:11ch;margin-bottom:12px;color:#11180f;
+  max-width:11ch;margin-bottom:12px;color:#f4f7f4;
 }
 .hero-sub{
-  font-size:1.02rem;line-height:1.45;color:#1c2420;
+  font-size:1.02rem;line-height:1.45;color:#d8e4dc;
   max-width:28ch;margin-bottom:18px;
 }
 .hero-ctas{display:grid;max-width:20rem}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;
-  min-height:50px;padding:0 22px;border-radius:8px;
+  min-height:52px;padding:0 22px;border-radius:8px;
   font-size:.95rem;font-weight:700;text-decoration:none;border:1px solid transparent;
   transition:transform .2s, background .2s, border-color .2s, color .2s;
 }
 .btn:hover{transform:translateY(-1px)}
-.btn-leaf{background:#17833c;color:#fff}
-.btn-leaf:hover{background:#136b31}
+.btn-leaf{background:#1f9d4a;color:#fff}
+.btn-leaf:hover{background:#17833c}
 .btn-ghost{
   background:transparent;color:#fff;
   border-color:rgba(255,255,255,.38);
@@ -138,22 +142,41 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   justify-self:end;
 }
 .phone-bezel{
-  background:#fff;
-  border:1px solid #d7d0c4;
-  border-radius:18px;
+  background:#0a140e;
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:28px;
+  padding:10px 10px 12px;
+  box-shadow:0 28px 64px rgba(0,0,0,.45);
+}
+.phone-screen{
+  background:#f7f4ee;
+  border-radius:20px;
   overflow:hidden;
-  box-shadow:0 22px 48px rgba(28,20,10,.1);
+  color:#11180f;
 }
-.phone-photo{
-  position:relative;margin:0;height:132px;
+.phone-status{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 14px 0;
+  font-size:.62rem;font-weight:600;letter-spacing:.04em;color:#3a4540;
 }
-.phone-photo img{width:100%;height:100%;object-fit:cover;display:block}
-.phone-photo figcaption{
-  position:absolute;left:12px;bottom:10px;
-  background:rgba(17,24,15,.82);color:#f4efe6;
-  font-family:'IBM Plex Mono',ui-monospace,monospace;
-  font-size:.64rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-  padding:4px 8px;border-radius:3px;
+.phone-status i{
+  display:block;width:58px;height:14px;border-radius:10px;background:#11180f;
+}
+.phone-appbar{padding:12px 14px 8px}
+.phone-k{
+  font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:#1f7a3d;margin-bottom:4px;
+}
+.phone-week{
+  font-size:1.15rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;color:#11180f;
+}
+.phone-chip{
+  margin:0 14px 10px;
+  background:#e8efe6;
+  border:1px solid #cfd9d2;
+  border-radius:6px;
+  padding:8px 10px;
+  font-size:.78rem;line-height:1.35;color:#1c2420;
 }
 .phone-list{list-style:none}
 .phone-list li{
@@ -161,7 +184,6 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   padding:11px 14px;border-top:1px solid #ece6db;
 }
 .phone-list b{
-  font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.62rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   color:#1f7a3d;
 }
@@ -174,18 +196,16 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .phone-list li.line{grid-template-columns:4.8rem 1fr auto;align-items:center}
 .phone-list li.line strong{font-size:.88rem}
 .phone-list .src{
-  font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.62rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5c6d64;
 }
 .phone-approve{
   display:block;width:100%;border:0;border-top:1px solid #ece6db;
-  background:#17833c;color:#fff;text-align:center;
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  background:#1f9d4a;color:#fff;text-align:center;
   font-size:.92rem;font-weight:700;padding:13px 14px 4px;
   text-decoration:none;
 }
 .phone-honest{
-  background:#17833c;color:#d9f5e3;
+  background:#1f9d4a;color:#e8fff0;
   font-size:.72rem;line-height:1.35;text-align:center;
   padding:0 14px 12px;
 }
@@ -463,9 +483,8 @@ footer{
   .site-nav{padding:18px 48px}
   .hero{padding:12px 48px 56px;align-items:center}
   .hero-inner{grid-template-columns:1fr .92fr;gap:64px;align-items:center}
-  .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1f7a3d;margin-bottom:14px}
+  .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:14px}
   .hero-ctas{display:flex;max-width:none}
-  .phone-photo{height:180px}
 }
 @media(max-width:860px){
   .nav-links a:not(.nav-cta):not([data-fm-auth="login"]){display:none}
@@ -490,9 +509,11 @@ footer{
 }
 @media(max-height:700px) and (max-width:520px){
   .hero{padding-bottom:16px}
-  .hero h1{margin-bottom:8px}
-  .hero-sub{margin-bottom:12px}
-  .phone-photo{height:96px}
+  .hero h1{margin-bottom:8px;font-size:2.05rem}
+  .hero-sub{margin-bottom:12px;font-size:.95rem}
+  .phone-chip{display:none}
+  .phone-status{display:none}
+  .phone-appbar{padding-top:10px}
   .phone-list em{display:none}
   .phone-list li{padding:9px 14px}
 }
@@ -534,29 +555,33 @@ footer{
     </div>
     <aside class="phone" aria-label="Fitness Butler sample trolley">
       <div class="phone-bezel">
-        <figure class="phone-photo">
-          <img src="/assets/fm-hero-mealprep.webp" alt="Prepared meals: chicken, greens, and yoghurt bowls." width="800" height="500"/>
-          <figcaption>This week · sample</figcaption>
-        </figure>
-        <ol class="phone-list">
-          <li class="line">
-            <b>Woolies</b>
-            <strong>Chicken 1kg</strong>
-            <span class="src">specials</span>
-          </li>
-          <li class="line">
-            <b>Coles</b>
-            <strong>Eggs x12</strong>
-            <span class="src">last shop</span>
-          </li>
-          <li class="line">
-            <b>Aldi</b>
-            <strong>Oats</strong>
-            <span class="src">body</span>
-          </li>
-        </ol>
-        <a class="phone-approve" href="#loop">Approve this trolley</a>
-        <p class="phone-honest">Not a shop charge. You take this list.</p>
+        <div class="phone-screen">
+          <div class="phone-status" aria-hidden="true"><span>9:41</span><i></i><span>LTE</span></div>
+          <div class="phone-appbar">
+            <p class="phone-k">Fitness Butler</p>
+            <p class="phone-week">This week · sample</p>
+          </div>
+          <p class="phone-chip">From last shop and public specials. You take this list.</p>
+          <ol class="phone-list">
+            <li class="line">
+              <b>Woolies</b>
+              <strong>Chicken 1kg</strong>
+              <span class="src">specials</span>
+            </li>
+            <li class="line">
+              <b>Coles</b>
+              <strong>Eggs x12</strong>
+              <span class="src">last shop</span>
+            </li>
+            <li class="line">
+              <b>Aldi</b>
+              <strong>Oats</strong>
+              <span class="src">body</span>
+            </li>
+          </ol>
+          <a class="phone-approve" href="#loop">Approve this trolley</a>
+          <p class="phone-honest">Not a shop charge. You take this list.</p>
+        </div>
       </div>
     </aside>
   </div>
