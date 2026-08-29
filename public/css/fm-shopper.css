@@ -33,7 +33,9 @@
 .sp-hero-inner{
   position:relative;z-index:2;
   width:min(1120px,100%);
+  max-width:100%;
   padding:88px clamp(20px,4vw,48px) clamp(28px,6vw,56px);
+  box-sizing:border-box;
 }
 .sp-kicker{
   display:inline-flex;
@@ -77,12 +79,15 @@
   gap:4px;
   margin:0 0 16px;
   max-width:520px;
+  min-width:0;
 }
 .sp-day{
   background:#04100a;
   border:1px solid rgba(125,255,163,.28);
-  padding:8px 6px 9px;
+  padding:8px 8px 9px;
   min-height:72px;
+  min-width:0;
+  box-sizing:border-box;
 }
 .sp-day b{
   display:block;
@@ -97,7 +102,8 @@
   font-size:.7rem;font-weight:700;letter-spacing:-.02em;line-height:1.25;
   color:#f4f7f4;
 }
-.sp-ctas{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.sp-ctas{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;max-width:100%;min-width:0}
+.sp-hero .fm-btn{box-sizing:border-box;max-width:100%}
 .sp-honest{
   font-size:.78rem;
   line-height:1.45;
@@ -276,10 +282,7 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 }
 
 @media(max-width:720px){
-  .sp-week-strip{grid-template-columns:repeat(7,minmax(0,1fr));max-width:none}
-  .sp-day{min-height:68px;padding:7px 4px 8px}
-  .sp-day b{font-size:.62rem}
-  .sp-day span{font-size:.66rem}
+  .sp-week-strip{max-width:none}
   .sp-pricebar{font-size:.7rem}
   .sp-meals,.sp-rule,.sp-math{grid-template-columns:1fr}
   .sp-line{grid-template-columns:1fr auto;gap:4px 10px}
@@ -287,10 +290,24 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   .sp-line .p{grid-column:2;grid-row:1}
   .fm-nav-links a:not(.fm-nav-cta){display:none}
 }
+/* Phone first fold: wrap Mon-Sun to two rows so Chicken/Pasta are not clipped. */
+@media(max-width:520px){
+  .sp-week-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    max-width:none;
+  }
+  .sp-day{
+    flex:1 1 22%;
+    min-height:64px;
+    padding:8px 10px 9px;
+  }
+  .sp-ctas{display:grid;grid-template-columns:1fr}
+  .sp-ctas .fm-btn{width:100%;max-width:100%;box-sizing:border-box}
+}
 @media(max-width:420px){
   .sp-hero h1{max-width:11ch}
-  .sp-ctas{display:grid;grid-template-columns:1fr}
-  .sp-ctas .fm-btn{width:100%}
 }
 
 @media print{
