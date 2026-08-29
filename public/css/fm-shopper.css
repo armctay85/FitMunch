@@ -1,0 +1,297 @@
+/* Fitness Butler shopper. Own surface. Cinema tokens from fm-tokens.css. */
+
+.skip{
+  position:absolute;left:16px;top:12px;z-index:40;
+  background:var(--leaf);color:#fff;padding:10px 14px;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.85rem;
+  text-decoration:none;border-radius:4px;
+  transform:translateY(-160%);transition:transform .2s;
+}
+.skip:focus{transform:none}
+
+.sp-hero{
+  position:relative;
+  min-height:100svh;
+  display:flex;
+  align-items:flex-end;
+  color:#fff;
+  overflow:hidden;
+  background:var(--fridge);
+}
+.sp-hero-media{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(118deg, rgba(7,19,13,.96) 0%, rgba(7,19,13,.78) 42%, rgba(7,19,13,.42) 78%, rgba(7,19,13,.62) 100%),
+    url('/assets/fm-groceries.webp') center/cover no-repeat;
+}
+.sp-hero-grain{
+  position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.16;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+.sp-hero-inner{
+  position:relative;z-index:2;
+  width:min(1120px,100%);
+  padding:0 clamp(20px,4vw,48px) clamp(28px,6vw,56px);
+}
+.sp-kicker{
+  display:inline-flex;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--leaf);
+  border:1px solid rgba(31,157,74,.42);
+  border-radius:3px;
+  padding:5px 10px;
+  margin-bottom:14px;
+}
+.sp-hero h1{
+  font-size:clamp(2.05rem,9.2vw,4.4rem);
+  font-weight:800;letter-spacing:-.055em;line-height:.96;
+  max-width:13ch;
+  margin:0 0 12px;
+}
+.sp-hero .lead{
+  color:rgba(238,242,238,.82);
+  font-size:clamp(.98rem,2.6vw,1.12rem);
+  line-height:1.5;
+  max-width:36ch;
+  margin:0 0 16px;
+}
+.sp-pricebar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.02em;
+  color:rgba(238,242,238,.62);
+  border-top:1px solid rgba(255,255,255,.12);
+  border-bottom:1px solid rgba(255,255,255,.12);
+  padding:8px 0;
+  margin:0 0 16px;
+  max-width:46ch;
+}
+.sp-pricebar strong{color:#fff;font-weight:600}
+.sp-week-strip{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:4px;
+  margin:0 0 16px;
+  max-width:520px;
+}
+.sp-day{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);
+  padding:8px 6px 9px;
+  min-height:72px;
+}
+.sp-day b{
+  display:block;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--leaf);
+  margin-bottom:4px;
+}
+.sp-day span{
+  display:block;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.68rem;font-weight:700;letter-spacing:-.02em;line-height:1.25;
+  color:rgba(255,255,255,.88);
+}
+.sp-ctas{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.sp-honest{
+  font-size:.78rem;
+  line-height:1.45;
+  color:rgba(238,242,238,.68);
+  max-width:40ch;
+  margin:0;
+}
+button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.sp-hero .fm-btn[disabled],.fm-convert .fm-btn[disabled]{opacity:.55;transform:none;cursor:wait}
+
+.sp-section{padding:clamp(36px,7vw,72px) clamp(20px,4vw,48px)}
+.sp-inner{width:min(980px,100%);margin:0 auto}
+.sp-section h2{
+  font-size:clamp(1.6rem,3.4vw,2.3rem);
+  font-weight:800;letter-spacing:-.045em;line-height:1.05;
+  margin:0 0 10px;
+}
+.sp-section .lead{color:var(--mute);font-size:1.02rem;line-height:1.6;max-width:44ch;margin:0 0 22px}
+
+.sp-meals{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+}
+.sp-meal{
+  background:#fff;
+  padding:16px 16px 18px;
+}
+.sp-meal .d{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--leaf2);
+  margin-bottom:8px;
+}
+.sp-meal ul{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.sp-meal li{font-size:.88rem;line-height:1.35;color:var(--ink)}
+.sp-meal li em{
+  display:block;
+  font-style:normal;
+  color:var(--mute);
+  font-size:.78rem;
+}
+
+.sp-rule{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+  margin-top:8px;
+}
+.sp-rule article{
+  background:#fff;
+  padding:18px 16px 20px;
+}
+.sp-rule h3{
+  font-size:1rem;
+  margin:0 0 6px;
+}
+.sp-rule p{margin:0;color:var(--mute);font-size:.88rem;line-height:1.55}
+
+.sp-ticket{
+  background:#fff;
+  border:1px solid var(--line);
+  padding:22px 20px 24px;
+}
+.sp-ticket-top{
+  display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+  border-bottom:1px dashed var(--line);
+  padding-bottom:16px;
+  margin-bottom:16px;
+}
+.sp-total{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:clamp(2.4rem,8vw,3.4rem);
+  font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9;
+}
+.sp-total small{
+  display:block;
+  font-size:.78rem;
+  color:var(--mute);
+  margin-top:8px;
+  letter-spacing:0;
+}
+.sp-verdict{
+  max-width:36ch;
+  font-size:.92rem;
+  line-height:1.5;
+  color:var(--ink);
+}
+.sp-verdict strong{display:block;margin-bottom:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.sp-math{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin:0 0 18px;
+}
+.sp-math div{
+  border-left:2px solid var(--leaf);
+  padding:2px 0 2px 10px;
+}
+.sp-math b{
+  display:block;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:1.05rem;
+}
+.sp-math span{font-size:.76rem;color:var(--mute)}
+
+.sp-lines{display:grid;gap:0}
+.sp-line{
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  gap:10px;
+  align-items:baseline;
+  padding:10px 0;
+  border-bottom:1px dashed var(--line);
+  font-size:.88rem;
+}
+.sp-line:last-child{border-bottom:0}
+.sp-line .n{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700}
+.sp-line .m{color:var(--mute);font-size:.76rem;margin-top:2px}
+.sp-line .st{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--leaf2);
+}
+.sp-line .p{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-weight:600;
+  color:var(--ink);
+}
+.sp-special{color:var(--leaf2)}
+
+.sp-approve{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  margin-top:20px;
+}
+.sp-status{
+  font-size:.84rem;
+  color:var(--mute);
+}
+
+.sp-baskets{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:12px;
+  margin:18px 0;
+}
+.sp-basket{
+  background:#fff;
+  border:1px solid var(--line);
+  padding:16px;
+}
+.sp-basket h3{margin:0 0 4px;font-size:1.05rem}
+.sp-basket .t{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:1.35rem;
+  color:var(--leaf2);
+  margin-bottom:10px;
+}
+.sp-basket ol{margin:0 0 14px;padding-left:18px;color:var(--ink);font-size:.86rem;line-height:1.5}
+.sp-basket a{color:var(--leaf2);font-size:.82rem;font-weight:700;text-decoration:none}
+.sp-note{
+  font-size:.84rem;
+  color:var(--mute);
+  line-height:1.55;
+  max-width:48ch;
+}
+
+.sp-err{
+  color:#9b1c1c;
+  font-size:.86rem;
+  margin:8px 0 0;
+}
+
+@media(max-width:720px){
+  .sp-week-strip{grid-template-columns:repeat(7,minmax(0,1fr));max-width:none}
+  .sp-day{min-height:64px;padding:6px 4px 7px}
+  .sp-day span{font-size:.6rem}
+  .sp-meals,.sp-rule,.sp-math{grid-template-columns:1fr}
+  .sp-line{grid-template-columns:1fr auto;gap:4px 10px}
+  .sp-line .st{grid-column:1}
+  .sp-line .p{grid-column:2;grid-row:1}
+  .fm-nav-links a:not(.fm-nav-cta){display:none}
+}
+@media(max-width:420px){
+  .sp-hero h1{max-width:11ch}
+  .sp-ctas{display:grid;grid-template-columns:1fr}
+  .sp-ctas .fm-btn{width:100%}
+}
+
+@media print{
+  .fm-nav,.sp-hero,.sp-section:not(.sp-checkout),.fm-footer,.sp-approve,.sp-ctas{display:none!important}
+  .sp-checkout{padding:0}
+  .sp-ticket,.sp-basket{border-color:#bbb}
+  body{background:#fff}
+}
