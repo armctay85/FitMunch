@@ -92,6 +92,20 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(home.text).not.toContain('data-sp-commit');
   });
 
+  it('first fold is a solid fridge studio, not a grocery photo', () => {
+    const css = read('public/css/fm-shopper.css');
+    const html = read('public/shopper.html');
+    expect(css).not.toMatch(/fm-groceries/);
+    expect(html).not.toMatch(/fm-groceries/);
+    expect(css).toMatch(/\.sp-hero\{[\s\S]*?background:#07130d/);
+    expect(css).toMatch(/\.sp-hero \.lead\{[\s\S]*?color:#dce6de/);
+    expect(css).toMatch(/\.sp-pricebar\{[\s\S]*?color:#e8efe6/);
+    expect(css).toMatch(/\.sp-day\{[\s\S]*?background:#04100a/);
+    expect(css).toMatch(/\.sp-day b\{[\s\S]*?color:#7dffa3/);
+    expect(css).toMatch(/\.sp-day span\{[\s\S]*?color:#f4f7f4/);
+    expect(read('public/index.html')).toContain('Your body wrote the trolley.');
+  });
+
   it('aliases land on the shopper surface', async () => {
     await request(app).get('/fitness-butler').expect(301).expect('Location', '/shopper');
     await request(app).get('/butler').expect(301).expect('Location', '/shopper');
