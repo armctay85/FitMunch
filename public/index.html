@@ -49,13 +49,10 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 }
 .score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
-/* FIRST FOLD: dark studio product. Price only in this thin bar. */
+/* FIRST FOLD: studio product sheet. Price only in this thin bar. */
 .fold{
   min-height:100svh;display:flex;flex-direction:column;
   background:#07130d;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 80% 110%, rgba(31,157,74,.18), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 0% 0%, rgba(255,255,255,.04), transparent 50%);
   color:#eef2ee;
 }
 .trial-bar{
@@ -97,28 +94,28 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .hero{
   flex:1 1 auto;
   display:flex;align-items:flex-end;
-  padding:6px 20px 24px;
+  padding:8px 20px 28px;
 }
 .hero-inner{
   width:min(1080px,100%);
   margin:0 auto;
   display:grid;
-  gap:20px;
+  gap:22px;
 }
 .hero-kicker{display:none}
 .hero h1{
-  font-size:clamp(2.2rem,9.6vw,4rem);
-  font-weight:800;letter-spacing:-.068em;line-height:.96;
-  max-width:11ch;margin-bottom:12px;color:#f4f7f4;
+  font-size:clamp(2.35rem,10.2vw,4.15rem);
+  font-weight:800;letter-spacing:-.07em;line-height:.94;
+  max-width:11ch;margin-bottom:14px;color:#f4f7f4;
 }
 .hero-sub{
-  font-size:1.02rem;line-height:1.45;color:#d8e4dc;
-  max-width:28ch;margin-bottom:18px;
+  font-size:1.05rem;line-height:1.5;color:#dce6de;
+  max-width:28ch;margin-bottom:20px;
 }
 .hero-ctas{display:grid;max-width:20rem}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;
-  min-height:52px;padding:0 22px;border-radius:8px;
+  min-height:52px;padding:0 22px;border-radius:4px;
   font-size:.95rem;font-weight:700;text-decoration:none;border:1px solid transparent;
   transition:transform .2s, background .2s, border-color .2s, color .2s;
 }
@@ -141,73 +138,55 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   max-width:22.5rem;
   justify-self:end;
 }
-.phone-bezel{
-  background:#0a140e;
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:28px;
-  padding:10px 10px 12px;
-  box-shadow:0 28px 64px rgba(0,0,0,.45);
-}
-.phone-screen{
-  background:#f7f4ee;
-  border-radius:20px;
-  overflow:hidden;
+.sheet{
+  background:#f4efe6;
   color:#11180f;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:4px;
+  overflow:hidden;
+  box-shadow:0 22px 50px rgba(0,0,0,.38);
 }
-.phone-status{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:8px 14px 0;
-  font-size:.62rem;font-weight:600;letter-spacing:.04em;color:#3a4540;
-}
-.phone-status i{
-  display:block;width:58px;height:14px;border-radius:10px;background:#11180f;
-}
-.phone-appbar{padding:12px 14px 8px}
+.sheet-top{padding:16px 16px 10px}
 .phone-k{
-  font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
-  color:#1f7a3d;margin-bottom:4px;
+  font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:#17833c;margin-bottom:6px;
 }
 .phone-week{
-  font-size:1.15rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;color:#11180f;
+  font-size:1.28rem;font-weight:800;letter-spacing:-.045em;line-height:1.05;color:#11180f;
 }
-.phone-chip{
-  margin:0 14px 10px;
-  background:#e8efe6;
-  border:1px solid #cfd9d2;
-  border-radius:6px;
-  padding:8px 10px;
-  font-size:.78rem;line-height:1.35;color:#1c2420;
+.sheet-body{
+  margin:0 16px 12px;
+  font-size:.86rem;line-height:1.45;color:#1c2420;
 }
-.phone-list{list-style:none}
+.phone-list{list-style:none;border-top:1px solid #e4dccf}
 .phone-list li{
-  display:grid;grid-template-columns:3.4rem 1fr;gap:10px;align-items:baseline;
-  padding:11px 14px;border-top:1px solid #ece6db;
+  display:grid;grid-template-columns:4.6rem 1fr auto;gap:10px;align-items:center;
+  padding:12px 16px;border-bottom:1px solid #ece6db;
 }
 .phone-list b{
-  font-size:.62rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:#1f7a3d;
+  display:inline-block;
+  font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:#136b31;background:#e4efe6;padding:4px 6px;border-radius:2px;text-align:center;
 }
 .phone-list strong{
-  display:block;font-size:.92rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
+  display:block;font-size:.95rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
 }
-.phone-list em{
-  display:block;font-style:normal;font-size:.78rem;line-height:1.35;color:#3a4540;margin-top:1px;
-}
-.phone-list li.line{grid-template-columns:4.8rem 1fr auto;align-items:center}
-.phone-list li.line strong{font-size:.88rem}
 .phone-list .src{
-  font-size:.62rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5c6d64;
+  font-size:.58rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5c6d64;
+}
+.sheet-foot{
+  padding:14px 16px 16px;
 }
 .phone-approve{
-  display:block;width:100%;border:0;border-top:1px solid #ece6db;
-  background:#1f9d4a;color:#fff;text-align:center;
-  font-size:.92rem;font-weight:700;padding:13px 14px 4px;
-  text-decoration:none;
+  display:inline-block;
+  color:#136b31;background:transparent;
+  font-size:.95rem;font-weight:700;
+  text-decoration:underline;text-underline-offset:3px;
+  padding:0;
 }
 .phone-honest{
-  background:#1f9d4a;color:#e8fff0;
-  font-size:.72rem;line-height:1.35;text-align:center;
-  padding:0 14px 12px;
+  margin-top:6px;
+  font-size:.78rem;line-height:1.4;color:#3a4540;
 }
 
 /* FIRST SCAN */
@@ -509,13 +488,10 @@ footer{
 }
 @media(max-height:700px) and (max-width:520px){
   .hero{padding-bottom:16px}
-  .hero h1{margin-bottom:8px;font-size:2.05rem}
+  .hero h1{margin-bottom:8px;font-size:2.15rem}
   .hero-sub{margin-bottom:12px;font-size:.95rem}
-  .phone-chip{display:none}
-  .phone-status{display:none}
-  .phone-appbar{padding-top:10px}
-  .phone-list em{display:none}
-  .phone-list li{padding:9px 14px}
+  .sheet-body{display:none}
+  .phone-list li{padding:10px 16px}
 }
 @media(prefers-reduced-motion:reduce){
   .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
@@ -554,31 +530,30 @@ footer{
       </div>
     </div>
     <aside class="phone" aria-label="Fitness Butler sample trolley">
-      <div class="phone-bezel">
-        <div class="phone-screen">
-          <div class="phone-status" aria-hidden="true"><span>9:41</span><i></i><span>LTE</span></div>
-          <div class="phone-appbar">
-            <p class="phone-k">Fitness Butler</p>
-            <p class="phone-week">This week · sample</p>
-          </div>
-          <p class="phone-chip">From last shop and public specials. You take this list.</p>
-          <ol class="phone-list">
-            <li class="line">
-              <b>Woolies</b>
-              <strong>Chicken 1kg</strong>
-              <span class="src">specials</span>
-            </li>
-            <li class="line">
-              <b>Coles</b>
-              <strong>Eggs x12</strong>
-              <span class="src">last shop</span>
-            </li>
-            <li class="line">
-              <b>Aldi</b>
-              <strong>Oats</strong>
-              <span class="src">body</span>
-            </li>
-          </ol>
+      <div class="sheet">
+        <div class="sheet-top">
+          <p class="phone-k">Fitness Butler</p>
+          <p class="phone-week">This week · sample</p>
+        </div>
+        <p class="sheet-body">From last shop and public specials. You take this list.</p>
+        <ol class="phone-list">
+          <li>
+            <b>Woolies</b>
+            <strong>Chicken 1kg</strong>
+            <span class="src">specials</span>
+          </li>
+          <li>
+            <b>Coles</b>
+            <strong>Eggs x12</strong>
+            <span class="src">last shop</span>
+          </li>
+          <li>
+            <b>Aldi</b>
+            <strong>Oats</strong>
+            <span class="src">body</span>
+          </li>
+        </ol>
+        <div class="sheet-foot">
           <a class="phone-approve" href="#loop">Approve this trolley</a>
           <p class="phone-honest">Not a shop charge. You take this list.</p>
         </div>
