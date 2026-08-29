@@ -69,6 +69,8 @@ describe('Fitness Butler shopper HTTP', () => {
   it('GET /shopper is its own surface and does not fight the homepage job', async () => {
     const page = await request(app).get('/shopper').expect(200);
     expect(page.text).toContain('Commit the week. Take the trolley.');
+    expect(page.text).toContain('class="skip"');
+    expect(read('public/css/fm-shopper.css')).toMatch(/\.skip\{[\s\S]*transform:translateY\(-160%\)/);
     expect(page.text).toContain('data-sp-commit');
     expect(page.text).toContain('Approve this trolley');
     expect(page.text).toContain('public specials');
