@@ -106,6 +106,23 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(read('public/index.html')).toContain('Your body wrote the trolley.');
   });
 
+  it('first fold wraps seven day chips and keeps CTAs inside a 390 viewport', () => {
+    const css = read('public/css/fm-shopper.css');
+    const html = read('public/shopper.html');
+    expect(css).toMatch(/@media\(max-width:520px\)\{[\s\S]*?\.sp-week-strip\{[\s\S]*?flex-wrap:wrap/);
+    expect(css).toMatch(/\.sp-hero \.fm-btn\{box-sizing:border-box/);
+    expect(css).toMatch(/\.sp-ctas \.fm-btn\{width:100%;max-width:100%;box-sizing:border-box/);
+    expect(html).toContain('Commit the week. Take the trolley.');
+    expect(html).toContain('Commit this week');
+    expect(html).toContain('How the split works');
+    expect(html).toContain('$19.99 AUD/mo');
+    expect(html).toContain('We do not pay Woolies');
+    expect(html).toContain('not a live trolley scrape');
+    expect(html).toContain('No Apple Watch. No HealthKit.');
+    expect(html).not.toMatch(/fm-groceries/);
+    expect(read('public/index.html')).toContain('Your body wrote the trolley.');
+  });
+
   it('aliases land on the shopper surface', async () => {
     await request(app).get('/fitness-butler').expect(301).expect('Location', '/shopper');
     await request(app).get('/butler').expect(301).expect('Location', '/shopper');
