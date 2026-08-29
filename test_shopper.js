@@ -110,6 +110,7 @@ describe('Fitness Butler shopper HTTP', () => {
     const css = read('public/css/fm-shopper.css');
     const html = read('public/shopper.html');
     expect(css).toMatch(/@media\(max-width:520px\)\{[\s\S]*?\.sp-week-strip\{[\s\S]*?flex-wrap:wrap/);
+    expect(css).toMatch(/@media\(max-width:520px\)\{[\s\S]*?\.sp-ctas\{display:grid;grid-template-columns:1fr\}/);
     expect(css).toMatch(/\.sp-hero \.fm-btn\{box-sizing:border-box/);
     expect(css).toMatch(/\.sp-ctas \.fm-btn\{width:100%;max-width:100%;box-sizing:border-box/);
     expect(html).toContain('Commit the week. Take the trolley.');

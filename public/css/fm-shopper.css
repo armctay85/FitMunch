@@ -303,11 +303,11 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
     min-height:64px;
     padding:8px 10px 9px;
   }
+  .sp-ctas{display:grid;grid-template-columns:1fr}
+  .sp-ctas .fm-btn{width:100%;max-width:100%;box-sizing:border-box}
 }
 @media(max-width:420px){
   .sp-hero h1{max-width:11ch}
-  .sp-ctas{display:grid;grid-template-columns:1fr}
-  .sp-ctas .fm-btn{width:100%;max-width:100%;box-sizing:border-box}
 }
 
 @media print{
