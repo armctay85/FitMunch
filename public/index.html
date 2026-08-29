@@ -3,22 +3,21 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch: photograph your receipt, get tonight's dinner</title>
-<meta name="description" content="Photograph your Woolies, Coles, Aldi or IGA receipt. FitMunch scores your haul and picks one dinner from that shop. Then a $19.99 AUD/mo Premium trial."/>
+<title>FitMunch: your body wrote the trolley</title>
+<meta name="description" content="FitMunch is the daily health engine between body and trolley. It writes eat, train, and shop from the body you log. Premium is $19.99 AUD/mo after a 14-day trial."/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
-<meta property="og:title" content="FitMunch: photograph your receipt, get tonight's dinner"/>
-<meta property="og:description" content="Your receipt, your haul score, one meal from that shop. Built for Australian Woolies, Coles, Aldi and IGA shops."/>
+<meta property="og:title" content="FitMunch: your body wrote the trolley"/>
+<meta property="og:description" content="Eat, train, and shop from your body. The list is drafted from body signals, last shop, and public specials."/>
 <meta property="og:url" content="https://www.fitmunch.com.au"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="FitMunch: photograph your receipt, get tonight's dinner"/>
-<meta name="twitter:description" content="Scan your Woolies or Coles receipt. Get your haul score and tonight's dinner from that shop."/>
+<meta name="twitter:title" content="FitMunch: your body wrote the trolley"/>
+<meta name="twitter:description" content="The daily health engine between body and trolley. Eat, train, shop. Written from your body."/>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preload" as="image" href="/assets/fm-receipt-scan.webp" fetchpriority="high"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
@@ -45,111 +44,158 @@ body{
   transform:translateY(-140%);transition:transform .2s;
 }
 .skip:focus{transform:none}
-h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a{
+h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
 }
-.score-n,.price-n,.step-n,.row-val{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
+
+/* FIRST FOLD: studio product sheet. Price only in this thin bar. */
+.fold{
+  min-height:100svh;display:flex;flex-direction:column;
+  background:#07130d;
+  color:#eef2ee;
+}
+.trial-bar{
+  background:#04100a;color:#e8efe6;
+  text-align:center;font-size:.72rem;font-weight:600;line-height:1.3;
+  padding:8px 14px;
+  letter-spacing:.01em;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.trial-bar span{color:#7dffa3;font-weight:600}
+.trial-bar a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:2px}
 
 /* NAV */
 .site-nav{
-  position:absolute;top:0;left:0;right:0;z-index:20;
   display:flex;align-items:center;justify-content:space-between;
-  padding:22px clamp(20px,4vw,48px);
-  color:#fff;
+  padding:12px 20px;
+  background:transparent;
+  color:#eef2ee;
 }
 .brand{
-  display:inline-flex;align-items:center;gap:10px;
-  text-decoration:none;color:#fff;
-  font-size:clamp(1.2rem,2vw,1.45rem);font-weight:800;letter-spacing:-.04em;
+  display:inline-flex;align-items:center;gap:8px;
+  text-decoration:none;color:#f4f7f4;
+  font-size:1.05rem;font-weight:800;letter-spacing:-.045em;
 }
-.brand img{width:34px;height:34px;border-radius:8px;display:block}
-.brand span{color:var(--leaf)}
-.nav-links{display:flex;align-items:center;gap:4px}
+.brand img{width:28px;height:28px;border-radius:7px;display:block}
+.brand span{color:#7dffa3}
+.nav-links{display:flex;align-items:center;gap:2px}
 .nav-links a{
-  color:rgba(255,255,255,.76);text-decoration:none;
-  font-size:.84rem;font-weight:600;padding:8px 12px;
+  color:rgba(238,242,238,.72);text-decoration:none;
+  font-size:.82rem;font-weight:600;padding:8px 10px;
 }
 .nav-links a:hover{color:#fff}
 .nav-cta{
-  background:var(--leaf);color:#fff;text-decoration:none;
-  font-size:.84rem;font-weight:700;padding:10px 16px;border-radius:4px;
-  transition:background .2s, transform .2s;
+  background:transparent;color:#fff;text-decoration:none;
+  font-size:.82rem;font-weight:700;padding:8px 0 8px 10px;
 }
-.nav-cta:hover{background:var(--leaf2);transform:translateY(-1px)}
 
 /* HERO */
 .hero{
-  position:relative;min-height:100svh;
+  flex:1 1 auto;
   display:flex;align-items:flex-end;
-  color:#fff;overflow:hidden;
-  background:var(--fridge);
+  padding:8px 20px 28px;
 }
-.hero-media{
-  position:absolute;inset:0;
-  background:
-    linear-gradient(112deg, rgba(7,19,13,.94) 0%, rgba(7,19,13,.62) 38%, rgba(7,19,13,.28) 72%, rgba(7,19,13,.45) 100%),
-    url('/assets/fm-receipt-scan.webp') center/cover no-repeat;
-  transform:scale(1.045);
-  animation:heroPush 16s cubic-bezier(.15,.7,.2,1) forwards;
-}
-.hero-grain{
-  position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.18;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode:overlay;
-}
-@keyframes heroPush{to{transform:scale(1)}}
 .hero-inner{
-  position:relative;z-index:2;
-  width:min(1120px,100%);
-  padding:0 clamp(20px,4vw,48px) clamp(52px,9vw,96px);
-  opacity:0;transform:translateY(20px);
-  animation:rise .95s cubic-bezier(.2,.7,.3,1) .12s forwards;
+  width:min(1080px,100%);
+  margin:0 auto;
+  display:grid;
+  gap:22px;
 }
-@keyframes rise{to{opacity:1;transform:none}}
-.hero-brand{
-  font-size:clamp(3.6rem,11vw,7.6rem);
-  font-weight:800;letter-spacing:-.065em;line-height:.9;
-  margin-bottom:20px;
-}
-.hero-brand span{color:var(--leaf)}
+.hero-kicker{display:none}
 .hero h1{
-  font-size:clamp(1.4rem,2.9vw,2.05rem);
-  font-weight:700;letter-spacing:-.035em;line-height:1.18;
-  max-width:20ch;margin-bottom:14px;
+  font-size:clamp(2.35rem,10.2vw,4.15rem);
+  font-weight:800;letter-spacing:-.07em;line-height:.94;
+  max-width:11ch;margin-bottom:14px;color:#f4f7f4;
 }
 .hero-sub{
-  font-size:clamp(1.02rem,1.55vw,1.14rem);
-  line-height:1.55;color:rgba(238,242,238,.84);
-  max-width:34ch;margin-bottom:30px;
+  font-size:1.05rem;line-height:1.5;color:#dce6de;
+  max-width:28ch;margin-bottom:20px;
 }
-.hero-ctas{display:flex;flex-wrap:wrap;gap:10px}
+.hero-ctas{display:grid;max-width:20rem}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;
-  min-height:48px;padding:0 22px;border-radius:4px;
+  min-height:52px;padding:0 22px;border-radius:4px;
   font-size:.95rem;font-weight:700;text-decoration:none;border:1px solid transparent;
   transition:transform .2s, background .2s, border-color .2s, color .2s;
 }
 .btn:hover{transform:translateY(-1px)}
-.btn-leaf{background:var(--leaf);color:#fff}
-.btn-leaf:hover{background:var(--leaf2)}
+.btn-leaf{background:#1f9d4a;color:#fff}
+.btn-leaf:hover{background:#17833c}
 .btn-ghost{
   background:transparent;color:#fff;
   border-color:rgba(255,255,255,.38);
 }
 .btn-ghost:hover{border-color:rgba(255,255,255,.78)}
 .btn-ink{
-  background:transparent;color:var(--ink);
+  background:#fff;color:var(--ink);
   border-color:var(--line);
 }
 .btn-ink:hover{border-color:var(--mute)}
 
+.phone{
+  width:100%;
+  max-width:22.5rem;
+  justify-self:end;
+}
+.sheet{
+  background:#f4efe6;
+  color:#11180f;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:4px;
+  overflow:hidden;
+  box-shadow:0 22px 50px rgba(0,0,0,.38);
+}
+.sheet-top{padding:16px 16px 10px}
+.phone-k{
+  font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:#17833c;margin-bottom:6px;
+}
+.phone-week{
+  font-size:1.28rem;font-weight:800;letter-spacing:-.045em;line-height:1.05;color:#11180f;
+}
+.sheet-body{
+  margin:0 16px 12px;
+  font-size:.86rem;line-height:1.45;color:#1c2420;
+}
+.phone-list{list-style:none;border-top:1px solid #e4dccf}
+.phone-list li{
+  display:grid;grid-template-columns:4.6rem 1fr auto;gap:10px;align-items:center;
+  padding:12px 16px;border-bottom:1px solid #ece6db;
+}
+.phone-list b{
+  display:inline-block;
+  font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:#136b31;background:#e4efe6;padding:4px 6px;border-radius:2px;text-align:center;
+}
+.phone-list strong{
+  display:block;font-size:.95rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
+}
+.phone-list .src{
+  font-size:.58rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5c6d64;
+}
+.sheet-foot{
+  padding:14px 16px 16px;
+}
+.phone-approve{
+  display:inline-block;
+  color:#136b31;background:transparent;
+  font-size:.95rem;font-weight:700;
+  text-decoration:underline;text-underline-offset:3px;
+  padding:0;
+}
+.phone-honest{
+  margin-top:6px;
+  font-size:.78rem;line-height:1.4;color:#3a4540;
+}
+
 /* FIRST SCAN */
 .first-scan{
   background:var(--paper);
-  padding:clamp(36px,6vw,64px) clamp(20px,4vw,48px) clamp(52px,8vw,88px);
+  padding:clamp(52px,8vw,88px) clamp(20px,4vw,48px);
 }
 .first-scan-inner{width:min(1040px,100%);margin:0 auto}
-.first-scan-head{max-width:40ch;margin-bottom:28px}
+.first-scan-head{max-width:42ch;margin-bottom:28px}
 .first-scan-head h2{
   font-size:clamp(1.85rem,4vw,2.7rem);
   font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:10px;
@@ -179,26 +225,45 @@ h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,
 .fs-uses{margin:10px 0 0;padding-left:18px;color:var(--mute);font-size:.88rem}
 .fs-trial-note{margin-top:12px;font-size:.82rem;color:var(--mute);line-height:1.5}
 
-/* LOOP */
+/* HOW IT WORKS */
 .loop{
   position:relative;
-  background:var(--paper);
+  background:#fff;
   padding:clamp(68px,11vw,124px) clamp(20px,4vw,48px);
-}
-.loop::before{
-  content:"";position:absolute;inset:0;pointer-events:none;opacity:.035;
-  background-image:repeating-linear-gradient(
-    0deg, transparent, transparent 27px, var(--ink) 27px, var(--ink) 28px
-  );
+  border-top:1px solid var(--line);
 }
 .loop-inner{position:relative;width:min(1040px,100%);margin:0 auto}
-.loop-head{max-width:32ch;margin-bottom:52px}
+.loop-head{max-width:34ch;margin-bottom:52px}
 .loop-head h2{
   font-size:clamp(2.05rem,4.6vw,3.2rem);
   font-weight:800;letter-spacing:-.055em;line-height:1.02;
   margin-bottom:14px;
 }
 .loop-head p{color:var(--mute);font-size:1.06rem;line-height:1.65}
+.beats{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:0;border-top:1px solid var(--line);
+}
+.beat{
+  padding:28px 24px 8px 0;
+  border-right:1px solid var(--line);
+}
+.beat:last-child{border-right:0;padding-right:0}
+.beat h3{font-size:1.2rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
+.beat p{color:var(--mute);font-size:.95rem;line-height:1.55;max-width:28ch}
+.butler{
+  margin-top:48px;background:var(--paper);border:1px solid var(--line);padding:28px 24px;
+}
+.butler-k{
+  font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--leaf2);margin-bottom:10px;
+}
+.butler h3{font-size:1.45rem;font-weight:800;letter-spacing:-.03em;margin-bottom:10px}
+.butler > p{color:var(--mute);font-size:1rem;line-height:1.6;max-width:46ch;margin-bottom:18px}
+.trolley-draft{background:#fff;border:1px solid var(--line)}
+.trolley-draft .row{padding:12px 16px;border-bottom:1px solid var(--line)}
+.trolley-draft .row:last-child{border-bottom:0}
+.butler-note{margin-top:14px;font-size:.82rem;color:var(--mute);line-height:1.5;max-width:46ch}
 .loop-rail{
   display:grid;grid-template-columns:repeat(5,1fr);
   gap:0;border-top:1px solid var(--line);
@@ -349,10 +414,11 @@ h1,h2,h3,.brand,.hero-brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,
 .final h2{
   font-size:clamp(2.25rem,5.1vw,3.5rem);
   font-weight:800;letter-spacing:-.055em;line-height:1.02;
-  margin-bottom:14px;max-width:13ch;
+  margin-bottom:14px;max-width:16ch;
 }
 .final h2 em{font-style:normal;color:var(--leaf)}
-.final p{color:rgba(238,242,238,.76);font-size:1.05rem;line-height:1.6;max-width:34ch;margin-bottom:28px}
+.final p{color:rgba(238,242,238,.76);font-size:1.05rem;line-height:1.6;max-width:36ch;margin-bottom:28px}
+.final-ctas{display:flex;flex-wrap:wrap;gap:10px}
 
 /* TRUST */
 .trust{
@@ -392,8 +458,18 @@ footer{
 .footer-links a:hover{color:#fff}
 .footer-note{width:100%;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:18px;font-size:.78rem}
 
+@media(min-width:860px){
+  .site-nav{padding:18px 48px}
+  .hero{padding:12px 48px 56px;align-items:center}
+  .hero-inner{grid-template-columns:1fr .92fr;gap:64px;align-items:center}
+  .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:14px}
+  .hero-ctas{display:flex;max-width:none}
+}
 @media(max-width:860px){
   .nav-links a:not(.nav-cta):not([data-fm-auth="login"]){display:none}
+  .beats{grid-template-columns:1fr}
+  .beat{border-right:0;border-bottom:1px solid var(--line);padding:22px 0}
+  .beat:last-child{border-bottom:0}
   .loop-rail{grid-template-columns:1fr 1fr}
   .step{border-right:0;border-bottom:1px solid var(--line);padding:24px 0}
   .step:nth-child(odd){padding-right:18px}
@@ -402,27 +478,37 @@ footer{
   .plans{grid-template-columns:1fr}
   .plan{border-right:0;border-bottom:1px solid var(--line)}
   .plan:last-child{border-bottom:0}
-  .hero-inner{padding-bottom:56px}
   .trust-inner{grid-template-columns:1fr 1fr}
 }
 @media(max-width:520px){
   .loop-rail{grid-template-columns:1fr}
   .step:nth-child(odd){padding-right:0}
-  .hero-ctas{display:grid;grid-template-columns:1fr}
   .hero-ctas .btn{width:100%}
   .trust-inner{grid-template-columns:1fr}
 }
+@media(max-height:700px) and (max-width:520px){
+  .hero{padding-bottom:16px}
+  .hero h1{margin-bottom:8px;font-size:2.15rem}
+  .hero-sub{margin-bottom:12px;font-size:.95rem}
+  .sheet-body{display:none}
+  .phone-list li{padding:10px 16px}
+}
 @media(prefers-reduced-motion:reduce){
-  .hero-media,.hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
+  .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
 </style>
 </head>
 <body>
-<a class="skip" href="#first-scan">Skip to photograph your receipt</a>
+<a class="skip" href="#loop">Skip to how FitMunch works</a>
+
+<div class="fold">
+<aside class="trial-bar">
+  Premium <span>$19.99 AUD/mo</span> after a 14-day trial, card on file. <a href="#pricing">See pricing</a>
+</aside>
 
 <nav class="site-nav" aria-label="Primary">
   <a class="brand" href="/" aria-label="FitMunch">
-    <img src="/assets/logo.svg" alt="" width="34" height="34"/>
+    <img src="/assets/logo.svg" alt="" width="32" height="32"/>
     Fit<span>Munch</span>
   </a>
   <div class="nav-links">
@@ -434,25 +520,100 @@ footer{
 </nav>
 
 <header class="hero">
-  <div class="hero-media" aria-hidden="true"></div>
-  <div class="hero-grain" aria-hidden="true"></div>
   <div class="hero-inner">
-    <p class="hero-brand" aria-hidden="true">Fit<span>Munch</span></p>
-    <h1>Photograph your receipt. Get tonight's dinner.</h1>
-    <p class="hero-sub">Your Woolies, Coles, Aldi or IGA docket. Your haul score. One meal from that shop, not a sample trolley.</p>
-    <p class="hero-sub" style="margin-top:10px;font-size:.92rem;max-width:46ch">FitMunch is a web app in your browser. On iPhone you can Add to Home Screen. An App Store listing is not live yet.</p>
-    <div class="hero-ctas">
-      <a class="btn btn-leaf" href="#first-scan" data-fm-track="hero_scan_mine">Photograph your receipt</a>
-      <a class="btn btn-ghost" href="/login.html?plan=premium&utm_source=homepage&utm_medium=hero&utm_campaign=value_first#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+    <div class="hero-copy">
+      <p class="hero-kicker">Between body and trolley</p>
+      <h1>Your body wrote the trolley.</h1>
+      <p class="hero-sub">FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-leaf" href="/pricing" data-fm-track="hero_trial">Start the 14-day trial</a>
+      </div>
     </div>
+    <aside class="phone" aria-label="Fitness Butler sample trolley">
+      <div class="sheet">
+        <div class="sheet-top">
+          <p class="phone-k">Fitness Butler</p>
+          <p class="phone-week">This week · sample</p>
+        </div>
+        <p class="sheet-body">From last shop and public specials. You take this list.</p>
+        <ol class="phone-list">
+          <li>
+            <b>Woolies</b>
+            <strong>Chicken 1kg</strong>
+            <span class="src">specials</span>
+          </li>
+          <li>
+            <b>Coles</b>
+            <strong>Eggs x12</strong>
+            <span class="src">last shop</span>
+          </li>
+          <li>
+            <b>Aldi</b>
+            <strong>Oats</strong>
+            <span class="src">body</span>
+          </li>
+        </ol>
+        <div class="sheet-foot">
+          <a class="phone-approve" href="#loop">Approve this trolley</a>
+          <p class="phone-honest">Not a shop charge. You take this list.</p>
+        </div>
+      </div>
+    </aside>
   </div>
 </header>
+</div>
+
+<section class="loop" id="loop">
+  <div class="loop-inner">
+    <div class="loop-head">
+      <h2>The engine writes the day.</h2>
+      <p>You commit to the week. FitMunch plans eat, train, and shop from the body you log. A receipt only comes after you have been.</p>
+    </div>
+    <div class="beats" id="loop-rail" aria-label="How FitMunch writes the week">
+      <article class="beat">
+        <span class="step-n">01</span>
+        <h3>Commit</h3>
+        <p>Pick the week. The engine writes meals and training from your body, not a blank recipe pile.</p>
+      </article>
+      <article class="beat">
+        <span class="step-n">02</span>
+        <h3>The trolley</h3>
+        <p>Ingredients priced from public Woolies, Coles and Aldi specials, plus last shop. Split only if the save beats a second trip.</p>
+      </article>
+      <article class="beat">
+        <span class="step-n">03</span>
+        <h3>Cook and train</h3>
+        <p>Eat what the week planned. Train to match. A receipt is how we check the butler after the shop, not the first screen.</p>
+      </article>
+    </div>
+    <aside class="butler" aria-label="Fitness Butler">
+      <p class="butler-k">Fitness Butler</p>
+      <h3>Commit to the week. We buy the food.</h3>
+      <p>You approve the plan. Until Link agents land in AU, they get a trolley they can take. No Link logo as if Woolies already takes our card.</p>
+      <div class="trolley-draft" aria-label="Draft trolley, sample week">
+        <div class="row"><span>Woolies · chicken 1kg</span><span class="row-val">specials</span></div>
+        <div class="row"><span>Coles · eggs x12</span><span class="row-val">last shop</span></div>
+        <div class="row"><span>Aldi · oats</span><span class="row-val">body need</span></div>
+      </div>
+      <p class="butler-note">Approve is the plan, not a live supermarket checkout. FitMunch is a web app today.</p>
+    </aside>
+  </div>
+</section>
+
+<section class="trust" aria-label="Product proof">
+  <div class="trust-inner">
+    <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph Woolworths, Coles, Aldi or IGA paper. The score is from that trolley.</div>
+    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a $143 Woolies shop, used only as a labelled example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
+    <div class="trust-item"><strong>Premium trial</strong>$19.99 AUD/mo after 14 days, card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
+    <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
+  </div>
+</section>
 
 <section class="first-scan" id="first-scan" data-first-scan>
   <div class="first-scan-inner">
     <div class="first-scan-head">
-      <h2>Your receipt. Your score. Dinner tonight.</h2>
-      <p>Take a photo or upload the paper from Woolies, Coles, Aldi or IGA. FitMunch reads that shop, scores the haul, and names one meal from the lines we actually found. The $143 Woolies card further down is a worked example, not your trolley.</p>
+      <h2>After the shop.</h2>
+      <p>A receipt closes what you actually bought. It is not the first screen. Photograph Woolies, Coles, Aldi or IGA paper. FitMunch scores that haul from the lines it found. The $143 Woolies card further down is a worked example, not a demo shop.</p>
     </div>
     <div class="fs-grid">
       <div class="fs-card">
@@ -505,57 +666,12 @@ footer{
   </div>
 </section>
 
-<section class="trust" aria-label="Product proof">
-  <div class="trust-inner">
-    <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph Woolworths, Coles, Aldi or IGA paper. The score is from that trolley.</div>
-    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a $143 Woolies shop, used only as a labelled example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
-    <div class="trust-item"><strong>Premium trial</strong>$19.99 AUD/mo after 14 days, card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
-    <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
-  </div>
-</section>
-
-<section class="loop" id="loop">
-  <div class="loop-inner">
-    <div class="loop-head">
-      <h2>Food in. Training to match.</h2>
-      <p>One weekly shop becomes the source of truth for macros, meals, a training plan and the next trolley.</p>
-    </div>
-    <div class="loop-rail" id="loop-rail" aria-label="Product loop">
-      <article class="step">
-        <span class="step-n">01</span>
-        <h3>Receipt</h3>
-        <p>Photograph the paper receipt in your browser. FitMunch reads the shop.</p>
-      </article>
-      <article class="step">
-        <span class="step-n">02</span>
-        <h3>Macros</h3>
-        <p>See protein, calories and a haul score against your goal.</p>
-      </article>
-      <article class="step">
-        <span class="step-n">03</span>
-        <h3>Plan</h3>
-        <p>Build meals from what you already bought, not a fantasy list.</p>
-      </article>
-      <article class="step">
-        <span class="step-n">04</span>
-        <h3>Train</h3>
-        <p>A weekly workout plan and tracker, matched to your goals and your food.</p>
-      </article>
-      <article class="step">
-        <span class="step-n">05</span>
-        <h3>Next shop</h3>
-        <p>A tighter list for the gaps. Same aisle energy, better maths.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
 <section class="proof" id="proof">
   <div class="proof-inner">
     <div class="proof-copy">
       <h2>One haul. Clear numbers.</h2>
       <p>Worked example, not a live scan of your trolley. A sample $143 Woolies shop scored 92 with 987g protein.</p>
-      <a class="btn btn-leaf" href="#first-scan" data-fm-track="proof_scan_mine">Photograph your receipt</a>
+      <a class="btn btn-leaf" href="#first-scan" data-fm-track="proof_scan_mine">Score your own shop</a>
     </div>
     <div class="receipt" id="proof-device" aria-label="Example haul score from Woolworths">
       <div class="device-top">
@@ -584,25 +700,25 @@ footer{
 
 <section class="pricing" id="pricing">
   <div class="pricing-inner">
-    <h2>Start with the shop.</h2>
-    <p class="pricing-lead">Free to try the loop. Premium when you want unlimited AI coach, scans, meal plans and training.</p>
+    <h2>Fourteen days with the engine.</h2>
+    <p class="pricing-lead">Commit to the week. Premium unlocks the coach, meal plans, training, and the drafted trolley.</p>
     <div class="plans">
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
         <div class="price-n">$19.99 <small>/mo AUD</small></div>
-        <p>Unlimited coach, receipt scans, meal plans and weekly reviews. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
+        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
         <ul>
           <li>Unlimited AI coach grounded in your logs</li>
-          <li>Unlimited receipt scans and haul scores</li>
           <li>Meal plans and shopping lists from your shop</li>
           <li>Weekly training plans and workout tracking</li>
+          <li>Unlimited receipt scans and haul scores</li>
         </ul>
         <a class="btn btn-leaf" href="/login.html?plan=premium&utm_source=homepage&utm_medium=pricing&utm_campaign=mrr_sprint#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
       </article>
       <article class="plan">
         <div class="plan-kicker">Free</div>
         <div class="price-n">$0 <small>forever</small></div>
-        <p>Receipt scan teaser, macro logging and a starter plan allowance.</p>
+        <p>Macro logging, a starter plan allowance, and a receipt scan teaser.</p>
         <ul>
           <li>Macro and meal logging</li>
           <li>Limited AI actions each month</li>
@@ -617,9 +733,12 @@ footer{
 
 <section class="final">
   <div class="final-inner">
-    <h2>Stop guessing the trolley. Run the <em>whole system.</em></h2>
-    <p>Photograph your receipt. Get your haul score and tonight's dinner from that shop. Premium is $19.99 AUD/mo after a 14-day trial (card on file).</p>
-    <a class="btn btn-leaf" href="#first-scan" data-fm-track="final_scan_mine">Photograph your receipt</a>
+    <h2>Your body wrote the <em>trolley.</em></h2>
+    <p>Start the 14-day trial. Premium is $19.99 AUD/mo after (card on file).</p>
+    <div class="final-ctas">
+      <a class="btn btn-leaf" href="/pricing" data-fm-track="final_trial">Start the 14-day trial</a>
+      <a class="btn btn-ghost" href="#first-scan" data-fm-track="final_scan_mine">After the shop: score a receipt</a>
+    </div>
   </div>
 </section>
 
@@ -638,7 +757,7 @@ footer{
       <a href="/refund">Refunds</a>
       <a href="/login.html" data-fm-auth="login">Sign in</a>
     </div>
-    <p class="footer-note">© 2026 FitMunch. Made in Australia for Australian shops.</p>
+    <p class="footer-note">© 2026 FitMunch. Made in Australia for Australian shops. FitMunch is a web app in your browser. On iPhone you can Add to Home Screen. An App Store listing is not live yet. Native is the next surface.</p>
   </div>
 </footer>
 

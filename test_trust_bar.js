@@ -202,12 +202,26 @@ describe('Trust bar 8: Start free does not force Premium Stripe', () => {
 });
 
 describe('Trust bar 10: stranger first run is their receipt', () => {
-  it('homepage primary hero path photographs their receipt, not the sample haul', async () => {
+  it('homepage first screen sells the health engine, not a receipt camera', async () => {
     const home = await request(app).get('/').expect(200);
+    const fold = home.text.split('<div class="fold">')[1].split('</div>\n\n<section')[0];
     const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
-    expect(hero).toContain('Photograph your receipt');
-    expect(hero).toContain('href="#first-scan"');
-    expect(hero).toContain('data-fm-track="hero_scan_mine"');
+    expect(fold).toContain('class="trial-bar"');
+    expect(fold).toContain('$19.99 AUD/mo');
+    expect(fold).toContain('card on file');
+    expect(hero).toContain('Your body wrote the trolley.');
+    expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
+    expect(hero).toContain('Start the 14-day trial');
+    expect(hero).toContain('href="/pricing"');
+    expect(hero).toContain('Approve this trolley');
+    expect(hero).toContain('Not a shop charge');
+    expect(hero).not.toContain('plan=premium');
+    expect(hero).not.toContain('$19.99');
+    expect(hero).not.toMatch(/photograph your receipt/i);
+    expect(hero).not.toMatch(/viewfinder|getUserMedia|capture=/i);
+    expect(hero).not.toMatch(/HealthKit|Apple Watch|Health Connect|Stripe Link/i);
+    expect(hero).not.toContain('Take a photo');
+    expect(hero).not.toContain('#first-scan');
     expect(hero).not.toContain('Try a sample haul');
     expect(hero).not.toContain('/demo');
     expect(home.text).toContain('id="first-scan"');
@@ -217,6 +231,16 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('YOUR HAUL SCORE');
     expect(home.text).toContain('Tonight from this shop');
     expect(home.text).toContain('not a demo shop');
+    expect(home.text.indexOf('id="loop"')).toBeLessThan(home.text.indexOf('id="first-scan"'));
+    expect(home.text).toContain('Fitness Butler');
+    expect(home.text).toContain('Commit to the week. We buy the food.');
+    expect(home.text).toContain('Until Link agents land in AU, they get a trolley they can take.');
+    expect(home.text).toContain('No Link logo');
+    expect(home.text).toContain('>Commit</h3>');
+    expect(home.text).toContain('>The trolley</h3>');
+    expect(home.text).toContain('>Cook and train</h3>');
+    expect(home.text).not.toMatch(/Stripe Link|link\.stripe/i);
+    expect(home.text).not.toMatch(/logo\.stripe\.com|link-logo/i);
   });
 
   it('pricing Free does not claim unlimited weekly AI plans', async () => {
