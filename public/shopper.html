@@ -415,7 +415,7 @@ html,body{max-width:100%;overflow-x:hidden}
     const takeaway = (
       '<section id="takeaway" class="' + (approved ? '' : 'gate') + '">' +
         '<h2 style="font-size:1.15rem;margin:18px 0 8px">Takeaway checkout</h2>' +
-        '<p style="color:var(--mute);font-size:.9rem;margin:0 0 12px">A clear trolley plus the public store pages. Approve first, then take these links.</p>' +
+        '<p style="color:var(--mute);font-size:.9rem;margin:0 0 12px">' + (approved ? 'Open the public store pages and finish checkout yourself.' : 'A clear trolley plus the public store pages. Approve first, then take these links.') + '</p>' +
         '<div class="tickets">' + (plan.takeaway.tickets || []).map((t) => ticketHtml(t, approved)).join('') + '</div>' +
         (approved ? '<button type="button" class="copy-btn" id="copy-list">Copy trolley list</button>' : '') +
       '</section>'
