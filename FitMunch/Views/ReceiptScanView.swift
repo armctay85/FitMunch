@@ -40,15 +40,15 @@ struct ReceiptScanView: View {
                     }
                 }
             }
-            // Camera is the cover root. Nested present() of UIImagePickerController still crashes on iPad.
+            // AVCapture camera is the cover root. UIImagePickerController still crashes on iPad.
             .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker(
+                SafeCameraPicker(
                     onImage: { image in
                         receiptImage = image
                         startScan(image)
                     },
-                    onUnavailable: {
-                        presentCameraFallback("Couldn't open the camera. Choose a photo from your library instead.")
+                    onUnavailable: { message in
+                        presentCameraFallback(message)
                     }
                 )
                 .ignoresSafeArea()
@@ -108,6 +108,7 @@ struct ReceiptScanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .disabled(isRequestingCamera)
+                    .accessibilityIdentifier("scan-take-photo")
                     PhotosPicker(selection: $pickedItem, matching: .images) {
                         Label("Choose from library", systemImage: "photo.on.rectangle")
                             .fontWeight(.semibold)
@@ -233,18 +234,18 @@ struct ReceiptScanView: View {
         loggedCount = nil
     }
 
-    /// Never present UIImagePickerController unless the camera exists and is authorized.
+    /// Never present a camera cover unless hardware exists and video is authorized.
     @MainActor
     private func openCameraSafely() async {
         errorMessage = nil
-        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+        guard CameraAvailability.hasCameraHardware else {
             presentCameraFallback("This device has no camera. Choose a receipt photo from your library instead.")
             return
         }
         isRequestingCamera = true
         defer { isRequestingCamera = false }
 
-        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        let status = CameraAvailability.authorization
         switch status {
         case .authorized:
             showCamera = true
@@ -324,57 +325,6 @@ struct ReceiptScanView: View {
                 }
             }
             loggedCount = logged
-        }
-    }
-}
-
-/// Camera is the representable root (no second present). Never fall back to photoLibrary here: that picker requires a popover on iPad and crashes.
-struct CameraPicker: UIViewControllerRepresentable {
-    let onImage: (UIImage) -> Void
-    var onUnavailable: () -> Void = {}
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> UIViewController {
-        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
-            let host = UIViewController()
-            host.view.backgroundColor = .black
-            DispatchQueue.main.async {
-                context.coordinator.handleUnavailable()
-            }
-            return host
-        }
-
-        let picker = UIImagePickerController()
-        picker.delegate = context.coordinator
-        picker.allowsEditing = false
-        picker.mediaTypes = ["public.image"]
-        picker.sourceType = .camera
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraPicker
-        init(_ parent: CameraPicker) { self.parent = parent }
-
-        func handleUnavailable() {
-            parent.onUnavailable()
-            parent.dismiss()
-        }
-
-        func imagePickerController(_ picker: UIImagePickerController,
-                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let image = info[.originalImage] as? UIImage {
-                parent.onImage(image)
-            }
-            parent.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
         }
     }
 }

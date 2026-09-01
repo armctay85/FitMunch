@@ -1,15 +1,14 @@
 import SwiftUI
-import RevenueCat
 
 /// Paywall screen for subscription purchases
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var premiumManager = PremiumManager.shared
-    @State private var packages: [Package] = []
-    @State private var selectedPackage: Package?
+    @State private var plans: [PaywallPlan] = []
+    @State private var selectedPlan: PaywallPlan?
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
-    @State private var isLoadingPackages = false
+    @State private var isLoadingPlans = false
     @State private var showErrorAlert = false
     @State private var alertError = ""
 
@@ -29,22 +28,30 @@ struct PaywallView: View {
                 }
                 .padding(.vertical)
             }
+            .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") { dismiss() }
+                        .accessibilityIdentifier("paywall-close")
                 }
             }
+            .refreshable {
+                await loadPlans()
+            }
             .overlay {
-                // Local loading only — never block on shared PremiumManager.isLoading (ASC: Upgrade felt dead).
-                if isLoadingPackages && packages.isEmpty {
+                if isLoadingPlans && plans.isEmpty {
                     ProgressView("Loading plans…")
                         .padding()
                         .background(.regularMaterial)
                         .cornerRadius(16)
+                        .accessibilityIdentifier("paywall-loading")
                 }
             }
-            .alert("Error", isPresented: $showErrorAlert) {
+            .alert("Couldn't complete that", isPresented: $showErrorAlert) {
+                Button("Retry") {
+                    Task { await loadPlans() }
+                }
                 Button("Continue on the web") { openWebPremium() }
                 Button("OK", role: .cancel) { }
             } message: {
@@ -56,7 +63,7 @@ struct PaywallView: View {
                 Text(restoreMessage)
             }
             .task {
-                await loadPackages()
+                await loadPlans()
             }
         }
     }
@@ -117,58 +124,67 @@ struct PaywallView: View {
 
     @ViewBuilder
     private var pricingSection: some View {
-        if !packages.isEmpty {
+        if !plans.isEmpty {
             VStack(spacing: 16) {
                 Text("Choose Your Plan")
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                ForEach(packages, id: \.self) { package in
+                ForEach(plans) { plan in
                     PackageCard(
-                        package: package,
-                        isSelected: selectedPackage == package,
-                        action: { selectedPackage = package }
+                        plan: plan,
+                        isSelected: selectedPlan?.id == plan.id,
+                        action: { selectedPlan = plan }
                     )
                 }
             }
             .padding(.horizontal)
-        } else if isLoadingPackages {
+            .accessibilityIdentifier("paywall-plans")
+        } else if isLoadingPlans {
             ProgressView("Loading plans…").padding()
         } else {
-            VStack(spacing: 14) {
-                Text("Premium plans did not load from the App Store.")
-                    .font(.subheadline.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                Text(alertError.isEmpty
-                     ? "You can still start Premium on the web. fitmunch.com.au is the live pay path."
-                     : alertError)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                Button("Continue on the web") {
-                    openWebPremium()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding(.horizontal)
+            emptyPlansSection
         }
+    }
+
+    private var emptyPlansSection: some View {
+        VStack(spacing: 14) {
+            Text("Couldn't load App Store plans")
+                .font(.subheadline.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("paywall-empty")
+            Text(loadErrorText)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                Task { await loadPlans() }
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("paywall-retry")
+            Button("Continue on the web") {
+                openWebPremium()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(.horizontal)
+    }
+
+    private var loadErrorText: String {
+        if let message = premiumManager.errorMessage, !message.isEmpty {
+            return message
+        }
+        if !alertError.isEmpty {
+            return alertError
+        }
+        return "Tap Retry to load monthly and annual Premium from the App Store."
     }
 
     @ViewBuilder
     private var purchaseSection: some View {
-        if let pkg = selectedPackage {
+        if let plan = selectedPlan {
             Button {
-                Task {
-                    let success = await premiumManager.purchase(package: pkg)
-                    if success {
-                        dismiss()
-                    } else {
-                        alertError = premiumManager.errorMessage?.isEmpty == false
-                            ? premiumManager.errorMessage!
-                            : "Purchase did not complete. Try again, or continue on the web."
-                        showErrorAlert = true
-                    }
-                }
+                Task { await purchase(plan) }
             } label: {
                 if premiumManager.isLoading {
                     ProgressView()
@@ -185,6 +201,7 @@ struct PaywallView: View {
             .cornerRadius(12)
             .padding(.horizontal)
             .disabled(premiumManager.isLoading)
+            .accessibilityIdentifier("paywall-subscribe")
         }
     }
 
@@ -232,13 +249,23 @@ struct PaywallView: View {
 
     // MARK: - Methods
 
-    private func loadPackages() async {
-        isLoadingPackages = true
-        defer { isLoadingPackages = false }
-        packages = await premiumManager.getPackages()
-        selectedPackage = packages.first
-        if packages.isEmpty {
-            alertError = premiumManager.errorMessage ?? "App Store plans are not available right now. Continue on fitmunch.com.au to start Premium."
+    private func loadPlans() async {
+        isLoadingPlans = true
+        defer { isLoadingPlans = false }
+        let loaded = await premiumManager.getPlans()
+        plans = loaded
+        selectedPlan = loaded.first
+        // Inline retry UI only. Auto-alert on empty was the 2.1(b) review note.
+    }
+
+    private func purchase(_ plan: PaywallPlan) async {
+        let success = await premiumManager.purchase(plan: plan)
+        if success {
+            dismiss()
+            return
+        }
+        if let message = premiumManager.errorMessage, !message.isEmpty {
+            alertError = message
             showErrorAlert = true
         }
     }
@@ -263,7 +290,7 @@ struct PaywallView: View {
 // MARK: - PackageCard
 
 private struct PackageCard: View {
-    let package: Package
+    let plan: PaywallPlan
     let isSelected: Bool
     let action: () -> Void
 
@@ -282,14 +309,15 @@ private struct PackageCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("paywall-plan-\(plan.id)")
     }
 
     private var productTitleRow: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(package.storeProduct.localizedTitle)
+                Text(plan.title)
                     .font(.headline)
-                Text(package.storeProduct.localizedDescription)
+                Text(plan.description)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -304,7 +332,7 @@ private struct PackageCard: View {
 
     private var priceRow: some View {
         HStack {
-            Text(package.localizedPriceString)
+            Text(plan.priceString)
                 .font(.title2)
                 .fontWeight(.bold)
             Spacer()
@@ -314,8 +342,8 @@ private struct PackageCard: View {
 
     @ViewBuilder
     private var savingsBadge: some View {
-        if let savings = calculateSavings() {
-            Text("Save \(savings)%")
+        if plan.id == Constants.ProductIDs.annual {
+            Text("Save 20%")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .padding(.horizontal, 8)
@@ -324,12 +352,6 @@ private struct PackageCard: View {
                 .foregroundColor(.green)
                 .cornerRadius(4)
         }
-    }
-
-    private func calculateSavings() -> Int? {
-        guard let period = package.storeProduct.subscriptionPeriod,
-              period.unit == .year else { return nil }
-        return 20
     }
 }
 

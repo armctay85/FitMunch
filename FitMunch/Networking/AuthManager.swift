@@ -30,12 +30,23 @@ final class AuthManager: ObservableObject {
             )
             isAuthenticated = true
             isRestoring = false
+        } else if ReviewLaunch.isActive {
+            ReviewLaunch.prepareSession()
+            user = APIUser(
+                id: "review-user",
+                name: "Reviewer",
+                email: "review@fitmunch.com.au",
+                subscriptionTier: "free",
+                role: "client"
+            )
+            isAuthenticated = true
+            isRestoring = false
         }
     }
 
     /// Restore the session on launch.
     func bootstrap() async {
-        if ScreenshotLaunch.isActive {
+        if ScreenshotLaunch.isActive || ReviewLaunch.isActive {
             isRestoring = false
             isAuthenticated = true
             return
@@ -101,7 +112,7 @@ final class AuthManager: ObservableObject {
         KeychainStore.token = nil
         user = nil
         isAuthenticated = false
-        if Constants.isRevenueCatConfigured {
+        if Constants.isRevenueCatConfigured, Purchases.isConfigured {
             Task { _ = try? await Purchases.shared.logOut() }
         }
     }
@@ -127,7 +138,7 @@ final class AuthManager: ObservableObject {
     /// Ties Apple IAP purchases to the FitMunch account so the RevenueCat
     /// webhook can set the same subscription tier the website uses.
     private func identifyRevenueCat(userId: String) {
-        guard Constants.isRevenueCatConfigured else { return }
+        guard Constants.isRevenueCatConfigured, Purchases.isConfigured else { return }
         Task { _ = try? await Purchases.shared.logIn(userId) }
     }
 }

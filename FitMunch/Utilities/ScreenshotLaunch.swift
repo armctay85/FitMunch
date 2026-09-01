@@ -6,6 +6,23 @@ import UIKit
 /// App Store screenshot capture only. Launch the UI test with `-AppStoreScreenshots`.
 /// Seeds real SwiftUI screens (Home, Coach, Scan, Plan, Settings) with no prices,
 /// no Free / trial copy, and no paywall. Never used for production sessions.
+/// App Review / UITest path: logged-in free user so Upgrade and Scan are tappable.
+enum ReviewLaunch {
+    static let argument = "-ReviewGuards"
+
+    static var isActive: Bool {
+        ProcessInfo.processInfo.arguments.contains(argument)
+    }
+
+    static func prepareSession() {
+        guard isActive else { return }
+        UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+        UserDefaults.standard.set("Reviewer", forKey: "userDisplayName")
+        UserDefaults.standard.set("review@fitmunch.com.au", forKey: "userEmail")
+        UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+    }
+}
+
 enum ScreenshotLaunch {
     static let argument = "-AppStoreScreenshots"
 
