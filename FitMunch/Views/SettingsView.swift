@@ -9,7 +9,7 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
-    @EnvironmentObject private var premium: PremiumManager
+    @ObservedObject private var premium = PremiumManager.shared
     
     var body: some View {
         NavigationStack {
@@ -52,6 +52,7 @@ struct SettingsView: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityIdentifier("settings-upgrade")
                     }
                 } header: {
                     Text("Profile")
@@ -102,6 +103,7 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.borderless)
                         .foregroundColor(.blue)
+                        .accessibilityIdentifier("settings-upgrade-premium")
                     }
                     
                     Button("Restore Purchases") {
@@ -200,14 +202,15 @@ struct SettingsView: View {
                         .cornerRadius(16)
                 }
             }
-            .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+            .alert("Error", isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            )) {
                 Button("OK") {
                     viewModel.errorMessage = nil
                 }
             } message: {
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                }
+                Text(viewModel.errorMessage ?? "")
             }
             .alert("Log Out", isPresented: $showLogoutAlert) {
                 Button("Cancel", role: .cancel) { }

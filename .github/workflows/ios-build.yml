@@ -8,12 +8,14 @@ on:
     branches: [ main, master ]
     paths:
       - "FitMunch/**"
+      - "FitMunchUITests/**"
       - "project.yml"
       - ".github/workflows/ios-build.yml"
   pull_request:
     branches: [ main, master ]
     paths:
       - "FitMunch/**"
+      - "FitMunchUITests/**"
       - "project.yml"
       - ".github/workflows/ios-build.yml"
   workflow_dispatch:

@@ -8,9 +8,16 @@ class PremiumManager: ObservableObject {
     @Published var isPremium: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    
+
     static let shared = PremiumManager()
-    
+
+    private var planHandles: [String: PlanHandle] = [:]
+
+    private enum PlanHandle {
+        case package(Package)
+        case product(StoreProduct)
+    }
+
     private init() {
         if ScreenshotLaunch.isActive {
             isPremium = true
@@ -18,33 +25,36 @@ class PremiumManager: ObservableObject {
         }
         configureRevenueCat()
     }
-    
+
+    /// True only after Purchases.configure ran. Accessing Purchases.shared
+    /// before that is a RevenueCat fatal error (ASC: Upgrade crash).
+    private var canUsePurchases: Bool {
+        Constants.isRevenueCatConfigured && Purchases.isConfigured
+    }
+
     /// Configure RevenueCat with API key
     private func configureRevenueCat() {
         guard Constants.isRevenueCatConfigured else {
-            errorMessage = "RevenueCat is not configured. Add REVENUECAT_API_KEY in Info.plist."
+            errorMessage = "In-app plans are not configured. You can retry, or continue on fitmunch.com.au."
             print("RevenueCat not configured: missing REVENUECAT_API_KEY")
             return
         }
+        guard !Purchases.isConfigured else { return }
 
         Purchases.logLevel = .debug
-        Purchases.configure(
-            with: Configuration.Builder(withAPIKey: Constants.revenueCatApiKey)
-                .with(usesStoreKit2IfAvailable: true)
-                .build()
-        )
-        
-        // Check initial subscription status
+        Purchases.configure(withAPIKey: Constants.revenueCatApiKey)
+
         Task {
             await checkSubscriptionStatus()
         }
     }
-    
+
     /// Check current subscription status
     func checkSubscriptionStatus() async {
+        guard canUsePurchases else { return }
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             let customerInfo = try await Purchases.shared.customerInfo()
             isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
@@ -54,46 +64,53 @@ class PremiumManager: ObservableObject {
             print("RevenueCat error: \(error)")
         }
     }
-    
-    /// Purchase a subscription package
-    func purchase(package: Package) async -> Bool {
-        guard Constants.isRevenueCatConfigured else {
-            errorMessage = "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
+
+    /// Purchase a subscription plan loaded from offerings or direct product IDs.
+    func purchase(plan: PaywallPlan) async -> Bool {
+        guard canUsePurchases else {
+            errorMessage = "In-app purchase is not available. Retry, or continue on fitmunch.com.au to start Premium."
+            return false
+        }
+        guard let handle = planHandles[plan.id] else {
+            errorMessage = "That plan is not available right now. Retry to reload App Store plans."
             return false
         }
 
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
-            let purchaseResult = try await Purchases.shared.purchase(package: package)
-            let transaction = purchaseResult.transaction
-            let customerInfo = purchaseResult.customerInfo
-            
-            isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
-            
-            if let transaction = transaction {
-                print("Purchase successful: \(transaction)")
+            let customerInfo: CustomerInfo
+            switch handle {
+            case .package(let package):
+                customerInfo = try await Purchases.shared.purchase(package: package).customerInfo
+            case .product(let product):
+                customerInfo = try await Purchases.shared.purchase(product: product).customerInfo
             }
-            
+            isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
+            errorMessage = nil
             return isPremium
         } catch {
+            if isUserCancellation(error) {
+                errorMessage = nil
+                return false
+            }
             errorMessage = "Purchase failed: \(error.localizedDescription)"
             print("Purchase error: \(error)")
             return false
         }
     }
-    
+
     /// Restore previous purchases
     func restorePurchases() async -> Bool {
-        guard Constants.isRevenueCatConfigured else {
+        guard canUsePurchases else {
             errorMessage = "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
             return false
         }
 
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             let customerInfo = try await Purchases.shared.restorePurchases()
             isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
@@ -105,33 +122,109 @@ class PremiumManager: ObservableObject {
             return false
         }
     }
-    
-    /// Get available subscription packages
-    func getPackages() async -> [Package] {
-        guard Constants.isRevenueCatConfigured else {
-            errorMessage = "In-app plans are not configured. Continue on fitmunch.com.au to start Premium."
+
+    /// Load monthly/annual plans. Never throws into UI. Empty offerings return [].
+    func getPlans() async -> [PaywallPlan] {
+        planHandles = [:]
+        guard canUsePurchases else {
+            errorMessage = "In-app plans are not configured. Retry, or continue on fitmunch.com.au to start Premium."
             return []
         }
+
+        var plans: [PaywallPlan] = []
+
+        if let fromOffering = await plansFromOfferings() {
+            plans = fromOffering
+        }
+        if plans.isEmpty {
+            plans = await plansFromProductIds()
+        }
+
+        if plans.isEmpty {
+            errorMessage = "Could not load App Store plans. Tap Retry, or check your connection and try again."
+        } else {
+            errorMessage = nil
+        }
+        return plans
+    }
+
+    private func plansFromOfferings() async -> [PaywallPlan]? {
         do {
             let offerings = try await Purchases.shared.offerings()
-            guard let offering = offerings.current, !offering.availablePackages.isEmpty else {
-                errorMessage = "App Store plans are not available right now. Continue on fitmunch.com.au to start Premium."
-                return []
+            let offering = offerings.current
+                ?? offerings.offering(identifier: Constants.Offerings.main)
+            guard let offering else { return [] }
+
+            let packages = offering.availablePackages
+            var titles: [String: String] = [:]
+            for pkg in packages {
+                titles[pkg.storeProduct.productIdentifier] = pkg.storeProduct.localizedTitle
             }
-            errorMessage = nil
-            return offering.availablePackages
+            let ids = PaywallCatalog.selectSellableIds(
+                from: packages.map(\.storeProduct.productIdentifier),
+                titles: titles
+            )
+            var plans: [PaywallPlan] = []
+            for id in ids {
+                guard let package = packages.first(where: { $0.storeProduct.productIdentifier == id }) else { continue }
+                let product = package.storeProduct
+                if PaywallCatalog.isWeeklyMissingMetadata(productId: id, title: product.localizedTitle) {
+                    continue
+                }
+                let plan = PaywallPlan(
+                    id: id,
+                    title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.localizedTitle),
+                    description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
+                    priceString: package.localizedPriceString
+                )
+                planHandles[id] = .package(package)
+                plans.append(plan)
+            }
+            return plans
         } catch {
             errorMessage = "Could not load plans: \(error.localizedDescription)"
             print("Offerings error: \(error)")
-            return []
+            return nil
         }
     }
-    
+
+    private func plansFromProductIds() async -> [PaywallPlan] {
+        let products = await Purchases.shared.products(Constants.ProductIDs.sellable)
+        var titles: [String: String] = [:]
+        for product in products {
+            titles[product.productIdentifier] = product.localizedTitle
+        }
+        let ids = PaywallCatalog.selectSellableIds(
+            from: products.map(\.productIdentifier),
+            titles: titles
+        )
+        var plans: [PaywallPlan] = []
+        for id in ids {
+            guard let product = products.first(where: { $0.productIdentifier == id }) else { continue }
+            let plan = PaywallPlan(
+                id: id,
+                title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.localizedTitle),
+                description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
+                priceString: product.localizedPriceString
+            )
+            planHandles[id] = .product(product)
+            plans.append(plan)
+        }
+        return plans
+    }
+
+    private func isUserCancellation(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == "RCPurchasesErrorDomain" && ns.code == 1 { return true }
+        let text = error.localizedDescription.lowercased()
+        return text.contains("cancel") || text.contains("cancelled")
+    }
+
     /// Check if user has exceeded free tier limits
     func hasExceededFreeTier(mealCountToday: Int) -> Bool {
         return !isPremium && mealCountToday >= Constants.FreeTier.dailyMealLimit
     }
-    
+
     /// Check if feature is available in free tier
     func isFeatureAvailableInFreeTier(feature: PremiumFeature) -> Bool {
         switch feature {

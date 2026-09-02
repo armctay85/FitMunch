@@ -30,6 +30,14 @@ enum Constants {
     enum Offerings {
         static let main = "main"
     }
+
+    /// App Store Connect product IDs. Weekly is omitted when metadata is missing.
+    enum ProductIDs {
+        static let monthly = "fitmunch_monthly"
+        static let annual = "fitmunch_annual"
+        static let weekly = "fitmunch_weekly"
+        static let sellable = [monthly, annual]
+    }
     
     /// User defaults keys
     enum UserDefaultsKeys {

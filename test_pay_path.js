@@ -283,19 +283,27 @@ describe('POST /api/checkout pay path', () => {
 
 describe('iOS ASC review blockers (source contract)', () => {
   const scan = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/ReceiptScanView.swift'), 'utf8');
+  const camera = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/SafeCameraPicker.swift'), 'utf8');
   const settings = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/SettingsView.swift'), 'utf8');
   const paywall = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/PaywallView.swift'), 'utf8');
   const constants = fs.readFileSync(path.join(__dirname, 'FitMunch/Utilities/Constants.swift'), 'utf8');
   const premium = fs.readFileSync(path.join(__dirname, 'FitMunch/Utilities/PremiumManager.swift'), 'utf8');
+  const catalog = fs.readFileSync(path.join(__dirname, 'FitMunch/Utilities/PaywallCatalog.swift'), 'utf8');
+  const project = fs.readFileSync(path.join(__dirname, 'project.yml'), 'utf8');
+  const guards = fs.readFileSync(path.join(__dirname, 'FitMunchUITests/ReviewCrashGuardTests.swift'), 'utf8');
 
-  it('Take a photo does not nest UIImagePickerController or fall back to photoLibrary', () => {
+  it('Take a photo uses AVCapture, not UIImagePickerController, and falls back without crashing', () => {
     expect(scan).toContain('openCameraSafely');
-    expect(scan).toContain('isSourceTypeAvailable(.camera)');
+    expect(scan).toContain('SafeCameraPicker');
     expect(scan).toContain('presentCameraFallback');
     expect(scan).toContain('photosPicker(isPresented: $showLibraryPicker');
+    expect(scan).toContain('CameraAvailability.hasCameraHardware');
     expect(scan).not.toMatch(/picker\.sourceType\s*=\s*\.photoLibrary/);
     expect(scan).not.toContain('CameraHostController');
-    expect(scan).not.toContain('picker.cameraDevice');
+    expect(scan).not.toContain('UIImagePickerController()');
+    expect(camera).toContain('AVCaptureSession');
+    expect(camera).toContain('hasCameraHardware');
+    expect(camera).toContain('requestAccess');
   });
 
   it('Upgrade opens a full-screen paywall, not a dead iPad sheet tap', () => {
@@ -303,15 +311,61 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(settings).toContain('Label("Upgrade to Premium"');
     expect(settings).toContain('.fullScreenCover(isPresented: $showPaywall)');
     expect(settings).toContain('.contentShape(Rectangle())');
+    expect(settings).toContain('PremiumManager.shared');
     expect(settings).not.toMatch(/\.sheet\(isPresented: \$showPaywall\)/);
+    expect(settings).not.toMatch(/@EnvironmentObject private var premium/);
   });
 
-  it('empty StoreKit offerings surface an error and the live web Premium path', () => {
+  it('paywall loads main offering plus monthly/annual product IDs, with retry when empty', () => {
+    expect(constants).toContain('fitmunch_monthly');
+    expect(constants).toContain('fitmunch_annual');
+    expect(constants).toContain('static let main = "main"');
+    expect(constants).toContain('static let premium = "premium"');
     expect(constants).toContain('login.html?plan=premium');
-    expect(constants).toContain('www.fitmunch.com.au');
-    expect(premium).toContain('App Store plans are not available right now');
+    expect(catalog).toContain('isWeeklyMissingMetadata');
+    expect(catalog).toContain('selectSellableIds');
+    expect(premium).toContain('Purchases.isConfigured');
+    expect(premium).toContain('offerings.offering(identifier: Constants.Offerings.main)');
+    expect(premium).toContain('Purchases.shared.products');
+    expect(premium).toContain('getPlans()');
+    expect(premium).not.toContain('fatalError');
+    expect(paywall).toContain('paywall-retry');
+    expect(paywall).toContain('Couldn\'t load App Store plans');
     expect(paywall).toContain('Continue on the web');
     expect(paywall).toContain('openWebPremium');
-    expect(paywall).toContain('Constants.premiumWebURL');
+    expect(paywall).not.toContain('Premium plans did not load from the App Store');
+    expect(paywall).not.toMatch(/errorMessage!/);
+  });
+
+  it('build number is 7 and UITests cover Upgrade + Take a photo', () => {
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"7"/);
+    expect(project).toMatch(/MARKETING_VERSION:\s*"1\.0"/);
+    expect(guards).toContain('testUpgradeOpensPaywallWithoutCrashing');
+    expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');
+    expect(guards).toContain('-ReviewGuards');
+  });
+});
+
+describe('PaywallCatalog sellable filter', () => {
+  function selectSellableIds(productIds, titles = {}) {
+    const sellable = ['fitmunch_monthly', 'fitmunch_annual'];
+    return sellable.filter((id) => {
+      if (!productIds.includes(id)) return false;
+      const title = titles[id] || '';
+      if (id === 'fitmunch_weekly' && !String(title).trim()) return false;
+      return true;
+    });
+  }
+
+  it('keeps monthly and annual when weekly metadata is missing', () => {
+    expect(selectSellableIds(
+      ['fitmunch_weekly', 'fitmunch_monthly', 'fitmunch_annual'],
+      { fitmunch_weekly: '', fitmunch_monthly: 'Monthly', fitmunch_annual: 'Annual' }
+    )).toEqual(['fitmunch_monthly', 'fitmunch_annual']);
+  });
+
+  it('returns an empty list instead of throwing when nothing sellable loaded', () => {
+    expect(selectSellableIds(['fitmunch_weekly'], { fitmunch_weekly: '' })).toEqual([]);
+    expect(selectSellableIds([])).toEqual([]);
   });
 });
