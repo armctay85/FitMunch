@@ -23,11 +23,21 @@ const workflowFiles = fs
   .map((name) => ({ name, text: read(path.join('.github/workflows', name)) }));
 
 describe('ASC archive build number', () => {
-  it('archives CFBundleVersion 7, not a stale build 6 override', () => {
-    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=7\s*\\/);
-    expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=6\s*\\/);
-    expect(archive).toMatch(/expected 7/);
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"7"/);
+  it('archives CFBundleVersion 8, not a stale build 7 override', () => {
+    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=8\s*\\/);
+    expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=7\s*\\/);
+    expect(archive).toMatch(/expected 8/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"8"/);
+  });
+
+  it('ships NSCameraUsageDescription for ITMS-90683', () => {
+    const plist = read('FitMunch/Resources/Info.plist');
+    expect(plist).toContain('<key>NSCameraUsageDescription</key>');
+    expect(plist).toContain('FitMunch needs the camera to photograph grocery receipts for nutrition scanning.');
+    expect(project).toMatch(/INFOPLIST_KEY_NSCameraUsageDescription/);
+    expect(project).toContain('FitMunch needs the camera to photograph grocery receipts for nutrition scanning.');
+    expect(archive).toContain('NSCameraUsageDescription');
+    expect(archive).toContain('ITMS-90683');
   });
 
   it('does not submit the archive job to App Review', () => {
