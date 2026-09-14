@@ -67,7 +67,7 @@ jobs:
       env:
         PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
       run: |
-        # Source of truth is project.yml (build 7). A stale override
+        # Source of truth is project.yml (build 8). A stale override
         # of the previous build number re-uploads a duplicate and ASC rejects it.
         xcodebuild clean archive \
           -project FitMunch.xcodeproj \
@@ -79,13 +79,19 @@ jobs:
           PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
           DEVELOPMENT_TEAM=48SW62N9BZ \
           MARKETING_VERSION=1.0 \
-          CURRENT_PROJECT_VERSION=7 \
+          CURRENT_PROJECT_VERSION=8 \
           VERSIONING_SYSTEM="Apple Generic"
-        VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' \
-          "$RUNNER_TEMP/FitMunch.xcarchive/Products/Applications/FitMunch.app/Info.plist")
+        APP_PLIST="$RUNNER_TEMP/FitMunch.xcarchive/Products/Applications/FitMunch.app/Info.plist"
+        VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PLIST")
         echo "Archived CFBundleVersion=$VERSION"
-        if [ "$VERSION" != "7" ]; then
-          echo "Refusing to export: archive is build $VERSION, expected 7"
+        if [ "$VERSION" != "8" ]; then
+          echo "Refusing to export: archive is build $VERSION, expected 8"
+          exit 1
+        fi
+        CAMERA_DESC=$(/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP_PLIST")
+        echo "Archived NSCameraUsageDescription=$CAMERA_DESC"
+        if [ -z "$CAMERA_DESC" ]; then
+          echo "Refusing to export: NSCameraUsageDescription missing (ITMS-90683)"
           exit 1
         fi
 

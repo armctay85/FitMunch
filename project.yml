@@ -26,12 +26,15 @@ targets:
       properties:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # ITMS-90683: processed Info.plist omitted this when only INFOPLIST_KEY_*
+        # display/fullscreen keys were generated. Keep it in both places.
+        NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app
         SWIFT_VERSION: "5.9"
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "8"
         VERSIONING_SYSTEM: Apple Generic
         INFOPLIST_FILE: FitMunch/Resources/Info.plist
         DEVELOPMENT_TEAM: 48SW62N9BZ
@@ -42,6 +45,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: FitMunch
         INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true

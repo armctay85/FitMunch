@@ -44,7 +44,7 @@
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>FitMunch uses Health data to help you track your nutrition and fitness goals.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>FitMunch uses the camera to scan supermarket receipts so you can see the macros in your weekly shop.</string>
+	<string>FitMunch needs the camera to photograph grocery receipts for nutrition scanning.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The camera screen may use the microphone while you photograph a supermarket receipt.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
