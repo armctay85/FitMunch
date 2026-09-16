@@ -10,6 +10,7 @@ module.exports = {
     '**/test_trust_bar.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',
+    '**/test_seo_ship_pack_1.js',
     '**/test_pay_path.js',
     '**/test_ios_store_art.js',
     '**/test_ai_client.js',

@@ -122,6 +122,7 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   margin:0 0 10px;
 }
 .sp-section .lead{color:var(--mute);font-size:1.02rem;line-height:1.6;max-width:44ch;margin:0 0 22px}
+.sp-section .lead a{color:var(--leaf2);font-weight:700}
 
 .sp-meals{
   display:grid;
