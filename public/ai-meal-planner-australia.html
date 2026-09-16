@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Meal Planner Australia - Woolies & Coles Ingredients | FitMunch</title>
-<meta name="description" content="AI meal planner built for Australians. Turn Woolworths and Coles shops into a 7-day high-protein meal plan with macros and shopping list. Free to start.">
+<title>AI Meal Planner Australia | Woolies & Coles, Receipt-First | FitMunch</title>
+<meta name="description" content="Plan the week from your body and your Woolies, Coles or Aldi shop. AUD, grams, receipt-ready. 14-day Premium trial.">
 <link rel="canonical" href="https://www.fitmunch.com.au/ai-meal-planner-australia">
-<meta property="og:title" content="AI Meal Planner Australia | FitMunch">
-<meta property="og:description" content="7-day meal plans from real AU supermarket ingredients. Macros, budget, protein targets.">
+<meta property="og:title" content="AI Meal Planner Australia | Woolies & Coles, Receipt-First | FitMunch">
+<meta property="og:description" content="Plan the week from your body and your Woolies, Coles or Aldi shop. AUD, grams, receipt-ready. 14-day Premium trial.">
 <meta property="og:url" content="https://www.fitmunch.com.au/ai-meal-planner-australia">
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"19.99","priceCurrency":"AUD"},"description":"AI meal planner for Australians shopping at Woolworths and Coles."}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"19.99","priceCurrency":"AUD"},"description":"Receipt-first AI meal planner for Australians shopping at Woolworths, Coles and Aldi."}
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box}
@@ -30,13 +30,14 @@ html,body{max-width:100%;overflow-x:hidden}
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
 }
-.mp-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:14px;max-width:22ch}
-.mp-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:44ch;margin-bottom:26px}
+.mp-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:14px;max-width:26ch}
+.mp-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:54ch;margin-bottom:26px}
 .mp-ctas{display:flex;flex-wrap:wrap;gap:10px}
 
 .content-inner li{margin:0 0 10px 0;color:var(--mute);line-height:1.65;padding-left:14px;position:relative;list-style:none}
 .content-inner li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:1px;background:var(--leaf2)}
 .content-inner ul{margin-bottom:20px}
+.content-inner a{color:var(--leaf2);font-weight:700}
 
 .vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
 .vs-col{background:#fff;padding:20px 18px}
@@ -45,6 +46,9 @@ html,body{max-width:100%;overflow-x:hidden}
 .vs-col.good h3{color:var(--leaf2)}
 .vs-col p{margin:0;color:var(--mute);font-size:.9rem;line-height:1.6}
 @media(max-width:640px){.vs-grid{grid-template-columns:1fr}}
+
+.faq dt{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:.95rem}
+.faq dd{color:var(--mute);margin:6px 0 0 0;line-height:1.65;font-size:.9rem}
 </style>
 </head>
 <body class="fm-body">
@@ -61,8 +65,8 @@ html,body{max-width:100%;overflow-x:hidden}
 
 <header class="fm-hero-band mp-hero">
   <div class="kicker">AI meal planner Australia</div>
-  <h1>AI meal planner for real Woolies and Coles shops.</h1>
-  <p>Not another US recipe dump. FitMunch builds a 7-day Australian meal plan around your protein target, weekly budget, and what you already bought.</p>
+  <h1>AI meal planner Australia: from your real Woolies or Coles shop</h1>
+  <p>An AI meal planner for Australia builds a week of meals and a shopping list using Australian supermarket products and AUD prices. FitMunch is receipt-first: it plans from your body targets and what you actually buy at Woolworths, Coles or Aldi, then scores the haul and drafts the next trolley. It does not scrape supermarket trolley APIs. Premium is $19.99 AUD/mo after a 14-day trial.</p>
   <div class="mp-ctas">
     <a class="fm-btn fm-btn-leaf" href="/login.html?utm_source=seo&utm_medium=landing&utm_campaign=ai-meal-planner#register" data-fm-auth="register">Build a free plan</a>
     <a class="fm-btn fm-btn-ghost" href="/login.html?plan=premium&utm_source=seo&utm_medium=landing&utm_campaign=ai-meal-planner-premium#register" data-fm-auth="register" data-fm-plan="premium">Premium trial $19.99</a>
@@ -74,9 +78,9 @@ html,body{max-width:100%;overflow-x:hidden}
     <h2>What you get</h2>
     <ul>
       <li>7-day plan with breakfast, lunch, dinner, snack</li>
-      <li>Daily calories and protein targets</li>
+      <li>Daily calories and protein targets from the body you log</li>
       <li>AUD weekly budget estimate</li>
-      <li>Works with receipt scan so the plan matches the real haul</li>
+      <li>Works with a receipt scan so the plan matches the real haul</li>
     </ul>
     <h2>Who it's for</h2>
     <ul>
@@ -85,8 +89,21 @@ html,body{max-width:100%;overflow-x:hidden}
       <li>Home cooks who want protein without living in the health aisle</li>
     </ul>
 
+    <h2>Receipt-first beats blank recipe dumps</h2>
+    <p style="color:var(--mute);line-height:1.7">Most AI meal planners start from a blank US recipe database: cups of quinoa, imperial ounces, and ingredients that do not exist on an Aldi shelf. FitMunch starts from what's actually in your trolley or your receipt scan, in AUD, in grams, matched to Woolworths, Coles and Aldi product lines. The plan bends to fit the shop, not the other way round.</p>
+    <div class="vs-grid">
+      <div class="vs-col bad">
+        <h3>Blank recipe dump</h3>
+        <p>Generic recipes, US measurements, ingredients you then have to hunt for or substitute. You do the matching work yourself.</p>
+      </div>
+      <div class="vs-col good">
+        <h3>Receipt-first plan</h3>
+        <p>Starts from your actual shop or scan. AUD pricing, grams, AU brands. The plan already matches what's in the fridge.</p>
+      </div>
+    </div>
+
     <h2>A sample 7-day mini plan</h2>
-    <p style="color:var(--mute);line-height:1.7">Every day is anchored to a small set of AU staples, not a shopping list of things you can't find at Coles. This is a mini version of what a full FitMunch plan builds.</p>
+    <p style="color:var(--mute);line-height:1.7">Every day is anchored to a small set of AU staples, not a shopping list of things you can't find at Coles. This is a mini version of what a full FitMunch plan builds. When the week looks right, <a href="/shopper">commit the week trolley</a>.</p>
     <div class="fm-table-wrap">
       <table class="fm-table">
         <thead>
@@ -105,19 +122,22 @@ html,body{max-width:100%;overflow-x:hidden}
     </div>
     <p class="fm-note">Illustrative targets for a mid-size adult. Your plan is built from your actual protein target, budget and receipt.</p>
 
-    <h2>Receipt-first beats blank recipe dumps</h2>
-    <p style="color:var(--mute);line-height:1.7">Most AI meal planners start from a blank US recipe database: cups of quinoa, imperial ounces, and ingredients that don't exist on an Aldi shelf. FitMunch starts from what's actually in your trolley or your receipt scan, in AUD, in grams, matched to Woolworths, Coles and Aldi product lines. The plan bends to fit the shop, not the other way round.</p>
+    <h2>Woolies, Coles and Aldi without a trolley scrape</h2>
+    <p style="color:var(--mute);line-height:1.7">FitMunch is built for Australian shops. It uses your logged body targets, what you already bought, and public specials catalogues for Woolworths, Coles and Aldi. It does not scrape supermarket trolley APIs and it does not watch a live cart. You take the drafted list to the store. We do not pay Woolies, Coles or Aldi for you.</p>
+    <p style="color:var(--mute);line-height:1.7">See the method worked on a real shop in the <a href="/haul-teardown">haul teardown</a>, or rank protein by dollar in the <a href="/budget-meal-planner">budget meal planner</a>.</p>
+
+    <h2>FitMunch vs grocery price apps</h2>
+    <p style="color:var(--mute);line-height:1.7">WiseList, Plate Planner and Recipe2Shop class tools win on price-compare and recipe pools. FitMunch is a health engine: receipt to haul score to a training-matched week. No invented review scores here. The difference is the start point.</p>
     <div class="vs-grid">
       <div class="vs-col bad">
-        <h3>Blank recipe dump</h3>
-        <p>Generic recipes, US measurements, ingredients you then have to hunt for or substitute. You do the matching work yourself.</p>
+        <h3>Price-compare apps</h3>
+        <p>Start from specials or a recipe pile. Useful for cheap baskets. They do not score your haul against the body you log, and they do not write eat, train, and shop as one week.</p>
       </div>
       <div class="vs-col good">
-        <h3>Receipt-first plan</h3>
-        <p>Starts from your actual shop or scan. AUD pricing, grams, AU brands. The plan already matches what's in the fridge.</p>
+        <h3>Receipt-first health engine</h3>
+        <p>Starts from your body and your real Woolies, Coles or Aldi shop. Plans in AUD and grams, scores the haul, then drafts the next trolley from public specials.</p>
       </div>
     </div>
-    <p style="color:var(--mute);line-height:1.7">See it worked end to end on a real shop in the <a href="/haul-teardown">haul teardown</a>, or compare protein prices item by item in the <a href="/budget-meal-planner">budget meal planner</a>.</p>
 
     <div class="fm-convert">
       <h2>Get the plan built around your real shop.</h2>
@@ -130,6 +150,22 @@ html,body{max-width:100%;overflow-x:hidden}
 
     <h2>Pricing truth</h2>
     <p style="color:var(--mute);line-height:1.7">Free to start. Premium is <strong style="color:var(--ink)">$19.99 AUD/month</strong> with a 14-day trial (card on file, cancel anytime). Trainer tools are separate.</p>
+
+    <div class="faq">
+      <h2>Frequently asked questions</h2>
+      <dl>
+        <dt>What is an AI meal planner built for Australia?</dt>
+        <dd>It builds a week of meals and a shopping list from Australian supermarket products and AUD prices, not a US recipe dump. FitMunch plans from your body targets and the Woolworths, Coles or Aldi shop you actually do.</dd>
+        <dt>How is FitMunch different from Plate Planner, WiseList or Recipe2Shop?</dt>
+        <dd>Those tools compare grocery prices or pool budget recipes. FitMunch is receipt-first: it scores the haul, matches training, and drafts the next trolley. It is not another price-compare app.</dd>
+        <dt>Does it use Woolies, Coles and Aldi?</dt>
+        <dd>Yes. Plans and lists use AU staples and public specials from those stores. FitMunch does not scrape supermarket trolley APIs.</dd>
+        <dt>How does receipt-first planning work?</dt>
+        <dd>Photograph the receipt after the shop. FitMunch reads the lines, scores the haul, and writes meals from what you bought. The next trolley fills the gaps.</dd>
+        <dt>What does Premium cost?</dt>
+        <dd>Premium is $19.99 AUD/mo after a 14-day trial (card on file). Cancel before the trial ends and you are not charged. Free lets you start a plan.</dd>
+      </dl>
+    </div>
   </div>
 </section>
 
@@ -139,6 +175,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <div class="fm-footer-links">
       <a href="/#loop">How it works</a>
       <a href="/pricing">Pricing</a>
+      <a href="/shopper">Shopper</a>
       <a href="/haul-teardown">Haul teardown</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
       <a href="/budget-meal-planner">Budget planner</a>
