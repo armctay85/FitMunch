@@ -2,9 +2,9 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
-/// iPad-safe camera. UIImagePickerController as a SwiftUI cover still crashes
-/// on iPad (popover / source-type), including iPhone-only apps in compatibility
-/// mode. This is a plain UIViewController + AVCaptureSession.
+/// iPad-safe camera. Do not present UIImagePickerController as a SwiftUI cover.
+/// That path still crashes on iPad (popover / source-type), including iPhone-only
+/// apps in compatibility mode. This is a plain UIViewController + AVCaptureSession.
 struct SafeCameraPicker: UIViewControllerRepresentable {
     let onImage: (UIImage) -> Void
     var onUnavailable: (String) -> Void = { _ in }
@@ -12,6 +12,8 @@ struct SafeCameraPicker: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> SafeCameraViewController {
         let controller = SafeCameraViewController()
+        controller.modalPresentationStyle = .fullScreen
+        controller.isModalInPresentation = true
         controller.onImage = { image in
             onImage(image)
             dismiss()
@@ -40,6 +42,8 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var didFinish = false
     private var isCapturing = false
+    private var isConfigured = false
+    private var runtimeObserver: NSObjectProtocol?
 
     private let shutterButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
@@ -48,13 +52,26 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
         super.viewDidLoad()
         view.backgroundColor = .black
         view.accessibilityIdentifier = "scan-camera-root"
+        modalPresentationStyle = .fullScreen
         buildChrome()
+        observeRuntimeErrors()
         prepareSession()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        sessionQueue.async { [weak self] in
+            guard let self, self.isConfigured, !self.session.isRunning else { return }
+            self.session.startRunning()
+        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.bounds
+        if let connection = previewLayer?.connection, connection.isVideoOrientationSupported {
+            connection.videoOrientation = .portrait
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -65,7 +82,14 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
         }
     }
 
+    deinit {
+        if let runtimeObserver {
+            NotificationCenter.default.removeObserver(runtimeObserver)
+        }
+    }
+
     override var prefersStatusBarHidden: Bool { true }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
 
     private func buildChrome() {
         cancelButton.setTitle("Cancel", for: .normal)
@@ -95,6 +119,16 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
             shutterButton.widthAnchor.constraint(equalToConstant: 64),
             shutterButton.heightAnchor.constraint(equalToConstant: 64),
         ])
+    }
+
+    private func observeRuntimeErrors() {
+        runtimeObserver = NotificationCenter.default.addObserver(
+            forName: .AVCaptureSessionRuntimeError,
+            object: session,
+            queue: .main
+        ) { [weak self] _ in
+            self?.fail("Couldn't keep the camera running. Choose a photo from your library instead.")
+        }
     }
 
     private func prepareSession() {
@@ -139,14 +173,16 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
     }
 
     private func configureSession() -> Bool {
+        if isConfigured { return true }
         session.beginConfiguration()
         defer { session.commitConfiguration() }
 
-        session.sessionPreset = .photo
+        session.automaticallyConfiguresApplicationAudioSession = false
+        if session.canSetSessionPreset(.photo) {
+            session.sessionPreset = .photo
+        }
 
-        let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
-            ?? AVCaptureDevice.default(for: .video)
-        guard let device else { return false }
+        guard let device = CameraAvailability.preferredCamera() else { return false }
 
         do {
             let input = try AVCaptureDeviceInput(device: device)
@@ -158,6 +194,8 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
 
         guard session.canAddOutput(photoOutput) else { return false }
         session.addOutput(photoOutput)
+        photoOutput.maxPhotoQualityPrioritization = .balanced
+        isConfigured = true
         return true
     }
 
@@ -166,6 +204,9 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
         let layer = AVCaptureVideoPreviewLayer(session: session)
         layer.videoGravity = .resizeAspectFill
         layer.frame = view.bounds
+        if let connection = layer.connection, connection.isVideoOrientationSupported {
+            connection.videoOrientation = .portrait
+        }
         view.layer.insertSublayer(layer, at: 0)
         previewLayer = layer
     }
@@ -181,12 +222,12 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
         isCapturing = true
         shutterButton.isEnabled = false
         let settings = AVCapturePhotoSettings()
-        if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
+        if photoOutput.maxPhotoQualityPrioritization.rawValue >= AVCapturePhotoOutput.QualityPrioritization.balanced.rawValue {
             settings.photoQualityPrioritization = .balanced
         }
         sessionQueue.async { [weak self] in
             guard let self else { return }
-            guard self.session.isRunning else {
+            guard self.session.isRunning, !self.photoOutput.connections.isEmpty else {
                 DispatchQueue.main.async {
                     self.isCapturing = false
                     self.shutterButton.isEnabled = true
@@ -241,13 +282,31 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
 }
 
 /// Hardware + permission checks used before presenting the camera cover.
+/// DiscoverySession only. Do not call UIImagePickerController here (iPad crash class).
 enum CameraAvailability {
     static var hasCameraHardware: Bool {
-        AVCaptureDevice.default(for: .video) != nil
-            && UIImagePickerController.isSourceTypeAvailable(.camera)
+        preferredCamera() != nil
     }
 
     static var authorization: AVAuthorizationStatus {
         AVCaptureDevice.authorizationStatus(for: .video)
+    }
+
+    static func preferredCamera() -> AVCaptureDevice? {
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [
+                .builtInWideAngleCamera,
+                .builtInDualWideCamera,
+                .builtInDualCamera,
+                .builtInTripleCamera,
+                .builtInUltraWideCamera,
+                .builtInTrueDepthCamera
+            ],
+            mediaType: .video,
+            position: .unspecified
+        )
+        return discovery.devices.first(where: { $0.position == .back })
+            ?? discovery.devices.first
+            ?? AVCaptureDevice.default(for: .video)
     }
 }

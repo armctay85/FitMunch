@@ -64,6 +64,11 @@ struct PaywallView: View {
             }
             .task {
                 await loadPlans()
+                // StoreKit can miss the first sandbox fetch. One quiet retry, then empty UI.
+                if plans.isEmpty {
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    await loadPlans()
+                }
             }
         }
     }

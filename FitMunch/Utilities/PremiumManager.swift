@@ -1,5 +1,6 @@
 import Foundation
 import RevenueCat
+import StoreKit
 import SwiftUI
 
 /// Manages premium subscription status and purchases
@@ -16,6 +17,7 @@ class PremiumManager: ObservableObject {
     private enum PlanHandle {
         case package(Package)
         case product(StoreProduct)
+        case storeKit(Product)
     }
 
     private init() {
@@ -65,14 +67,22 @@ class PremiumManager: ObservableObject {
         }
     }
 
-    /// Purchase a subscription plan loaded from offerings or direct product IDs.
+    /// Purchase a subscription plan loaded from offerings, RevenueCat products, or StoreKit 2.
     func purchase(plan: PaywallPlan) async -> Bool {
-        guard canUsePurchases else {
-            errorMessage = "In-app purchase is not available. Retry, or continue on fitmunch.com.au to start Premium."
-            return false
-        }
         guard let handle = planHandles[plan.id] else {
             errorMessage = "That plan is not available right now. Retry to reload App Store plans."
+            return false
+        }
+
+        switch handle {
+        case .storeKit(let product):
+            return await purchaseStoreKit(product)
+        case .package, .product:
+            break
+        }
+
+        guard canUsePurchases else {
+            errorMessage = "In-app purchase is not available. Retry, or continue on fitmunch.com.au to start Premium."
             return false
         }
 
@@ -86,6 +96,8 @@ class PremiumManager: ObservableObject {
                 customerInfo = try await Purchases.shared.purchase(package: package).customerInfo
             case .product(let product):
                 customerInfo = try await Purchases.shared.purchase(product: product).customerInfo
+            case .storeKit:
+                return false
             }
             isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
             errorMessage = nil
@@ -101,47 +113,60 @@ class PremiumManager: ObservableObject {
         }
     }
 
-    /// Restore previous purchases
+    /// Restore previous purchases via RevenueCat, then StoreKit.
     func restorePurchases() async -> Bool {
-        guard canUsePurchases else {
-            errorMessage = "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
-            return false
-        }
-
         isLoading = true
         defer { isLoading = false }
 
-        do {
-            let customerInfo = try await Purchases.shared.restorePurchases()
-            isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
-            errorMessage = nil
-            return isPremium
-        } catch {
-            errorMessage = "Restore failed: \(error.localizedDescription)"
-            print("Restore error: \(error)")
-            return false
+        if canUsePurchases {
+            do {
+                let customerInfo = try await Purchases.shared.restorePurchases()
+                isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
+                if isPremium {
+                    errorMessage = nil
+                    return true
+                }
+            } catch {
+                errorMessage = "Restore failed: \(error.localizedDescription)"
+                print("Restore error: \(error)")
+            }
         }
+
+        if await restoreFromStoreKit() {
+            errorMessage = nil
+            return true
+        }
+
+        if errorMessage == nil {
+            errorMessage = canUsePurchases
+                ? "No purchases to restore or restore failed"
+                : "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
+        }
+        return false
     }
 
     /// Load monthly/annual plans. Never throws into UI. Empty offerings return [].
+    /// Order: RevenueCat current offering, then `main`, then RC product IDs, then StoreKit 2.
     func getPlans() async -> [PaywallPlan] {
         planHandles = [:]
-        guard canUsePurchases else {
-            errorMessage = "In-app plans are not configured. Retry, or continue on fitmunch.com.au to start Premium."
-            return []
-        }
-
         var plans: [PaywallPlan] = []
 
-        if let fromOffering = await plansFromOfferings() {
-            plans = fromOffering
+        if canUsePurchases {
+            if let fromOffering = await plansFromOfferings() {
+                plans = fromOffering
+            }
+            if plans.isEmpty {
+                plans = await plansFromProductIds()
+            }
         }
         if plans.isEmpty {
-            plans = await plansFromProductIds()
+            plans = await plansFromStoreKit()
         }
 
         if plans.isEmpty {
-            errorMessage = "Could not load App Store plans. Tap Retry, or check your connection and try again."
+            errorMessage = canUsePurchases
+                ? "Could not load App Store plans. Tap Retry, or check your connection and try again."
+                : "In-app plans are not configured. Retry, or continue on fitmunch.com.au to start Premium."
         } else {
             errorMessage = nil
         }
@@ -189,6 +214,7 @@ class PremiumManager: ObservableObject {
     }
 
     private func plansFromProductIds() async -> [PaywallPlan] {
+        guard canUsePurchases else { return [] }
         let products = await Purchases.shared.products(Constants.ProductIDs.sellable)
         var titles: [String: String] = [:]
         for product in products {
@@ -211,6 +237,98 @@ class PremiumManager: ObservableObject {
             plans.append(plan)
         }
         return plans
+    }
+
+    /// Last-resort App Store load. Used when RevenueCat offerings/products are empty
+    /// so App Review never sees a silent blank subscription page (Guideline 2.1b).
+    private func plansFromStoreKit() async -> [PaywallPlan] {
+        do {
+            let products = try await Product.products(for: Set(Constants.ProductIDs.sellable))
+            var titles: [String: String] = [:]
+            for product in products {
+                titles[product.id] = product.displayName
+            }
+            let ids = PaywallCatalog.selectSellableIds(
+                from: products.map(\.id),
+                titles: titles
+            )
+            var plans: [PaywallPlan] = []
+            for id in ids {
+                guard let product = products.first(where: { $0.id == id }) else { continue }
+                let plan = PaywallPlan(
+                    id: id,
+                    title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.displayName),
+                    description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.description),
+                    priceString: product.displayPrice
+                )
+                planHandles[id] = .storeKit(product)
+                plans.append(plan)
+            }
+            return plans
+        } catch {
+            errorMessage = "Could not load App Store plans: \(error.localizedDescription)"
+            print("StoreKit products error: \(error)")
+            return []
+        }
+    }
+
+    private func purchaseStoreKit(_ product: Product) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let result = try await product.purchase()
+            switch result {
+            case .success(let verification):
+                guard case .verified(let transaction) = verification else {
+                    errorMessage = "Could not verify that purchase with Apple. Try Restore Purchases."
+                    return false
+                }
+                await transaction.finish()
+                if canUsePurchases {
+                    _ = try? await Purchases.shared.syncPurchases()
+                    await checkSubscriptionStatus()
+                }
+                if !isPremium {
+                    isPremium = true
+                }
+                errorMessage = nil
+                return true
+            case .userCancelled:
+                errorMessage = nil
+                return false
+            case .pending:
+                errorMessage = "Purchase is pending. You'll get Premium when Apple approves it."
+                return false
+            @unknown default:
+                errorMessage = "Purchase did not complete. Try again."
+                return false
+            }
+        } catch {
+            if isUserCancellation(error) {
+                errorMessage = nil
+                return false
+            }
+            errorMessage = "Purchase failed: \(error.localizedDescription)"
+            print("StoreKit purchase error: \(error)")
+            return false
+        }
+    }
+
+    private func restoreFromStoreKit() async -> Bool {
+        do {
+            try await AppStore.sync()
+            for await result in Transaction.currentEntitlements {
+                if case .verified(let transaction) = result,
+                   Constants.ProductIDs.sellable.contains(transaction.productID) {
+                    isPremium = true
+                    return true
+                }
+            }
+        } catch {
+            errorMessage = "Restore failed: \(error.localizedDescription)"
+            print("StoreKit restore error: \(error)")
+        }
+        return false
     }
 
     private func isUserCancellation(_ error: Error) -> Bool {

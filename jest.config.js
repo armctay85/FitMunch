@@ -12,6 +12,7 @@ module.exports = {
     '**/test_shopper.js',
     '**/test_pay_path.js',
     '**/test_ios_store_art.js',
+    '**/test_pre_asc_gate.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
   ],
