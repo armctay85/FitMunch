@@ -40,7 +40,7 @@ struct ReceiptScanView: View {
                     }
                 }
             }
-            // AVCapture camera is the cover root. UIImagePickerController still crashes on iPad.
+            // AVCapture camera is the cover root. Do not present a system image picker for camera.
             .fullScreenCover(isPresented: $showCamera) {
                 SafeCameraPicker(
                     onImage: { image in

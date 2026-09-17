@@ -304,6 +304,9 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(camera).toContain('AVCaptureSession');
     expect(camera).toContain('hasCameraHardware');
     expect(camera).toContain('requestAccess');
+    expect(camera).toContain('DiscoverySession');
+    expect(camera).not.toMatch(/UIImagePickerController\(/);
+    expect(camera).not.toContain('isSourceTypeAvailable');
   });
 
   it('Upgrade opens a full-screen paywall, not a dead iPad sheet tap', () => {
@@ -327,6 +330,8 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(premium).toContain('Purchases.isConfigured');
     expect(premium).toContain('offerings.offering(identifier: Constants.Offerings.main)');
     expect(premium).toContain('Purchases.shared.products');
+    expect(premium).toContain('plansFromStoreKit');
+    expect(premium).toContain('Product.products(for:');
     expect(premium).toContain('getPlans()');
     expect(premium).not.toContain('fatalError');
     expect(paywall).toContain('paywall-retry');
@@ -337,8 +342,8 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(paywall).not.toMatch(/errorMessage!/);
   });
 
-  it('build number is 8 and UITests cover Upgrade + Take a photo', () => {
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"8"/);
+  it('build number is 9 and UITests cover Upgrade + Take a photo', () => {
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"9"/);
     expect(project).toMatch(/MARKETING_VERSION:\s*"1\.0"/);
     expect(guards).toContain('testUpgradeOpensPaywallWithoutCrashing');
     expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');

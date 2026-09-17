@@ -8,15 +8,21 @@ on:
     branches: [ main, master ]
     paths:
       - "FitMunch/**"
+      - "FitMunchTests/**"
       - "FitMunchUITests/**"
       - "project.yml"
+      - "scripts/check-ios-camera-usage.sh"
+      - "docs/PRE_ASC_DEVICE_AUDIT.md"
       - ".github/workflows/ios-build.yml"
   pull_request:
     branches: [ main, master ]
     paths:
       - "FitMunch/**"
+      - "FitMunchTests/**"
       - "FitMunchUITests/**"
       - "project.yml"
+      - "scripts/check-ios-camera-usage.sh"
+      - "docs/PRE_ASC_DEVICE_AUDIT.md"
       - ".github/workflows/ios-build.yml"
   workflow_dispatch:
 
@@ -26,6 +32,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Pre-ASC camera usage gate
+      run: bash scripts/check-ios-camera-usage.sh
 
     - name: Select Xcode
       run: sudo xcode-select -s $(ls -d /Applications/Xcode*.app | tail -1)/Contents/Developer

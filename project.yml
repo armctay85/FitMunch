@@ -9,9 +9,11 @@ schemes:
     build:
       targets:
         FitMunch: all
+        FitMunchTests: [test]
         FitMunchUITests: [test]
     test:
       targets:
+        - FitMunchTests
         - FitMunchUITests
 
 targets:
@@ -34,7 +36,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app
         SWIFT_VERSION: "5.9"
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "8"
+        CURRENT_PROJECT_VERSION: "9"
         VERSIONING_SYSTEM: Apple Generic
         INFOPLIST_FILE: FitMunch/Resources/Info.plist
         DEVELOPMENT_TEAM: 48SW62N9BZ
@@ -49,6 +51,22 @@ targets:
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
+
+  FitMunchTests:
+    type: bundle.unit-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: FitMunchTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        TEST_TARGET_NAME: FitMunch
+    dependencies:
+      - target: FitMunch
 
   FitMunchUITests:
     type: bundle.ui-testing
