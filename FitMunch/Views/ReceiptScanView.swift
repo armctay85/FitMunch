@@ -118,6 +118,7 @@ struct ReceiptScanView: View {
                             .foregroundColor(.primary)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .accessibilityIdentifier("scan-choose-library")
                 }
                 .padding(.top, 8)
             }

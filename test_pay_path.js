@@ -348,6 +348,11 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(guards).toContain('testUpgradeOpensPaywallWithoutCrashing');
     expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');
     expect(guards).toContain('-ReviewGuards');
+    const auditUI = fs.readFileSync(path.join(__dirname, 'FitMunchUITests/PreASCDeviceAuditTests.swift'), 'utf8');
+    expect(auditUI).toContain('testA_AppLaunchesWithoutCrash');
+    expect(auditUI).toContain('testB_ScanCameraOrLibraryDoesNotCrash');
+    expect(auditUI).toContain('testCD_UpgradeOpensPaywallPlansOrRetry');
+    expect(auditUI).toContain('testE_FreePathReachable');
   });
 });
 

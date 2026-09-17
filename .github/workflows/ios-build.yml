@@ -12,7 +12,9 @@ on:
       - "FitMunchUITests/**"
       - "project.yml"
       - "scripts/check-ios-camera-usage.sh"
+      - "scripts/run-pre-asc-ci-tests.sh"
       - "docs/PRE_ASC_DEVICE_AUDIT.md"
+      - "docs/audit/**"
       - ".github/workflows/ios-build.yml"
   pull_request:
     branches: [ main, master ]
@@ -22,7 +24,9 @@ on:
       - "FitMunchUITests/**"
       - "project.yml"
       - "scripts/check-ios-camera-usage.sh"
+      - "scripts/run-pre-asc-ci-tests.sh"
       - "docs/PRE_ASC_DEVICE_AUDIT.md"
+      - "docs/audit/**"
       - ".github/workflows/ios-build.yml"
   workflow_dispatch:
 
@@ -70,3 +74,15 @@ jobs:
           -scheme FitMunch \
           -destination 'generic/platform=iOS Simulator' \
           CODE_SIGNING_ALLOWED=NO
+
+    - name: Pre-ASC unit + UI tests (macos Simulator)
+      run: bash scripts/run-pre-asc-ci-tests.sh
+
+    - name: Upload pre-ASC audit artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pre-asc-audit-build-9
+        path: artifacts/pre-asc-audit/
+        if-no-files-found: warn
+        retention-days: 14

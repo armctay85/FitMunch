@@ -37,6 +37,8 @@ describe('PRE-ASC device audit gate', () => {
     expect(script).toContain('INFOPLIST_KEY_NSCameraUsageDescription');
     expect(script).toContain('UIImagePickerController');
     expect(iosBuild).toContain('scripts/check-ios-camera-usage.sh');
+    expect(iosBuild).toContain('scripts/run-pre-asc-ci-tests.sh');
+    expect(iosBuild).toContain('Pre-ASC unit + UI tests');
     expect(archive).toContain('scripts/check-ios-camera-usage.sh');
     expect(webQuality).toContain('scripts/check-ios-camera-usage.sh');
     execSync('bash scripts/check-ios-camera-usage.sh', { cwd: __dirname, stdio: 'pipe' });
