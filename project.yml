@@ -53,7 +53,7 @@ targets:
         embed: true
 
   FitMunchTests:
-    type: bundle.unit-testing
+    type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
     sources:
