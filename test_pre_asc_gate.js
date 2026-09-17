@@ -65,6 +65,8 @@ describe('PRE-ASC device audit gate', () => {
     expect(project).toContain('FitMunchTests');
     expect(catalogTests).toContain('fitmunch_monthly');
     expect(plistTests).toContain('NSCameraUsageDescription');
+    expect(plistTests).toContain('NSPhotoLibraryUsageDescription');
     expect(plistTests).toContain('ITMS-90683');
+    expect(project).toMatch(/INFOPLIST_KEY_NSPhotoLibraryUsageDescription/);
   });
 });

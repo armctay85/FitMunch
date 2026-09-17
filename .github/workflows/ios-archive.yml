@@ -97,6 +97,12 @@ jobs:
           echo "Refusing to export: NSCameraUsageDescription missing (ITMS-90683)"
           exit 1
         fi
+        PHOTO_DESC=$(/usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' "$APP_PLIST")
+        echo "Archived NSPhotoLibraryUsageDescription=$PHOTO_DESC"
+        if [ -z "$PHOTO_DESC" ]; then
+          echo "Refusing to export: NSPhotoLibraryUsageDescription missing from processed plist"
+          exit 1
+        fi
 
     - name: Export IPA
       run: |

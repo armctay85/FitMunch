@@ -94,6 +94,10 @@ if [ -n "$PHOTO_HITS" ]; then
   echo "Photo library API references:"
   echo "$PHOTO_HITS"
   require_plist_key "NSPhotoLibraryUsageDescription" "PhotosPicker / library APIs referenced"
+  if ! grep -q 'INFOPLIST_KEY_NSPhotoLibraryUsageDescription' project.yml; then
+    fail "project.yml missing INFOPLIST_KEY_NSPhotoLibraryUsageDescription (processed plist drop)"
+  fi
+  echo "OK project.yml NSPhotoLibraryUsageDescription (info.properties + INFOPLIST_KEY)"
 fi
 
 echo "PRE-ASC camera gate passed."

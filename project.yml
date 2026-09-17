@@ -31,6 +31,8 @@ targets:
         # ITMS-90683: processed Info.plist omitted this when only INFOPLIST_KEY_*
         # display/fullscreen keys were generated. Keep it in both places.
         NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
+        NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
+        NSMicrophoneUsageDescription: "The camera screen may use the microphone while you photograph a supermarket receipt."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app
@@ -48,6 +50,8 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: FitMunch
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "The camera screen may use the microphone while you photograph a supermarket receipt."
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
