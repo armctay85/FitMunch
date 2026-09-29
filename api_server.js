@@ -11,6 +11,7 @@ const {
   getUserByEmail,
   getUserById,
   updateUserSubscription,
+  effectiveTier,
   createOrUpdateProfile,
   getProfile,
   logMeal,
@@ -422,7 +423,7 @@ router.post('/auth/login', async (req, res) => {
     } catch (e) {
       console.warn('[login] last_login_at update failed (non-fatal):', e.message);
     }
-    res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role } });
+    res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: effectiveTier(user), role } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
@@ -600,7 +601,7 @@ router.get('/auth/me', async (req, res) => {
     const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
     const role = roleRow.rows[0]?.role || 'client';
     const ptId = roleRow.rows[0]?.pt_id;
-    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: user.subscriptionTier, role, ptId } });
+    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: effectiveTier(user), role, ptId } });
   } catch (err) {
     res.status(401).json({ success: false, error: 'Invalid or expired token.' });
   }
@@ -1030,7 +1031,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      tier = user?.subscriptionTier || 'free';
+      tier = effectiveTier(user);
     } catch (_) {}
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed) {
@@ -1106,7 +1107,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
-      tier = user?.subscriptionTier || 'free';
+      tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {}
 
@@ -1184,7 +1185,7 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      tier = user?.subscriptionTier || 'free';
+      tier = effectiveTier(user);
     } catch (_) {}
     const isPaid = tier && tier !== 'free';
     res.json({
@@ -1225,7 +1226,7 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      tier = user?.subscriptionTier || 'free';
+      tier = effectiveTier(user);
     } catch (_) {}
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed) {
@@ -1288,7 +1289,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
-      tier = user?.subscriptionTier || 'free';
+      tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {}
 

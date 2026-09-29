@@ -19,9 +19,9 @@ function getVision() {
 
 async function userTier(userId) {
   try {
-    const { getUserById } = require('./server/storage.js');
+    const { getUserById, effectiveTier } = require('./server/storage.js');
     const user = await getUserById(userId);
-    return user?.subscriptionTier || 'free';
+    return effectiveTier(user);
   } catch { return 'free'; }
 }
 

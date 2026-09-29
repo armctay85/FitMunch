@@ -134,26 +134,41 @@ body.fm-body{
 </footer>
 
 <script>
-let sessionCustomerId = null;
+let portalInFlight = null;
 
 async function openBillingPortal(e) {
   e.preventDefault();
+  if (portalInFlight) return portalInFlight;
   const btn = document.getElementById('manageBtn');
-  if (!sessionCustomerId) { window.location.href = '/pricing'; return; }
+  const token = localStorage.getItem('fm_token');
+  if (!token) { window.location.href = '/login.html'; return; }
+  btn.disabled = true;
   btn.textContent = 'Redirecting…';
   btn.style.pointerEvents = 'none';
-  try {
-    const resp = await fetch('/api/billing-portal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId: sessionCustomerId }),
-    });
-    const data = await resp.json();
-    if (data.success) window.location.href = data.url;
-    else window.location.href = '/pricing';
-  } catch (err) {
-    window.location.href = '/pricing';
-  }
+  portalInFlight = (async () => {
+    try {
+      const resp = await fetch('/api/billing-portal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await resp.json();
+      if (resp.status === 401 || !data.success) {
+        window.location.href = '/login.html';
+        return;
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      portalInFlight = null;
+      btn.disabled = false;
+      btn.textContent = 'Manage subscription';
+      btn.style.pointerEvents = '';
+    }
+  })();
+  return portalInFlight;
 }
 
 (async () => {
@@ -173,7 +188,6 @@ async function openBillingPortal(e) {
     const resp = await fetch(`/api/checkout/session?session_id=${encodeURIComponent(sessionId)}`);
     if (resp.ok) {
       const data = await resp.json();
-      sessionCustomerId = data.customerId;
       if (data.plan) {
         const labels = {
           'pt-starter': 'FitMunch PT Starter · $59/mo AUD',
