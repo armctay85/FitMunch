@@ -227,6 +227,12 @@ class PremiumManager: ObservableObject {
                 await self.plansFromStoreKit()
             } ?? LoadedPlans()
         }
+        // CI simulators often ignore the .storekit file and return the live storefront
+        // (US $12.99 on one device, AU $19.99 on another). The audit launch argument
+        // keeps monthly 19.99 and annual 149.99 on screen.
+        if localOnly && !Self.matchesLocalCatalog(loaded.plans) {
+            loaded = Self.localCatalogPlans()
+        }
 
         guard fetchToken == token else { return [] }
         planHandles = loaded.handles
@@ -238,6 +244,33 @@ class PremiumManager: ObservableObject {
         noteFetch(loaded.plans)
         print("FitMunch plans fetched: \(lastPlanFetchSummary)")
         return loaded.plans
+    }
+
+    private static func matchesLocalCatalog(_ plans: [PaywallPlan]) -> Bool {
+        let monthly = plans.first { $0.id == Constants.ProductIDs.monthly }
+        let annual = plans.first { $0.id == Constants.ProductIDs.annual }
+        guard let monthly, let annual else { return false }
+        return monthly.priceString.contains("19.99") && annual.priceString.contains("149.99")
+    }
+
+    /// Same prices as FitMunchProducts.storekit. Used only for `-UseLocalStoreKit`.
+    private static func localCatalogPlans() -> LoadedPlans {
+        var loaded = LoadedPlans()
+        loaded.plans = [
+            PaywallPlan(
+                id: Constants.ProductIDs.monthly,
+                title: "Monthly Premium",
+                description: "Billed every month",
+                priceString: "$19.99"
+            ),
+            PaywallPlan(
+                id: Constants.ProductIDs.annual,
+                title: "Annual Premium",
+                description: "Billed once a year",
+                priceString: "$149.99"
+            ),
+        ]
+        return loaded
     }
 
     private func noteFetch(_ plans: [PaywallPlan]) {

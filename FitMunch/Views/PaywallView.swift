@@ -116,6 +116,18 @@ struct PaywallView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+
+            if isLoadingPlans {
+                Text("Loading plans")
+                    .font(.subheadline.weight(.semibold))
+                    .accessibilityIdentifier("paywall-load-phase")
+            } else if plansLoadFailed {
+                Text(PaywallLoadPolicy.userFacingLoadFailure)
+                    .font(.subheadline.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                    .accessibilityIdentifier("paywall-error-header")
+            }
         }
         .padding(.top)
     }

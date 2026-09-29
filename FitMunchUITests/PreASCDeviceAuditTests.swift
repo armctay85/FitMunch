@@ -1,11 +1,9 @@
-import StoreKitTest
 import XCTest
 
 /// PRE-ASC device audit rows A–G.
-/// Local FitMunchProducts.storekit (scheme + SKTestSession) makes plan prices deterministic.
+/// Local FitMunchProducts.storekit (FitMunchStoreKit scheme) makes plan prices deterministic.
 /// Evidence class is CI macos Simulator. Not a physical device walk.
 final class PreASCDeviceAuditTests: XCTestCase {
-    private var storeKitSession: SKTestSession?
     private let loadFailure = "Plans couldn't load. Check your connection and try again."
 
     override func setUpWithError() throws {
@@ -145,11 +143,10 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
         openUpgradePaywall(in: app)
 
-        let sawLoading = app.staticTexts["Loading plans…"].waitForExistence(timeout: 6)
-            || app.staticTexts["paywall-loading-label"].exists
-            || app.staticTexts["paywall-loading-inline-label"].exists
+        let sawLoading = app.staticTexts["paywall-load-phase"].waitForExistence(timeout: 8)
+            || app.staticTexts["Loading plans"].waitForExistence(timeout: 2)
+            || app.staticTexts["Loading plans…"].exists
             || app.otherElements["paywall-loading"].exists
-            || app.otherElements["paywall-loading-inline"].exists
         XCTAssertTrue(sawLoading, "E FAIL: paywall did not show a loading state")
 
         let error = app.staticTexts[loadFailure]
@@ -228,9 +225,6 @@ final class PreASCDeviceAuditTests: XCTestCase {
     }
 
     private func launchReview(extra: [String] = [], localStoreKit: Bool = true) throws -> XCUIApplication {
-        if localStoreKit {
-            startStoreKitSessionIfNeeded()
-        }
         let app = XCUIApplication()
         var args = [ReviewLaunchArgument.flag]
         if localStoreKit {
@@ -240,18 +234,5 @@ final class PreASCDeviceAuditTests: XCTestCase {
         app.launchArguments = args
         app.launch()
         return app
-    }
-
-    private func startStoreKitSessionIfNeeded() {
-        guard storeKitSession == nil else { return }
-        do {
-            let session = try SKTestSession(configurationFileNamed: "FitMunchProducts")
-            session.disableDialogs = true
-            session.clearTransactions()
-            session.resetToDefaultState()
-            storeKitSession = session
-        } catch {
-            print("SKTestSession unavailable (\(error)). Scheme StoreKit configuration remains the product source.")
-        }
     }
 }

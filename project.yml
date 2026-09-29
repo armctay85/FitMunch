@@ -71,6 +71,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: FitMunch
         INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
     dependencies:
