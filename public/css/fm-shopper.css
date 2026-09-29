@@ -62,17 +62,19 @@
   margin:0 0 16px;
 }
 .sp-pricebar{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  display:block;
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.02em;
+  line-height:1.45;
   color:#e8efe6;
   border-top:1px solid rgba(255,255,255,.16);
   border-bottom:1px solid rgba(255,255,255,.16);
   padding:8px 0;
   margin:0 0 16px;
-  max-width:46ch;
+  max-width:22rem;
 }
-.sp-pricebar strong{color:#fff;font-weight:600}
+.sp-pricebar strong{color:#fff;font-weight:600;white-space:nowrap}
+.sp-pricebar span{white-space:nowrap}
 .sp-week-strip{
   display:grid;
   grid-template-columns:repeat(7,minmax(0,1fr));
