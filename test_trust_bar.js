@@ -207,15 +207,15 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     const fold = home.text.split('<div class="fold">')[1].split('</div>\n\n<section')[0];
     const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
     expect(fold).toContain('class="trial-bar"');
-    expect(fold).toContain('$19.99 AUD/mo');
-    expect(fold).toContain('card on file');
+    expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then $19.99 a month');
+    expect(fold).toContain('Card on file');
     expect(hero).toContain('Your body wrote the trolley.');
     expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
     expect(hero).toContain('Start the 14-day trial');
-    expect(hero).toContain('href="/pricing"');
+    expect(hero).toContain('href="/login.html?plan=premium#register"');
+    expect(hero).not.toContain('href="/pricing"');
     expect(hero).toContain('Approve this trolley');
     expect(hero).toContain('Not a shop charge');
-    expect(hero).not.toContain('plan=premium');
     expect(hero).not.toContain('$19.99');
     expect(hero).not.toMatch(/photograph your receipt/i);
     expect(hero).not.toMatch(/viewfinder|getUserMedia|capture=/i);
@@ -227,7 +227,21 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('id="first-scan"');
     expect(home.text).toContain('data-first-scan');
     expect(home.text).toContain('/js/fm-first-scan.js');
-    expect(home.text).toContain('Start Premium trial, $19.99/mo');
+    expect(home.text).toContain('14-day trial, then $19.99 a month');
+    expect(home.text).toContain('Start the 14-day trial');
+    const trialHrefs = [];
+    const trialRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+    let trialMatch;
+    while ((trialMatch = trialRe.exec(home.text))) {
+      const label = trialMatch[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      if (label !== 'Start the 14-day trial') continue;
+      const href = /href="([^"]+)"/.exec(trialMatch[1]);
+      if (href) trialHrefs.push(href[1]);
+    }
+    expect(trialHrefs.length).toBeGreaterThan(0);
+    for (const href of trialHrefs) {
+      expect(href).toBe('/login.html?plan=premium#register');
+    }
     expect(home.text).toContain('YOUR HAUL SCORE');
     expect(home.text).toContain('Tonight from this shop');
     expect(home.text).toContain('not a demo shop');

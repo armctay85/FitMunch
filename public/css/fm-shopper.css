@@ -62,17 +62,19 @@
   margin:0 0 16px;
 }
 .sp-pricebar{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  display:block;
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.02em;
+  line-height:1.45;
   color:#e8efe6;
   border-top:1px solid rgba(255,255,255,.16);
   border-bottom:1px solid rgba(255,255,255,.16);
   padding:8px 0;
   margin:0 0 16px;
-  max-width:46ch;
+  max-width:22rem;
 }
-.sp-pricebar strong{color:#fff;font-weight:600}
+.sp-pricebar strong{color:#fff;font-weight:600;white-space:nowrap}
+.sp-pricebar span{white-space:nowrap}
 .sp-week-strip{
   display:grid;
   grid-template-columns:repeat(7,minmax(0,1fr));
@@ -122,6 +124,7 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   margin:0 0 10px;
 }
 .sp-section .lead{color:var(--mute);font-size:1.02rem;line-height:1.6;max-width:44ch;margin:0 0 22px}
+.sp-section .lead a{color:var(--leaf2);font-weight:700}
 
 .sp-meals{
   display:grid;
@@ -292,6 +295,7 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 }
 /* Phone first fold: wrap Mon-Sun to two rows so Chicken/Pasta are not clipped. */
 @media(max-width:520px){
+  .fm-nav-cta{min-height:44px;display:inline-flex;align-items:center;box-sizing:border-box}
   .sp-week-strip{
     display:flex;
     flex-wrap:wrap;
