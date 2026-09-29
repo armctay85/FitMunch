@@ -497,8 +497,11 @@ describe('checkout entry guards', () => {
       successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
       cancelUrl: 'https://www.fitmunch.com.au/pricing',
     };
-    const first = await request(app).post('/api/stripe/checkout-sessions').send(body).expect(200);
-    const second = await request(app).post('/api/stripe/checkout-sessions').send(body).expect(200);
+    const postSession = () => request(app).post('/api/stripe/checkout-sessions')
+      .set('Idempotency-Key', 'public-checkout-once')
+      .send(body);
+    const first = await postSession().expect(200);
+    const second = await postSession().expect(200);
     expect(first.body.url).toBeTruthy();
     expect(second.body.url).toBe(first.body.url);
     expect(fake.S.sessions).toHaveLength(1);
@@ -506,7 +509,7 @@ describe('checkout entry guards', () => {
     expect(fake.S.sessions[0].params.line_items[0].price).toBe(PRICE_IDS.premium);
 
     fake.complete(fake.S.sessions[0].id);
-    const third = await request(app).post('/api/stripe/checkout-sessions').send(body).expect(200);
+    const third = await postSession().expect(200);
     expect(third.body.success).toBe(true);
     expect(third.body.url).toBe(first.body.url);
     expect(third.body.alreadySubscribed).toBeUndefined();
@@ -792,6 +795,30 @@ describe('logged-in customer reuse is the linked FitMunch customer', () => {
     expect(fake.customers.create.mock.calls[0][0].metadata.brand).toBe('fitmunch');
   });
 
+  test('a legacy linked customer with a live FitMunch sub stays already subscribed', async () => {
+    fake.S.customers.push({
+      id: 'cus_legacy',
+      email: 'steph@example.com',
+      metadata: {},
+    });
+    fake.S.subs.push({
+      id: 'sub_legacy',
+      customer: 'cus_legacy',
+      status: 'trialing',
+      created: 15,
+      items: { data: [{ price: { id: 'price_1ToYrXGMuYRuJYDrwHtvWD1c' } }] },
+    });
+    users.u1.stripeCustomerId = 'cus_legacy';
+
+    const res = await post().expect(200);
+    expect(res.body.alreadySubscribed).toBe(true);
+    expect(res.body.url).toBeNull();
+    expect(fake.customers.create).not.toHaveBeenCalled();
+    expect(fake.S.sessions).toHaveLength(0);
+    expect(users.u1.stripeCustomerId).toBe('cus_legacy');
+    expect(fake.S.subs.find((s) => s.id === 'sub_legacy').status).toBe('trialing');
+  });
+
   test('an active subscription on the linked FitMunch customer still blocks a second checkout', async () => {
     fake.S.subs.push({
       id: 'sub_live',
@@ -805,6 +832,176 @@ describe('logged-in customer reuse is the linked FitMunch customer', () => {
     expect(res.body.alreadySubscribed).toBe(true);
     expect(res.body.url).toBeNull();
     expect(fake.S.sessions).toHaveLength(0);
+  });
+});
+
+describe('guest subscriptions across customers', () => {
+  function postEvent(event) {
+    return request(app).post('/api/stripe/webhook').set('stripe-signature', 't=1,v1=x')
+      .set('Content-Type', 'application/json').send(JSON.stringify(event));
+  }
+
+  function fitmunchGuest(customerId, email) {
+    return {
+      id: customerId,
+      email,
+      metadata: { brand: 'fitmunch', product: 'fitmunch' },
+    };
+  }
+
+  function liveSub(subId, customerId, created, status = 'trialing') {
+    return {
+      id: subId,
+      customer: customerId,
+      status,
+      created,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+      metadata: { product: 'fitmunch', plan: 'premium' },
+    };
+  }
+
+  test('two guest checkouts, same email, different nonces, both completed: one trialing sub remains', async () => {
+    const send = (nonce) => request(app).post('/api/quick-checkout')
+      .set('Idempotency-Key', nonce)
+      .send({ email: 'guest@example.com', plan: 'premium' });
+    const first = await send('nonce-tab-a').expect(200);
+    const second = await send('nonce-tab-b').expect(200);
+    expect(first.body.id).not.toBe(second.body.id);
+    expect(fake.S.sessions).toHaveLength(2);
+    const older = fake.complete(fake.S.sessions[0].id);
+    const newer = fake.complete(fake.S.sessions[1].id);
+    expect(older.created).toBeLessThan(newer.created);
+
+    await postEvent({
+      id: 'evt_two_guests',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          customer: newer.customer,
+          customer_details: { email: 'guest@example.com' },
+          metadata: { plan: 'premium', email: 'guest@example.com' },
+        },
+      },
+    }).expect(200);
+
+    const live = fake.S.subs.filter((sub) => sub.status === 'trialing');
+    expect(live).toHaveLength(1);
+    expect(live[0].id).toBe(older.id);
+    expect(fake.S.subs.find((sub) => sub.id === newer.id).status).toBe('canceled');
+    expect(fake.S.cancels.map((row) => row.id)).toContain(newer.id);
+    expect(fake.S.cancels.map((row) => row.id)).not.toContain(older.id);
+  });
+
+  test('a guest customer with the same email never cancels the linked user sub', async () => {
+    fake.S.customers.push(
+      fitmunchGuest('cus_member', 'member@example.com'),
+      fitmunchGuest('cus_guest_same', 'member@example.com')
+    );
+    fake.S.subs.push(
+      liveSub('sub_member', 'cus_member', 100),
+      liveSub('sub_guest_older', 'cus_guest_same', 1)
+    );
+    storage.db.select = () => ({
+      from: () => ({ where: async () => [{ id: 'u1', stripeCustomerId: 'cus_member' }] }),
+    });
+
+    await postEvent({
+      id: 'evt_guest_vs_member',
+      type: 'customer.subscription.created',
+      data: { object: fake.S.subs.find((sub) => sub.id === 'sub_guest_older') },
+    }).expect(200);
+
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_member').status).toBe('trialing');
+    expect(fake.S.cancels.map((row) => row.id)).not.toContain('sub_member');
+  });
+
+  test('other-brand customers with the same email are untouched', async () => {
+    fake.S.customers.push(
+      fitmunchGuest('cus_g1', 'shared@example.com'),
+      fitmunchGuest('cus_g2', 'shared@example.com'),
+      {
+        id: 'cus_wipper',
+        email: 'shared@example.com',
+        metadata: { brand: 'wipper', product: 'wipper' },
+      }
+    );
+    fake.S.subs.push(
+      liveSub('sub_g1', 'cus_g1', 10),
+      liveSub('sub_g2', 'cus_g2', 40),
+      {
+        id: 'sub_wipper',
+        customer: 'cus_wipper',
+        status: 'active',
+        created: 5,
+        items: { data: [{ price: { id: 'price_other_brand' } }] },
+        metadata: { product: 'wipper', brand: 'Wipper' },
+      }
+    );
+
+    await postEvent({
+      id: 'evt_brand_boundary',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          customer: 'cus_g2',
+          customer_details: { email: 'shared@example.com' },
+          metadata: { plan: 'premium' },
+        },
+      },
+    }).expect(200);
+
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_g1').status).toBe('trialing');
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_g2').status).toBe('canceled');
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_wipper').status).toBe('active');
+    expect(fake.S.cancels.map((row) => row.id)).toEqual(['sub_g2']);
+    const listedCustomers = fake.subscriptions.list.mock.calls.map((call) => call[0] && call[0].customer);
+    expect(listedCustomers).not.toContain('cus_wipper');
+  });
+
+  test('a sub updated from incomplete to active triggers the dedupe', async () => {
+    fake.S.customers.push(
+      fitmunchGuest('cus_old_guest', 'retry@example.com'),
+      fitmunchGuest('cus_new_guest', 'retry@example.com')
+    );
+    const older = liveSub('sub_kept', 'cus_old_guest', 10);
+    const newer = liveSub('sub_paid', 'cus_new_guest', 80, 'incomplete');
+    fake.S.subs.push(older, newer);
+    newer.status = 'active';
+
+    await postEvent({
+      id: 'evt_incomplete_paid',
+      type: 'customer.subscription.updated',
+      data: { object: newer },
+    }).expect(200);
+
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_kept').status).toBe('trialing');
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_paid').status).toBe('canceled');
+  });
+
+  test('a nonce replay with a different email returns a different session', async () => {
+    const send = (email) => request(app).post('/api/quick-checkout')
+      .set('Idempotency-Key', 'replayed-nonce')
+      .send({ email, plan: 'premium' });
+    const first = await send('one@example.com').expect(200);
+    const second = await send('two@example.com').expect(200);
+    expect(second.body.id).not.toBe(first.body.id);
+    expect(fake.S.sessions).toHaveLength(2);
+    expect(fake.customers.create.mock.calls.map((call) => call[0].email).sort())
+      .toEqual(['one@example.com', 'two@example.com']);
+  });
+
+  test('checkout-sessions without a nonce or email does not reuse a session', async () => {
+    const body = {
+      priceId: PRICE_IDS.premium,
+      customerId: 'cus_existing',
+      successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+      cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    };
+    const first = await request(app).post('/api/stripe/checkout-sessions').send(body).expect(200);
+    const second = await request(app).post('/api/stripe/checkout-sessions').send(body).expect(200);
+    expect(second.body.id).not.toBe(first.body.id);
+    expect(fake.S.sessions).toHaveLength(2);
+    expect(fake.S.sessions.every((session) => session.customer !== 'cus_existing')).toBe(true);
   });
 });
 

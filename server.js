@@ -235,6 +235,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           : session.customer?.id;
         if (sessionCustomerId) {
           await cancelNewerDuplicateSubscriptions(stripe, sessionCustomerId);
+          await cancelNewerDuplicatesAcrossCustomers(stripe, sessionCustomerId, customerEmail);
         }
         console.log(`Checkout completed: ${customerEmail} → plan ${planId}`);
 
@@ -250,9 +251,17 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       case 'customer.subscription.updated': {
         const sub = event.data.object;
         let tierSource = sub;
-        if (event.type === 'customer.subscription.created' && sub.customer) {
+        const liveNow = LIVE_SUBSCRIPTION_STATUSES.includes(sub.status);
+        const runDedupe = Boolean(sub.customer) && (
+          event.type === 'customer.subscription.created' ||
+          (event.type === 'customer.subscription.updated' && liveNow)
+        );
+        if (runDedupe) {
           const deduped = await cancelNewerDuplicateSubscriptions(stripe, sub.customer, [sub]);
           if (deduped.kept) tierSource = deduped.kept;
+          const across = await cancelNewerDuplicatesAcrossCustomers(stripe, sub.customer);
+          const eventCancelled = (across.cancelled || []).some((row) => row.id === sub.id);
+          if (eventCancelled && across.kept) tierSource = across.kept;
         }
         const { tier, expiresAt } = subscriptionTierUpdateFromStripe(tierSource);
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
@@ -427,11 +436,19 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
     // to it would show that customer's saved cards and leak subscription state.
     const storage = require('./server/storage.js');
     const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
-    const fingerprint = guestCheckoutFingerprint({ nonce, email: '', plan, ip, userAgent });
-    const result = await storage.withStripeCustomerLock(`guest:${fingerprint}:${priceId}`, () =>
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const fingerprint = guestCheckoutFingerprint({
+      nonce,
+      email,
+      plan,
+      ip,
+      userAgent,
+      uniquePerRequest: !nonce && !email,
+    });
+    const result = await storage.withStripeCustomerLock(`guest:${fingerprint}:${email}:${priceId}`, () =>
       openUnauthenticatedCheckout(stripe, {
         fingerprint,
-        email: '',
+        email,
         priceId,
         plan,
         origin: checkoutOrigin(req),
@@ -470,6 +487,9 @@ const {
   checkoutRequestParts,
   openUnauthenticatedCheckout,
   createFitMunchCustomer,
+  cancelNewerDuplicatesAcrossCustomers,
+  linkedCustomerHasLiveFitMunchSub,
+  LIVE_SUBSCRIPTION_STATUSES,
   resetCheckoutGuardsForTests,
 } = require('./lib/fitmunch-checkout');
 
@@ -609,6 +629,13 @@ app.post('/api/checkout', async (req, res) => {
       if (!checkoutSmokeFallback) {
         const fresh = await storage.getUserById(user.id);
         if (fresh) current = fresh;
+      }
+      if (current.stripeCustomerId && await linkedCustomerHasLiveFitMunchSub(stripe, current.stripeCustomerId)) {
+        return {
+          alreadySubscribed: true,
+          url: null,
+          message: 'You already have an active FitMunch subscription. Open Billing to manage it.',
+        };
       }
       const customerId = await findOrCreateStripeCustomer(stripe, {
         userId: current.id,
