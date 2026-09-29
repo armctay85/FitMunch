@@ -127,6 +127,16 @@ struct PaywallView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                     .accessibilityIdentifier("paywall-error-header")
+                Button("Retry") {
+                    Task { await loadPlansWithRetry() }
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("paywall-retry")
+                Button("Restore Purchases") {
+                    Task { await restore() }
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("paywall-restore-inline")
             }
         }
         .padding(.top)

@@ -152,7 +152,10 @@ final class PreASCDeviceAuditTests: XCTestCase {
         let error = app.staticTexts[loadFailure]
         XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: retry copy did not appear")
         reveal(error, in: app)
-        XCTAssertTrue(app.buttons["paywall-retry"].waitForExistence(timeout: 3), "E FAIL: Retry missing")
+        let retry = scrollUntilAnyExists([
+            app.buttons["paywall-retry"],
+        ], in: app) ?? app.buttons["paywall-retry"]
+        XCTAssertTrue(retry.exists, "E FAIL: Retry missing")
         XCTAssertTrue(
             app.buttons["paywall-restore"].exists || app.buttons["paywall-restore-inline"].exists || app.buttons["Restore Purchases"].exists,
             "E FAIL: Restore Purchases missing on the error state"
@@ -161,7 +164,6 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Premium plans did not load from the App Store."].exists)
         XCTAssertFalse(app.otherElements["paywall-plans"].exists, "E FAIL: plans rendered on the forced-empty path")
 
-        let retry = app.buttons["paywall-retry"]
         reveal(retry, in: app)
         retry.tap()
         _ = app.staticTexts["Loading plans…"].waitForExistence(timeout: 2)
