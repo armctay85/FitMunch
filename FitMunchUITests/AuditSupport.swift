@@ -74,13 +74,8 @@ extension XCTestCase {
         try? shot.pngRepresentation.write(to: url)
         if let image = UIImage(data: shot.pngRepresentation), let cg = image.cgImage {
             let appPoints = "\(Int(app.frame.width.rounded()))x\(Int(app.frame.height.rounded()))"
-            let screen = XCUIScreen.main.bounds
-            let screenPoints = "\(Int(screen.width.rounded()))x\(Int(screen.height.rounded()))"
             let pixels = "\(cg.width)x\(cg.height)"
-            appendAuditFile(
-                "sizes.txt",
-                line: "\(file) app=\(appPoints) screen=\(screenPoints) pixels=\(pixels)\n"
-            )
+            appendAuditFile("sizes.txt", line: "\(file) app=\(appPoints) pixels=\(pixels)\n")
         }
         let attachment = XCTAttachment(screenshot: shot)
         attachment.name = name
