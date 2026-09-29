@@ -47,12 +47,16 @@ final class PreASCDeviceAuditTests: XCTestCase {
         ])
         XCTAssertNotNil(takePhoto, "B FAIL: Take a photo missing on Scan")
         takePhoto?.tap()
-        dismissSystemAlerts(in: app)
+        // The shared helper taps any OK, including this alert's OK, which
+        // removes the fallback before the recovery check. Leave that alert up.
+        dismissPermissionWithoutClosingCameraFallback(in: app)
 
+        // The Scan screen's Choose from library is already on screen, so it is
+        // not proof that Take a photo recovered. Require the fallback alert or
+        // SafeCameraPicker chrome.
         let recovered = app.alerts["Camera not available"].waitForExistence(timeout: 10)
             || app.buttons["scan-camera-cancel"].waitForExistence(timeout: 2)
             || app.otherElements["scan-camera-root"].waitForExistence(timeout: 2)
-            || app.buttons["Choose from library"].waitForExistence(timeout: 2)
         XCTAssertTrue(recovered, "B FAIL: neither SafeCameraPicker chrome nor library fallback appeared")
         XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Take a photo")
         XCTAssertFalse(
@@ -61,17 +65,36 @@ final class PreASCDeviceAuditTests: XCTestCase {
         )
         let shot = saveAuditScreen(app, baseName: "B-scan-take-photo")
 
+        // Same order as testG: OK first. The alert's Choose from library already
+        // presents the photo picker, so a second tap on scan-choose-library sits
+        // behind that picker and fails as not hittable (iPad).
+        var openedLibraryFromAlert = false
         if app.alerts["Camera not available"].exists {
-            let pick = app.alerts["Camera not available"].buttons["Choose from library"]
-            if pick.exists {
-                pick.tap()
-            } else if app.alerts["Camera not available"].buttons["OK"].exists {
-                app.alerts["Camera not available"].buttons["OK"].tap()
+            let alert = app.alerts["Camera not available"]
+            if alert.buttons["OK"].exists {
+                alert.buttons["OK"].tap()
+            } else if alert.buttons["Choose from library"].exists {
+                alert.buttons["Choose from library"].tap()
+                openedLibraryFromAlert = true
             }
         } else if app.buttons["scan-camera-cancel"].exists {
             app.buttons["scan-camera-cancel"].tap()
         }
 
+        if openedLibraryFromAlert {
+            sleep(1)
+            XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Choose from library")
+            recordAudit(row: "B", status: "PASS", screenshot: shot)
+            return
+        }
+
+        if let library, !library.isHittable {
+            let ready = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "isHittable == true"),
+                object: library
+            )
+            _ = XCTWaiter.wait(for: [ready], timeout: 4)
+        }
         library?.tap()
         sleep(1)
         XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Choose from library")
@@ -92,26 +115,16 @@ final class PreASCDeviceAuditTests: XCTestCase {
         close.tap()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6), "C FAIL: tab bar missing after close")
 
-        var openedPremium = false
-        for _ in 0..<8 {
-            let candidates = [
-                app.buttons["settings-upgrade-premium"],
-                app.buttons["Upgrade to Premium"],
-                app.staticTexts["Upgrade to Premium"],
-            ]
-            if let row = candidates.first(where: { $0.exists && $0.isHittable }) {
-                row.tap()
-                openedPremium = true
-                break
-            }
-            let list = app.collectionViews.firstMatch
-            if list.exists {
-                list.swipeUp()
-            } else {
-                app.swipeUp()
-            }
-        }
-        XCTAssertTrue(openedPremium, "C FAIL: Upgrade to Premium missing")
+        // settings-upgrade-premium is the Subscription row. On iPhone a full
+        // swipeUp can leave it under the nav bar (exists, not hittable) and the
+        // next swipe drops it out of the SwiftUI list. Scroll until that row is hittable.
+        let premiumRow = scrollUntilHittable([
+            app.buttons["settings-upgrade-premium"],
+            app.buttons["Upgrade to Premium"],
+            app.staticTexts["Upgrade to Premium"],
+        ], in: app)
+        XCTAssertNotNil(premiumRow, "C FAIL: Upgrade to Premium missing")
+        premiumRow?.tap()
         let again = app.buttons["paywall-close"].waitForExistence(timeout: 8)
             || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
         XCTAssertTrue(again, "C FAIL: Upgrade to Premium did not open the paywall")
@@ -234,6 +247,24 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6) || paywallIsShowing(in: app))
         let shot = saveAuditScreen(app, baseName: "G-no-crash")
         recordAudit(row: "G", status: "PASS", screenshot: shot)
+    }
+
+    /// Permission sheets use Allow, Don't Allow, or a bare OK.
+    /// "Camera not available" also has OK. Tapping that OK dismisses the
+    /// fallback the recovery assertion has to see.
+    private func dismissPermissionWithoutClosingCameraFallback(in app: XCUIApplication) {
+        let alert = app.alerts.firstMatch
+        guard alert.waitForExistence(timeout: 1.2) else { return }
+        if app.alerts["Camera not available"].exists || alert.buttons["Choose from library"].exists {
+            return
+        }
+        for title in ["Don’t Allow", "Don't Allow", "Allow", "OK", "Close"] {
+            let button = alert.buttons[title]
+            if button.exists {
+                button.tap()
+                return
+            }
+        }
     }
 
     private func launchReview(extra: [String] = [], localStoreKit: Bool = true) throws -> XCUIApplication {

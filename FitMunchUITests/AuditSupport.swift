@@ -108,6 +108,50 @@ extension XCTestCase {
         return match()
     }
 
+    /// Scroll a Settings-style list until the first existing candidate is hittable.
+    /// A full swipeUp can park a row under the navigation bar (exists, visible point
+    /// {-1,-1}) and the next swipe then drops it out of the tree. Short drags stay
+    /// on the row and move it into the hittable band.
+    func scrollUntilHittable(_ elements: [XCUIElement], in app: XCUIApplication, attempts: Int = 14) -> XCUIElement? {
+        func firstExistingRow() -> XCUIElement? { elements.first { $0.exists } }
+        let list = app.collectionViews.firstMatch
+        let table = app.tables.firstMatch
+        let scroller: XCUIElement = list.exists ? list : (table.exists ? table : app)
+
+        for _ in 0..<attempts {
+            if let row = firstExistingRow() {
+                if row.isHittable { return row }
+                let frame = row.frame
+                let bounds = app.windows.firstMatch.exists ? app.windows.firstMatch.frame : app.frame
+                let hasFrame = frame.width > 1 && frame.height > 1
+                // iPhone failure frame was {{19.5, 246.9}, {351, 63.4}} with visible
+                // point {-1,-1}. The same row was hittable at y=556. Nudge a
+                // high row down. A 320x480 app.frame must not shrink this band.
+                let band = max(bounds.height, 700) * 0.45
+                let tooHigh = !hasFrame || frame.midY < band
+                nudgeScroll(scroller, fraction: tooHigh ? 0.22 : -0.18)
+                if let row = firstExistingRow(), row.isHittable { return row }
+                if firstExistingRow() == nil {
+                    nudgeScroll(scroller, fraction: tooHigh ? -0.12 : 0.16)
+                }
+            } else {
+                nudgeScroll(scroller, fraction: -0.28)
+            }
+        }
+        if let row = firstExistingRow(), row.isHittable { return row }
+        return nil
+    }
+
+    /// fraction < 0 moves the finger up and reveals rows below.
+    /// fraction > 0 moves the finger down and brings a top-clipped row into view.
+    private func nudgeScroll(_ element: XCUIElement, fraction: CGFloat) {
+        let startY: CGFloat = fraction < 0 ? 0.72 : 0.38
+        let endY = min(0.88, max(0.12, startY + fraction))
+        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
     func reveal(_ element: XCUIElement, in app: XCUIApplication, swipes: Int = 6) {
         var remaining = swipes
         while !element.isHittable && remaining > 0 {

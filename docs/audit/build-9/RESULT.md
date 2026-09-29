@@ -29,6 +29,8 @@ This is not a physical iPhone or iPad walk. Do not treat this file as App Review
 
 Sellable product IDs are `fitmunch_monthly` and `fitmunch_annual`. `fitmunch_weekly` is not in the app, the StoreKit file, or the paywall. `NSMicrophoneUsageDescription` is removed. Camera and photo-library usage strings stay. Build number stays 9. Archive workflow was not changed and does not submit for review.
 
+Main commit `8a4ea21` failed iOS Build and Test (run https://github.com/armctay85/FitMunch/actions/runs/36548322021). Attempt 1 failed row B on iPad because the test tapped the Camera not available alert's Choose from library and then tapped `scan-choose-library` behind the photo picker. Attempt 2 failed row C on iPhone: `settings-upgrade-premium` existed (accessibility frame y=96, screen frame y=247, visible point {-1,-1}) and the next full swipeUp removed it from the list. PR 25 head `8e726e0` (run https://github.com/armctay85/FitMunch/actions/runs/36551999506) failed row B on both iPhone 14 and iPad Air 11-inch (M3). The alert did appear (`ViewDidAppear`, title Camera not available). `dismissSystemAlerts` then tapped that alert's OK, so the recovery check saw neither the alert nor SafeCameraPicker chrome. That is a test bug, not a hang and not a missing fallback. The table above is the earlier green SHA `d56ef84`. It is not a new A–G PASS for `8a4ea21`. Re-green leaves the fallback alert up, prefers its OK button, skips a second library tap when that alert already opened the library, and scrolls `settings-upgrade-premium` until it is hittable.
+
 ## Rows A–G
 
 Status is **CI macos Simulator / unit+UI PASS** on both listed sims. Not physical-device PASS.
