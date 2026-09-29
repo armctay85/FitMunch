@@ -25,17 +25,15 @@
 ⬜ **1.5 Configure Offering**
    - Go to Products → Offerings
    - Create new offering: `main`
-   - Add 3 subscription packages:
-     1. **Weekly**: $4.99 AUD
-     2. **Monthly**: $9.99 AUD  
-     3. **Annual**: $79.99 AUD
+   - Add 2 subscription packages:
+     1. **Monthly**: A$19.99
+     2. **Annual**: A$149.99
    - Set annual as default (best value)
 
 ⬜ **1.6 Configure Pricing IDs**
    - For each package, set the App Store Connect Product ID:
-     - Weekly: `com.fitmunch.ios.weekly`
-     - Monthly: `com.fitmunch.ios.monthly`
-     - Annual: `com.fitmunch.ios.annual`
+     - Monthly: `fitmunch_monthly`
+     - Annual: `fitmunch_annual`
 
 ⬜ **1.7 Add Test Users**
    - Go to Project Settings → Test Users
@@ -107,26 +105,21 @@
 
 ⬜ **4.3 Create In-App Purchases**
    - Go to Features → In-App Purchases
-   - Create 3 auto-renewable subscriptions:
-     1. **Weekly Subscription**
-        - Product ID: `com.fitmunch.ios.weekly`
-        - Reference Name: `FitMunch Weekly`
-        - Subscription Duration: 1 Week
-        - Price: $4.99 AUD
-     2. **Monthly Subscription**
-        - Product ID: `com.fitmunch.ios.monthly`
+   - Create 2 auto-renewable subscriptions:
+     1. **Monthly Subscription**
+        - Product ID: `fitmunch_monthly`
         - Reference Name: `FitMunch Monthly`
         - Subscription Duration: 1 Month
-        - Price: $9.99 AUD
-     3. **Annual Subscription**
-        - Product ID: `com.fitmunch.ios.annual`
+        - Price: A$19.99
+     2. **Annual Subscription**
+        - Product ID: `fitmunch_annual`
         - Reference Name: `FitMunch Annual`
         - Subscription Duration: 1 Year
-        - Price: $79.99 AUD
+        - Price: A$149.99
 
 ⬜ **4.4 Configure Subscription Group**
    - Create subscription group: `FitMunch Premium`
-   - Add all 3 subscriptions to the group
+   - Add both subscriptions to the group
    - Set annual as default (recommended)
 
 ⬜ **4.5 Submit for Review**

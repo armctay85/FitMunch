@@ -44,9 +44,8 @@ View your meal history, monitor trends, and build healthy habits. Perfect for we
 
 **Subscription Details**
 FitMunch offers auto-renewing subscriptions:
-• Weekly: $4.99 AUD
-• Monthly: $9.99 AUD
-• Annual: $79.99 AUD (best value)
+• Monthly: A$19.99
+• Annual: A$149.99 (best value)
 
 Payment will be charged to your iTunes Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your Account Settings after purchase.
 

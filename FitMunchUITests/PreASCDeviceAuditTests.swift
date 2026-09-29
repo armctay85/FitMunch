@@ -1,30 +1,34 @@
+import StoreKitTest
 import XCTest
 
-/// PRE-ASC device audit rows A–E. Evidence class is CI macos Simulator / unit+UI.
-/// Do not treat a pass here as a physical iPhone or iPad walk.
+/// PRE-ASC device audit rows A–G.
+/// Local FitMunchProducts.storekit (scheme + SKTestSession) makes plan prices deterministic.
+/// Evidence class is CI macos Simulator. Not a physical device walk.
 final class PreASCDeviceAuditTests: XCTestCase {
-    private var app: XCUIApplication!
+    private var storeKitSession: SKTestSession?
+    private let loadFailure = "Plans couldn't load. Check your connection and try again."
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app = XCUIApplication()
-        app.launchArguments = [ReviewLaunchArgument.flag]
+    }
+
+    /// A: First run shows the account screen and does not crash.
+    func testA_FirstRun() throws {
+        let app = XCUIApplication()
+        app.launchArguments = []
         app.launch()
+        let firstRun = app.staticTexts["Your AI health partner"].waitForExistence(timeout: 20)
+            || app.buttons["Create Free Account"].waitForExistence(timeout: 4)
+            || app.buttons["Sign In"].waitForExistence(timeout: 2)
+        XCTAssertTrue(firstRun, "A FAIL: first run did not show the account screen")
+        XCTAssertEqual(app.state, .runningForeground, "A FAIL: app left the foreground")
+        let shot = saveAuditScreen(app, baseName: "A-first-run")
+        recordAudit(row: "A", status: "PASS", screenshot: shot)
     }
 
-    /// A: App launches without crash.
-    func testA_AppLaunchesWithoutCrash() throws {
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20), "App did not reach foreground")
-        XCTAssertTrue(
-            app.tabBars.firstMatch.waitForExistence(timeout: 20),
-            "A FAIL: tab bar never appeared under -ReviewGuards"
-        )
-        XCTAssertTrue(app.exists, "A FAIL: process died after launch")
-        attachScreen(app, name: "A-launch")
-    }
-
-    /// B: Scan → Take a photo uses SafeCameraPicker / library fallback, not a crash.
-    func testB_ScanCameraOrLibraryDoesNotCrash() throws {
+    /// B: Scan → Take a photo uses SafeCameraPicker or the library fallback.
+    func testB_ScanAndTakePhoto() throws {
+        let app = try launchReview()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
         openTab("Scan", in: app)
         XCTAssertTrue(
@@ -52,18 +56,18 @@ final class PreASCDeviceAuditTests: XCTestCase {
             || app.otherElements["scan-camera-root"].waitForExistence(timeout: 2)
             || app.buttons["Choose from library"].waitForExistence(timeout: 2)
         XCTAssertTrue(recovered, "B FAIL: neither SafeCameraPicker chrome nor library fallback appeared")
-        XCTAssertTrue(app.exists, "B FAIL: app died after Take a photo")
+        XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Take a photo")
         XCTAssertFalse(
             app.otherElements["UIImagePickerController"].exists,
             "B FAIL: UIImagePickerController appeared on the camera path"
         )
-        attachScreen(app, name: "B-scan-camera")
+        let shot = saveAuditScreen(app, baseName: "B-scan-take-photo")
 
         if app.alerts["Camera not available"].exists {
             let pick = app.alerts["Camera not available"].buttons["Choose from library"]
             if pick.exists {
                 pick.tap()
-            } else {
+            } else if app.alerts["Camera not available"].buttons["OK"].exists {
                 app.alerts["Camera not available"].buttons["OK"].tap()
             }
         } else if app.buttons["scan-camera-cancel"].exists {
@@ -72,95 +76,181 @@ final class PreASCDeviceAuditTests: XCTestCase {
 
         library?.tap()
         sleep(1)
-        XCTAssertTrue(app.exists, "B FAIL: app died after Choose from library")
-        attachScreen(app, name: "B-scan-library")
+        XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Choose from library")
+        recordAudit(row: "B", status: "PASS", screenshot: shot)
     }
 
-    /// C/D: Upgrade opens paywall with plans or explicit Retry empty state.
-    func testCD_UpgradeOpensPaywallPlansOrRetry() throws {
+    /// C: Settings Upgrade and Upgrade to Premium both open the paywall.
+    func testC_UpgradeOpensPaywall() throws {
+        let app = try launchReview()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
-        openTab("Settings", in: app)
-        let upgrade = firstExisting([
-            app.buttons["settings-upgrade"],
-            app.buttons["Upgrade"],
-            app.buttons["settings-upgrade-premium"],
-            app.buttons["Upgrade to Premium"],
-        ])
-        XCTAssertNotNil(upgrade, "C/D FAIL: Upgrade control missing (free path broken)")
-        upgrade?.tap()
+        openUpgradePaywall(in: app)
+        XCTAssertTrue(paywallIsShowing(in: app), "C FAIL: paywall missing")
+        XCTAssertEqual(app.state, .runningForeground, "C FAIL: app died after Upgrade")
+        let shot = saveAuditScreen(app, baseName: "C-upgrade-paywall")
 
-        let paywallReady = app.otherElements["paywall-root"].waitForExistence(timeout: 10)
-            || app.buttons["paywall-close"].waitForExistence(timeout: 2)
-            || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
-        XCTAssertTrue(paywallReady, "C/D FAIL: Paywall did not appear after Upgrade")
-        XCTAssertTrue(app.exists, "C/D FAIL: app died after Upgrade")
+        let close = app.buttons["paywall-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 4), "C FAIL: Close missing")
+        close.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6), "C FAIL: tab bar missing after close")
 
-        let outcome = waitForPaywallOutcome(timeout: 22)
-        XCTAssertTrue(
-            outcome == "plans" || outcome == "empty",
-            "C/D FAIL: paywall stayed blank/loading (outcome=\(outcome))"
-        )
-        XCTAssertFalse(
-            app.staticTexts["Premium plans did not load from the App Store."].exists,
-            "C/D FAIL: old 2.1b dead-end copy is visible"
-        )
-        attachScreen(app, name: "CD-paywall")
-    }
-
-    /// E: Free path is reachable (reviewer is free; auth still offers Create Free Account).
-    func testE_FreePathReachable() throws {
-        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
-        openTab("Settings", in: app)
-        let freeBadge = app.staticTexts["Free Tier"].waitForExistence(timeout: 6)
-        let upgrade = firstExisting([
-            app.buttons["settings-upgrade"],
-            app.buttons["Upgrade"],
+        var premiumRow = firstExisting([
             app.buttons["settings-upgrade-premium"],
             app.buttons["Upgrade to Premium"],
         ], timeout: 2)
-        XCTAssertTrue(freeBadge || upgrade != nil, "E FAIL: neither Free Tier nor Upgrade is visible")
-        XCTAssertFalse(app.staticTexts["Premium Subscriber"].exists, "E FAIL: ReviewGuards launched as premium")
-
-        openTab("Home", in: app)
-        XCTAssertTrue(
-            app.staticTexts["Today"].waitForExistence(timeout: 6)
-                || app.navigationBars["Today"].waitForExistence(timeout: 2),
-            "E FAIL: Home/Today not reachable on the free path"
-        )
-        attachScreen(app, name: "E-free-signed-in")
-
-        app.terminate()
-        let fresh = XCUIApplication()
-        fresh.launchArguments = []
-        fresh.launch()
-        let auth = fresh.buttons["Create Free Account"].waitForExistence(timeout: 12)
-            || fresh.buttons["Sign In"].waitForExistence(timeout: 2)
-            || fresh.staticTexts["Create Account"].waitForExistence(timeout: 2)
-            || fresh.staticTexts["Your AI health partner"].waitForExistence(timeout: 2)
-        XCTAssertTrue(auth, "E FAIL: unauthenticated launch did not show the free-account path")
-        XCTAssertTrue(fresh.exists, "E FAIL: app died on unauthenticated launch")
-        attachScreen(fresh, name: "E-free-auth")
+        if premiumRow == nil {
+            app.swipeUp()
+            premiumRow = firstExisting([
+                app.buttons["settings-upgrade-premium"],
+                app.buttons["Upgrade to Premium"],
+            ])
+        }
+        XCTAssertNotNil(premiumRow, "C FAIL: Upgrade to Premium missing")
+        if let premiumRow {
+            reveal(premiumRow, in: app)
+            premiumRow.tap()
+        }
+        let again = app.buttons["paywall-close"].waitForExistence(timeout: 8)
+            || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
+        XCTAssertTrue(again, "C FAIL: Upgrade to Premium did not open the paywall")
+        XCTAssertEqual(app.state, .runningForeground)
+        recordAudit(row: "C", status: "PASS", screenshot: shot)
     }
 
-    private func waitForPaywallOutcome(timeout: TimeInterval) -> String {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if app.otherElements["paywall-plans"].exists
-                || app.otherElements["paywall-plan-fitmunch_monthly"].exists
-                || app.buttons["paywall-subscribe"].exists
-                || app.staticTexts["Choose Your Plan"].exists {
-                return "plans"
-            }
-            if app.buttons["paywall-retry"].exists
-                || app.staticTexts["paywall-empty"].exists
-                || app.staticTexts["Couldn't load App Store plans"].exists {
-                return "empty"
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+    /// D: Local StoreKit configuration loads monthly and annual prices.
+    func testD_PlansLoadAndShowPrices() throws {
+        let app = try launchReview()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
+        openUpgradePaywall(in: app)
+
+        let monthly = waitForPlanCard(app, id: "fitmunch_monthly", timeout: 20)
+        let annual = waitForPlanCard(app, id: "fitmunch_annual", timeout: 4)
+        XCTAssertNotNil(monthly, "D FAIL: monthly plan did not load from the local StoreKit configuration")
+        XCTAssertNotNil(annual, "D FAIL: annual plan did not load from the local StoreKit configuration")
+        if let monthly { reveal(monthly, in: app) }
+        let monthlyLabel = monthly?.label ?? ""
+        let annualLabel = annual?.label ?? ""
+        XCTAssertTrue(monthlyLabel.contains("19.99"), "D FAIL: monthly price missing from \(monthlyLabel)")
+        XCTAssertTrue(annualLabel.contains("149.99"), "D FAIL: annual price missing from \(annualLabel)")
+        XCTAssertFalse(app.staticTexts["Weekly Premium"].exists, "D FAIL: weekly plan is on the paywall")
+        XCTAssertFalse(app.buttons["paywall-retry"].exists, "D FAIL: retry error showing while plans loaded")
+        XCTAssertEqual(app.state, .runningForeground)
+        let shot = saveAuditScreen(app, baseName: "D-plans-prices")
+        recordAudit(row: "D", status: "PASS", screenshot: shot)
+    }
+
+    /// E: A failed fetch shows the retry state, not a blank paywall.
+    func testE_FailedFetchShowsRetry() throws {
+        let app = try launchReview(extra: ["-PaywallForceEmpty"], localStoreKit: false)
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
+        openUpgradePaywall(in: app)
+
+        let sawLoading = app.otherElements["paywall-loading"].waitForExistence(timeout: 3)
+            || app.activityIndicators["paywall-loading"].waitForExistence(timeout: 1)
+            || app.staticTexts["Loading plans…"].waitForExistence(timeout: 1)
+            || app.otherElements["paywall-loading-inline"].exists
+        XCTAssertTrue(sawLoading, "E FAIL: paywall did not show a loading state")
+
+        let error = app.staticTexts[loadFailure]
+        XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: retry copy did not appear")
+        reveal(error, in: app)
+        XCTAssertTrue(app.buttons["paywall-retry"].waitForExistence(timeout: 3), "E FAIL: Retry missing")
+        XCTAssertTrue(
+            app.buttons["paywall-restore"].exists || app.buttons["paywall-restore-inline"].exists || app.buttons["Restore Purchases"].exists,
+            "E FAIL: Restore Purchases missing on the error state"
+        )
+        XCTAssertTrue(app.staticTexts["Unlock Premium Features"].exists, "E FAIL: paywall header missing (blank screen)")
+        XCTAssertFalse(app.staticTexts["Premium plans did not load from the App Store."].exists)
+        XCTAssertFalse(app.otherElements["paywall-plans"].exists, "E FAIL: plans rendered on the forced-empty path")
+
+        let retry = app.buttons["paywall-retry"]
+        reveal(retry, in: app)
+        retry.tap()
+        _ = app.staticTexts["Loading plans…"].waitForExistence(timeout: 2)
+        XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: Retry did not return to the error state")
+        XCTAssertEqual(app.state, .runningForeground, "E FAIL: app died on the empty fetch path")
+        let shot = saveAuditScreen(app, baseName: "E-retry")
+        recordAudit(row: "E", status: "PASS", screenshot: shot)
+    }
+
+    /// F: Restore Purchases returns to the paywall without a crash.
+    func testF_RestorePurchases() throws {
+        let app = try launchReview()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
+        openUpgradePaywall(in: app)
+        let restore = app.buttons["paywall-restore"]
+        XCTAssertTrue(restore.waitForExistence(timeout: 8), "F FAIL: Restore Purchases missing")
+        reveal(restore, in: app)
+        restore.tap()
+        let alert = app.alerts["Restore Purchases"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 15), "F FAIL: restore did not finish")
+        XCTAssertEqual(app.state, .runningForeground, "F FAIL: app died during restore")
+        let shot = saveAuditScreen(app, baseName: "F-restore")
+        if alert.buttons["OK"].exists {
+            alert.buttons["OK"].tap()
         }
-        if app.otherElements["paywall-root"].exists || app.staticTexts["Unlock Premium Features"].exists {
-            return "root-only"
+        XCTAssertTrue(paywallIsShowing(in: app), "F FAIL: paywall gone after restore")
+        recordAudit(row: "F", status: "PASS", screenshot: shot)
+    }
+
+    /// G: Upgrade, scan, and dismiss leave the app in the foreground.
+    func testG_NoCrash() throws {
+        let app = try launchReview()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "G FAIL: tab bar missing")
+        openTab("Home", in: app)
+        openTab("Coach", in: app)
+        openUpgradePaywall(in: app)
+        let close = app.buttons["paywall-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 6))
+        close.tap()
+        openTab("Scan", in: app)
+        let takePhoto = firstExisting([
+            app.buttons["scan-take-photo"],
+            app.buttons["Take a photo"],
+        ])
+        takePhoto?.tap()
+        dismissSystemAlerts(in: app)
+        if app.alerts["Camera not available"].waitForExistence(timeout: 6) {
+            let alert = app.alerts["Camera not available"]
+            if alert.buttons["OK"].exists {
+                alert.buttons["OK"].tap()
+            } else if alert.buttons["Choose from library"].exists {
+                alert.buttons["Choose from library"].tap()
+            }
+        } else if app.buttons["scan-camera-cancel"].exists {
+            app.buttons["scan-camera-cancel"].tap()
         }
-        return "missing"
+        XCTAssertEqual(app.state, .runningForeground, "G FAIL: app is not running")
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6) || paywallIsShowing(in: app))
+        let shot = saveAuditScreen(app, baseName: "G-no-crash")
+        recordAudit(row: "G", status: "PASS", screenshot: shot)
+    }
+
+    private func launchReview(extra: [String] = [], localStoreKit: Bool = true) throws -> XCUIApplication {
+        if localStoreKit {
+            startStoreKitSessionIfNeeded()
+        }
+        let app = XCUIApplication()
+        var args = [ReviewLaunchArgument.flag]
+        if localStoreKit {
+            args.append("-UseLocalStoreKit")
+        }
+        args.append(contentsOf: extra)
+        app.launchArguments = args
+        app.launch()
+        return app
+    }
+
+    private func startStoreKitSessionIfNeeded() {
+        guard storeKitSession == nil else { return }
+        do {
+            let session = try SKTestSession(configurationFileNamed: "FitMunchProducts")
+            session.disableDialogs = true
+            session.clearTransactions()
+            session.resetToDefaultState()
+            storeKitSession = session
+        } catch {
+            print("SKTestSession unavailable (\(error)). Scheme StoreKit configuration remains the product source.")
+        }
     }
 }

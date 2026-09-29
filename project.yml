@@ -15,6 +15,18 @@ schemes:
       targets:
         - FitMunchTests
         - FitMunchUITests
+    # Local products for deterministic UI tests. Run and Test only, not Archive.
+    storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
+  # Same app, no StoreKit configuration, so Product.products hits sandbox/App Store.
+  FitMunchSandboxProbe:
+    build:
+      targets:
+        FitMunch: all
+        FitMunchTests: [test]
+        FitMunchUITests: [test]
+    test:
+      targets:
+        - FitMunchUITests
 
 targets:
   FitMunch:
@@ -32,7 +44,6 @@ targets:
         # display/fullscreen keys were generated. Keep it in both places.
         NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
         NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
-        NSMicrophoneUsageDescription: "The camera screen may use the microphone while you photograph a supermarket receipt."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app
@@ -51,7 +62,6 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "The camera screen may use the microphone while you photograph a supermarket receipt."
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
@@ -78,6 +88,10 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunchUITests
+        excludes:
+          - "*.storekit"
+      - path: FitMunchUITests/FitMunchProducts.storekit
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.uitests
@@ -87,3 +101,4 @@ targets:
         TEST_TARGET_NAME: FitMunch
     dependencies:
       - target: FitMunch
+      - sdk: StoreKitTest.framework

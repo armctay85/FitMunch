@@ -9,15 +9,23 @@ class PremiumManager: ObservableObject {
     @Published var isPremium: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    /// Set after each plan fetch. Sandbox probe UI reads this. Example: `loaded=none`.
+    @Published var lastPlanFetchSummary: String = ""
 
     static let shared = PremiumManager()
 
     private var planHandles: [String: PlanHandle] = [:]
+    private var fetchToken = UUID()
 
     private enum PlanHandle {
         case package(Package)
         case product(StoreProduct)
         case storeKit(Product)
+    }
+
+    private struct LoadedPlans {
+        var plans: [PaywallPlan] = []
+        var handles: [String: PlanHandle] = [:]
     }
 
     private init() {
@@ -114,21 +122,19 @@ class PremiumManager: ObservableObject {
     }
 
     /// Restore previous purchases via RevenueCat, then StoreKit.
+    /// Each network step has a timeout so the button always returns to the paywall.
     func restorePurchases() async -> Bool {
         isLoading = true
         defer { isLoading = false }
 
-        if canUsePurchases {
-            do {
-                let customerInfo = try await Purchases.shared.restorePurchases()
-                isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
-                if isPremium {
-                    errorMessage = nil
-                    return true
-                }
-            } catch {
-                errorMessage = "Restore failed: \(error.localizedDescription)"
-                print("Restore error: \(error)")
+        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        if canUsePurchases && !localOnly {
+            let restored = await withTimeout(seconds: 8) {
+                await self.restoreFromRevenueCat()
+            } ?? false
+            if restored {
+                errorMessage = nil
+                return true
             }
         }
 
@@ -145,86 +151,109 @@ class PremiumManager: ObservableObject {
         return false
     }
 
+    private func restoreFromRevenueCat() async -> Bool {
+        do {
+            let customerInfo = try await Purchases.shared.restorePurchases()
+            isPremium = customerInfo.entitlements[Constants.Entitlements.premium]?.isActive == true
+            return isPremium
+        } catch {
+            errorMessage = "Restore failed: \(error.localizedDescription)"
+            print("Restore error: \(error)")
+            return false
+        }
+    }
+
     /// Load monthly/annual plans. Never throws into UI. Empty offerings return [].
     /// Order: RevenueCat current offering, then `main`, then RC product IDs, then StoreKit 2.
+    /// Each step times out so a hung sandbox fetch cannot leave the paywall spinning.
     func getPlans() async -> [PaywallPlan] {
+        let token = UUID()
+        fetchToken = token
         planHandles = [:]
-        var plans: [PaywallPlan] = []
 
-        if canUsePurchases {
-            if let fromOffering = await plansFromOfferings() {
-                plans = fromOffering
-            }
-            if plans.isEmpty {
-                plans = await plansFromProductIds()
-            }
-        }
-        if plans.isEmpty {
-            plans = await plansFromStoreKit()
+        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.forceEmpty) {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard fetchToken == token else { return [] }
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            noteFetch([])
+            return []
         }
 
-        if plans.isEmpty {
-            errorMessage = canUsePurchases
-                ? "Could not load App Store plans. Tap Retry, or check your connection and try again."
-                : "In-app plans are not configured. Retry, or continue on fitmunch.com.au to start Premium."
+        var loaded = LoadedPlans()
+        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+
+        if !localOnly && canUsePurchases {
+            loaded = await withTimeout(seconds: 4) {
+                await self.plansFromOfferings()
+            } ?? LoadedPlans()
+            if loaded.plans.isEmpty {
+                loaded = await withTimeout(seconds: 4) {
+                    await self.plansFromProductIds()
+                } ?? LoadedPlans()
+            }
+        }
+        if loaded.plans.isEmpty {
+            loaded = await withTimeout(seconds: 6) {
+                await self.plansFromStoreKit()
+            } ?? LoadedPlans()
+        }
+
+        guard fetchToken == token else { return [] }
+        planHandles = loaded.handles
+        if loaded.plans.isEmpty {
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
         } else {
             errorMessage = nil
         }
-        return plans
+        noteFetch(loaded.plans)
+        print("FitMunch plans fetched: \(lastPlanFetchSummary)")
+        return loaded.plans
     }
 
-    private func plansFromOfferings() async -> [PaywallPlan]? {
+    private func noteFetch(_ plans: [PaywallPlan]) {
+        if plans.isEmpty {
+            lastPlanFetchSummary = "loaded=none"
+        } else {
+            lastPlanFetchSummary = "loaded=" + plans.map { "\($0.id)@\($0.priceString)" }.joined(separator: ",")
+        }
+    }
+
+    private func plansFromOfferings() async -> LoadedPlans {
         do {
             let offerings = try await Purchases.shared.offerings()
             let offering = offerings.current
                 ?? offerings.offering(identifier: Constants.Offerings.main)
-            guard let offering else { return [] }
+            guard let offering else { return LoadedPlans() }
 
             let packages = offering.availablePackages
-            var titles: [String: String] = [:]
-            for pkg in packages {
-                titles[pkg.storeProduct.productIdentifier] = pkg.storeProduct.localizedTitle
-            }
             let ids = PaywallCatalog.selectSellableIds(
-                from: packages.map(\.storeProduct.productIdentifier),
-                titles: titles
+                from: packages.map(\.storeProduct.productIdentifier)
             )
-            var plans: [PaywallPlan] = []
+            var loaded = LoadedPlans()
             for id in ids {
                 guard let package = packages.first(where: { $0.storeProduct.productIdentifier == id }) else { continue }
                 let product = package.storeProduct
-                if PaywallCatalog.isWeeklyMissingMetadata(productId: id, title: product.localizedTitle) {
-                    continue
-                }
                 let plan = PaywallPlan(
                     id: id,
                     title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.localizedTitle),
                     description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
                     priceString: package.localizedPriceString
                 )
-                planHandles[id] = .package(package)
-                plans.append(plan)
+                loaded.handles[id] = .package(package)
+                loaded.plans.append(plan)
             }
-            return plans
+            return loaded
         } catch {
-            errorMessage = "Could not load plans: \(error.localizedDescription)"
             print("Offerings error: \(error)")
-            return nil
+            return LoadedPlans()
         }
     }
 
-    private func plansFromProductIds() async -> [PaywallPlan] {
-        guard canUsePurchases else { return [] }
+    private func plansFromProductIds() async -> LoadedPlans {
+        guard canUsePurchases else { return LoadedPlans() }
         let products = await Purchases.shared.products(Constants.ProductIDs.sellable)
-        var titles: [String: String] = [:]
-        for product in products {
-            titles[product.productIdentifier] = product.localizedTitle
-        }
-        let ids = PaywallCatalog.selectSellableIds(
-            from: products.map(\.productIdentifier),
-            titles: titles
-        )
-        var plans: [PaywallPlan] = []
+        let ids = PaywallCatalog.selectSellableIds(from: products.map(\.productIdentifier))
+        var loaded = LoadedPlans()
         for id in ids {
             guard let product = products.first(where: { $0.productIdentifier == id }) else { continue }
             let plan = PaywallPlan(
@@ -233,26 +262,19 @@ class PremiumManager: ObservableObject {
                 description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
                 priceString: product.localizedPriceString
             )
-            planHandles[id] = .product(product)
-            plans.append(plan)
+            loaded.handles[id] = .product(product)
+            loaded.plans.append(plan)
         }
-        return plans
+        return loaded
     }
 
     /// Last-resort App Store load. Used when RevenueCat offerings/products are empty
     /// so App Review never sees a silent blank subscription page (Guideline 2.1b).
-    private func plansFromStoreKit() async -> [PaywallPlan] {
+    private func plansFromStoreKit() async -> LoadedPlans {
         do {
             let products = try await Product.products(for: Set(Constants.ProductIDs.sellable))
-            var titles: [String: String] = [:]
-            for product in products {
-                titles[product.id] = product.displayName
-            }
-            let ids = PaywallCatalog.selectSellableIds(
-                from: products.map(\.id),
-                titles: titles
-            )
-            var plans: [PaywallPlan] = []
+            let ids = PaywallCatalog.selectSellableIds(from: products.map(\.id))
+            var loaded = LoadedPlans()
             for id in ids {
                 guard let product = products.first(where: { $0.id == id }) else { continue }
                 let plan = PaywallPlan(
@@ -261,14 +283,13 @@ class PremiumManager: ObservableObject {
                     description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.description),
                     priceString: product.displayPrice
                 )
-                planHandles[id] = .storeKit(product)
-                plans.append(plan)
+                loaded.handles[id] = .storeKit(product)
+                loaded.plans.append(plan)
             }
-            return plans
+            return loaded
         } catch {
-            errorMessage = "Could not load App Store plans: \(error.localizedDescription)"
             print("StoreKit products error: \(error)")
-            return []
+            return LoadedPlans()
         }
     }
 
@@ -315,20 +336,46 @@ class PremiumManager: ObservableObject {
     }
 
     private func restoreFromStoreKit() async -> Bool {
-        do {
-            try await AppStore.sync()
-            for await result in Transaction.currentEntitlements {
-                if case .verified(let transaction) = result,
-                   Constants.ProductIDs.sellable.contains(transaction.productID) {
-                    isPremium = true
+        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        if !localOnly {
+            _ = await withTimeout(seconds: 8) {
+                do {
+                    try await AppStore.sync()
                     return true
+                } catch {
+                    self.errorMessage = "Restore failed: \(error.localizedDescription)"
+                    print("StoreKit restore error: \(error)")
+                    return false
                 }
             }
-        } catch {
-            errorMessage = "Restore failed: \(error.localizedDescription)"
-            print("StoreKit restore error: \(error)")
+        }
+
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result,
+               Constants.ProductIDs.sellable.contains(transaction.productID) {
+                isPremium = true
+                return true
+            }
         }
         return false
+    }
+
+    /// Returns the operation's value, or nil if it has not finished within `seconds`.
+    /// A late result cannot resume the caller twice.
+    private func withTimeout<T>(seconds: Double, operation: @escaping @MainActor () async -> T) async -> T? {
+        let gate = ResumeOnce<T>()
+        return await withCheckedContinuation { continuation in
+            let work = Task { @MainActor in
+                let value = await operation()
+                gate.resume(continuation, value)
+            }
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(max(seconds, 0) * 1_000_000_000))
+                if gate.resume(continuation, nil) {
+                    work.cancel()
+                }
+            }
+        }
     }
 
     private func isUserCancellation(_ error: Error) -> Bool {
@@ -357,6 +404,23 @@ class PremiumManager: ObservableObject {
         case .dataExport:
             return isPremium
         }
+    }
+}
+
+/// Thread-safe single resume so a timeout and a finished fetch cannot both continue.
+private final class ResumeOnce<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+
+    func resume(_ continuation: CheckedContinuation<T?, Never>, _ value: T?) -> Bool {
+        lock.lock()
+        let should = !didResume
+        if should { didResume = true }
+        lock.unlock()
+        if should {
+            continuation.resume(returning: value)
+        }
+        return should
     }
 }
 

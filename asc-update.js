@@ -16,9 +16,8 @@ const APP_SUBTITLE = 'Track meals, hit macros, reach goals';
 
 // IAP Products
 const IAP_PRODUCTS = [
-  { name: 'Weekly Premium', productId: 'fitmunch_weekly', duration: 'ONE_WEEK', price: '1.49', currency: 'AUD' },
-  { name: 'Monthly Premium', productId: 'fitmunch_monthly', duration: 'ONE_MONTH', price: '4.49', currency: 'AUD' },
-  { name: 'Annual Premium', productId: 'fitmunch_annual', duration: 'ONE_YEAR', price: '27.99', currency: 'AUD' },
+  { name: 'Monthly Premium', productId: 'fitmunch_monthly', duration: 'ONE_MONTH', price: '19.99', currency: 'AUD' },
+  { name: 'Annual Premium', productId: 'fitmunch_annual', duration: 'ONE_YEAR', price: '149.99', currency: 'AUD' },
   { name: 'Lifetime Premium', productId: 'fitmunch_lifetime', type: 'NON_CONSUMABLE', price: '44.99', currency: 'AUD' }
 ];
 

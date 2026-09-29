@@ -73,7 +73,7 @@ jobs:
           -destination 'generic/platform=iOS Simulator' \
           CODE_SIGNING_ALLOWED=NO
 
-    - name: Pre-ASC unit + UI tests (macos Simulator)
+    - name: Pre-ASC unit + UI tests A–G (macos Simulator)
       run: bash scripts/run-pre-asc-ci-tests.sh
 
     - name: Upload pre-ASC audit artifacts
@@ -82,5 +82,14 @@ jobs:
       with:
         name: pre-asc-audit-build-9
         path: artifacts/pre-asc-audit/
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Upload pre-ASC paywall screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pre-asc-paywall-screenshots-build-9
+        path: artifacts/pre-asc-audit/screenshots/
         if-no-files-found: warn
         retention-days: 14

@@ -31,11 +31,11 @@ enum Constants {
         static let main = "main"
     }
 
-    /// App Store Connect product IDs. Weekly is omitted when metadata is missing.
+    /// App Store Connect product IDs sold on the v1.0 paywall.
+    /// Weekly is not offered. Lifetime stays off this paywall.
     enum ProductIDs {
         static let monthly = "fitmunch_monthly"
         static let annual = "fitmunch_annual"
-        static let weekly = "fitmunch_weekly"
         static let sellable = [monthly, annual]
     }
     

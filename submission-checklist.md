@@ -8,10 +8,9 @@
 ☐ Bundle ID set to `com.fitmunch.ios`
 ☐ Public SDK Key copied
 ☐ Entitlement `premium` configured
-☐ Offering `main` created with 3 subscription packages:
-  - Weekly: $4.99 AUD (Product ID: `com.fitmunch.ios.weekly`)
-  - Monthly: $9.99 AUD (Product ID: `com.fitmunch.ios.monthly`)
-  - Annual: $79.99 AUD (Product ID: `com.fitmunch.ios.annual`)
+☐ Offering `main` created with 2 subscription packages:
+  - Monthly: A$19.99 (Product ID: `fitmunch_monthly`)
+  - Annual: A$149.99 (Product ID: `fitmunch_annual`)
 ☐ Test users added (Drew's email)
 ☐ API key updated in `Constants.swift`
 
@@ -27,10 +26,9 @@
 
 ### ✅ In-App Purchases
 ☐ **AUTOMATED** - Run `node asc-setup.js` to create IAPs
-☐ 3 auto-renewable subscriptions created:
-  - Weekly Subscription (Product ID: `fitmunch_weekly`)
-  - Monthly Subscription (Product ID: `fitmunch_monthly`)
-  - Annual Subscription (Product ID: `fitmunch_annual`)
+☐ 2 auto-renewable subscriptions created (weekly is not in v1.0):
+  - Monthly Subscription (Product ID: `fitmunch_monthly`, A$19.99)
+  - Annual Subscription (Product ID: `fitmunch_annual`, A$149.99)
 ☐ Lifetime purchase (Product ID: `fitmunch_lifetime`)
 ☐ Subscription group created: `FitMunch Premium`
 ☐ All subscriptions added to group

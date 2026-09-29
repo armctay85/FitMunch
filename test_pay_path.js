@@ -325,19 +325,29 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(constants).toContain('static let main = "main"');
     expect(constants).toContain('static let premium = "premium"');
     expect(constants).toContain('login.html?plan=premium');
-    expect(catalog).toContain('isWeeklyMissingMetadata');
+    expect(catalog).not.toContain('isWeeklyMissingMetadata');
+    expect(catalog).not.toContain('fitmunch_weekly');
     expect(catalog).toContain('selectSellableIds');
+    expect(catalog).toContain("Plans couldn't load. Check your connection and try again.");
+    expect(constants).not.toContain('fitmunch_weekly');
+    expect(premium).not.toContain('fitmunch_weekly');
     expect(premium).toContain('Purchases.isConfigured');
     expect(premium).toContain('offerings.offering(identifier: Constants.Offerings.main)');
     expect(premium).toContain('Purchases.shared.products');
     expect(premium).toContain('plansFromStoreKit');
     expect(premium).toContain('Product.products(for:');
     expect(premium).toContain('getPlans()');
+    expect(premium).toContain('withTimeout');
     expect(premium).not.toContain('fatalError');
     expect(paywall).toContain('paywall-retry');
-    expect(paywall).toContain('Couldn\'t load App Store plans');
+    expect(paywall).toContain('paywall-loading');
+    expect(paywall).toContain('paywall-restore');
+    expect(paywall).toContain('PaywallLoadPolicy.userFacingLoadFailure');
+    expect(paywall).toContain('Restore Purchases');
+    expect(paywall).toContain('loadPlansWithRetry');
     expect(paywall).toContain('Continue on the web');
     expect(paywall).toContain('openWebPremium');
+    expect(paywall).not.toContain('fitmunch_weekly');
     expect(paywall).not.toContain('Premium plans did not load from the App Store');
     expect(paywall).not.toMatch(/errorMessage!/);
   });
@@ -349,33 +359,30 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');
     expect(guards).toContain('-ReviewGuards');
     const auditUI = fs.readFileSync(path.join(__dirname, 'FitMunchUITests/PreASCDeviceAuditTests.swift'), 'utf8');
-    expect(auditUI).toContain('testA_AppLaunchesWithoutCrash');
-    expect(auditUI).toContain('testB_ScanCameraOrLibraryDoesNotCrash');
-    expect(auditUI).toContain('testCD_UpgradeOpensPaywallPlansOrRetry');
-    expect(auditUI).toContain('testE_FreePathReachable');
+    expect(auditUI).toContain('testA_FirstRun');
+    expect(auditUI).toContain('testB_ScanAndTakePhoto');
+    expect(auditUI).toContain('testC_UpgradeOpensPaywall');
+    expect(auditUI).toContain('testD_PlansLoadAndShowPrices');
+    expect(auditUI).toContain('testE_FailedFetchShowsRetry');
+    expect(auditUI).toContain('testF_RestorePurchases');
+    expect(auditUI).toContain('testG_NoCrash');
   });
 });
 
 describe('PaywallCatalog sellable filter', () => {
-  function selectSellableIds(productIds, titles = {}) {
+  function selectSellableIds(productIds) {
     const sellable = ['fitmunch_monthly', 'fitmunch_annual'];
-    return sellable.filter((id) => {
-      if (!productIds.includes(id)) return false;
-      const title = titles[id] || '';
-      if (id === 'fitmunch_weekly' && !String(title).trim()) return false;
-      return true;
-    });
+    return sellable.filter((id) => productIds.includes(id));
   }
 
-  it('keeps monthly and annual when weekly metadata is missing', () => {
+  it('keeps monthly and annual and drops any other product id', () => {
     expect(selectSellableIds(
-      ['fitmunch_weekly', 'fitmunch_monthly', 'fitmunch_annual'],
-      { fitmunch_weekly: '', fitmunch_monthly: 'Monthly', fitmunch_annual: 'Annual' }
+      ['fitmunch_weekly', 'fitmunch_monthly', 'fitmunch_annual', 'fitmunch_lifetime']
     )).toEqual(['fitmunch_monthly', 'fitmunch_annual']);
   });
 
   it('returns an empty list instead of throwing when nothing sellable loaded', () => {
-    expect(selectSellableIds(['fitmunch_weekly'], { fitmunch_weekly: '' })).toEqual([]);
+    expect(selectSellableIds(['fitmunch_weekly'])).toEqual([]);
     expect(selectSellableIds([])).toEqual([]);
   });
 });

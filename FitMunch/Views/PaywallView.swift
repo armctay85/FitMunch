@@ -8,7 +8,8 @@ struct PaywallView: View {
     @State private var selectedPlan: PaywallPlan?
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
-    @State private var isLoadingPlans = false
+    @State private var isLoadingPlans = true
+    @State private var plansLoadFailed = false
     @State private var showErrorAlert = false
     @State private var alertError = ""
 
@@ -24,6 +25,7 @@ struct PaywallView: View {
                     pricingSection
                     purchaseSection
                     restoreSection
+                    sandboxProbeSection
                     legalSection
                 }
                 .padding(.vertical)
@@ -37,20 +39,25 @@ struct PaywallView: View {
                 }
             }
             .refreshable {
-                await loadPlans()
+                await loadPlansWithRetry()
             }
             .overlay {
                 if isLoadingPlans && plans.isEmpty {
-                    ProgressView("Loading plans…")
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
-                        .accessibilityIdentifier("paywall-loading")
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading plans…")
+                            .font(.subheadline.weight(.semibold))
+                            .accessibilityIdentifier("paywall-loading-label")
+                    }
+                    .padding(24)
+                    .background(.regularMaterial)
+                    .cornerRadius(16)
+                    .accessibilityIdentifier("paywall-loading")
                 }
             }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {
-                    Task { await loadPlans() }
+                    Task { await loadPlansWithRetry() }
                 }
                 Button("Continue on the web") { openWebPremium() }
                 Button("OK", role: .cancel) { }
@@ -63,12 +70,7 @@ struct PaywallView: View {
                 Text(restoreMessage)
             }
             .task {
-                await loadPlans()
-                // StoreKit can miss the first sandbox fetch. One quiet retry, then empty UI.
-                if plans.isEmpty {
-                    try? await Task.sleep(nanoseconds: 800_000_000)
-                    await loadPlans()
-                }
+                await loadPlansWithRetry()
             }
         }
     }
@@ -146,43 +148,51 @@ struct PaywallView: View {
             .padding(.horizontal)
             .accessibilityIdentifier("paywall-plans")
         } else if isLoadingPlans {
-            ProgressView("Loading plans…").padding()
-        } else {
+            VStack(spacing: 8) {
+                ProgressView()
+                Text("Loading plans…")
+                    .font(.subheadline)
+            }
+            .padding()
+            .accessibilityIdentifier("paywall-loading-inline")
+        } else if plansLoadFailed {
             emptyPlansSection
         }
     }
 
     private var emptyPlansSection: some View {
         VStack(spacing: 14) {
-            Text("Couldn't load App Store plans")
+            Text(PaywallLoadPolicy.userFacingLoadFailure)
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.center)
-                .accessibilityIdentifier("paywall-empty")
-            Text(loadErrorText)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("paywall-error")
             Button("Retry") {
-                Task { await loadPlans() }
+                Task { await loadPlansWithRetry() }
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("paywall-retry")
+            Button("Restore Purchases") {
+                Task { await restore() }
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("paywall-restore-inline")
             Button("Continue on the web") {
                 openWebPremium()
             }
             .buttonStyle(.bordered)
         }
         .padding(.horizontal)
+        .accessibilityIdentifier("paywall-error-state")
     }
 
-    private var loadErrorText: String {
-        if let message = premiumManager.errorMessage, !message.isEmpty {
-            return message
+    @ViewBuilder
+    private var sandboxProbeSection: some View {
+        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.sandboxProbe) {
+            Text(premiumManager.lastPlanFetchSummary.isEmpty ? "probe:pending" : "probe:\(premiumManager.lastPlanFetchSummary)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .accessibilityIdentifier("sandbox-probe-summary")
         }
-        if !alertError.isEmpty {
-            return alertError
-        }
-        return "Tap Retry to load monthly and annual Premium from the App Store."
     }
 
     @ViewBuilder
@@ -212,16 +222,11 @@ struct PaywallView: View {
 
     private var restoreSection: some View {
         Button("Restore Purchases") {
-            Task {
-                let success = await premiumManager.restorePurchases()
-                restoreMessage = success
-                    ? "Purchases restored successfully!"
-                    : "No purchases to restore or restore failed"
-                showRestoreAlert = true
-            }
+            Task { await restore() }
         }
         .font(.subheadline)
         .foregroundColor(.blue)
+        .accessibilityIdentifier("paywall-restore")
     }
 
     private var legalSection: some View {
@@ -254,13 +259,42 @@ struct PaywallView: View {
 
     // MARK: - Methods
 
-    private func loadPlans() async {
+    /// Shows loading immediately. Retries once with backoff before the error state.
+    /// The error is the only empty state. The screen keeps the header, Retry, and Restore.
+    private func loadPlansWithRetry() async {
         isLoadingPlans = true
-        defer { isLoadingPlans = false }
-        let loaded = await premiumManager.getPlans()
-        plans = loaded
-        selectedPlan = loaded.first
-        // Inline retry UI only. Auto-alert on empty was the 2.1(b) review note.
+        plansLoadFailed = false
+        var attempt = 0
+        while true {
+            if Task.isCancelled { return }
+            attempt += 1
+            let loaded = await premiumManager.getPlans()
+            if Task.isCancelled { return }
+            switch PaywallLoadPolicy.phase(attempt: attempt, hasPlans: !loaded.isEmpty) {
+            case .ready:
+                plans = loaded
+                selectedPlan = loaded.first
+                isLoadingPlans = false
+                plansLoadFailed = false
+                return
+            case .loading:
+                try? await Task.sleep(nanoseconds: PaywallLoadPolicy.automaticRetryBackoffNanoseconds)
+            case .failed:
+                plans = []
+                selectedPlan = nil
+                isLoadingPlans = false
+                plansLoadFailed = true
+                return
+            }
+        }
+    }
+
+    private func restore() async {
+        let success = await premiumManager.restorePurchases()
+        restoreMessage = success
+            ? "Purchases restored successfully!"
+            : (premiumManager.errorMessage ?? "No purchases to restore or restore failed")
+        showRestoreAlert = true
     }
 
     private func purchase(_ plan: PaywallPlan) async {
@@ -315,6 +349,7 @@ private struct PackageCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("paywall-plan-\(plan.id)")
+        .accessibilityLabel("\(plan.title). \(plan.description). \(plan.priceString)")
     }
 
     private var productTitleRow: some View {

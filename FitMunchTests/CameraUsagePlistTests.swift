@@ -22,4 +22,12 @@ final class CameraUsagePlistTests: XCTestCase {
         XCTAssertNotNil(desc, "Photo library fallback needs NSPhotoLibraryUsageDescription")
         XCTAssertFalse(desc?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
+
+    func testHostInfoPlistOmitsMicrophoneUsageDescription() {
+        let desc = Bundle.main.object(forInfoDictionaryKey: "NSMicrophoneUsageDescription") as? String
+        XCTAssertNil(
+            desc,
+            "Microphone usage string is unused. Camera capture is video only: \(desc ?? "")"
+        )
+    }
 }

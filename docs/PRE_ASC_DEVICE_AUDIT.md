@@ -21,7 +21,7 @@ Archive/upload (`deploy` / workflow_dispatch) is not App Review. Do not click Su
 |---|---|---|---|
 | 2.1(a) | Settings → Upgrade crashed | iPhone (also iPad) | Paywall opens. App stays up. No `Purchases.shared` before configure. |
 | 2.1(a) | Scan → Take a photo crashed | iPad Air 11-inch (M3) | Camera opens or library fallback alert. Never `UIImagePickerController` for camera. |
-| 2.1(b) | Premium plans did not load from the App Store | iPad | Monthly and annual cards, or "Couldn't load App Store plans" + Retry. Never a blank page. |
+| 2.1(b) | Premium plans did not load from the App Store | iPad | Monthly and annual cards with prices, or "Plans couldn't load. Check your connection and try again." + Retry + Restore. Never a blank page. |
 | ITMS-90683 | Processed Info.plist omitted `NSCameraUsageDescription` | Transporter | Archived `.app` Info.plist has a non-empty camera string. |
 
 ## Product IDs (do not invent new ones)
@@ -30,12 +30,15 @@ Source of truth in repo: `FitMunch/Utilities/Constants.swift`, `asc-setup.js`, `
 
 | Product ID | Role | Paywall |
 |---|---|---|
-| `fitmunch_monthly` | Monthly Premium | Sellable |
-| `fitmunch_annual` | Annual Premium | Sellable |
-| `fitmunch_weekly` | Weekly Premium | Skip when StoreKit title is empty (`MISSING_METADATA`) |
+| `fitmunch_monthly` | Monthly Premium, A$19.99 | Sellable |
+| `fitmunch_annual` | Annual Premium, A$149.99 | Sellable |
 | `fitmunch_lifetime` | Lifetime (ASC only) | Not sold on this paywall |
 
+v1.0 does not sell a weekly subscription. `fitmunch_weekly` is not in the product ID list, the StoreKit configuration, or the paywall.
+
 Entitlement: `premium`. Offering: `main`, then StoreKit product IDs, then StoreKit 2.
+
+Local deterministic prices live in `FitMunchUITests/FitMunchProducts.storekit` (monthly 19.99, annual 149.99, storefront AUS). The `FitMunch` scheme attaches that file for Run and Test. `FitMunchSandboxProbe` does not, so a separate test can try the live IDs.
 
 ## Automated gates (must stay in CI)
 
@@ -50,7 +53,7 @@ npx jest --runInBand test_pre_asc_gate.js test_pay_path.js test_ios_store_art.js
 |---|---|---|
 | `scripts/check-ios-camera-usage.sh` | Web quality + iOS build + iOS archive (before archive) | Camera APIs exist ⇒ `NSCameraUsageDescription` is in `Info.plist` and `project.yml` (`info.properties` and `INFOPLIST_KEY_*`). Photo library APIs ⇒ `NSPhotoLibraryUsageDescription`. No `UIImagePickerController` camera presentation. |
 | `FitMunchTests/CameraUsagePlistTests` | Xcode unit tests | Host app bundle still has the camera string after processing (ITMS-90683 class). |
-| `FitMunchTests/PaywallCatalogTests` | Xcode unit tests | Monthly/annual IDs stay sellable. Weekly missing metadata cannot empty the catalog. |
+| `FitMunchTests/PaywallCatalogTests` | Xcode unit tests | Sellable IDs are monthly and annual only. A legacy weekly ID cannot appear on the paywall. Load policy retries once before the error state. |
 | Archive job processed-plist check | `.github/workflows/ios-archive.yml` | Refuses to export if the `.app` Info.plist camera string is missing. |
 | Archive job | same workflow | Uploads to App Store Connect only. Must not call Submit for Review. |
 
@@ -105,8 +108,12 @@ Load order:
 3. RevenueCat products `fitmunch_monthly`, `fitmunch_annual`
 4. StoreKit 2 `Product.products(for:)` for the same IDs
 
-If all four miss: show `Couldn't load App Store plans`, Retry, Continue on the web.
+Each of those steps times out (RevenueCat about 4s, StoreKit about 6s) so a hung fetch cannot leave a spinner forever.
+
+The paywall shows "Loading plans…" while a fetch is in flight. If the first fetch is empty, it waits 1.5s and tries once more before showing an error. If both miss: show `Plans couldn't load. Check your connection and try again.`, Retry, and Restore Purchases. Continue on the web stays as a second path.
+
 Never the old copy `Premium plans did not load from the App Store.`
+Never a blank subscription screen.
 
 ## Archive and review split
 
@@ -116,6 +123,24 @@ Never the old copy `Premium plans did not load from the App Store.`
 | Archive IPA | Yes, new build number |
 | Upload to App Store Connect | Yes, after archive gates |
 | Submit for App Review | **No** until this checklist is ticked on iPhone and iPad |
+
+## Simulator rows A–G
+
+`scripts/run-pre-asc-ci-tests.sh` runs these on a 390pt-class iPhone simulator (iPhone 14, 13, or 12 when the runtime has that device type) and on iPad Air 11-inch (M3). The iPad run is the iPhone binary in compatibility mode. Screenshots land in `artifacts/pre-asc-audit/screenshots/`.
+
+| Row | What | Pass |
+|---|---|---|
+| A | First run | Account screen appears. App stays in the foreground. |
+| B | Scan and Take a photo | SafeCameraPicker or the library fallback. No crash. Required on iPad. |
+| C | Upgrade opens the paywall | Settings Upgrade and Upgrade to Premium both present `PaywallView`. |
+| D | Plans load and show prices | Local `.storekit` file shows monthly 19.99 and annual 149.99. |
+| E | Empty or failed fetch | Forced empty fetch shows the retry copy, Retry, and Restore. Not blank. |
+| F | Restore | Restore Purchases finishes and the app stays up. |
+| G | No crash | Home, Coach, paywall, and Scan leave the app in the foreground. |
+
+Upgrade entry points that present this paywall full screen: Settings (Upgrade, Upgrade to Premium), Home (when the free meal limit is hit), Coach, Meals, and Onboarding. None use a sheet.
+
+A separate `FitMunchSandboxProbe` test calls StoreKit for `fitmunch_monthly` and `fitmunch_annual` without the local configuration. The report says whether those live products actually loaded. CI simulators are not a sandbox Apple ID, so "no" is an honest result there.
 
 ## Out of scope
 
