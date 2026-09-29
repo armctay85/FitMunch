@@ -31,12 +31,12 @@ final class SandboxProductProbeTests: XCTestCase {
         XCTAssertTrue(label.contains("probe:loaded="), "Sandbox probe: fetch never finished (\(label))")
 
         let loaded = label.contains("fitmunch_monthly") && label.contains("fitmunch_annual")
+            && !label.contains("loaded=none")
         if loaded {
+            let card = waitForPlanCard(app, id: "fitmunch_monthly", timeout: 8)
             XCTAssertTrue(
-                app.otherElements["paywall-plans"].waitForExistence(timeout: 4)
-                    || app.buttons["paywall-plan-fitmunch_monthly"].exists
-                    || app.otherElements["paywall-plan-fitmunch_monthly"].exists,
-                "Sandbox probe: summary says products loaded but the paywall has no plans"
+                card != nil || app.otherElements["paywall-plans"].exists,
+                "Sandbox probe: summary says products loaded but the paywall has no plans (\(label))"
             )
         } else {
             XCTAssertTrue(

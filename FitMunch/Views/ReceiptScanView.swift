@@ -32,6 +32,7 @@ struct ReceiptScanView: View {
                 .padding()
             }
             .navigationTitle("Receipt Scanner")
+            .accessibilityIdentifier("scan-screen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if scan != nil {

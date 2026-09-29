@@ -71,6 +71,9 @@ describe('PRE-ASC device audit gate', () => {
     expect(project).not.toContain('NSMicrophoneUsageDescription');
     expect(read('FitMunch/Resources/Info.plist')).not.toContain('NSMicrophoneUsageDescription');
     expect(project).toContain('storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit');
+    const fitMunchScheme = project.split('schemes:')[1].split('FitMunchStoreKit:')[0];
+    expect(fitMunchScheme).not.toContain('storeKitConfiguration');
+    expect(project.split('FitMunchStoreKit:')[1].split('FitMunchSandboxProbe:')[0]).toContain('storeKitConfiguration');
     expect(project.split('FitMunchSandboxProbe:')[1]).not.toContain('storeKitConfiguration');
     const storekit = read('FitMunchUITests/FitMunchProducts.storekit');
     expect(storekit).toContain('fitmunch_monthly');
@@ -81,6 +84,7 @@ describe('PRE-ASC device audit gate', () => {
     const runner = read('scripts/run-pre-asc-ci-tests.sh');
     expect(runner).toContain('iPad Air 11-inch (M3)');
     expect(runner).toContain('iPhone 14');
+    expect(runner).toContain('FitMunchStoreKit');
     expect(runner).toContain('FitMunchSandboxProbe');
     expect(iosBuild).toContain('pre-asc-paywall-screenshots-build-9');
   });

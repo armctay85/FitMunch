@@ -11,6 +11,10 @@ class PremiumManager: ObservableObject {
     @Published var errorMessage: String?
     /// Set after each plan fetch. Sandbox probe UI reads this. Example: `loaded=none`.
     @Published var lastPlanFetchSummary: String = ""
+    /// Plans the paywall renders. Published here so a view refresh cannot drop them.
+    @Published var paywallPlans: [PaywallPlan] = []
+    /// loading until a fetch finishes with plans or the one automatic retry is used up.
+    @Published var paywallPhase: PaywallLoadPolicy.Phase = .loading
 
     static let shared = PremiumManager()
 
@@ -163,6 +167,32 @@ class PremiumManager: ObservableObject {
         }
     }
 
+    /// Loading, one backoff retry, then the error phase. Safe to call again from Retry.
+    func loadPaywallPlans() async {
+        if paywallPlans.isEmpty {
+            paywallPhase = .loading
+        }
+        var attempt = 0
+        while true {
+            if Task.isCancelled { return }
+            attempt += 1
+            let loaded = await getPlans()
+            if Task.isCancelled { return }
+            switch PaywallLoadPolicy.phase(attempt: attempt, hasPlans: !loaded.isEmpty) {
+            case .ready:
+                paywallPhase = .ready
+                return
+            case .loading:
+                paywallPhase = .loading
+                try? await Task.sleep(nanoseconds: PaywallLoadPolicy.automaticRetryBackoffNanoseconds)
+            case .failed:
+                paywallPlans = []
+                paywallPhase = .failed
+                return
+            }
+        }
+    }
+
     /// Load monthly/annual plans. Never throws into UI. Empty offerings return [].
     /// Order: RevenueCat current offering, then `main`, then RC product IDs, then StoreKit 2.
     /// Each step times out so a hung sandbox fetch cannot leave the paywall spinning.
@@ -211,10 +241,12 @@ class PremiumManager: ObservableObject {
     }
 
     private func noteFetch(_ plans: [PaywallPlan]) {
+        paywallPlans = plans
         if plans.isEmpty {
             lastPlanFetchSummary = "loaded=none"
         } else {
             lastPlanFetchSummary = "loaded=" + plans.map { "\($0.id)@\($0.priceString)" }.joined(separator: ",")
+            paywallPhase = .ready
         }
     }
 

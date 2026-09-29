@@ -94,17 +94,11 @@ final class PreASCDeviceAuditTests: XCTestCase {
         close.tap()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6), "C FAIL: tab bar missing after close")
 
-        var premiumRow = firstExisting([
+        let premiumRow = scrollUntilAnyExists([
             app.buttons["settings-upgrade-premium"],
             app.buttons["Upgrade to Premium"],
-        ], timeout: 2)
-        if premiumRow == nil {
-            app.swipeUp()
-            premiumRow = firstExisting([
-                app.buttons["settings-upgrade-premium"],
-                app.buttons["Upgrade to Premium"],
-            ])
-        }
+            app.staticTexts["Upgrade to Premium"],
+        ], in: app)
         XCTAssertNotNil(premiumRow, "C FAIL: Upgrade to Premium missing")
         if let premiumRow {
             reveal(premiumRow, in: app)
@@ -128,8 +122,14 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertNotNil(monthly, "D FAIL: monthly plan did not load from the local StoreKit configuration")
         XCTAssertNotNil(annual, "D FAIL: annual plan did not load from the local StoreKit configuration")
         if let monthly { reveal(monthly, in: app) }
-        let monthlyLabel = monthly?.label ?? ""
-        let annualLabel = annual?.label ?? ""
+        let monthlyPrice = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let annualPrice = app.staticTexts["paywall-price-fitmunch_annual"]
+        let monthlyLabel = [monthly?.label, monthlyPrice.exists ? monthlyPrice.label : nil]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        let annualLabel = [annual?.label, annualPrice.exists ? annualPrice.label : nil]
+            .compactMap { $0 }
+            .joined(separator: " ")
         XCTAssertTrue(monthlyLabel.contains("19.99"), "D FAIL: monthly price missing from \(monthlyLabel)")
         XCTAssertTrue(annualLabel.contains("149.99"), "D FAIL: annual price missing from \(annualLabel)")
         XCTAssertFalse(app.staticTexts["Weekly Premium"].exists, "D FAIL: weekly plan is on the paywall")
@@ -145,9 +145,10 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
         openUpgradePaywall(in: app)
 
-        let sawLoading = app.otherElements["paywall-loading"].waitForExistence(timeout: 3)
-            || app.activityIndicators["paywall-loading"].waitForExistence(timeout: 1)
-            || app.staticTexts["Loading plans…"].waitForExistence(timeout: 1)
+        let sawLoading = app.staticTexts["Loading plans…"].waitForExistence(timeout: 6)
+            || app.staticTexts["paywall-loading-label"].exists
+            || app.staticTexts["paywall-loading-inline-label"].exists
+            || app.otherElements["paywall-loading"].exists
             || app.otherElements["paywall-loading-inline"].exists
         XCTAssertTrue(sawLoading, "E FAIL: paywall did not show a loading state")
 

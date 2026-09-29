@@ -4,14 +4,15 @@ import SwiftUI
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var premiumManager = PremiumManager.shared
-    @State private var plans: [PaywallPlan] = []
     @State private var selectedPlan: PaywallPlan?
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
-    @State private var isLoadingPlans = true
-    @State private var plansLoadFailed = false
     @State private var showErrorAlert = false
     @State private var alertError = ""
+
+    private var plans: [PaywallPlan] { premiumManager.paywallPlans }
+    private var isLoadingPlans: Bool { premiumManager.paywallPhase == .loading && plans.isEmpty }
+    private var plansLoadFailed: Bool { premiumManager.paywallPhase == .failed && plans.isEmpty }
 
     var body: some View {
         NavigationStack {
@@ -21,8 +22,8 @@ struct PaywallView: View {
                         configurationWarningSection
                     }
                     headerSection
-                    featuresSection
                     pricingSection
+                    featuresSection
                     purchaseSection
                     restoreSection
                     sandboxProbeSection
@@ -52,6 +53,7 @@ struct PaywallView: View {
                     .padding(24)
                     .background(.regularMaterial)
                     .cornerRadius(16)
+                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("paywall-loading")
                 }
             }
@@ -152,8 +154,10 @@ struct PaywallView: View {
                 ProgressView()
                 Text("Loading plans…")
                     .font(.subheadline)
+                    .accessibilityIdentifier("paywall-loading-inline-label")
             }
             .padding()
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("paywall-loading-inline")
         } else if plansLoadFailed {
             emptyPlansSection
@@ -262,30 +266,9 @@ struct PaywallView: View {
     /// Shows loading immediately. Retries once with backoff before the error state.
     /// The error is the only empty state. The screen keeps the header, Retry, and Restore.
     private func loadPlansWithRetry() async {
-        isLoadingPlans = true
-        plansLoadFailed = false
-        var attempt = 0
-        while true {
-            if Task.isCancelled { return }
-            attempt += 1
-            let loaded = await premiumManager.getPlans()
-            if Task.isCancelled { return }
-            switch PaywallLoadPolicy.phase(attempt: attempt, hasPlans: !loaded.isEmpty) {
-            case .ready:
-                plans = loaded
-                selectedPlan = loaded.first
-                isLoadingPlans = false
-                plansLoadFailed = false
-                return
-            case .loading:
-                try? await Task.sleep(nanoseconds: PaywallLoadPolicy.automaticRetryBackoffNanoseconds)
-            case .failed:
-                plans = []
-                selectedPlan = nil
-                isLoadingPlans = false
-                plansLoadFailed = true
-                return
-            }
+        await premiumManager.loadPaywallPlans()
+        if selectedPlan == nil || !plans.contains(where: { $0.id == selectedPlan?.id }) {
+            selectedPlan = plans.first
         }
     }
 
@@ -357,6 +340,7 @@ private struct PackageCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(plan.title)
                     .font(.headline)
+                    .accessibilityIdentifier("paywall-plan-title-\(plan.id)")
                 Text(plan.description)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -375,6 +359,7 @@ private struct PackageCard: View {
             Text(plan.priceString)
                 .font(.title2)
                 .fontWeight(.bold)
+                .accessibilityIdentifier("paywall-price-\(plan.id)")
             Spacer()
             savingsBadge
         }

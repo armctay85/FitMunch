@@ -89,6 +89,25 @@ extension XCTestCase {
         appendAuditFile("rows.tsv", line: line)
     }
 
+    /// SwiftUI lists omit off-screen rows. Swipe the list itself until one candidate exists.
+    func scrollUntilAnyExists(_ elements: [XCUIElement], in app: XCUIApplication, swipes: Int = 8) -> XCUIElement? {
+        func match() -> XCUIElement? { elements.first { $0.exists } }
+        if let found = match() { return found }
+        let list = app.collectionViews.firstMatch
+        let table = app.tables.firstMatch
+        for _ in 0..<swipes {
+            if list.exists {
+                list.swipeUp()
+            } else if table.exists {
+                table.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            if let found = match() { return found }
+        }
+        return match()
+    }
+
     func reveal(_ element: XCUIElement, in app: XCUIApplication, swipes: Int = 6) {
         var remaining = swipes
         while !element.isHittable && remaining > 0 {
@@ -104,12 +123,23 @@ extension XCTestCase {
     }
 
     func waitForPlanCard(_ app: XCUIApplication, id: String, timeout: TimeInterval) -> XCUIElement? {
-        let deadline = Date().addingTimeInterval(timeout)
+        let started = Date()
+        let deadline = started.addingTimeInterval(timeout)
+        var swipes = 0
         while Date() < deadline {
-            let button = app.buttons["paywall-plan-\(id)"]
-            if button.exists { return button }
-            let other = app.otherElements["paywall-plan-\(id)"]
-            if other.exists { return other }
+            let queries = [
+                app.buttons["paywall-plan-\(id)"],
+                app.otherElements["paywall-plan-\(id)"],
+                app.staticTexts["paywall-plan-title-\(id)"],
+                app.staticTexts["paywall-price-\(id)"],
+            ]
+            for query in queries where query.exists {
+                return query
+            }
+            if swipes < 3 && Date().timeIntervalSince(started) > 4 {
+                app.swipeUp()
+                swipes += 1
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         return nil

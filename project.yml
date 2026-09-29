@@ -15,7 +15,18 @@ schemes:
       targets:
         - FitMunchTests
         - FitMunchUITests
-    # Local products for deterministic UI tests. Run and Test only, not Archive.
+  # Local products for the pre-ASC audit only. The FitMunch scheme stays clean so
+  # App Store screenshot capture and archive do not attach a StoreKit config.
+  FitMunchStoreKit:
+    build:
+      targets:
+        FitMunch: all
+        FitMunchTests: [test]
+        FitMunchUITests: [test]
+    test:
+      targets:
+        - FitMunchTests
+        - FitMunchUITests
     storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
   # Same app, no StoreKit configuration, so Product.products hits sandbox/App Store.
   FitMunchSandboxProbe:

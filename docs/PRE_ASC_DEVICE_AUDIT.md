@@ -38,7 +38,7 @@ v1.0 does not sell a weekly subscription. `fitmunch_weekly` is not in the produc
 
 Entitlement: `premium`. Offering: `main`, then StoreKit product IDs, then StoreKit 2.
 
-Local deterministic prices live in `FitMunchUITests/FitMunchProducts.storekit` (monthly 19.99, annual 149.99, storefront AUS). The `FitMunch` scheme attaches that file for Run and Test. `FitMunchSandboxProbe` does not, so a separate test can try the live IDs.
+Local deterministic prices live in `FitMunchUITests/FitMunchProducts.storekit` (monthly 19.99, annual 149.99, storefront AUS). The `FitMunchStoreKit` scheme attaches that file for the simulator audit. The `FitMunch` scheme does not, so screenshot capture and archive stay on a clean StoreKit setup. `FitMunchSandboxProbe` does not either, so a separate test can try the live IDs.
 
 ## Automated gates (must stay in CI)
 

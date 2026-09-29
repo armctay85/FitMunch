@@ -123,13 +123,13 @@ run_xcode() {
 }
 
 set +e
-run_xcode "iphone" "iphone" "$IPHONE_UDID" "FitMunch" "local" \
+run_xcode "iphone" "iphone" "$IPHONE_UDID" "FitMunchStoreKit" "local" \
   -only-testing:FitMunchTests \
   -only-testing:FitMunchUITests/PreASCDeviceAuditTests \
   -only-testing:FitMunchUITests/ReviewCrashGuardTests
 IPHONE_RC=$?
 
-run_xcode "ipad" "ipad" "$IPAD_UDID" "FitMunch" "local" \
+run_xcode "ipad" "ipad" "$IPAD_UDID" "FitMunchStoreKit" "local" \
   -only-testing:FitMunchUITests/PreASCDeviceAuditTests \
   -only-testing:FitMunchUITests/ReviewCrashGuardTests
 IPAD_RC=$?
@@ -185,6 +185,7 @@ set -e
   echo "iphone_sandbox_exit=$IPHONE_SANDBOX_RC"
   echo "ipad_sandbox_exit=$IPAD_SANDBOX_RC"
   echo "audit_table_exit=$TABLE_RC"
+  echo "local_scheme=FitMunchStoreKit"
   echo "local_storekit=FitMunchUITests/FitMunchProducts.storekit"
   echo "sandbox_scheme=FitMunchSandboxProbe"
   if [[ -f "$OUT/sizes.txt" ]]; then
