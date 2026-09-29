@@ -3568,8 +3568,8 @@ async function startCheckout(plan, button) {
 // Any AI endpoint can return { upgrade: true } when the free monthly cap is hit.
 function maybeUpgrade(r) {
  if (r && r.upgrade) {
- toast(r.error || 'Free AI limit reached. Opening Premium trial…', 'warn');
- setTimeout(() => startCheckout('premium'), 500);
+ toast(r.error || 'Free AI limit reached. Open Billing if you want Premium.', 'warn');
+ nav('billing');
  return true;
  }
  return false;

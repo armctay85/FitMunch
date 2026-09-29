@@ -218,7 +218,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  const { updateUserSubscription, db, schema } = require('./server/storage.js');
+  const { updateUserSubscription, effectiveTier, db, schema } = require('./server/storage.js');
   const { eq } = require('drizzle-orm');
 
   try {
@@ -256,7 +256,13 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         }
         const { tier, expiresAt } = subscriptionTierUpdateFromStripe(tierSource);
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
-        if (users[0]) await updateUserSubscription(users[0].id, tier, expiresAt);
+        if (users[0]) {
+          await updateUserSubscription(users[0].id, tier, expiresAt);
+          if (tier === 'free' && effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
+            const until = users[0].settings && users[0].settings.compPremiumUntil;
+            console.log(`[comp] ${users[0].email || users[0].id} stays Premium until ${until} after Stripe set the tier to free`);
+          }
+        }
         console.log(`Subscription ${event.type}: customer ${sub.customer} → ${tier}`);
         break;
       }
@@ -266,7 +272,13 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const stillLive = sub.customer
           ? await customerStillHasLiveFitMunchSub(stripe, sub.customer, sub.id)
           : false;
-        if (users[0] && !stillLive) await updateUserSubscription(users[0].id, 'free', null);
+        if (users[0] && !stillLive) {
+          await updateUserSubscription(users[0].id, 'free', null);
+          if (effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
+            const until = users[0].settings && users[0].settings.compPremiumUntil;
+            console.log(`[comp] ${users[0].email || users[0].id} stays Premium until ${until} after Stripe set the tier to free`);
+          }
+        }
         if (stillLive) {
           console.warn(`[checkout] ignored cancel for ${sub.id}; customer ${sub.customer} still has a live FitMunch subscription`);
         } else {
@@ -652,11 +664,11 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const jwtLib = require('jsonwebtoken');
     const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
 
-    const { getUserById, updateUserSubscription } = require('./server/storage.js');
+    const { getUserById, updateUserSubscription, effectiveTier } = require('./server/storage.js');
     const user = await getUserById(decoded.userId);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
     if (!user.stripeCustomerId) {
-      return res.json({ success: true, tier: user.subscriptionTier || 'free', synced: false });
+      return res.json({ success: true, tier: effectiveTier(user), synced: false });
     }
 
     const subs = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: 'all', limit: 10 });
@@ -669,11 +681,17 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
       const periodEnd = live.current_period_end || live.items?.data[0]?.current_period_end;
       expiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
     }
-    if ((user.subscriptionTier || 'free') !== tier) {
+    const previousTier = user.subscriptionTier || 'free';
+    const accessTier = effectiveTier({ ...user, subscriptionTier: tier });
+    if (previousTier !== tier) {
       await updateUserSubscription(user.id, tier, expiresAt);
-      console.log(`[sync-subscription] ${user.email}: ${user.subscriptionTier || 'free'} → ${tier}`);
+      console.log(`[sync-subscription] ${user.email}: ${previousTier} → ${tier}`);
+      if (tier === 'free' && accessTier === 'premium') {
+        const until = user.settings && user.settings.compPremiumUntil;
+        console.log(`[comp] ${user.email} stays Premium until ${until} after Stripe sync set the tier to free`);
+      }
     }
-    return res.json({ success: true, tier, status: live?.status || 'none', synced: true });
+    return res.json({ success: true, tier: accessTier, status: live?.status || 'none', synced: true });
   } catch (err) {
     console.error('[sync-subscription]', err.message);
     return res.status(500).json({ success: false, error: err.message });

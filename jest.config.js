@@ -13,6 +13,7 @@ module.exports = {
     '**/test_seo_ship_pack_1.js',
     '**/test_pay_path.js',
     '**/test_checkout_duplicates.js',
+    '**/test_comp_expiry.js',
     '**/test_ios_store_art.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
