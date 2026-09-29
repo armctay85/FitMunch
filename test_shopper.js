@@ -74,8 +74,9 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).toContain('data-sp-commit');
     expect(page.text).toContain('Approve this trolley');
     expect(page.text).toContain('public specials');
-    expect(page.text).toContain('Premium <strong>$19.99 AUD/mo</strong>');
-    expect(page.text).toContain('Start Premium trial, $19.99/mo');
+    expect(page.text).toContain('14-day trial, then <strong>$19.99 a month.</strong> <span>Card on file.</span>');
+    expect(page.text).toContain('Start the 14-day trial');
+    expect(page.text).toContain('href="/login.html?plan=premium#register"');
     expect(page.text).toContain('web app');
     expect(page.text).toContain('Add to Home Screen');
     expect(page.text).not.toContain('Photograph your receipt');
@@ -100,6 +101,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(css).toMatch(/\.sp-hero\{[\s\S]*?background:#07130d/);
     expect(css).toMatch(/\.sp-hero \.lead\{[\s\S]*?color:#dce6de/);
     expect(css).toMatch(/\.sp-pricebar\{[\s\S]*?color:#e8efe6/);
+    expect(css).not.toMatch(/\.sp-pricebar\{[^}]*display:\s*flex/);
     expect(css).toMatch(/\.sp-day\{[\s\S]*?background:#04100a/);
     expect(css).toMatch(/\.sp-day b\{[\s\S]*?color:#7dffa3/);
     expect(css).toMatch(/\.sp-day span\{[\s\S]*?color:#f4f7f4/);
@@ -116,7 +118,9 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(html).toContain('Commit the week. Take the trolley.');
     expect(html).toContain('Commit this week');
     expect(html).toContain('How the split works');
-    expect(html).toContain('$19.99 AUD/mo');
+    expect(html).toContain('14-day trial, then');
+    expect(html).toContain('$19.99 a month');
+    expect(html).toContain('href="/login.html?plan=premium#register"');
     expect(html).toContain('We do not pay Woolies');
     expect(html).toContain('not a live trolley scrape');
     expect(html).toContain('No Apple Watch. No HealthKit.');
