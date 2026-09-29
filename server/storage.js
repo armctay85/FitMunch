@@ -256,6 +256,49 @@ async function getFunnelStats(days = 14) {
   return { days: d, totalEvents, events, asOf: new Date().toISOString() };
 }
 
+// In-process critical section for checkout customer create. Production also takes a
+// Postgres advisory lock when DATABASE_URL is set, so two app processes cannot
+// both insert a Stripe customer for the same user or email.
+const checkoutMemoryLocks = new Map();
+
+function withMemoryLock(key, fn) {
+  const prev = checkoutMemoryLocks.get(key) || Promise.resolve();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const tail = prev.then(() => gate, () => gate);
+  checkoutMemoryLocks.set(key, tail);
+  return prev.then(fn, fn).finally(() => {
+    release();
+    if (checkoutMemoryLocks.get(key) === tail) checkoutMemoryLocks.delete(key);
+  });
+}
+
+async function withStripeCustomerLock(lockKey, fn) {
+  const key = String(lockKey || 'checkout');
+  return withMemoryLock(key, async () => {
+    if (!process.env.DATABASE_URL) return fn();
+    let client = null;
+    try {
+      client = await pool.connect();
+    } catch (err) {
+      console.warn('[checkout] db lock unavailable, using process lock:', err.message);
+      return fn();
+    }
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`fm-checkout:${key}`]);
+      const result = await fn();
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* already closed */ }
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
+}
+
 // Export all functions and database instance
 module.exports = {
   db,
@@ -263,6 +306,7 @@ module.exports = {
   getUserByEmail,
   getUserById,
   updateUserSubscription,
+  withStripeCustomerLock,
   ensureUserExists,
   createOrUpdateProfile,
   getProfile,

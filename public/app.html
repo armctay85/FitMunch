@@ -805,7 +805,7 @@ html.fm-authed #app-gate{display:none}
  <li><strong>Unlimited</strong> receipt scans and weekly reviews</li>
  <li>14-day trial (card on file, cancel anytime)</li>
  </ul>
- <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium')">Start Premium trial</button>
+ <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium', this)">Start Premium trial</button>
  <div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:8px">Opens Stripe checkout</div>
  </div>
  </div>
@@ -830,7 +830,7 @@ html.fm-authed #app-gate{display:none}
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Starter</div>
  <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$59.99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients + client portal</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter')">Select</button>
+ <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter', this)">Select</button>
  </div>
  </div>
  <div class="card">
@@ -838,7 +838,7 @@ html.fm-authed #app-gate{display:none}
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Pro</div>
  <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients + all features</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro')">Select</button>
+ <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro', this)">Select</button>
  </div>
  </div>
  </div>
@@ -868,7 +868,7 @@ html.fm-authed #app-gate{display:none}
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
  <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is $19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
- <button class="btn btn-green btn-sm" onclick="startCheckout('premium')">Start Premium trial</button>
+ <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
  <!-- Goals banner -->
@@ -3521,17 +3521,46 @@ function downloadScanCard() {
 }
 
 // ── CHECKOUT ──────────────────────────────────────────────────────────────────
-async function startCheckout(plan) {
- try {
- const r = await API('/checkout', { method:'POST', body: JSON.stringify({ plan }) });
- if (r.url) { window.location.href = r.url; return; }
- if (r.alreadySubscribed) {
- toast(r.message || 'You already have an active subscription. Check Billing.', 'success');
- nav('billing');
- return;
- }
- toast('Checkout unavailable. ' + (r.error || 'Please try again.'), 'error');
- } catch { toast('Could not start checkout. Try again.', 'error'); }
+let checkoutInFlight = null;
+
+function checkoutButtons() {
+ return [...document.querySelectorAll('button')].filter((btn) => {
+  const attr = btn.getAttribute('onclick') || '';
+  return attr.includes('startCheckout') || btn.dataset.checkout === '1';
+ });
+}
+
+async function startCheckout(plan, button) {
+ if (checkoutInFlight) return checkoutInFlight;
+ const buttons = checkoutButtons();
+ if (button && button.tagName === 'BUTTON') buttons.push(button);
+ buttons.forEach((btn) => { btn.disabled = true; });
+ let leaving = false;
+ checkoutInFlight = (async () => {
+  try {
+   const r = await API('/checkout', { method:'POST', body: JSON.stringify({ plan }) });
+   if (r.url) {
+    leaving = true;
+    window.location.href = r.url;
+    return r;
+   }
+   if (r.alreadySubscribed) {
+    toast(r.message || 'You already have an active subscription. Check Billing.', 'success');
+    nav('billing');
+    return r;
+   }
+   toast('Checkout unavailable. ' + (r.error || 'Please try again.'), 'error');
+   return r;
+  } catch {
+   toast('Could not start checkout. Try again.', 'error');
+  } finally {
+   if (!leaving) {
+    checkoutInFlight = null;
+    buttons.forEach((btn) => { btn.disabled = false; });
+   }
+  }
+ })();
+ return checkoutInFlight;
 }
 
 // ── TOAST NOTIFICATIONS ───────────────────────────────────────────────────────
@@ -3565,7 +3594,7 @@ async function loadBillingUsage() {
  <div style="background:var(--bg2);border-radius:4px;height:8px;overflow:hidden;margin-bottom:${hot ? '10px' : '0'}">
  <div style="background:${pct>=100?'var(--red)':pct>=70?'var(--amber)':'var(--leaf)'};height:100%;width:${pct}%;border-radius:4px"></div>
  </div>
- ${hot ? `<button class="btn btn-green btn-sm" onclick="startCheckout('premium')" style="width:100%">Start Premium trial · keep the grocery loop running</button>` : ''}
+ ${hot ? `<button class="btn btn-green btn-sm" data-checkout="1" onclick="startCheckout('premium', this)" style="width:100%">Start Premium trial · keep the grocery loop running</button>` : ''}
  </div>`;
  }
  } catch(e) { /* non-critical */ }
@@ -3695,7 +3724,8 @@ async function sendChat() {
  btn.className = 'btn btn-green btn-sm';
  btn.style.marginTop = '8px';
  btn.textContent = 'Start Premium trial →';
- btn.onclick = () => startCheckout('premium');
+ btn.dataset.checkout = '1';
+ btn.onclick = () => startCheckout('premium', btn);
  typing.appendChild(document.createElement('br'));
  typing.appendChild(btn);
  const alt = document.createElement('button');

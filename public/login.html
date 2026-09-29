@@ -283,29 +283,51 @@
  .catch(() => {});
  }
 
+ let checkoutInFlight = null;
+
  async function redirectAfterAuth(token) {
  if (!plan) {
  window.location.href = '/app.html';
  return;
  }
- // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
- // Server normalizeCheckoutPlan owns PT vs consumer mapping.
- // Never force pt-* aliases here — that 403s consumer Premium/starter/pro funnels.
- const checkoutPlan = plan;
- const r = await fetch('/api/checkout', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
- body: JSON.stringify({ plan: checkoutPlan })
- });
- const d = await parseApiJson(r);
- if (d.alreadySubscribed) {
- window.location.href = '/app.html';
- return;
+ if (checkoutInFlight) return checkoutInFlight;
+ const buttons = ['login-btn', 'register-btn'].map((id) => document.getElementById(id)).filter(Boolean);
+ buttons.forEach((btn) => { btn.disabled = true; });
+ let leaving = false;
+ checkoutInFlight = (async () => {
+  // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
+  // Server normalizeCheckoutPlan owns PT vs consumer mapping.
+  // Never force pt-* aliases here. That 403s consumer Premium/starter/pro funnels.
+  const checkoutPlan = plan;
+  const r = await fetch('/api/checkout', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+  body: JSON.stringify({ plan: checkoutPlan })
+  });
+  const d = await parseApiJson(r);
+  if (d.alreadySubscribed) {
+   leaving = true;
+   window.location.href = '/app.html';
+   return;
+  }
+  if (!d.url) {
+   throw new Error(d.error || 'Checkout did not return a Stripe card form URL.');
+  }
+  leaving = true;
+  window.location.href = d.url;
+ })();
+ try {
+  return await checkoutInFlight;
+ } catch (error) {
+  checkoutInFlight = null;
+  buttons.forEach((btn) => { btn.disabled = false; });
+  throw error;
+ } finally {
+  if (!leaving) {
+   checkoutInFlight = null;
+   buttons.forEach((btn) => { btn.disabled = false; });
+  }
  }
- if (!d.url) {
- throw new Error(d.error || 'Checkout did not return a Stripe card form URL.');
- }
- window.location.href = d.url;
  }
 
  function showTab(tab) {
@@ -402,11 +424,15 @@
  fill.style.width = l.pct; fill.style.background = l.bg; label.textContent = l.text;
  }
 
+ let authInFlight = false;
+
  async function doLogin() {
+ if (authInFlight || checkoutInFlight) return;
  hideMsg('login');
  const email = document.getElementById('login-email').value.trim().toLowerCase();
  const password = document.getElementById('login-password').value;
  if (!email || !password) { showError('login-error', 'Please enter your email and password.'); return; }
+ authInFlight = true;
  setLoading('login-btn', true);
  try {
  const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
@@ -417,16 +443,21 @@
  showSuccess('login-success', plan ? 'Logged in! Opening Stripe checkout...' : 'Logged in! Redirecting...');
  await redirectAfterAuth(data.token);
  } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
- finally { setLoading('login-btn', false); }
+ finally {
+  authInFlight = false;
+  if (!plan || !checkoutInFlight) setLoading('login-btn', false);
+ }
  }
 
  async function doRegister() {
+ if (authInFlight || checkoutInFlight) return;
  hideMsg('register');
  const name = document.getElementById('reg-name').value.trim();
  const email = document.getElementById('reg-email').value.trim().toLowerCase();
  const password = document.getElementById('reg-password').value;
  if (!name || !email || !password) { showError('register-error', 'All fields are required.'); return; }
  if (password.length < 8) { showError('register-error', 'Password must be at least 8 characters.'); return; }
+ authInFlight = true;
  setLoading('register-btn', true);
  try {
  const inviteToken = new URLSearchParams(window.location.search).get('invite');
@@ -440,7 +471,10 @@
  showSuccess('register-success', plan ? 'Account created! Opening Stripe checkout...' : 'Account created! Redirecting...');
  await redirectAfterAuth(data.token);
  } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
- finally { setLoading('register-btn', false); }
+ finally {
+  authInFlight = false;
+  if (!plan || !checkoutInFlight) setLoading('register-btn', false);
+ }
  }
 
  // Hash-based tab switching (#register activates register panel)
