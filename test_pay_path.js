@@ -323,6 +323,7 @@ describe('iOS ASC review blockers (source contract)', () => {
   it('Upgrade opens a full-screen paywall, not a dead iPad sheet tap', () => {
     expect(settings).toContain('Label("Upgrade"');
     expect(settings).toContain('Label("Upgrade to Premium"');
+    expect(settings).toContain('settings-upgrade-premium');
     expect(settings).toContain('.fullScreenCover(isPresented: $showPaywall)');
     expect(settings).toContain('.contentShape(Rectangle())');
     expect(settings).toContain('PremiumManager.shared');
@@ -373,6 +374,8 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(auditUI).toContain('testA_FirstRun');
     expect(auditUI).toContain('testB_ScanAndTakePhoto');
     expect(auditUI).toContain('testC_UpgradeOpensPaywall');
+    expect(auditUI).toContain('scrollUntilHittable');
+    expect(auditUI).toContain('settings-upgrade-premium');
     expect(auditUI).toContain('testD_PlansLoadAndShowPrices');
     expect(auditUI).toContain('testE_FailedFetchShowsRetry');
     expect(auditUI).toContain('testF_RestorePurchases');

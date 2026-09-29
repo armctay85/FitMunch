@@ -115,26 +115,16 @@ final class PreASCDeviceAuditTests: XCTestCase {
         close.tap()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6), "C FAIL: tab bar missing after close")
 
-        var openedPremium = false
-        for _ in 0..<8 {
-            let candidates = [
-                app.buttons["settings-upgrade-premium"],
-                app.buttons["Upgrade to Premium"],
-                app.staticTexts["Upgrade to Premium"],
-            ]
-            if let row = candidates.first(where: { $0.exists && $0.isHittable }) {
-                row.tap()
-                openedPremium = true
-                break
-            }
-            let list = app.collectionViews.firstMatch
-            if list.exists {
-                list.swipeUp()
-            } else {
-                app.swipeUp()
-            }
-        }
-        XCTAssertTrue(openedPremium, "C FAIL: Upgrade to Premium missing")
+        // settings-upgrade-premium is the Subscription row. On iPhone a full
+        // swipeUp can leave it under the nav bar (exists, not hittable) and the
+        // next swipe drops it out of the SwiftUI list. Scroll until that row is hittable.
+        let premiumRow = scrollUntilHittable([
+            app.buttons["settings-upgrade-premium"],
+            app.buttons["Upgrade to Premium"],
+            app.staticTexts["Upgrade to Premium"],
+        ], in: app)
+        XCTAssertNotNil(premiumRow, "C FAIL: Upgrade to Premium missing")
+        premiumRow?.tap()
         let again = app.buttons["paywall-close"].waitForExistence(timeout: 8)
             || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
         XCTAssertTrue(again, "C FAIL: Upgrade to Premium did not open the paywall")
