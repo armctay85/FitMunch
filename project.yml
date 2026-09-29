@@ -9,6 +9,31 @@ schemes:
     build:
       targets:
         FitMunch: all
+        FitMunchTests: [test]
+        FitMunchUITests: [test]
+    test:
+      targets:
+        - FitMunchTests
+        - FitMunchUITests
+  # Local products for the pre-ASC audit only. The FitMunch scheme stays clean so
+  # App Store screenshot capture and archive do not attach a StoreKit config.
+  FitMunchStoreKit:
+    build:
+      targets:
+        FitMunch: all
+        FitMunchTests: [test]
+        FitMunchUITests: [test]
+    test:
+      targets:
+        - FitMunchTests
+        - FitMunchUITests
+    storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
+  # Same app, no StoreKit configuration, so Product.products hits sandbox/App Store.
+  FitMunchSandboxProbe:
+    build:
+      targets:
+        FitMunch: all
+        FitMunchTests: [test]
         FitMunchUITests: [test]
     test:
       targets:
@@ -29,12 +54,13 @@ targets:
         # ITMS-90683: processed Info.plist omitted this when only INFOPLIST_KEY_*
         # display/fullscreen keys were generated. Keep it in both places.
         NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
+        NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app
         SWIFT_VERSION: "5.9"
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "8"
+        CURRENT_PROJECT_VERSION: "9"
         VERSIONING_SYSTEM: Apple Generic
         INFOPLIST_FILE: FitMunch/Resources/Info.plist
         DEVELOPMENT_TEAM: 48SW62N9BZ
@@ -45,10 +71,28 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: FitMunch
         INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
+
+  FitMunchTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: FitMunchTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        TEST_TARGET_NAME: FitMunch
+    dependencies:
+      - target: FitMunch
 
   FitMunchUITests:
     type: bundle.ui-testing
@@ -56,6 +100,10 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunchUITests
+        excludes:
+          - "*.storekit"
+      - path: FitMunchUITests/FitMunchProducts.storekit
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.uitests
@@ -65,3 +113,4 @@ targets:
         TEST_TARGET_NAME: FitMunch
     dependencies:
       - target: FitMunch
+      - sdk: StoreKitTest.framework

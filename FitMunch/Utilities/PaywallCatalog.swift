@@ -1,19 +1,17 @@
 import Foundation
 
 /// Pure filters for App Store subscription products. No RevenueCat types so
-/// empty offerings, missing weekly metadata, and unknown IDs cannot crash UI.
+/// empty offerings and unknown IDs cannot crash UI.
 enum PaywallCatalog {
     static let monthly = Constants.ProductIDs.monthly
     static let annual = Constants.ProductIDs.annual
-    static let weekly = Constants.ProductIDs.weekly
     static let sellable = Constants.ProductIDs.sellable
 
-    /// Display title when StoreKit localizedTitle is empty (MISSING_METADATA).
+    /// Display title when StoreKit localizedTitle is empty.
     static func fallbackTitle(productId: String) -> String {
         switch productId {
         case monthly: return "Monthly Premium"
         case annual: return "Annual Premium"
-        case weekly: return "Weekly Premium"
         default: return "Premium"
         }
     }
@@ -22,24 +20,16 @@ enum PaywallCatalog {
         switch productId {
         case monthly: return "Billed every month"
         case annual: return "Billed once a year"
-        case weekly: return "Billed every week"
         default: return "FitMunch Premium"
         }
     }
 
-    /// Weekly with no title is MISSING_METADATA and must not block the paywall.
-    static func isWeeklyMissingMetadata(productId: String, title: String) -> Bool {
-        productId == weekly && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    /// Keep monthly and annual. Drop weekly when metadata is missing. Unknown IDs stay out.
-    static func selectSellableIds(from productIds: [String], titles: [String: String] = [:]) -> [String] {
+    /// Keep monthly and annual, in that order. Any other ID, including a legacy weekly ID, stays out.
+    static func selectSellableIds(from productIds: [String]) -> [String] {
         var seen = Set<String>()
         var selected: [String] = []
         for id in sellable {
             guard productIds.contains(id), !seen.contains(id) else { continue }
-            let title = titles[id] ?? ""
-            if isWeeklyMissingMetadata(productId: id, title: title) { continue }
             seen.insert(id)
             selected.append(id)
         }
@@ -55,6 +45,32 @@ enum PaywallCatalog {
         let trimmed = storeDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallbackDescription(productId: productId) : trimmed
     }
+}
+
+/// How the paywall decides between loading, plans, and the retry error.
+/// One automatic retry with backoff happens before the error is allowed on screen.
+enum PaywallLoadPolicy {
+    static let automaticRetryBackoffNanoseconds: UInt64 = 1_500_000_000
+    static let maxAutomaticAttempts = 2
+    static let userFacingLoadFailure = "Plans couldn't load. Check your connection and try again."
+
+    enum Phase: Equatable {
+        case loading
+        case ready
+        case failed
+    }
+
+    static func phase(attempt: Int, hasPlans: Bool) -> Phase {
+        if hasPlans { return .ready }
+        if attempt < maxAutomaticAttempts { return .loading }
+        return .failed
+    }
+}
+
+enum PaywallLaunchArgument {
+    static let forceEmpty = "-PaywallForceEmpty"
+    static let localStoreKit = "-UseLocalStoreKit"
+    static let sandboxProbe = "-SandboxProductProbe"
 }
 
 /// Value type the paywall renders. Views never touch raw RevenueCat packages.

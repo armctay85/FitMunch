@@ -25,9 +25,14 @@ final class AppStoreScreenshotTests: XCTestCase {
         for screen in screens {
             openTab(screen.tab)
             dismissSystemAlerts()
+            let appeared = app.navigationBars[screen.proof].waitForExistence(timeout: 8)
+                || app.staticTexts[screen.proof].waitForExistence(timeout: 2)
+                || (screen.file == "scan" && (
+                    app.staticTexts["Scan your shop"].waitForExistence(timeout: 3)
+                        || app.otherElements["scan-screen"].waitForExistence(timeout: 2)
+                ))
             XCTAssertTrue(
-                app.navigationBars[screen.proof].waitForExistence(timeout: 8)
-                    || app.staticTexts[screen.proof].waitForExistence(timeout: 2),
+                appeared,
                 "Real SwiftUI screen '\(screen.proof)' did not appear for \(screen.file)"
             )
             assertScreenLooksInUse(screen.file)

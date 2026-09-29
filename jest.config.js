@@ -16,6 +16,7 @@ module.exports = {
     '**/test_checkout_duplicates.js',
     '**/test_comp_expiry.js',
     '**/test_ios_store_art.js',
+    '**/test_pre_asc_gate.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
   ],

@@ -23,11 +23,11 @@ const workflowFiles = fs
   .map((name) => ({ name, text: read(path.join('.github/workflows', name)) }));
 
 describe('ASC archive build number', () => {
-  it('archives CFBundleVersion 8, not a stale build 7 override', () => {
-    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=8\s*\\/);
-    expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=7\s*\\/);
-    expect(archive).toMatch(/expected 8/);
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"8"/);
+  it('archives CFBundleVersion 9, not a stale build 8 override', () => {
+    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=9\s*\\/);
+    expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=8\s*\\/);
+    expect(archive).toMatch(/expected 9/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"9"/);
   });
 
   it('ships NSCameraUsageDescription for ITMS-90683', () => {

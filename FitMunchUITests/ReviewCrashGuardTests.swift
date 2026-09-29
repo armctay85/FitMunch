@@ -53,32 +53,10 @@ final class ReviewCrashGuardTests: XCTestCase {
     }
 
     private func firstExisting(_ queries: [XCUIElement]) -> XCUIElement? {
-        for query in queries where query.waitForExistence(timeout: 3) {
-            return query
-        }
-        return nil
+        firstExisting(queries, timeout: 3)
     }
 
     private func openTab(_ name: String) {
-        let bar = app.tabBars.firstMatch
-        XCTAssertTrue(bar.waitForExistence(timeout: 5))
-        let direct = bar.buttons[name]
-        if direct.exists {
-            direct.tap()
-            return
-        }
-        let more = bar.buttons["More"]
-        XCTAssertTrue(more.exists, "Tab '\(name)' is not in the bar and More is missing")
-        more.tap()
-        for candidate in [app.staticTexts[name], app.buttons[name], app.cells[name]]
-        where candidate.waitForExistence(timeout: 3) {
-            candidate.tap()
-            return
-        }
-        XCTFail("Could not open tab \(name)")
+        openTab(name, in: app)
     }
-}
-
-enum ReviewLaunchArgument {
-    static let flag = "-ReviewGuards"
 }

@@ -1,0 +1,7 @@
+evidence_class=CI macos Simulator / unit+UI
+iphone=iPhone 17 Pro
+iphone_exit=0
+ipad=iPad Air 11-inch (M3) exit=0
+tests=FitMunchTests,PreASCDeviceAuditTests,ReviewCrashGuardTests
+ci_run=https://github.com/armctay85/FitMunch/actions/runs/35272203570
+head=a7725e9e472eca9b41474a17c1c767c8f97721ca
