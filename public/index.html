@@ -44,7 +44,7 @@ body{
   transform:translateY(-140%);transition:transform .2s;
 }
 .skip:focus{transform:none}
-h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve{
+h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve,.lander-card a{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
 }
 .score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
@@ -440,6 +440,37 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   font-size:.88rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin-bottom:3px;
 }
 
+/* SEO landers: prominent, not footer-only */
+.landers{
+  background:#fff;
+  padding:clamp(52px,8vw,88px) clamp(20px,4vw,48px);
+  border-top:1px solid var(--line);
+}
+.landers-inner{width:min(1040px,100%);margin:0 auto}
+.landers-head{max-width:36ch;margin-bottom:28px}
+.landers-head h2{
+  font-size:clamp(1.85rem,4vw,2.7rem);
+  font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:10px;
+}
+.landers-head p{color:var(--mute);font-size:1.02rem;line-height:1.6}
+.lander-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:1px;background:var(--line);border:1px solid var(--line);
+}
+.lander-card{
+  background:#fff;padding:20px 18px;
+}
+.lander-card a{
+  display:block;
+  color:var(--ink);text-decoration:none;
+  font-size:1.08rem;font-weight:800;letter-spacing:-.03em;
+  margin-bottom:6px;
+}
+.lander-card a:hover{color:var(--leaf2)}
+.lander-card p{margin:0;color:var(--mute);font-size:.88rem;line-height:1.5}
+.landers-proof{margin-top:16px;font-size:.9rem;color:var(--mute)}
+.landers-proof a{color:var(--leaf2);font-weight:700}
+
 /* FOOTER */
 footer{
   background:var(--fridge2);
@@ -474,7 +505,7 @@ footer{
   .step{border-right:0;border-bottom:1px solid var(--line);padding:24px 0}
   .step:nth-child(odd){padding-right:18px}
   .step:nth-child(1),.step:nth-child(2){border-bottom:1px solid var(--line)}
-  .proof-inner,.fs-grid{grid-template-columns:1fr}
+  .proof-inner,.fs-grid,.lander-grid{grid-template-columns:1fr}
   .plans{grid-template-columns:1fr}
   .plan{border-right:0;border-bottom:1px solid var(--line)}
   .plan:last-child{border-bottom:0}
@@ -597,6 +628,34 @@ footer{
       </div>
       <p class="butler-note">Approve is the plan, not a live supermarket checkout. FitMunch is a web app today.</p>
     </aside>
+  </div>
+</section>
+
+<section class="landers" id="plan-from-here" aria-label="Plan from here">
+  <div class="landers-inner">
+    <div class="landers-head">
+      <h2>Plan from the shop you already do.</h2>
+      <p>Four ways into the same health engine. Premium is $19.99 AUD/mo after a 14-day trial.</p>
+    </div>
+    <div class="lander-grid">
+      <article class="lander-card">
+        <a href="/ai-meal-planner-australia">AI meal planner Australia</a>
+        <p>Receipt-first week plans from Woolies, Coles or Aldi, in AUD and grams.</p>
+      </article>
+      <article class="lander-card">
+        <a href="/budget-meal-planner">Budget high-protein weeks</a>
+        <p>Rank staples by protein per dollar, then score the haul.</p>
+      </article>
+      <article class="lander-card">
+        <a href="/shopper">Commit the week trolley</a>
+        <p>Lock seven days. Draft a trolley from public specials. You take checkout.</p>
+      </article>
+      <article class="lander-card">
+        <a href="/receipt-nutrition-scanner">Receipt nutrition / haul score</a>
+        <p>Photograph the receipt. Get macros and the next plan.</p>
+      </article>
+    </div>
+    <p class="landers-proof">Worked Woolies example: <a href="/haul-teardown">haul teardown</a>.</p>
   </div>
 </section>
 
@@ -748,6 +807,9 @@ footer{
     <div class="footer-links">
       <a href="#loop">How it works</a>
       <a href="#pricing">Pricing</a>
+      <a href="/ai-meal-planner-australia">AI meal planner</a>
+      <a href="/budget-meal-planner">Budget planner</a>
+      <a href="/shopper">Shopper</a>
       <a href="/haul-teardown">Haul teardown</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
       <a href="/for-pts.html">For trainers</a>
