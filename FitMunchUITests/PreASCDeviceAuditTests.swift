@@ -49,10 +49,12 @@ final class PreASCDeviceAuditTests: XCTestCase {
         takePhoto?.tap()
         dismissSystemAlerts(in: app)
 
+        // The Scan screen's Choose from library is already on screen, so it is
+        // not proof that Take a photo recovered. Require the fallback alert or
+        // SafeCameraPicker chrome.
         let recovered = app.alerts["Camera not available"].waitForExistence(timeout: 10)
             || app.buttons["scan-camera-cancel"].waitForExistence(timeout: 2)
             || app.otherElements["scan-camera-root"].waitForExistence(timeout: 2)
-            || app.buttons["Choose from library"].waitForExistence(timeout: 2)
         XCTAssertTrue(recovered, "B FAIL: neither SafeCameraPicker chrome nor library fallback appeared")
         XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Take a photo")
         XCTAssertFalse(
@@ -61,17 +63,36 @@ final class PreASCDeviceAuditTests: XCTestCase {
         )
         let shot = saveAuditScreen(app, baseName: "B-scan-take-photo")
 
+        // Same order as testG: OK first. The alert's Choose from library already
+        // presents the photo picker, so a second tap on scan-choose-library sits
+        // behind that picker and fails as not hittable (iPad).
+        var openedLibraryFromAlert = false
         if app.alerts["Camera not available"].exists {
-            let pick = app.alerts["Camera not available"].buttons["Choose from library"]
-            if pick.exists {
-                pick.tap()
-            } else if app.alerts["Camera not available"].buttons["OK"].exists {
-                app.alerts["Camera not available"].buttons["OK"].tap()
+            let alert = app.alerts["Camera not available"]
+            if alert.buttons["OK"].exists {
+                alert.buttons["OK"].tap()
+            } else if alert.buttons["Choose from library"].exists {
+                alert.buttons["Choose from library"].tap()
+                openedLibraryFromAlert = true
             }
         } else if app.buttons["scan-camera-cancel"].exists {
             app.buttons["scan-camera-cancel"].tap()
         }
 
+        if openedLibraryFromAlert {
+            sleep(1)
+            XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Choose from library")
+            recordAudit(row: "B", status: "PASS", screenshot: shot)
+            return
+        }
+
+        if let library, !library.isHittable {
+            let ready = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "isHittable == true"),
+                object: library
+            )
+            _ = XCTWaiter.wait(for: [ready], timeout: 4)
+        }
         library?.tap()
         sleep(1)
         XCTAssertEqual(app.state, .runningForeground, "B FAIL: app died after Choose from library")
