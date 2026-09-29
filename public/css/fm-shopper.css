@@ -292,6 +292,7 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 }
 /* Phone first fold: wrap Mon-Sun to two rows so Chicken/Pasta are not clipped. */
 @media(max-width:520px){
+  .fm-nav-cta{min-height:44px;display:inline-flex;align-items:center;box-sizing:border-box}
   .sp-week-strip{
     display:flex;
     flex-wrap:wrap;
