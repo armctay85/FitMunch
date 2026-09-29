@@ -161,9 +161,13 @@ extension XCTestCase {
         ])
         XCTAssertNotNil(upgrade, "Upgrade control missing on Settings")
         upgrade?.tap()
-        let ready = app.otherElements["paywall-root"].waitForExistence(timeout: 10)
-            || app.buttons["paywall-close"].waitForExistence(timeout: 2)
+        // Close is on screen as soon as the paywall is. Do not wait out a missing
+        // container identifier first, or the loading line finishes before we look.
+        let ready = app.buttons["paywall-close"].waitForExistence(timeout: 8)
             || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
+            || app.staticTexts["paywall-load-phase"].exists
+            || app.staticTexts["Loading plans"].exists
+            || app.otherElements["paywall-root"].exists
         XCTAssertTrue(ready, "Paywall did not appear after Upgrade")
     }
 

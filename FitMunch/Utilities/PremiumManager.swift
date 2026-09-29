@@ -202,7 +202,7 @@ class PremiumManager: ObservableObject {
         planHandles = [:]
 
         if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.forceEmpty) {
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard fetchToken == token else { return [] }
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             noteFetch([])
