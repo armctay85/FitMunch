@@ -345,6 +345,10 @@ app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
 app.get('/try', (req, res) => res.redirect(301, '/demo'));
+// SEO pack 2 landers (new routes only)
+app.get('/woolworths-meal-planner', (req, res) => res.sendFile('woolworths-meal-planner.html', { root: 'public' }));
+app.get('/coles-meal-planner', (req, res) => res.sendFile('coles-meal-planner.html', { root: 'public' }));
+app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shopping-list.html', { root: 'public' }));
 // /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)

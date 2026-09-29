@@ -1,0 +1,89 @@
+/* SEO pack 2 landers: Woolworths, Coles, meal prep list. Own surface. Tokens from fm-tokens.css. */
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
+
+.ln-hero{
+  position:relative;overflow:hidden;
+  background:
+    radial-gradient(ellipse 90% 55% at 100% 0%, rgba(31,157,74,.16), transparent 60%),
+    var(--fridge);
+  color:#f4f7f4;
+  padding:104px clamp(20px,4vw,48px) clamp(36px,6vw,64px);
+}
+.ln-hero-inner{width:min(1080px,100%);margin:0 auto;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(24px,5vw,56px);align-items:end}
+.ln-kicker{
+  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.7rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:#7dffa3;border:1px solid rgba(125,255,163,.42);border-radius:3px;
+  padding:5px 10px;margin-bottom:14px;
+}
+.ln-hero h1{
+  font-size:clamp(2rem,7.4vw,3.5rem);font-weight:800;letter-spacing:-.05em;line-height:1.02;
+  max-width:16ch;margin:0 0 14px;color:#f4f7f4;
+}
+.ln-lead{color:#dce6de;font-size:clamp(1rem,2.6vw,1.12rem);line-height:1.55;max-width:40ch;margin:0 0 20px}
+.ln-ctas{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px}
+.ln-hero .fm-btn{max-width:100%}
+.ln-small{font-size:.8rem;line-height:1.5;color:#c5d0c7;max-width:42ch;margin:0}
+
+/* Draft trolley card */
+.ln-card{background:#04100a;border:1px solid rgba(125,255,163,.26);padding:16px 16px 14px;min-width:0}
+.ln-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
+.ln-card-top b{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:#7dffa3}
+.ln-card-top span{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.66rem;color:#9fb0a5}
+.ln-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:12px}
+.ln-day{border:1px solid rgba(125,255,163,.22);padding:7px 5px 8px;min-width:0}
+.ln-day b{display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:#7dffa3;margin-bottom:3px}
+.ln-day span{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.68rem;font-weight:700;line-height:1.2;color:#f4f7f4}
+.ln-lines{list-style:none;margin:0;padding:0;border-top:1px dashed rgba(255,255,255,.16)}
+.ln-lines li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.12);font-size:.86rem;color:#e8efe6}
+.ln-lines li em{font-style:normal;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;color:#9fb0a5;white-space:nowrap}
+.ln-card-foot{margin:10px 0 0;font-size:.74rem;line-height:1.45;color:#9fb0a5}
+
+/* Body */
+.ln-section{padding:clamp(40px,7vw,80px) clamp(20px,4vw,48px)}
+.ln-inner{width:min(900px,100%);margin:0 auto}
+.ln-section h2{font-size:clamp(1.55rem,4.6vw,2.3rem);font-weight:800;letter-spacing:-.045em;line-height:1.06;margin:0 0 12px}
+.ln-section p{color:var(--mute);font-size:1rem;line-height:1.7;margin:0 0 16px;max-width:62ch}
+.ln-section p a,.ln-links a,.faq a{color:var(--leaf2);font-weight:700}
+.ln-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:22px 0 0}
+.ln-steps article{background:#fff;padding:18px 18px 20px}
+.ln-steps .n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;font-weight:600;letter-spacing:.1em;color:var(--leaf2);margin-bottom:8px}
+.ln-steps h3{font-size:1.08rem;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.ln-steps p{font-size:.95rem;line-height:1.6;margin:0}
+.ln-vs{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0 0}
+.ln-vs div{background:#fff;padding:18px}
+.ln-vs h3{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px;color:var(--mute2)}
+.ln-vs div.good h3{color:var(--leaf2)}
+.ln-vs p{font-size:.95rem;line-height:1.6;margin:0}
+.ln-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0 8px}
+.ln-list section{background:#fff;padding:16px 18px}
+.ln-list h3{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--leaf2);margin:0 0 8px}
+.ln-list ul{list-style:none;margin:0;padding:0}
+.ln-list li{font-size:.95rem;line-height:1.5;color:var(--ink);padding:6px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px}
+.ln-list li:last-child{border-bottom:0}
+.ln-list li em{font-style:normal;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.78rem;color:var(--mute);white-space:nowrap}
+.ln-note{font-size:.84rem;color:var(--mute);line-height:1.55;margin-top:10px}
+.ln-links{display:flex;flex-wrap:wrap;gap:10px 22px;margin:8px 0 0;padding:0;list-style:none}
+.ln-links li{font-size:.95rem}
+
+.faq dl{margin:0}
+.faq dt{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:1.02rem;letter-spacing:-.01em}
+.faq dd{color:var(--mute);margin:6px 0 0 0;line-height:1.65;font-size:.98rem;max-width:62ch}
+.ln-section .ln-sign{margin-top:28px;font-size:.95rem;color:var(--mute)}
+.ln-sign strong{color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif}
+
+.fm-convert .fm-btn{max-width:100%}
+
+@media(max-width:860px){
+  .ln-hero-inner{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .ln-steps,.ln-vs,.ln-list{grid-template-columns:1fr}
+  .ln-hero{padding-top:92px}
+}
+@media(max-width:520px){
+  .ln-week{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .ln-day span{font-size:.74rem}
+}
