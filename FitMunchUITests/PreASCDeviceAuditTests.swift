@@ -47,7 +47,9 @@ final class PreASCDeviceAuditTests: XCTestCase {
         ])
         XCTAssertNotNil(takePhoto, "B FAIL: Take a photo missing on Scan")
         takePhoto?.tap()
-        dismissSystemAlerts(in: app)
+        // The shared helper taps any OK, including this alert's OK, which
+        // removes the fallback before the recovery check. Leave that alert up.
+        dismissPermissionWithoutClosingCameraFallback(in: app)
 
         // The Scan screen's Choose from library is already on screen, so it is
         // not proof that Take a photo recovered. Require the fallback alert or
@@ -255,6 +257,24 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6) || paywallIsShowing(in: app))
         let shot = saveAuditScreen(app, baseName: "G-no-crash")
         recordAudit(row: "G", status: "PASS", screenshot: shot)
+    }
+
+    /// Permission sheets use Allow, Don't Allow, or a bare OK.
+    /// "Camera not available" also has OK. Tapping that OK dismisses the
+    /// fallback the recovery assertion has to see.
+    private func dismissPermissionWithoutClosingCameraFallback(in app: XCUIApplication) {
+        let alert = app.alerts.firstMatch
+        guard alert.waitForExistence(timeout: 1.2) else { return }
+        if app.alerts["Camera not available"].exists || alert.buttons["Choose from library"].exists {
+            return
+        }
+        for title in ["Don’t Allow", "Don't Allow", "Allow", "OK", "Close"] {
+            let button = alert.buttons[title]
+            if button.exists {
+                button.tap()
+                return
+            }
+        }
     }
 
     private func launchReview(extra: [String] = [], localStoreKit: Bool = true) throws -> XCUIApplication {

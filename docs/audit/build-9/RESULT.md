@@ -29,7 +29,7 @@ This is not a physical iPhone or iPad walk. Do not treat this file as App Review
 
 Sellable product IDs are `fitmunch_monthly` and `fitmunch_annual`. `fitmunch_weekly` is not in the app, the StoreKit file, or the paywall. `NSMicrophoneUsageDescription` is removed. Camera and photo-library usage strings stay. Build number stays 9. Archive workflow was not changed and does not submit for review.
 
-Main commit `8a4ea21` failed iOS Build and Test on iPad row B only (run https://github.com/armctay85/FitMunch/actions/runs/36548322021, `testB_ScanAndTakePhoto`). The test tapped the Camera not available alert's Choose from library, then tapped `scan-choose-library` again while the photo picker covered it. The table above is the earlier green SHA `d56ef84`. It is not a new A–G PASS for `8a4ea21`. Re-green is the UITest fix that prefers the alert OK button and skips the second library tap when that alert already opened the library.
+Main commit `8a4ea21` failed iOS Build and Test on iPad row B only (run https://github.com/armctay85/FitMunch/actions/runs/36548322021, `testB_ScanAndTakePhoto`). The test tapped the Camera not available alert's Choose from library, then tapped `scan-choose-library` again while the photo picker covered it. The shared permission dismiss also taps that alert's OK, which hides the fallback before a tighter recovery check can see it. The table above is the earlier green SHA `d56ef84`. It is not a new A–G PASS for `8a4ea21`. Re-green is the UITest fix: leave the fallback alert up, prefer its OK button, and skip the second library tap when that alert already opened the library.
 
 ## Rows A–G
 
