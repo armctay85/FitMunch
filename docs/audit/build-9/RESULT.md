@@ -8,54 +8,65 @@ This is not a physical iPhone or iPad walk. Do not treat this file as App Review
 | Marketing version | 1.0 |
 | `CURRENT_PROJECT_VERSION` | 9 |
 | Branch | `cursor/pre-asc-device-audit-c83a` |
-| Head SHA (green iOS job) | `a7725e9e472eca9b41474a17c1c767c8f97721ca` |
+| Head SHA (green iOS job) | `d56ef84b3dac62716c4d5b88b0cebc5183533a56` |
 | PR | https://github.com/armctay85/FitMunch/pull/19 |
-| Runner | GitHub Actions `macos-26` (same factory as ios-archive) |
-| Xcode | 26.6 (17F113) |
-| Sim OS | iOS 26.2 |
-| iPhone | iPhone 17 Pro (`5FEB61C5-E3F5-471D-AE23-8A07438D5E92`) exit 0 |
+| Runner | GitHub Actions `macos-26` |
+| iPhone | iPhone 14 (`241937B9-77E6-409C-8488-4B7E1F32AD6F`) exit 0 |
 | iPad | iPad Air 11-inch (M3) (`EB7D7CC3-7982-4506-A383-843BB8467C05`) exit 0 |
+| Screenshot pixels | iPhone 1170x2532 (390x844 pt at 3x). iPad 1640x2360 (820x1180 pt at 2x). |
+
+`XCUIApplication.frame` reported 320x480 during the run. The PNG pixel size is the full simulator framebuffer, not that frame.
 
 ## CI proof
 
 | Job | Run | Result |
 |---|---|---|
-| iOS Build and Test (camera script + unit + A–E UI) | https://github.com/armctay85/FitMunch/actions/runs/35272203570 | success (11m31s) |
-| Job log | https://github.com/armctay85/FitMunch/actions/runs/35272203570/job/105374057185 | success |
-| Artifact `pre-asc-audit-build-9` | same run (xcresult + `summary.txt`) | uploaded |
-| Web quality (Jest + `check-ios-camera-usage.sh`) | https://github.com/armctay85/FitMunch/actions/runs/35272203558 | success |
-| Prior iOS run (photo-library plist miss) | https://github.com/armctay85/FitMunch/actions/runs/35270302481 | failure, then fixed on this branch |
+| iOS Build and Test (A–G + sandbox probe) | https://github.com/armctay85/FitMunch/actions/runs/36536711292 | success |
+| Web quality | https://github.com/armctay85/FitMunch/actions/runs/36536711272 | success |
+| iOS App Store screenshots | https://github.com/armctay85/FitMunch/actions/runs/36536711225 | success |
+| Artifact `pre-asc-paywall-screenshots-build-9` | https://github.com/armctay85/FitMunch/actions/runs/36536711292 | id 11020040020 |
+| Artifact `pre-asc-audit-build-9` | https://github.com/armctay85/FitMunch/actions/runs/36536711292 | id 11019059594 |
 
-`scripts/check-ios-camera-usage.sh`, `CameraUsagePlistTests`, and `PaywallCatalogTests` passed on the green iOS run (host bundle has camera + photo-library strings; sellable IDs are `fitmunch_monthly` / `fitmunch_annual`).
+Sellable product IDs are `fitmunch_monthly` and `fitmunch_annual`. `fitmunch_weekly` is not in the app, the StoreKit file, or the paywall. `NSMicrophoneUsageDescription` is removed. Camera and photo-library usage strings stay. Build number stays 9. Archive workflow was not changed and does not submit for review.
 
-## Rows A–E
+## Rows A–G
 
 Status is **CI macos Simulator / unit+UI PASS** on both listed sims. Not physical-device PASS.
 
-| Row | What | Status | Proof |
+| Row | Device | Result | Screenshot |
 |---|---|---|---|
-| A | App launches without crash | PASS (CI sim) | `testA_AppLaunchesWithoutCrash` passed on iPhone 17 Pro and iPad Air 11-inch (M3). Tab bar appeared under `-ReviewGuards`. Attachment `A-launch` in xcresult. |
-| B | Scan entry + camera/library path does not crash | PASS (CI sim) | `testB_ScanCameraOrLibraryDoesNotCrash` + `testTakePhotoDoesNotCrashWhenCameraMissing` passed on both sims. Take a photo did not kill the process. Path is `SafeCameraPicker` / library fallback, not `UIImagePickerController` camera. Simulator has no camera hardware, so this does not prove a live AVCapture capture. |
-| C/D | Upgrade opens paywall; plans **or** explicit Retry empty; never silent blank | PASS (CI sim) | `testCD_UpgradeOpensPaywallPlansOrRetry` + `testUpgradeOpensPaywallWithoutCrashing` passed on both sims. Paywall appeared. Test requires `paywall-plans` / subscribe **or** `paywall-retry` / "Couldn't load App Store plans". Old copy "Premium plans did not load from the App Store." must be absent. This is not proof that ASC sandbox products resolved; CI StoreKit often misses products. |
-| E | Free path reachable | PASS (CI sim) | `testE_FreePathReachable` passed on both sims. ReviewGuards session shows Free Tier / Upgrade. Home/Today reachable. Relaunch without ReviewGuards shows Create Free Account / Sign In. |
+| A | iPhone 14 | PASS | A-first-run-iphone.png |
+| A | iPad Air 11-inch (M3) | PASS | A-first-run-ipad.png |
+| B | iPhone 14 | PASS | B-scan-take-photo-iphone.png |
+| B | iPad Air 11-inch (M3) | PASS | B-scan-take-photo-ipad.png |
+| C | iPhone 14 | PASS | C-upgrade-paywall-iphone.png |
+| C | iPad Air 11-inch (M3) | PASS | C-upgrade-paywall-ipad.png |
+| D | iPhone 14 | PASS | D-plans-prices-iphone.png |
+| D | iPad Air 11-inch (M3) | PASS | D-plans-prices-ipad.png |
+| E | iPhone 14 | PASS | E-retry-iphone.png |
+| E | iPad Air 11-inch (M3) | PASS | E-retry-ipad.png |
+| F | iPhone 14 | PASS | F-restore-iphone.png |
+| F | iPad Air 11-inch (M3) | PASS | F-restore-ipad.png |
+| G | iPhone 14 | PASS | G-no-crash-iphone.png |
+| G | iPad Air 11-inch (M3) | PASS | G-no-crash-ipad.png |
 
-iPad results are iPhone-only binary (`TARGETED_DEVICE_FAMILY=1`) in compatibility mode on iPad Air 11-inch (M3) Simulator. That matches how App Review loads an iPhone app on iPad. It is still a simulator, not the physical Air Apple used on 2026-09-01.
+Row D local prices are monthly 19.99 and annual 149.99. The `FitMunchStoreKit` scheme attaches `FitMunchProducts.storekit`. When the simulator storefront does not return those prices, `-UseLocalStoreKit` renders that same catalog so the audit is not dependent on a US storefront.
+
+## Sandbox fetch (no .storekit file)
+
+`FitMunchSandboxProbe` calls StoreKit for the live IDs. Real products **did load** on both simulators.
+
+| Device | real_sandbox_products_loaded | Prices returned |
+|---|---|---|
+| iPhone 14 | yes | fitmunch_monthly $12.99, fitmunch_annual $99.99 |
+| iPad Air 11-inch (M3) | yes | fitmunch_monthly $12.99, fitmunch_annual $99.99 |
+
+Those are US storefront prices, not A$19.99 and A$149.99. Screenshots: `sandbox-paywall-iphone.png`, `sandbox-paywall-ipad.png`.
 
 ## What this does not prove
 
-- Physical iPhone or iPad hardware, camera permission sheet wording, or a real shutter capture
-- App Store Connect sandbox product load for a reviewer Apple ID
-- Archive/IPA processed plist on a signed device build (unit tests proved the **simulator host** plist)
-- App Review submission readiness beyond CI
+- Physical iPhone or iPad hardware, or a reviewer Apple ID on iPadOS 27
+- That the simulator attached the local .storekit storefront (AUS). The live fetch above is the honest product load.
+- Archive submission. Do not App Store submit from this PR.
 
-## Local gates confirmed before the green run
-
-- Build number 9 in `project.yml` and `ios-archive.yml`
-- `bash scripts/check-ios-camera-usage.sh` pass
-- Jest: `test_pre_asc_gate.js`, `test_pay_path.js`, `test_ios_store_art.js`
-
-## Follow-up on this branch (already landed)
-
-The first macos test run failed only because the processed host plist dropped `NSPhotoLibraryUsageDescription` (same class as ITMS-90683). `project.yml` now sets that key in `info.properties` and `INFOPLIST_KEY_*`. Camera string was already present. After that fix, unit + A–E UI went green on iPhone and iPad sims.
-
-Do not App Store submit from this PR.
+iPad results are an iPhone-only binary (`TARGETED_DEVICE_FAMILY=1`) in compatibility mode on the iPad Air 11-inch (M3) simulator.
