@@ -198,6 +198,13 @@ describe('POST /api/checkout pay path', () => {
   const mockStripe = {
     customers: {
       create: jest.fn(async ({ email, name }) => ({ id: 'cus_pay_path', email, name })),
+      retrieve: jest.fn(async (id) => ({
+        id,
+        email: 'stranger@example.com',
+        metadata: { brand: 'fitmunch', product: 'fitmunch' },
+      })),
+      list: jest.fn(async () => ({ data: [] })),
+      search: jest.fn(async () => ({ data: [] })),
     },
     subscriptions: {
       list: jest.fn(async () => ({ data: [] })),
@@ -226,6 +233,7 @@ describe('POST /api/checkout pay path', () => {
   beforeEach(() => {
     created.length = 0;
     mockStripe.rawRequest.mockClear();
+    app._private.setStripeForTests(mockStripe);
     storage.getUserById = jest.fn(async (id) => ({
       id,
       email: 'stranger@example.com',
@@ -278,7 +286,9 @@ describe('POST /api/checkout pay path', () => {
     expect(created[0].params.line_items[0].price).toBe(PRICE_IDS.premium);
     expect(created[0].params.metadata.plan).toBe('premium');
     expect(JSON.stringify(created[0].params)).not.toMatch(/Wipper|wipper|Develoop/i);
-    expect(mockStripe.rawRequest.mock.calls[0][3]).toEqual({ apiVersion: '2026-03-25.dahlia' });
+    expect(mockStripe.rawRequest.mock.calls[0][3].apiVersion).toBe('2026-03-25.dahlia');
+    expect(mockStripe.rawRequest.mock.calls[0][3].idempotencyKey).toEqual(expect.stringContaining('checkout'));
+    expect(mockStripe.rawRequest.mock.calls[0][3].idempotencyKey).toEqual(expect.stringContaining(PRICE_IDS.premium));
   });
 });
 

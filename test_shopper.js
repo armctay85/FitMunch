@@ -86,7 +86,8 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).not.toContain('we pay Woolworths');
     expect(page.text).toContain('We do not pay Woolies');
     expect(page.text).toContain('Stripe Link is not used for this shop');
-    expect(page.text).toContain('No Apple Watch. No HealthKit.');
+    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices are public catalogue specials, not a live trolley scrape.');
+    expect(page.text).not.toContain('No Apple Watch. No HealthKit.');
 
     const home = await request(app).get('/').expect(200);
     expect(home.text).not.toContain('id="commit"');
@@ -122,8 +123,8 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(html).toContain('$19.99 a month');
     expect(html).toContain('href="/login.html?plan=premium#register"');
     expect(html).toContain('We do not pay Woolies');
-    expect(html).toContain('not a live trolley scrape');
-    expect(html).toContain('No Apple Watch. No HealthKit.');
+    expect(html).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices are public catalogue specials, not a live trolley scrape.');
+    expect(html).not.toContain('No Apple Watch. No HealthKit.');
     expect(html).not.toMatch(/fm-groceries/);
     expect(read('public/index.html')).toContain('Your body wrote the trolley.');
   });

@@ -82,7 +82,9 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/shopper');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/budget-meal-planner"');
-    expect(res.text).toContain('Start Premium trial, $19.99/mo');
+    expect(res.text).toContain('14-day trial, then');
+    expect(res.text).toContain('$19.99 a month');
+    expect(res.text).toContain('Start the 14-day trial');
     expect(res.text).not.toContain('Photograph your receipt');
   });
 

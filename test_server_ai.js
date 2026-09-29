@@ -52,7 +52,9 @@ jest.mock('./lib/ai-usage', () => {
 });
 
 jest.mock('./server/storage.js', () => {
-  const actual = {
+  const actual = jest.requireActual('./server/storage.js');
+  return {
+    ...actual,
     createUser: jest.fn(),
     getUserByEmail: jest.fn(),
     getUserById: jest.fn(async () => ({
@@ -73,10 +75,7 @@ jest.mock('./server/storage.js', () => {
     logProgress: jest.fn(),
     getProgressHistory: jest.fn(async () => []),
     trackEvent: jest.fn(),
-    db: {},
-    schema: {},
   };
-  return actual;
 });
 
 jest.mock('pg', () => ({ Pool: class { query() { return Promise.resolve({ rows: [] }); } } }));

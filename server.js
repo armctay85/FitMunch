@@ -218,7 +218,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  const { updateUserSubscription, db, schema } = require('./server/storage.js');
+  const { updateUserSubscription, effectiveTier, db, schema } = require('./server/storage.js');
   const { eq } = require('drizzle-orm');
 
   try {
@@ -230,6 +230,13 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const planId = session.metadata?.plan || '';
         const planLabels = { 'pt-starter': 'Starter', 'pt-pro': 'Pro', 'premium': 'Premium' };
         const planLabel = planLabels[planId] || planId || 'PT';
+        const sessionCustomerId = typeof session.customer === 'string'
+          ? session.customer
+          : session.customer?.id;
+        if (sessionCustomerId) {
+          await cancelNewerDuplicateSubscriptions(stripe, sessionCustomerId);
+          await cancelNewerDuplicatesAcrossCustomers(stripe, sessionCustomerId, customerEmail);
+        }
         console.log(`Checkout completed: ${customerEmail} → plan ${planId}`);
 
         // Send welcome email asynchronously (fire-and-forget, don't block webhook response)
@@ -243,17 +250,49 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const sub = event.data.object;
-        const { tier, expiresAt } = subscriptionTierUpdateFromStripe(sub);
+        let tierSource = sub;
+        const liveNow = LIVE_SUBSCRIPTION_STATUSES.includes(sub.status);
+        const runDedupe = Boolean(sub.customer) && (
+          event.type === 'customer.subscription.created' ||
+          (event.type === 'customer.subscription.updated' && liveNow)
+        );
+        if (runDedupe) {
+          const deduped = await cancelNewerDuplicateSubscriptions(stripe, sub.customer, [sub]);
+          if (deduped.kept) tierSource = deduped.kept;
+          const across = await cancelNewerDuplicatesAcrossCustomers(stripe, sub.customer);
+          const eventCancelled = (across.cancelled || []).some((row) => row.id === sub.id);
+          if (eventCancelled && across.kept) tierSource = across.kept;
+        }
+        const { tier, expiresAt } = subscriptionTierUpdateFromStripe(tierSource);
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
-        if (users[0]) await updateUserSubscription(users[0].id, tier, expiresAt);
+        if (users[0]) {
+          await updateUserSubscription(users[0].id, tier, expiresAt);
+          if (tier === 'free' && effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
+            const until = users[0].settings && users[0].settings.compPremiumUntil;
+            console.log(`[comp] ${users[0].email || users[0].id} stays Premium until ${until} after Stripe set the tier to free`);
+          }
+        }
         console.log(`Subscription ${event.type}: customer ${sub.customer} → ${tier}`);
         break;
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
-        if (users[0]) await updateUserSubscription(users[0].id, 'free', null);
-        console.log(`Subscription cancelled: customer ${sub.customer}`);
+        const stillLive = sub.customer
+          ? await customerStillHasLiveFitMunchSub(stripe, sub.customer, sub.id)
+          : false;
+        if (users[0] && !stillLive) {
+          await updateUserSubscription(users[0].id, 'free', null);
+          if (effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
+            const until = users[0].settings && users[0].settings.compPremiumUntil;
+            console.log(`[comp] ${users[0].email || users[0].id} stays Premium until ${until} after Stripe set the tier to free`);
+          }
+        }
+        if (stillLive) {
+          console.warn(`[checkout] ignored cancel for ${sub.id}; customer ${sub.customer} still has a live FitMunch subscription`);
+        } else {
+          console.log(`Subscription cancelled: customer ${sub.customer}`);
+        }
         break;
       }
       case 'invoice.payment_failed':
@@ -306,6 +345,10 @@ app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
 app.get('/try', (req, res) => res.redirect(301, '/demo'));
+// SEO pack 2 landers (new routes only)
+app.get('/woolworths-meal-planner', (req, res) => res.sendFile('woolworths-meal-planner.html', { root: 'public' }));
+app.get('/coles-meal-planner', (req, res) => res.sendFile('coles-meal-planner.html', { root: 'public' }));
+app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shopping-list.html', { root: 'public' }));
 // /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)
@@ -379,7 +422,7 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
   }
   
   try {
-    const { priceId, customerId, successUrl, cancelUrl } = req.body;
+    const { priceId, customerId, successUrl, cancelUrl } = req.body || {};
 
     if (!priceId || !customerId || !successUrl || !cancelUrl) {
       return res.status(400).json({ 
@@ -388,24 +431,38 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
       });
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1
-        },
-      ],
-      success_url: successUrl,
-      cancel_url: cancelUrl
-    });
+    const plan = planForPriceId(priceId);
+    if (!plan) {
+      return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
+    }
 
-    res.json({ 
-      success: true, 
-      url: session.url,
-      id: session.id
+    // Unauthenticated. Ignore the customer id in the body: attaching Checkout
+    // to it would show that customer's saved cards and leak subscription state.
+    const storage = require('./server/storage.js');
+    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const fingerprint = guestCheckoutFingerprint({
+      nonce,
+      email,
+      plan,
+      ip,
+      userAgent,
+      uniquePerRequest: !nonce && !email,
+    });
+    const result = await storage.withStripeCustomerLock(`guest:${fingerprint}:${email}:${priceId}`, () =>
+      openUnauthenticatedCheckout(stripe, {
+        fingerprint,
+        email,
+        priceId,
+        plan,
+        origin: checkoutOrigin(req),
+      })
+    );
+
+    res.json({
+      success: true,
+      url: result.url,
+      id: result.id
     });
   } catch (error) {
     console.error('Error creating checkout session:', error);
@@ -424,16 +481,96 @@ const {
   checkoutOrigin,
   normalizeCheckoutPlan,
   subscriptionTierUpdateFromStripe,
-  buildSubscriptionCheckoutParams,
-  createFitMunchCheckoutSession,
+  findOrCreateStripeCustomer,
+  resolveSubscriptionCheckout,
+  cancelNewerDuplicateSubscriptions,
+  customerStillHasLiveFitMunchSub,
+  stripeIdempotencyKey,
+  planForPriceId,
+  guestCheckoutFingerprint,
+  checkoutRequestParts,
+  openUnauthenticatedCheckout,
+  createFitMunchCustomer,
+  cancelNewerDuplicatesAcrossCustomers,
+  linkedCustomerHasLiveFitMunchSub,
+  LIVE_SUBSCRIPTION_STATUSES,
+  resetCheckoutGuardsForTests,
 } = require('./lib/fitmunch-checkout');
+
+function requireAuthUser(req) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const err = new Error('Authentication required.');
+    err.statusCode = 401;
+    throw err;
+  }
+  const jwtLib = require('jsonwebtoken');
+  try {
+    return jwtLib.verify(authHeader.slice(7), jwtSecret());
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      const authErr = new Error('Authentication required.');
+      authErr.statusCode = 401;
+      throw authErr;
+    }
+    throw err;
+  }
+}
+
+function sendAuthError(err, res) {
+  if (err.statusCode === 401 || err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+    res.status(401).json({ error: 'Authentication required.' });
+    return true;
+  }
+  return false;
+}
+
+async function loadCheckoutUser(decoded) {
+  const storage = require('./server/storage.js');
+  let checkoutSmokeFallback = false;
+  let user = null;
+  try {
+    user = await storage.getUserById(decoded.userId);
+  } catch (dbErr) {
+    if (process.env.FITMUNCH_CHECKOUT_SMOKE_FALLBACK === 'true' && process.env.NODE_ENV !== 'production') {
+      checkoutSmokeFallback = true;
+      user = {
+        id: decoded.userId,
+        email: decoded.email || `smoke-${decoded.userId}@fitmunch.invalid`,
+        name: decoded.name || 'FitMunch Smoke User',
+        subscriptionTier: 'free',
+        stripeCustomerId: null,
+      };
+    } else {
+      throw dbErr;
+    }
+  }
+  if (!user) {
+    const err = new Error('User not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  return { storage, user, checkoutSmokeFallback };
+}
+
+function checkoutJson(result) {
+  if (result.alreadySubscribed) {
+    return {
+      alreadySubscribed: true,
+      url: null,
+      message: result.message,
+    };
+  }
+  return { url: result.url, id: result.id };
+}
 
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
 app.post('/api/quick-checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
 
   try {
-    const { email, plan } = req.body;
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const plan = req.body?.plan;
     if (!email || !plan) {
       return res.status(400).json({ success: false, error: 'Email and plan are required.' });
     }
@@ -443,18 +580,22 @@ app.post('/api/quick-checkout', async (req, res) => {
       return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use premium, pt-starter, or pt-pro.` });
     }
 
-    // Create Stripe customer
-    const customer = await stripe.customers.create({ email });
+    // Same response whether or not this email already has a Stripe customer
+    // or a subscription. Do not look the email up.
+    const storage = require('./server/storage.js');
+    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
+    const fingerprint = guestCheckoutFingerprint({ nonce, email, plan, ip, userAgent });
+    const result = await storage.withStripeCustomerLock(`guest:${fingerprint}`, () =>
+      openUnauthenticatedCheckout(stripe, {
+        fingerprint,
+        email,
+        priceId,
+        plan,
+        origin: checkoutOrigin(req),
+      })
+    );
 
-    const session = await createFitMunchCheckoutSession(stripe, buildSubscriptionCheckoutParams({
-      customerId: customer.id,
-      priceId,
-      origin: checkoutOrigin(req),
-      plan,
-      email,
-    }));
-
-    return res.json({ success: true, url: session.url, id: session.id });
+    return res.json({ success: true, url: result.url, id: result.id });
   } catch (error) {
     console.error('Quick checkout error:', error);
     return res.status(500).json({ success: false, error: error.message });
@@ -465,13 +606,7 @@ app.post('/api/checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
 
   try {
-    // Verify JWT
-    const authHeader = req.headers['authorization'];
-    if (!authHeader?.startsWith('Bearer '))
-      return res.status(401).json({ error: 'Authentication required.' });
-
-    const jwtLib = require('jsonwebtoken');
-    const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
+    const decoded = requireAuthUser(req);
 
     const requestedPlan = typeof req.body?.plan === 'string' ? req.body.plan : null;
     if (!requestedPlan) {
@@ -489,87 +624,48 @@ app.post('/api/checkout', async (req, res) => {
       return res.status(400).json({ error: `Unknown plan: ${requestedPlan}` });
     }
 
-    // Get or create Stripe customer
-    const { getUserById, updateUserSubscription } = require('./server/storage.js');
-    let user = null;
-    let checkoutSmokeFallback = false;
-    try {
-      user = await getUserById(decoded.userId);
-    } catch (dbErr) {
-      if (process.env.FITMUNCH_CHECKOUT_SMOKE_FALLBACK === 'true' && process.env.NODE_ENV !== 'production') {
-        checkoutSmokeFallback = true;
-        user = {
-          id: decoded.userId,
-          email: decoded.email || `smoke-${decoded.userId}@fitmunch.invalid`,
-          name: decoded.name || 'FitMunch Smoke User',
-          subscriptionTier: 'free',
-          stripeCustomerId: null,
-        };
-      } else {
-        throw dbErr;
-      }
-    }
-    if (!user) return res.status(404).json({ error: 'User not found.' });
-
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({ email: user.email, name: user.name,
-        metadata: { userId: user.id } });
-      customerId = customer.id;
+    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+    const { eq } = require('drizzle-orm');
+    const result = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
+      // Re-read inside the lock so a concurrent new-user submit sees the customer
+      // id the first request just stored.
+      let current = user;
       if (!checkoutSmokeFallback) {
-        await updateUserSubscription(user.id, user.subscriptionTier || 'free', null);
-        // Persist stripe customer ID
-        const storage = require('./server/storage.js');
-        const { eq } = require('drizzle-orm');
+        const fresh = await storage.getUserById(user.id);
+        if (fresh) current = fresh;
+      }
+      if (current.stripeCustomerId && await linkedCustomerHasLiveFitMunchSub(stripe, current.stripeCustomerId)) {
+        return {
+          alreadySubscribed: true,
+          url: null,
+          message: 'You already have an active FitMunch subscription. Open Billing to manage it.',
+        };
+      }
+      const customerId = await findOrCreateStripeCustomer(stripe, {
+        userId: current.id,
+        email: current.email,
+        name: current.name,
+        existingCustomerId: current.stripeCustomerId,
+      });
+      if (!checkoutSmokeFallback && customerId !== current.stripeCustomerId) {
+        await storage.updateUserSubscription(current.id, current.subscriptionTier || 'free', null);
         await storage.db.update(storage.schema.users)
           .set({ stripeCustomerId: customerId })
-          .where(eq(storage.schema.users.id, user.id));
+          .where(eq(storage.schema.users.id, current.id));
       }
-    }
-
-    // Prevent duplicate Premium/PT subs (first payer was double-charged).
-    const existingSubs = await stripe.subscriptions.list({
-      customer: customerId,
-      status: 'all',
-      limit: 20,
-    });
-    const liveSubs = existingSubs.data.filter((s) =>
-      ['active', 'trialing'].includes(s.status)
-    );
-    if (liveSubs.length) {
-      // Keep the newest live sub; cancel any extras immediately.
-      liveSubs.sort((a, b) => (b.created || 0) - (a.created || 0));
-      for (const dup of liveSubs.slice(1)) {
-        try {
-          await stripe.subscriptions.cancel(dup.id, {
-            invoice_now: false,
-            prorate: false,
-          });
-          console.warn('[checkout] cancelled duplicate sub', dup.id, 'for', customerId);
-        } catch (e) {
-          console.warn('[checkout] duplicate cancel failed', dup.id, e.message);
-        }
-      }
-      return res.json({
-        alreadySubscribed: true,
-        url: null,
-        message: 'You already have an active FitMunch subscription. Open Billing to manage it.',
+      return resolveSubscriptionCheckout(stripe, {
+        customerId,
+        priceId,
+        plan,
+        email: current.email,
+        origin: checkoutOrigin(req),
       });
-    }
+    });
 
-    const session = await createFitMunchCheckoutSession(stripe, buildSubscriptionCheckoutParams({
-      customerId,
-      priceId,
-      origin: checkoutOrigin(req),
-      plan,
-      email: user.email,
-    }));
-
-    res.json({ url: session.url, id: session.id });
+    res.json(checkoutJson(result));
   } catch (err) {
-    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Authentication required.' });
-    }
+    if (sendAuthError(err, res)) return;
+    if (err.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
     console.error('Checkout error:', err.message);
     res.status(500).json({ error: 'Checkout failed: ' + err.message });
   }
@@ -589,11 +685,11 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const jwtLib = require('jsonwebtoken');
     const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
 
-    const { getUserById, updateUserSubscription } = require('./server/storage.js');
+    const { getUserById, updateUserSubscription, effectiveTier } = require('./server/storage.js');
     const user = await getUserById(decoded.userId);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
     if (!user.stripeCustomerId) {
-      return res.json({ success: true, tier: user.subscriptionTier || 'free', synced: false });
+      return res.json({ success: true, tier: effectiveTier(user), synced: false });
     }
 
     const subs = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: 'all', limit: 10 });
@@ -606,11 +702,17 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
       const periodEnd = live.current_period_end || live.items?.data[0]?.current_period_end;
       expiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
     }
-    if ((user.subscriptionTier || 'free') !== tier) {
+    const previousTier = user.subscriptionTier || 'free';
+    const accessTier = effectiveTier({ ...user, subscriptionTier: tier });
+    if (previousTier !== tier) {
       await updateUserSubscription(user.id, tier, expiresAt);
-      console.log(`[sync-subscription] ${user.email}: ${user.subscriptionTier || 'free'} → ${tier}`);
+      console.log(`[sync-subscription] ${user.email}: ${previousTier} → ${tier}`);
+      if (tier === 'free' && accessTier === 'premium') {
+        const until = user.settings && user.settings.compPremiumUntil;
+        console.log(`[comp] ${user.email} stays Premium until ${until} after Stripe sync set the tier to free`);
+      }
     }
-    return res.json({ success: true, tier, status: live?.status || 'none', synced: true });
+    return res.json({ success: true, tier: accessTier, status: live?.status || 'none', synced: true });
   } catch (err) {
     console.error('[sync-subscription]', err.message);
     return res.status(500).json({ success: false, error: err.message });
@@ -676,7 +778,9 @@ app.post('/api/stripe/customers', async (req, res) => {
   }
   
   try {
-    const { email, name, metadata } = req.body;
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const name = req.body?.name || '';
+    const metadata = req.body?.metadata || {};
 
     if (!email) {
       return res.status(400).json({ 
@@ -685,16 +789,26 @@ app.post('/api/stripe/customers', async (req, res) => {
       });
     }
 
-    const customer = await stripe.customers.create({
-      email,
-      name: name || '',
-      metadata: metadata || {}
-    });
+    // Unauthenticated. Never look up an existing customer by email.
+    const storage = require('./server/storage.js');
+    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
+    const fingerprint = guestCheckoutFingerprint({ nonce, email, plan: 'customer', ip, userAgent });
+    const safeMeta = { ...(metadata || {}) };
+    delete safeMeta.userId;
+    delete safeMeta.user_id;
+    const customer = await storage.withStripeCustomerLock(`guest-customer:${fingerprint}`, () =>
+      createFitMunchCustomer(stripe, {
+        email,
+        name,
+        metadata: safeMeta,
+        idempotencyParts: ['public-customer', fingerprint, email],
+      })
+    );
 
     res.json({ 
       success: true, 
       id: customer.id,
-      email: customer.email
+      email
     });
   } catch (error) {
     console.error('Error creating customer:', error);
@@ -729,16 +843,25 @@ app.get('/api/checkout/session', async (req, res) => {
 app.post('/api/billing-portal', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
   try {
-    const { customerId } = req.body;
-    if (!customerId) return res.status(400).json({ error: 'customerId required' });
+    const decoded = requireAuthUser(req);
+    const { user } = await loadCheckoutUser(decoded);
+    // Never trust a customer id from the browser. A logged-in user can only
+    // open the portal for the Stripe customer stored on their own account.
+    const customerId = user.stripeCustomerId;
+    if (!customerId) return res.status(400).json({ error: 'No billing account for this user.' });
 
-    const origin = req.headers.origin || 'https://www.fitmunch.com.au';
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${origin}/pricing`,
-    });
+    const origin = checkoutOrigin(req);
+    const portal = await stripe.billingPortal.sessions.create(
+      {
+        customer: customerId,
+        return_url: `${origin}/pricing`,
+      },
+      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId]) }
+    );
     res.json({ success: true, url: portal.url });
   } catch (e) {
+    if (sendAuthError(e, res)) return;
+    if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
     console.error('Billing portal error:', e.message);
     res.status(500).json({ error: e.message });
   }
@@ -820,6 +943,7 @@ if (require.main === module) {
 
 function setStripeForTests(next) {
   stripe = next;
+  resetCheckoutGuardsForTests();
 }
 
 module.exports = app;
