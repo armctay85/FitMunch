@@ -54,6 +54,24 @@ function makeFakeStripe() {
         const data = S.customers.filter((c) => !email || String(c.email || '').toLowerCase() === String(email).toLowerCase());
         return { data };
       }),
+      search: jest.fn(async () => {
+        await tick(10);
+        return { data: S.customers.slice() };
+      }),
+      retrieve: jest.fn(async (customerId) => {
+        const found = S.customers.find((c) => c.id === customerId);
+        if (found) return found;
+        if (customerId === 'cus_existing' || customerId === 'cus_other') {
+          return {
+            id: customerId,
+            email: 'steph@example.com',
+            metadata: { brand: 'fitmunch', product: 'fitmunch', userId: 'u1' },
+          };
+        }
+        const err = new Error('No such customer: ' + customerId);
+        err.code = 'resource_missing';
+        throw err;
+      }),
     },
     subscriptions: {
       list: jest.fn(async ({ customer } = {}) => {
@@ -429,7 +447,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
 });
 
 describe('checkout entry guards', () => {
-  test('an incomplete subscription blocks another checkout', async () => {
+  test('an incomplete subscription does not block another checkout', async () => {
     fake.S.subs.push({
       id: 'sub_incomplete',
       customer: 'cus_existing',
@@ -438,8 +456,11 @@ describe('checkout entry guards', () => {
       items: { data: [{ price: { id: PRICE_IDS.premium } }] },
     });
     const res = await post().expect(200);
-    expect(res.body.alreadySubscribed).toBe(true);
-    expect(fake.S.sessions).toHaveLength(0);
+    expect(res.body.url).toBeTruthy();
+    expect(res.body.alreadySubscribed).toBeUndefined();
+    expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.S.sessions[0].params.customer).toBe('cus_existing');
+    expect(fake.S.subs.find((s) => s.id === 'sub_incomplete').status).toBe('incomplete');
   });
 
   test('checkout keeps the oldest live sub and cancels the newer one', async () => {
@@ -486,8 +507,14 @@ describe('checkout entry guards', () => {
 
     fake.complete(fake.S.sessions[0].id);
     const third = await request(app).post('/api/stripe/checkout-sessions').send(body).expect(200);
-    expect(third.body.alreadySubscribed).toBe(true);
+    expect(third.body.success).toBe(true);
+    expect(third.body.url).toBe(first.body.url);
+    expect(third.body.alreadySubscribed).toBeUndefined();
     expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.S.sessions[0].customer).not.toBe('cus_existing');
+    expect(fake.S.sessions[0].params.saved_payment_method_options).toBeUndefined();
+    expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/allow_redisplay|saved_payment_method/);
+    expect(fake.customers.list).not.toHaveBeenCalled();
     expect(fake.S.subs.filter((s) => s.status === 'trialing')).toHaveLength(1);
   });
 
@@ -557,6 +584,227 @@ describe('client checkout dedupe', () => {
     expect(success).toContain('Authorization');
     expect(success).not.toContain('customerId: sessionCustomerId');
     expect(success).toContain('if (portalInFlight) return portalInFlight;');
+  });
+});
+
+function publicCheckoutShape(res) {
+  return {
+    status: res.status,
+    success: res.body.success,
+    keys: Object.keys(res.body).sort(),
+    urlIsCheckout: typeof res.body.url === 'string' && res.body.url.includes('checkout.stripe.com'),
+    hasId: typeof res.body.id === 'string' && res.body.id.length > 0,
+    alreadySubscribed: Object.prototype.hasOwnProperty.call(res.body, 'alreadySubscribed'),
+    message: Object.prototype.hasOwnProperty.call(res.body, 'message'),
+  };
+}
+
+describe('unauthenticated checkout privacy', () => {
+  function seedVictim() {
+    fake.S.customers.push({
+      id: 'cus_victim',
+      email: 'victim@example.com',
+      created: 1,
+      metadata: { brand: 'wipper', product: 'wipper' },
+      invoice_settings: { default_payment_method: 'pm_saved_card' },
+    });
+    fake.S.subs.push({
+      id: 'sub_victim',
+      customer: 'cus_victim',
+      status: 'active',
+      created: 10,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+      metadata: { product: 'fitmunch', brand: 'FitMunch' },
+    });
+  }
+
+  test('a stranger using an existing customer email gets a new FitMunch customer and no saved cards', async () => {
+    seedVictim();
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'victim@example.com', plan: 'premium' })
+      .expect(200);
+
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    const created = fake.customers.create.mock.calls[0][0];
+    expect(created.email).toBe('victim@example.com');
+    expect(created.metadata.brand).toBe('fitmunch');
+    expect(created.metadata.product).toBe('fitmunch');
+    expect(fake.S.customers.find((c) => c.id === 'cus_victim')).toBeTruthy();
+    expect(res.body.success).toBe(true);
+    expect(res.body.alreadySubscribed).toBeUndefined();
+    expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.S.sessions[0].customer).not.toBe('cus_victim');
+    expect(fake.S.sessions[0].customer).toBe(fake.S.customers.find((c) => c.id !== 'cus_victim').id);
+    expect(fake.S.sessions[0].params.saved_payment_method_options).toBeUndefined();
+    expect(fake.S.sessions[0].params.allow_redisplay).toBeUndefined();
+    expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/allow_redisplay|saved_payment_method|pm_saved_card|cus_victim/);
+    expect(fake.S.sessions[0].params.line_items[0].price).toBe('price_1ToYrXGMuYRuJYDrwHtvWD1c');
+    expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
+    expect(fake.S.subs.find((s) => s.id === 'sub_victim').status).toBe('active');
+  });
+
+  test('known and unknown emails get the same response shape and status', async () => {
+    seedVictim();
+    const known = await request(app).post('/api/quick-checkout')
+      .send({ email: 'victim@example.com', plan: 'premium' });
+    const unknown = await request(app).post('/api/quick-checkout')
+      .send({ email: 'nobody@example.com', plan: 'premium' });
+
+    expect(publicCheckoutShape(known)).toEqual(publicCheckoutShape(unknown));
+    expect(known.status).toBe(200);
+    expect(known.body.id).not.toBe(unknown.body.id);
+    expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
+    expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    const createdEmails = fake.customers.create.mock.calls.map((call) => call[0].email).sort();
+    expect(createdEmails).toEqual(['nobody@example.com', 'victim@example.com']);
+    expect(fake.S.sessions.every((session) => session.customer !== 'cus_victim')).toBe(true);
+  });
+
+  test('two simultaneous submits from the same browser yield one session', async () => {
+    const send = () => request(app).post('/api/quick-checkout')
+      .set('User-Agent', 'FitMunchPrivacyTest/1.0')
+      .send({ email: 'double@example.com', plan: 'premium' });
+    const [first, second] = await Promise.all([send(), send()]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body.url).toBe(first.body.url);
+    expect(second.body.id).toBe(first.body.id);
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('double@example.com'));
+    expect(fake.customers.create.mock.calls[0][1].idempotencyKey).not.toEqual(expect.stringContaining('cus_'));
+  });
+
+  test('a client nonce dedupes a double submit without looking up customers by email', async () => {
+    const send = () => request(app).post('/api/quick-checkout')
+      .set('Idempotency-Key', 'browser-attempt-42')
+      .set('User-Agent', 'FitMunchPrivacyTest/1.0')
+      .send({ email: 'nonce@example.com', plan: 'premium' });
+    const [first, second] = await Promise.all([send(), send()]);
+    expect(second.body.url).toBe(first.body.url);
+    expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('browser-attempt-42'));
+  });
+
+  test('public customer create and checkout-sessions do not reuse a customer found by email', async () => {
+    seedVictim();
+    const created = await request(app).post('/api/stripe/customers')
+      .send({ email: 'victim@example.com', name: 'Stranger', metadata: { userId: 'u1', isTest: true } })
+      .expect(200);
+    expect(created.body.id).not.toBe('cus_victim');
+    expect(created.body.email).toBe('victim@example.com');
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    const customer = fake.S.customers.find((c) => c.id === created.body.id);
+    expect(customer.metadata.brand).toBe('fitmunch');
+    expect(customer.metadata.userId).toBeUndefined();
+    expect(customer.metadata.isTest).toBe(true);
+
+    const session = await request(app).post('/api/stripe/checkout-sessions').send({
+      priceId: PRICE_IDS.premium,
+      customerId: 'cus_victim',
+      successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+      cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    }).expect(200);
+    expect(session.body.alreadySubscribed).toBeUndefined();
+    expect(session.body.url).toBeTruthy();
+    expect(fake.S.sessions[0].customer).not.toBe('cus_victim');
+    expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/saved_payment_method|allow_redisplay|pm_saved_card/);
+  });
+});
+
+describe('logged-in customer reuse is the linked FitMunch customer', () => {
+  test('reuses the linked FitMunch customer and ignores another customer with the same email', async () => {
+    fake.S.customers.push(
+      {
+        id: 'cus_linked',
+        email: 'not-the-login-email@example.com',
+        metadata: { brand: 'fitmunch', product: 'fitmunch', userId: 'u1' },
+      },
+      {
+        id: 'cus_same_email',
+        email: 'steph@example.com',
+        metadata: { brand: 'wipper', product: 'wipper' },
+        invoice_settings: { default_payment_method: 'pm_other_brand' },
+      }
+    );
+    fake.S.subs.push({
+      id: 'sub_other',
+      customer: 'cus_same_email',
+      status: 'active',
+      created: 5,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    });
+    users.u1.stripeCustomerId = 'cus_linked';
+
+    const res = await post().expect(200);
+    expect(res.body.url).toBeTruthy();
+    expect(res.body.alreadySubscribed).toBeUndefined();
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(fake.customers.create).not.toHaveBeenCalled();
+    expect(fake.S.sessions[0].customer).toBe('cus_linked');
+    expect(fake.S.sessions[0].params.customer).toBe('cus_linked');
+  });
+
+  test('a linked customer from another brand is not reused', async () => {
+    fake.S.customers.push({
+      id: 'cus_foreign',
+      email: 'steph@example.com',
+      metadata: { brand: 'wipper', product: 'wipper' },
+      invoice_settings: { default_payment_method: 'pm_foreign' },
+    });
+    users.u1.stripeCustomerId = 'cus_foreign';
+
+    const res = await post().expect(200);
+    expect(res.body.url).toBeTruthy();
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    const created = fake.customers.create.mock.calls[0][0];
+    expect(created.metadata.brand).toBe('fitmunch');
+    expect(fake.S.sessions[0].customer).not.toBe('cus_foreign');
+    expect(fake.S.sessions[0].params.customer).toBe(fake.S.customers.find((c) => c.metadata.brand === 'fitmunch' && c.id !== 'cus_foreign').id);
+    expect(users.u1.stripeCustomerId).toBe(fake.S.sessions[0].customer);
+    expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/pm_foreign|saved_payment_method|allow_redisplay/);
+  });
+
+  test('a logged-in user with no stripe id does not attach a customer found by email', async () => {
+    fake.S.customers.push({
+      id: 'cus_by_email',
+      email: 'steph@example.com',
+      metadata: { brand: 'fitmunch', product: 'fitmunch' },
+    });
+    users.u1.stripeCustomerId = null;
+
+    const res = await post().expect(200);
+    expect(res.body.url).toBeTruthy();
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(fake.S.sessions[0].customer).not.toBe('cus_by_email');
+    expect(users.u1.stripeCustomerId).toBe(fake.S.sessions[0].customer);
+    expect(fake.customers.create.mock.calls[0][0].metadata.brand).toBe('fitmunch');
+  });
+
+  test('an active subscription on the linked FitMunch customer still blocks a second checkout', async () => {
+    fake.S.subs.push({
+      id: 'sub_live',
+      customer: 'cus_existing',
+      status: 'active',
+      created: 20,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+      metadata: { product: 'fitmunch' },
+    });
+    const res = await post().expect(200);
+    expect(res.body.alreadySubscribed).toBe(true);
+    expect(res.body.url).toBeNull();
+    expect(fake.S.sessions).toHaveLength(0);
   });
 });
 

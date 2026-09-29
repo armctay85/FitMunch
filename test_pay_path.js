@@ -198,6 +198,13 @@ describe('POST /api/checkout pay path', () => {
   const mockStripe = {
     customers: {
       create: jest.fn(async ({ email, name }) => ({ id: 'cus_pay_path', email, name })),
+      retrieve: jest.fn(async (id) => ({
+        id,
+        email: 'stranger@example.com',
+        metadata: { brand: 'fitmunch', product: 'fitmunch' },
+      })),
+      list: jest.fn(async () => ({ data: [] })),
+      search: jest.fn(async () => ({ data: [] })),
     },
     subscriptions: {
       list: jest.fn(async () => ({ data: [] })),
