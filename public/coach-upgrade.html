@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Upgrade FitMunch Coach | FitMunch</title>
+<meta name="description" content="Coach at A$39 covers 10 active clients. Upgrade to A$79 a month for an unlimited roster. 14-day trial, card required."/>
+<meta name="robots" content="noindex"/>
+<meta name="theme-color" content="#07130d"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+  body.fm-body{background:var(--fridge);min-height:100vh}
+  .upgrade-wrap{
+    width:min(420px,100%);
+    margin:0 auto;
+    padding:28px 20px 48px;
+  }
+  .upgrade-brand{
+    display:flex;align-items:center;gap:10px;
+    color:#fff;text-decoration:none;
+    font-family:'Bricolage Grotesque',system-ui,sans-serif;
+    font-weight:800;font-size:1.2rem;letter-spacing:-.04em;
+    margin-bottom:28px;
+  }
+  .upgrade-brand span{color:var(--leaf)}
+  .upgrade-card{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:8px;
+    padding:28px 22px 24px;
+  }
+  .kicker{
+    display:inline-flex;
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--leaf2);margin-bottom:12px;
+  }
+  h1{
+    font-size:1.85rem;line-height:1.05;letter-spacing:-.04em;
+    margin:0 0 14px;
+  }
+  .count{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:.95rem;font-weight:600;
+    background:#fff;border:1px solid var(--line);
+    border-radius:4px;padding:10px 12px;margin:0 0 14px;
+  }
+  .body{color:var(--mute);font-size:.95rem;line-height:1.55;margin:0 0 18px}
+  .price-row{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    border-top:1px solid var(--line);padding-top:16px;margin-bottom:16px;
+  }
+  .price-name{font-weight:800;font-size:1rem}
+  .price{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:1.7rem;font-weight:600;letter-spacing:-.04em;
+  }
+  .price small{font-family:'Literata',Georgia,serif;font-size:.85rem;color:var(--mute);font-weight:500}
+  .detail{color:var(--mute);font-size:.82rem;line-height:1.5;margin:12px 0 0}
+  #upgrade-btn,.stay{
+    width:100%;
+  }
+  .stay{
+    display:block;margin-top:10px;text-align:center;
+    background:transparent;color:var(--ink);
+  }
+  .error{color:var(--red);font-size:.85rem;margin-top:10px}
+  #started h1{font-size:1.7rem}
+</style>
+</head>
+<body class="fm-body">
+  <main class="upgrade-wrap">
+    <a class="upgrade-brand" href="/"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+
+    <section class="upgrade-card" id="prompt">
+      <div class="kicker">FitMunch Coach</div>
+      <h1>Your Coach roster is full</h1>
+      <p class="count" id="coach-count">10 of 10 active clients</p>
+      <p class="body" id="coach-body">Coach at A$39 a month covers 10 active clients. This roster is full. Upgrade to A$79 a month for an unlimited roster.</p>
+      <div class="price-row">
+        <div class="price-name">Coach Unlimited</div>
+        <div class="price">A$79<small>/mo</small></div>
+      </div>
+      <button type="button" class="fm-btn fm-btn-leaf" id="upgrade-btn">Upgrade to A$79</button>
+      <a class="fm-btn fm-btn-ink stay" href="/app.html">Stay on A$39</a>
+      <p class="detail">14-day trial. Card required. Cancel before the trial ends and you are not charged.</p>
+      <p class="error" id="upgrade-error" hidden></p>
+    </section>
+
+    <section class="upgrade-card" id="started" hidden>
+      <div class="kicker">FitMunch Coach</div>
+      <h1>Your 14-day Coach trial is starting</h1>
+      <p class="body">The card is saved. You will not be charged until the trial ends. You can cancel from Billing before then.</p>
+      <a class="fm-btn fm-btn-leaf" href="/app.html">Back to FitMunch</a>
+    </section>
+  </main>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var clients = parseInt(params.get('clients') || '10', 10);
+      if (!isFinite(clients) || clients < 10) clients = 10;
+      var count = document.getElementById('coach-count');
+      if (count) count.textContent = clients + ' of 10 active clients';
+      if (params.get('checkout') === 'started') {
+        document.getElementById('prompt').hidden = true;
+        document.getElementById('started').hidden = false;
+      }
+      var button = document.getElementById('upgrade-btn');
+      if (!button) return;
+      button.addEventListener('click', function () {
+        var token = '';
+        try { token = localStorage.getItem('fm_token') || ''; } catch (e) { token = ''; }
+        if (!token) {
+          window.location.href = '/login.html?plan=coach-79#register';
+          return;
+        }
+        var error = document.getElementById('upgrade-error');
+        button.disabled = true;
+        fetch('/api/coach/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ plan: 'coach-79' })
+        }).then(function (res) { return res.json().then(function (body) { return { ok: res.ok, body: body }; }); })
+          .then(function (result) {
+            if (result.body && result.body.url) {
+              window.location.href = result.body.url;
+              return;
+            }
+            if (result.body && result.body.upgraded) {
+              document.getElementById('prompt').hidden = true;
+              document.getElementById('started').hidden = false;
+              return;
+            }
+            if (result.body && result.body.alreadySubscribed) {
+              window.location.href = '/app.html';
+              return;
+            }
+            error.hidden = false;
+            error.textContent = (result.body && (result.body.error || result.body.message)) || 'Could not start the upgrade.';
+            button.disabled = false;
+          })
+          .catch(function () {
+            error.hidden = false;
+            error.textContent = 'Could not start the upgrade.';
+            button.disabled = false;
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

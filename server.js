@@ -218,7 +218,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  const { updateUserSubscription, effectiveTier, db, schema } = require('./server/storage.js');
+  const { updateUserSubscription, updateUserCoachBilling, effectiveTier, db, schema } = require('./server/storage.js');
   const { eq } = require('drizzle-orm');
 
   try {
@@ -246,11 +246,14 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           }).catch(e => console.error('Welcome email error:', e.message));
         }
         try {
-          const { scheduleFunnelEvent, trialStartedFromCheckoutSession } = require('./lib/funnel-events');
-          scheduleFunnelEvent(
-            trialStartedFromCheckoutSession(session, 'webhook'),
-            event && event.id ? `trial:${event.id}` : ''
-          );
+          const { isCoachPlanName } = require('./lib/fitmunch-checkout');
+          if (!isCoachPlanName(planId)) {
+            const { scheduleFunnelEvent, trialStartedFromCheckoutSession } = require('./lib/funnel-events');
+            scheduleFunnelEvent(
+              trialStartedFromCheckoutSession(session, 'webhook'),
+              event && event.id ? `trial:${event.id}` : ''
+            );
+          }
         } catch (_) {
           /* funnel log must not change the webhook response */
         }
@@ -272,8 +275,17 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           const eventCancelled = (across.cancelled || []).some((row) => row.id === sub.id);
           if (eventCancelled && across.kept) tierSource = across.kept;
         }
-        const { tier, expiresAt } = subscriptionTierUpdateFromStripe(tierSource);
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
+        const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
+        if (isCoachSubscription(tierSource)) {
+          const coachUpdate = coachTierUpdateFromStripe(tierSource);
+          if (users[0]) {
+            await updateUserCoachBilling(users[0].id, coachUpdate, users[0].settings);
+          }
+          console.log(`Coach subscription ${event.type}: customer ${sub.customer} → ${coachUpdate.tier}`);
+          break;
+        }
+        const { tier, expiresAt } = subscriptionTierUpdateFromStripe(tierSource);
         if (users[0]) {
           await updateUserSubscription(users[0].id, tier, expiresAt);
           if (tier === 'free' && effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
@@ -287,6 +299,26 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
         const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
+        const {
+          isCoachSubscription,
+          coachTierUpdateFromStripe,
+          customerStillHasLiveCoachSub,
+        } = require('./lib/fitmunch-coach-billing');
+        if (isCoachSubscription(sub)) {
+          const stillCoach = sub.customer
+            ? await customerStillHasLiveCoachSub(stripe, sub.customer, sub.id)
+            : false;
+          if (users[0] && !stillCoach) {
+            const coachUpdate = coachTierUpdateFromStripe({ ...sub, status: 'canceled' });
+            await updateUserCoachBilling(users[0].id, coachUpdate, users[0].settings);
+          }
+          if (stillCoach) {
+            console.warn(`[coach] ignored cancel for ${sub.id}; customer ${sub.customer} still has a live Coach subscription`);
+          } else {
+            console.log(`Coach subscription cancelled: customer ${sub.customer}`);
+          }
+          break;
+        }
         const stillLive = sub.customer
           ? await customerStillHasLiveFitMunchSub(stripe, sub.customer, sub.id)
           : false;
@@ -332,6 +364,11 @@ app.use('/api/meal-plan', mealPlanner);
 // Fitness Butler shopper (public specials, draft trolley, takeaway checkout)
 const shopperApi = require('./shopper');
 app.use('/api/shopper', shopperApi);
+
+// Coach plan builder (PT). Billing and landers stay in other parts.
+const coachApi = require('./coach-api');
+app.use('/api/coach', coachApi.api);
+app.use(coachApi.pages);
 
 // Food Database (search + macro lookup)
 const foodDb = require('./food-db');
@@ -391,6 +428,7 @@ app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' 
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
 app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));
 app.get('/pricing', (req, res) => res.sendFile('pricing.html', { root: 'public' }));
+app.get('/coach/upgrade', (req, res) => res.sendFile('coach-upgrade.html', { root: 'public' }));
 app.get('/contact', (req, res) => res.sendFile('contact.html', { root: 'public' }));
 app.get('/privacy', (req, res) => res.sendFile('privacy.html', { root: 'public' }));
 app.get('/checkout/success', (req, res) => res.sendFile('success.html', { root: 'public' }));
@@ -688,6 +726,112 @@ app.post('/api/checkout', async (req, res) => {
   }
 });
 
+// FitMunch Coach. Separate from consumer Premium (A$19.99). Price IDs are env-only.
+app.post('/api/coach/checkout', async (req, res) => {
+  if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
+  const coachBilling = require('./lib/fitmunch-coach-billing');
+  try {
+    const plan = typeof req.body?.plan === 'string' ? req.body.plan.trim() : '';
+    if (!coachBilling.isCoachPlan(plan)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Unknown Coach plan. Use coach-39 or coach-79.',
+      });
+    }
+    const priceId = coachBilling.coachPriceId(plan);
+    if (!priceId) {
+      const envName = plan === 'coach-39' ? 'STRIPE_COACH_39_PRICE_ID' : 'STRIPE_COACH_79_PRICE_ID';
+      return res.status(503).json({
+        success: false,
+        error: `Coach price is not configured. Set ${envName}.`,
+      });
+    }
+
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      const decoded = requireAuthUser(req);
+      if (decoded.role !== 'pt') {
+        return res.status(403).json({
+          success: false,
+          error: 'Coach plans are only available for trainer accounts.',
+        });
+      }
+      const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+      const { eq } = require('drizzle-orm');
+      const result = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
+        let current = user;
+        if (!checkoutSmokeFallback) {
+          const fresh = await storage.getUserById(user.id);
+          if (fresh) current = fresh;
+        }
+        if (current.stripeCustomerId && await linkedCustomerHasLiveFitMunchSub(stripe, current.stripeCustomerId)) {
+          return coachBilling.openCoachBilling(stripe, {
+            customerId: current.stripeCustomerId,
+            priceId,
+            plan,
+            email: current.email,
+            origin: checkoutOrigin(req),
+          });
+        }
+        const customerId = await findOrCreateStripeCustomer(stripe, {
+          userId: current.id,
+          email: current.email,
+          name: current.name,
+          existingCustomerId: current.stripeCustomerId,
+        });
+        if (!checkoutSmokeFallback && customerId !== current.stripeCustomerId) {
+          await storage.updateUserSubscription(current.id, current.subscriptionTier || 'free', null);
+          await storage.db.update(storage.schema.users)
+            .set({ stripeCustomerId: customerId })
+            .where(eq(storage.schema.users.id, current.id));
+        }
+        return coachBilling.openCoachBilling(stripe, {
+          customerId,
+          priceId,
+          plan,
+          email: current.email,
+          origin: checkoutOrigin(req),
+        });
+      });
+      if (result.upgraded) {
+        return res.json({
+          success: true,
+          upgraded: true,
+          url: null,
+          id: result.id,
+          message: result.message,
+        });
+      }
+      return res.json({ success: true, ...checkoutJson(result) });
+    }
+
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email and plan are required.' });
+    }
+    const storage = require('./server/storage.js');
+    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
+    const fingerprint = guestCheckoutFingerprint({ nonce, email, plan, ip, userAgent });
+    const result = await storage.withStripeCustomerLock(`guest:coach:${fingerprint}`, () =>
+      openUnauthenticatedCheckout(stripe, {
+        fingerprint,
+        email,
+        priceId,
+        plan,
+        origin: checkoutOrigin(req),
+        successPath: coachBilling.COACH_SUCCESS_PATH,
+        cancelPath: coachBilling.COACH_CANCEL_PATH,
+      })
+    );
+    return res.json({ success: true, url: result.url, id: result.id });
+  } catch (err) {
+    if (sendAuthError(err, res)) return;
+    if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
+    console.error('Coach checkout error:', err.message);
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Coach checkout failed.' });
+  }
+});
+
 // ── SUBSCRIPTION SYNC (webhook-independent) ───────────────────────────────────
 // Called by the app when returning from Stripe checkout (?subscribed=1) and
 // available any time from Billing. Reads the customer's subscriptions straight
@@ -702,7 +846,8 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const jwtLib = require('jsonwebtoken');
     const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
 
-    const { getUserById, updateUserSubscription, effectiveTier } = require('./server/storage.js');
+    const { getUserById, updateUserSubscription, updateUserCoachBilling, effectiveTier } = require('./server/storage.js');
+    const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
     const user = await getUserById(decoded.userId);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
     if (!user.stripeCustomerId) {
@@ -710,14 +855,25 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     }
 
     const subs = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: 'all', limit: 10 });
-    const live = subs.data.find(s => ['active', 'trialing'].includes(s.status));
-    let tier = 'free';
+    const liveRows = (subs.data || []).filter(s => ['active', 'trialing'].includes(s.status));
+    const liveCoach = liveRows.find(s => isCoachSubscription(s));
+    const live = liveRows.find(s => !isCoachSubscription(s));
+    let coach = null;
+    if (liveCoach) {
+      const coachUpdate = coachTierUpdateFromStripe(liveCoach);
+      coach = await updateUserCoachBilling(user.id, coachUpdate, user.settings);
+      user.settings = { ...(user.settings || {}), coach };
+    }
+    let tier = user.subscriptionTier || 'free';
     let expiresAt = null;
     if (live) {
       const priceId = live.items?.data[0]?.price?.id;
       tier = PRICE_TO_TIER[priceId] || 'starter';
       const periodEnd = live.current_period_end || live.items?.data[0]?.current_period_end;
       expiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
+    } else if (!liveCoach) {
+      tier = 'free';
+      expiresAt = null;
     }
     const previousTier = user.subscriptionTier || 'free';
     const accessTier = effectiveTier({ ...user, subscriptionTier: tier });
@@ -729,7 +885,13 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
         console.log(`[comp] ${user.email} stays Premium until ${until} after Stripe sync set the tier to free`);
       }
     }
-    return res.json({ success: true, tier: accessTier, status: live?.status || 'none', synced: true });
+    return res.json({
+      success: true,
+      tier: accessTier,
+      status: (live || liveCoach)?.status || 'none',
+      synced: true,
+      ...(coach ? { coach } : {}),
+    });
   } catch (err) {
     console.error('[sync-subscription]', err.message);
     return res.status(500).json({ success: false, error: err.message });

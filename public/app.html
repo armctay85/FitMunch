@@ -378,6 +378,7 @@ html.fm-authed #app-gate{display:none}
  <div class="sb-section-label">Trainer</div>
  <button class="sb-item" onclick="nav('dashboard')" id="nav-dashboard"><span class="sb-icon">⚡</span>Trainer Dashboard</button>
  <button class="sb-item" onclick="nav('clients')" id="nav-clients"><span class="sb-icon">👥</span>Clients<span class="sb-badge" id="sb-clients">0</span></button>
+ <button class="sb-item" onclick="location.href='/coach'" id="nav-coach"><span class="sb-icon">📋</span>Coach plans</button>
 </nav>
 
 <!-- SIDEBAR - CLIENT VIEW -->
@@ -430,6 +431,11 @@ html.fm-authed #app-gate{display:none}
  <div class="ft-icon">🥗</div>
  <div class="ft-label">Meal Plans</div>
  <div class="ft-sub">Build & assign plans</div>
+ </div>
+ <div class="feat-tile" onclick="location.href='/coach'">
+ <div class="ft-icon">📋</div>
+ <div class="ft-label">Coach plans</div>
+ <div class="ft-sub">7-day plan and priced list</div>
  </div>
  <div class="feat-tile" onclick="nav('workout-plans')">
  <div class="ft-icon">🏋️</div>
@@ -864,6 +870,7 @@ html.fm-authed #app-gate{display:none}
  <button class="quick-action" onclick="nav('receipt-scanner')"><div class="qi">📸</div><div class="ql">Scan receipt</div></button>
  <button class="quick-action" onclick="nav('ai-coach')"><div class="qi">🤖</div><div class="ql">Ask coach</div></button>
  <button class="quick-action" onclick="nav('meal-plans')"><div class="qi">🧠</div><div class="ql">Meal plan</div></button>
+ <button class="quick-action" id="home-coach-action" style="display:none" onclick="location.href='/coach'"><div class="qi">📋</div><div class="ql">Client plan</div></button>
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
@@ -1690,6 +1697,7 @@ function setupMobileNav(role) {
  {id:'favourites', icon:'❤️', label:'Favourites'},
  {id:'dashboard', icon:'⚡', label:'Trainer Dashboard'},
  {id:'clients', icon:'👥', label:'Clients'},
+ {id:'coach-plans', icon:'📋', label:'Coach plans'},
  {id:'billing', icon:'💳', label:'Billing'},
  ];
  const clientMain = [
@@ -1729,6 +1737,7 @@ function toggleMobMore() {
  if (toggle) toggle.classList.toggle('active', moreOpen);
 }
 function mobNav(id) {
+ if (id === 'coach-plans') { location.href = '/coach'; return; }
  // Close more drawer
  moreOpen = false;
  document.getElementById('mob-nav-more').classList.remove('open');
@@ -1748,6 +1757,8 @@ async function setupPT() {
  const hour = new Date().getHours();
  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
  document.getElementById('dash-greeting').textContent = greet + ', ' + S.user.name.split(' ')[0] + ' 👋';
+ const coachHome = document.getElementById('home-coach-action');
+ if (coachHome) coachHome.style.display = '';
  setupMobileNav('pt');
  nav('portal-home');
  await loadPortalHome();
