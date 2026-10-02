@@ -358,6 +358,10 @@ app.get('/try', (req, res) => res.redirect(301, '/demo'));
 app.get('/woolworths-meal-planner', (req, res) => res.sendFile('woolworths-meal-planner.html', { root: 'public' }));
 app.get('/coles-meal-planner', (req, res) => res.sendFile('coles-meal-planner.html', { root: 'public' }));
 app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shopping-list.html', { root: 'public' }));
+// FitMunch Coach landers. Trial CTA is /for-pts#coach until Coach checkout exists.
+app.get('/meal-plan-software-personal-trainers', (req, res) => res.sendFile('meal-plan-software-personal-trainers.html', { root: 'public' }));
+app.get('/pt-client-meal-plans-woolworths', (req, res) => res.sendFile('pt-client-meal-plans-woolworths.html', { root: 'public' }));
+app.get('/fitmunch-coach-vs-spreadsheets', (req, res) => res.sendFile('fitmunch-coach-vs-spreadsheets.html', { root: 'public' }));
 // /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)

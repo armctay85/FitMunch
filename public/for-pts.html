@@ -61,7 +61,13 @@ html,body{max-width:100%;overflow-x:hidden}
 .pt-plan ul{list-style:none;display:grid;gap:8px;margin-bottom:22px}
 .pt-plan li{font-size:.86rem;color:var(--ink);padding-left:14px;position:relative}
 .pt-plan li::before{content:"";position:absolute;left:0;top:.55em;width:6px;height:6px;border-radius:1px;background:var(--leaf2)}
+.pt-plan .fm-btn{white-space:normal;text-align:center;height:auto;min-height:48px;padding-top:12px;padding-bottom:12px;max-width:100%;box-sizing:border-box}
 .pt-note{font-size:.78rem;color:var(--mute);margin-top:20px}
+#coach{scroll-margin-top:24px}
+a.coach-trial.fm-btn-leaf,
+a.coach-trial.fm-nav-cta{background:#16803c;color:#fff !important}
+a.coach-trial.fm-btn-leaf:hover,
+a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
 
 .faq-item{border-bottom:1px solid var(--line);padding:20px 0}
 .faq-item:first-child{border-top:1px solid var(--line)}
@@ -88,7 +94,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <a href="/#loop">How it works</a>
     <a href="/pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
-    <a class="fm-nav-cta" href="/login.html?plan=starter#register" data-fm-auth="register" data-fm-plan="starter">Start PT trial</a>
+    <a class="fm-nav-cta coach-trial" href="/for-pts#coach">Start Coach trial</a>
   </div>
 </nav>
 
@@ -97,7 +103,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <h1>Stop guessing if your clients are actually eating right.</h1>
   <p>FitMunch gives you real-time visibility over every client's nutrition, without chasing check-ins. Clients love using it. You see everything.</p>
   <div class="hero-ctas" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-    <a class="fm-btn fm-btn-leaf" href="/login.html?plan=starter#register" data-fm-auth="register" data-fm-plan="starter">Start PT trial, free 14 days</a>
+    <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach">Start the 14-day Coach trial</a>
     <a class="fm-btn fm-btn-ghost" href="/">See all features</a>
   </div>
   <p class="trust">14-day trial, card on file. Cancel before the trial ends and you are not charged. Australian-built.</p>
@@ -190,43 +196,41 @@ html,body{max-width:100%;overflow-x:hidden}
   </div>
 </section>
 
-<section class="fm-section" style="background:var(--paper2)">
+<section class="fm-section" id="coach" style="background:var(--paper2)">
   <div class="fm-section-inner">
-    <h2>Simple, transparent pricing</h2>
-    <p class="lead">14-day trial on all PT plans. Card on file via Stripe. Cancel before the trial ends and you are not charged.</p>
+    <h2>FitMunch Coach</h2>
+    <p class="lead">A$39 a month for up to 10 clients, or A$79 a month unlimited. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
     <div class="pt-plans">
       <div class="pt-plan">
-        <div class="pt-badge">PT Starter</div>
-        <div class="pt-name">Starter plan</div>
-        <div class="pt-price">$59<small> /mo AUD</small></div>
-        <p class="pt-desc">Perfect for independent PTs with up to 10 active clients.</p>
+        <div class="pt-badge">FitMunch Coach</div>
+        <div class="pt-name">Up to 10 clients</div>
+        <div class="pt-price">A$39<small> /mo</small></div>
+        <p class="pt-desc">For a personal trainer planning a smaller roster.</p>
         <ul>
           <li>Up to 10 clients</li>
-          <li>Client roster dashboard</li>
-          <li>Meal and workout plan assignment</li>
-          <li>Receipt scanner for clients</li>
-          <li>Compliance tracking</li>
-          <li>Invite link onboarding</li>
+          <li>7-day meal plans from each client's targets</li>
+          <li>Draft list from public Woolworths, Coles and Aldi specials</li>
+          <li>PT-branded share link or PDF</li>
+          <li>14-day trial, card required</li>
         </ul>
-        <a class="fm-btn fm-btn-ink" href="/login.html?plan=starter#register" data-fm-auth="register" data-fm-plan="starter" style="width:100%">Start 14-day trial</a>
+        <a class="fm-btn fm-btn-ink" href="/for-pts#coach" style="width:100%">Start the 14-day Coach trial</a>
       </div>
       <div class="pt-plan featured">
-        <div class="pt-badge">PT Pro, most popular</div>
-        <div class="pt-name">Pro plan</div>
-        <div class="pt-price">$99<small> /mo AUD</small></div>
-        <p class="pt-desc">For growing PT businesses with unlimited clients.</p>
+        <div class="pt-badge">FitMunch Coach</div>
+        <div class="pt-name">Unlimited clients</div>
+        <div class="pt-price">A$79<small> /mo</small></div>
+        <p class="pt-desc">The same Coach tools, with no client cap.</p>
         <ul>
           <li>Unlimited clients</li>
-          <li>Everything in Starter</li>
-          <li>Priority support</li>
-          <li>Advanced analytics</li>
-          <li>Client progress reports</li>
-          <li>AI coaching insights</li>
+          <li>7-day meal plans from each client's targets</li>
+          <li>Draft list from public Woolworths, Coles and Aldi specials</li>
+          <li>PT-branded share link or PDF</li>
+          <li>14-day trial, card required</li>
         </ul>
-        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=pro#register" data-fm-auth="register" data-fm-plan="pro" style="width:100%">Start 14-day trial</a>
+        <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach" style="width:100%">Start the 14-day Coach trial</a>
       </div>
     </div>
-    <p class="pt-note">Compare: your clients pay nothing. The app is free for them, you cover the platform subscription.</p>
+    <p class="pt-note">You pay the Coach subscription. The client gets the week by share link or PDF. FitMunch does not order or pay at Woolworths, Coles or Aldi. Clients should see a dietitian for medical nutrition.</p>
   </div>
 </section>
 
@@ -265,7 +269,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <h2 style="font-size:clamp(2.05rem,4.6vw,3.1rem);font-weight:800;letter-spacing:-.055em;line-height:1.04;margin-bottom:14px;max-width:16ch">Ready to see what your clients are really eating?</h2>
     <p style="color:rgba(238,242,238,.76);font-size:1.05rem;line-height:1.6;max-width:38ch;margin-bottom:28px">14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
     <div style="display:flex;flex-wrap:wrap;gap:10px">
-      <a class="fm-btn fm-btn-leaf" href="/login.html?plan=starter#register" data-fm-auth="register" data-fm-plan="starter">Start PT trial, free 14 days</a>
+      <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach">Start the 14-day Coach trial</a>
       <a class="fm-btn fm-btn-ghost" href="/">Back to home</a>
     </div>
   </div>
@@ -302,17 +306,17 @@ html,body{max-width:100%;overflow-x:hidden}
  "offers": [
  {
  "@type": "Offer",
- "name": "PT Starter",
- "price": "59.00",
+ "name": "FitMunch Coach, up to 10 clients",
+ "price": "39.00",
  "priceCurrency": "AUD",
- "description": "PT plan for up to 10 clients"
+ "description": "Coach plan for up to 10 clients"
  },
  {
  "@type": "Offer",
- "name": "PT Pro",
- "price": "99.00",
+ "name": "FitMunch Coach, unlimited clients",
+ "price": "79.00",
  "priceCurrency": "AUD",
- "description": "PT plan with unlimited clients"
+ "description": "Coach plan with unlimited clients"
  }
  ]
 }
