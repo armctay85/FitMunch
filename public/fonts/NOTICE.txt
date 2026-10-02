@@ -1,0 +1,8 @@
+Latin subsets used by the FitMunch Coach landers. Unmodified font files.
+
+Bricolage Grotesque. Copyright 2022 The Bricolage Grotesque Project Authors.
+Literata. Copyright 2017 The Literata Project Authors (https://github.com/googlefonts/literata).
+IBM Plex Mono. Copyright 2017 IBM Corp.
+
+Each family is licensed under the SIL Open Font License, Version 1.1.
+The license text is in OFL.txt.
