@@ -225,6 +225,12 @@ describe('Coach plan HTTP', () => {
     expect(share.text).toContain(coach.PRICE_NOTE);
     expect(share.text).toContain('See a dietitian for medical nutrition.');
     expect(share.text).toContain('Coles total');
+    expect(share.text).toContain('from public specials, draft');
+    expect(share.text).toContain('Woolworths');
+    expect(share.text).toContain('Aldi');
+    expect(share.text).toContain('class="aisle"');
+    expect(share.text).toContain('class="food"');
+    expect(share.text).not.toMatch(/HealthKit|Apple Watch|Stripe Link/i);
     expect(share.headers['x-robots-tag']).toBe('noindex');
 
     const pdf = await request(app).get(`${sent.body.plan.sharePath}/pdf`).expect(200);
@@ -237,6 +243,9 @@ describe('Coach plan HTTP', () => {
     expect(pdfText).toContain('Check prices at');
     expect(pdfText).toContain('checkout.');
     expect(pdfText).toContain('/Subtype /Image');
+    expect(pdfText).toContain('from public specials, draft');
+    expect(pdfText).toContain('Woolworths');
+    expect(pdfText).toContain('Aldi');
 
     const viewed = await request(app)
       .get(`/api/coach/plans/${created.body.plan.id}`)
