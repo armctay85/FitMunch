@@ -43,12 +43,35 @@ describe('Coach plan builder', () => {
     const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
     expect(plan.shopping.totalCents).toBe(cents);
     expect(plan.shopping.note).toBe(coach.PRICE_NOTE);
-    expect(plan.priceNote).toBe(priceEstimateNote(CATALOGUE));
-    expect(plan.priceNote).toContain(CATALOGUE.validFrom);
-    expect(plan.priceNote).toContain(CATALOGUE.validTo);
+    expect(plan.priceNote).toBe('Prices from public specials on 25 Aug 2026, check at checkout.');
     expect(plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
     expect(plan.catalogue.validTo).toBe(CATALOGUE.validTo);
     expect(plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
+    const dinners = plan.days.map((day) => day.meals.find((meal) => meal.slot === 'Dinner').name);
+    expect(new Set(dinners).size).toBeGreaterThanOrEqual(5);
+    for (const slot of ['Breakfast', 'Lunch', 'Dinner']) {
+      const counts = {};
+      for (const day of plan.days) {
+        const name = day.meals.find((meal) => meal.slot === slot).name;
+        counts[name] = (counts[name] || 0) + 1;
+      }
+      expect(Math.max(...Object.values(counts))).toBeLessThanOrEqual(2);
+    }
+    for (const day of plan.days) {
+      expect(Math.abs(day.kcal - plan.targets.kcal) / plan.targets.kcal).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(day.protein - plan.targets.protein) / plan.targets.protein).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(day.carbs - plan.targets.carbs) / plan.targets.carbs).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(day.fat - plan.targets.fat) / plan.targets.fat).toBeLessThanOrEqual(0.05);
+      for (const meal of day.meals) {
+        for (const ing of meal.ingredients) {
+          expect(ing.qty).not.toMatch(/\d+\.\d+/);
+        }
+      }
+    }
+    expect(coach.formatQty({ sku: 'eggs-12', amount: 2.627, unit: 'each', name: 'Free range eggs 12 pack' })).toBe('3 eggs');
+    expect(coach.formatQty({ sku: 'bread-loaf', amount: 0.197, unit: 'each', name: 'Wholegrain loaf' })).toBe('3 slices');
+    expect(coach.formatQty({ sku: 'greek-yoghurt-1kg', amount: 201.142, unit: 'g', name: 'Greek yoghurt 1kg' })).toBe('200 g Greek yoghurt');
+    expect(plan.shopping.lines.every((line) => line.packLabel && !/\d+\.\d+/.test(line.packLabel.split(':')[1] || line.packLabel))).toBe(true);
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
@@ -207,10 +230,9 @@ describe('Coach plan HTTP', () => {
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
     expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
-    expect(created.body.plan.plan.priceNote).toBe(coach.PRICE_NOTE);
+    expect(created.body.plan.plan.priceNote).toBe('Prices from public specials on 25 Aug 2026, check at checkout.');
     expect(created.body.plan.plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
     expect(created.body.plan.plan.catalogue.validTo).toBe(CATALOGUE.validTo);
-    expect(created.body.plan.plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
 
     const sent = await request(app)
       .post(`/api/coach/plans/${created.body.plan.id}/send`)
@@ -222,14 +244,17 @@ describe('Coach plan HTTP', () => {
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
     expect(share.text).toContain('Northside training');
     expect(share.text).toContain('id="share-logo"');
-    expect(share.text).toContain(coach.PRICE_NOTE);
-    expect(share.text).toContain('See a dietitian for medical nutrition.');
-    expect(share.text).toContain('Coles total');
-    expect(share.text).toContain('from public specials, draft');
+    expect(share.text).toContain('Prices from public specials on 25 Aug 2026, check at checkout.');
+    expect(share.text).toContain('General guidance, not medical advice');
+    expect(share.text).toContain('Prepared by Northside training with FitMunch');
+    expect(share.text).toContain('Coles estimate');
+    expect(share.text).toContain('Week of');
+    expect(share.text).toContain('Shopping list');
     expect(share.text).toContain('Woolworths');
     expect(share.text).toContain('Aldi');
     expect(share.text).toContain('class="aisle"');
-    expect(share.text).toContain('class="food"');
+    expect(share.text).toContain('/img/meals/');
+    expect(share.text).not.toMatch(/\d+\.\d+\s*(g|ml|eggs|slices)/);
     expect(share.text).not.toMatch(/HealthKit|Apple Watch|Stripe Link/i);
     expect(share.headers['x-robots-tag']).toBe('noindex');
 
@@ -238,14 +263,14 @@ describe('Coach plan HTTP', () => {
     const pdfText = pdf.body.toString('latin1');
     expect(pdfText.slice(0, 5)).toBe('%PDF-');
     expect(pdfText).toContain('Northside training');
-    expect(pdfText).toContain('See a dietitian for medical nutrition.');
-    expect(pdfText).toContain(`dated ${CATALOGUE.validFrom} to ${CATALOGUE.validTo}`);
-    expect(pdfText).toContain('Check prices at');
-    expect(pdfText).toContain('checkout.');
+    expect(pdfText).toContain('General guidance, not medical advice');
+    expect(pdfText).toContain('Prepared by Northside training with FitMunch');
+    expect(pdfText).toContain('Prices from public specials on 25 Aug 2026, check at checkout.');
     expect(pdfText).toContain('/Subtype /Image');
-    expect(pdfText).toContain('from public specials, draft');
     expect(pdfText).toContain('Woolworths');
     expect(pdfText).toContain('Aldi');
+    expect((pdfText.match(/\/Type \/Page(?!s)/g) || []).length).toBeLessThanOrEqual(3);
+    expect(pdfText).not.toMatch(/\d+\.\d+ (g|ml)/);
 
     const viewed = await request(app)
       .get(`/api/coach/plans/${created.body.plan.id}`)
