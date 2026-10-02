@@ -336,7 +336,8 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(constants).toContain('fitmunch_annual');
     expect(constants).toContain('static let main = "main"');
     expect(constants).toContain('static let premium = "premium"');
-    expect(constants).toContain('login.html?plan=premium');
+    expect(constants).not.toContain('login.html?plan=premium');
+    expect(constants).not.toContain('premiumWebURL');
     expect(catalog).not.toContain('isWeeklyMissingMetadata');
     expect(catalog).not.toContain('fitmunch_weekly');
     expect(catalog).toContain('selectSellableIds');
@@ -357,15 +358,16 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(paywall).toContain('PaywallLoadPolicy.userFacingLoadFailure');
     expect(paywall).toContain('Restore Purchases');
     expect(paywall).toContain('loadPlansWithRetry');
-    expect(paywall).toContain('Continue on the web');
-    expect(paywall).toContain('openWebPremium');
+    expect(paywall).toContain('Eat to your goals with every shop');
+    expect(paywall).not.toContain('Continue on the web');
+    expect(paywall).not.toContain('openWebPremium');
     expect(paywall).not.toContain('fitmunch_weekly');
     expect(paywall).not.toContain('Premium plans did not load from the App Store');
     expect(paywall).not.toMatch(/errorMessage!/);
   });
 
   it('build number is 9 and UITests cover Upgrade + Take a photo', () => {
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"9"/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
     expect(project).toMatch(/MARKETING_VERSION:\s*"1\.0"/);
     expect(guards).toContain('testUpgradeOpensPaywallWithoutCrashing');
     expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');

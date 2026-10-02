@@ -192,7 +192,7 @@ extension XCTestCase {
     func paywallIsShowing(in app: XCUIApplication) -> Bool {
         app.otherElements["paywall-root"].exists
             || app.buttons["paywall-close"].exists
-            || app.staticTexts["Unlock Premium Features"].exists
+            || app.staticTexts["Eat to your goals with every shop"].exists
     }
 
     func openUpgradePaywall(in app: XCUIApplication) {
@@ -208,7 +208,7 @@ extension XCTestCase {
         // Close is on screen as soon as the paywall is. Do not wait out a missing
         // container identifier first, or the loading line finishes before we look.
         let ready = app.buttons["paywall-close"].waitForExistence(timeout: 8)
-            || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
+            || app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 2)
             || app.staticTexts["paywall-load-phase"].exists
             || app.staticTexts["Loading plans"].exists
             || app.otherElements["paywall-root"].exists

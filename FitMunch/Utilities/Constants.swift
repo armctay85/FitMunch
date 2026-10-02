@@ -18,9 +18,6 @@ enum Constants {
         revenueCatApiKey != "appl_xxx"
     }
 
-    /// Live web Premium pay path (Stripe Checkout after register/login). Do not invent IAP products.
-    static let premiumWebURL = URL(string: "https://www.fitmunch.com.au/login.html?plan=premium&utm_source=ios&utm_medium=app&utm_campaign=upgrade#register")
-    
     /// Subscription entitlement IDs
     enum Entitlements {
         static let premium = "premium"

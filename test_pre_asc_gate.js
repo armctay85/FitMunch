@@ -58,7 +58,7 @@ describe('PRE-ASC device audit gate', () => {
   });
 
   it('archives build 9 and unit-tests the processed camera plist', () => {
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"9"/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
     expect(archive).toMatch(/CURRENT_PROJECT_VERSION=9\s*\\/);
     expect(archive).toMatch(/expected 9/);
     expect(archive).not.toMatch(/submit-for-review|SubmitForReview/);
