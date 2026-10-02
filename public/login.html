@@ -222,19 +222,24 @@
 <script>
  const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
- const paidPlan = plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
+ const coachPlan = plan === 'coach-39' || plan === 'coach-79';
+ const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
  const registerLabel = plan === 'premium' ? 'Start Premium trial' : 'Create Free Account';
  if (paidPlan) {
   const banner = document.getElementById('premium-intent');
   if (banner) {
     banner.style.display = 'block';
-    if (plan !== 'premium') {
+    if (coachPlan) {
+      banner.querySelector('div').textContent = 'FitMunch Coach trial';
+      banner.querySelectorAll('div')[1].textContent = 'Create your trainer account, then Stripe opens. 14-day trial, then ' + (plan === 'coach-39' ? 'A$39 a month for up to 10 clients' : 'A$79 a month for unlimited clients') + '. Card on file. Cancel before the trial ends and you are not charged.';
+    } else if (plan !== 'premium') {
       banner.querySelector('div').textContent = 'Paid trial';
       banner.querySelectorAll('div')[1].textContent = 'Create your account, then Stripe opens for a 14-day trial. Card on file. Cancel before the trial ends and you are not charged.';
     }
   }
   const regBtn = document.getElementById('register-btn');
   if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
+  if (regBtn && coachPlan) regBtn.textContent = 'Start Coach trial';
  } else {
   const freeBanner = document.getElementById('free-intent');
   if (freeBanner) freeBanner.style.display = 'block';
