@@ -15,6 +15,11 @@ const {
 } = require('./lib/coach-plan');
 const { buildCoachPdf } = require('./lib/coach-pdf');
 const { renderSharePage, renderMissing } = require('./lib/coach-share');
+const {
+  readCoachBilling,
+  coachUpgradePageCopy,
+  COACH_39_ACTIVE_CLIENT_LIMIT,
+} = require('./lib/fitmunch-coach-billing');
 
 const api = express.Router();
 const pages = express.Router();
@@ -113,6 +118,27 @@ async function gateFor(ptId, clientId) {
   return { clients, gate };
 }
 
+async function billingFor(userId) {
+  if (!userId || userId === store.PREVIEW_PT.id || !process.env.DATABASE_URL) {
+    return { tier: null, plan: null };
+  }
+  try {
+    const storage = require('./server/storage.js');
+    const user = await storage.getUserById(userId);
+    if (!user) return { tier: null, plan: null };
+    const billing = readCoachBilling(user.settings);
+    return { tier: billing.tier, plan: billing.plan };
+  } catch (_) {
+    return { tier: null, plan: null };
+  }
+}
+
+function displayLimitFor(gate, billing) {
+  if (gate && gate.limit != null) return gate.limit;
+  if (billing && billing.plan === 'coach-39') return COACH_39_ACTIVE_CLIENT_LIMIT;
+  return null;
+}
+
 api.get('/preview-status', (_req, res) => {
   res.json({ success: true, enabled: store.previewEnabled() });
 });
@@ -137,7 +163,38 @@ api.post('/preview-session', (_req, res) => {
 api.get('/gate', requirePt, async (req, res) => {
   try {
     const { gate } = await gateFor(req.user.userId, null);
-    res.json({ success: true, gate, hook: CLIENT_GATE_HOOK });
+    const billing = await billingFor(req.user.userId);
+    res.json({
+      success: true,
+      gate,
+      displayLimit: displayLimitFor(gate, billing),
+      billing,
+      hook: CLIENT_GATE_HOOK,
+    });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+api.get('/upgrade-context', requirePt, async (req, res) => {
+  try {
+    const { gate } = await gateFor(req.user.userId, null);
+    const billing = await billingFor(req.user.userId);
+    const limit = displayLimitFor(gate, billing);
+    const copy = coachUpgradePageCopy({
+      tier: billing.tier,
+      plan: billing.plan,
+      activeClientCount: gate.activeClients,
+      limit,
+    });
+    res.json({
+      success: true,
+      tier: billing.tier,
+      plan: billing.plan,
+      activeClients: gate.activeClients,
+      limit,
+      copy,
+    });
   } catch (err) {
     sendError(res, err);
   }

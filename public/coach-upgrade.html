@@ -4,28 +4,36 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Upgrade FitMunch Coach | FitMunch</title>
-<meta name="description" content="Coach at A$39 covers 10 active clients. Upgrade to A$79 a month for an unlimited roster. 14-day trial, card required."/>
+<meta name="description" content="Coach at A$39 covers 10 active clients. Upgrade to A$79 a month for an unlimited roster."/>
 <meta name="robots" content="noindex"/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
+  [hidden]{display:none !important}
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;max-width:100%;overflow-x:hidden}
   body.fm-body{background:var(--fridge);min-height:100vh}
   .upgrade-wrap{
     width:min(420px,100%);
+    max-width:100%;
     margin:0 auto;
-    padding:28px 20px 48px;
+    padding:28px 0 48px;
+    box-sizing:border-box;
   }
   .upgrade-brand{
     display:flex;align-items:center;gap:10px;
     color:#fff;text-decoration:none;
     font-family:'Bricolage Grotesque',system-ui,sans-serif;
     font-weight:800;font-size:1.2rem;letter-spacing:-.04em;
-    margin-bottom:28px;
+    margin:0 16px 28px;
   }
   .upgrade-brand span{color:var(--leaf)}
-  .upgrade-card{
+  .card{
+    box-sizing:border-box;
+    max-width:100%;
+    width:100%;
     background:var(--paper);
     color:var(--ink);
     border-radius:8px;
@@ -35,7 +43,7 @@
     display:inline-flex;
     font-family:'IBM Plex Mono',ui-monospace,monospace;
     font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--leaf2);margin-bottom:12px;
+    color:#14532d;margin-bottom:12px;
   }
   h1{
     font-size:1.85rem;line-height:1.05;letter-spacing:-.04em;
@@ -46,38 +54,59 @@
     font-size:.95rem;font-weight:600;
     background:#fff;border:1px solid var(--line);
     border-radius:4px;padding:10px 12px;margin:0 0 14px;
+    max-width:100%;
   }
   .body{color:var(--mute);font-size:.95rem;line-height:1.55;margin:0 0 18px}
   .price-row{
     display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    flex-wrap:wrap;
     border-top:1px solid var(--line);padding-top:16px;margin-bottom:16px;
+    min-width:0;
   }
   .price-name{font-weight:800;font-size:1rem}
   .price{
     font-family:'IBM Plex Mono',ui-monospace,monospace;
     font-size:1.7rem;font-weight:600;letter-spacing:-.04em;
+    white-space:nowrap;
   }
   .price small{font-family:'Literata',Georgia,serif;font-size:.85rem;color:var(--mute);font-weight:500}
   .detail{color:var(--mute);font-size:.82rem;line-height:1.5;margin:12px 0 0}
-  #upgrade-btn,.stay{
+  #upgrade-btn,
+  a.stay,
+  #started .fm-btn{
+    box-sizing:border-box;
     width:100%;
+    max-width:100%;
+    height:52px;
+    min-height:52px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:0 16px;
   }
-  .stay{
-    display:block;margin-top:10px;text-align:center;
-    background:transparent;color:var(--ink);
+  #upgrade-btn{background:#15803D;color:#fff}
+  a.stay{
+    margin-top:10px;
+    background:transparent;
+    color:var(--ink);
   }
   .error{color:var(--red);font-size:.85rem;margin-top:10px}
   #started h1{font-size:1.7rem}
+  @media (max-width:480px){
+    .card{padding:20px}
+    .upgrade-brand{margin-left:20px;margin-right:20px}
+  }
 </style>
 </head>
 <body class="fm-body">
   <main class="upgrade-wrap">
     <a class="upgrade-brand" href="/"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
 
-    <section class="upgrade-card" id="prompt">
+    <section class="card" id="prompt" hidden>
       <div class="kicker">FitMunch Coach</div>
       <h1>Your Coach roster is full</h1>
-      <p class="count" id="coach-count">10 of 10 active clients</p>
+      <p class="count" id="coach-count" hidden></p>
       <p class="body" id="coach-body">Coach at A$39 a month covers 10 active clients. This roster is full. Upgrade to A$79 a month for an unlimited roster.</p>
       <div class="price-row">
         <div class="price-name">Coach Unlimited</div>
@@ -85,11 +114,11 @@
       </div>
       <button type="button" class="fm-btn fm-btn-leaf" id="upgrade-btn">Upgrade to A$79</button>
       <a class="fm-btn fm-btn-ink stay" href="/app.html">Stay on A$39</a>
-      <p class="detail">14-day trial. Card required. Cancel before the trial ends and you are not charged.</p>
+      <p class="detail" id="coach-detail" hidden></p>
       <p class="error" id="upgrade-error" hidden></p>
     </section>
 
-    <section class="upgrade-card" id="started" hidden>
+    <section class="card" id="started" hidden>
       <div class="kicker">FitMunch Coach</div>
       <h1>Your 14-day Coach trial is starting</h1>
       <p class="body">The card is saved. You will not be charged until the trial ends. You can cancel from Billing before then.</p>
@@ -98,22 +127,90 @@
   </main>
   <script>
     (function () {
+      var prompt = document.getElementById('prompt');
+      var started = document.getElementById('started');
       var params = new URLSearchParams(window.location.search);
-      var clients = parseInt(params.get('clients') || '10', 10);
-      if (!isFinite(clients) || clients < 10) clients = 10;
-      var count = document.getElementById('coach-count');
-      if (count) count.textContent = clients + ' of 10 active clients';
-      if (params.get('checkout') === 'started') {
-        document.getElementById('prompt').hidden = true;
-        document.getElementById('started').hidden = false;
+      var token = '';
+      try { token = localStorage.getItem('fm_token') || ''; } catch (e) { token = ''; }
+
+      function loginRedirect() {
+        var next = '/coach/upgrade' + window.location.search;
+        window.location.replace('/login.html?next=' + encodeURIComponent(next));
       }
+
+      if (!token) {
+        loginRedirect();
+        return;
+      }
+
+      function applyCopy(copy) {
+        var count = document.getElementById('coach-count');
+        if (count) {
+          if (copy && copy.countLabel) {
+            count.hidden = false;
+            count.textContent = copy.countLabel;
+          } else {
+            count.hidden = true;
+            count.textContent = '';
+          }
+        }
+        var body = document.getElementById('coach-body');
+        if (body && copy && copy.body) body.textContent = copy.body;
+        var detail = document.getElementById('coach-detail');
+        if (detail) {
+          if (copy && copy.detail) {
+            detail.hidden = false;
+            detail.textContent = copy.detail;
+          } else {
+            detail.hidden = true;
+            detail.textContent = '';
+          }
+        }
+      }
+
+      if (params.get('checkout') === 'started') {
+        if (prompt) prompt.hidden = true;
+        if (started) started.hidden = false;
+      } else {
+        fetch('/api/coach/upgrade-context', {
+          headers: { Authorization: 'Bearer ' + token }
+        }).then(function (res) {
+          if (res.status === 401) {
+            try { localStorage.removeItem('fm_token'); } catch (e) {}
+            loginRedirect();
+            return null;
+          }
+          return res.json().then(function (body) { return { ok: res.ok, body: body }; });
+        }).then(function (result) {
+          if (!result) return;
+          var error = document.getElementById('upgrade-error');
+          if (!result.ok || !result.body || !result.body.copy) {
+            if (error) {
+              error.hidden = false;
+              error.textContent = (result.body && (result.body.error || result.body.message)) || 'Could not load this upgrade.';
+            }
+            if (prompt) prompt.hidden = false;
+            return;
+          }
+          applyCopy(result.body.copy);
+          if (prompt) prompt.hidden = false;
+        }).catch(function () {
+          var error = document.getElementById('upgrade-error');
+          if (error) {
+            error.hidden = false;
+            error.textContent = 'Could not load this upgrade.';
+          }
+          if (prompt) prompt.hidden = false;
+        });
+      }
+
       var button = document.getElementById('upgrade-btn');
       if (!button) return;
       button.addEventListener('click', function () {
-        var token = '';
-        try { token = localStorage.getItem('fm_token') || ''; } catch (e) { token = ''; }
-        if (!token) {
-          window.location.href = '/login.html?plan=coach-79#register';
+        var current = '';
+        try { current = localStorage.getItem('fm_token') || ''; } catch (e) { current = ''; }
+        if (!current) {
+          loginRedirect();
           return;
         }
         var error = document.getElementById('upgrade-error');
@@ -122,7 +219,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer ' + current
           },
           body: JSON.stringify({ plan: 'coach-79' })
         }).then(function (res) { return res.json().then(function (body) { return { ok: res.ok, body: body }; }); })
@@ -132,8 +229,8 @@
               return;
             }
             if (result.body && result.body.upgraded) {
-              document.getElementById('prompt').hidden = true;
-              document.getElementById('started').hidden = false;
+              if (prompt) prompt.hidden = true;
+              if (started) started.hidden = false;
               return;
             }
             if (result.body && result.body.alreadySubscribed) {
