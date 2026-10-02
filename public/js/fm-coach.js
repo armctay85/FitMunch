@@ -1,6 +1,11 @@
 (function () {
   const $ = (id) => document.getElementById(id);
-  const state = { token: localStorage.getItem('fm_token') || '', plan: null, logoDataUrl: null };
+  const state = {
+    token: localStorage.getItem('fm_token') || '',
+    plan: null,
+    logoDataUrl: null,
+    displayLimit: null,
+  };
 
   function showError(message) {
     const node = $('coach-error');
@@ -30,18 +35,59 @@
   }
 
   function flags() {
-    return [...document.querySelectorAll('#coach-flags input:checked')].map((node) => node.value);
+    return [...document.querySelectorAll('#coach-flags [aria-pressed="true"]')]
+      .map((node) => node.getAttribute('data-value'));
+  }
+
+  function storeId() {
+    const selected = document.querySelector('#coach-stores [aria-checked="true"]');
+    return selected ? selected.getAttribute('data-value') : 'woolworths';
+  }
+
+  function grouped(value) {
+    return String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function renderKcalCheck() {
+    const protein = Number($('coach-protein').value) || 0;
+    const carbs = Number($('coach-carbs').value) || 0;
+    const fat = Number($('coach-fat').value) || 0;
+    const target = Number($('coach-kcal').value) || 0;
+    const got = 4 * protein + 4 * carbs + 9 * fat;
+    const head = '4*P+4*C+9*F = ' + grouped(got) + ' kcal';
+    const node = $('coach-kcal-check');
+    if (!target) {
+      node.textContent = head;
+      return;
+    }
+    const pct = Math.round(Math.abs(got - target) / target * 100);
+    if (pct === 0) node.textContent = head + ', on target';
+    else if (got < target) node.textContent = head + ', ' + pct + '% under target';
+    else node.textContent = head + ', ' + pct + '% over target';
   }
 
   function renderGate(gate) {
     const node = $('coach-gate');
-    if (!gate || !gate.installed) {
-      node.textContent = 'Client count gate: open.';
+    if (!state.token || !gate) {
+      node.hidden = true;
+      node.textContent = '';
       return;
     }
-    node.textContent = gate.allowed
-      ? 'Client count gate: on.'
-      : 'Client count gate: this roster is at its client limit.';
+    const count = Number(gate.activeClients);
+    const n = Number.isFinite(count) ? count : 0;
+    const limit = gate.limit != null ? gate.limit : state.displayLimit;
+    node.hidden = false;
+    node.textContent = limit == null
+      ? (n === 1 ? '1 client' : n + ' clients')
+      : (n + ' of ' + limit + ' clients');
+  }
+
+  function showLoggedOut() {
+    $('coach-gate').hidden = true;
+    $('coach-gate').textContent = '';
+    $('coach-form').hidden = true;
+    $('coach-locked').hidden = false;
+    document.documentElement.classList.remove('coach-authed');
   }
 
   function renderAdherence(adherence) {
@@ -133,10 +179,22 @@
     }
   }
 
+  async function readPreview() {
+    try {
+      const preview = await api('/api/coach/preview-status');
+      return !!preview.enabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function boot() {
-    const preview = await api('/api/coach/preview-status');
-    $('coach-preview').hidden = !preview.enabled;
-    if (!state.token) return;
+    const enabled = await readPreview();
+    $('coach-preview').hidden = !enabled;
+    if (!state.token) {
+      showLoggedOut();
+      return;
+    }
     try {
       await loadClients();
       const branding = await api('/api/coach/branding');
@@ -147,13 +205,17 @@
         $('coach-logo-preview').src = state.logoDataUrl;
         $('coach-logo-preview').hidden = false;
       }
-      const gate = await api('/api/coach/gate');
-      renderGate(gate.gate);
+      const gateData = await api('/api/coach/gate');
+      state.displayLimit = gateData.displayLimit == null ? null : gateData.displayLimit;
+      renderGate(gateData.gate);
       $('coach-locked').hidden = true;
       $('coach-form').hidden = false;
+      document.documentElement.classList.add('coach-authed');
+      renderKcalCheck();
     } catch (err) {
       state.token = '';
       localStorage.removeItem('fm_token');
+      showLoggedOut();
       showError(err.message);
     }
   }
@@ -170,6 +232,40 @@
     }
   });
 
+  document.querySelectorAll('.step').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.getAttribute('data-target'));
+      if (!input) return;
+      const delta = Number(button.getAttribute('data-step'));
+      const min = input.min === '' ? null : Number(input.min);
+      const max = input.max === '' ? null : Number(input.max);
+      let next = (Number(input.value) || 0) + delta;
+      if (min != null && Number.isFinite(min)) next = Math.max(min, next);
+      if (max != null && Number.isFinite(max)) next = Math.min(max, next);
+      input.value = String(next);
+      renderKcalCheck();
+    });
+  });
+
+  ['coach-kcal', 'coach-protein', 'coach-carbs', 'coach-fat'].forEach((id) => {
+    $(id).addEventListener('input', renderKcalCheck);
+  });
+
+  document.querySelectorAll('#coach-flags .chip').forEach((button) => {
+    button.addEventListener('click', () => {
+      const on = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  });
+
+  document.querySelectorAll('#coach-stores [role="radio"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('#coach-stores [role="radio"]').forEach((node) => {
+        node.setAttribute('aria-checked', node === button ? 'true' : 'false');
+      });
+    });
+  });
+
   $('coach-from-logs').addEventListener('click', async () => {
     showError('');
     try {
@@ -182,6 +278,7 @@
       $('coach-protein').value = data.targets.protein;
       $('coach-carbs').value = data.targets.carbs;
       $('coach-fat').value = data.targets.fat;
+      renderKcalCheck();
     } catch (err) {
       showError(err.message);
     }
@@ -202,7 +299,7 @@
           fat: Number($('coach-fat').value),
           flags: flags(),
           householdSize: Number($('coach-household').value),
-          storeId: $('coach-store').value,
+          storeId: storeId(),
           source: 'manual',
         }),
       });
@@ -282,5 +379,6 @@
     }
   });
 
+  renderKcalCheck();
   boot().catch((err) => showError(err.message));
 })();

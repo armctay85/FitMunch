@@ -222,6 +222,13 @@
 <script>
  const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
+ function safeNext(value) {
+  if (!value || value.charAt(0) !== '/') return '';
+  if (value.charAt(1) === '/' || value.charAt(1) === '\\') return '';
+  if (value.indexOf('\\') !== -1 || value.indexOf('://') !== -1) return '';
+  return value;
+ }
+ const nextPath = safeNext(urlParams.get('next'));
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
  const registerLabel = plan === 'premium' ? 'Start Premium trial' : 'Create Free Account';
@@ -292,7 +299,7 @@
 
  async function redirectAfterAuth(token) {
  if (!plan) {
- window.location.href = '/app.html';
+ window.location.href = nextPath || '/app.html';
  return;
  }
  if (checkoutInFlight) return checkoutInFlight;

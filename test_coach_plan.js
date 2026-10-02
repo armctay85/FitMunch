@@ -278,8 +278,27 @@ describe('Coach plan HTTP', () => {
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
     const page = await request(app).get('/coach').expect(200);
     expect(page.text).toContain('Coach plan builder');
+    expect(page.text).toContain('Build a client week in 60 seconds');
+    expect(page.text).toContain('href="/login.html?plan=coach-39#register"');
+    expect(page.text).toContain('Start the 14-day Coach trial');
+    expect(page.text).toContain('>Sign in</a>');
+    expect(page.text).toContain('fm-coach-fonts.css');
+    expect(page.text).toContain('fm-tokens.css');
+    expect(page.text).toContain('name="robots" content="noindex"');
+    expect(page.text).toContain('id="coach-form" hidden');
+    expect(page.text).toContain('id="coach-preview" class="btn secondary" hidden');
+    expect(page.text).not.toContain('Client count gate');
     expect(page.text).toContain('Prices from public specials');
     expect(page.text).toContain('See a dietitian for medical nutrition.');
+    const css = read('public/css/fm-coach.css');
+    expect(css).toContain('[hidden]{display:none !important}');
+    expect(css).toContain('#0B1F14');
+    expect(css).toContain('#10291B');
+    expect(css).toContain('#1E3B2A');
+    expect(css).toContain('#15803D');
+    expect(css).toContain('height: 48px');
+    const sitemap = read('public/sitemap.xml');
+    expect(sitemap).not.toMatch(/fitmunch\.com\.au\/coach(\/|<)/);
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');
     expect(read('lib/db-migrate.js')).toContain('CREATE TABLE IF NOT EXISTS coach_plans');
@@ -289,5 +308,88 @@ describe('Coach plan HTTP', () => {
     expect(home.text).toContain('<h1>Your body wrote the trolley.</h1>');
     const shopper = await request(app).get('/shopper').expect(200);
     expect(shopper.text).toContain('$19.99 a month');
+  });
+
+  it('hides the preview button when preview-status is false', async () => {
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM(read('public/coach.html'), {
+      url: 'http://localhost/coach',
+      pretendToBeVisual: true,
+      runScripts: 'dangerously',
+    });
+    const { window } = dom;
+    const style = window.document.createElement('style');
+    style.textContent = read('public/css/fm-coach.css');
+    window.document.head.appendChild(style);
+    window.fetch = jest.fn(async (url) => {
+      if (String(url).includes('/api/coach/preview-status')) {
+        return { ok: true, json: async () => ({ success: true, enabled: false }) };
+      }
+      return { ok: false, status: 404, json: async () => ({ error: 'Not found' }) };
+    });
+    window.eval(read('public/js/fm-coach.js'));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const button = window.document.getElementById('coach-preview');
+    expect(button.hidden).toBe(true);
+    expect(window.getComputedStyle(button).display).toBe('none');
+    expect(window.document.getElementById('coach-form').hidden).toBe(true);
+    const gate = window.document.getElementById('coach-gate');
+    expect(gate.hidden).toBe(true);
+    expect(gate.textContent).toBe('');
+    expect(window.document.querySelector('#coach-locked h1').textContent).toBe('Build a client week in 60 seconds');
+    window.document.getElementById('coach-protein').value = '150';
+    window.document.getElementById('coach-carbs').value = '150';
+    window.document.getElementById('coach-fat').value = '80';
+    window.document.getElementById('coach-kcal').value = '2000';
+    window.document.getElementById('coach-protein').dispatchEvent(new window.Event('input'));
+    expect(window.document.getElementById('coach-kcal-check').textContent)
+      .toBe('4*P+4*C+9*F = 1,920 kcal, 4% under target');
+  });
+
+  it('shows a real client-count chip for a signed-in trainer', async () => {
+    const token = await session();
+    const res = await request(app).get('/api/coach/upgrade-context').set(auth(token)).expect(200);
+    expect(res.body.copy.countLabel).toBe('1 active client');
+    expect(res.body.copy.countLabel).not.toContain('10 of 10');
+    expect(res.body.copy.detail).toBe('');
+    await request(app).get('/api/coach/upgrade-context').expect(401);
+
+    const { JSDOM } = require('jsdom');
+    const dom = new JSDOM(read('public/coach.html'), {
+      url: 'http://localhost/coach',
+      pretendToBeVisual: true,
+      runScripts: 'dangerously',
+    });
+    const { window } = dom;
+    window.localStorage.setItem('fm_token', token);
+    const json = (body, status = 200) => ({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+    });
+    window.fetch = jest.fn(async (url) => {
+      const path = String(url);
+      if (path.includes('/api/coach/preview-status')) return json({ success: true, enabled: false });
+      if (path.includes('/api/coach/clients')) {
+        return json({ success: true, clients: [{ id: 'c1', label: 'Sample client' }] });
+      }
+      if (path.includes('/api/coach/branding')) return json({ success: true, branding: {} });
+      if (path.includes('/api/coach/gate')) {
+        return json({
+          success: true,
+          gate: { installed: true, allowed: true, activeClients: 7, limit: 10 },
+          displayLimit: 10,
+        });
+      }
+      return json({ error: 'Not found' }, 404);
+    });
+    window.eval(read('public/js/fm-coach.js'));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const gate = window.document.getElementById('coach-gate');
+    expect(gate.hidden).toBe(false);
+    expect(gate.textContent).toBe('7 of 10 clients');
+    expect(window.document.getElementById('coach-form').hidden).toBe(false);
+    expect(window.document.getElementById('coach-locked').hidden).toBe(true);
+    expect(window.document.getElementById('coach-preview').hidden).toBe(true);
   });
 });

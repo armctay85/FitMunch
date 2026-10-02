@@ -25,6 +25,8 @@ const {
   evaluateCoachClientGate,
   coachTierUpdateFromStripe,
   coachUpgradePrompt,
+  coachUpgradePageCopy,
+  COACH_UPGRADE_PRORATION_COPY,
   readCoachBilling,
 } = require('./lib/fitmunch-coach-billing');
 
@@ -452,6 +454,7 @@ describe('Coach checkout trial', () => {
       'sub_coach',
       expect.objectContaining({
         items: [{ id: 'si_coach', price: COACH_79 }],
+        proration_behavior: 'create_prorations',
       }),
       expect.objectContaining({ idempotencyKey: expect.stringContaining('coach-upgrade') })
     );
@@ -461,14 +464,73 @@ describe('Coach checkout trial', () => {
     const res = await request(app).get('/coach/upgrade?clients=10').expect(200);
     expect(res.text).toContain('Your Coach roster is full');
     expect(res.text).toContain('Upgrade to A$79');
-    expect(res.text).toContain('10 of 10 active clients');
+    expect(res.text).not.toContain('10 of 10');
     expect(res.text).toContain('A$39 a month');
     expect(res.text).toContain('id="upgrade-btn"');
+    expect(res.text).toContain("'/login.html?next='");
+    expect(res.text).toContain('box-sizing:border-box');
+    expect(res.text).toContain('max-width:100%');
+    expect(res.text).toContain('height:52px');
+    expect(res.text).toContain('display:flex');
+    expect(res.text).toContain('align-items:center');
+    expect(res.text).toContain('.card{padding:20px}');
+    expect(res.text).not.toContain('14-day trial. Card required.');
     expect(res.text).not.toMatch(/gtag\(|googletagmanager|fbq\(|plausible|posthog|segment\.com|mixpanel/i);
     const home = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8');
     const shopper = fs.readFileSync(path.join(__dirname, 'public/shopper.html'), 'utf8');
+    const login = fs.readFileSync(path.join(__dirname, 'public/login.html'), 'utf8');
     expect(home).not.toContain('/coach/upgrade');
     expect(shopper).not.toContain('/api/coach/checkout');
+    expect(login).toContain("nextPath || '/app.html'");
+  });
+});
+
+describe('Coach upgrade page copy', () => {
+  test('an active A$39 subscription credits the unused month and does not mention a trial', () => {
+    const copy = coachUpgradePageCopy({
+      tier: 'active',
+      plan: 'coach-39',
+      activeClientCount: 7,
+      limit: 10,
+    });
+    expect(copy.body).toBe(COACH_UPGRADE_PRORATION_COPY);
+    expect(copy.body).toBe("You'll move to A$79/month today. We credit the unused part of your A$39 month.");
+    expect(copy.detail).toBe('');
+    expect(copy.body).not.toMatch(/trial/i);
+    expect(copy.countLabel).toBe('7 of 10 active clients');
+    const src = fs.readFileSync(path.join(__dirname, 'lib/fitmunch-coach-billing.js'), 'utf8');
+    expect(src).toContain("proration_behavior: 'create_prorations'");
+  });
+
+  test('the trial line is shown only while the coach is in trial', () => {
+    const trial = coachUpgradePageCopy({
+      tier: 'trial',
+      plan: 'coach-39',
+      activeClientCount: 2,
+      limit: 10,
+    });
+    expect(trial.detail).toBe('14-day trial. Card required. Cancel before the trial ends and you are not charged.');
+    expect(trial.body).toMatch(/A\$39 a month/);
+    expect(trial.body).not.toContain("You'll move to A$79/month today");
+
+    const active = coachUpgradePageCopy({
+      tier: 'active',
+      plan: 'coach-39',
+      activeClientCount: 10,
+      limit: 10,
+    });
+    expect(active.detail).not.toMatch(/14-day trial/);
+    expect(active.countLabel).toBe('10 of 10 active clients');
+
+    const none = coachUpgradePageCopy({
+      tier: null,
+      plan: null,
+      activeClientCount: 1,
+      limit: null,
+    });
+    expect(none.detail).toBe('');
+    expect(none.countLabel).toBe('1 active client');
+    expect(none.countLabel).not.toBe('10 of 10 active clients');
   });
 });
 
