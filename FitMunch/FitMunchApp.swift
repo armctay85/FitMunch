@@ -50,28 +50,7 @@ struct FitMunchApp: App {
             .modelContainer(sharedModelContainer)
             .environmentObject(premiumManager)
             .environmentObject(auth)
-            .onAppear {
-                configureAppearance()
-            }
+            .tint(Theme.brandGreen)
         }
-    }
-    
-    /// Configure global app appearance
-    private func configureAppearance() {
-        // Configure navigation bar appearance
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .systemBackground
-        
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        
-        // Configure tab bar appearance
-        let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithOpaqueBackground()
-        tabBarAppearance.backgroundColor = .systemBackground
-        
-        UITabBar.appearance().standardAppearance = tabBarAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
     }
 }

@@ -22,23 +22,20 @@ extension XCTestCase {
         return nil
     }
 
+    /// Five tabs: Today, Plan, Scan, Coach, Me. There is no More tab.
     func openTab(_ name: String, in app: XCUIApplication) {
+        let resolved: String
+        switch name {
+        case "Home": resolved = "Today"
+        case "Settings": resolved = "Me"
+        default: resolved = name
+        }
         let bar = app.tabBars.firstMatch
-        XCTAssertTrue(bar.waitForExistence(timeout: 8), "Tab bar missing before opening \(name)")
-        let direct = bar.buttons[name]
-        if direct.exists {
-            direct.tap()
-            return
-        }
-        let more = bar.buttons["More"]
-        XCTAssertTrue(more.exists, "Tab '\(name)' is not in the bar and More is missing")
-        more.tap()
-        for candidate in [app.staticTexts[name], app.buttons[name], app.cells[name]]
-        where candidate.waitForExistence(timeout: 3) {
-            candidate.tap()
-            return
-        }
-        XCTFail("Could not open tab \(name)")
+        XCTAssertTrue(bar.waitForExistence(timeout: 8), "Tab bar missing before opening \(resolved)")
+        XCTAssertFalse(bar.buttons["More"].exists, "More tab is showing. FitMunch uses five tabs.")
+        let direct = bar.buttons[resolved]
+        XCTAssertTrue(direct.waitForExistence(timeout: 5), "Tab '\(resolved)' is not on the tab bar")
+        direct.tap()
     }
 
     func dismissSystemAlerts(in app: XCUIApplication) {
@@ -205,14 +202,14 @@ extension XCTestCase {
     }
 
     func openUpgradePaywall(in app: XCUIApplication) {
-        openTab("Settings", in: app)
+        openTab("Me", in: app)
         let upgrade = firstExisting([
             app.buttons["settings-upgrade"],
             app.buttons["Upgrade"],
             app.buttons["settings-upgrade-premium"],
             app.buttons["Upgrade to Premium"],
         ])
-        XCTAssertNotNil(upgrade, "Upgrade control missing on Settings")
+        XCTAssertNotNil(upgrade, "Upgrade control missing on Me")
         upgrade?.tap()
         // Close is on screen as soon as the paywall is. Do not wait out a missing
         // container identifier first, or the loading line finishes before we look.

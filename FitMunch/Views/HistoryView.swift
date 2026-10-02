@@ -2,21 +2,36 @@ import SwiftUI
 import SwiftData
 import Charts
 
-/// History and progress tracking screen
+/// Progress screen. Opened from Me, and usable on its own in previews.
 struct HistoryView: View {
+    var embedded: Bool = false
+
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: HistoryViewModel
     @State private var showDatePicker = false
     @State private var showExportSheet = false
+    @State private var showLogMeal = false
     @State private var exportData: String?
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, embedded: Bool = false) {
+        self.embedded = embedded
         _viewModel = StateObject(wrappedValue: HistoryViewModel(modelContext: modelContext))
     }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        Group {
+            if embedded {
+                historyContent
+            } else {
+                NavigationStack {
+                    historyContent
+                }
+            }
+        }
+    }
+
+    private var historyContent: some View {
+        ScrollView {
                 VStack(spacing: 24) {
                     // Date range selector
                     dateRangeSelector
@@ -34,7 +49,12 @@ struct HistoryView: View {
                 }
                 .padding()
             }
-            .navigationTitle("History")
+            .navigationTitle("Progress")
+            .scrollClearsTabBar()
+            .background(Theme.surface)
+            .sheet(isPresented: $showLogMeal) {
+                DetailView(modelContext: modelContext)
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -97,7 +117,6 @@ struct HistoryView: View {
                 viewModel.loadMealsForDateRange()
                 viewModel.generateChartData()
             }
-        }
     }
     
     /// Date range selector
@@ -106,27 +125,23 @@ struct HistoryView: View {
             Text("Date Range")
                 .font(.headline)
             
-            HStack {
+            Picker("Date Range", selection: $viewModel.selectedDateRange) {
                 ForEach(DateRange.allCases, id: \.self) { range in
-                    Button {
-                        if range == .custom {
-                            showDatePicker = true
-                        } else {
-                            viewModel.selectedDateRange = range
-                            viewModel.updateDateRange()
-                        }
-                    } label: {
-                        Text(range.rawValue)
-                            .font(.subheadline)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(viewModel.selectedDateRange == range ? Color.blue : Color.gray.opacity(0.2))
-                            .foregroundColor(viewModel.selectedDateRange == range ? .white : .primary)
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
+                    Text(range.rawValue)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .tag(range)
                 }
             }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("progress-range")
+            .onChange(of: viewModel.selectedDateRange) { _, range in
+                if range == .custom {
+                    showDatePicker = true
+                }
+                viewModel.updateDateRange()
+            }
+            .sensoryFeedback(.selection, trigger: viewModel.selectedDateRange)
             
             Text(viewModel.formattedDateRange)
                 .font(.caption)
@@ -149,7 +164,7 @@ struct HistoryView: View {
                     title: "Total Meals",
                     value: "\(viewModel.meals.count)",
                     icon: "fork.knife",
-                    color: .blue
+                    color: Theme.brandGreen
                 )
                 
                 StatCard(
@@ -253,26 +268,21 @@ struct HistoryView: View {
     
     /// Empty state when no meals in history
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.5))
-            
-            Text("No meals in selected range")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            
+        ContentUnavailableView {
+            Label("No meals in this range", systemImage: "chart.line.uptrend.xyaxis")
+        } description: {
             if !viewModel.hasPremiumAccess && viewModel.selectedDateRange != .week {
                 Text("Free tier limited to 7-day history. Upgrade for full access.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+            } else {
+                Text("Your progress shows up after you log a meal.")
             }
+        } actions: {
+            Button("Log your first meal") {
+                showLogMeal = true
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("history-log-first-meal")
         }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
     }
 }
 
@@ -290,8 +300,7 @@ private struct StatCard: View {
                 .foregroundColor(color)
             
             Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
             
             Text(title)
                 .font(.caption)
@@ -300,7 +309,9 @@ private struct StatCard: View {
         .frame(maxWidth: .infinity)
         .padding()
         .background(color.opacity(0.1))
-        .cornerRadius(12)
+        .cornerRadius(Theme.Radius.medium)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) \(value)")
     }
 }
 
@@ -328,7 +339,7 @@ private struct HistoryMealCard: View {
             
             HStack {
                 NutritionBadge(value: meal.totalCalories, unit: "cal", color: .red)
-                NutritionBadge(value: meal.totalProtein, unit: "P", color: .blue)
+                NutritionBadge(value: meal.totalProtein, unit: "P", color: Theme.brandGreen)
                 NutritionBadge(value: meal.totalCarbs, unit: "C", color: .orange)
                 NutritionBadge(value: meal.totalFats, unit: "F", color: .green)
                 
@@ -413,7 +424,7 @@ private struct DateRangePicker: View {
                     .frame(maxWidth: .infinity)
                     .foregroundColor(.white)
                     .padding()
-                    .background(Color.blue)
+                    .background(Theme.buttonFill)
                     .cornerRadius(8)
                 }
                 .listRowBackground(Color.clear)
@@ -443,7 +454,7 @@ private struct ExportSheet: View {
             VStack(spacing: 20) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 60))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                 
                 Text("Export Complete")
                     .font(.title2)
@@ -478,7 +489,7 @@ private struct ExportSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
+                .background(Theme.buttonFill)
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .padding(.horizontal)
