@@ -84,6 +84,25 @@ function readUserSettings(user) {
   return typeof raw === 'object' ? raw : {};
 }
 
+// Coach tier lives on settings.coach. Consumer subscription_tier stays untouched.
+async function updateUserCoachBilling(userId, coach, existingSettings) {
+  const settings = { ...readUserSettings({ settings: existingSettings }) };
+  settings.coach = {
+    tier: coach && coach.tier ? coach.tier : 'cancelled',
+    plan: coach && coach.plan ? coach.plan : null,
+    priceId: coach && coach.priceId ? coach.priceId : null,
+    subscriptionId: coach && coach.subscriptionId ? coach.subscriptionId : null,
+    updatedAt: new Date().toISOString(),
+  };
+  await db.update(schema.users)
+    .set({
+      settings,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.users.id, userId));
+  return settings.coach;
+}
+
 function effectiveTier(user) {
   const stored = user && user.subscriptionTier ? String(user.subscriptionTier) : 'free';
   if (stored !== 'free') return stored;
@@ -318,6 +337,7 @@ module.exports = {
   getUserByEmail,
   getUserById,
   updateUserSubscription,
+  updateUserCoachBilling,
   effectiveTier,
   withStripeCustomerLock,
   ensureUserExists,
