@@ -245,6 +245,15 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             console.log('Welcome email result:', r.success ? `sent (${r.messageId})` : `FAILED: ${r.error}`);
           }).catch(e => console.error('Welcome email error:', e.message));
         }
+        try {
+          const { scheduleFunnelEvent, trialStartedFromCheckoutSession } = require('./lib/funnel-events');
+          scheduleFunnelEvent(
+            trialStartedFromCheckoutSession(session, 'webhook'),
+            event && event.id ? `trial:${event.id}` : ''
+          );
+        } catch (_) {
+          /* funnel log must not change the webhook response */
+        }
         break;
       }
       case 'customer.subscription.created':

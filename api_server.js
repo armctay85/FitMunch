@@ -184,6 +184,12 @@ router.post('/analytics/events', async (req, res) => {
     if (!events || !Array.isArray(events) || !events.length) {
       return res.status(400).json({ success: false, error: 'Invalid events data' });
     }
+    try {
+      const { expandAnalyticsEvents } = require('./lib/funnel-events');
+      events = expandAnalyticsEvents(events);
+    } catch (expandErr) {
+      console.error('[funnel] expand failed:', expandErr.message);
+    }
     let processed = 0;
     for (const event of events) {
       const eventType = event.eventType || event.event || event.name;
