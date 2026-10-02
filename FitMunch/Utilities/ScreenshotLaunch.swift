@@ -40,12 +40,18 @@ enum ScreenshotLaunch {
         // Match SettingsViewModel's initial toggle so loadPreferences does not
         // flip Notifications and present the system permission alert.
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+        // In-app steps counter only. Not HealthKit.
+        UserDefaults.standard.set(10000, forKey: "stepsGoal")
+        UserDefaults.standard.set(6400, forKey: "stepsToday")
+        UserDefaults.standard.set("Monday", forKey: "completedWorkoutDays")
         UIView.setAnimationsEnabled(false)
     }
 
     /// Sample meals so Home looks like the app in use (Guideline 2.3.3).
     static func seedMealsIfNeeded(into context: ModelContext) {
         guard isActive else { return }
+        seedHistoryDaysIfNeeded(into: context)
+        seedWorkoutLogIfNeeded(into: context)
         let start = Calendar.current.startOfDay(for: Date())
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
         let descriptor = FetchDescriptor<Meal>(
@@ -88,6 +94,56 @@ enum ScreenshotLaunch {
         addMeal(name: "Dinner", hour: 18, items: [
             ("Salmon and rice", 540, 38, 48, 18),
         ])
+        try? context.save()
+    }
+
+    /// Earlier days so History shows a week of meals and a calorie chart.
+    /// Screenshot mode only. Does not run for a normal launch.
+    private static func seedHistoryDaysIfNeeded(into context: ModelContext) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let all = (try? context.fetch(FetchDescriptor<Meal>())) ?? []
+        let prior = all.filter { calendar.startOfDay(for: $0.date) < today }
+        guard prior.isEmpty else { return }
+
+        let days: [(Int, String, Int, Int, Int, Int)] = [
+            (1, "Chicken rice bowl", 610, 48, 62, 14),
+            (2, "Turkey wrap", 560, 40, 46, 18),
+            (3, "Salmon and potatoes", 680, 44, 52, 22),
+            (4, "Eggs and toast", 390, 28, 32, 16),
+            (5, "Yoghurt and oats", 420, 32, 48, 10),
+            (6, "Beef mince and rice", 720, 46, 58, 24),
+        ]
+        for entry in days {
+            guard let day = calendar.date(byAdding: .day, value: -entry.0, to: today) else { continue }
+            var components = calendar.dateComponents([.year, .month, .day], from: day)
+            components.hour = 12
+            components.minute = 30
+            let when = calendar.date(from: components) ?? day
+            let meal = Meal(name: entry.1, date: when)
+            context.insert(meal)
+            let food = FoodItem(
+                name: entry.1,
+                calories: entry.2,
+                protein: entry.3,
+                carbs: entry.4,
+                fats: entry.5
+            )
+            food.meal = meal
+            meal.foodItems.append(food)
+            context.insert(food)
+            meal.updateTotals()
+        }
+        try? context.save()
+    }
+
+    /// One logged exercise so Workout is the app in use. The weekly plan itself
+    /// still comes from WorkoutPlanGenerator on appear.
+    private static func seedWorkoutLogIfNeeded(into context: ModelContext) {
+        let existing = (try? context.fetch(FetchDescriptor<WorkoutLog>())) ?? []
+        guard existing.isEmpty else { return }
+        let log = WorkoutLog(name: "Goblet Squats", sets: 3, reps: "10", weight: 16)
+        context.insert(log)
         try? context.save()
     }
 

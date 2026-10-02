@@ -20,6 +20,8 @@ final class AppStoreScreenshotTests: XCTestCase {
             ("scan", "Scan", "Receipt Scanner"),
             ("plan", "Meals", "Meal Plan"),
             ("settings", "Settings", "Settings"),
+            ("workout", "Workout", "Workout"),
+            ("history", "History", "History"),
         ]
 
         for screen in screens {
@@ -58,6 +60,14 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertFalse(app.staticTexts["Free Tier"].exists)
             XCTAssertFalse(app.buttons["Upgrade"].exists)
             XCTAssertFalse(app.buttons["Upgrade to Premium"].exists)
+        case "workout":
+            XCTAssertTrue(app.staticTexts["Weekly plan"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Full Body Foundation"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Daily steps"].waitForExistence(timeout: 4))
+        case "history":
+            XCTAssertTrue(app.staticTexts["Statistics"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Calorie Trends"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Breakfast"].waitForExistence(timeout: 4))
         default:
             break
         }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Capture home.png coach.png scan.png plan.png settings.png from the real SwiftUI app.
+# Capture home.png coach.png scan.png plan.png settings.png workout.png history.png from the real SwiftUI app.
 # HTML mockup frames are not store art.
 set -euo pipefail
 
@@ -83,7 +83,7 @@ verify_pngs() {
   local expected_w="$2"
   local expected_h="$3"
   local required w h png
-  for required in home coach scan plan settings; do
+  for required in home coach scan plan settings workout history; do
     png="$folder/$required.png"
     if [[ ! -f "$png" ]]; then
       echo "Missing $png"
@@ -99,15 +99,13 @@ verify_pngs() {
   done
 }
 
-run_capture() {
+capture_pngs() {
   local udid="$1"
   local folder="$2"
-  local expected_w="$3"
-  local expected_h="$4"
   mkdir -p "$folder"
   prepare_sim "$udid"
 
-  echo "Capturing on $udid -> $folder (${expected_w}x${expected_h})"
+  echo "Capturing on $udid -> $folder"
   rm -rf /tmp/fitmunch-appstore-screenshots
   mkdir -p /tmp/fitmunch-appstore-screenshots
   xcodebuild test \
@@ -124,7 +122,15 @@ run_capture() {
     echo "Copying PNGs from /tmp/fitmunch-appstore-screenshots"
     cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
   fi
+}
 
+run_capture() {
+  local udid="$1"
+  local folder="$2"
+  local expected_w="$3"
+  local expected_h="$4"
+  echo "Expected ${expected_w}x${expected_h}"
+  capture_pngs "$udid" "$folder"
   verify_pngs "$folder" "$expected_w" "$expected_h"
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
 }
@@ -136,7 +142,7 @@ scale_real_shots() {
   local h="$4"
   mkdir -p "$dest"
   local name
-  for name in home coach scan plan settings; do
+  for name in home coach scan plan settings workout history; do
     sips -z "$h" "$w" "$src/$name.png" --out "$dest/$name.png" >/dev/null
   done
   verify_pngs "$dest" "$w" "$h"
@@ -165,6 +171,46 @@ fi
 if [[ ! -d "$OUT/iphone-67" ]]; then
   echo "6.7-inch 1290x2796 capture is required."
   exit 1
+fi
+
+# 13-inch iPad slot. Build 9 is iPhone-only, so this is the same SwiftUI app
+# in iPad compatibility mode. Do not change TARGETED_DEVICE_FAMILY.
+ipad_type_name() {
+  xcrun simctl list devicetypes \
+    | grep -F "iPad Pro 13-inch" \
+    | head -1 \
+    | sed -E 's/^[[:space:]]+//; s/ \(com\.apple\.CoreSimulator\.SimDeviceType\..*$//'
+}
+
+UDID_IPAD="$(find_udid "iPad Pro 13-inch (M5)" "iPad Pro 13-inch (M4)" || true)"
+if [[ -z "${UDID_IPAD:-}" ]]; then
+  IPAD_TYPE="$(ipad_type_name || true)"
+  if [[ -n "${IPAD_TYPE:-}" ]]; then
+    UDID_IPAD="$(create_udid "$IPAD_TYPE" || true)"
+  fi
+fi
+
+if [[ -z "${UDID_IPAD:-}" ]]; then
+  echo "No 13-inch iPad Pro simulator could be found or created."
+  exit 1
+fi
+
+capture_pngs "$UDID_IPAD" "$OUT/ipad-13"
+RAW_PNG="$OUT/ipad-13/home.png"
+if [[ ! -f "$RAW_PNG" ]]; then
+  echo "13-inch iPad capture did not write home.png"
+  exit 1
+fi
+RAW_W="$(sips -g pixelWidth "$RAW_PNG" | awk '/pixelWidth/ {print $2}')"
+RAW_H="$(sips -g pixelHeight "$RAW_PNG" | awk '/pixelHeight/ {print $2}')"
+if [[ "$RAW_W" == "2064" && "$RAW_H" == "2752" ]]; then
+  verify_pngs "$OUT/ipad-13" 2064 2752
+  swift "$ROOT/scripts/ocr-store-screenshots.swift" "$OUT/ipad-13"
+else
+  echo "iPad capture was ${RAW_W}x${RAW_H}. Scaling the real SwiftUI shots to 2064x2752."
+  mkdir -p "$OUT/ipad-13-native"
+  find "$OUT/ipad-13" -maxdepth 1 -name '*.png' -exec cp {} "$OUT/ipad-13-native/" \;
+  scale_real_shots "$OUT/ipad-13-native" "$OUT/ipad-13" 2064 2752
 fi
 
 echo "Real-app screenshots written to $OUT"
