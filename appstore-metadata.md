@@ -1,71 +1,74 @@
 # FitMunch App Store Metadata
 
+Build 9 has no shopping-list screen in the iOS app. The promo and description do not claim one. The keyword field still includes shopping.
+
+<!-- TRIAL TOGGLE: keep commented until an introductory offer exists
+[Start with a free trial, then]
+-->
+
 ## APP NAME
-FitMunch: Meal & Nutrition Tracker
+FitMunch: Macro Meal Planner
 
 ## SUBTITLE
-Track meals, hit macros, reach goals
+Scan your shop, hit protein
 
 ## KEYWORDS
-nutrition,fitness,meal tracker,macros,calorie counter,weight loss,health,diet,food log,protein,carbs,fats,meal planning,fitness app,health tracker,nutrition app,meal diary,food diary,meal logging,progress tracking
+calorie,counter,tracker,diet,food,log,receipt,grocery,shopping,list,woolworths,coles,aldi,coach,ai
 
-## DESCRIPTION
-FitMunch makes meal tracking simple and effective. Log your meals, track macros, and stay on top of your nutrition goals—all in one beautiful app.
+## PROMOTIONAL TEXT
+New: scan your Woolies, Coles, Aldi or IGA receipt and get macros, a haul score and a high-protein week, built for how Aussies shop.
 
-**Track Every Meal**
-Log breakfast, lunch, dinner, and snacks with our intuitive interface. Search foods from our extensive database or add custom entries.
-
-**Hit Your Macros**
-See real-time totals for calories, protein, carbs, and fats. Set personalized goals and track your progress throughout the day.
-
-**Stay Consistent**
-View your meal history, monitor trends, and build healthy habits. Perfect for weight loss, muscle gain, or maintaining a balanced diet.
-
-**Premium Features (Subscription)**
-• Unlimited daily meal logging
-• Full historical data with advanced charts
-• Premium food database with recipes
-• Data export (CSV/JSON)
-• Personalized macro recommendations
-• No ads, just pure tracking
-
-**Why FitMunch?**
-• Clean, intuitive design that's easy to use daily
-• Privacy-focused—your data stays on your device
-• Syncs with Apple Health for comprehensive tracking
-• Built for real people with real fitness goals
-
-**Perfect For**
-• Weight loss journeys
-• Muscle building and fitness tracking
-• Managing specific diets (keto, low-carb, high-protein)
-• Anyone wanting to understand their eating habits better
-• Fitness enthusiasts tracking macros
-
-**Subscription Details**
-FitMunch offers auto-renewing subscriptions:
-• Monthly: A$19.99
-• Annual: A$149.99 (best value)
-
-Payment will be charged to your iTunes Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your Account Settings after purchase.
-
-**Privacy & Support**
-We take your privacy seriously. All data is stored locally on your device. Read our full privacy policy at [PRIVACY_URL].
-
-Need help? Contact our support team at [SUPPORT_URL].
-
----
-
-Download FitMunch today and take control of your nutrition journey!
-
-## PROMO TEXT
-Special launch offer! Get 7 days free trial of premium features. Track unlimited meals, access full history, and unlock personalized insights.
+## WHAT'S NEW
+Welcome to FitMunch. Scan your shop, hit your protein and get a week of meals sorted.
 
 ## SUPPORT URL
-https://fitmunch.com.au/support
+https://www.fitmunch.com.au/support
 
 ## PRIVACY POLICY URL
-https://fitmunch.com.au/privacy
+https://www.fitmunch.com.au/privacy
+
+## MARKETING URL
+https://www.fitmunch.com.au
+
+## DESCRIPTION
+Turn your weekly shop into a plan you'll actually stick to.
+
+FitMunch reads your Woolies, Coles, Aldi or IGA receipt, shows the protein and macros in what you bought, and builds a high-protein week around it.
+
+SCAN YOUR SHOP
+• Snap your receipt or pick a photo
+• See protein, carbs, fat and calories across your haul
+• Get a haul score with simple swaps that lift your protein
+
+HIT YOUR MACROS EVERY DAY
+• Set calorie and protein targets for your goal
+• Log meals in a few taps and watch your rings fill
+• Track progress over time
+
+A WEEK OF MEALS, SORTED
+• 7-day high-protein meal plans from your targets and budget
+
+YOUR AI COACH
+• Ask "What should I eat tonight?" or "Build my workout"
+• Answers that know your goals and your last shop
+
+TRAIN WITH A PLAN
+• Weekly gym or home workout plan
+• Log sets and exercises
+
+FREE TO START
+Log up to 3 meals a day, scan receipts and try the coach for free.
+
+FITMUNCH PREMIUM
+Unlimited meal logging, full history, unlimited coach and meal plans.
+• Monthly: A$19.99
+• Annual: A$149.99 (A$2.88 a week)
+
+Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your App Store account settings.
+
+Made in Australia by Develoop.
+Terms: https://www.fitmunch.com.au/terms
+Privacy: https://www.fitmunch.com.au/privacy
 
 ## PRIMARY CATEGORY
 Health & Fitness

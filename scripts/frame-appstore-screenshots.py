@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Frame native 1320x2868 simulator captures for the App Store.
+"""Frame native simulator captures in the FitMunch storyboard style.
 
-Expects raw simctl shots from iPhone 16 Pro Max at 1320x2868, with the
-status bar overridden to 9:41 and demo data seeded by ScreenshotLaunch.
-The capture is placed at 88% of the canvas width. It is not scaled up
-from a smaller simulator, and it is not cropped.
+Expects raw simctl shots at the canvas size, with the status bar
+overridden to 9:41 and demo data seeded by ScreenshotLaunch. Supported
+canvases: 1320x2868, 1242x2688, and 1284x2778. The capture is placed at
+88% of the canvas width. A smaller simulator is never scaled up.
 
-Captions are two lines maximum, in Bricolage Grotesque Bold, and may
-only describe what is on that screen. No shopping-list claim. No emoji.
+Headlines are a heavy grotesk at 96 to 110pt, two lines maximum, and
+40 characters maximum. Build 9 has no shopping-list screen, so that
+frame is omitted.
 
 Usage:
   python3 scripts/frame-appstore-screenshots.py RAW_DIR OUT_DIR
+      [--width 1320 --height 2868]
       [--stamp "pipeline test, not for upload"]
       [--contact-sheet path.png]
 """
@@ -23,25 +25,24 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-# Honest to the current captures: only words and controls those screens show.
-# Revisit after the redesign, when a later run shoots the final screens.
+# dark=True uses the darker green so the set has a rhythm.
+# Shopping-list frame is omitted: the iOS app has no shopping-list screen.
 CAPTIONS = [
-    ("01-home.png", "home.png", "Today and your daily progress"),
-    ("02-coach.png", "coach.png", "A coach reply about tomorrow"),
-    ("03-meals.png", "plan.png", "Set calories, protein, and a budget"),
-    ("04-workout.png", "workout.png", "Daily steps, counted in the app"),
-    ("05-scan.png", "scan.png", "Scan a Woolies, Coles, Aldi or IGA receipt"),
-    ("06-history.png", "history.png", "Choose a week or a month"),
-    ("07-settings.png", "settings.png", "Premium is switched on"),
+    ("01-scan.png", "scan.png", "Scan your shop. Know your macros.", False),
+    ("02-home.png", "home.png", "Hit your protein. Every day.", True),
+    ("03-meals.png", "plan.png", "High-protein week, built from your shop.", False),
+    ("04-coach.png", "coach.png", "Ask your AI coach anything.", True),
+    ("05-workout.png", "workout.png", "Train with a plan that fits your week.", False),
+    ("06-start.png", "settings.png", "Free to start. Built in Australia.", True),
 ]
 
-CANVAS = (1320, 2868)
-RAW_SIZE = (1320, 2868)
-BG = (0x0B, 0x1F, 0x14)
+ALLOWED = {(1320, 2868), (1242, 2688), (1284, 2778)}
+BRAND = (0x15, 0x80, 0x3D)
+BRAND_DARK = (0x0B, 0x3D, 0x22)
 WHITE = (255, 255, 255)
-STAMP = (214, 224, 216)
+STAMP = (232, 245, 236)
 DEVICE_WIDTH = 0.88
-FONT_PATH = Path(__file__).resolve().parent / "fonts" / "BricolageGrotesque-Bold.ttf"
+FONT_PATH = Path(__file__).resolve().parent / "fonts" / "BricolageGrotesque-ExtraBold.ttf"
 
 
 def load_font(size: int) -> ImageFont.FreeTypeFont:
@@ -79,18 +80,25 @@ def rounded(image: Image.Image, radius: int) -> Image.Image:
     return image
 
 
-def fit_lines(text: str, max_width: int, max_height: int) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
-    size = 72
-    while size >= 42:
+def headline_size(canvas_w: int) -> int:
+    scaled = round(110 * canvas_w / 1320)
+    return max(96, min(110, scaled))
+
+
+def fit_lines(text: str, max_width: int, max_height: int, canvas_w: int) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
+    if len(text) > 40:
+        raise SystemExit(f"caption is {len(text)} chars, maximum is 40: {text}")
+    size = headline_size(canvas_w)
+    while size >= 96:
         font = load_font(size)
         lines = wrap(text, font, max_width)
-        line_gap = int(size * 0.14)
+        line_gap = int(size * 0.12)
         line_height = size + line_gap
         block = line_height * len(lines) - line_gap
         if len(lines) <= 2 and block <= max_height:
             return font, lines, line_height
         size -= 2
-    raise SystemExit(f"caption needs more than 2 lines: {text}")
+    raise SystemExit(f"caption does not fit in 2 lines at 96pt: {text}")
 
 
 def frame_one(
@@ -98,32 +106,35 @@ def frame_one(
     dest: Path,
     headline: str,
     stamp: str | None,
+    canvas_size: tuple[int, int],
+    dark: bool,
 ) -> None:
     shot = Image.open(src).convert("RGBA")
-    if shot.size != RAW_SIZE:
+    if shot.size != canvas_size:
         raise SystemExit(
-            f"{src.name} is {shot.size[0]}x{shot.size[1]}, expected {RAW_SIZE[0]}x{RAW_SIZE[1]}. "
+            f"{src.name} is {shot.size[0]}x{shot.size[1]}, expected {canvas_size[0]}x{canvas_size[1]}. "
             "Do not scale a smaller simulator into the frame."
         )
 
-    width, height = CANVAS
-    canvas = Image.new("RGBA", CANVAS, BG + (255,))
+    width, height = canvas_size
+    bg = BRAND_DARK if dark else BRAND
+    canvas = Image.new("RGBA", canvas_size, bg + (255,))
     phone_w = int(width * DEVICE_WIDTH)
     phone_h = int(phone_w * shot.height / shot.width)
-    bottom = int(height * 0.018)
+    bottom = max(12, int(height * 0.006))
     y_shot = height - bottom - phone_h
-    text_width = int(width * 0.86)
+    text_width = int(width * 0.90)
 
     stamp_block = 0
     stamp_font = None
     if stamp:
-        stamp_font = load_font(28)
-        stamp_block = 40
+        stamp_font = load_font(22)
+        stamp_block = 30
 
-    top_pad = int(height * 0.012)
-    gap = int(height * 0.012)
+    top_pad = int(height * 0.008)
+    gap = int(height * 0.008)
     headline_room = y_shot - top_pad - stamp_block - gap
-    font, lines, line_height = fit_lines(headline, text_width, headline_room)
+    font, lines, line_height = fit_lines(headline, text_width, headline_room, width)
     text_block = line_height * len(lines) - int(font.size * 0.14)
     content_h = stamp_block + text_block
     y = top_pad + max(0, (headline_room - content_h) // 2)
@@ -154,7 +165,10 @@ def frame_one(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(dest, "PNG", optimize=True)
-    print(f"{dest.name} {width}x{height} device {phone_w}x{phone_h} ({phone_w / width:.0%} wide)")
+    print(
+        f"{dest.name} {width}x{height} device {phone_w}x{phone_h} "
+        f"({phone_w / width:.0%} wide) {font.size}pt"
+    )
 
 
 def contact_sheet(frames: list[Path], dest: Path, stamp: str | None) -> None:
@@ -171,7 +185,7 @@ def contact_sheet(frames: list[Path], dest: Path, stamp: str | None) -> None:
     rows = (len(thumbs) + cols - 1) // cols
     sheet_w = cols * thumb_w + (cols + 1) * gap
     sheet_h = banner_h + rows * (thumbs[0].height + gap) + gap
-    sheet = Image.new("RGB", (sheet_w, sheet_h), BG)
+    sheet = Image.new("RGB", (sheet_w, sheet_h), BRAND)
     draw = ImageDraw.Draw(sheet)
     if stamp:
         font = load_font(36)
@@ -189,21 +203,26 @@ def contact_sheet(frames: list[Path], dest: Path, stamp: str | None) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Frame 1320x2868 FitMunch captures.")
+    parser = argparse.ArgumentParser(description="Frame FitMunch captures.")
     parser.add_argument("raw_dir", type=Path)
     parser.add_argument("out_dir", type=Path)
+    parser.add_argument("--width", type=int, default=1320)
+    parser.add_argument("--height", type=int, default=2868)
     parser.add_argument("--stamp", default="", help="Label burned onto each frame, such as a pipeline test.")
     parser.add_argument("--contact-sheet", type=Path, default=None)
     args = parser.parse_args()
+    canvas_size = (args.width, args.height)
+    if canvas_size not in ALLOWED:
+        raise SystemExit(f"unsupported canvas {args.width}x{args.height}")
     stamp = args.stamp.strip() or None
 
     written: list[Path] = []
-    for filename, source_name, headline in CAPTIONS:
+    for filename, source_name, headline, dark in CAPTIONS:
         src = args.raw_dir / source_name
         if not src.exists():
             raise SystemExit(f"missing {src}")
         dest = args.out_dir / filename
-        frame_one(src, dest, headline, stamp)
+        frame_one(src, dest, headline, stamp, canvas_size, dark)
         written.append(dest)
 
     if args.contact_sheet is not None:
