@@ -93,6 +93,14 @@ function snippet(text) {
   return String(text || '').replace(/\s+/g, ' ').slice(0, 240);
 }
 
+function isDeploymentProtection(body) {
+  if (!body || typeof body !== 'object') return false;
+  if (body.protection && body.protection.vercel_auth_enabled) return true;
+  const message = String(body.message || (body.error && body.error.message) || '');
+  return /Protected by Vercel Authentication/i.test(message)
+    || /Protected deployment/i.test(message);
+}
+
 async function callJson(origin, pathname, body) {
   const res = await fetch(`${origin}${pathname}`, {
     method: 'POST',
@@ -112,6 +120,16 @@ async function callJson(origin, pathname, body) {
   const parsed = await readBody(res);
   if (!parsed.type.includes('application/json') || !parsed.json || typeof parsed.json !== 'object') {
     fail(`${pathname} did not return JSON (${res.status} ${parsed.type}): ${snippet(parsed.text)}`);
+  }
+  if (isDeploymentProtection(parsed.json)) {
+    fail(
+      `${pathname} is behind Vercel Authentication (HTTP ${res.status}). ` +
+      'Set the GitHub secret VERCEL_AUTOMATION_BYPASS_SECRET to this project\'s Protection Bypass for Automation secret. ' +
+      'No checkout session was created.'
+    );
+  }
+  if (typeof parsed.json.success !== 'boolean') {
+    fail(`${pathname} JSON is not a FitMunch response (${res.status}): ${snippet(JSON.stringify(parsed.json))}`);
   }
   return { status: res.status, body: parsed.json };
 }

@@ -144,6 +144,27 @@ describe('checkout smoke', () => {
     }
   }, 20000);
 
+  test('Vercel Authentication 401 is not a passing login', async () => {
+    const server = await listen(async (req, res) => {
+      await readJson(req);
+      res.setHeader('content-type', 'application/json');
+      res.statusCode = 401;
+      res.end(JSON.stringify({
+        message: 'Protected by Vercel Authentication',
+        error: { code: '401', message: 'Protected deployment' },
+        protection: { vercel_auth_enabled: true },
+      }));
+    });
+    try {
+      const { port } = server.address();
+      const result = await runSmoke(`http://127.0.0.1:${port}`, {});
+      expect(result.code).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toMatch(/Vercel Authentication/);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }, 20000);
+
   test('login 500 fails', async () => {
     const server = await listen(async (req, res) => {
       await readJson(req);
