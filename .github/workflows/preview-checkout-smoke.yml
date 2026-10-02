@@ -1,0 +1,70 @@
+name: Preview checkout smoke
+
+# deployment_status only runs a workflow that exists on the default branch.
+# pull_request runs this file from the PR so the check exists before merge,
+# and waits for the Vercel Preview deployment of the head SHA.
+on:
+  deployment_status:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  deployments: read
+  checks: write
+
+concurrency:
+  group: preview-checkout-smoke-${{ github.event.pull_request.number || github.event.deployment.sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  preview-checkout-smoke:
+    name: preview-checkout-smoke
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       startsWith(github.event.deployment.environment, 'Preview'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Smoke preview checkout
+        id: smoke
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: node scripts/smoke-checkout.mjs
+
+      - name: Report check on the preview commit
+        if: always() && github.event_name == 'deployment_status'
+        uses: actions/github-script@v7
+        env:
+          SMOKE_OK: ${{ steps.smoke.outcome }}
+        with:
+          script: |
+            const sha = context.payload.deployment && context.payload.deployment.sha;
+            if (!sha) return;
+            const ok = process.env.SMOKE_OK === 'success';
+            const environment = context.payload.deployment.environment || 'Preview';
+            const url = (context.payload.deployment_status && (context.payload.deployment_status.environment_url || context.payload.deployment_status.target_url)) || '';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'preview-checkout-smoke',
+              head_sha: sha,
+              status: 'completed',
+              conclusion: ok ? 'success' : 'failure',
+              output: {
+                title: ok ? 'Preview checkout smoke passed' : 'Preview checkout smoke failed',
+                summary: `${environment}\n${url}\n\nThe job log prints smoke mode: test or smoke mode: live.`,
+              },
+            });
