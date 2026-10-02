@@ -627,6 +627,24 @@ router.get('/auth/me', async (req, res) => {
 
     const token = authHeader.slice(7);
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.preview) {
+      const coachStore = require('./lib/coach-store');
+      if (!coachStore.previewEnabled()) {
+        return res.status(401).json({ success: false, error: 'Unauthorised' });
+      }
+      return res.json({
+        success: true,
+        user: {
+          id: decoded.userId,
+          name: decoded.name,
+          email: decoded.email,
+          subscriptionTier: 'free',
+          role: 'pt',
+          ptId: null,
+          preview: true,
+        },
+      });
+    }
     const user = await getUserById(decoded.userId);
     if (!user)
       return res.status(401).json({ success: false, error: 'User not found.' });
@@ -687,6 +705,11 @@ router.get('/clients/invite/:token', async (req, res) => {
 // GET /api/clients — PT gets their client list with recent activity
 router.get('/clients', authMiddleware, async (req, res) => {
   try {
+    if (req.user.preview) {
+      const coachStore = require('./lib/coach-store');
+      if (!coachStore.previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
+      return res.json({ success: true, clients: coachStore.previewClientRows() });
+    }
     await ensureMigrations();
     const r = await _pool.query(`
       SELECT u.id, u.name, u.email, u.created_at, pc.status, pc.phase, pc.joined_at,
@@ -1408,6 +1431,21 @@ If very little data was logged, be encouraging about starting and make "focus" a
 // ── CLIENT PORTAL (for clients to get their assigned data) ───────────────────
 router.get('/portal/me', authMiddleware, async (req, res) => {
   try {
+    if (req.user && req.user.preview) {
+      return res.json({
+        success: true,
+        user: { id: req.user.userId, name: req.user.name, email: req.user.email },
+        profile: null,
+        mealPlan: null,
+        workoutPlan: null,
+        shoppingLists: [],
+        recentMeals: [],
+        recentWorkouts: [],
+        progress: [],
+        favourites: [],
+        pt: null,
+      });
+    }
     const user = await getUserById(req.user.userId);
     const profile = await getProfile(req.user.userId);
     // Get assigned plans
