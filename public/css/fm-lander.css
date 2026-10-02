@@ -87,3 +87,15 @@ html,body{max-width:100%;overflow-x:hidden}
   .ln-week{grid-template-columns:repeat(4,minmax(0,1fr))}
   .ln-day span{font-size:.74rem}
 }
+
+/* Pack 3 only. Pack 2 landers do not carry ln-pack3. */
+.ln-pack3 .fm-btn-leaf,
+.ln-pack3 .fm-nav-cta{background:#157a39}
+.ln-pack3 .fm-btn-leaf:hover,
+.ln-pack3 .fm-nav-cta:hover{background:#117034}
+.ln-pack3 .ln-vs h3{color:#556860}
+.ln-pack3 .ln-vs div.good h3{color:#157a39}
+.ln-pack3 .ln-section .fm-convert p{color:rgba(238,242,238,.9)}
+.ln-pack3 .ln-section p a,
+.ln-pack3 .ln-links a,
+.ln-pack3 .faq a{color:#157a39}
