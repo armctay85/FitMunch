@@ -20,15 +20,28 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>FitMunch needs the camera to photograph grocery receipts for nutrition scanning.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition.</string>
+	<key>REVENUECAT_API_KEY</key>
+	<string>appl_cROEYRaGpLeaZpIdmPySkQfTdxK</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>LaunchLogo</string>
+	</dict>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
@@ -39,15 +52,5 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>NSHealthShareUsageDescription</key>
-	<string>FitMunch uses Health data to help you track your nutrition and fitness goals.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>FitMunch uses Health data to help you track your nutrition and fitness goals.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>FitMunch needs the camera to photograph grocery receipts for nutrition scanning.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition.</string>
-	<key>REVENUECAT_API_KEY</key>
-	<string>appl_cROEYRaGpLeaZpIdmPySkQfTdxK</string>
 </dict>
 </plist>

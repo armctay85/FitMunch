@@ -103,6 +103,9 @@ struct OnboardingView: View {
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .task {
+                await viewModel.loadPremiumPrice()
+            }
         }
     }
     
@@ -188,7 +191,7 @@ struct OnboardingView: View {
         VStack(spacing: 24) {
             PlanCard(
                 title: "Free",
-                price: "$0",
+                price: "Free",
                 period: "forever",
                 features: [
                     "Log up to 3 meals per day",
@@ -202,8 +205,8 @@ struct OnboardingView: View {
             
             PlanCard(
                 title: "Premium",
-                price: "$9.99",
-                period: "per month",
+                price: viewModel.premiumPriceText,
+                period: viewModel.premiumPeriodText,
                 features: [
                     "Unlimited meal logging",
                     "Full history & advanced charts",
