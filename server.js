@@ -362,6 +362,10 @@ app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shoppi
 app.get('/meal-plan-software-personal-trainers', (req, res) => res.sendFile('meal-plan-software-personal-trainers.html', { root: 'public' }));
 app.get('/pt-client-meal-plans-woolworths', (req, res) => res.sendFile('pt-client-meal-plans-woolworths.html', { root: 'public' }));
 app.get('/fitmunch-coach-vs-spreadsheets', (req, res) => res.sendFile('fitmunch-coach-vs-spreadsheets.html', { root: 'public' }));
+// SEO pack 3 landers (new routes only; do not retarget pack 1 or pack 2)
+app.get('/family-meal-plan', (req, res) => res.sendFile('family-meal-plan.html', { root: 'public' }));
+app.get('/macro-meal-planner', (req, res) => res.sendFile('macro-meal-planner.html', { root: 'public' }));
+app.get('/meal-plan-for-one', (req, res) => res.sendFile('meal-plan-for-one.html', { root: 'public' }));
 // /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)

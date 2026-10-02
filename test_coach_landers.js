@@ -104,6 +104,11 @@ describe('FitMunch Coach landers', () => {
     const res = await request(app).get('/for-pts').expect(200);
     const html = res.text;
     expect(html).toContain('id="coach"');
+    expect(html).toContain('<h1>Client meal plans with a priced shopping list, in your brand.</h1>');
+    expect(html).toContain('A$39 a month for up to 10 clients, or A$79 a month unlimited.');
+    expect(html).toContain('14-day trial, card required.');
+    expect(html).not.toContain('Clients love using it');
+    expect(html).not.toContain('real-time visibility');
     expect(html).toContain('A$39');
     expect(html).toContain('A$79');
     expect(html).toContain('href="/for-pts#coach"');
