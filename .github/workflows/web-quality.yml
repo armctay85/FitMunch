@@ -25,5 +25,8 @@ jobs:
       - name: Pre-ASC camera usage gate
         run: bash scripts/check-ios-camera-usage.sh
 
+      - name: IAP product ID gate
+        run: node scripts/check-iap-product-ids.mjs
+
       - name: Unit tests
         run: npm test -- --runInBand
