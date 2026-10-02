@@ -1,4 +1,6 @@
 Copyright 2017 The Literata Project Authors (https://github.com/googlefonts/literata)
+Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/atelier-anchor/bricolage)
+Copyright 2017 IBM Corp. All rights reserved. Reserved Font Name "Plex".
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

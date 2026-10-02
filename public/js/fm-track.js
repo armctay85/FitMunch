@@ -74,10 +74,21 @@
     }).catch(function () {});
   }
 
+  function abVariant() {
+    try {
+      if (window.FMAb && typeof window.FMAb.tag === 'function') {
+        var value = window.FMAb.tag();
+        if (value) return value;
+      }
+    } catch (_) {}
+    return undefined;
+  }
+
   function send(eventType, eventData, extras) {
     var base = Object.assign({
       path: location.pathname,
       href: location.pathname + location.search.slice(0, 160),
+      variant: abVariant(),
     }, attr(), eventData || {});
     var sessionId = sid();
     var events = [{

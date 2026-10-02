@@ -17,6 +17,8 @@ module.exports = {
     '**/test_seo_pack_3.js',
     '**/test_pay_path.js',
     '**/test_funnel_events.js',
+    '**/test_ab_assign.js',
+    '**/test_exit_intent.js',
     '**/test_checkout_duplicates.js',
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',
