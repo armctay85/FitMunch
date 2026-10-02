@@ -24,6 +24,8 @@ module.exports = {
     '**/test_pre_asc_gate.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
+    '**/test_shadowed_modules.js',
+    '**/test_smoke_checkout.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
