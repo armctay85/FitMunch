@@ -29,7 +29,7 @@
 </nav>
 <main class="fn">
   <h1>Conversion funnel</h1>
-  <p class="sub">Private view of marketing events (page views and CTA clicks). Requires the server analytics key. Do not share this URL.</p>
+  <p class="sub">Private counts for the web trial funnel. Steps: landing_page_view (tagged by page), trial_cta_click, checkout_start, trial_started. Checkout start and trial started are server counts and do not carry a browser session id. Trial started does not store email or name. Requires the server analytics key. Do not share this URL.</p>
   <label for="key">Analytics key</label>
   <input id="key" type="password" autocomplete="off" placeholder="Analytics key"/>
   <label for="days">Days</label>
@@ -37,8 +37,9 @@
   <div><button type="button" id="load">Load funnel</button></div>
   <p class="err" id="err" hidden></p>
   <p class="meta" id="meta"></p>
+  <p class="meta" id="steps"></p>
   <table id="tbl" hidden>
-    <thead><tr><th>Event</th><th>Count</th><th>Sessions</th></tr></thead>
+    <thead><tr><th>Step</th><th>Page</th><th>Plan</th><th>Count</th><th>Sessions</th></tr></thead>
     <tbody></tbody>
   </table>
 </main>
@@ -49,20 +50,31 @@
   document.getElementById('load').onclick = async function () {
     var err = document.getElementById('err');
     var meta = document.getElementById('meta');
+    var steps = document.getElementById('steps');
     var tbl = document.getElementById('tbl');
     err.hidden = true;
     var key = document.getElementById('key').value.trim();
     var days = document.getElementById('days').value || '14';
     if (!key) { err.textContent = 'Enter the analytics key.'; err.hidden = false; return; }
+    function esc(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
     try {
       var r = await fetch('/api/analytics/funnel?days=' + encodeURIComponent(days) + '&key=' + encodeURIComponent(key));
       var j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.error || ('HTTP ' + r.status));
       meta.textContent = 'Last ' + j.days + ' days · ' + j.totalEvents + ' events · updated ' + new Date(j.asOf).toLocaleString();
+      steps.textContent = (j.steps || []).map(function (row) {
+        return row.step + ' ' + row.count;
+      }).join(' · ');
       var tb = tbl.querySelector('tbody');
       tb.innerHTML = (j.events || []).map(function (row) {
-        return '<tr><td>' + row.eventType + '</td><td>' + row.count + '</td><td>' + row.sessions + '</td></tr>';
-      }).join('') || '<tr><td colspan="3">No events yet.</td></tr>';
+        return '<tr><td>' + esc(row.eventType) + '</td><td>' + esc(row.page || '') + '</td><td>' + esc(row.plan || '') + '</td><td>' + esc(row.count) + '</td><td>' + esc(row.sessions) + '</td></tr>';
+      }).join('') || '<tr><td colspan="5">No events yet.</td></tr>';
       tbl.hidden = false;
     } catch (e) {
       err.textContent = e.message || String(e);

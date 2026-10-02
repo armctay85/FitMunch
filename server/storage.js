@@ -3,6 +3,7 @@ const { drizzle } = require('drizzle-orm/node-postgres');
 const { eq, and, gte, lte, desc } = require('drizzle-orm');
 const { Pool } = require('pg');
 const schema = require('../shared/schema.js');
+const { summarizeFunnel } = require('../lib/funnel-events');
 
 // Initialize PostgreSQL connection pool
 const pool = new Pool({
@@ -258,30 +259,13 @@ async function getFunnelStats(days = 14) {
   const rows = await db.select({
     eventType: schema.analyticsEvents.eventType,
     sessionId: schema.analyticsEvents.sessionId,
+    eventData: schema.analyticsEvents.eventData,
   })
     .from(schema.analyticsEvents)
     .where(gte(schema.analyticsEvents.createdAt, since))
     .limit(20000);
 
-  const byType = new Map();
-  for (const row of rows) {
-    const key = row.eventType || 'unknown';
-    let bucket = byType.get(key);
-    if (!bucket) {
-      bucket = { eventType: key, count: 0, sessions: new Set() };
-      byType.set(key, bucket);
-    }
-    bucket.count += 1;
-    if (row.sessionId) bucket.sessions.add(row.sessionId);
-  }
-
-  const events = [...byType.values()]
-    .map((b) => ({ eventType: b.eventType, count: b.count, sessions: b.sessions.size }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 50);
-
-  const totalEvents = events.reduce((n, r) => n + r.count, 0);
-  return { days: d, totalEvents, events, asOf: new Date().toISOString() };
+  return summarizeFunnel(rows, d);
 }
 
 // In-process critical section for checkout customer create. Production also takes a
