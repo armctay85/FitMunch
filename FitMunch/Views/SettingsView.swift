@@ -10,16 +10,27 @@ struct SettingsView: View {
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
     @ObservedObject private var premium = PremiumManager.shared
-    
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        HistoryView(modelContext: modelContext, embedded: true)
+                    } label: {
+                        Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                    .accessibilityIdentifier("me-progress")
+                }
+
                 // Profile section
                 Section {
                     HStack {
                         Image(systemName: "person.circle.fill")
                             .font(.system(size: 50))
-                            .foregroundColor(.blue)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(Theme.brandGreen)
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(viewModel.userDisplayName)
@@ -92,7 +103,7 @@ struct SettingsView: View {
                                 UIApplication.shared.open(url)
                             }
                         }
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Theme.brandGreen)
                     } else {
                         Button {
                             showPaywall = true
@@ -102,7 +113,7 @@ struct SettingsView: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Theme.brandGreen)
                         .accessibilityIdentifier("settings-upgrade-premium")
                     }
                     
@@ -111,7 +122,7 @@ struct SettingsView: View {
                             await viewModel.restorePurchases()
                         }
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     .disabled(viewModel.isLoading)
                 }
                 
@@ -120,24 +131,24 @@ struct SettingsView: View {
                     Button("Contact Support") {
                         viewModel.contactSupport()
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     
                     Button("Privacy Policy") {
                         viewModel.viewPrivacyPolicy()
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     
                     Button("Terms of Service") {
                         viewModel.viewTermsOfService()
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     
                     Button("Rate the App") {
                         if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                 }
                 
                 // Data section
@@ -145,7 +156,7 @@ struct SettingsView: View {
                     Button("Export Data") {
                         // Premium history export lives on History tab for now.
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     .disabled(!premium.isPremium)
                     
                     Button("Reset Data", role: .destructive) {
@@ -189,7 +200,10 @@ struct SettingsView: View {
                     }
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle("Me")
+            .scrollContentBackground(.hidden)
+            .background(Theme.surface)
+            .scrollClearsTabBar()
             .onAppear {
                 viewModel.loadPreferences()
             }

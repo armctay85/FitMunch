@@ -23,9 +23,9 @@ Subscriptions
 
 Where the reviewer goes
 [ ] There is no guest mode and no built-in demo login. The reviewer creates a free account on the first screen (Create Account). Password must be at least 8 characters. That calls POST https://www.fitmunch.com.au/api/auth/register. A network connection is required.
-[ ] After that, onboarding asks for a name and email again, then Get Started. The tabs are Home, Coach, Scan, Meals, Workout, History, Settings. With seven tabs, History and Settings are under More if they are not on the tab bar.
-[ ] Settings, Upgrade and Settings, Upgrade to Premium both open the paywall full screen.
-[ ] Restore Purchases is on the paywall (under the plans, and again next to Retry if plans fail to load) and in Settings, Subscription.
+[ ] After that, onboarding asks for a name and email again, then Get Started. The tabs are Today, Plan, Scan, Coach, and Me. Plan has Meals and Training. Progress is the first row on Me. There is no More tab.
+[ ] Me, Upgrade and Me, Upgrade to Premium both open the paywall full screen.
+[ ] Restore Purchases is on the paywall (under the plans, and again next to Retry if plans fail to load) and on Me, under Subscription.
 [ ] While plans are loading, the paywall shows Loading plans. If both fetches come back empty, it shows: Plans couldn't load. Check your connection and try again. Retry reloads. Pull to refresh reloads.
 [ ] Scan, Choose from library works with no camera. Take a photo with no camera, or with camera access off, shows an alert titled Camera not available with Choose from library.
 [ ] The app does not use the microphone. Info.plist and project.yml have no NSMicrophoneUsageDescription. The camera session takes a still photo and sets automaticallyConfiguresApplicationAudioSession to false.
@@ -37,9 +37,9 @@ Do not claim these are live
 [ ] The archive workflow uploads a build. It does not submit for review. Do not treat a green CI run as App Review approval.
 
 Account removal the reviewer can use
-[ ] Settings, Delete Account, Delete Everything calls DELETE /auth/account and removes the server account.
-[ ] Settings, Log Out signs out. Local meal logs stay on the device.
-[ ] Privacy Policy and Terms of Service are linked from the paywall and from Settings (https://fitmunch.com.au/privacy and https://fitmunch.com.au/terms). Contact Support opens mail to support@fitmunch.com.au.
+[ ] Me, Delete Account, Delete Everything calls DELETE /auth/account and removes the server account.
+[ ] Me, Log Out signs out. Local meal logs stay on the device.
+[ ] Privacy Policy and Terms of Service are linked from the paywall and from Me (https://fitmunch.com.au/privacy and https://fitmunch.com.au/terms). Contact Support opens mail to support@fitmunch.com.au.
 
 
 PASTE INTO APP REVIEW NOTES
@@ -51,29 +51,29 @@ Create an account. The first screen opens on Create Account. Enter a name, email
 
 Onboarding. Tap Next. Enter a name and email (the goal can stay on Maintenance). Tap Next, then Get Started. The Premium card labeled $9.99 per month only opens the paywall. It does not purchase, and $9.99 is not the App Store price.
 
-Tabs. Home, Coach, Scan, Meals, and Workout are on the tab bar. History and Settings are under More if the bar cannot show every tab. On iPad this is the iPhone app in compatibility mode.
+Tabs. Today, Plan, Scan, Coach, and Me are on the tab bar. There is no More tab. Plan switches between Meals and Training. Progress is the first row on Me. On iPad this is the iPhone app in compatibility mode.
 
-Home: the plus button logs a meal on the device. A free account can log 3 meals for the day you are viewing. The next tap shows Free limit reached and opens the paywall.
+Today: the plus button logs a meal on the device. A free account can log 3 meals for the day you are viewing. The next tap shows Free limit reached and opens the paywall.
 Coach: send a question. The reply comes from the FitMunch account service. If it asks the account to upgrade, the paywall opens.
 Scan: you do not need a camera. Tap Choose from library and pick a grocery receipt photo. The app sends it for a haul score when the service responds. Take a photo with no camera, or with camera access off, shows an alert titled Camera not available, with Choose from library. The camera takes a still photo only. This build does not use the microphone and does not ask for microphone permission.
-Meals: tap Generate 7-day plan. If the service asks for an upgrade, the paywall opens.
-Workout: the weekly plan is generated on the device. Daily steps are an in-app counter (tap +1,000). They are not Apple Health. Log an exercise on the device. This build does not call HealthKit and has no Apple Watch app. Info.plist contains Health usage strings, but no HealthKit API is used.
-History: a free account shows an alert, Upgrade to premium to access full history.
+Plan, Meals: goal labels are General, Cut, Build, and Maintain. Tap Generate 7-day plan. If the service asks for an upgrade, the paywall opens.
+Plan, Training: the weekly plan is generated on the device. Daily steps are an in-app counter (tap +1,000). They are not Apple Health. Log an exercise on the device. This build does not call HealthKit and has no Apple Watch app. Info.plist contains Health usage strings, but no HealthKit API is used.
+Progress: open Me, then Progress. A free account shows an alert, Upgrade to premium to access full history.
 
 Subscriptions. Two auto-renewable products. No weekly plan.
 Monthly: fitmunch_monthly (fallback title Monthly Premium).
 Annual: fitmunch_annual (fallback title Annual Premium). The annual card can show a Save 20% label. The charge is the App Store price on the card.
 The paywall shows the App Store price for the reviewer's storefront. The project StoreKit file lists reference prices of 19.99 per month and 149.99 per year, and introductoryOffer is null on both products.
-Open the paywall from Settings, Upgrade, or Settings, Upgrade to Premium. It also opens from Home after the third meal, from Coach or Meals when an upgrade is required, and from the onboarding Premium card. Select a plan and tap Subscribe Now with a Sandbox Apple ID.
+Open the paywall from Me, Upgrade, or Me, Upgrade to Premium. It also opens from Today after the third meal, from Coach or Plan when an upgrade is required, and from the onboarding Premium card. Select a plan and tap Subscribe Now with a Sandbox Apple ID.
 
 Loading plans. The paywall shows Loading plans while it fetches fitmunch_monthly and fitmunch_annual. It tries once more on its own. If both tries are empty it stays on the paywall and shows: Plans couldn't load. Check your connection and try again. Tap Retry. Pull to refresh does the same. The screen is not left blank.
 
-Restore Purchases. On the paywall, under the plans. The same button sits next to Retry if plans fail to load. It is also in Settings, Subscription, Restore Purchases. Restore looks for fitmunch_monthly and fitmunch_annual and then shows an alert.
+Restore Purchases. On the paywall, under the plans. The same button sits next to Retry if plans fail to load. It is also on Me, under Subscription, Restore Purchases. Restore looks for fitmunch_monthly and fitmunch_annual and then shows an alert.
 
 Not in this build: Apple Watch, HealthKit, microphone, and Link pay. Continue on the web opens the FitMunch website in Safari. That is separate from these subscriptions. Please review purchases with Subscribe Now and a Sandbox Apple ID.
 
-Account. Settings, Log Out keeps on-device meals. Settings, Delete Account, Delete Everything deletes the server account.
+Account. Me, Log Out keeps on-device meals. Me, Delete Account, Delete Everything deletes the server account.
 Privacy: https://fitmunch.com.au/privacy
 Terms: https://fitmunch.com.au/terms
-Support: support@fitmunch.com.au (Settings, Contact Support).
+Support: support@fitmunch.com.au (Me, Contact Support).
 END OF APP REVIEW NOTES

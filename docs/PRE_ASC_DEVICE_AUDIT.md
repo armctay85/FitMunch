@@ -66,7 +66,7 @@ App Review runs iPhone-only binaries on iPad in compatibility mode. Test that mo
 ### iPhone (physical or recent simulator)
 
 - [ ] Cold launch, sign in or ReviewGuards path, tab bar visible
-- [ ] Settings → Upgrade (and Upgrade to Premium) opens the paywall
+- [ ] Me → Upgrade (and Upgrade to Premium) opens the paywall
 - [ ] Paywall shows Monthly / Annual from the App Store, or the retry empty state
 - [ ] Pull to refresh on the paywall reloads plans
 - [ ] Scan → Take a photo: permission prompt uses the receipt-scanning string
@@ -76,8 +76,8 @@ App Review runs iPhone-only binaries on iPad in compatibility mode. Test that mo
 
 ### iPad (physical Air / recent iPad, compatibility mode)
 
-- [ ] Settings is reachable (More tab if needed)
-- [ ] Settings → Upgrade opens the paywall (full-screen, tappable row)
+- [ ] Me is on the tab bar. There is no More tab. Upgrade is on Me.
+- [ ] Me → Upgrade opens the paywall (full-screen, tappable row)
 - [ ] Scan → Take a photo does **not** crash
 - [ ] Denied / missing camera shows the library fallback, not a black screen
 - [ ] Subscription page is not blank
@@ -136,9 +136,9 @@ Never a blank subscription screen.
 | D | Plans load and show prices | Local `.storekit` file shows monthly 19.99 and annual 149.99. |
 | E | Empty or failed fetch | Forced empty fetch shows the retry copy, Retry, and Restore. Not blank. |
 | F | Restore | Restore Purchases finishes and the app stays up. |
-| G | No crash | Home, Coach, paywall, and Scan leave the app in the foreground. |
+| G | No crash | Today, Coach, paywall, and Scan leave the app in the foreground. |
 
-Upgrade entry points that present this paywall full screen: Settings (Upgrade, Upgrade to Premium), Home (when the free meal limit is hit), Coach, Meals, and Onboarding. None use a sheet.
+Upgrade entry points that present this paywall full screen: Me (Upgrade, Upgrade to Premium), Today (when the free meal limit is hit), Coach, Plan, and Onboarding. None use a sheet.
 
 A separate `FitMunchSandboxProbe` test calls StoreKit for `fitmunch_monthly` and `fitmunch_annual` without the local configuration. The report says whether those live products actually loaded. CI simulators are not a sandbox Apple ID, so "no" is an honest result there.
 

@@ -16,13 +16,17 @@ struct ReceiptScanView: View {
     @State private var showLibraryPicker = false
     @State private var showCameraFallback = false
     @State private var cameraFallbackMessage = ""
+    @State private var photoBounce = 0
+    @State private var scanCompletions = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290)
+    private let brandGreen = Theme.brandGreen
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    OfflineNotice()
                     if let scan = scan {
                         resultsView(scan)
                     } else {
@@ -31,7 +35,10 @@ struct ReceiptScanView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Receipt Scanner")
+            .scrollClearsTabBar()
+            .background(Theme.surface)
+            .sensoryFeedback(.success, trigger: scanCompletions)
+            .navigationTitle("Scan")
             .accessibilityIdentifier("scan-screen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -78,7 +85,13 @@ struct ReceiptScanView: View {
 
     private var introView: some View {
         VStack(spacing: 18) {
-            Text("📸").font(.system(size: 52)).padding(.top, 28)
+            Image(systemName: "doc.viewfinder")
+                .font(.system(size: 52))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Theme.brandGreen)
+                .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
+                .padding(.top, 28)
+                .accessibilityLabel("Scan a receipt")
             Text("Scan your shop")
                 .font(.title2.weight(.heavy))
             Text("Snap your Woolies, Coles, Aldi or IGA receipt. Get every item's macros, a haul score, and meal ideas in seconds.")
@@ -101,24 +114,17 @@ struct ReceiptScanView: View {
                         Task { await openCameraSafely() }
                     } label: {
                         Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(brandGreen)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .symbolRenderingMode(.hierarchical)
                     }
+                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(isRequestingCamera)
+                    .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
                     .accessibilityIdentifier("scan-take-photo")
                     PhotosPicker(selection: $pickedItem, matching: .images) {
                         Label("Choose from library", systemImage: "photo.on.rectangle")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color(.secondarySystemBackground))
-                            .foregroundColor(.primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .symbolRenderingMode(.hierarchical)
                     }
+                    .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("scan-choose-library")
                 }
                 .padding(.top, 8)
@@ -146,7 +152,7 @@ struct ReceiptScanView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.secondary)
                 HStack(spacing: 22) {
-                    totalStat(Int(scan.weeklyTotals?.protein?.value ?? 0), "g protein", .blue)
+                    totalStat(Int(scan.weeklyTotals?.protein?.value ?? 0), "g protein", Theme.brandGreen)
                     totalStat(Int(scan.weeklyTotals?.calories?.value ?? 0), "calories", .orange)
                     totalStat(scan.items?.count ?? 0, "items", brandGreen)
                 }
@@ -169,7 +175,8 @@ struct ReceiptScanView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("\(Int(item.nutrition?.protein?.value ?? 0))g protein")
-                                .font(.caption.weight(.bold)).foregroundColor(.blue)
+                                .font(.caption.monospacedDigit().weight(.bold))
+                                .foregroundStyle(Theme.brandGreen)
                             Text("\(Int(item.nutrition?.calories?.value ?? 0)) cal")
                                 .font(.caption2).foregroundColor(.secondary)
                         }
@@ -194,14 +201,9 @@ struct ReceiptScanView: View {
                     HStack {
                         if isLogging { ProgressView().tint(.white) }
                         Text("Log haul to today's meals")
-                            .fontWeight(.bold)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(brandGreen)
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(isLogging)
             }
 
@@ -221,9 +223,12 @@ struct ReceiptScanView: View {
 
     private func totalStat(_ value: Int, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 2) {
-            Text("\(value)").font(.headline.weight(.heavy)).foregroundColor(color)
-            Text(label).font(.caption2).foregroundColor(.secondary)
+            MacroNumber(value: value, style: .headline)
+                .foregroundStyle(color)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     // MARK: - Actions
@@ -279,6 +284,7 @@ struct ReceiptScanView: View {
     }
 
     private func startScan(_ image: UIImage) {
+        photoBounce += 1
         guard let jpeg = image.jpegData(compressionQuality: 0.7) else {
             errorMessage = "Couldn't read that image. Try another photo."
             return
@@ -296,6 +302,7 @@ struct ReceiptScanView: View {
                 )
                 if res.success {
                     scan = res
+                    scanCompletions += 1
                 } else {
                     errorMessage = res.error ?? "Couldn't read that receipt. Try a clearer photo."
                 }

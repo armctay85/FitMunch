@@ -4,6 +4,8 @@ import SwiftData
 /// Workout tab — full parity with the web fitness half:
 /// `generateActivityPlan.js` (weekly plan) + `exercise_tracker.js` (log sets/reps) + steps goal.
 struct WorkoutView: View {
+    var embedded: Bool = false
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutLog.date, order: .reverse) private var logs: [WorkoutLog]
 
@@ -16,6 +18,7 @@ struct WorkoutView: View {
     @State private var planLevel = "Beginner"
     @State private var plan: [WorkoutDay] = []
     @State private var hasGeneratedPlan = false
+    @State private var plansGenerated = 0
 
     // Exercise log form
     @State private var exerciseName = ""
@@ -23,8 +26,8 @@ struct WorkoutView: View {
     @State private var exerciseReps = ""
     @State private var exerciseWeight = ""
 
-    private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290)
-    private let types = [("gym", "🏋️ Gym"), ("home", "🏠 Home")]
+    private let brandGreen = Theme.brandGreen
+    private let types = [("gym", "Gym"), ("home", "Home")]
     private let levels = ["Beginner", "Intermediate", "Advanced"]
 
     private var completedDays: Set<String> {
@@ -32,19 +35,34 @@ struct WorkoutView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    stepsCard
-                    planCard
-                    exerciseLogCard
+        Group {
+            if embedded {
+                workoutContent
+            } else {
+                NavigationStack {
+                    workoutContent
+                        .navigationTitle("Training")
                 }
-                .padding()
             }
-            .navigationTitle("Workout")
-            .onAppear {
-                if !hasGeneratedPlan { generate() }
+        }
+    }
+
+    private var workoutContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                stepsCard
+                planCard
+                exerciseLogCard
             }
+            .padding()
+        }
+        .scrollClearsTabBar()
+        .background(Theme.surface)
+        .sensoryFeedback(.selection, trigger: planType)
+        .sensoryFeedback(.selection, trigger: planLevel)
+        .sensoryFeedback(.success, trigger: plansGenerated)
+        .onAppear {
+            if !hasGeneratedPlan { generate() }
         }
     }
 
@@ -88,22 +106,31 @@ struct WorkoutView: View {
                 .font(.headline)
 
             Picker("Type", selection: $planType) {
-                ForEach(types, id: \.0) { t in Text(t.1).tag(t.0) }
+                ForEach(types, id: \.0) { item in
+                    Text(item.1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .tag(item.0)
+                }
             }
             .pickerStyle(.segmented)
 
             Picker("Level", selection: $planLevel) {
-                ForEach(levels, id: \.self) { l in Text(l).tag(l) }
+                ForEach(levels, id: \.self) { level in
+                    Text(level)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .tag(level)
+                }
             }
             .pickerStyle(.segmented)
 
             Button {
-                generate()
+                generate(fromUser: true)
             } label: {
-                Text("Generate plan").frame(maxWidth: .infinity)
+                Text("Generate plan")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(brandGreen)
+            .buttonStyle(PrimaryButtonStyle())
 
             ForEach(plan) { day in
                 workoutDayCard(day)
@@ -144,7 +171,7 @@ struct WorkoutView: View {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(ex.sets) sets").font(.caption).foregroundStyle(.secondary)
-                        Text(ex.reps ?? ex.time ?? "—").font(.caption).foregroundStyle(.secondary)
+                        Text(ex.reps ?? ex.time ?? "-").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 4)
@@ -171,9 +198,12 @@ struct WorkoutView: View {
         completedWorkoutDays = days.sorted().joined(separator: ",")
     }
 
-    private func generate() {
+    private func generate(fromUser: Bool = false) {
         plan = WorkoutPlanGenerator.plan(type: planType, level: planLevel)
         hasGeneratedPlan = true
+        if fromUser {
+            plansGenerated += 1
+        }
     }
 
     // MARK: - Exercise log
@@ -202,10 +232,9 @@ struct WorkoutView: View {
             Button {
                 logExercise()
             } label: {
-                Text("Log exercise").frame(maxWidth: .infinity)
+                Text("Log exercise")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(brandGreen)
+            .buttonStyle(PrimaryButtonStyle())
             .disabled(exerciseName.trimmingCharacters(in: .whitespaces).isEmpty)
 
             if !logs.isEmpty {

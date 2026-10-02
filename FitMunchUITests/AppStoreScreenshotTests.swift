@@ -15,11 +15,11 @@ final class AppStoreScreenshotTests: XCTestCase {
 
     func testCaptureRequiredStoreScreens() throws {
         let screens: [(file: String, tab: String, proof: String)] = [
-            ("home", "Home", "Today"),
-            ("coach", "Coach", "AI Coach"),
-            ("scan", "Scan", "Receipt Scanner"),
-            ("plan", "Meals", "Meal Plan"),
-            ("settings", "Settings", "Settings"),
+            ("home", "Today", "Today"),
+            ("coach", "Coach", "Coach"),
+            ("scan", "Scan", "Scan"),
+            ("plan", "Plan", "Plan"),
+            ("settings", "Me", "Me"),
         ]
 
         for screen in screens {
@@ -78,27 +78,10 @@ final class AppStoreScreenshotTests: XCTestCase {
     private func openTab(_ name: String) {
         let bar = app.tabBars.firstMatch
         XCTAssertTrue(bar.waitForExistence(timeout: 5))
-
+        XCTAssertFalse(bar.buttons["More"].exists, "More tab is showing. Store shots use the five-tab bar.")
         let direct = bar.buttons[name]
-        if direct.exists {
-            direct.tap()
-            return
-        }
-
-        let more = bar.buttons["More"]
-        XCTAssertTrue(more.exists, "Tab '\(name)' is not in the bar and More is missing")
-        more.tap()
-
-        let candidates = [
-            app.staticTexts[name],
-            app.buttons[name],
-            app.cells[name],
-        ]
-        for candidate in candidates where candidate.waitForExistence(timeout: 3) {
-            candidate.tap()
-            return
-        }
-        XCTFail("Could not open tab \(name) from More")
+        XCTAssertTrue(direct.waitForExistence(timeout: 5), "Tab '\(name)' is not on the tab bar")
+        direct.tap()
     }
 
     private func assertNoRejectedCopy(on screen: String) {
