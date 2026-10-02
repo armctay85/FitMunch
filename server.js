@@ -333,6 +333,11 @@ app.use('/api/meal-plan', mealPlanner);
 const shopperApi = require('./shopper');
 app.use('/api/shopper', shopperApi);
 
+// Coach plan builder (PT). Billing and landers stay in other parts.
+const coachApi = require('./coach-api');
+app.use('/api/coach', coachApi.api);
+app.use(coachApi.pages);
+
 // Food Database (search + macro lookup)
 const foodDb = require('./food-db');
 app.use('/api/foods', foodDb);

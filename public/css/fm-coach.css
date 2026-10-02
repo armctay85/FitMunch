@@ -1,0 +1,107 @@
+/* Coach plan builder. System fonts only: no extra third-party requests. */
+:root {
+  --accent: #1f9d4a;
+  --ink: #0c1210;
+  --mute: #5c6d64;
+  --line: #cfd9d2;
+  --paper: #eef2ee;
+  --surface: #fff;
+  --fridge: #07130d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
+body {
+  font-family: Georgia, "Iowan Old Style", serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+h1, h2, h3, button, label, .ui, .status, .price, .total {
+  font-family: system-ui, sans-serif;
+}
+header {
+  background: var(--fridge);
+  color: #fff;
+  padding: 16px 16px 18px;
+}
+header a { color: #b7e2c4; font-family: system-ui, sans-serif; font-size: .85rem; font-weight: 700; text-decoration: none; }
+h1 { margin: 8px 0 4px; font-size: 1.55rem; letter-spacing: -.03em; line-height: 1.1; }
+header p { margin: 0; color: rgba(255,255,255,.75); font-size: .95rem; line-height: 1.4; }
+main { width: min(760px, 100%); margin: 0 auto; padding: 16px 16px 40px; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px;
+  margin: 0 0 12px;
+}
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+label { display: block; font-size: .78rem; font-weight: 700; margin-bottom: 4px; }
+input, select, button { font-size: 16px; }
+input[type="text"], input[type="number"], select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ink);
+}
+.flags { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.flags label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  background: var(--paper);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+button, .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+button.secondary, a.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  margin-top: 8px;
+}
+button:disabled { opacity: .55; }
+.stack { display: grid; gap: 8px; }
+.status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--paper);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.day { margin-top: 14px; }
+.day h2 { display: flex; justify-content: space-between; font-size: 1rem; margin: 0 0 8px; }
+.meal { border-top: 1px solid var(--line); padding: 8px 0; }
+.meal h3 { margin: 0; font-size: .95rem; }
+.meal p, .note, .gate, .adherence { color: var(--mute); font-size: .9rem; line-height: 1.4; }
+.line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.price, .total { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.total { font-size: 1.2rem; font-weight: 800; margin: 10px 0 4px; }
+.logo-preview { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.error { color: #9f2d2d; font-family: system-ui, sans-serif; font-size: .9rem; }
+.share-link { word-break: break-all; font-family: system-ui, sans-serif; }
+footer { margin-top: 18px; }
+footer p { color: var(--mute); font-size: .9rem; }
+@media (max-width: 420px) {
+  .grid { grid-template-columns: 1fr; }
+}
