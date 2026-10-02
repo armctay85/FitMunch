@@ -65,7 +65,8 @@ Payment is charged to your Apple Account at confirmation of purchase. Subscripti
 
 Made in Australia by Develoop.
 Terms: https://www.fitmunch.com.au/terms
-Privacy: https://www.fitmunch.com.au/privacy`
+Privacy: https://www.fitmunch.com.au/privacy
+Support: support@fitmunch.com.au`
 };
 
 function makeJWT() {

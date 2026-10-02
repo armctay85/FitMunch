@@ -28,6 +28,8 @@ describe('ASC metadata limits', () => {
     expect(md).toContain(METADATA.keywords);
     expect(md).toContain(METADATA.whatsNew);
     expect(md).toContain(METADATA.supportUrl);
+    expect(METADATA.supportUrl).toBe('https://www.fitmunch.com.au/support');
+    expect(METADATA.description).toContain('support@fitmunch.com.au');
     expect(md).toContain(METADATA.description);
     expect(METADATA.keywords).toContain('shopping');
     expect(METADATA.description.toLowerCase()).not.toContain('shopping list');
