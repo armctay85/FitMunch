@@ -21,13 +21,14 @@
 <link rel="preload" href="/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href="/fonts/literata-latin.woff2" as="font" type="font/woff2" crossorigin/>
 <style>
-@font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:700 800;font-stretch:100%;font-display:optional;src:url('/fonts/bricolage-grotesque-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Literata';font-style:normal;font-weight:400 600;font-display:optional;src:url('/fonts/literata-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:optional;src:url('/fonts/ibm-plex-mono-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:optional;src:url('/fonts/ibm-plex-mono-600-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Bricolage Fallback';src:local('Arial');size-adjust:105%;ascent-override:92%;descent-override:22%;line-gap-override:0%}
-@font-face{font-family:'Literata Fallback';src:local('Georgia');size-adjust:98%;ascent-override:90%;descent-override:22%;line-gap-override:0%}
-@font-face{font-family:'Plex Fallback';src:local('Courier New');size-adjust:92%;ascent-override:88%;descent-override:20%;line-gap-override:0%}
+@font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:700 800;font-stretch:100%;font-display:swap;src:url('/fonts/bricolage-grotesque-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Literata';font-style:normal;font-weight:400 600;font-display:swap;src:url('/fonts/literata-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/ibm-plex-mono-500-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/ibm-plex-mono-600-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Bricolage Fallback';src:local('Inter');font-weight:700 800;size-adjust:91.06%;ascent-override:102.13%;descent-override:29.65%;line-gap-override:0%}
+@font-face{font-family:'Bricolage Fallback';src:local('Arial'),local('Arimo'),local('Liberation Sans');font-weight:700 800;size-adjust:94.16%;ascent-override:98.77%;descent-override:28.68%;line-gap-override:0%}
+@font-face{font-family:'Literata Fallback';src:local('Georgia'),local('Noto Serif'),local('Liberation Serif');font-weight:400 600;size-adjust:100.96%;ascent-override:116.59%;descent-override:30.51%;line-gap-override:0%}
+@font-face{font-family:'Plex Fallback';src:local('Courier New'),local('Cousine'),local('Liberation Mono');font-weight:500 600;size-adjust:99.98%;ascent-override:102.52%;descent-override:27.5%;line-gap-override:0%}
 :root{
   --fridge:#07130d;
   --fridge2:#0c1c14;
@@ -596,6 +597,9 @@ html[data-ab-home-fold-note="kicker"] .hero-kicker{
 }
 @media(min-width:720px){
   .fm-exit{align-items:center}
+}
+@media (hover: none), (pointer: coarse), (max-width: 1023px) {
+  .fm-exit{display:none!important}
 }
 </style>
 </head>

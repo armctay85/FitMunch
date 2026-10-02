@@ -1,9 +1,9 @@
 /**
  * Exit-intent offer for the existing 14-day trial.
  * Off unless window.FM_FLAGS.exitIntent is true.
- * Desktop: pointer leaves through the top edge.
- * Mobile: scroll up after the visitor has engaged, and not in the first few seconds.
- * Shown at most once per visitor.
+ * Desktop only: a fine pointer that can hover, on a viewport at least 1024px wide,
+ * when the pointer leaves through the top edge.
+ * Shown at most once per visitor. Never on touch or narrow viewports.
  */
 (function (factory) {
   var api = factory();
@@ -16,22 +16,25 @@
   }
 })(function () {
   var SEEN_KEY = 'fm_exit_seen';
+  var DESKTOP_QUERY = '(hover: hover) and (pointer: fine) and (min-width: 1024px)';
+
+  function isDesktopExit(view) {
+    try {
+      return !!(view && view.matchMedia && view.matchMedia(DESKTOP_QUERY).matches);
+    } catch (_) {
+      return false;
+    }
+  }
 
   function createExitController(options) {
     var opts = options || {};
     var enabled = opts.enabled === true;
-    var coarse = opts.coarse === true;
+    var desktop = opts.desktop === true;
     var seen = opts.seen === true;
     var shown = false;
-    var maxScroll = 0;
-    var engaged = false;
-    var startedAt = typeof opts.startedAt === 'number' ? opts.startedAt : 0;
-    var engagePx = opts.engagePx == null ? 280 : opts.engagePx;
-    var scrollUpPx = opts.scrollUpPx == null ? 64 : opts.scrollUpPx;
-    var minDelayMs = opts.minDelayMs == null ? 4000 : opts.minDelayMs;
 
     function show() {
-      if (!enabled || seen || shown) return false;
+      if (!enabled || !desktop || seen || shown) return false;
       shown = true;
       seen = true;
       return true;
@@ -39,20 +42,9 @@
 
     return {
       onMouseLeave: function (event) {
-        if (coarse) return false;
+        if (!desktop) return false;
         var y = event && typeof event.clientY === 'number' ? event.clientY : 1;
         if (y > 0) return false;
-        return show();
-      },
-      onScroll: function (scrollTop, now) {
-        var y = Number(scrollTop) || 0;
-        if (y > maxScroll) maxScroll = y;
-        if (maxScroll >= engagePx) engaged = true;
-        if (!coarse) return false;
-        if (!engaged) return false;
-        var t = typeof now === 'number' ? now : startedAt;
-        if (t - startedAt < minDelayMs) return false;
-        if (maxScroll - y < scrollUpPx) return false;
         return show();
       },
       wasShown: function () { return shown; },
@@ -151,37 +143,32 @@
     var storage = view && view.localStorage;
     var seen = false;
     try { seen = !!(storage && storage.getItem(SEEN_KEY) === '1'); } catch (_) {}
-    var coarse = false;
-    try {
-      coarse = !!(view && view.matchMedia && view.matchMedia('(pointer: coarse)').matches);
-      if (!coarse && view && view.navigator && view.navigator.maxTouchPoints > 0) coarse = true;
-    } catch (_) {}
+    var desktop = options && Object.prototype.hasOwnProperty.call(options, 'desktop')
+      ? options.desktop === true
+      : isDesktopExit(view);
     var controller = createExitController({
       enabled: enabled,
-      coarse: coarse,
+      desktop: desktop,
       seen: seen,
-      startedAt: Date.now(),
-      minDelayMs: flags.exitMinDelayMs == null ? 4000 : Number(flags.exitMinDelayMs),
     });
     function maybeShow(opened) {
       if (!opened) return;
+      if (!isDesktopExit(view)) return;
       try { if (storage) storage.setItem(SEEN_KEY, '1'); } catch (_) {}
       showDialog(root);
     }
-    if (!enabled || seen || !view) return controller;
+    if (!enabled || seen || !view || !desktop) return controller;
     root.addEventListener('mouseout', function (event) {
       if (event.relatedTarget) return;
       maybeShow(controller.onMouseLeave(event));
     });
-    view.addEventListener('scroll', function () {
-      var y = view.scrollY || (root.documentElement && root.documentElement.scrollTop) || 0;
-      maybeShow(controller.onScroll(y, Date.now()));
-    }, { passive: true });
     return controller;
   }
 
   return {
     SEEN_KEY: SEEN_KEY,
+    DESKTOP_QUERY: DESKTOP_QUERY,
+    isDesktopExit: isDesktopExit,
     createExitController: createExitController,
     showDialog: showDialog,
     bind: bind,

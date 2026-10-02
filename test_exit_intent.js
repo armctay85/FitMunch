@@ -9,12 +9,23 @@ function leaveTop() {
   document.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientY: -1 }));
 }
 
+function mockDesktop(matches) {
+  window.matchMedia = (query) => ({
+    matches: matches === true,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
+  });
+}
+
 describe('exit intent once per visitor', () => {
   beforeEach(() => {
     localStorage.clear();
     document.body.innerHTML = '<button id="before">Before</button>';
     document.getElementById('before').focus();
-    window.FM_FLAGS = { exitIntent: true, exitMinDelayMs: 0 };
+    window.FM_FLAGS = { exitIntent: true };
+    mockDesktop(true);
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true, writable: true });
   });
 
   it('shows on a desktop leave toward the top, once, and not again on the next visit', () => {
@@ -62,29 +73,45 @@ describe('exit intent once per visitor', () => {
     expect(document.getElementById('fm-exit')).toBeNull();
   });
 
-  it('uses scroll-up only after engagement on a coarse pointer, and only once', () => {
-    const mobile = createExitController({
-      enabled: true,
-      coarse: true,
-      startedAt: 0,
-      minDelayMs: 4000,
-      engagePx: 280,
-    });
-    expect(mobile.onMouseLeave({ clientY: -1 })).toBe(false);
-    expect(mobile.onScroll(100, 5000)).toBe(false);
-    expect(mobile.onScroll(400, 1000)).toBe(false);
-    expect(mobile.onScroll(400, 5000)).toBe(false);
-    expect(mobile.onScroll(300, 5000)).toBe(true);
-    expect(mobile.onScroll(200, 9000)).toBe(false);
+  it('never opens on touch or a narrow viewport, including a scroll-up', () => {
+    mockDesktop(false);
+    bind(document);
+    leaveTop();
+    window.scrollY = 500;
+    window.dispatchEvent(new Event('scroll'));
+    document.documentElement.scrollTop = 200;
+    window.dispatchEvent(new Event('scroll'));
+    expect(document.getElementById('fm-exit')).toBeNull();
+    expect(localStorage.getItem(SEEN_KEY)).toBeNull();
 
-    const desktop = createExitController({ enabled: true, coarse: false, startedAt: 0, minDelayMs: 0 });
-    expect(desktop.onScroll(500, 8000)).toBe(false);
-    expect(desktop.onScroll(100, 9000)).toBe(false);
+    const mobile = createExitController({ enabled: true, desktop: false });
+    expect(mobile.onMouseLeave({ clientY: -1 })).toBe(false);
+    expect(mobile.wasShown()).toBe(false);
+
+    const desktop = createExitController({ enabled: true, desktop: true });
     expect(desktop.onMouseLeave({ clientY: 20 })).toBe(false);
     expect(desktop.onMouseLeave({ clientY: -1 })).toBe(true);
     expect(desktop.onMouseLeave({ clientY: -1 })).toBe(false);
 
-    const returning = createExitController({ enabled: true, coarse: false, seen: true });
+    const returning = createExitController({ enabled: true, desktop: true, seen: true });
     expect(returning.onMouseLeave({ clientY: -1 })).toBe(false);
+  });
+
+  it('requires hover, a fine pointer, and a viewport at least 1024px wide', () => {
+    const { DESKTOP_QUERY, isDesktopExit } = require('./public/js/fm-exit-intent');
+    expect(DESKTOP_QUERY).toBe('(hover: hover) and (pointer: fine) and (min-width: 1024px)');
+    const queries = [];
+    window.matchMedia = (query) => {
+      queries.push(query);
+      return { matches: false, media: query, addEventListener() {}, removeEventListener() {} };
+    };
+    expect(isDesktopExit(window)).toBe(false);
+    expect(queries).toEqual([DESKTOP_QUERY]);
+    const home = require('fs').readFileSync(require('path').join(__dirname, 'public/index.html'), 'utf8');
+    expect(home).toContain('font-display:swap');
+    expect(home).not.toContain('font-display:optional');
+    expect(home).toContain('size-adjust:');
+    expect(home).toContain('ascent-override:');
+    expect(home).toContain('@media (hover: none), (pointer: coarse), (max-width: 1023px)');
   });
 });
