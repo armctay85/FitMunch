@@ -11,6 +11,10 @@ final class AppStoreScreenshotTests: XCTestCase {
         app.launchArguments = [ScreenshotLaunchArgument.flag, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared. Auth or onboarding leaked into screenshot mode.")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["screenshot-ready"].firstMatch.waitForExistence(timeout: 8),
+            "Screenshot window was not pinned before capture"
+        )
     }
 
     func testCaptureRequiredStoreScreens() throws {
@@ -51,9 +55,11 @@ final class AppStoreScreenshotTests: XCTestCase {
         case "coach":
             XCTAssertTrue(app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 4))
         case "scan":
-            XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Weekly haul score"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Chicken breast"].waitForExistence(timeout: 4))
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Sunday"].waitForExistence(timeout: 4))
             XCTAssertFalse(app.staticTexts["Budget $"].exists)
         case "settings":
             XCTAssertTrue(app.staticTexts["Premium Subscriber"].waitForExistence(timeout: 4))
@@ -130,6 +136,25 @@ final class AppStoreScreenshotTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Paywall"].exists, "\(screen) shows a paywall")
     }
 
+    /// Ask the capture script to take a simctl framebuffer shot, which is the full
+    /// screen. XCUIScreen.screenshot letterboxes this app on the 6.7-inch sim.
+    private func waitForFramebufferShot(named name: String) -> Bool {
+        let readyRoot = "/tmp/fitmunch-shot-ready"
+        let ack = "/tmp/fitmunch-shot-ack/\(name)"
+        do {
+            try FileManager.default.createDirectory(atPath: readyRoot, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(atPath: "/tmp/fitmunch-shot-ack", withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: "\(readyRoot)/\(name)", contents: Data())
+        } catch {
+            return false
+        }
+        let start = Date()
+        while !FileManager.default.fileExists(atPath: ack), Date().timeIntervalSince(start) < 20 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return FileManager.default.fileExists(atPath: ack)
+    }
+
     private func savePNG(named name: String) {
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
@@ -137,7 +162,13 @@ final class AppStoreScreenshotTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Always write a known path. TEST_RUNNER_* env does not always reach XCTest on GHA.
+        // The shell waiter writes the real framebuffer PNG when it acks.
+        // Fall back to XCUIScreen only if that waiter is not running.
+        if waitForFramebufferShot(named: name) {
+            print("Framebuffer shot acked for \(name)")
+            return
+        }
+
         let dirs = [
             "/tmp/fitmunch-appstore-screenshots",
             ProcessInfo.processInfo.environment["SCREENSHOT_DIR"],

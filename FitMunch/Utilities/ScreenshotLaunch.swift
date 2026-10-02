@@ -34,9 +34,11 @@ enum ScreenshotLaunch {
     static func prepareSession() {
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
-        UserDefaults.standard.set("Alex Chen", forKey: "userDisplayName")
-        UserDefaults.standard.set("alex@fitmunch.com.au", forKey: "userEmail")
+        // Demo household, not a real person.
+        UserDefaults.standard.set("Household", forKey: "userDisplayName")
+        UserDefaults.standard.set("hello@fitmunch.com.au", forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "useMetricUnits")
+        UserDefaults.standard.set(false, forKey: "isDarkMode")
         // Match SettingsViewModel's initial toggle so loadPreferences does not
         // flip Notifications and present the system permission alert.
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
@@ -45,6 +47,23 @@ enum ScreenshotLaunch {
         UserDefaults.standard.set(6400, forKey: "stepsToday")
         UserDefaults.standard.set("Monday", forKey: "completedWorkoutDays")
         UIView.setAnimationsEnabled(false)
+        pinWindowsToScreen()
+    }
+
+    /// XCTest screenshots letterbox when the scene stays at its initial frame.
+    /// Pin every window to the screen so the capture is full bleed.
+    static func pinWindowsToScreen() {
+        guard isActive else { return }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let scene = scene as? UIWindowScene else { continue }
+            let bounds = scene.screen.bounds
+            for window in scene.windows {
+                window.overrideUserInterfaceStyle = .light
+                window.frame = bounds
+                window.rootViewController?.view.frame = bounds
+                window.layoutIfNeeded()
+            }
+        }
     }
 
     /// Sample meals so Home looks like the app in use (Guideline 2.3.3).
@@ -93,6 +112,9 @@ enum ScreenshotLaunch {
         ])
         addMeal(name: "Dinner", hour: 18, items: [
             ("Salmon and rice", 540, 38, 48, 18),
+        ])
+        addMeal(name: "Snack", hour: 15, items: [
+            ("Banana", 105, 1, 27, 0),
         ])
         try? context.save()
     }
@@ -189,10 +211,73 @@ enum ScreenshotLaunch {
                     ),
                     dailyTotals: MealPlanTotals(calories: 1830, protein: 134, carbs: 148, fat: 61)
                 ),
+                day("Wednesday", "Porridge and banana", 410, 18, "Tuna salad", 520, 42, "Chicken stir fry", 640, 46, 1760, 124),
+                day("Thursday", "Eggs and spinach", 380, 26, "Beef salad", 590, 44, "Barramundi and rice", 670, 48, 1800, 136),
+                day("Friday", "Yoghurt and oats", 400, 30, "Chicken wrap", 560, 41, "Lamb mince and potatoes", 710, 46, 1840, 135),
+                day("Saturday", "Smoothie bowl", 430, 22, "Salmon salad", 540, 40, "Steak and vegetables", 690, 49, 1820, 129),
+                day("Sunday", "Eggs and tomatoes", 360, 24, "Turkey rice bowl", 580, 43, "Roast chicken and greens", 650, 52, 1750, 137),
             ],
             weeklyBudgetEst: nil,
-            avgDailyCalories: 1860,
-            avgDailyProtein: 138
+            avgDailyCalories: 1810,
+            avgDailyProtein: 136
+        )
+    }
+
+    private static func day(
+        _ name: String,
+        _ breakfast: String, _ breakfastKcal: Int, _ breakfastProtein: Int,
+        _ lunch: String, _ lunchKcal: Int, _ lunchProtein: Int,
+        _ dinner: String, _ dinnerKcal: Int, _ dinnerProtein: Int,
+        _ calories: Int, _ protein: Int
+    ) -> MealPlanDay {
+        MealPlanDay(
+            day: name,
+            meals: MealPlanMeals(
+                breakfast: MealPlanMeal(name: breakfast, calories: breakfastKcal, protein: breakfastProtein, carbs: 40, fat: 10, prepMins: 8),
+                lunch: MealPlanMeal(name: lunch, calories: lunchKcal, protein: lunchProtein, carbs: 36, fat: 14, prepMins: 12),
+                dinner: MealPlanMeal(name: dinner, calories: dinnerKcal, protein: dinnerProtein, carbs: 48, fat: 18, prepMins: 20),
+                snack: MealPlanMeal(name: "Fruit", calories: 90, protein: 1, carbs: 22, fat: 0, prepMins: 1)
+            ),
+            dailyTotals: MealPlanTotals(calories: calories, protein: protein, carbs: 146, fat: 42)
+        )
+    }
+
+    /// A finished receipt read, with no prices, so Scan shows the haul score.
+    static func sampleReceipt() -> ReceiptScanResponse {
+        func item(_ name: String, _ category: String, _ protein: Double, _ calories: Double) -> ReceiptScanResponse.Item {
+            ReceiptScanResponse.Item(
+                name: name,
+                quantity: FlexDouble(1),
+                unit: nil,
+                price: nil,
+                category: category,
+                nutrition: ReceiptScanResponse.Nutrition(
+                    protein: FlexDouble(protein),
+                    carbs: nil,
+                    fat: nil,
+                    calories: FlexDouble(calories)
+                )
+            )
+        }
+        return ReceiptScanResponse(
+            success: true,
+            error: nil,
+            items: [
+                item("Chicken breast", "meat", 46, 220),
+                item("Greek yoghurt", "dairy", 18, 160),
+                item("Rolled oats", "grains", 10, 340),
+                item("Broccoli", "vegetables", 6, 80),
+                item("Eggs", "dairy", 24, 280),
+                item("Salmon fillets", "meat", 40, 360),
+            ],
+            weeklyTotals: ReceiptScanResponse.Totals(
+                protein: FlexDouble(144),
+                carbs: FlexDouble(90),
+                fat: FlexDouble(48),
+                calories: FlexDouble(1440)
+            ),
+            grade: "A",
+            shareText: nil
         )
     }
 }

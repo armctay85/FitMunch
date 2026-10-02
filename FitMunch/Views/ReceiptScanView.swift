@@ -33,6 +33,11 @@ struct ReceiptScanView: View {
             }
             .navigationTitle("Receipt Scanner")
             .accessibilityIdentifier("scan-screen")
+            .onAppear {
+                if ScreenshotLaunch.isActive && scan == nil {
+                    scan = ScreenshotLaunch.sampleReceipt()
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if scan != nil {

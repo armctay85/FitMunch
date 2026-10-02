@@ -190,6 +190,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(ScreenshotLaunch.isActive ? .inline : .large)
             .onAppear {
                 viewModel.loadPreferences()
             }

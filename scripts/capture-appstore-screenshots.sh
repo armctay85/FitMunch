@@ -99,6 +99,57 @@ verify_pngs() {
   done
 }
 
+# XCUIScreen.screenshot letterboxes this app. The UI test writes a ready file
+# per screen; this loop takes a simctl framebuffer shot and acks it.
+start_framebuffer_waiter() {
+  local udid="$1"
+  local folder="$2"
+  rm -rf /tmp/fitmunch-shot-ready /tmp/fitmunch-shot-ack /tmp/fitmunch-shot-waiter-stop
+  mkdir -p /tmp/fitmunch-shot-ready /tmp/fitmunch-shot-ack "$folder"
+  (
+    set +e
+    while [[ ! -f /tmp/fitmunch-shot-waiter-stop ]]; do
+      for name in home coach scan plan settings workout history; do
+        if [[ -f "/tmp/fitmunch-shot-ready/$name" && ! -f "/tmp/fitmunch-shot-ack/$name" ]]; then
+          sleep 0.35
+          if xcrun simctl io "$udid" screenshot "$folder/$name.png"; then
+            touch "/tmp/fitmunch-shot-ack/$name"
+            echo "Framebuffer wrote $folder/$name.png"
+          else
+            echo "simctl screenshot failed for $name" >&2
+          fi
+        fi
+      done
+      sleep 0.05
+    done
+  ) &
+  echo $! > /tmp/fitmunch-shot-waiter.pid
+}
+
+stop_framebuffer_waiter() {
+  touch /tmp/fitmunch-shot-waiter-stop
+  if [[ -f /tmp/fitmunch-shot-waiter.pid ]]; then
+    local pid
+    pid="$(cat /tmp/fitmunch-shot-waiter.pid)"
+    local tick
+    for tick in 1 2 3 4 5 6 7 8 9 10; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    rm -f /tmp/fitmunch-shot-waiter.pid
+  fi
+  rm -f /tmp/fitmunch-shot-waiter-stop
+}
+
+reject_letterbox() {
+  local folder="$1"
+  swift "$ROOT/scripts/reject-letterbox.swift" "$folder"
+}
+
 capture_pngs() {
   local udid="$1"
   local folder="$2"
@@ -108,6 +159,8 @@ capture_pngs() {
   echo "Capturing on $udid -> $folder"
   rm -rf /tmp/fitmunch-appstore-screenshots
   mkdir -p /tmp/fitmunch-appstore-screenshots
+  start_framebuffer_waiter "$udid" "$folder"
+  set +e
   xcodebuild test \
     -project FitMunch.xcodeproj \
     -scheme FitMunch \
@@ -118,10 +171,18 @@ capture_pngs() {
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY=- \
     TEST_RUNNER_SCREENSHOT_DIR="$folder"
+  local status=$?
+  set -e
+  stop_framebuffer_waiter
+  if [[ "$status" -ne 0 ]]; then
+    echo "xcodebuild test failed ($status)"
+    exit "$status"
+  fi
   if [[ ! -f "$folder/home.png" && -f /tmp/fitmunch-appstore-screenshots/home.png ]]; then
     echo "Copying PNGs from /tmp/fitmunch-appstore-screenshots"
     cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
   fi
+  reject_letterbox "$folder"
 }
 
 run_capture() {

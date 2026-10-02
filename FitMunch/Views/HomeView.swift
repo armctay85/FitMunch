@@ -15,22 +15,25 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: ScreenshotLaunch.isActive ? 12 : 24) {
                     // Date navigation
                     dateNavigation
                     
                     // Progress rings
                     progressSection
                     
-                    // Daily summary
-                    summarySection
+                    if !ScreenshotLaunch.isActive {
+                        summarySection
+                    }
                     
                     // Today's meals
                     mealsSection
                 }
                 .padding()
+                .padding(.bottom, ScreenshotLaunch.isActive ? 28 : 0)
             }
             .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(ScreenshotLaunch.isActive ? .inline : .large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -113,14 +116,14 @@ struct HomeView: View {
             }
             .disabled(viewModel.isToday)
         }
-        .padding()
+        .padding(ScreenshotLaunch.isActive ? 10 : 16)
         .background(Color.gray.opacity(0.1))
         .cornerRadius(12)
     }
     
     /// Progress rings section
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: ScreenshotLaunch.isActive ? 8 : 16) {
             Text("Daily Progress")
                 .font(.title2)
                 .fontWeight(.semibold)

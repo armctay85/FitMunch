@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Place a short benefit headline on real SwiftUI App Store captures.
+"""Place a bold white headline over a FitMunch-green frame.
 
-Reads raw simulator PNGs and writes 1290x2796 and 2064x2752 frames.
-Does not draw a fake device or a fake screen. The pixels under the headline
-are the captured app.
+The phone is the real SwiftUI capture, about 80% of the canvas, with no
+crop and no stretch. The background is a dark green vertical gradient.
 
 Usage:
   python3 scripts/frame-appstore-screenshots.py RAW_DIR OUT_DIR WIDTH HEIGHT
@@ -27,9 +26,9 @@ HEADLINES = [
 ]
 
 FONT_BOLD = "/usr/share/fonts/truetype/macos/Inter-Bold.ttf"
-BG = (244, 247, 242)
-INK = (16, 42, 32)
-ACCENT = (22, 163, 74)
+GREEN_TOP = (7, 40, 26)
+GREEN_BOTTOM = (22, 92, 52)
+WHITE = (255, 255, 255)
 
 
 def load_font(size: int) -> ImageFont.FreeTypeFont:
@@ -53,72 +52,86 @@ def wrap(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
     return lines
 
 
+def vertical_gradient(width: int, height: int) -> Image.Image:
+    column = Image.new("RGB", (1, height))
+    pixels = column.load()
+    span = max(1, height - 1)
+    for y in range(height):
+        t = y / span
+        pixels[0, y] = tuple(int(GREEN_TOP[i] + (GREEN_BOTTOM[i] - GREEN_TOP[i]) * t) for i in range(3))
+    return column.resize((width, height), Image.Resampling.BILINEAR)
+
+
 def rounded(image: Image.Image, radius: int) -> Image.Image:
     image = image.convert("RGBA")
     mask = Image.new("L", image.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.size[0], image.size[1]), radius=radius, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.size[0] - 1, image.size[1] - 1), radius=radius, fill=255)
     image.putalpha(mask)
     return image
 
 
 def frame_one(src: Path, dest: Path, width: int, height: int, headline: str) -> None:
     shot = Image.open(src).convert("RGBA")
-    canvas = Image.new("RGBA", (width, height), BG + (255,))
-    draw = ImageDraw.Draw(canvas)
+    canvas = vertical_gradient(width, height).convert("RGBA")
 
-    side = int(width * 0.055)
-    top = int(height * 0.045)
-    bottom = int(height * 0.028)
-    text_width = width - side * 2
-    font_size = 78 if width < 1800 else 104
+    bottom_gap = int(height * 0.028)
+    phone_h = int(height * 0.80)
+    phone_w = max(1, int(phone_h * shot.width / shot.height))
+    max_w = int(width * 0.86)
+    if phone_w > max_w:
+        phone_w = max_w
+        phone_h = max(1, int(phone_w * shot.height / shot.width))
+
+    text_width = int(width * 0.88)
+    font_size = 96 if width < 1800 else 118
     font = load_font(font_size)
     lines = wrap(headline, font, text_width)
-    while len(lines) > 2 and font_size > 48:
+    while len(lines) > 2 and font_size > 56:
         font_size -= 4
         font = load_font(font_size)
         lines = wrap(headline, font, text_width)
 
-    line_gap = int(font_size * 0.18)
+    line_gap = int(font_size * 0.16)
     line_height = font_size + line_gap
-    text_block = line_height * len(lines)
-    y = top
+    text_block = line_height * len(lines) - line_gap
+    top_room = height - bottom_gap - phone_h
+    min_room = text_block + int(height * 0.06)
+    if top_room < min_room:
+        phone_h = max(1, height - bottom_gap - min_room)
+        phone_w = max(1, int(phone_h * shot.width / shot.height))
+        if phone_w > max_w:
+            phone_w = max_w
+            phone_h = max(1, int(phone_w * shot.height / shot.width))
+        top_room = height - bottom_gap - phone_h
+
+    y_text = max(int(height * 0.02), (top_room - text_block) // 2)
+    draw = ImageDraw.Draw(canvas)
+    y = y_text
     for line in lines:
         tw = font.getlength(line)
-        draw.text(((width - tw) / 2, y), line, font=font, fill=INK)
+        draw.text(((width - tw) / 2, y), line, font=font, fill=WHITE)
         y += line_height
 
-    bar_w = int(min(text_width, max(font.getlength(line) for line in lines)) * 0.28)
-    bar_w = max(bar_w, 96)
-    bar_y = y + int(font_size * 0.08)
-    draw.rounded_rectangle(
-        ((width - bar_w) / 2, bar_y, (width + bar_w) / 2, bar_y + max(8, width // 160)),
-        radius=8,
-        fill=ACCENT,
-    )
-
-    content_top = int(bar_y + max(8, width // 160) + height * 0.028)
-    box_w = width - side * 2
-    box_h = height - content_top - bottom
-    scale = min(box_w / shot.width, box_h / shot.height)
-    new_size = (max(1, int(shot.width * scale)), max(1, int(shot.height * scale)))
-    resized = shot.resize(new_size, Image.Resampling.LANCZOS)
-    radius = max(28, int(new_size[0] * 0.045))
+    resized = shot.resize((phone_w, phone_h), Image.Resampling.LANCZOS)
+    radius = max(36, int(phone_w * 0.125))
     resized = rounded(resized, radius)
 
-    x = (width - new_size[0]) // 2
-    y_shot = content_top + (box_h - new_size[1]) // 2
+    x = (width - phone_w) // 2
+    y_shot = height - bottom_gap - phone_h
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
-        (x, y_shot + 12, x + new_size[0], y_shot + new_size[1] + 18),
+        (x, y_shot + 18, x + phone_w, y_shot + phone_h + 28),
         radius=radius,
-        fill=(16, 42, 32, 48),
+        fill=(0, 0, 0, 90),
     )
-    shadow = shadow.filter(ImageFilter.GaussianBlur(18))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(22))
     canvas = Image.alpha_composite(canvas, shadow)
     canvas.paste(resized, (x, y_shot), resized)
+
     dest.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(dest, "PNG", optimize=True)
-    print(f"{dest.name} {width}x{height} from {src.name}")
+    ratio = phone_h / height
+    print(f"{dest.name} {width}x{height} phone {phone_w}x{phone_h} ({ratio:.0%}) from {src.name}")
 
 
 def main() -> None:

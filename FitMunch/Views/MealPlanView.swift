@@ -26,6 +26,7 @@ struct MealPlanView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
+                    if !ScreenshotLaunch.isActive {
                     VStack(spacing: 12) {
                         Picker("Goal", selection: $goal) {
                             ForEach(goals, id: \.id) { g in
@@ -58,6 +59,7 @@ struct MealPlanView: View {
                     .padding()
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -65,7 +67,9 @@ struct MealPlanView: View {
                             .font(.footnote)
                     }
 
-                    if let plan {
+                    if let plan, ScreenshotLaunch.isActive {
+                        screenshotWeek(plan)
+                    } else if let plan {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(plan.planName ?? "Your plan")
                                 .font(.title3.bold())
@@ -106,12 +110,56 @@ struct MealPlanView: View {
                 .padding()
             }
             .navigationTitle("Meal Plan")
+            .navigationBarTitleDisplayMode(ScreenshotLaunch.isActive ? .inline : .automatic)
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
             .onAppear {
                 if ScreenshotLaunch.isActive && plan == nil {
                     plan = ScreenshotLaunch.mealPlan()
+                }
+            }
+        }
+    }
+
+    /// Compact week so a store shot shows all seven days, not only Monday.
+    private func screenshotWeek(_ plan: MealPlanPayload) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(plan.planName ?? "Your plan")
+                .font(.title3.bold())
+            if let summary = plan.summary {
+                Text(summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 16) {
+                if let c = plan.avgDailyCalories { metric("Avg kcal", "\(c)") }
+                if let p = plan.avgDailyProtein { metric("Avg protein", "\(p)g") }
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(plan.days ?? [], id: \.day) { day in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(day.day ?? "Day")
+                            .font(.subheadline.weight(.semibold))
+                        Text(day.meals?.breakfast?.name ?? "")
+                            .font(.caption)
+                            .lineLimit(1)
+                        Text(day.meals?.lunch?.name ?? "")
+                            .font(.caption)
+                            .lineLimit(1)
+                        Text(day.meals?.dinner?.name ?? "")
+                            .font(.caption)
+                            .lineLimit(1)
+                        if let t = day.dailyTotals {
+                            Text("\(t.calories ?? 0) kcal · \(t.protein ?? 0)g protein")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
         }

@@ -168,6 +168,7 @@ struct AIUsageResponse: Decodable {
 /// Decodes numbers that may arrive as Int, Double or String.
 struct FlexDouble: Decodable {
     let value: Double?
+    init(_ value: Double) { self.value = value }
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let d = try? container.decode(Double.self) { value = d }

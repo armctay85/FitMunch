@@ -35,13 +35,19 @@ struct WorkoutView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    stepsCard
-                    planCard
-                    exerciseLogCard
+                    if ScreenshotLaunch.isActive {
+                        planCard
+                        stepsCard
+                    } else {
+                        stepsCard
+                        planCard
+                        exerciseLogCard
+                    }
                 }
                 .padding()
             }
             .navigationTitle("Workout")
+            .navigationBarTitleDisplayMode(ScreenshotLaunch.isActive ? .inline : .automatic)
             .onAppear {
                 if !hasGeneratedPlan { generate() }
             }
@@ -119,7 +125,9 @@ struct WorkoutView: View {
                         .font(.subheadline.weight(.semibold))
                     Text(day.workout)
                         .font(.title3.bold())
-                    Text("\(day.intensity) · ~\(day.duration) min")
+                    Text(ScreenshotLaunch.isActive
+                         ? "\(day.intensity) · \(day.exercises.count) exercises"
+                         : "\(day.intensity) · ~\(day.duration) min")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
