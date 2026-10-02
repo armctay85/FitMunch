@@ -78,6 +78,7 @@ describe('FitMunch Coach landers', () => {
       expect(html).not.toContain('plan=premium');
       expect(html).not.toContain('plan=starter');
       expect(html).not.toContain('data-fm-track');
+      expect(html).not.toContain('fm-track.js');
       expect(html).not.toMatch(/\u2014|\u2013/);
       expect(html).not.toMatch(/Stripe|HealthKit|Apple Watch|Pty Ltd/i);
       expect(html).not.toMatch(/we pay Wool|live trolley pric/i);
