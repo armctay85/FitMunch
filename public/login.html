@@ -299,12 +299,23 @@
   // Server normalizeCheckoutPlan owns PT vs consumer mapping.
   // Never force pt-* aliases here. That 403s consumer Premium/starter/pro funnels.
   const checkoutPlan = plan;
-  const r = await fetch('/api/checkout', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-  body: JSON.stringify({ plan: checkoutPlan })
-  });
+  const r = (plan === 'coach-39' || plan === 'coach-79')
+    ? await fetch('/api/coach/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ plan: checkoutPlan })
+    })
+    : await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ plan: checkoutPlan })
+    });
   const d = await parseApiJson(r);
+  if (d.upgraded) {
+   leaving = true;
+   window.location.href = '/coach/upgrade?checkout=started';
+   return;
+  }
   if (d.alreadySubscribed) {
    leaving = true;
    window.location.href = '/app.html';

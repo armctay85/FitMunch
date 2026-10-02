@@ -29,7 +29,28 @@ const {
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
 const { Pool } = require('pg');
+const {
+  isCoachPlan,
+  evaluateCoachClientGate,
+  readCoachBilling,
+  coachGateHttpBody,
+} = require('./lib/fitmunch-coach-billing');
 const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+async function coachGateForPt(ptId) {
+  const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [ptId]);
+  const coach = readCoachBilling(userRow.rows[0] && userRow.rows[0].settings);
+  const countRow = await _pool.query(
+    `SELECT COUNT(*)::int AS n FROM pt_clients WHERE pt_id=$1 AND COALESCE(status, 'active') = 'active'`,
+    [ptId]
+  );
+  const activeClientCount = countRow.rows[0] ? Number(countRow.rows[0].n) : 0;
+  return evaluateCoachClientGate({
+    coachPlan: coach.plan,
+    coachTier: coach.tier,
+    activeClientCount,
+  });
+}
 
 // Create and export a router instance for use as middleware
 const router = express.Router();
@@ -326,7 +347,8 @@ router.post('/auth/register', async (req, res) => {
     const wantPt =
       req.body.role === 'pt' ||
       req.body.accountType === 'pt' ||
-      ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(req.body.plan);
+      ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(req.body.plan) ||
+      isCoachPlan(req.body.plan);
     if (wantPt) role = 'pt';
     if (req.body.inviteToken) {
       try {
@@ -341,6 +363,11 @@ router.post('/auth/register', async (req, res) => {
       } catch (e) {
         console.warn('[register] invite lookup failed (non-fatal):', e.message);
       }
+    }
+
+    if (role === 'client' && ptId) {
+      const gate = await coachGateForPt(ptId);
+      if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
     }
 
     const trialExpiresAt = new Date();
@@ -629,6 +656,8 @@ const crypto = require('crypto');
 // POST /api/clients/invite — PT creates invite link
 router.post('/clients/invite', authMiddleware, async (req, res) => {
   try {
+    const gate = await coachGateForPt(req.user.userId);
+    if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
     const { email } = req.body;
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -698,6 +727,17 @@ router.get('/clients/:clientId', authMiddleware, async (req, res) => {
 router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
   try {
     const { phase, notes, status } = req.body;
+    if (status === 'active') {
+      const current = await _pool.query(
+        'SELECT status FROM pt_clients WHERE pt_id=$1 AND client_id=$2',
+        [req.user.userId, req.params.clientId]
+      );
+      const alreadyActive = current.rows[0] && (current.rows[0].status || 'active') === 'active';
+      if (!alreadyActive) {
+        const gate = await coachGateForPt(req.user.userId);
+        if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
+      }
+    }
     await _pool.query(
       'UPDATE pt_clients SET phase=$1, notes=$2, status=$3 WHERE pt_id=$4 AND client_id=$5',
       [phase, notes, status, req.user.userId, req.params.clientId]
