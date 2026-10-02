@@ -511,6 +511,7 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
         priceId,
         plan,
         origin: checkoutOrigin(req),
+        variant: requestVariant(req),
       })
     );
 
@@ -551,6 +552,10 @@ const {
   LIVE_SUBSCRIPTION_STATUSES,
   resetCheckoutGuardsForTests,
 } = require('./lib/fitmunch-checkout');
+
+function requestVariant(req) {
+  return require('./public/js/fm-ab').variantFromCookieHeader(req && req.headers && req.headers.cookie);
+}
 
 function requireAuthUser(req) {
   const authHeader = req.headers['authorization'];
@@ -647,6 +652,7 @@ app.post('/api/quick-checkout', async (req, res) => {
         priceId,
         plan,
         origin: checkoutOrigin(req),
+        variant: requestVariant(req),
       })
     );
 
@@ -714,6 +720,7 @@ app.post('/api/checkout', async (req, res) => {
         plan,
         email: current.email,
         origin: checkoutOrigin(req),
+        variant: requestVariant(req),
       });
     });
 

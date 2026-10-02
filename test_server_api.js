@@ -71,6 +71,11 @@ describe('Server API shell', () => {
     const privacy = await request(app).get('/privacy').expect(200);
     expect(privacy.text).toContain('does not keep the original receipt photo');
     expect(privacy.text).not.toContain('Original receipt images are stored securely');
+    expect(privacy.text).toContain('fm_vid');
+    expect(privacy.text).toContain('fm_ab');
+    expect(privacy.text).toContain('first-party');
+    expect(privacy.text).toContain('measures which page version you saw');
+    expect(privacy.text).toContain('no third parties');
 
     const pts = await request(app).get('/for-pts').expect(200);
     expect(pts.text).toContain('Card on file');
