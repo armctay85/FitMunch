@@ -38,6 +38,17 @@ Do not claim these are live
 [ ] Purchases are the two auto-renewable subscriptions on the paywall. There is no website checkout button in the iOS target.
 [ ] The archive workflow uploads a build. It does not submit for review. Do not treat a green CI run as App Review approval.
 
+App Store privacy nutrition label (match PrivacyInfo.xcprivacy)
+Data is collected. Data is not used to track the user. No tracking domains.
+Name: linked to the user, not used for tracking, App Functionality.
+Email Address: linked to the user, not used for tracking, App Functionality.
+Health: linked to the user, not used for tracking, App Functionality and Product Personalization. This is meals and macros saved to the account. It is not HealthKit.
+Photos or Videos: linked to the user, not used for tracking, App Functionality. Receipt photos are uploaded while signed in.
+User ID: linked to the user, not used for tracking, App Functionality and Analytics. The account id is sent to RevenueCat with logIn.
+Purchase History: linked to the user, not used for tracking, App Functionality and Analytics.
+Product Interaction: linked to the user, not used for tracking, App Functionality. Feature counts for the free AI cap are stored on the account.
+Do not select Fitness. Workout logs stay on the device. Do not select Payment Info, Device ID, or advertising data.
+
 Account removal the reviewer can use
 [ ] Settings, Delete Account, Delete Everything calls DELETE /auth/account and removes the server account.
 [ ] Settings, Log Out signs out. Local meal logs stay on the device.
