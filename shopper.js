@@ -2,7 +2,7 @@
 
 /**
  * Fitness Butler shopper HTTP surface.
- * Public specials only. No trolley APIs. No Stripe grocery spend.
+ * One store. No trolley APIs. No Stripe grocery spend.
  */
 
 const express = require('express');
@@ -16,8 +16,7 @@ const DROP_KEYS = new Set([
   'assignedAud', 'assignedCents', 'goodsAud', 'tripAud', 'totalAud',
   'bestSingleAud', 'saveVsSingleAud', 'secondTripCostAud', 'secondTripCostCents',
   'aud', 'quotes', 'goodsCents', 'tripCents', 'totalCents', 'bestSingleCents',
-  'saveVsSingleCents', 'lineAud', 'unitAud', 'price', 'was',
-  'priceNote', 'reason', 'copyText', 'copyAll',
+  'saveVsSingleCents',   'lineAud', 'unitAud', 'price', 'was',
 ]);
 
 function omitKeys(value) {
@@ -47,7 +46,7 @@ router.get('/', (_req, res) => {
     surface: '/shopper',
     honesty: shopper.honestyClaims(),
     endpoints: {
-      'GET /api/shopper/week': 'Worked week plus public specials catalogue meta',
+      'GET /api/shopper/week': 'Worked week for the draft list',
       'POST /api/shopper/draft': 'Commit the week and write a draft trolley',
       'POST /api/shopper/approve': 'Approve the draft and return a takeaway checkout',
     },
@@ -62,7 +61,7 @@ router.post('/draft', (req, res) => {
   try {
     const draft = omitKeys(shopper.buildDraft({
       weekId: req.body && req.body.weekId,
-      secondTripCostAud: req.body && req.body.secondTripCostAud,
+      preferredStore: req.body && (req.body.preferredStore || req.body.storeId),
     }));
     res.json({ success: true, draft });
   } catch (err) {
@@ -74,7 +73,7 @@ router.post('/approve', (req, res) => {
   try {
     const trolley = omitKeys(shopper.approveDraft({
       weekId: req.body && req.body.weekId,
-      secondTripCostAud: req.body && req.body.secondTripCostAud,
+      preferredStore: req.body && (req.body.preferredStore || req.body.storeId),
     }));
     res.json({ success: true, trolley });
   } catch (err) {

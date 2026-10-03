@@ -33,8 +33,47 @@ function walk(dir, acc = []) {
   return acc;
 }
 
+function lineAt(text, index) {
+  const lineStart = text.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
+  const lineEnd = text.indexOf('\n', index);
+  return text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd);
+}
+
+function matchIsExample(text, index) {
+  return /\bExample\b/.test(lineAt(text, index));
+}
+
 function fingerprintHits(text) {
-  return FINGERPRINTS.filter((needle) => text.includes(needle) && !/\bExample\b/.test(text));
+  const hits = [];
+  for (const needle of FINGERPRINTS) {
+    let from = 0;
+    while (from <= text.length) {
+      const index = text.indexOf(needle, from);
+      if (index === -1) break;
+      if (!matchIsExample(text, index)) hits.push(needle);
+      from = index + needle.length;
+    }
+  }
+  return [...new Set(hits)];
+}
+
+function inventedPriceHits(text) {
+  const hits = [];
+  const patterns = [
+    /Math\.random\(\)[^\n]{0,120}price/gi,
+    /price[^\n]{0,80}Math\.random\(\)/gi,
+    /\b(invented|fake|placeholder|random)\s+prices?\b/gi,
+    /\bgetEstimatedPrice\b/g,
+    /\bmockPrices\b/g,
+  ];
+  for (const re of patterns) {
+    let match;
+    const flags = re.global ? re : new RegExp(re.source, 'g');
+    while ((match = flags.exec(text))) {
+      if (!matchIsExample(text, match.index)) hits.push(match[0]);
+    }
+  }
+  return hits;
 }
 
 function anonymisedHits(text) {
@@ -49,9 +88,16 @@ function anonymisedHits(text) {
 }
 
 describe('honest fallbacks', () => {
-  it('flags a known mock dataset that is not labelled Example', () => {
+  it('checks each fingerprint on its own line', () => {
     expect(fingerprintHits('Sarah M. lost 15kg')).toEqual(['Sarah M.']);
     expect(fingerprintHits('Example: Sarah M. is a labelled demo')).toEqual([]);
+    expect(fingerprintHits('Example heading\nSarah M. is still a fake')).toEqual(['Sarah M.']);
+  });
+
+  it('flags a random or invented price on its own line', () => {
+    expect(inventedPriceHits('const price = (Math.random() * 10).toFixed(2);').length).toBeGreaterThan(0);
+    expect(inventedPriceHits('Example: price = Math.random()')).toEqual([]);
+    expect(inventedPriceHits('const steps = Math.floor(Math.random() * 100);')).toEqual([]);
   });
 
   it('production source does not serve a known mock dataset without an Example label', () => {
@@ -60,6 +106,7 @@ describe('honest fallbacks', () => {
       const text = fs.readFileSync(file, 'utf8');
       const rel = path.relative(__dirname, file);
       for (const needle of fingerprintHits(text)) hits.push(`${rel} ${needle}`);
+      for (const needle of inventedPriceHits(text)) hits.push(`${rel} invented price ${needle}`);
       if (anonymisedHits(text).length) hits.push(`${rel} anonymised claim`);
     }
     expect(hits).toEqual([]);
@@ -70,8 +117,15 @@ describe('honest fallbacks', () => {
     expect(privacy).toContain('this is not anonymised');
     expect(privacy).toContain('RevenueCat');
     expect(privacy).toContain('AI receipt reader');
+    expect(privacy).toContain('Google Gemini');
+    expect(privacy).toContain('Vercel');
+    expect(privacy).toContain('processed overseas');
     expect(privacy).toContain('does not keep the original receipt photo');
     expect(privacy).toContain('None of this is used for tracking or ads');
+    expect(privacy.match(/does not keep the original receipt photo/g)).toHaveLength(1);
+    expect(privacy.match(/None of this is used for tracking or ads/g)).toHaveLength(1);
     expect(privacy).not.toMatch(/usage data is anonymised/i);
+    expect(privacy).not.toContain('Opt out of AI');
+    expect(privacy).not.toContain('Export your meal plans');
   });
 });

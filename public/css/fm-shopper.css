@@ -218,6 +218,12 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 .sp-math span{font-size:.76rem;color:var(--mute)}
 
 .sp-lines{display:grid;gap:0}
+.sp-aisle h3{
+  margin:16px 0 0;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.95rem;
+  letter-spacing:-.02em;
+}
 .sp-line{
   display:grid;
   grid-template-columns:1fr minmax(140px,28ch);

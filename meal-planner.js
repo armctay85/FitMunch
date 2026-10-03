@@ -10,6 +10,8 @@ const jwt     = require('jsonwebtoken');
 const aiClient = require('./lib/ai-client');
 const aiUsage  = require('./lib/ai-usage');
 const { sendApiError } = require('./lib/public-error');
+const { estimateNutrition } = require('./lib/receipt-scan-core');
+const { guidanceForName } = require('./lib/list-guidance');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -28,67 +30,49 @@ function requireAuth(req, res, next) {
   catch { return res.status(401).json({ success: false, error: 'Invalid or expired token' }); }
 }
 
-// ── AU SUPERMARKET PRICE TABLE (Woolies/Coles estimates, AUD per unit) ────────
-const AU_PRICES = {
-  // Proteins
-  'chicken breast':     { price: 3.25, unit: '500g', per: '500g', aisle: 'Meat & Seafood' },
-  'chicken thigh':      { price: 2.80, unit: '500g', per: '500g', aisle: 'Meat & Seafood' },
-  'beef mince':         { price: 5.50, unit: '500g', per: '500g', aisle: 'Meat & Seafood' },
-  'salmon fillet':      { price: 6.00, unit: '200g', per: '200g', aisle: 'Meat & Seafood' },
-  'tuna canned':        { price: 1.80, unit: 'can',  per: '95g',  aisle: 'Pantry' },
-  'eggs':               { price: 5.50, unit: 'dozen',per: '12',   aisle: 'Dairy & Eggs' },
-  'greek yoghurt':      { price: 4.50, unit: '500g', per: '500g', aisle: 'Dairy & Eggs' },
-  'cottage cheese':     { price: 3.20, unit: '500g', per: '500g', aisle: 'Dairy & Eggs' },
-  'milk':               { price: 2.00, unit: '1L',   per: '1L',   aisle: 'Dairy & Eggs' },
-  'whey protein':       { price: 2.50, unit: 'serve',per: '30g',  aisle: 'Supplements' },
-  // Carbs
-  'oats':               { price: 2.50, unit: '750g', per: '750g', aisle: 'Pantry' },
-  'brown rice':         { price: 2.80, unit: '1kg',  per: '1kg',  aisle: 'Pantry' },
-  'white rice':         { price: 2.00, unit: '1kg',  per: '1kg',  aisle: 'Pantry' },
-  'sweet potato':       { price: 1.50, unit: '500g', per: '500g', aisle: 'Produce' },
-  'bread wholegrain':   { price: 3.50, unit: 'loaf', per: '650g', aisle: 'Bakery' },
-  'pasta':              { price: 1.80, unit: '500g', per: '500g', aisle: 'Pantry' },
-  'quinoa':             { price: 4.50, unit: '500g', per: '500g', aisle: 'Pantry' },
-  'banana':             { price: 0.40, unit: 'each', per: '1',    aisle: 'Produce' },
-  'apple':              { price: 0.60, unit: 'each', per: '1',    aisle: 'Produce' },
-  // Veg
-  'broccoli':           { price: 3.50, unit: 'head', per: '400g', aisle: 'Produce' },
-  'spinach':            { price: 3.00, unit: 'bag',  per: '120g', aisle: 'Produce' },
-  'mixed salad leaves': { price: 3.00, unit: 'bag',  per: '100g', aisle: 'Produce' },
-  'capsicum':           { price: 1.20, unit: 'each', per: '1',    aisle: 'Produce' },
-  'zucchini':           { price: 0.80, unit: 'each', per: '1',    aisle: 'Produce' },
-  'tomato':             { price: 0.60, unit: 'each', per: '1',    aisle: 'Produce' },
-  'onion':              { price: 0.40, unit: 'each', per: '1',    aisle: 'Produce' },
-  'garlic':             { price: 0.50, unit: 'bulb', per: '1',    aisle: 'Produce' },
-  'avocado':            { price: 1.50, unit: 'each', per: '1',    aisle: 'Produce' },
-  'cucumber':           { price: 1.20, unit: 'each', per: '1',    aisle: 'Produce' },
-  'carrot':             { price: 0.50, unit: 'each', per: '1',    aisle: 'Produce' },
-  // Dairy / fats
-  'olive oil':          { price: 5.00, unit: '375ml',per: '375ml',aisle: 'Pantry' },
-  'peanut butter':      { price: 4.50, unit: '375g', per: '375g', aisle: 'Pantry' },
-  'almond butter':      { price: 7.00, unit: '250g', per: '250g', aisle: 'Pantry' },
-  'cheese':             { price: 6.00, unit: '500g', per: '500g', aisle: 'Dairy & Eggs' },
-  'butter':             { price: 3.50, unit: '250g', per: '250g', aisle: 'Dairy & Eggs' },
-  // Pantry staples
-  'honey':              { price: 4.00, unit: '500g', per: '500g', aisle: 'Pantry' },
-  'soy sauce':          { price: 2.50, unit: '250ml',per: '250ml',aisle: 'Pantry' },
-  'sriracha':           { price: 3.50, unit: 'bottle',per:'200ml',aisle: 'Pantry' },
-  'mixed herbs':        { price: 2.00, unit: 'jar',  per: '15g',  aisle: 'Pantry' },
-  'protein bar':        { price: 3.50, unit: 'each', per: '60g',  aisle: 'Supplements' },
-  // Frozen
-  'frozen mixed veg':   { price: 2.50, unit: '500g', per: '500g', aisle: 'Frozen' },
-  'frozen berries':     { price: 4.50, unit: '500g', per: '500g', aisle: 'Frozen' },
-};
+const AISLES = [
+  ['chicken', 'Meat'],
+  ['beef', 'Meat'],
+  ['mince', 'Meat'],
+  ['salmon', 'Meat'],
+  ['tuna', 'Pantry'],
+  ['egg', 'Dairy'],
+  ['yoghurt', 'Dairy'],
+  ['yogurt', 'Dairy'],
+  ['cheese', 'Dairy'],
+  ['milk', 'Dairy'],
+  ['oat', 'Pantry'],
+  ['rice', 'Pantry'],
+  ['pasta', 'Pantry'],
+  ['bread', 'Bakery'],
+  ['potato', 'Produce'],
+  ['broccoli', 'Produce'],
+  ['spinach', 'Produce'],
+  ['banana', 'Produce'],
+  ['apple', 'Produce'],
+  ['frozen', 'Frozen'],
+  ['oil', 'Pantry'],
+];
 
-const AISLE_ORDER = ['Meat & Seafood','Produce','Dairy & Eggs','Pantry','Bakery','Frozen','Supplements','Other'];
-const AISLE_ICONS = { 'Meat & Seafood':'🥩','Produce':'🥦','Dairy & Eggs':'🥚','Pantry':'🫙','Bakery':'🍞','Frozen':'🧊','Supplements':'💊','Other':'📦' };
+const AISLE_ORDER = ['Meat', 'Produce', 'Dairy', 'Bakery', 'Pantry', 'Frozen', 'Grocery'];
+const AISLE_ICONS = { Meat: 'Meat', Produce: 'Produce', Dairy: 'Dairy', Bakery: 'Bakery', Pantry: 'Pantry', Frozen: 'Frozen', Grocery: 'Grocery' };
 
-function lookupPrice(name) {
-  const key = name.toLowerCase().replace(/[^a-z\s]/g,'').trim();
-  for (const [k, v] of Object.entries(AU_PRICES)) {
-    if (key.includes(k) || k.includes(key.split(' ')[0])) return v;
-  }
-  return { price: 2.50, unit: 'item', per: '1', aisle: 'Other' }; // default estimate
+function aisleFor(name) {
+  const key = String(name || '').toLowerCase();
+  const hit = AISLES.find(([needle]) => key.includes(needle));
+  return hit ? hit[1] : 'Grocery';
+}
+
+function lookupLine(name) {
+  const aisle = aisleFor(name);
+  const nutrition = estimateNutrition(name, 100, /milk|oil/i.test(name) ? 'ml' : 'g');
+  const guide = guidanceForName(name, aisle);
+  return {
+    aisle,
+    proteinPer100g: nutrition ? nutrition.protein : null,
+    proteinLabel: nutrition && nutrition.protein > 0 ? `${nutrition.protein}g protein / 100g` : null,
+    swap: guide.swap,
+  };
 }
 
 // AI calls go through lib/ai-client (Gemini-first, falls back through Grok →
@@ -113,8 +97,8 @@ router.post('/generate', requireAuth, async (req, res) => {
 Goal: ${goalLabel}
 Daily calorie target: ${calories} kcal
 Daily protein target: ${protein}g
-Weekly grocery budget: AUD $${budget}
 Number of days: ${days}
+Do not include supermarket prices, basket totals, or catalogue dates.
 ${dietaryNote}
 
 Generate a practical, realistic ${days}-day meal plan using common Australian supermarket ingredients.
@@ -144,7 +128,6 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       "dailyTotals": {"calories": number, "protein": number, "carbs": number, "fat": number}
     }
   ],
-  "weeklyBudgetEst": number,
   "avgDailyCalories": number,
   "avgDailyProtein": number
 }`;
@@ -173,6 +156,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
 
     // Validate structure
     if (!plan.days || !Array.isArray(plan.days)) throw new Error('Invalid plan structure');
+    delete plan.weeklyBudgetEst;
 
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch(err) {
@@ -223,16 +207,17 @@ router.post('/shopping', requireAuth, async (req, res) => {
       }
     }
 
-    // Build shopping list with prices
     const items = Object.values(aggregated)
       .filter(i => !excludeOwned.some(e => e.toLowerCase().includes(i.name.toLowerCase())))
       .map(i => {
-        const priceData = lookupPrice(i.name);
+        const line = lookupLine(i.name);
         return {
           name: i.name,
           qty: i.mentions > 1 ? `×${i.mentions} (${[...new Set(i.qtys)].slice(0,2).join(', ')})` : i.qtys[0] || '1',
-          unit: priceData.unit,
-          aisle: priceData.aisle,
+          aisle: line.aisle,
+          proteinPer100g: line.proteinPer100g,
+          proteinLabel: line.proteinLabel,
+          swap: line.swap,
           wooliesUrl: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(i.name)}`,
           colesUrl: `https://www.coles.com.au/search?q=${encodeURIComponent(i.name)}`,
         };
@@ -256,7 +241,8 @@ router.post('/shopping', requireAuth, async (req, res) => {
     res.json({
       success: true,
       list: {
-        name: (plan.planName || 'Week') + ': shopping list',
+        name: (plan.planName || 'Week') + ' shopping list',
+        checkoutNote: 'Prices vary by store and week.',
         itemCount,
         byAisle: Object.fromEntries(sortedAisles.map(a => [a, byAisle[a]])),
         aisleOrder: sortedAisles,
@@ -277,7 +263,7 @@ router.get('/', (_req, res) => res.json({
   endpoints: {
     'POST /api/meal-plan/generate': 'AI-generated 7-day meal plan (requires auth + JWT)',
     'GET /api/meal-plan/generate': 'Returns this info',
-    'POST /api/meal-plan/shopping': 'Consolidated ingredient list (requires auth + plan data)',
+    'POST /api/meal-plan/shopping': 'Consolidated shopping list with aisle and protein (requires auth + plan data)',
   },
   requiresAuth: true,
   aiProvider: aiClient.providerName() || 'none',

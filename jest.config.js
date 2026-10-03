@@ -31,6 +31,7 @@ module.exports = {
     '**/test_public_price_ban.js',
     '**/test_receipt_failure.js',
     '**/test_honest_fallbacks.js',
+    '**/test_nutrition.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

@@ -5,14 +5,13 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const shopper = require('./lib/fitness-butler-shopper');
-const { CATALOGUE } = require('./lib/public-specials-catalogue');
 
 function read(rel) {
   return fs.readFileSync(path.join(__dirname, rel), 'utf8');
 }
 
 describe('Fitness Butler shopper engine', () => {
-  it('writes ingredients from the committed week and prices only public specials', () => {
+  it('writes ingredients from the committed week and assigns one store', () => {
     const week = shopper.getWeek();
     const ingredients = shopper.writeIngredients(week);
     expect(ingredients.length).toBeGreaterThan(10);
@@ -20,34 +19,27 @@ describe('Fitness Butler shopper engine', () => {
     expect(ingredients.some((line) => line.sku === 'chicken-breast-1kg')).toBe(true);
     expect(ingredients.some((line) => line.sku === 'salmon-400g')).toBe(true);
 
-    const priced = shopper.priceIngredients(ingredients, CATALOGUE);
-    for (const line of priced) {
-      expect(line.quotes.woolworths || line.quotes.coles || line.quotes.aldi).toBeTruthy();
-      if (line.quotes.woolworths) {
-        expect(line.quotes.woolworths.searchUrl).toContain('woolworths.com.au/shop/search');
-      }
-    }
-  });
-
-  it('stays at one store when the catalogue save does not beat a second trip', () => {
-    const draft = shopper.buildDraft({ secondTripCostAud: 22 });
-    expect(draft.status).toBe('draft');
+    const draft = shopper.buildDraft();
     expect(draft.recommendation.split).toBe(false);
     expect(draft.recommendation.stores).toEqual(['woolworths']);
-    expect(draft.recommendation.saveVsSingleAud).toBeGreaterThan(0);
-    expect(draft.recommendation.saveVsSingleAud).toBeLessThan(draft.recommendation.secondTripCostAud);
-    expect(draft.recommendation.reason).toMatch(/does not beat/i);
+    expect(draft.recommendation.reason).toBe('Shop at Woolworths.');
+    expect(draft.lines.every((line) => line.assignedStore === 'woolworths')).toBe(true);
+    expect(draft.lines.every((line) => line.searchUrl.includes('woolworths.com.au/shop/search'))).toBe(true);
+    expect(JSON.stringify(draft)).not.toMatch(/assignedAud|goodsAud|totalAud|validFrom|validTo|\$\d|\bspecials\b|worth the extra trip/);
     expect(draft.honesty.paysWoolworths).toBe(false);
     expect(draft.honesty.trolleyApi).toBe(false);
     expect(draft.honesty.stripeLinkGrocery).toBe(false);
+    expect(draft.honesty.pricesFrom).toBe('checkout');
   });
 
-  it('splits only when the catalogue save beats the second trip', () => {
-    const splitDraft = shopper.buildDraft({ secondTripCostAud: 8 });
-    expect(splitDraft.recommendation.split).toBe(true);
-    expect(splitDraft.recommendation.stores.length).toBeGreaterThan(1);
-    expect(splitDraft.recommendation.saveVsSingleAud).toBeGreaterThan(8);
-    expect(splitDraft.recommendation.reason).toMatch(/beats/i);
+  it('uses the preferred store when one is set', () => {
+    const coles = shopper.buildDraft({ preferredStore: 'coles' });
+    expect(coles.recommendation.split).toBe(false);
+    expect(coles.recommendation.stores).toEqual(['coles']);
+    expect(coles.lines.every((line) => line.assignedStore === 'coles')).toBe(true);
+    expect(coles.recommendation.reason).toBe('Shop at Coles.');
+    const unknown = shopper.buildDraft({ storeId: 'not-a-store' });
+    expect(unknown.recommendation.stores).toEqual(['woolworths']);
   });
 
   it('approve returns a takeaway checkout, not a Woolies payment', () => {
@@ -162,7 +154,7 @@ describe('Fitness Butler shopper honesty lock', () => {
   it('engine and page never scrape trolley APIs or raise Stripe Link grocery spend', () => {
     const files = [
       'lib/fitness-butler-shopper.js',
-      'lib/public-specials-catalogue.js',
+      'lib/staple-items.js',
       'shopper.js',
       'public/js/fm-shopper.js',
       'public/shopper.html',
@@ -171,7 +163,8 @@ describe('Fitness Butler shopper honesty lock', () => {
     expect(files).not.toMatch(/wowapi|\/shop\/apis|cart\/api/i);
     expect(files).not.toMatch(/payment_method_types|stripe\.checkout/i);
     expect(files).not.toMatch(/syncs with HealthKit|watchOS|HealthKit connected/i);
-    expect(files).toContain('public_specials_catalogue');
+    expect(files).not.toContain('public_specials_catalogue');
+    expect(files).not.toMatch(/worth the extra trip/);
     expect(files).toContain('takeaway');
   });
 

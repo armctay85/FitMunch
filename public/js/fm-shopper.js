@@ -69,20 +69,57 @@
     `).join('');
   }
 
+  const AISLE_ORDER = ['Produce', 'Bakery', 'Meat', 'Dairy', 'Pantry', 'Frozen', 'Grocery'];
+
+  function groupByAisle(lines) {
+    const groups = new Map();
+    for (const line of lines || []) {
+      const aisle = line.aisle || 'Grocery';
+      if (!groups.has(aisle)) groups.set(aisle, []);
+      groups.get(aisle).push(line);
+    }
+    return [...groups.keys()].sort((a, b) => {
+      const ia = AISLE_ORDER.indexOf(a);
+      const ib = AISLE_ORDER.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    }).map((aisle) => ({ aisle, lines: groups.get(aisle) }));
+  }
+
   function renderDraft(draft) {
     if (!draftMount) return;
+    const rec = draft.recommendation;
+    const storeName = (rec.storeNames && rec.storeNames[0]) || 'Woolworths';
+    const swaps = draft.lines.filter((line) => line.swap).length;
+    const groups = groupByAisle(draft.lines);
     draftMount.innerHTML = `
       <div class="sp-ticket" id="draft-trolley">
-        <p class="sp-verdict">${escapeHtml(((draft.recommendation && draft.recommendation.storeNames) || []).join(', ') || 'Draft list.')}</p>
+        <div class="sp-ticket-top">
+          <div>
+            <div class="sp-total">One store<small>${escapeHtml(storeName)}</small></div>
+          </div>
+          <p class="sp-verdict"><strong>${escapeHtml(storeName)}</strong>${escapeHtml(rec.reason)}</p>
+        </div>
+        <div class="sp-math" aria-label="List guidance">
+          <div><b>${draft.lines.length}</b><span>Lines on the list</span></div>
+          <div><b>1</b><span>Store</span></div>
+          <div><b>${swaps}</b><span>Protein swaps</span></div>
+        </div>
         <div class="sp-lines">
-          ${(draft.lines || []).map((line) => `
-            <div class="sp-line">
-              <div>
-                <div class="n">${line.packs} × ${escapeHtml(line.name)}</div>
-                <div class="m">${escapeHtml(line.aisle)}</div>
-              </div>
-              <div class="st">${escapeHtml(line.assignedStoreName || '')}</div>
-            </div>
+          ${groups.map((group) => `
+            <section class="sp-aisle">
+              <h3>${escapeHtml(group.aisle)}</h3>
+              ${group.lines.map((line) => `
+                <div class="sp-line">
+                  <div>
+                    <div class="n">${line.packs} × ${escapeHtml(line.name)}</div>
+                  </div>
+                  <div class="sp-guide">
+                    ${line.proteinLabel ? `<div class="prot">${escapeHtml(line.proteinLabel)}</div>` : ''}
+                    ${line.swap ? `<div class="swap">${escapeHtml(line.swap)}</div>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </section>
           `).join('')}
         </div>
         <div class="sp-approve">
@@ -109,7 +146,7 @@
             <article class="sp-basket">
               <h3>${escapeHtml(basket.storeName)}</h3>
               <ol>
-                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)}</li>`).join('')}
+                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)}${line.aisle ? ' · ' + escapeHtml(line.aisle) : ''}${line.proteinLabel ? ' · ' + escapeHtml(line.proteinLabel) : ''}${line.swap ? ' · ' + escapeHtml(line.swap) : ''}</li>`).join('')}
               </ol>
               <a href="${escapeAttr(basket.lines[0] ? basket.lines[0].searchUrl : basket.searchHome)}" target="_blank" rel="noopener">Open ${escapeHtml(basket.storeName)} public search</a>
             </article>
@@ -119,7 +156,7 @@
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-copy>Copy the take list</button>
           <button type="button" class="fm-btn fm-btn-ink" data-sp-print>Print</button>
         </div>
-        <p class="sp-note">Ingredient list, not a live trolley. 14-day trial, then A$19.99 a month. Card on file.</p>
+        <p class="sp-note">14-day trial, then $19.99 a month. Card on file.</p>
       </div>
     `;
     const copyBtn = checkoutMount.querySelector('[data-sp-copy]');
@@ -127,7 +164,7 @@
     if (copyBtn) {
       copyBtn.addEventListener('click', async () => {
         try {
-          await navigator.clipboard.writeText(takeList(checkout));
+          await navigator.clipboard.writeText(checkout.copyAll);
           copyBtn.textContent = 'Copied';
         } catch (_) {
           copyBtn.textContent = 'Copy failed. Select the list instead.';
@@ -136,13 +173,6 @@
     }
     if (printBtn) printBtn.addEventListener('click', () => window.print());
     checkoutMount.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function takeList(checkout) {
-    return (checkout.baskets || []).map((basket) => {
-      const lines = (basket.lines || []).map((line) => `${line.packs} × ${line.name}`);
-      return [`${basket.storeName} take list`, ...lines, 'Pay at the store. FitMunch does not charge this shop.'].join('\n');
-    }).join('\n\n');
   }
 
   function escapeHtml(value) {
@@ -163,14 +193,14 @@
       btn.disabled = true;
       btn.textContent = 'Writing the trolley…';
     });
-    setStatus('Writing the ingredient list for the week.');
+    setStatus('Writing the list from the week.');
     try {
       const payload = await api('/api/shopper/draft', { method: 'POST', body: {} });
       window.__fmShopperDraft = payload.draft;
       try { sessionStorage.setItem('fm_shopper_draft', JSON.stringify(payload.draft)); } catch (_) {}
       renderDraft(payload.draft);
-      setStatus('Draft list ready.');
-      track('shopper_commit_week', {});
+      setStatus('Draft trolley ready. Approve when the split looks right.');
+      track('shopper_commit_week', { split: payload.draft.recommendation.split });
     } catch (err) {
       setError(err.message || 'Could not draft the trolley.');
     } finally {
@@ -207,6 +237,8 @@
   async function boot() {
     try {
       const payload = await api('/api/shopper/week');
+      const note = document.querySelector('[data-sp-price-note]');
+      if (note && payload.priceNote) note.textContent = payload.priceNote;
       renderWeekStrip(payload.week);
       renderWeek(payload.week);
       const example = document.querySelector('[data-sp-example]');

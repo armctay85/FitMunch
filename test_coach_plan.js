@@ -5,7 +5,6 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const coach = require('./lib/coach-plan');
-const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
 const store = require('./lib/coach-store');
 const { encodeRgbPng } = require('./lib/coach-png');
 const { decodePng } = require('./lib/coach-png');
@@ -27,7 +26,7 @@ function skuSet(plan) {
 describe('Coach plan builder', () => {
   const base = { kcal: 2000, protein: 140, carbs: 180, fat: 60, householdSize: 1, storeId: 'woolworths', flags: [] };
 
-  it('builds a 7-day plan and prices the chosen store from public specials', () => {
+  it('builds a 7-day plan and writes an unpriced list for the chosen store', () => {
     const plan = coach.buildCoachPlan(base);
     expect(plan.dayCount).toBe(7);
     expect(plan.days.map((day) => day.day)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
@@ -39,15 +38,15 @@ describe('Coach plan builder', () => {
     }
     expect(plan.shopping.storeName).toBe('Woolworths');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
-    expect(plan.shopping.lines.every((line) => line.priced && line.lineAud > 0)).toBe(true);
-    const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
-    expect(plan.shopping.totalCents).toBe(cents);
+    expect(plan.shopping.lines.every((line) => line.priced === false && line.lineAud == null)).toBe(true);
+    expect(plan.shopping.totalAud).toBeNull();
     expect(plan.shopping.note).toBe('Prices vary by store and week.');
-    expect(plan.priceNote).toBe(coach.PRICE_NOTE);
+    expect(plan.priceNote).toBe('Prices vary by store and week.');
+    expect(plan.catalogue).toEqual({ priceNote: 'Prices vary by store and week.' });
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
-    expect(plan.honesty.pricesFrom).toBe('public_specials_catalogue');
+    expect(plan.honesty.pricesFrom).toBe('checkout');
   });
 
   it('drops animal foods for a vegan plan and scales the household list', () => {
@@ -58,17 +57,17 @@ describe('Coach plan builder', () => {
     }
     const one = coach.buildCoachPlan(base);
     const two = coach.buildCoachPlan({ ...base, householdSize: 2 });
-    expect(two.shopping.totalCents).toBeGreaterThan(one.shopping.totalCents);
+    const packs = (plan) => plan.shopping.lines.reduce((sum, line) => sum + line.packs, 0);
+    expect(packs(two)).toBeGreaterThan(packs(one));
   });
 
-  it('prices only the chosen store and leaves Aldi gaps unpriced', () => {
+  it('writes the chosen store without supermarket prices', () => {
     const aldi = coach.buildCoachPlan({ ...base, storeId: 'aldi' });
     expect(aldi.shopping.storeId).toBe('aldi');
-    expect(aldi.shopping.unpricedCount).toBeGreaterThan(0);
-    expect(aldi.shopping.lines.some((line) => line.priced === false && line.lineAud == null)).toBe(true);
-    const priced = aldi.shopping.lines.filter((line) => line.priced);
-    const cents = priced.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
-    expect(aldi.shopping.totalCents).toBe(cents);
+    expect(aldi.shopping.storeName).toBe('Aldi');
+    expect(aldi.shopping.lines.every((line) => line.priced === false && line.lineAud == null)).toBe(true);
+    expect(aldi.shopping.totalAud).toBeNull();
+    expect(JSON.stringify(aldi.shopping)).not.toMatch(/\$\d|validFrom|specials/);
   });
 
   it('reads adherence and targets from meal logs', () => {
@@ -233,7 +232,7 @@ describe('Coach plan HTTP', () => {
     expect(pdfText).toContain('Northside training');
     expect(pdfText).toContain('See a dietitian for medical nutrition.');
     expect(pdfText).toContain('Prices vary by store and week.');
-    expect(pdfText).not.toContain(`dated ${CATALOGUE.validFrom} to ${CATALOGUE.validTo}`);
+    expect(pdfText).not.toContain('dated 2026-08-25');
     expect(pdfText).not.toContain('Check prices at');
     expect(pdfText).not.toContain('checkout.');
     expect(pdfText).toContain('/Subtype /Image');
