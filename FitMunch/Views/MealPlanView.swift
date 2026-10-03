@@ -60,7 +60,7 @@ struct MealPlanView: View {
                         labeledField("Protein g", text: $protein)
                     }
 
-                    Text("Check prices at checkout")
+                    Text("Prices vary by store and week.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,7 +125,7 @@ struct MealPlanView: View {
                     metric("Avg protein", "\(protein)g")
                 }
             }
-            Text("Check prices at checkout")
+            Text("Prices vary by store and week.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

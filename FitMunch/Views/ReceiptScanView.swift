@@ -175,7 +175,7 @@ struct ReceiptScanView: View {
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
-            Text("Check prices at checkout")
+            Text("Prices vary by store and week.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)

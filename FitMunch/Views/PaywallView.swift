@@ -379,28 +379,11 @@ private struct PackageCard: View {
     }
 
     private var priceRow: some View {
-        HStack {
-            Text(plan.priceString)
-                .font(.title2)
-                .fontWeight(.bold)
-                .accessibilityIdentifier("paywall-price-\(plan.id)")
-            Spacer()
-            savingsBadge
-        }
-    }
-
-    @ViewBuilder
-    private var savingsBadge: some View {
-        if plan.id == Constants.ProductIDs.annual {
-            Text("Save 20%")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.green.opacity(0.2))
-                .foregroundColor(.green)
-                .cornerRadius(4)
-        }
+        Text(plan.priceString)
+            .font(.title2)
+            .fontWeight(.bold)
+            .accessibilityIdentifier("paywall-price-\(plan.id)")
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
