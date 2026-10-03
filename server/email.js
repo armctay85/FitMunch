@@ -1,9 +1,8 @@
 /**
  * FitMunch transactional email via Resend only.
  * Requires RESEND_API_KEY.
- * Sender: EMAIL_FROM, then RESEND_FROM. Reply-To is set only when
- * EMAIL_REPLY_TO or RESEND_REPLY_TO is configured. Do not default that
- * path to support@ (fitmunch.com.au has no MX yet).
+ * Sender: EMAIL_FROM, then RESEND_FROM, otherwise hello@fitmunch.com.au.
+ * Reply-To defaults to support@fitmunch.com.au. Both inboxes receive mail.
  */
 const RESEND_API = 'https://api.resend.com/emails';
 
@@ -12,7 +11,7 @@ function fromAddress() {
 }
 
 function replyToAddress() {
-  return process.env.EMAIL_REPLY_TO || process.env.RESEND_REPLY_TO || '';
+  return process.env.EMAIL_REPLY_TO || process.env.RESEND_REPLY_TO || 'support@fitmunch.com.au';
 }
 
 function escapeHtml(value) {

@@ -102,7 +102,7 @@ describe('trial lifecycle email', () => {
     expect(mock.sendTrialStartedEmail).toHaveBeenCalledTimes(2);
   });
 
-  test('templates are a 600px dark header with Literata, a logo, and no support@ reply path', () => {
+  test('templates are a 600px dark header with Literata, a logo, and replies to support@', () => {
     const rendered = email.renderTrialStartedEmail({
       planName: 'Premium',
       trialEndLabel: '16 October 2026',
@@ -117,7 +117,7 @@ describe('trial lifecycle email', () => {
     expect(rendered.bodyHtml).toContain('Manage or cancel');
     expect(rendered.bodyHtml).not.toMatch(/support@/i);
     expect(rendered.bodyText).not.toMatch(/support@/i);
-    expect(email.replyToAddress()).toBe('');
+    expect(email.replyToAddress()).toBe('support@fitmunch.com.au');
     expect(email.fromAddress()).toBe('FitMunch <hello@fitmunch.com.au>');
   });
 

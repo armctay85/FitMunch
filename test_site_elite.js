@@ -113,6 +113,24 @@ describe('sample trolley and legal copy', () => {
     expect(refund.text).toContain('card on file');
     expect(refund.text).toContain('It is not a 14-day refund after a paid charge');
   });
+
+  test('support is the App Store contact page', async () => {
+    const support = await request(app).get('/support').expect(200);
+    expect(support.text).toContain('mailto:support@fitmunch.com.au');
+    expect(support.text).toContain('within 1 business day');
+    expect(support.text).toContain('Settings');
+    expect(support.text).toContain('Apple ID');
+    expect(support.text).toContain('Subscriptions');
+    expect(support.text).toContain('billing portal');
+    expect(support.text).toContain('Restore Purchases');
+    expect(support.text).toContain('Delete Account');
+    expect(support.text).toContain('href="/terms"');
+    expect(support.text).toContain('href="/privacy"');
+    expect(support.text).toContain('not stored on our servers');
+    expect(support.text).not.toMatch(/GST/i);
+    expect(support.text).not.toMatch(/Pty Ltd/i);
+    expect(support.text).not.toMatch(/hello@/i);
+  });
 });
 
 describe('390 overflow on legal pages', () => {
@@ -135,7 +153,7 @@ describe('390 overflow on legal pages', () => {
         const { spawn } = require('child_process');
         const port = process.argv[1];
         const chrome = process.argv[2];
-        const routes = ['/terms', '/refund', '/privacy'];
+        const routes = ['/terms', '/refund', '/privacy', '/support'];
         const child = spawn(chrome, [
           '--headless=new', '--disable-gpu', '--no-sandbox',
           '--remote-debugging-port=9333', '--window-size=390,844', 'about:blank'
@@ -173,6 +191,7 @@ describe('390 overflow on legal pages', () => {
               ws.send(JSON.stringify({ id: msgId, method, params }));
             });
           }
+          await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
           const failures = [];
           for (const route of routes) {
             await send('Page.navigate', { url: 'http://127.0.0.1:' + port + route });
