@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
 <title>Subscription confirmed - FitMunch</title>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
@@ -104,6 +105,11 @@ body.fm-body{
           <h3>Check your email</h3>
           <p>We sent a welcome note with getting-started steps. Check inbox and spam if needed.</p>
         </div>
+        <div class="info-block" id="claimBlock" style="display:none">
+          <h3>Attach it to your account</h3>
+          <p id="claimText">Paid before you had an account? Use the attach button in your welcome email. It works once.</p>
+          <p><a id="claimLink" class="fm-btn fm-btn-leaf" href="/login.html">Sign in to attach this subscription</a></p>
+        </div>
         <div class="info-block">
           <h3>Next steps</h3>
           <ul>
@@ -195,6 +201,9 @@ async function openBillingPortal(e) {
           'premium': 'FitMunch Premium · A$19.99/mo AUD',
         };
         planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
+      }
+      if (data.guestCheckout) {
+        document.getElementById('claimBlock').style.display = 'block';
       }
     }
   } catch (err) {

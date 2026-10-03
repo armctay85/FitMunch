@@ -50,7 +50,7 @@ async function sendEmail(opts) {
 /**
  * Post-checkout welcome (Premium consumer or PT).
  */
-async function sendWelcomeEmail(customerEmail, customerName, planLabel) {
+async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl) {
   const name = customerName || 'there';
   const dashboardUrl = 'https://www.fitmunch.com.au/app.html';
   const isPt = /starter|pro/i.test(String(planLabel || '')) && !/premium/i.test(String(planLabel || ''));
@@ -72,6 +72,13 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel) {
         <li>Build meals from the haul, then tighten next week's list</li>
       </ol>`;
 
+  const attachHtml = claimUrl
+    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Paid before you had an account? Attach this subscription to the FitMunch account you choose. The link works once and expires soon.</p>
+    <p style="margin:20px 0">
+      <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Attach this subscription</a>
+    </p>`
+    : '';
+
   const bodyHtml = `
 <!DOCTYPE html>
 <html>
@@ -86,6 +93,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel) {
   <div style="padding:28px">
     <p style="font-size:16px;color:#0c1210">Hi ${name},</p>
     <p style="font-size:16px;color:#5c6d64;line-height:1.6">Thanks for starting FitMunch ${label}. The loop is simple: receipt to macros to meals to the next shop.</p>
+    ${attachHtml}
     <div style="background:rgba(31,157,74,0.08);border:1px solid rgba(31,157,74,0.28);padding:16px;margin:20px 0">
       <p style="font-family:system-ui,sans-serif;font-weight:700;color:#16803c;margin:0 0 8px">Next steps</p>
       ${nextSteps}
@@ -102,9 +110,14 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel) {
 </body>
 </html>`.trim();
 
+  const attachText = claimUrl
+    ? `\nAttach this subscription to your account (works once, expires soon):\n${claimUrl}\n`
+    : '';
+
   const bodyText = `Hi ${name},
 
 Thanks for starting FitMunch ${label}. Your trial is live.
+${attachText}
 
 Open dashboard: ${dashboardUrl}
 

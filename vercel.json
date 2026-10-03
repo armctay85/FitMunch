@@ -11,6 +11,18 @@
           "value": "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.stripe.com\")"
         }
       ]
+    },
+    {
+      "source": "/success.html",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    },
+    {
+      "source": "/checkout/success",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
     }
   ],
   "regions": ["syd1"]

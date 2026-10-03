@@ -53,7 +53,7 @@
         var value = params.get(key);
         if (!value) continue;
         value = String(value).trim().slice(0, 80);
-        if (!value || value.indexOf('?') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1) continue;
+        if (!value || value.indexOf('?') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1 || value.indexOf('claim=') !== -1) continue;
         out[key] = value;
       }
     } catch (_) {}
@@ -66,13 +66,13 @@
     if (hash >= 0) s = s.slice(0, hash);
     var q = s.indexOf('?');
     if (q >= 0) s = s.slice(0, q);
-    if (s.indexOf('reset=') !== -1 || s.indexOf('token=') !== -1) return '';
+    if (s.indexOf('reset=') !== -1 || s.indexOf('token=') !== -1 || s.indexOf('claim=') !== -1) return '';
     return s;
   }
 
   function scrub(value) {
     if (typeof value === 'string') {
-      if (value.indexOf('?') !== -1 || value.indexOf('#') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1) {
+      if (value.indexOf('?') !== -1 || value.indexOf('#') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1 || value.indexOf('claim=') !== -1) {
         return pathOnly(value);
       }
       return value;
@@ -83,10 +83,10 @@
     var key;
     for (key in value) {
       if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
-      if (/^(reset|token|code|key|session|email|sig|jwt|password)$/i.test(key)) continue;
+      if (/^(reset|token|code|key|session|email|sig|jwt|password|claim)$/i.test(key)) continue;
       if (UTM_KEYS.indexOf(key) !== -1 && typeof value[key] === 'string') {
         var utm = String(value[key]).trim().slice(0, 80);
-        if (utm && utm.indexOf('?') === -1 && utm.indexOf('reset=') === -1 && utm.indexOf('token=') === -1) out[key] = utm;
+        if (utm && utm.indexOf('?') === -1 && utm.indexOf('reset=') === -1 && utm.indexOf('token=') === -1 && utm.indexOf('claim=') === -1) out[key] = utm;
         continue;
       }
       out[key] = scrub(value[key]);
@@ -101,7 +101,7 @@
       var key = UTM_KEYS[i];
       if (typeof raw[key] !== 'string') continue;
       var value = raw[key].trim().slice(0, 80);
-      if (value && value.indexOf('?') === -1 && value.indexOf('reset=') === -1 && value.indexOf('token=') === -1) out[key] = value;
+      if (value && value.indexOf('?') === -1 && value.indexOf('reset=') === -1 && value.indexOf('token=') === -1 && value.indexOf('claim=') === -1) out[key] = value;
     }
     return out;
   }
