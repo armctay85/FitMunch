@@ -345,6 +345,14 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         }
         break;
       }
+      case 'invoice.created': {
+        const { applyFitMunchStatementSuffix } = require('./lib/fitmunch-checkout');
+        const applied = await applyFitMunchStatementSuffix(stripe, event.data.object);
+        if (applied && applied.applied) {
+          console.log('FitMunch statement suffix set');
+        }
+        break;
+      }
       case 'invoice.payment_failed':
         console.warn(`Payment failed: customer ${event.data.object.customer}`);
         break;

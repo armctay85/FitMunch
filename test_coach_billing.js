@@ -19,6 +19,8 @@ const {
   PREMIUM_PRICE_AUD_CENTS,
   jwtSecret,
   buildSubscriptionCheckoutParams,
+  STATEMENT_DESCRIPTOR_SUFFIX,
+  applyFitMunchStatementSuffix,
 } = require('./lib/fitmunch-checkout');
 const {
   COACH_39_ACTIVE_CLIENT_LIMIT,
@@ -264,6 +266,57 @@ describe('Coach webhook tier', () => {
     expect(storage.updateUserSubscription).toHaveBeenCalledWith('pt-1', 'premium', expect.any(Date));
     expect(storage.updateUserCoachBilling).not.toHaveBeenCalled();
     expect(user.subscriptionTier).toBe('premium');
+  });
+
+  test('invoice.created writes the FitMunch suffix on a draft invoice', async () => {
+    const update = jest.fn(async () => ({}));
+    app._private.setStripeForTests({
+      invoices: { update },
+      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      webhooks: {
+        constructEvent: (body) => JSON.parse(Buffer.isBuffer(body) ? body.toString() : String(body)),
+      },
+    });
+    const res = await postWebhook({
+      id: 'evt_suffix',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_fit',
+          status: 'draft',
+          metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'premium' },
+        },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][1]).toEqual({ statement_descriptor: STATEMENT_DESCRIPTOR_SUFFIX });
+    expect(update.mock.calls[0][1].statement_descriptor).toBe('FITMUNCH');
+  });
+
+  test('invoice.created does not stamp another brand', async () => {
+    const update = jest.fn(async () => ({}));
+    app._private.setStripeForTests({
+      invoices: { update },
+      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      webhooks: {
+        constructEvent: (body) => JSON.parse(Buffer.isBuffer(body) ? body.toString() : String(body)),
+      },
+    });
+    const res = await postWebhook({
+      id: 'evt_other',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_other',
+          status: 'draft',
+          metadata: { product: 'other', brand: 'other' },
+        },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(update).not.toHaveBeenCalled();
   });
 
   test('non-live Stripe statuses map to cancelled', () => {
@@ -518,6 +571,35 @@ liveDescribe('Stripe test mode Coach checkout', () => {
       ? Math.round((expanded.subscription.trial_end - expanded.subscription.trial_start) / 86400)
       : null;
     expect(trialDays === 14 || session.mode === 'subscription').toBe(true);
+    const paymentIntent = expanded.payment_intent && typeof expanded.payment_intent === 'object'
+      ? expanded.payment_intent
+      : null;
+    if (paymentIntent && paymentIntent.statement_descriptor_suffix) {
+      expect(paymentIntent.statement_descriptor_suffix).toBe('FITMUNCH');
+    }
+    const latestInvoice = expanded.subscription && expanded.subscription.latest_invoice;
+    if (latestInvoice && typeof latestInvoice === 'object' && latestInvoice.statement_descriptor) {
+      expect(latestInvoice.statement_descriptor).toBe('FITMUNCH');
+    }
+    const draft = await stripe.invoices.create({
+      customer: customer.id,
+      auto_advance: false,
+      metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'coach-39' },
+      pending_invoice_items_behavior: 'exclude',
+    });
+    try {
+      const applied = await applyFitMunchStatementSuffix(stripe, draft);
+      expect(applied.applied).toBe(true);
+      const readBack = await stripe.invoices.retrieve(draft.id);
+      expect(readBack.statement_descriptor).toBe('FITMUNCH');
+      expect(readBack.statement_descriptor).toBe(STATEMENT_DESCRIPTOR_SUFFIX);
+    } finally {
+      try {
+        await stripe.invoices.del(draft.id);
+      } catch (_) {
+        /* draft cleanup */
+      }
+    }
     await stripe.checkout.sessions.expire(session.id);
   });
 });

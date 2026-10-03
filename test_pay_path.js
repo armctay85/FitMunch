@@ -16,7 +16,9 @@ const {
   STRIPE_CHECKOUT_API_VERSION,
   STRIPE_CHECKOUT_LOCALE,
   jwtSecret,
+  STATEMENT_DESCRIPTOR_SUFFIX,
   buildSubscriptionCheckoutParams,
+  applyFitMunchStatementSuffix,
   createFitMunchCheckoutSession,
   honestyFailures,
   normalizeCheckoutPlan,
@@ -63,6 +65,8 @@ describe('Checkout session contract', () => {
     expect(PRICE_IDS.premium).toBe('price_1ToYrXGMuYRuJYDrwHtvWD1c');
     expect(PREMIUM_PRICE_AUD_CENTS).toBe(1999);
     expect(params.mode).toBe('subscription');
+    expect(params.payment_intent_data).toBeUndefined();
+    expect(params.subscription_data.invoice_settings).toBeUndefined();
     expect(params.line_items).toEqual([{ price: 'price_1ToYrXGMuYRuJYDrwHtvWD1c', quantity: 1 }]);
     expect(params.line_items[0].price_data).toBeUndefined();
     expect(JSON.stringify(params)).not.toMatch(/price_data|prices\.create|products\.create/);
@@ -178,6 +182,92 @@ describe('Checkout session contract', () => {
     expect(normalizeCheckoutPlan('pro', 'client')).toBe('premium');
     expect(normalizeCheckoutPlan('premium', 'client')).toBe('premium');
     expect(normalizeCheckoutPlan('pt-starter', 'pt')).toBe('pt-starter');
+  });
+});
+
+describe('Statement descriptor suffix', () => {
+  function draftInvoice(overrides = {}) {
+    return {
+      id: 'in_fit',
+      status: 'draft',
+      metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'premium' },
+      ...overrides,
+    };
+  }
+
+  it('keeps the suffix in one constant and writes it on the draft invoice field Stripe supports', async () => {
+    expect(STATEMENT_DESCRIPTOR_SUFFIX).toBe('FITMUNCH');
+    const update = jest.fn(async () => ({}));
+    const result = await applyFitMunchStatementSuffix(
+      { invoices: { update } },
+      draftInvoice()
+    );
+    expect(result.applied).toBe(true);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][0]).toBe('in_fit');
+    expect(update.mock.calls[0][1]).toEqual({ statement_descriptor: STATEMENT_DESCRIPTOR_SUFFIX });
+    expect(update.mock.calls[0][1].statement_descriptor).toBe('FITMUNCH');
+    expect(update.mock.calls[0][1].statement_descriptor_suffix).toBeUndefined();
+    expect(update.mock.calls[0][2].idempotencyKey).toEqual(expect.stringContaining('statement-suffix'));
+  });
+
+  it('uses the parent subscription metadata and the line price when invoice metadata is empty', async () => {
+    const update = jest.fn(async () => ({}));
+    const fromParent = await applyFitMunchStatementSuffix(
+      { invoices: { update } },
+      draftInvoice({
+        id: 'in_parent',
+        metadata: {},
+        parent: { subscription_details: { metadata: { product: 'fitmunch', plan: 'premium' } } },
+      })
+    );
+    const fromPrice = await applyFitMunchStatementSuffix(
+      { invoices: { update } },
+      draftInvoice({
+        id: 'in_price',
+        metadata: {},
+        lines: { data: [{ pricing: { price_details: { price: PRICE_IDS.premium } } }] },
+      })
+    );
+    expect(fromParent.applied).toBe(true);
+    expect(fromPrice.applied).toBe(true);
+    expect(update.mock.calls.map((call) => call[1])).toEqual([
+      { statement_descriptor: 'FITMUNCH' },
+      { statement_descriptor: 'FITMUNCH' },
+    ]);
+  });
+
+  it('loads the subscription when the invoice payload does not name FitMunch', async () => {
+    const update = jest.fn(async () => ({}));
+    const retrieve = jest.fn(async () => ({
+      id: 'sub_fit',
+      metadata: { product: 'fitmunch', plan: 'premium' },
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    }));
+    const result = await applyFitMunchStatementSuffix(
+      { invoices: { update }, subscriptions: { retrieve } },
+      draftInvoice({
+        id: 'in_sub',
+        metadata: {},
+        subscription: 'sub_fit',
+      })
+    );
+    expect(retrieve).toHaveBeenCalledWith('sub_fit');
+    expect(result.applied).toBe(true);
+    expect(update.mock.calls[0][1]).toEqual({ statement_descriptor: 'FITMUNCH' });
+  });
+
+  it('does not write the suffix for another brand, a finalized invoice, or a suffix already set', async () => {
+    const update = jest.fn(async () => ({}));
+    const stripe = { invoices: { update } };
+    expect((await applyFitMunchStatementSuffix(stripe, draftInvoice({
+      metadata: { product: 'other', brand: 'other' },
+    }))).applied).toBe(false);
+    expect((await applyFitMunchStatementSuffix(stripe, draftInvoice({ status: 'open' }))).applied).toBe(false);
+    expect((await applyFitMunchStatementSuffix(stripe, draftInvoice({
+      statement_descriptor: 'FITMUNCH',
+    }))).applied).toBe(false);
+    expect(update).not.toHaveBeenCalled();
   });
 });
 
