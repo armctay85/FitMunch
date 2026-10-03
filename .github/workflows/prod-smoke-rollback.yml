@@ -1,0 +1,73 @@
+name: Production smoke and rollback
+
+# deployment_status runs only after this file is on the default branch.
+# Smoke hits https://www.fitmunch.com.au after the new deployment is the live alias.
+# VERCEL_AUTOMATION_BYPASS_SECRET is optional and is not required for this job.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: Optional https URL on fitmunch.com.au, www.fitmunch.com.au, or a fit-munch/fitmunch host on *-armctay85s-projects.vercel.app. Other hosts and explicit ports are refused so smoke credentials are not sent elsewhere.
+        required: false
+        type: string
+      action:
+        description: What to run
+        required: true
+        type: choice
+        options:
+          - smoke
+          - rollback-dry-run
+          - rollback
+          - promote
+      deployment_id:
+        description: Vercel deployment id for promote, rollback, or rollback-dry-run
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  deployments: read
+  statuses: write
+  issues: write
+
+concurrency:
+  group: prod-smoke-rollback
+  cancel-in-progress: false
+
+jobs:
+  prod-smoke:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       (github.event.deployment.environment == 'Production – fit-munch' ||
+        github.event.deployment.environment == 'Production - fit-munch'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TEAM_ID: team_0fhp2cQFpq9v8Jel3T7nyBuC
+      VERCEL_PROJECT_ID: prj_UlxCl2YDeD9SFMlTvZZxpgfnQI6A
+      PROD_URL: https://www.fitmunch.com.au
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
+      SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
+      SMOKE_USER_PASSWORD: ${{ secrets.SMOKE_USER_PASSWORD }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM: ${{ secrets.RESEND_FROM }}
+      ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO }}
+      SMOKE_AUTO_ROLLBACK: ${{ vars.SMOKE_AUTO_ROLLBACK }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Smoke production and roll back on failure
+        run: node scripts/prod-smoke-job.js
