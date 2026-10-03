@@ -1,7 +1,8 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { runStripeWebhookMonitor, DEFAULT_WEBHOOK_ENDPOINT_ID } = require('./scripts/stripe-webhook-monitor');
+const { runStripeWebhookMonitor, DEFAULT_WEBHOOK_ENDPOINT_ID, DISABLED_EMAIL_INTERVAL_MS, EVENTS_SUMMARY } = require('./scripts/stripe-webhook-monitor');
+const { emailMarker } = require('./scripts/lib/prod-incident');
 const { runProbe } = require('./scripts/prod-uptime-probe');
 
 const ENDPOINT_ID = 'we_test_endpoint_id';
@@ -55,21 +56,29 @@ function stripeFetch(endpointBody, eventsBody) {
 describe('stripe webhook monitor', () => {
   const now = Date.parse('2026-10-03T04:00:00Z');
 
-  it('accepts an enabled FitMunch endpoint with no failed deliveries', async () => {
+  it('accepts an enabled FitMunch endpoint and does not query account-wide events', async () => {
     const github = githubDouble();
+    const summary = [];
     const { fetchImpl, seen } = stripeFetch(
       { status: 'enabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' },
-      { data: [] }
+      { data: [{ id: 'evt_other_product', pending_webhooks: 0 }] }
     );
-    const result = await runStripeWebhookMonitor({ env: env(), fetch: fetchImpl, github, now });
+    const result = await runStripeWebhookMonitor({
+      env: env(),
+      fetch: fetchImpl,
+      github,
+      now,
+      summary: (line) => summary.push(line),
+    });
     expect(result.ok).toBe(true);
     expect(result.reason).toBe('healthy');
     expect(github.calls.some((call) => call[0] === 'open')).toBe(false);
+    expect(seen.map((call) => call.url).join('\n')).not.toContain('/v1/events');
     expect(seen[0].url).toContain(`/webhook_endpoints/${ENDPOINT_ID}`);
     expect(seen[0].authorization).toBe(`Bearer ${MONITOR_KEY}`);
-    expect(seen[1].url).toContain('delivery_success=false');
-    const since = Math.floor((now - 2 * 60 * 60 * 1000) / 1000);
-    expect(seen[1].url).toContain(String(since));
+    expect(summary.join('\n')).toContain(EVENTS_SUMMARY);
+    expect(summary.join('\n')).toContain('account-wide');
+    expect(summary.join('\n')).not.toContain('evt_');
   });
 
   it('alerts when the endpoint is disabled, without ids or the key', async () => {
@@ -183,36 +192,87 @@ describe('stripe webhook monitor', () => {
     fs.rmSync(summaryFile, { force: true });
   });
 
-  it('alerts on finished failed deliveries and ignores still-pending events', async () => {
+  it('closes an open incident on recovery and repeats the disabled email every 6 hours', async () => {
+    const calls = [];
+    let open = [{ number: 8, title: 'PROD STRIPE WEBHOOK DISABLED' }];
+    let comments = [{ body: `still disabled\n\n${emailMarker(now - 60 * 60 * 1000)}` }];
+    const github = {
+      calls,
+      async ensureLabel() { calls.push('label'); },
+      async listOpen() { return open; },
+      async listComments() { return comments; },
+      async open(title, body) {
+        calls.push(['open', title, body]);
+        return { number: 9, title };
+      },
+      async comment(number, body) { calls.push(['comment', number, body]); },
+      async close(number) {
+        calls.push(['close', number]);
+        open = open.filter((issue) => issue.number !== number);
+      },
+    };
+    const disabled = stripeFetch({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
+    const recent = await runStripeWebhookMonitor({ env: env(), fetch: disabled.fetchImpl, github, now });
+    expect(recent.reason).toBe('disabled');
+    expect(recent.incident.action).toBe('commented');
+    expect(recent.incident.emailed).toBe(false);
+
+    comments = [{ body: `still disabled\n\n${emailMarker(now - DISABLED_EMAIL_INTERVAL_MS - 1000)}` }];
+    const later = await runStripeWebhookMonitor({ env: env(), fetch: disabled.fetchImpl, github, now });
+    expect(later.incident.action).toBe('commented');
+    expect(later.incident.emailed).toBe(true);
+
+    const healthy = stripeFetch({ status: 'enabled', url: 'https://fit-munch.vercel.app/api/stripe/webhook' });
+    const recovered = await runStripeWebhookMonitor({ env: env(), fetch: healthy.fetchImpl, github, now });
+    expect(recovered.ok).toBe(true);
+    expect(calls.some((call) => call[0] === 'close' && call[1] === 8)).toBe(true);
+    const up = calls.find((call) => call[0] === 'comment' && String(call[2]).includes('enabled and points'));
+    expect(up).toBeTruthy();
+    expect(String(up[2])).not.toContain(ENDPOINT_ID);
+  });
+
+  it('rejects a secret key and any explicit port', async () => {
     const github = githubDouble();
-    const pendingOnly = stripeFetch(
-      { status: 'enabled', url: 'https://fitmunch.com.au/api/stripe/webhook' },
-      { data: [{ id: 'evt_pending', pending_webhooks: 2 }] }
-    );
-    const pending = await runStripeWebhookMonitor({
-      env: env(),
-      fetch: pendingOnly.fetchImpl,
+    const secret = 'sk_live_not_a_restricted_key';
+    let fetchedStripe = false;
+    const badKey = await runStripeWebhookMonitor({
+      env: env({ STRIPE_MONITOR_KEY: secret }),
+      fetch: async (url) => {
+        if (String(url).includes('api.stripe.com')) fetchedStripe = true;
+        return { ok: true, text: async () => '' };
+      },
       github,
       now,
     });
-    expect(pending.ok).toBe(true);
+    expect(fetchedStripe).toBe(false);
+    expect(badKey.reason).toBe('bad-key');
+    const keyBody = github.calls.find((call) => call[0] === 'open')[2];
+    expect(keyBody).toContain('restricted Stripe key');
+    expect(keyBody).toContain('rk_');
+    expect(keyBody).not.toContain(secret);
 
-    const failed = stripeFetch(
-      { status: 'enabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' },
-      { data: [{ id: 'evt_failed_secret', pending_webhooks: 0 }] }
-    );
-    const githubFailed = githubDouble();
-    const result = await runStripeWebhookMonitor({
+    const portGithub = githubDouble();
+    const { fetchImpl } = stripeFetch({
+      status: 'enabled',
+      url: 'https://fit-munch.vercel.app:443/api/stripe/webhook',
+    });
+    const port = await runStripeWebhookMonitor({ env: env(), fetch: fetchImpl, github: portGithub, now });
+    expect(port.reason).toBe('explicit-port');
+    const portBody = portGithub.calls.find((call) => call[0] === 'open')[2];
+    expect(portBody).toContain('includes a port');
+    expect(portBody).not.toContain(':443');
+    expect(portBody).not.toContain(ENDPOINT_ID);
+
+    const oddPort = await runStripeWebhookMonitor({
       env: env(),
-      fetch: failed.fetchImpl,
-      github: githubFailed,
+      fetch: stripeFetch({
+        status: 'enabled',
+        url: 'https://www.fitmunch.com.au:8443/api/stripe/webhook',
+      }).fetchImpl,
+      github: githubDouble(),
       now,
     });
-    expect(result.reason).toBe('failed-deliveries');
-    const body = githubFailed.calls.find((call) => call[0] === 'open')[2];
-    expect(body).toContain('failed webhook deliveries');
-    expect(body).not.toContain('evt_');
-    expect(body).not.toContain(ENDPOINT_ID);
+    expect(oddPort.reason).toBe('explicit-port');
   });
 
   it('runs from the hourly probe and fails the job when the key is missing', async () => {
