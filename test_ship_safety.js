@@ -25,6 +25,30 @@ describe('response headers', () => {
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   });
+
+  it('keeps no-referrer on /login.html and /login after the site-wide policy', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
+    function matches(source, pathname) {
+      if (source === '/(.*)') return pathname.startsWith('/');
+      return source === pathname;
+    }
+    function effective(pathname) {
+      let value = null;
+      for (const block of vercel.headers || []) {
+        if (!matches(block.source, pathname)) continue;
+        for (const header of block.headers || []) {
+          if (String(header.key).toLowerCase() === 'referrer-policy') value = header.value;
+        }
+      }
+      return value;
+    }
+    expect(effective('/login.html')).toBe('no-referrer');
+    expect(effective('/login')).toBe('no-referrer');
+    expect(effective('/')).toBe('strict-origin-when-cross-origin');
+    expect(effective('/pricing')).toBe('strict-origin-when-cross-origin');
+  });
 });
 
 describe('API JSON name strip', () => {

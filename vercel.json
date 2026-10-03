@@ -14,6 +14,18 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" }
       ]
+    },
+    {
+      "source": "/login.html",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    },
+    {
+      "source": "/login",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
     }
   ],
   "regions": ["syd1"]

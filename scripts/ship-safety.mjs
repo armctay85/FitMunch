@@ -117,6 +117,27 @@ function checkBannedCopy() {
   }
 }
 
+// Exact-path matcher for vercel.json header sources. Only the catch-all and
+// literal paths are used today; any other pattern fails the build so this
+// check never silently passes on a source it cannot evaluate.
+function sourceMatches(source, pathname) {
+  if (source === '/(.*)') return pathname.startsWith('/');
+  if (/[()*:?+]/.test(source)) fail(`ship-safety cannot evaluate header source ${source}`);
+  return source === pathname;
+}
+
+function effectiveHeader(headerRules, pathname, key) {
+  let value = null;
+  const wanted = key.toLowerCase();
+  for (const block of headerRules || []) {
+    if (!sourceMatches(block.source, pathname)) continue;
+    for (const header of block.headers || []) {
+      if (String(header.key).toLowerCase() === wanted) value = header.value;
+    }
+  }
+  return value;
+}
+
 function checkHeaders() {
   const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
   const headers = require(path.join(root, 'lib/security-headers.js'));
@@ -135,6 +156,14 @@ function checkHeaders() {
   if (map['X-Content-Type-Options'] !== headers.CONTENT_TYPE_OPTIONS) fail('missing X-Content-Type-Options: nosniff');
   if (map['Referrer-Policy'] !== headers.REFERRER_POLICY) fail('missing Referrer-Policy');
   if (map['Strict-Transport-Security'] !== headers.HSTS) fail('missing HSTS');
+  // Vercel applies every matching header rule in array order and sends the last
+  // value for a key, so the /login rules must follow the /(.*) catch-all.
+  for (const loginPath of ['/login.html', '/login']) {
+    const referrer = effectiveHeader(vercel.headers, loginPath, 'Referrer-Policy');
+    if (referrer !== 'no-referrer') {
+      fail(`${loginPath} Referrer-Policy is ${referrer || 'unset'}, expected no-referrer`);
+    }
+  }
   const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   const rawAt = server.indexOf("app.use('/api/stripe/webhook', express.raw");
   const jsonAt = server.indexOf('app.use(express.json(');
