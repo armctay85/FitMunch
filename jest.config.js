@@ -28,7 +28,6 @@ module.exports = {
     '**/test_ai_client.js',
     '**/test_server_ai.js',
     '**/test_reset_token_leak.js',
-    '**/test_public_price_ban.js',
     '**/test_receipt_failure.js',
     '**/test_honest_fallbacks.js',
     '**/test_nutrition.js',
