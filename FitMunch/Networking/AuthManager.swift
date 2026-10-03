@@ -41,12 +41,23 @@ final class AuthManager: ObservableObject {
             )
             isAuthenticated = true
             isRestoring = false
+        } else if PriceMemoryLaunch.isActive {
+            UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+            user = APIUser(
+                id: "price-memory-user",
+                name: "Alex Chen",
+                email: "alex@fitmunch.com.au",
+                subscriptionTier: "free",
+                role: "client"
+            )
+            isAuthenticated = true
+            isRestoring = false
         }
     }
 
     /// Restore the session on launch.
     func bootstrap() async {
-        if ScreenshotLaunch.isActive || ReviewLaunch.isActive {
+        if ScreenshotLaunch.isActive || ReviewLaunch.isActive || PriceMemoryLaunch.isActive {
             isRestoring = false
             isAuthenticated = true
             return

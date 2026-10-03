@@ -72,7 +72,7 @@ function extractImage(req) {
   return null;
 }
 
-const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items. Parse quantity from name. Raw JSON only.';
+const VISION_PROMPT = 'This is a supermarket receipt photo. Read grocery lines only. Do not return addresses, card numbers, loyalty numbers, or non-food lines (pharmacy, medicine, baby formula, alcohol, tobacco, gift cards). Return ONLY a JSON object: {"store":"Coles","purchasedOn":"2026-09-12","items":[{"name":"Item","quantity":1,"unit":"kg","packSize":"500g","price":12.50,"discount":0,"category":"meat"}]}. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Use null for store or purchasedOn when they are not printed. Do not guess a store name. Raw JSON only.';
 
 async function readReceiptItems(imageBase64, mimeType) {
   const visionResult = await getVision()({
@@ -129,14 +129,17 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     }
 
     let rawItems;
+    let parsed = { items: [], store: null, purchasedOn: null };
     let scannerProvider = 'gemini';
     let scannerWarning = null;
       try {
-        rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
+        parsed = await readReceiptItems(image.imageBase64, image.mimeType);
+        rawItems = parsed.items;
       } catch (visionErr) {
         scannerProvider = 'fallback';
         scannerWarning = visionErr.message;
         rawItems = core.fallbackReceiptItems();
+        parsed = { items: rawItems, store: null, purchasedOn: null };
       }
 
     const payload = core.buildScanPayload(rawItems, {
@@ -144,11 +147,20 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       scannerProvider,
       scannerWarning,
     });
+    const capture = require('./lib/price-memory-capture');
+    const source = String(req.get('x-fitmunch-client') || '').toLowerCase() === 'ios' ? 'ios' : 'web';
+    payload.receiptRead = capture.publicRead(parsed);
+    payload.priceMemory = await capture.rememberAuthenticatedScan({
+      userId: req.user.userId,
+      scannerProvider,
+      parsed,
+      source,
+    });
     console.info('[receipt-scan]', JSON.stringify({
       event: scannerProvider === 'fallback' ? 'scan_fallback' : 'scan_success',
       provider: scannerProvider,
       itemCount: payload.itemCount,
-      userId: req.user?.userId || null,
+      priceMemorySaved: payload.priceMemory ? payload.priceMemory.saved : 0,
       warning: scannerWarning ? String(scannerWarning).slice(0, 160) : null,
     }));
     res.json(payload);
@@ -199,7 +211,7 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
 
     let rawItems;
     try {
-      rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
+      rawItems = (await readReceiptItems(image.imageBase64, image.mimeType)).items;
     } catch (visionErr) {
       console.info('[receipt-scan]', JSON.stringify({
         event: 'first_scan_unreadable',

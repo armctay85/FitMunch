@@ -366,6 +366,9 @@ app.use('/api', apiRouter);
 const receiptScanner = require('./receipt-scanner');
 app.use('/api/receipt', receiptScanner);
 
+const priceMemoryApi = require('./lib/price-memory-routes');
+app.use('/api/price-memory', priceMemoryApi);
+
 // AI Meal Planner
 const mealPlanner = require('./meal-planner');
 app.use('/api/meal-plan', mealPlanner);

@@ -17,7 +17,7 @@ struct FitMunchApp: App {
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
-            isStoredInMemoryOnly: ScreenshotLaunch.isActive
+            isStoredInMemoryOnly: ScreenshotLaunch.isActive || ReviewLaunch.isActive || PriceMemoryLaunch.isActive
         )
         
         do {
@@ -42,6 +42,7 @@ struct FitMunchApp: App {
             .modelContainer(sharedModelContainer)
             .environmentObject(premiumManager)
             .environmentObject(auth)
+            .preferredColorScheme(PriceMemoryLaunch.forceDark ? .dark : nil)
             .onAppear {
                 configureAppearance()
             }

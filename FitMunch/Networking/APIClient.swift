@@ -34,6 +34,7 @@ enum APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("ios", forHTTPHeaderField: "X-FitMunch-Client")
         if authed, let token = KeychainStore.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -140,6 +141,26 @@ struct MealPlanMeal: Decodable {
     let carbs: Int?
     let fat: Int?
     let prepMins: Int?
+    let ingredients: [MealPlanIngredient]?
+}
+
+struct MealPlanIngredient: Decodable {
+    let item: String?
+    let qty: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        item = try container.decodeIfPresent(String.self, forKey: .item)
+        if let text = try? container.decode(String.self, forKey: .qty) {
+            qty = text
+        } else if let number = try? container.decode(Double.self, forKey: .qty) {
+            qty = String(number)
+        } else {
+            qty = nil
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case item, qty }
 }
 
 struct MealPlanTotals: Decodable {
@@ -200,6 +221,12 @@ struct ReceiptScanResponse: Decodable {
     let success: Bool
     let error: String?
     let items: [Item]?
+    let priceMemory: PriceMemoryScanResult?
+    struct PriceMemoryScanResult: Decodable {
+        let saved: Int?
+        let receiptId: String?
+        let reason: String?
+    }
     let weeklyTotals: Totals?
     let grade: String?
     let shareText: String?

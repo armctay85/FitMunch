@@ -84,6 +84,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunchTests
+      - path: FitMunch/Resources/item-normalise.json
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.tests

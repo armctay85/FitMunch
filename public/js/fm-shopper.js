@@ -98,7 +98,7 @@
                 <div class="m">${escapeHtml(line.aisle)}${line.onSpecial ? ' · catalogue special' : ''}</div>
               </div>
               <div class="st">${escapeHtml(line.assignedStoreName)}</div>
-              <div class="p${line.onSpecial ? ' sp-special' : ''}">${money(line.assignedAud)}</div>
+              <div class="p${line.onSpecial ? ' sp-special' : ''}" data-pm-sku="${escapeAttr(line.sku)}" data-pm-name="${escapeAttr(line.name)}">${money(line.assignedAud)}</div>
             </div>
           `).join('')}
         </div>
@@ -110,6 +110,9 @@
     `;
     const approve = draftMount.querySelector('[data-sp-approve]');
     if (approve) approve.addEventListener('click', () => approveDraft());
+    if (window.FitMunchPriceMemory) {
+      window.FitMunchPriceMemory.decorateShopper(draftMount, draft).catch(() => {});
+    }
     document.getElementById('draft-trolley').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
