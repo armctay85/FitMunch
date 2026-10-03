@@ -8,11 +8,20 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { sendWelcomeEmail } = require('./server/email.js');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
+const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const { webhookHandlerErrorLabel } = require('./lib/log-redact');
+const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
-  // Basic configuration for Replit environment
-  app.set('trust proxy', true);
+  // One trusted hop only when we are actually behind Railway or Vercel (or
+  // TRUST_PROXY=1 is set for another proxy). req.ip is then the address that
+  // hop appended. Run directly, client X-Forwarded-For is ignored.
+  app.set('trust proxy', behindTrustedProxy() ? 1 : false);
 };
+function behindTrustedProxy(env = process.env) {
+  if (env.TRUST_PROXY === '0' || env.TRUST_PROXY === 'false') return false;
+  return Boolean(env.VERCEL || env.RAILWAY_ENVIRONMENT || env.TRUST_PROXY);
+}
 // Initialize Stripe only if key is available
 let stripe = null;
 if (process.env.STRIPE_SECRET_KEY) {
@@ -22,6 +31,8 @@ if (process.env.STRIPE_SECRET_KEY) {
 }
 
 const app = express();
+
+app.use(attachApiJsonSanitizer);
 
 const parseAllowedOrigins = () => {
   const configured = process.env.ALLOWED_ORIGINS
@@ -57,20 +68,7 @@ const allowedOrigins = parseAllowedOrigins();
 
 // Security: Enhanced Helmet configuration with Replit preview support
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://checkout.stripe.com"],
-      formAction: ["'self'", "https://checkout.stripe.com"],
-      frameAncestors: ["'self'"], // Allow Replit preview
-      scriptSrcAttr: ["'unsafe-inline'"], // Allow onclick="" handlers (app uses inline event handlers throughout)
-    },
-  },
+  contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
   frameguard: false, // Disable X-Frame-Options to allow Replit preview iframe
   hsts: {
@@ -80,6 +78,15 @@ app.use(helmet({
   },
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+
+// Helmet sets strict-origin-when-cross-origin. On Vercel that header wins over
+// vercel.json for function responses, including the /login 301. Override it
+// for the login page before anything else writes the response.
+const NO_REFERRER_PATH = /^\/login(?:\.html)?\/?$/i;
+app.use((req, res, next) => {
+  if (NO_REFERRER_PATH.test(req.path)) res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
 // Enable CORS with explicit origin allowlist (credentials-safe)
 app.use(cors({
@@ -128,11 +135,20 @@ function analyticsKeyMatches(req) {
   const expected = process.env.FM_ANALYTICS_KEY;
   const provided = String(providedAnalyticsKey(req) || '');
   if (!expected || !provided) return false;
-  const a = Buffer.from(String(expected));
-  const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
-  return require('crypto').timingSafeEqual(a, b);
+  // Compare fixed-length digests so neither timing nor an early length check
+  // reveals anything about the key.
+  const crypto = require('crypto');
+  const a = crypto.createHash('sha256').update(String(expected)).digest();
+  const b = crypto.createHash('sha256').update(provided).digest();
+  return crypto.timingSafeEqual(a, b);
 }
+
+// CSP and Permissions-Policy go on every response, including the /funnel 401s.
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+  next();
+});
 
 // Private analytics UI is not a public page. Block before static so /funnel.html
 // cannot be fetched without the server-side key.
@@ -147,12 +163,6 @@ app.use((req, res, next) => {
     return res.sendFile(path.join(PUBLIC_DIR, 'funnel.html'));
   }
   return next();
-});
-
-const PERMISSIONS_POLICY = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
-app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
-  next();
 });
 
 app.use(express.static(PUBLIC_DIR, {
@@ -357,7 +367,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         console.log(`Webhook: ${event.type}`);
     }
   } catch (err) {
-    console.error('Webhook handler error:', err && err.type, err && err.message);
+    console.error('Webhook handler error:', webhookHandlerErrorLabel(err));
     return res.status(500).send('Handler error');
   }
   res.json({ received: true });
@@ -1153,4 +1163,5 @@ module.exports._private = {
   setStripeForTests,
   PRICE_IDS,
   jwtSecret,
+  behindTrustedProxy,
 };

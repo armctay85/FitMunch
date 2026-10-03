@@ -57,6 +57,8 @@ async function coachGateForPt(ptId) {
 
 // Create and export a router instance for use as middleware
 const router = express.Router();
+const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+router.use(attachApiJsonSanitizer);
 
 // ── OWNERSHIP CHECK HELPER ────────────────────────────────────────────────────
 // Allows access if: requester is the user themselves, OR requester is a PT with that client

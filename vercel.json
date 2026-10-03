@@ -7,9 +7,25 @@
       "source": "/(.*)",
       "headers": [
         {
-          "key": "Permissions-Policy",
-          "value": "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.stripe.com\")"
-        }
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src 'self' https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com"
+        },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.stripe.com\")" }
+      ]
+    },
+    {
+      "source": "/login.html",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    },
+    {
+      "source": "/login",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" }
       ]
     }
   ],
