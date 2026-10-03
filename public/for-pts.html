@@ -14,8 +14,7 @@
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
@@ -25,7 +24,7 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .pt-hero{padding-top:calc(96px + clamp(56px,8vw,96px))}
 .pt-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
@@ -34,29 +33,29 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .pain-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:8px}
 .pain-card{background:var(--paper);padding:26px 24px}
-.pain-h{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.98rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.pain-h{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.98rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
 .pain-p{color:var(--mute);font-size:.88rem;line-height:1.6}
 
 .how-rail{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid rgba(255,255,255,.14)}
 .how-step{padding:26px 22px 4px 0;border-right:1px solid rgba(255,255,255,.14)}
 .how-step:last-child{border-right:0;padding-right:0}
-.how-step .n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.76rem;font-weight:600;color:var(--leaf);letter-spacing:.1em;display:block;margin-bottom:14px}
-.how-step h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;color:#fff;font-size:1.02rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.how-step .n{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.76rem;font-weight:600;color:var(--leaf);letter-spacing:.1em;display:block;margin-bottom:14px}
+.how-step h3{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;color:#fff;font-size:1.02rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
 .how-step p{color:rgba(238,242,238,.68);font-size:.86rem;line-height:1.55;max-width:22ch}
 
 .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
 .feat{background:#fff;padding:24px}
-.feat h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.95rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.feat h3{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.95rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
 .feat p{color:var(--mute);font-size:.84rem;line-height:1.6}
 
 .pt-plans{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);background:var(--paper)}
 .pt-plan{padding:30px 28px;border-right:1px solid var(--line)}
 .pt-plan:last-child{border-right:0}
 .pt-plan.featured{background:linear-gradient(180deg, rgba(31,157,74,.07), transparent 42%)}
-.pt-badge{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:10px}
-.pt-name{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1rem;font-weight:800;margin-bottom:4px}
-.pt-price{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.04em;margin-bottom:6px}
-.pt-price small{font-family:'Literata',Georgia,serif;font-size:.82rem;font-weight:500;color:var(--mute)}
+.pt-badge{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:10px}
+.pt-name{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem;font-weight:800;margin-bottom:4px}
+.pt-price{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.04em;margin-bottom:6px}
+.pt-price small{font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.82rem;font-weight:500;color:var(--mute)}
 .pt-desc{color:var(--mute);font-size:.86rem;margin-bottom:18px}
 .pt-plan ul{list-style:none;display:grid;gap:8px;margin-bottom:22px}
 .pt-plan li{font-size:.86rem;color:var(--ink);padding-left:14px;position:relative}
@@ -71,7 +70,7 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
 
 .faq-item{border-bottom:1px solid var(--line);padding:20px 0}
 .faq-item:first-child{border-top:1px solid var(--line)}
-.faq-q{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.94rem;font-weight:700;margin-bottom:8px}
+.faq-q{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.94rem;font-weight:700;margin-bottom:8px}
 .faq-a{color:var(--mute);font-size:.88rem;line-height:1.65}
 
 @media(max-width:860px){

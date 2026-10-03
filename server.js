@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -57,8 +58,8 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com"],
       frameSrc: ["'self'", "https://js.stripe.com", "https://checkout.stripe.com"],
@@ -67,7 +68,7 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"], // Allow onclick="" handlers (app uses inline event handlers throughout)
     },
   },
-  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   frameguard: false, // Disable X-Frame-Options to allow Replit preview iframe
   hsts: {
     maxAge: 31536000,
@@ -294,6 +295,22 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           }
         }
         console.log(`Subscription ${event.type}: customer ${sub.customer} → ${tier}`);
+        if (event.type === 'customer.subscription.created' && sub.status === 'trialing') {
+          await notifyTrialLifecycle(event, sub, users[0] || null);
+        }
+        break;
+      }
+      case 'customer.subscription.trial_will_end': {
+        const sub = event.data.object;
+        let knownUser = null;
+        try {
+          const rows = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
+          knownUser = rows[0] || null;
+        } catch (_) {
+          knownUser = null;
+        }
+        await notifyTrialLifecycle(event, sub, knownUser);
+        console.log(`Trial will end: customer ${sub.customer}`);
         break;
       }
       case 'customer.subscription.deleted': {
@@ -349,6 +366,19 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   res.json({ received: true });
 });
 
+async function notifyTrialLifecycle(event, sub, user) {
+  try {
+    const { handleSubscriptionLifecycle } = require('./server/trial-lifecycle');
+    const result = await handleSubscriptionLifecycle(event, { stripe, user });
+    if (result && result.success === false && process.env.RESEND_API_KEY) {
+      throw new Error(result.error || 'trial email failed');
+    }
+  } catch (error) {
+    console.error('Trial lifecycle email:', error.message);
+    if (process.env.RESEND_API_KEY) throw error;
+  }
+}
+
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
@@ -386,7 +416,20 @@ app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planne
 app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
 app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { root: 'public' }));
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
-app.get('/shopper', (req, res) => res.sendFile('shopper.html', { root: 'public' }));
+function sendHtmlWithInlinedCss(res, filename) {
+  const file = path.join(PUBLIC_DIR, filename);
+  const html = fs.readFileSync(file, 'utf8').replace(
+    /<link rel="stylesheet" href="(\/css\/[^"]+)"\s*\/?>/g,
+    (_match, href) => {
+      const cssPath = path.join(PUBLIC_DIR, href);
+      const css = fs.readFileSync(cssPath, 'utf8');
+      return `<style>\n${css}\n</style>`;
+    }
+  );
+  res.type('html').send(html);
+}
+
+app.get('/shopper', (req, res) => sendHtmlWithInlinedCss(res, 'shopper.html'));
 app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
@@ -1015,6 +1058,27 @@ app.get('/api/checkout/session', async (req, res) => {
     });
   } catch (e) {
     res.status(404).json({ error: 'Session not found.' });
+  }
+});
+
+// One-click manage/cancel link from trial emails. The signed query avoids
+// creating a Stripe portal session until the customer opens the message.
+app.get('/billing/manage', async (req, res) => {
+  const { verifyBillingManage, publicOrigin } = require('./server/trial-lifecycle');
+  const verified = verifyBillingManage(req.query);
+  if (!verified) {
+    return res.status(400).type('text/plain').send('This manage link is invalid or has expired.');
+  }
+  if (!stripe) return res.status(503).type('text/plain').send('Billing is not available right now.');
+  try {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: verified.customerId,
+      return_url: `${publicOrigin()}/pricing`,
+    });
+    return res.redirect(302, portal.url);
+  } catch (error) {
+    console.error('billing manage', error.message);
+    return res.status(502).type('text/plain').send('Could not open billing. Use the support page.');
   }
 });
 

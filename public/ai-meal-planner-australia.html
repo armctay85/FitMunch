@@ -11,8 +11,7 @@
 <meta property="og:url" content="https://www.fitmunch.com.au/ai-meal-planner-australia">
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <script type="application/ld+json">
@@ -25,13 +24,13 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .mp-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(48px,7vw,72px)}
 .mp-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
 }
 .mp-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:14px;max-width:26ch}
-.mp-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:54ch;margin-bottom:26px}
+.mp-hero p{color:#e7f2ea;font-size:1.05rem;line-height:1.6;max-width:54ch;margin-bottom:26px}
 .mp-ctas{display:flex;flex-wrap:wrap;gap:10px}
 
 .content-inner li{margin:0 0 10px 0;color:var(--mute);line-height:1.65;padding-left:14px;position:relative;list-style:none}
@@ -41,13 +40,13 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .vs-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
 .vs-col{background:#fff;padding:20px 18px}
-.vs-col h3{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
-.vs-col.bad h3{color:var(--mute2)}
+.vs-col h3{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.vs-col.bad h3{color:var(--mute)}
 .vs-col.good h3{color:var(--leaf2)}
 .vs-col p{margin:0;color:var(--mute);font-size:.9rem;line-height:1.6}
 @media(max-width:640px){.vs-grid{grid-template-columns:1fr}}
 
-.faq dt{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:.95rem}
+.faq dt{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:.95rem}
 .faq dd{color:var(--mute);margin:6px 0 0 0;line-height:1.65;font-size:.9rem}
 </style>
 </head>

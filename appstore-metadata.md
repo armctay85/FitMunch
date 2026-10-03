@@ -62,7 +62,7 @@ Download FitMunch today and take control of your nutrition journey!
 Special launch offer! Get 7 days free trial of premium features. Track unlimited meals, access full history, and unlock personalized insights.
 
 ## SUPPORT URL
-https://fitmunch.com.au/support
+https://www.fitmunch.com.au/support
 
 ## PRIVACY POLICY URL
 https://fitmunch.com.au/privacy

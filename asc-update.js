@@ -158,7 +158,7 @@ async function updateAppStoreVersion(appId) {
           description: DESCRIPTION,
           keywords: 'meal tracker,nutrition,macros,calorie counter,food diary,diet,weight loss,fitness,health',
           promotionalText: 'Track meals, hit macros, reach goals. Free to use — upgrade for meal plans & restaurant lookup.',
-          supportUrl: 'https://armctay85.github.io/fitmunch-site/support.html',
+          supportUrl: 'https://www.fitmunch.com.au/support',
           marketingUrl: 'https://armctay85.github.io/fitmunch-site'
         }
       }
@@ -181,7 +181,7 @@ async function updateAppStoreVersion(appId) {
           description: DESCRIPTION,
           keywords: 'meal tracker,nutrition,macros,calorie counter,food diary,diet,weight loss,fitness,health',
           promotionalText: 'Track meals, hit macros, reach goals. Free to use — upgrade for meal plans & restaurant lookup.',
-          supportUrl: 'https://armctay85.github.io/fitmunch-site/support.html',
+          supportUrl: 'https://www.fitmunch.com.au/support',
           marketingUrl: 'https://armctay85.github.io/fitmunch-site'
         },
         relationships: {

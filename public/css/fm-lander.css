@@ -1,7 +1,7 @@
 /* SEO pack 2 landers: Woolworths, Coles, meal prep list. Own surface. Tokens from fm-tokens.css. */
 *,*::before,*::after{box-sizing:border-box}
 html,body{max-width:100%;overflow-x:hidden}
-:focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 .ln-hero{
   position:relative;overflow:hidden;
@@ -11,7 +11,9 @@ html,body{max-width:100%;overflow-x:hidden}
   color:#f4f7f4;
   padding:104px clamp(20px,4vw,48px) clamp(36px,6vw,64px);
 }
-.ln-hero-inner{width:min(1080px,100%);margin:0 auto;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(24px,5vw,56px);align-items:end}
+.ln-hero-inner{width:min(1120px,100%);margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.92fr);gap:clamp(24px,5vw,48px);align-items:stretch}
+.ln-visual{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ln-shot{width:100%;height:240px;object-fit:cover;display:block;background:#e4ebe4}
 .ln-kicker{
   display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.7rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
@@ -46,7 +48,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .ln-inner{width:min(900px,100%);margin:0 auto}
 .ln-section h2{font-size:clamp(1.55rem,4.6vw,2.3rem);font-weight:800;letter-spacing:-.045em;line-height:1.06;margin:0 0 12px}
 .ln-section p{color:var(--mute);font-size:1rem;line-height:1.7;margin:0 0 16px;max-width:62ch}
-.coach-page .ln-section .fm-convert p{color:rgba(238,242,238,.92);max-width:40ch}
+.ln-section .fm-convert p{color:#e7f2ea;max-width:40ch}
+.coach-page .ln-section .fm-convert p{color:#e7f2ea;max-width:40ch}
 .ln-section p a,.ln-links a,.faq a{color:var(--leaf2);font-weight:700}
 .ln-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:22px 0 0}
 .ln-steps article{background:#fff;padding:18px 18px 20px}
@@ -55,7 +58,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .ln-steps p{font-size:.95rem;line-height:1.6;margin:0}
 .ln-vs{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0 0}
 .ln-vs div{background:#fff;padding:18px}
-.ln-vs h3{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px;color:var(--mute2)}
+.ln-vs h3{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px;color:var(--mute)}
 .ln-vs div.good h3{color:var(--leaf2)}
 .ln-vs p{font-size:.95rem;line-height:1.6;margin:0}
 .ln-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0 8px}
@@ -121,15 +124,17 @@ a.coach-trial.fm-nav-cta:hover{
   .ln-ctas .coach-trial,.fm-convert .coach-trial{width:100%}
 }
 @media(max-width:520px){
-  .ln-week{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .ln-day span{font-size:.74rem}
+  .ln-week{grid-template-columns:repeat(7,minmax(0,1fr))}
+  .ln-day{padding:6px 2px 7px}
+  .ln-day span{font-size:.62rem}
+  .ln-shot{height:160px}
 }
 
 /* Pack 3 only. Pack 2 landers do not carry ln-pack3. */
 .ln-pack3 .fm-btn-leaf,
-.ln-pack3 .fm-nav-cta{background:#157a39}
+.ln-pack3 .fm-nav-cta{background:var(--cta)}
 .ln-pack3 .fm-btn-leaf:hover,
-.ln-pack3 .fm-nav-cta:hover{background:#117034}
+.ln-pack3 .fm-nav-cta:hover{background:#166534}
 .ln-pack3 .ln-vs h3{color:#556860}
 .ln-pack3 .ln-vs div.good h3{color:#157a39}
 .ln-pack3 .ln-section .fm-convert p{color:rgba(238,242,238,.9)}

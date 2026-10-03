@@ -53,7 +53,7 @@ Your food diary is personal. FitMunch stores everything on your device — no cl
 Whether you're an athlete dialing in your diet or just want to eat better, FitMunch makes nutrition tracking simple, accurate, and sustainable.`,
   keywords: 'meal tracker,nutrition,macros,calorie counter,food diary,diet,weight loss,fitness,health',
   promotionalText: 'Track meals, hit macros, reach goals. Free to use — upgrade for meal plans & restaurant lookup.',
-  supportUrl: 'https://armctay85.github.io/fitmunch-site/support.html',
+  supportUrl: 'https://www.fitmunch.com.au/support',
   marketingUrl: 'https://armctay85.github.io/fitmunch-site',
   privacyPolicyUrl: 'https://armctay85.github.io/fitmunch-site/privacy.html'
 };
