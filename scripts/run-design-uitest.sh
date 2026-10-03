@@ -78,6 +78,7 @@ xcodebuild test \
   -destination "platform=iOS Simulator,id=$UDID" \
   -derivedDataPath "$DERIVED" \
   -only-testing:FitMunchUITests/DesignFeelUITests/testTabScreenshotsLightAndDark \
+  -only-testing:FitMunchUITests/DesignFeelUITests/testPaywallShot \
   -resultBundlePath "$OUT/screenshots/Test.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
@@ -136,6 +137,11 @@ for required in today plan scan coach me; do
     exit 1
   fi
 done
+
+if [[ ! -f "$OUT/screenshots/light/paywall.png" ]]; then
+  echo "Missing paywall screenshot"
+  exit 1
+fi
 
 if [[ ! -f "$VIDEO" ]]; then
   echo "Missing screen recording $VIDEO"

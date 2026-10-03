@@ -53,7 +53,9 @@ final class AppStoreScreenshotTests: XCTestCase {
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
         case "settings":
-            XCTAssertTrue(app.staticTexts["Premium Subscriber"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["No profile yet"].waitForExistence(timeout: 4))
+            XCTAssertFalse(app.staticTexts["Alex Chen"].exists)
+            XCTAssertFalse(app.staticTexts["Premium Subscriber"].exists)
             XCTAssertFalse(app.staticTexts["Free Tier"].exists)
             XCTAssertFalse(app.buttons["Upgrade"].exists)
             XCTAssertFalse(app.buttons["Upgrade to Premium"].exists)

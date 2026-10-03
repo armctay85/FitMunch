@@ -26,6 +26,7 @@ struct HomeView: View {
                     mealsSection
                 }
                 .padding()
+                .padding(.bottom, Theme.Spacing.eight)
             }
             .scrollClearsTabBar()
             .background(Theme.surface)

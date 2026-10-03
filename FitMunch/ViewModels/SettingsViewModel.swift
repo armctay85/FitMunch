@@ -147,29 +147,10 @@ class SettingsViewModel: ObservableObject {
     var isSubscribed: Bool {
         return premiumManager.isPremium
     }
-    
-    /// Get subscription status text
-    var subscriptionStatus: String {
-        return isSubscribed ? "Premium Subscriber" : "Free Tier"
-    }
-    
-    /// Get subscription status color
-    var subscriptionStatusColor: Color {
-        return isSubscribed ? .green : .orange
-    }
-    
+
     /// Check if user has completed onboarding
     var hasCompletedOnboarding: Bool {
         return UserDefaults.standard.bool(forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
     }
     
-    /// Get user's display name (from UserDefaults or default)
-    var userDisplayName: String {
-        return UserDefaults.standard.string(forKey: "userDisplayName") ?? "User"
-    }
-    
-    /// Get user's email (from UserDefaults or default)
-    var userEmail: String {
-        return UserDefaults.standard.string(forKey: "userEmail") ?? "user@example.com"
-    }
 }

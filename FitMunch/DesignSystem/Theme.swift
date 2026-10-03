@@ -7,6 +7,15 @@ enum Theme {
     static let brandGreenSoft = Color("BrandGreenSoft")
     static let surface = Color("Surface")
 
+    /// Icon highlight from main (#2BBF5A). Not a fill behind white text.
+    static let green = Color(red: 43.0 / 255.0, green: 191.0 / 255.0, blue: 90.0 / 255.0)
+
+    /// Paywall CTA fill from main (#167A36). White on this green is 5.42:1.
+    static let buttonGreen = Color(red: 22.0 / 255.0, green: 122.0 / 255.0, blue: 54.0 / 255.0)
+
+    /// Secondary copy. #595959 stays at least 4.5:1 on white and on the selected plan wash.
+    static let secondaryText = Color(red: 89.0 / 255.0, green: 89.0 / 255.0, blue: 89.0 / 255.0)
+
     /// Filled buttons stay on the light BrandGreen (#15803D) in both appearances.
     /// White 17pt type on that green is 5.0:1. The dark asset (#22C55E) is for icons and tints.
     static let buttonFill: Color = {
@@ -30,6 +39,8 @@ enum Theme {
         static let five: CGFloat = 20
         static let six: CGFloat = 24
         static let eight: CGFloat = 32
+        /// Clears a floating tab bar that draws over the home-indicator safe area.
+        static let tabClearance: CGFloat = 88
     }
 }
 
@@ -103,12 +114,12 @@ extension View {
     /// Extra inset so primary controls clear a floating tab bar.
     func aboveTabBar() -> some View {
         safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: Theme.Spacing.four)
+            Color.clear.frame(height: Theme.Spacing.tabClearance)
         }
     }
 
     /// Bottom margin inside scroll views so the last row can rest above the tab bar.
     func scrollClearsTabBar() -> some View {
-        contentMargins(.bottom, Theme.Spacing.six, for: .scrollContent)
+        contentMargins(.bottom, Theme.Spacing.tabClearance, for: .scrollContent)
     }
 }
