@@ -8,6 +8,7 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-coach-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-coach.css"/>
 </head>
 <body>
@@ -23,83 +24,96 @@
     <p>Trainer accounts build client plans here.</p>
     <a class="btn secondary" href="/login.html?plan=starter">Sign in</a>
   </section>
-  <form class="card stack" id="coach-form" hidden>
-    <div>
-      <label for="coach-client">Client</label>
-      <select id="coach-client"></select>
-    </div>
-    <div class="grid">
-      <div><label for="coach-kcal">kcal</label><input id="coach-kcal" type="number" min="800" max="6000" value="2000" inputmode="numeric"/></div>
-      <div><label for="coach-protein">Protein (g)</label><input id="coach-protein" type="number" min="0" max="500" value="140" inputmode="numeric"/></div>
-      <div><label for="coach-carbs">Carbs (g)</label><input id="coach-carbs" type="number" min="0" max="500" value="180" inputmode="numeric"/></div>
-      <div><label for="coach-fat">Fat (g)</label><input id="coach-fat" type="number" min="0" max="500" value="60" inputmode="numeric"/></div>
-    </div>
-    <button type="button" class="secondary" id="coach-from-logs">Use targets from client logs</button>
-    <div>
-      <label>Dietary flags</label>
-      <div class="flags" id="coach-flags">
-        <label><input type="checkbox" value="vegetarian"/> Vegetarian</label>
-        <label><input type="checkbox" value="vegan"/> Vegan</label>
-        <label><input type="checkbox" value="gluten-free"/> Gluten-free</label>
-        <label><input type="checkbox" value="dairy-free"/> Dairy-free</label>
-        <label><input type="checkbox" value="nut-free"/> Nut-free</label>
+  <form class="card" id="coach-form" hidden>
+    <div class="builder">
+      <div class="stack">
+        <div>
+          <label for="coach-client">Client</label>
+          <select id="coach-client"></select>
+        </div>
+        <div class="grid">
+          <div><label for="coach-kcal">kcal</label><input id="coach-kcal" type="number" min="800" max="6000" value="2000" inputmode="numeric"/></div>
+          <div><label for="coach-protein">Protein (g)</label><input id="coach-protein" type="number" min="0" max="500" value="140" inputmode="numeric"/></div>
+          <div><label for="coach-carbs">Carbs (g)</label><input id="coach-carbs" type="number" min="0" max="500" value="180" inputmode="numeric"/></div>
+          <div><label for="coach-fat">Fat (g)</label><input id="coach-fat" type="number" min="0" max="500" value="60" inputmode="numeric"/></div>
+        </div>
+        <div>
+          <label>Dietary flags</label>
+          <div class="flags" id="coach-flags">
+            <label><input type="checkbox" value="vegetarian"/> Vegetarian</label>
+            <label><input type="checkbox" value="vegan"/> Vegan</label>
+            <label><input type="checkbox" value="gluten-free"/> Gluten-free</label>
+            <label><input type="checkbox" value="dairy-free"/> Dairy-free</label>
+            <label><input type="checkbox" value="nut-free"/> Nut-free</label>
+          </div>
+        </div>
+        <button type="button" class="secondary" id="coach-from-logs">Use targets from client logs</button>
+      </div>
+      <div class="stack">
+        <div class="grid">
+          <div>
+            <label for="coach-household">Household size</label>
+            <input id="coach-household" type="number" min="1" max="8" value="1" inputmode="numeric"/>
+          </div>
+          <div>
+            <label for="coach-store">Store</label>
+            <select id="coach-store">
+              <option value="woolworths">Woolworths</option>
+              <option value="coles">Coles</option>
+              <option value="aldi">Aldi</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" id="coach-generate">Generate 7-day plan</button>
       </div>
     </div>
-    <div class="grid">
-      <div>
-        <label for="coach-household">Household size</label>
-        <input id="coach-household" type="number" min="1" max="8" value="1" inputmode="numeric"/>
-      </div>
-      <div>
-        <label for="coach-store">Store</label>
-        <select id="coach-store">
-          <option value="woolworths">Woolworths</option>
-          <option value="coles">Coles</option>
-          <option value="aldi">Aldi</option>
-        </select>
-      </div>
-    </div>
-    <button type="submit" id="coach-generate">Generate 7-day plan</button>
   </form>
 
   <section id="coach-result" hidden>
-    <div class="card">
-      <div class="status" id="coach-status">Draft</div>
-      <p class="adherence" id="coach-adherence"></p>
-      <div id="coach-days"></div>
+    <div class="plan-layout">
+      <div class="card meals-col">
+        <div class="status" id="coach-status">Draft</div>
+        <p class="adherence" id="coach-adherence"></p>
+        <div class="day-switch" id="coach-tabs" role="tablist" aria-label="Days"></div>
+        <div id="coach-days"></div>
+      </div>
+      <div class="card shop-col">
+        <h2 id="coach-store-heading">Draft list</h2>
+        <div id="coach-list"></div>
+        <p class="note" id="coach-price-note"></p>
+      </div>
     </div>
-    <div class="card">
-      <h2 id="coach-store-heading">Draft list</h2>
-      <div id="coach-list"></div>
-      <p class="note" id="coach-price-note"></p>
-    </div>
-    <form class="card stack" id="coach-brand">
-      <h2>Branding</h2>
-      <div>
-        <label for="coach-practice">Practice name</label>
-        <input id="coach-practice" type="text" maxlength="80" placeholder="Practice name"/>
+    <div class="action-row">
+      <form class="card stack" id="coach-brand">
+        <h2>Branding</h2>
+        <div>
+          <label for="coach-practice">Practice name</label>
+          <input id="coach-practice" type="text" maxlength="80" placeholder="Practice name"/>
+        </div>
+        <div>
+          <label for="coach-accent">Accent colour</label>
+          <input id="coach-accent" type="color" value="#1f9d4a"/>
+        </div>
+        <div>
+          <label for="coach-logo">Logo</label>
+          <input id="coach-logo" type="file" accept="image/png,image/jpeg"/>
+          <img id="coach-logo-preview" class="logo-preview" alt="" hidden/>
+        </div>
+        <button type="submit" class="secondary" id="coach-save-brand">Save branding</button>
+      </form>
+      <div class="card stack">
+        <h2>Send</h2>
+        <button type="button" id="coach-send">Send plan</button>
+        <p class="share-link" id="coach-share" hidden></p>
+        <button type="button" class="secondary" id="coach-refresh">Refresh status</button>
       </div>
-      <div>
-        <label for="coach-accent">Accent colour</label>
-        <input id="coach-accent" type="color" value="#1f9d4a"/>
-      </div>
-      <div>
-        <label for="coach-logo">Logo</label>
-        <input id="coach-logo" type="file" accept="image/png,image/jpeg"/>
-        <img id="coach-logo-preview" class="logo-preview" alt="" hidden/>
-      </div>
-      <button type="submit" class="secondary" id="coach-save-brand">Save branding</button>
-    </form>
-    <div class="card stack">
-      <button type="button" id="coach-send">Send plan</button>
-      <p class="share-link" id="coach-share" hidden></p>
-      <button type="button" class="secondary" id="coach-refresh">Refresh status</button>
     </div>
   </section>
   <footer>
     <p>See a dietitian for medical nutrition.</p>
   </footer>
 </main>
+<script src="/js/fm-plan-list.js"></script>
 <script src="/js/fm-coach.js"></script>
 </body>
 </html>

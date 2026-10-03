@@ -24,26 +24,18 @@
     return data;
   }
 
+  const list = window.FmPlanList;
+
   function plain(value, fallback) {
-    if (value == null || value === '' || value === 'undefined' || value === 'null') return fallback || '';
-    return String(value);
+    return list.plain(value, fallback || '');
   }
 
-  function roundAmount(amount, unit) {
-    const n = Number(amount);
-    if (!Number.isFinite(n)) return null;
-    const u = String(unit || '').trim().toLowerCase();
-    if (u === 'each') return Math.max(1, Math.ceil(n));
-    if ((u === 'g' || u === 'ml') && n > 1000) return Math.round(n / 10) * 10;
-    return Math.round(n);
-  }
-
-  function amountLabel(line) {
-    const unit = plain(line.unit, '');
-    if (line.amount == null || line.amount === '' || !Number.isFinite(Number(line.amount))) return '';
-    const rounded = roundAmount(line.amount, unit);
-    if (rounded == null) return '';
-    return unit ? rounded + ' ' + unit : String(rounded);
+  function applyAccent(hex) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(hex || '')) return;
+    document.documentElement.style.setProperty('--accent', hex);
+    const n = parseInt(hex.slice(1), 16);
+    const y = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    document.documentElement.style.setProperty('--accent-ink', y > 0.62 ? '#07130d' : '#ffffff');
   }
 
   function flags() {
@@ -85,41 +77,120 @@
     $('coach-status').textContent = plan.status;
     renderAdherence(plan.adherence);
     const days = $('coach-days');
+    const tabs = $('coach-tabs');
     days.replaceChildren();
-    (plan.plan.days || []).forEach((day) => {
+    tabs.replaceChildren();
+    const dayRows = (plan.plan.days || []);
+    dayRows.forEach((day, index) => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'tab';
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+      tab.tabIndex = index === 0 ? 0 : -1;
+      tab.textContent = plain(day.day, 'Day');
+      tab.addEventListener('click', () => openCoachDay(index));
+      tabs.appendChild(tab);
+
       const block = document.createElement('section');
-      block.className = 'day';
+      block.className = 'day-panel' + (index === 0 ? '' : ' is-hidden');
+      block.setAttribute('role', 'tabpanel');
       const title = document.createElement('h2');
-      title.textContent = plain(day.day, 'Day') + ' · ' + (day.kcal == null ? '' : day.kcal + ' kcal');
+      title.textContent = plain(day.day, 'Day');
+      if (day.kcal != null) {
+        const kcal = document.createElement('span');
+        kcal.textContent = day.kcal + ' kcal';
+        title.appendChild(kcal);
+      }
       block.appendChild(title);
       (day.meals || []).forEach((meal) => {
-        const row = document.createElement('div');
+        const row = document.createElement('article');
         row.className = 'meal';
+        const slot = document.createElement('p');
+        slot.className = 'slot';
+        slot.textContent = plain(meal.slot, 'Meal');
         const name = document.createElement('h3');
-        name.textContent = plain(meal.slot, 'Meal') + ': ' + plain(meal.name, 'Item');
+        name.textContent = plain(meal.name, 'Item');
         const meta = document.createElement('p');
-        meta.textContent = meal.kcal + ' kcal, ' + meal.protein + 'g protein, ' + meal.carbs + 'g carbs, ' + meal.fat + 'g fat';
+        meta.className = 'macro';
+        list.macroParts(meal).forEach((part) => {
+          const chip = document.createElement('span');
+          chip.textContent = part;
+          meta.appendChild(chip);
+        });
+        row.appendChild(slot);
         row.appendChild(name);
         row.appendChild(meta);
+        const foods = document.createElement('ul');
+        (meal.ingredients || []).forEach((ing) => {
+          const item = document.createElement('li');
+          const parts = list.ingredientParts(ing);
+          if (parts.qty) {
+            const amt = document.createElement('span');
+            amt.className = 'amt';
+            amt.textContent = parts.qty;
+            item.appendChild(amt);
+            item.appendChild(document.createTextNode(' '));
+          }
+          const food = document.createElement('span');
+          food.textContent = parts.name;
+          item.appendChild(food);
+          foods.appendChild(item);
+        });
+        if (foods.childNodes.length) row.appendChild(foods);
         block.appendChild(row);
       });
       days.appendChild(block);
     });
     const shopping = (plan.plan && plan.plan.shopping) || { lines: [], storeName: '' };
     $('coach-store-heading').textContent = plain(shopping.storeName, 'Store') + ' draft list';
-    const list = $('coach-list');
-    list.replaceChildren();
-    (shopping.lines || []).forEach((line) => {
-      const row = document.createElement('div');
-      row.className = 'line';
-      const name = document.createElement('span');
-      const packs = line.packs == null || line.packs === '' ? '' : (line.packs + ' x ');
-      name.textContent = packs + plain(line.name, 'Item');
-      const detail = document.createElement('span');
-      detail.textContent = [plain(line.aisle, ''), amountLabel(line)].filter(Boolean).join(' ');
-      row.appendChild(name);
-      row.appendChild(detail);
-      list.appendChild(row);
+    const shoppingList = $('coach-list');
+    shoppingList.replaceChildren();
+    const shopKey = 'fm-coach-shop:' + (plan.id || 'draft');
+    let shopSaved = {};
+    try { shopSaved = JSON.parse(localStorage.getItem(shopKey) || '{}') || {}; } catch (e) { shopSaved = {}; }
+    list.groupShopping(shopping.lines).forEach((group) => {
+      const section = document.createElement('section');
+      const heading = document.createElement('h3');
+      heading.className = 'aisle';
+      heading.textContent = group.label + ' ';
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = '· ' + group.lines.length;
+      heading.appendChild(count);
+      section.appendChild(heading);
+      const grid = document.createElement('ul');
+      grid.className = 'shop-grid';
+      group.lines.forEach((line) => {
+        const item = document.createElement('li');
+        const row = document.createElement('label');
+        row.className = 'shop-row';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.className = 'tick';
+        const tickId = list.lineText(line) + '|' + list.needText(line);
+        box.checked = !!shopSaved[tickId];
+        box.addEventListener('change', () => {
+          shopSaved[tickId] = box.checked;
+          try { localStorage.setItem(shopKey, JSON.stringify(shopSaved)); } catch (e) {}
+        });
+        const name = document.createElement('span');
+        name.className = 'item-name';
+        name.textContent = list.lineText(line);
+        row.appendChild(box);
+        row.appendChild(name);
+        const qty = list.needText(line);
+        if (qty) {
+          const detail = document.createElement('span');
+          detail.className = 'qty';
+          detail.textContent = qty;
+          row.appendChild(detail);
+        }
+        item.appendChild(row);
+        grid.appendChild(item);
+      });
+      section.appendChild(grid);
+      shoppingList.appendChild(section);
     });
     $('coach-price-note').textContent = 'Prices vary by store and week.';
     const share = $('coach-share');
@@ -135,6 +206,19 @@
       share.hidden = true;
       share.replaceChildren();
     }
+  }
+
+  function openCoachDay(index) {
+    const tabButtons = document.querySelectorAll('#coach-tabs .tab');
+    const panels = document.querySelectorAll('#coach-days .day-panel');
+    tabButtons.forEach((tab, i) => {
+      const on = i === index;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      tab.tabIndex = on ? 0 : -1;
+    });
+    panels.forEach((panel, i) => {
+      panel.classList.toggle('is-hidden', i !== index);
+    });
   }
 
   async function loadClients() {
@@ -168,7 +252,10 @@
       await loadClients();
       const branding = await api('/api/coach/branding');
       $('coach-practice').value = branding.branding.practiceName || '';
-      if (branding.branding.accent) $('coach-accent').value = branding.branding.accent;
+      if (branding.branding.accent) {
+        $('coach-accent').value = branding.branding.accent;
+        applyAccent(branding.branding.accent);
+      }
       state.logoDataUrl = branding.branding.logoDataUrl || null;
       if (state.logoDataUrl) {
         $('coach-logo-preview').src = state.logoDataUrl;
@@ -241,6 +328,8 @@
     });
     return data.branding;
   }
+
+  $('coach-accent').addEventListener('input', () => applyAccent($('coach-accent').value));
 
   $('coach-logo').addEventListener('change', () => {
     const file = $('coach-logo').files && $('coach-logo').files[0];

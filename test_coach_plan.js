@@ -217,6 +217,8 @@ describe('Coach plan HTTP', () => {
 
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
     expect(share.text).toContain('Northside training');
+    expect(share.text).toContain('#14532d');
+    expect(share.text).toContain('background: var(--accent)');
     expect(share.text).toContain('id="share-logo"');
     expect(share.text).toContain('Prices vary by store and week.');
     expect(share.text).not.toContain(priceEstimateNote(CATALOGUE));
