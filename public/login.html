@@ -320,8 +320,21 @@
 
  let checkoutInFlight = null;
 
+ async function redeemClaimIfPresent(token) {
+  const claim = new URLSearchParams(window.location.search).get('claim');
+  if (!claim) return;
+  try {
+   await fetch('/api/stripe/claim-guest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ token: claim }),
+   });
+  } catch (_) { /* the welcome email link can be used again until it expires */ }
+ }
+
  async function redirectAfterAuth(token) {
- if (!plan) {
+  await redeemClaimIfPresent(token);
+  if (!plan) {
  window.location.href = '/app.html';
  return;
  }

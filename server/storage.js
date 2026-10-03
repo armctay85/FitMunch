@@ -45,8 +45,12 @@ async function createUser(email, name, passwordHash, extras = {}) {
 }
 
 async function getUserByEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return undefined;
   await ensureSchema();
-  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email));
+  const [user] = await db.select().from(schema.users).where(
+    sql`lower(trim(${schema.users.email})) = ${normalized}`
+  );
   return user;
 }
 
