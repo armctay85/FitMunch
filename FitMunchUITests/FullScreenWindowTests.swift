@@ -12,6 +12,11 @@ final class FullScreenWindowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = []
         app.launch()
+        XCTAssertTrue(
+            app.staticTexts["Create Free Account"].waitForExistence(timeout: 25),
+            "FitMunch create-account screen did not appear"
+        )
+        XCTAssertEqual(app.state, .runningForeground)
 
         _ = try assertFullScreen(app, slug: slug, phase: "first-run")
         saveShot(app, name: "first-run-\(slug)")
@@ -35,29 +40,20 @@ final class FullScreenWindowTests: XCTestCase {
             "Restore missing on the paywall"
         )
 
+        XCTAssertEqual(app.state, .runningForeground)
         _ = try assertFullScreen(app, slug: slug, phase: "paywall")
         saveShot(app, name: "paywall-\(slug)")
     }
 
+    /// Window frame of the running app. 6.9-inch Pro Max is 440x956. 6.5-inch 11 Pro Max is 414x896.
     private func assertFullScreen(_ app: XCUIApplication, slug: String, phase: String) throws -> CGSize {
+        XCTAssertEqual(app.state, .runningForeground, "Screenshot would miss the app during \(phase)")
         let window = app.windows.firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 25), "Window missing during \(phase)")
-        let bounds = XCUIScreen.main.bounds
-        XCTAssertEqual(
-            window.frame.width,
-            bounds.width,
-            accuracy: 1,
-            "Window width does not match XCUIScreen.main.bounds"
-        )
-        XCTAssertEqual(
-            window.frame.height,
-            bounds.height,
-            accuracy: 1,
-            "Window height does not match XCUIScreen.main.bounds"
-        )
+        XCTAssertTrue(window.waitForExistence(timeout: 25), "App window missing during \(phase)")
         let size = "\(Int(window.frame.width.rounded()))x\(Int(window.frame.height.rounded()))"
         let expected = expectedPoints()
         print("FULLSCREEN_SIZE \(phase) \(slug) \(size)")
+        print("APP_FOREGROUND_SHOT \(phase) \(slug) \(size)")
         XCTAssertNotEqual(size, "320x480", "App is letterboxed")
         XCTAssertEqual(size, expected, "Expected \(expected) on this simulator, got \(size)")
         appendSize("\(phase)\t\(slug)\t\(size)\n")

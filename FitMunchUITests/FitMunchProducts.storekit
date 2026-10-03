@@ -9,7 +9,7 @@
   "settings" : {
     "_applicationInternalID" : "6760215679",
     "_developerTeamID" : "48SW62N9BZ",
-    "_disableDialogs" : true,
+    "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
     "_locale" : "en_AU",
     "_storefront" : "AUS",
@@ -80,7 +80,13 @@
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "FITMUNCH_MONTHLY",
-          "introductoryOffer" : null,
+          "introductoryOffer" : {
+            "displayPrice" : "0",
+            "internalID" : "FITMUNCH_MONTHLY_TRIAL",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P14D"
+          },
           "localizations" : [
             {
               "description" : "Billed every month",
@@ -113,7 +119,13 @@
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "FITMUNCH_ANNUAL",
-          "introductoryOffer" : null,
+          "introductoryOffer" : {
+            "displayPrice" : "0",
+            "internalID" : "FITMUNCH_ANNUAL_TRIAL",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P14D"
+          },
           "localizations" : [
             {
               "description" : "Billed once a year",
