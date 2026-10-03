@@ -12,8 +12,12 @@ struct SettingsView: View {
     @ObservedObject private var premium = PremiumManager.shared
     @Environment(\.modelContext) private var modelContext
 
-    /// Signed-in name and email. Blank or placeholder accounts stay on the empty state.
+    /// Signed-in name and email. Blank accounts and the old placeholder stay empty.
+    /// Screenshot capture uses a marked sample, never a fake person.
     private var signedInProfile: (name: String, email: String)? {
+        if ScreenshotLaunch.isActive {
+            return ("Sample", "sample.account@fitmunch.com.au")
+        }
         guard let user = auth.user else { return nil }
         let name = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -38,7 +42,7 @@ struct SettingsView: View {
                 // Profile section. Name and email come from the signed-in account only.
                 Section {
                     if let profile = signedInProfile {
-                        HStack {
+                        HStack(alignment: .center, spacing: Theme.Spacing.three) {
                             Image(systemName: "person.circle.fill")
                                 .font(.system(size: 50))
                                 .symbolRenderingMode(.hierarchical)
@@ -47,17 +51,35 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(profile.name)
                                     .font(.headline)
+                                    .lineLimit(1)
+                                if ScreenshotLaunch.isActive {
+                                    Text("Sample profile")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Theme.brandGreen)
+                                }
                                 if !profile.email.isEmpty {
                                     Text(profile.email)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
                                 }
                             }
-                            Spacer()
+                            Spacer(minLength: Theme.Spacing.two)
+                            if premium.isPremium {
+                                Text("Premium")
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Theme.brandGreenSoft)
+                                    .foregroundStyle(Theme.brandGreen)
+                                    .clipShape(Capsule())
+                                    .accessibilityIdentifier("me-premium-badge")
+                            }
                         }
                         .padding(.vertical, 8)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(profile.email.isEmpty ? profile.name : "\(profile.name), \(profile.email)")
+                        .accessibilityElement(children: .contain)
                     } else {
                         VStack(alignment: .leading, spacing: Theme.Spacing.two) {
                             Label("No profile yet", systemImage: "person.crop.circle.badge.plus")
@@ -92,8 +114,9 @@ struct SettingsView: View {
                 // Preferences section
                 Section("Preferences") {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
+                        .accessibilityIdentifier("me-dark-mode")
                         .onChange(of: viewModel.isDarkMode) { _, newValue in
-                            viewModel.toggleDarkMode()
+                            viewModel.applyDarkMode(newValue)
                         }
                     
                     Toggle("Notifications", isOn: $viewModel.notificationsEnabled)
@@ -210,6 +233,7 @@ struct SettingsView: View {
                             Text(user.email)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
+                                .truncationMode(.middle)
                         }
                     }
                     Button("Log Out", role: .destructive) {

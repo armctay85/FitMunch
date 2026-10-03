@@ -49,6 +49,7 @@ struct OnboardingView: View {
                     }
                     .padding()
                 }
+                .scrollClearsTabBar()
                 
                 // Navigation buttons
                 HStack {

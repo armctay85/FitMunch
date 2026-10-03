@@ -87,9 +87,10 @@ SHOT_STATUS=$?
 set -e
 
 VIDEO="$OUT/recording/log-scan-plan-tabs.mp4"
-xcrun simctl io "$UDID" recordVideo --codec h264 "$VIDEO" &
-RECORD_PID=$!
+rm -f /tmp/fitmunch-design-uitest/app-ready /tmp/fitmunch-design-uitest/record-ready
 
+# Start the flow test first. Recording begins only after the app writes app-ready,
+# so the file does not open on the springboard while xcodebuild is still starting.
 set +e
 xcodebuild test-without-building \
   -project FitMunch.xcodeproj \
@@ -100,7 +101,32 @@ xcodebuild test-without-building \
   -resultBundlePath "$OUT/recording/Test.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGN_IDENTITY=-
+  CODE_SIGN_IDENTITY=- &
+XCODE_PID=$!
+
+RECORD_PID=""
+for _ in $(seq 1 180); do
+  if [[ -f /tmp/fitmunch-design-uitest/app-ready ]]; then
+    xcrun simctl io "$UDID" recordVideo --codec h264 "$VIDEO" &
+    RECORD_PID=$!
+    sleep 1
+    touch /tmp/fitmunch-design-uitest/record-ready
+    break
+  fi
+  if ! kill -0 "$XCODE_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+
+if [[ -z "$RECORD_PID" ]]; then
+  echo "App was not ready before the flow test ended. Recording from here."
+  xcrun simctl io "$UDID" recordVideo --codec h264 "$VIDEO" &
+  RECORD_PID=$!
+  touch /tmp/fitmunch-design-uitest/record-ready
+fi
+
+wait "$XCODE_PID"
 FLOW_STATUS=$?
 set -e
 
@@ -138,10 +164,12 @@ for required in today plan scan coach me; do
   fi
 done
 
-if [[ ! -f "$OUT/screenshots/light/paywall.png" ]]; then
-  echo "Missing paywall screenshot"
-  exit 1
-fi
+for folder in light dark; do
+  if [[ ! -f "$OUT/screenshots/${folder}/paywall.png" ]]; then
+    echo "Missing ${folder} paywall screenshot"
+    exit 1
+  fi
+done
 
 if [[ ! -f "$VIDEO" ]]; then
   echo "Missing screen recording $VIDEO"

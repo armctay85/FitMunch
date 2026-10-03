@@ -35,6 +35,7 @@ struct ReceiptScanView: View {
                 }
                 .padding()
             }
+            .defaultScrollAnchor(.top)
             .scrollClearsTabBar()
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if scan == nil && !isScanning {
@@ -50,6 +51,8 @@ struct ReceiptScanView: View {
             .navigationTitle("Scan")
             .accessibilityIdentifier("scan-screen")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Theme.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 if scan != nil {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -120,7 +123,7 @@ struct ReceiptScanView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(Theme.brandGreen)
                 .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
-                .padding(.top, 28)
+                .padding(.top, 56)
                 .accessibilityLabel("Scan a receipt")
             Text("Scan your shop")
                 .font(.title2.weight(.heavy))

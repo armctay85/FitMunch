@@ -7,6 +7,7 @@ struct DetailView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: DetailViewModel
     @State private var quantity: String = "1.0"
+    @State private var manualName: String = ""
     @State private var selectedFoodItem: FoodItem?
     @State private var showQuantitySheet = false
     @State private var mealSavedTick = 0
@@ -29,35 +30,28 @@ struct DetailView: View {
                         .accessibilityIdentifier("meal-name")
                 }
                 
-                // Food search section
+                // No nutrition catalogue is connected. Do not show invented foods.
                 Section("Add Food") {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Search for food...", text: $viewModel.searchQuery)
-                            .onSubmit {
-                                viewModel.searchFoods()
-                            }
-                    }
-                    
-                    if !viewModel.searchResults.isEmpty {
-                        ForEach(viewModel.searchResults) { foodItem in
-                            Button {
-                                selectedFoodItem = foodItem
-                                showQuantitySheet = true
-                            } label: {
-                                FoodItemRow(foodItem: foodItem)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("food-\(foodItem.name)")
-                        }
-                    } else if !viewModel.searchQuery.isEmpty {
-                        Text("No results found")
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.two) {
+                        Label("Search coming soon", systemImage: "magnifyingglass")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.brandGreen)
+                        Text("Add a food manually.")
                             .font(.caption)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding()
+                            .foregroundStyle(.secondary)
                     }
+                    .accessibilityIdentifier("meal-search-soon")
+
+                    TextField("Food name", text: $manualName)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("meal-manual-name")
+
+                    Button("Add manually") {
+                        viewModel.addManualFood(name: manualName)
+                        manualName = ""
+                    }
+                    .disabled(manualName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("meal-add-manual")
                 }
                 
                 // Added foods section

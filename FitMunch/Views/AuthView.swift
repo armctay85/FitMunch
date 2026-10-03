@@ -94,6 +94,7 @@ struct AuthView: View {
                         .padding(.bottom, 32)
                 }
             }
+            .scrollClearsTabBar()
         }
         .onChange(of: mode) { _, _ in auth.errorMessage = nil }
     }

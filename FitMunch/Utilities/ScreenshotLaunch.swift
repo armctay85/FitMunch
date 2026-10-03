@@ -3,6 +3,47 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// Forces light or dark for screenshot runs. `XCUIDevice.appearance` alone
+/// does not restyle a SwiftUI app that is already on screen.
+enum AppearanceLaunch {
+    static let darkArgument = "-ForceDarkMode"
+    static let lightArgument = "-ForceLightMode"
+
+    static var userInterfaceStyle: UIUserInterfaceStyle? {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains(darkArgument) { return .dark }
+        if args.contains(lightArgument) { return .light }
+        return nil
+    }
+
+    static var colorScheme: ColorScheme? {
+        switch userInterfaceStyle {
+        case .dark:
+            return .dark
+        case .light:
+            return .light
+        default:
+            return nil
+        }
+    }
+
+    static func prepare() {
+        guard let style = userInterfaceStyle else { return }
+        UserDefaults.standard.set(style == .dark, forKey: "isDarkMode")
+    }
+
+    static func applyWindows() {
+        guard let style = userInterfaceStyle else { return }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows {
+                window.overrideUserInterfaceStyle = style
+                window.backgroundColor = UIColor(named: "Surface")
+            }
+        }
+    }
+}
+
 /// App Store screenshot capture only. Launch the UI test with `-AppStoreScreenshots`.
 /// Seeds real SwiftUI screens (Today, Plan, Scan, Coach, Me) with no prices,
 /// no Free / trial copy, and no paywall. Never used for production sessions.

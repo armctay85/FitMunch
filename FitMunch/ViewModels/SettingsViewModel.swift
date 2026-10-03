@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 /// ViewModel for the settings screen
 @MainActor
@@ -27,9 +28,14 @@ class SettingsViewModel: ObservableObject {
     
     /// Load user preferences
     func loadPreferences() {
-        isDarkMode = UserDefaults.standard.bool(forKey: "isDarkMode")
+        if let forced = AppearanceLaunch.userInterfaceStyle {
+            isDarkMode = forced == .dark
+        } else {
+            isDarkMode = UserDefaults.standard.bool(forKey: "isDarkMode")
+        }
         notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
         useMetricUnits = UserDefaults.standard.bool(forKey: "useMetricUnits")
+        applyWindowStyle(isDarkMode)
     }
     
     /// Save user preferences
@@ -39,15 +45,19 @@ class SettingsViewModel: ObservableObject {
         UserDefaults.standard.set(useMetricUnits, forKey: "useMetricUnits")
     }
     
-    /// Toggle dark mode
-    func toggleDarkMode() {
-        isDarkMode.toggle()
+    /// The toggle binding already stored the new value. Do not flip it again.
+    func applyDarkMode(_ enabled: Bool) {
+        isDarkMode = enabled
         savePreferences()
-        
-        // Apply theme change
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            windowScene.windows.forEach { window in
-                window.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
+        applyWindowStyle(enabled)
+    }
+
+    private func applyWindowStyle(_ enabled: Bool) {
+        let style = AppearanceLaunch.userInterfaceStyle ?? (enabled ? UIUserInterfaceStyle.dark : UIUserInterfaceStyle.light)
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            scene.windows.forEach { window in
+                window.overrideUserInterfaceStyle = style
             }
         }
     }

@@ -19,7 +19,6 @@ class DetailViewModel: ObservableObject {
     /// Initialize for creating a new meal
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-        loadSampleFoods()
     }
     
     /// Initialize for editing an existing meal
@@ -31,33 +30,21 @@ class DetailViewModel: ObservableObject {
         self.isEditing = true
     }
     
-    /// Load sample foods for search
-    private func loadSampleFoods() {
-        // In a real app, this would come from a database
-        // For now, we'll use sample data
-        searchResults = [
-            FoodItem(name: "Chicken Breast", quantity: 100, calories: 165, protein: 31, carbs: 0, fats: 3),
-            FoodItem(name: "Brown Rice", quantity: 100, calories: 111, protein: 2, carbs: 23, fats: 1),
-            FoodItem(name: "Broccoli", quantity: 100, calories: 34, protein: 3, carbs: 7, fats: 0),
-            FoodItem(name: "Salmon", quantity: 100, calories: 208, protein: 20, carbs: 0, fats: 13),
-            FoodItem(name: "Sweet Potato", quantity: 100, calories: 86, protein: 2, carbs: 20, fats: 0),
-            FoodItem(name: "Avocado", quantity: 100, calories: 160, protein: 2, carbs: 9, fats: 15),
-            FoodItem(name: "Eggs", quantity: 1, calories: 78, protein: 6, carbs: 1, fats: 5),
-            FoodItem(name: "Greek Yogurt", quantity: 100, calories: 59, protein: 10, carbs: 4, fats: 0),
-            FoodItem(name: "Banana", quantity: 1, calories: 105, protein: 1, carbs: 27, fats: 0),
-            FoodItem(name: "Almonds", quantity: 28, calories: 164, protein: 6, carbs: 6, fats: 14)
-        ]
-    }
-    
-    /// Search for foods based on query
+    /// No food catalogue is connected. Search stays empty instead of filtering
+    /// a shrinking copy of itself, which could never restore earlier matches.
     func searchFoods() {
-        guard !searchQuery.isEmpty else {
-            searchResults = []
-            return
-        }
-        
-        let query = searchQuery.lowercased()
-        searchResults = searchResults.filter { $0.name.lowercased().contains(query) }
+        searchResults = []
+    }
+
+    /// Manual entry. Used until a real nutrition source is wired up.
+    func addManualFood(name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        foodItems.append(
+            FoodItem(name: trimmed, quantity: 1, calories: 0, protein: 0, carbs: 0, fats: 0)
+        )
+        searchQuery = ""
+        searchResults = []
     }
     
     /// Add a food item to the meal
