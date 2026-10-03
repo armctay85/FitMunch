@@ -8,7 +8,7 @@ Notes under each block are for the person submitting. Do not paste the notes.
 
 This listing matches asc-update-metadata.js. It does not claim Link pay, Apple Watch, HealthKit, a subscription free trial, ratings, user counts, testimonials, or a medical outcome.
 
-It does not cite supermarket prices, savings dollar figures, specials, or catalogue dates. It says FitMunch builds your list split by store, and that you check prices at checkout.
+The only price wording in the promo, description, captions, and frames is "Prices vary by store and week." No supermarket prices, totals, savings, or catalogue dates. It says FitMunch builds your list split by store.
 
 Build 9 has no shopping-list screen. Do not add a shopping-list screenshot. The public text says "your list", not "shopping list".
 
@@ -37,16 +37,16 @@ PROMOTIONAL TEXT
 Paste this block only. Promotional text can be changed without a new binary.
 
 PASTE
-Scan your Woolies, Coles, Aldi or IGA receipt for macros and a haul score. FitMunch builds your list split by store. You check prices at checkout.
+Scan your Woolies, Coles, Aldi or IGA receipt for macros and a haul score. FitMunch builds your list split by store. Prices vary by store and week.
 
-Characters: 146 / 170
+Characters: 147 / 170
 
 
 DESCRIPTION
 PASTE
 Turn your weekly shop into a plan you'll actually stick to.
 
-FitMunch reads your Woolies, Coles, Aldi or IGA receipt, shows the protein and macros in what you bought, and builds a high-protein week around it. FitMunch builds your list split by store. You check prices at checkout.
+FitMunch reads your Woolies, Coles, Aldi or IGA receipt, shows the protein and macros in what you bought, and builds a high-protein week around it. FitMunch builds your list split by store. Prices vary by store and week.
 
 SCAN YOUR SHOP
 • Snap your receipt or pick a photo
@@ -61,7 +61,7 @@ HIT YOUR MACROS EVERY DAY
 A WEEK OF MEALS, SORTED
 • 7-day high-protein meal plans from your targets
 • FitMunch builds your list split by store
-• You check prices at checkout
+• Prices vary by store and week.
 
 YOUR AI COACH
 • Ask "What should I eat tonight?" or "Build my workout"
@@ -76,8 +76,6 @@ Log up to 3 meals a day, scan receipts and try the coach for free.
 
 FITMUNCH PREMIUM
 Unlimited meal logging, full history, unlimited coach and meal plans.
-• Monthly: A$19.99
-• Annual: A$149.99
 
 Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your App Store account settings.
 
@@ -87,7 +85,7 @@ Privacy: https://www.fitmunch.com.au/privacy
 Support: support@fitmunch.com.au
 END PASTE
 
-Description characters: 1541 / 4000
+Description characters: 1506 / 4000
 
 
 SCREENSHOT CAPTIONS
@@ -128,10 +126,10 @@ Info.plist contains Health usage strings. No Swift code calls HealthKit. There i
 
 Continue on the web opens fitmunch.com.au in Safari. There is no Link payment in the app.
 
-The description states the App Store subscription prices only: Monthly A$19.99 and Annual A$149.99. Do not add a supermarket price, a weekly equivalent, or a savings dollar figure.
+Do not put a supermarket price, a basket total, a savings figure, or a catalogue date in the promo, description, captions, or frames. The only price sentence is "Prices vary by store and week."
 
 Do not cite specials or a catalogue date.
 
-There is no shopping-list screen in the iOS app. Do not add one to the screenshots. The listing still says FitMunch builds your list split by store, and that you check prices at checkout.
+There is no shopping-list screen in the iOS app. Do not add one to the screenshots. The listing still says FitMunch builds your list split by store.
 
 Do not add ratings, download counts, testimonials, or a medical claim.

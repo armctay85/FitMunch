@@ -3,8 +3,8 @@ const { METADATA } = require('./asc-update-metadata');
 
 const FORBIDDEN = ['barcode', 'restaurant', 'no cloud', 'Apple Health', '100,000', 'steps'];
 
-// App Store subscription prices. Any other dollar amount is a supermarket or savings figure.
-const ALLOWED_SUBSCRIPTION_PRICES = ['A$19.99', 'A$149.99'];
+// Wilson: the only price wording in the promo, description, captions, and frames.
+const ALLOWED_PRICE_LINE = 'Prices vary by store and week.';
 
 const CATALOGUE_DATE = new RegExp(
   [
@@ -42,13 +42,16 @@ function listingSurfaces() {
   ];
 }
 
-function withoutSubscriptionPrices(text) {
-  return ALLOWED_SUBSCRIPTION_PRICES.reduce((out, price) => out.split(price).join(''), text);
+function withoutAllowedPriceLine(text) {
+  return text.split(ALLOWED_PRICE_LINE).join('');
 }
 
 function priceViolations(text) {
-  const stripped = withoutSubscriptionPrices(text);
+  const stripped = withoutAllowedPriceLine(text);
   const found = [];
+  if (/check prices at checkout/i.test(stripped)) found.push('checkout');
+  if (/\btotals?\b/i.test(stripped)) found.push('total');
+  if (/\bpric(?:e|es|ing)\b/i.test(stripped)) found.push('price wording');
   if (/\bspecials?\b/i.test(stripped)) found.push('specials');
   if (/\bcatalogue\b/i.test(stripped)) found.push('catalogue');
   if (/\bcatalog\b/i.test(stripped)) found.push('catalog');
@@ -100,10 +103,15 @@ describe('ASC metadata limits', () => {
     }
   });
 
-  it('says the list is split by store and prices are checked at checkout', () => {
+  it('says the list is split by store and uses the only allowed price line', () => {
     for (const text of [METADATA.description, METADATA.promotionalText]) {
       expect(text).toContain('builds your list split by store');
-      expect(text).toContain('check prices at checkout');
+      expect(text).toContain(ALLOWED_PRICE_LINE);
+      expect(text.toLowerCase()).not.toContain('check prices at checkout');
+    }
+    expect(priceViolations(ALLOWED_PRICE_LINE)).toEqual([]);
+    for (const file of [md, listing]) {
+      expect(file.toLowerCase()).not.toContain('check prices at checkout');
     }
   });
 
@@ -118,6 +126,10 @@ describe('ASC metadata limits', () => {
       'Valid until Sunday',
       'Week of 2/10',
       'Annual: A$149.99 (A$2.88 a week)',
+      'You check prices at checkout',
+      'Monthly: A$19.99',
+      'Basket total $40',
+      'Prices vary by store',
     ];
     for (const line of banned) {
       expect(priceViolations(line).length).toBeGreaterThan(0);
