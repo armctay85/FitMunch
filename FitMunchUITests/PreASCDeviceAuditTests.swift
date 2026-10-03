@@ -174,11 +174,13 @@ final class PreASCDeviceAuditTests: XCTestCase {
 
         let error = app.staticTexts[loadFailure]
         XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: retry copy did not appear")
-        reveal(error, in: app)
-        let retry = scrollUntilAnyExists([
+        guard let retry = scrollUntilHittable([
             app.buttons["paywall-retry"],
-        ], in: app) ?? app.buttons["paywall-retry"]
-        XCTAssertTrue(retry.exists, "E FAIL: Retry missing")
+            app.buttons["Retry"],
+        ], in: app) else {
+            XCTFail("E FAIL: Retry missing")
+            return
+        }
         XCTAssertTrue(
             app.buttons["paywall-restore"].exists || app.buttons["paywall-restore-inline"].exists || app.buttons["Restore Purchases"].exists,
             "E FAIL: Restore Purchases missing on the error state"

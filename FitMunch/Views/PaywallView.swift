@@ -35,14 +35,14 @@ struct PaywallView: View {
             ScrollView {
                 VStack(spacing: 28) {
                     headerSection
+                    if plansLoadFailed {
+                        emptyPlansSection
+                    }
                     benefitsSection
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
                     pricingSection
-                    if plansLoadFailed {
-                        emptyPlansSection
-                    }
                     purchaseSection
                     footnoteSection
                     sandboxProbeSection
