@@ -21,6 +21,8 @@ function pdfDrawnText(buf) {
   }
   return parts.join('\n');
 }
+const { buildCoachPdf } = require('./lib/coach-pdf');
+const { renderSharePage } = require('./lib/coach-share');
 const { encodeRgbPng } = require('./lib/coach-png');
 const { decodePng } = require('./lib/coach-png');
 
@@ -54,7 +56,8 @@ describe('Coach plan builder', () => {
     expect(plan.shopping.storeName).toBe('Woolworths');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
     expect(plan.shopping.lines.every((line) => line.aisle && line.packLabel && line.storeName)).toBe(true);
-    expect(plan.shopping.lines.some((line) => /^\d+g protein \/ serve$/.test(line.proteinLabel))).toBe(true);
+    expect(plan.shopping.lines.some((line) => /^\d+g protein \/ \d+(g|ml) serve$/.test(line.proteinLabel))).toBe(true);
+    expect(plan.shopping.lines.every((line) => !line.proteinLabel || !/\/ serve$/.test(line.proteinLabel))).toBe(true);
     const oats = plan.shopping.lines.find((line) => line.sku === 'oats-750g');
     expect(oats && oats.swapLabel).toBe('');
     expect(plan.shopping.lines.every((line) => !line.swapSku || coach.foodRole(line.sku) === coach.foodRole(line.swapSku))).toBe(true);
@@ -73,7 +76,14 @@ describe('Coach plan builder', () => {
     expect(plan.shopping.aisles[0]).toBe('Produce');
     expect(JSON.stringify(plan.shopping)).not.toMatch(PRICE_OR_DATE);
     expect(JSON.stringify(plan.shopping)).not.toMatch(/cheaper|Split across|catalogue/i);
-    expect(coach.nutritionFacts('chicken-thigh-1kg').proteinLabel).toBe('47g protein / serve');
+    expect(coach.nutritionFacts('chicken-breast-1kg').proteinLabel).toBe('56g protein / 180g serve');
+    expect(coach.nutritionFacts('chicken-thigh-1kg').proteinLabel).toBe('47g protein / 180g serve');
+    expect(coach.nutritionFacts('eggs-12').proteinLabel).toBe('13g protein / 2 eggs');
+    expect(coach.nutritionFacts('bread-loaf').proteinLabel).toBe('8g protein / 2 slices');
+    expect(coach.nutritionFacts('tuna-4pk').proteinLabel).toBe('26g protein / 1 can');
+    expect(coach.nutritionFacts('milk-2l').proteinLabel).toBe('9g protein / 250ml serve');
+    expect(coach.nutritionFacts('olive-oil-500ml').proteinLabel).toBe('');
+    expect(coach.nutritionFacts('frozen-berries-500g').proteinLabel).toBe('');
     expect(coach.nutritionFacts('chicken-thigh-1kg').swapLabel).toBe('Swap: chicken breast · +9g protein');
     expect(coach.nutritionFacts('chicken-thigh-1kg', [], ['chicken-breast-1kg']).swapLabel).toBe('');
     expect(coach.nutritionFacts('greek-yoghurt-1kg').swapLabel).toBe('Swap: cottage cheese · +4g protein');
@@ -370,7 +380,13 @@ describe('Coach plan HTTP', () => {
     expect(share.text).toContain('id="share-split">Coles and Woolworths<');
     expect((share.text.match(/Your coach's store split/g) || []).length).toBe(1);
     expect(share.text).toContain('id="share-summary"');
-    expect(share.text).toContain('g protein / serve');
+    expect(share.text).toMatch(/\d+g protein \/ \d+(g|ml) serve/);
+    expect(share.text).not.toMatch(/g protein \/ serve(?!\w)/);
+    expect(share.text).toContain('class="qty"');
+    expect(share.text).toContain('class="stat"');
+    expect(share.text).toContain('class="chip-scroller"');
+    expect(share.text).toContain('height:92px');
+    expect(share.text).toContain('grid-auto-flow:row');
     expect(share.text).toContain('id="share-pdf"');
     expect(share.text.indexOf('id="share-pdf"')).toBeLessThan(share.text.indexOf('id="share-list"'));
     expect(share.text).toMatch(/\d+g protein/);
@@ -405,7 +421,19 @@ describe('Coach plan HTTP', () => {
     expect(drawn).toContain("Your coach's store split");
     expect(drawn).toContain('Coles and Woolworths');
     expect(drawn).not.toContain("Your coach's store split:");
-    expect(drawn).toContain('g protein / serve');
+    expect(drawn).toMatch(/\d+g protein \/ \d+(g|ml) serve/);
+    expect(drawn).not.toMatch(/g protein \/ serve(?!\w)/);
+    const bandDraw = pdfText.match(/0 ([\d.]+) 595 ([\d.]+) re f/);
+    const logoDraw = pdfText.match(/q ([\d.]+) 0 0 ([\d.]+) [\d.]+ ([\d.]+) cm \/ImLogo Do/);
+    expect(bandDraw).toBeTruthy();
+    expect(logoDraw).toBeTruthy();
+    const bandY = Number(bandDraw[1]);
+    const bandH = Number(bandDraw[2]);
+    const logoH = Number(logoDraw[2]);
+    const logoY = Number(logoDraw[3]);
+    expect(logoH).toBeGreaterThanOrEqual(65);
+    expect(logoY).toBeGreaterThanOrEqual(bandY - 0.2);
+    expect(logoY + logoH).toBeLessThanOrEqual(bandY + bandH + 0.2);
     expect(drawn).toContain('g protein from this list');
     expect(drawn).toMatch(/\d+g protein/);
     expect(drawn).not.toMatch(/Split across|cheaper/);
@@ -483,5 +511,117 @@ describe('Coach plan HTTP', () => {
     expect(home.text).toContain('<h1>Your body wrote the trolley.</h1>');
     const shopper = await request(app).get('/shopper').expect(200);
     expect(shopper.text).toContain('$19.99 a month');
+  });
+
+  it('keeps each store in walk order and renders quantity pills with stat tiles', () => {
+    const aisles = ['Pantry', 'Bakery', 'Meat', 'Dairy', 'Frozen'];
+    const lines = aisles.map((aisle, index) => ({
+      sku: `sku-${aisle}`,
+      name: `${aisle} item`,
+      aisle,
+      packs: index === 2 ? 2 : 1,
+      packLabel: index === 2 ? `${aisle} item × 2` : `${aisle} item`,
+      storeId: 'aldi',
+      storeName: 'Aldi',
+      proteinLabel: '56g protein / 180g serve',
+    }));
+    const html = renderSharePage({
+      planRow: {
+        token: 'walk',
+        clientLabel: 'Sample client',
+        plan: {
+          days: [{ day: 'Mon', kcal: 1900, protein: 140, carbs: 186, fat: 61, meals: [] }],
+          targets: { kcal: 2000 },
+          shopping: {
+            storeLine: 'Aldi',
+            itemCount: lines.length,
+            weeklyProtein: 56,
+            aisles: ['Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry'],
+            note: 'Prices vary by store and week.',
+            stores: [{ storeId: 'aldi', storeName: 'Aldi' }],
+            lines,
+          },
+        },
+      },
+      branding: { practiceName: 'Paperbark Coaching', accent: '#14532d' },
+    });
+    const positions = ['Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry'].map((name) => html.indexOf(`>${name}<`));
+    expect(positions.every((pos) => pos >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(html).toContain('class="qty">× 2<');
+    expect(html).not.toContain('class="col"');
+    expect(html).toContain('Protein from this list');
+    expect(html).not.toMatch(PRICE_OR_DATE);
+  });
+
+  it('prints every line of a 60-line list across pages', () => {
+    const lines = [];
+    for (let i = 1; i <= 60; i += 1) {
+      lines.push({
+        sku: `line-${i}`,
+        name: `Line ${i} end`,
+        aisle: ['Produce', 'Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry'][i % 6],
+        packs: i % 5 === 0 ? 2 : 1,
+        storeId: 'aldi',
+        storeName: 'Aldi',
+        proteinLabel: i % 2 === 0 ? '10g protein / 100g serve' : '',
+        packLabel: i % 5 === 0 ? `Line ${i} end × 2` : `Line ${i} end`,
+      });
+    }
+    const pdf = buildCoachPdf({
+      branding: { practiceName: 'Paperbark Coaching', accent: '#14532d' },
+      clientLabel: 'Sample client',
+      plan: {
+        priceNote: 'Prices vary by store and week.',
+        shopping: {
+          itemCount: 60,
+          weeklyProtein: 100,
+          storeLine: 'Aldi',
+          note: 'Prices vary by store and week.',
+          stores: [{ storeId: 'aldi', storeName: 'Aldi' }],
+          lines,
+        },
+      },
+    });
+    const drawn = pdfDrawnText(pdf);
+    const raw = pdf.toString('latin1');
+    for (let i = 1; i <= 60; i += 1) {
+      expect(drawn).toContain(`Line ${i} end`);
+    }
+    const pages = (raw.match(/\/Type \/Page(?!s)/g) || []).length;
+    expect(pages).toBeGreaterThan(1);
+    expect(raw).toContain(`/Count ${pages}`);
+    expect(drawn).toContain('Prices vary by store and week.');
+    expect(drawn).not.toMatch(PRICE_OR_DATE);
+    const word = fs.readFileSync(path.join(__dirname, 'public', 'img', 'sample-wordmark.png'));
+    const branded = buildCoachPdf({
+      branding: {
+        practiceName: 'Paperbark Coaching',
+        accent: '#14532d',
+        logo: { mime: 'png', buffer: word },
+      },
+      clientLabel: 'Sample client',
+      plan: {
+        shopping: {
+          itemCount: 0,
+          weeklyProtein: 0,
+          storeLine: 'Aldi',
+          note: 'Prices vary by store and week.',
+          stores: [{ storeId: 'aldi', storeName: 'Aldi' }],
+          lines: [],
+        },
+      },
+    });
+    const brandedRaw = branded.toString('latin1');
+    const logoDraw = brandedRaw.match(/q ([\d.]+) 0 0 ([\d.]+) [\d.]+ ([\d.]+) cm \/ImLogo Do/);
+    const bandDraw = brandedRaw.match(/0 ([\d.]+) 595 ([\d.]+) re f/);
+    expect(logoDraw).toBeTruthy();
+    const logoH = Number(logoDraw[2]);
+    const logoY = Number(logoDraw[3]);
+    const bandY = Number(bandDraw[1]);
+    const bandH = Number(bandDraw[2]);
+    expect(logoH * (22 / 159)).toBeGreaterThanOrEqual(9);
+    expect(logoY).toBeGreaterThanOrEqual(bandY - 0.2);
+    expect(logoY + logoH).toBeLessThanOrEqual(bandY + bandH + 0.2);
   });
 });
