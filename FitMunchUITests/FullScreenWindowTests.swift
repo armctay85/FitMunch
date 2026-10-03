@@ -24,24 +24,30 @@ final class FullScreenWindowTests: XCTestCase {
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 25), "Tab bar missing before paywall")
         openUpgradePaywall(in: app)
-
-        let plans = app.otherElements["paywall-plans"].waitForExistence(timeout: 20)
-            || app.buttons["paywall-plan-fitmunch_annual"].waitForExistence(timeout: 3)
-        let retry = app.buttons["paywall-retry"].exists
-            || app.buttons["paywall-retry"].waitForExistence(timeout: plans ? 1 : 15)
-        XCTAssertTrue(plans || retry, "Paywall showed neither plans nor Retry")
-        XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
-        XCTAssertFalse(app.buttons["Continue on the web"].exists)
-        XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
-        XCTAssertTrue(
-            app.buttons["paywall-restore"].exists || app.buttons["paywall-restore-inline"].exists,
-            "Restore missing on the paywall"
-        )
-
+        XCTAssertTrue(app.buttons["paywall-close"].waitForExistence(timeout: 8), "Paywall did not open")
         XCTAssertTrue(
             app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 8),
             "Paywall headline missing. The shot would not be the paywall."
         )
+        // Plans sit under the benefit rows, so they are omitted from the tree until scrolled in.
+        _ = scrollUntilHittable([
+            app.otherElements["paywall-plans"],
+            app.buttons["paywall-plan-fitmunch_annual"],
+            app.buttons["paywall-retry"],
+        ], in: app)
+        XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
+        XCTAssertFalse(app.buttons["Continue on the web"].exists)
+        XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
+        XCTAssertNotNil(
+            scrollUntilHittable([
+                app.buttons["paywall-restore"],
+                app.buttons["paywall-restore-inline"],
+            ], in: app),
+            "Restore missing on the paywall"
+        )
+        for _ in 0..<4 where !app.staticTexts["Eat to your goals with every shop"].isHittable {
+            app.swipeDown()
+        }
         XCTAssertEqual(app.state, .runningForeground)
         let paywallShot = try assertFullScreen(app, slug: slug, phase: "paywall")
         saveShot(paywallShot, name: "paywall-\(tag)")
