@@ -195,11 +195,11 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   color:#eef2ee;
 }
 .brand{
-  display:inline-flex;align-items:center;gap:0;
+  display:inline-flex;align-items:center;gap:10px;
   text-decoration:none;color:#f4f7f4;
-  font-size:1.05rem;font-weight:800;letter-spacing:-.045em;
+  font-size:1.25rem;font-weight:800;letter-spacing:-.04em;
 }
-.brand img{width:28px;height:28px;border-radius:7px;display:block;margin-right:8px}
+.brand img{width:32px;height:32px;border-radius:0;display:block}
 .brand .brand-name{color:#f4f7f4;letter-spacing:-.03em}
 .brand .brand-name span{color:#7dffa3}
 .nav-links{display:flex;align-items:center;gap:2px}
@@ -655,8 +655,16 @@ footer{
   display:flex;flex-wrap:wrap;gap:24px 48px;
   justify-content:space-between;align-items:flex-start;
 }
-.footer-brand{font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.03em}
-.footer-brand span{color:var(--leaf)}
+.footer-brand{
+  display:inline-flex;align-items:center;gap:10px;
+  font-weight:800;color:#fff;font-size:1.25rem;letter-spacing:-.04em;
+}
+.footer-brand::before{
+  content:"";
+  width:32px;height:32px;flex:none;
+  background:url("/assets/logo.svg") center/32px 32px no-repeat;
+}
+.footer-brand span{color:#7dffa3}
 .footer-links{display:flex;flex-wrap:wrap;gap:14px 22px}
 .footer-links a{color:rgba(238,242,238,.55);text-decoration:none;font-size:.85rem;font-weight:600}
 .footer-links a:hover{color:#fff}
@@ -896,7 +904,6 @@ footer{
             <p class="fs-why" data-fs-why></p>
             <ul class="fs-uses" data-fs-uses></ul>
           </div>
-          <a class="btn btn-leaf" data-fs-trial data-fm-auth="register" data-fm-plan="premium" href="/login.html?plan=premium#register">Start the 14-day trial</a>
           <p class="fs-trial-note">14-day trial, then $19.99 a month. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
         </div>
       </div>
@@ -972,7 +979,6 @@ footer{
           <li>Weekly training plans and workout tracking</li>
           <li>Unlimited receipt scans and haul scores</li>
         </ul>
-        <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a>
       </article>
       <article class="plan">
         <div class="plan-kicker">Free</div>
@@ -995,7 +1001,6 @@ footer{
     <h2>Your body wrote the <em>trolley.</em></h2>
     <p>14-day trial, then $19.99 a month. Card on file.</p>
     <div class="final-ctas">
-      <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="final_trial">Start the 14-day trial</a>
       <a class="btn btn-ghost" href="#first-scan" data-fm-track="final_scan_mine">After the shop: score a receipt</a>
     </div>
   </div>

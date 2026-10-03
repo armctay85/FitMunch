@@ -28,10 +28,12 @@ body.fm-body{
   padding:36px 28px;text-align:left;
 }
 .success-head .brand{
+  display:inline-flex;align-items:center;gap:10px;
   font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
-  font-size:1.1rem;font-weight:800;letter-spacing:-.03em;margin-bottom:18px;
+  font-size:1.25rem;font-weight:800;letter-spacing:-.04em;margin-bottom:18px;
 }
-.success-head .brand span{color:var(--leaf)}
+.success-head .brand img{width:32px;height:32px;display:block;border-radius:0}
+.success-head .brand span{color:#7dffa3}
 .success-head h1{
   font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:clamp(1.6rem,3vw,2rem);font-weight:800;letter-spacing:-.04em;
@@ -83,7 +85,7 @@ body.fm-body{
 <div class="success-wrap">
   <div class="success-card">
     <div class="success-head">
-      <div class="brand">Fit<span>Munch</span></div>
+      <div class="brand"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></div>
       <h1>You're all set.</h1>
       <p>Your subscription is live. Time to run the grocery loop.</p>
     </div>

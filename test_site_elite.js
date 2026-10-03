@@ -260,3 +260,53 @@ describe('390 overflow on legal pages', () => {
     }
   });
 });
+
+describe('one logo and one trial button', () => {
+  test('the mark is one solid svg and navs do not clip it', () => {
+    const svg = fs.readFileSync(path.join(PUBLIC, 'assets', 'logo.svg'), 'utf8');
+    expect(svg).toContain('viewBox="0 0 32 32"');
+    expect(svg).not.toMatch(/linearGradient|radialGradient/);
+    const shell = fs.readFileSync(path.join(PUBLIC, 'css', 'fm-shell.css'), 'utf8');
+    const coach = fs.readFileSync(path.join(PUBLIC, 'css', 'fm-coach-shell.css'), 'utf8');
+    const home = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
+    expect(shell).toMatch(/\.fm-brand img\{[^}]*border-radius:0/);
+    expect(coach).toMatch(/\.fm-brand img\{[^}]*border-radius:0/);
+    expect(home).toMatch(/\.brand img\{[^}]*border-radius:0/);
+    expect(shell).toContain('#7dffa3');
+    expect(home).toContain('#7dffa3');
+  });
+
+  test('shopper hero photo covers the desktop fold', () => {
+    const css = fs.readFileSync(path.join(PUBLIC, 'css', 'fm-shopper.css'), 'utf8');
+    const html = fs.readFileSync(path.join(PUBLIC, 'shopper.html'), 'utf8');
+    expect(html).toContain('/assets/food/overhead-salmon.webp');
+    expect(css).toMatch(/min-width:1100px\)\{[\s\S]*\.sp-hero-visual > img\{[^}]*min-height:100svh/);
+    expect(css).toMatch(/\.sp-hero\{[\s\S]*?background:#07130d/);
+  });
+
+  test('each public page has a single trial button per checkout', () => {
+    const skip = new Set(['app.html', 'login.html']);
+    const problems = [];
+    for (const file of walk(PUBLIC).filter((f) => f.endsWith('.html'))) {
+      const rel = path.relative(PUBLIC, file);
+      if (skip.has(rel)) continue;
+      const html = fs.readFileSync(file, 'utf8');
+      const re = /<(a|button)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+      const keys = [];
+      let match;
+      while ((match = re.exec(html))) {
+        const label = match[3].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!/trial/i.test(label)) continue;
+        const href = /href="([^"]*)"/.exec(match[2]);
+        const plan = href ? ((href[1].match(/plan=([^&#"]+)/) || [])[1] || '') : '';
+        keys.push(plan || label);
+      }
+      const counts = {};
+      for (const key of keys) counts[key] = (counts[key] || 0) + 1;
+      const dupes = Object.keys(counts).filter((key) => counts[key] > 1);
+      if (dupes.length) problems.push(rel + ': ' + dupes.join(', '));
+      if (keys.length > 1) problems.push(rel + ' has ' + keys.length + ' trial buttons');
+    }
+    expect(problems).toEqual([]);
+  });
+});

@@ -9,7 +9,7 @@
 }
 .skip:focus{transform:none}
 
-/* First fold: solid fridge studio, same as homepage. No grocery photo. */
+/* First fold: solid #07130d studio. The plate photo fills the right side at desktop. Not a supermarket aisle. */
 .sp-hero{
   position:relative;
   min-height:100svh;
@@ -300,10 +300,26 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 .ui-phone li b,.ui-phone-show li b{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.66rem;letter-spacing:.06em;color:#7dffa3;font-weight:600}
 .ui-phone li span,.ui-phone-show li span{font-weight:700}
 @media(min-width:1100px){
-  .sp-hero{align-items:center}
-  .sp-hero-inner{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(640px,1fr);gap:36px;align-items:center;width:min(1280px,100%)}
+  .sp-hero{align-items:stretch}
+  .sp-hero-inner{
+    display:grid;
+    grid-template-columns:minmax(420px,.78fr) minmax(560px,1.2fr);
+    gap:0;
+    align-items:stretch;
+    width:100%;
+    max-width:none;
+    min-height:100svh;
+    padding:0;
+  }
+  .sp-hero-copy{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:128px clamp(28px,4vw,64px) 48px clamp(28px,4vw,72px);
+  }
   .sp-hero .ui-phone{display:none}
-  .sp-hero-visual > img{height:520px}
+  .sp-hero-visual{min-height:100svh;height:100%}
+  .sp-hero-visual > img{width:100%;height:100%;min-height:100svh;object-fit:cover;object-position:center}
 }
 
 .sp-err{

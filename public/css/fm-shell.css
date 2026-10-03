@@ -20,12 +20,12 @@
 }
 .fm-nav.fm-nav-abs{position:absolute;top:0;left:0;right:0;z-index:20;background:transparent}
 .fm-brand{
-  display:inline-flex;align-items:center;gap:0;
+  display:inline-flex;align-items:center;gap:10px;
   text-decoration:none;color:#fff;
   font-size:1.25rem;font-weight:800;letter-spacing:-.04em;
 }
-.fm-brand img{width:32px;height:32px;border-radius:8px;display:block;margin-right:10px}
-.fm-brand span{color:var(--leaf)}
+.fm-brand img{width:32px;height:32px;border-radius:0;display:block}
+.fm-brand span{color:#7dffa3}
 .fm-nav-links{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .fm-nav-links a{
   color:rgba(255,255,255,.76);text-decoration:none;
@@ -66,8 +66,16 @@ a.fm-btn.fm-btn-ghost{background:transparent;color:var(--ink);border-color:#1220
   display:flex;flex-wrap:wrap;gap:24px 48px;
   justify-content:space-between;align-items:flex-start;
 }
-.fm-footer-brand{font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.03em}
-.fm-footer-brand span{color:var(--leaf)}
+.fm-footer-brand{
+  display:inline-flex;align-items:center;gap:10px;
+  font-weight:800;color:#fff;font-size:1.25rem;letter-spacing:-.04em;
+}
+.fm-footer-brand::before{
+  content:"";
+  width:32px;height:32px;flex:none;
+  background:url("/assets/logo.svg") center/32px 32px no-repeat;
+}
+.fm-footer-brand span{color:#7dffa3}
 .fm-footer-links{display:flex;flex-wrap:wrap;gap:14px 22px}
 .fm-footer-links a{color:#d7e6dc;text-decoration:none;font-size:.85rem;font-weight:600}
 .fm-footer-links a:hover{color:#fff}
