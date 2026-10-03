@@ -28,19 +28,41 @@ const CATALOGUE_DATE = [
   { name: 'catalogue week date', re: /\bweek\s+(?:ending|of)\s+\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/i },
 ];
 
+// Supermarket wording inside Swift string literals only. Identifiers such as
+// savingsPercent, subscription "Save N%", and words like personalized stay.
+const GROCERY_WORDS = [
+  { name: 'cheap', re: /\bcheapest\b|\bcheaper\b|\bcheap\b/i },
+  { name: 'special', re: /\bspecials?\b/i },
+  { name: 'saving', re: /\bsavings?\b/i },
+];
+
 function isSubscriptionFile(relPath) {
   const normalized = relPath.split(path.sep).join('/');
   if (normalized.startsWith('ios/')) return false;
   return SUBSCRIPTION_FILES.has(path.basename(normalized));
 }
 
+function swiftStringLiterals(line) {
+  return line.match(/"(?:\\.|[^"\\\n])*"/g) || [];
+}
+
 function quotedPriceLiterals(line) {
   const hits = [];
-  const strings = line.match(/"(?:\\.|[^"\\\n])*"/g) || [];
   const price = /\$(?:0(?![.\w])|[1-9]\d*)(?:\.\d+)?/;
   const interpolated = /\$\\\(/;
-  for (const literal of strings) {
+  for (const literal of swiftStringLiterals(line)) {
     if (price.test(literal) || interpolated.test(literal)) hits.push(literal);
+  }
+  return hits;
+}
+
+function groceryWordHits(relPath, line) {
+  if (path.extname(relPath) !== '.swift') return [];
+  const hits = [];
+  for (const literal of swiftStringLiterals(line)) {
+    for (const rule of GROCERY_WORDS) {
+      if (rule.re.test(literal)) hits.push(rule.name);
+    }
   }
   return hits;
 }
@@ -54,6 +76,7 @@ function supermarketHits(relPath, source) {
     for (const rule of CATALOGUE_DATE) {
       if (rule.re.test(line)) reasons.push(rule.name);
     }
+    reasons.push(...groceryWordHits(relPath, line));
     if (!subscriptionFile) {
       reasons.push(...quotedPriceLiterals(line));
       if (/Budget\s+\$/.test(line)) reasons.push('Budget $');
@@ -136,6 +159,33 @@ describe('iOS supermarket price and catalogue-date gate', () => {
     const storeKit = 'displayPrice: "A$19.99"\nannual "A$149.99"';
     expect(supermarketHits('FitMunchTests/PaywallCatalogTests.swift', storeKit)).toEqual([]);
     expect(supermarketHits('ios/PaywallCatalogTests.swift', storeKit).length).toBeGreaterThan(0);
+  });
+
+  it('flags cheap, special, and saving inside Swift string literals', () => {
+    const banned = [
+      'starter("Build me a cheap high-protein Woolies shop")',
+      'Text("the cheapest tin")',
+      'Text("a cheaper cut")',
+      'Text("a special shop")',
+      'Text("Weekly savings at the supermarket")',
+      'print("Error saving meal: \\(error)")',
+    ].join('\n');
+    const hits = supermarketHits('FitMunch/Views/CoachView.swift', banned);
+    expect(hits.some((hit) => hit.includes('cheap high-protein'))).toBe(true);
+    expect(hits.some((hit) => hit.includes('cheapest tin'))).toBe(true);
+    expect(hits.some((hit) => hit.includes('cheaper cut'))).toBe(true);
+    expect(hits.some((hit) => hit.includes('a special shop'))).toBe(true);
+    expect(hits.some((hit) => hit.includes('Weekly savings'))).toBe(true);
+    expect(hits.some((hit) => hit.includes('Error saving meal'))).toBe(true);
+
+    const allowed = [
+      'Text("Prices vary by store and week.")',
+      'Text("A personalized week around my meals")',
+      'Text("Save \\(savingsPercent)%")',
+      '// annual price is not actually cheaper.',
+      'static func savingsPercent(monthly: Decimal, annual: Decimal) -> Int?',
+    ].join('\n');
+    expect(supermarketHits('FitMunch/Views/PaywallView.swift', allowed)).toEqual([]);
   });
 
   it('paywall and onboarding do not cite supermarket savings', () => {
