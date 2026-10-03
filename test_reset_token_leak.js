@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
 const vm = require('vm');
 
 jest.mock('./server/storage', () => {
@@ -22,6 +23,7 @@ const {
   sanitizeAnalyticsPayload,
   redactLogString,
   redactLogArg,
+  setLogForwarderForTests,
 } = require('./lib/url-redact');
 const {
   RESET_TTL_MS,
@@ -84,18 +86,19 @@ function loadTracker(location, attribution, title) {
 }
 
 function captureConsole(fn) {
+  // Jest --silent swaps in a console that never writes stdout, so hook the
+  // redaction wrapper's forwarder instead of process.stdout.
   const lines = [];
-  const write = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (chunk, ...rest) => {
-    lines.push(String(chunk));
-    return true;
-  };
+  const methods = ['log', 'info', 'warn', 'error', 'debug'];
+  const previous = methods.map((method) => setLogForwarderForTests(method, (...args) => {
+    lines.push(util.format(...args));
+  }));
   return Promise.resolve()
     .then(fn)
     .finally(() => {
-      process.stdout.write = write;
+      methods.forEach((method, index) => setLogForwarderForTests(method, previous[index]));
     })
-    .then((result) => ({ result, text: lines.join('') }));
+    .then((result) => ({ result, text: lines.join('\n') }));
 }
 
 describe('reset token leak', () => {
