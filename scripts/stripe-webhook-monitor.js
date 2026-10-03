@@ -6,23 +6,38 @@
  *   can read webhook endpoints and events. It is never written to logs,
  *   issues, or email.
  * - GitHub variable STRIPE_WEBHOOK_ENDPOINT_ID: the we_ id of the FitMunch
- *   endpoint. The id is used only on the Stripe request, never in an alert.
+ *   endpoint. When the variable is empty, the live endpoint id is used.
+ *   The id is used only on the Stripe request, never in an alert.
  *
- * Alerts when the endpoint is not enabled, its URL host is not a FitMunch
- * host, or events from the last 2 hours include a finished delivery with
- * delivery_success=false. A missing key notifies instead of exiting quietly.
+ * Alerts when the endpoint is not enabled, its URL host is not
+ * fit-munch.vercel.app, www.fitmunch.com.au, or fitmunch.com.au, its path
+ * is not /api/stripe/webhook, or events from the last 2 hours include a
+ * finished delivery with delivery_success=false. A missing key notifies
+ * instead of exiting quietly.
  */
 
 const incident = require('./lib/prod-incident');
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_WEBHOOK_ENDPOINT_ID = 'we_1T3UtAGMuYRuJYDr3uqhtekB';
+const WEBHOOK_PATH = '/api/stripe/webhook';
+const ALLOWED_WEBHOOK_HOSTS = new Set([
+  'fit-munch.vercel.app',
+  'www.fitmunch.com.au',
+  'fitmunch.com.au',
+]);
 
-function isFitMunchWebhookHost(value) {
+function webhookEndpointId(env) {
+  const configured = String((env && env.STRIPE_WEBHOOK_ENDPOINT_ID) || '').trim();
+  return configured || DEFAULT_WEBHOOK_ENDPOINT_ID;
+}
+
+function webhookUrlParts(value) {
   let parsed;
-  try { parsed = new URL(String(value || '')); } catch (_) { return false; }
-  if (parsed.protocol !== 'https:') return false;
-  const host = parsed.hostname.toLowerCase();
-  return host === 'fitmunch.com.au' || host === 'www.fitmunch.com.au' || host.endsWith('.fitmunch.com.au');
+  try { parsed = new URL(String(value || '')); } catch (_) { return null; }
+  if (parsed.protocol !== 'https:') return null;
+  const path = parsed.pathname.replace(/\/+$/, '') || '/';
+  return { host: parsed.hostname.toLowerCase(), path };
 }
 
 function publicReport(reason) {
@@ -47,7 +62,13 @@ function publicReport(reason) {
   if (reason === 'wrong-host') {
     return {
       title: 'PROD STRIPE WEBHOOK WRONG HOST',
-      body: 'The FitMunch Stripe webhook endpoint does not point at a FitMunch host. Payments may not reach production.',
+      body: 'The FitMunch Stripe webhook endpoint does not point at fit-munch.vercel.app, www.fitmunch.com.au, or fitmunch.com.au. Payments may not reach production.',
+    };
+  }
+  if (reason === 'wrong-path') {
+    return {
+      title: 'PROD STRIPE WEBHOOK WRONG PATH',
+      body: 'The FitMunch Stripe webhook endpoint path is not /api/stripe/webhook. Payments may not reach production.',
     };
   }
   if (reason === 'failed-deliveries') {
@@ -85,7 +106,7 @@ async function inspectStripeWebhook(deps) {
   const fetchImpl = (deps && deps.fetch) || global.fetch;
   const now = deps && deps.now != null ? Number(deps.now) : Date.now();
   const key = String(env.STRIPE_MONITOR_KEY || '').trim();
-  const endpointId = String(env.STRIPE_WEBHOOK_ENDPOINT_ID || '').trim();
+  const endpointId = webhookEndpointId(env);
   if (!key) return { ok: false, reason: 'missing-key' };
   if (!endpointId) return { ok: false, reason: 'missing-endpoint' };
   if (typeof fetchImpl !== 'function') return { ok: false, reason: 'unreadable' };
@@ -104,7 +125,9 @@ async function inspectStripeWebhook(deps) {
   if (String(endpoint.status || '').toLowerCase() !== 'enabled') {
     return { ok: false, reason: 'disabled' };
   }
-  if (!isFitMunchWebhookHost(endpoint.url)) return { ok: false, reason: 'wrong-host' };
+  const parts = webhookUrlParts(endpoint.url);
+  if (!parts || !ALLOWED_WEBHOOK_HOSTS.has(parts.host)) return { ok: false, reason: 'wrong-host' };
+  if (parts.path !== WEBHOOK_PATH) return { ok: false, reason: 'wrong-path' };
 
   const since = Math.floor((now - TWO_HOURS_MS) / 1000);
   const params = new URLSearchParams();
@@ -164,7 +187,11 @@ async function runStripeWebhookMonitor(deps) {
 module.exports = {
   inspectStripeWebhook,
   runStripeWebhookMonitor,
-  isFitMunchWebhookHost,
+  webhookEndpointId,
+  webhookUrlParts,
+  DEFAULT_WEBHOOK_ENDPOINT_ID,
+  WEBHOOK_PATH,
+  ALLOWED_WEBHOOK_HOSTS,
   publicReport,
   TWO_HOURS_MS,
 };

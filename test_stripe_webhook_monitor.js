@@ -1,7 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { runStripeWebhookMonitor } = require('./scripts/stripe-webhook-monitor');
+const { runStripeWebhookMonitor, DEFAULT_WEBHOOK_ENDPOINT_ID } = require('./scripts/stripe-webhook-monitor');
 const { runProbe } = require('./scripts/prod-uptime-probe');
 
 const ENDPOINT_ID = 'we_test_endpoint_id';
@@ -101,9 +101,57 @@ describe('stripe webhook monitor', () => {
     const result = await runStripeWebhookMonitor({ env: env(), fetch: fetchImpl, github, now });
     expect(result.reason).toBe('wrong-host');
     const body = github.calls.find((call) => call[0] === 'open')[2];
-    expect(body).toContain('FitMunch host');
+    expect(body).toContain('fit-munch.vercel.app');
+    expect(body).toContain('www.fitmunch.com.au');
+    expect(body).toContain('fitmunch.com.au');
     expect(body).not.toContain('evil.example');
     expect(body).not.toContain(ENDPOINT_ID);
+  });
+
+  it('accepts the live vercel host and alerts when the path is wrong', async () => {
+    const healthy = stripeFetch(
+      { status: 'enabled', url: 'https://fit-munch.vercel.app/api/stripe/webhook' },
+      { data: [] }
+    );
+    const ok = await runStripeWebhookMonitor({
+      env: env(),
+      fetch: healthy.fetchImpl,
+      github: githubDouble(),
+      now,
+    });
+    expect(ok.ok).toBe(true);
+
+    const github = githubDouble();
+    const { fetchImpl } = stripeFetch({
+      status: 'enabled',
+      url: 'https://fit-munch.vercel.app/api/stripe-webhook',
+    });
+    const result = await runStripeWebhookMonitor({ env: env(), fetch: fetchImpl, github, now });
+    expect(result.reason).toBe('wrong-path');
+    const body = github.calls.find((call) => call[0] === 'open')[2];
+    expect(body).toContain('/api/stripe/webhook');
+    expect(body).not.toContain('stripe-webhook');
+    expect(body).not.toContain(ENDPOINT_ID);
+    expect(body).not.toContain(DEFAULT_WEBHOOK_ENDPOINT_ID);
+  });
+
+  it('uses the live endpoint id when the variable is unset', async () => {
+    const { fetchImpl, seen } = stripeFetch(
+      { status: 'enabled', url: 'https://fit-munch.vercel.app/api/stripe/webhook/' },
+      { data: [] }
+    );
+    const config = env();
+    delete config.STRIPE_WEBHOOK_ENDPOINT_ID;
+    const result = await runStripeWebhookMonitor({
+      env: config,
+      fetch: fetchImpl,
+      github: githubDouble(),
+      now,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.reason).toBe('healthy');
+    expect(seen[0].url).toContain(`/webhook_endpoints/${DEFAULT_WEBHOOK_ENDPOINT_ID}`);
+    expect(DEFAULT_WEBHOOK_ENDPOINT_ID).toBe('we_1T3UtAGMuYRuJYDr3uqhtekB');
   });
 
   it('notifies when the monitor key is missing', async () => {

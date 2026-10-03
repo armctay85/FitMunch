@@ -119,6 +119,7 @@ describe('production incidents', () => {
     expect(yaml).toContain('PROBE_CHECKS:');
     expect(yaml).toContain('STRIPE_MONITOR_KEY');
     expect(yaml).toContain('STRIPE_WEBHOOK_ENDPOINT_ID');
+    expect(yaml).toContain('we_1T3UtAGMuYRuJYDr3uqhtekB');
     const run = yaml.split('run:').pop();
     expect(run).not.toContain('${{');
     const rollback = fs.readFileSync('.github/workflows/prod-smoke-rollback.yml', 'utf8');

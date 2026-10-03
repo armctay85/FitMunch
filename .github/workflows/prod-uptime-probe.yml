@@ -49,7 +49,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           STRIPE_MONITOR_KEY: ${{ secrets.STRIPE_MONITOR_KEY }}
-          STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
+          STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID || 'we_1T3UtAGMuYRuJYDr3uqhtekB' }}
           PROBE_SCHEDULE: ${{ github.event.schedule }}
           PROBE_CHECKS: ${{ github.event.inputs.checks }}
         run: |
