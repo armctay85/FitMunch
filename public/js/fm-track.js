@@ -62,17 +62,23 @@
 
   function pathOnly(value) {
     var s = String(value || '');
+    try { s = decodeURIComponent(s); } catch (e) {}
     var hash = s.indexOf('#');
     if (hash >= 0) s = s.slice(0, hash);
     var q = s.indexOf('?');
     if (q >= 0) s = s.slice(0, q);
-    if (s.indexOf('reset=') !== -1 || s.indexOf('token=') !== -1) return '';
+    if (/reset=|token=/i.test(s)) return '';
     return s;
+  }
+
+  function looksLikeUrl(value) {
+    var text = String(value || '').replace(/^\s+/, '');
+    return text.charAt(0) === '/' || text.indexOf('http://') === 0 || text.indexOf('https://') === 0;
   }
 
   function scrub(value) {
     if (typeof value === 'string') {
-      if (value.indexOf('?') !== -1 || value.indexOf('#') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1) {
+      if (looksLikeUrl(value) || /(?:^|[?&#\s])(?:[a-z_]*(?:reset|token|code|key|session|email|sig|jwt|otp)|t)=/i.test(value)) {
         return pathOnly(value);
       }
       return value;
@@ -83,7 +89,7 @@
     var key;
     for (key in value) {
       if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
-      if (/^(reset|token|code|key|session|email|sig|jwt|password)$/i.test(key)) continue;
+      if (/^(reset|token|code|key|session|email|sig|jwt|password|otp|access_token|id_token|invite)$/i.test(key)) continue;
       if (UTM_KEYS.indexOf(key) !== -1 && typeof value[key] === 'string') {
         var utm = String(value[key]).trim().slice(0, 80);
         if (utm && utm.indexOf('?') === -1 && utm.indexOf('reset=') === -1 && utm.indexOf('token=') === -1) out[key] = utm;

@@ -134,19 +134,18 @@ function analyticsKeyMatches(req) {
   return require('crypto').timingSafeEqual(a, b);
 }
 
-// Private analytics UI is not a public page. Block before static so /funnel.html
-// cannot be fetched without the server-side key.
+// Private analytics UI is not a public page. The file lives outside public/
+// so the CDN cannot serve it. Both paths use the same key gate.
+const FUNNEL_PAGE = path.join(__dirname, 'private/funnel.html');
 app.use((req, res, next) => {
   const pathOnly = (req.path || '').replace(/\/$/, '') || '/';
   if (pathOnly !== '/funnel' && pathOnly !== '/funnel.html') return next();
   res.set('X-Robots-Tag', 'noindex, nofollow');
+  res.set('Cache-Control', 'private, no-store');
   if (!analyticsKeyMatches(req)) {
     return res.status(401).sendFile(path.join(PUBLIC_DIR, '404.html'));
   }
-  if (pathOnly === '/funnel') {
-    return res.sendFile(path.join(PUBLIC_DIR, 'funnel.html'));
-  }
-  return next();
+  return res.sendFile(FUNNEL_PAGE);
 });
 
 const PERMISSIONS_POLICY = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
@@ -430,7 +429,12 @@ function registerRedirectTarget(req) {
   if (!q) return '/login.html#register';
   return `/login.html${q}#register`;
 }
-app.get('/login', (req, res) => res.redirect(301, '/login.html' + authQuery(req)));
+app.get('/login', (req, res) => {
+  // Helmet's strict-origin-when-cross-origin wins over vercel.json on this 301.
+  // Reset links hit /login, so the redirect itself must not send a referrer.
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.redirect(301, '/login.html' + authQuery(req));
+});
 app.get('/register', (req, res) => res.redirect(301, registerRedirectTarget(req)));
 // Common aliases people/typeahead/bookmarks hit - must not 404
 app.get('/auth', (req, res) => res.redirect(301, registerRedirectTarget(req)));
