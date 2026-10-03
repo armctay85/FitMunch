@@ -17,13 +17,15 @@ const session = {
   customer_details: { email: 'victim@example.com', name: 'Victim' },
 };
 
+let fakeStripe;
 beforeAll(() => {
-  app._private.setStripeForTests({
+  fakeStripe = ({
     checkout: { sessions: { retrieve: jest.fn(async (id) => {
-      if (id !== session.id) { const e = new Error('No such session'); e.statusCode = 404; throw e; }
+      if (id !== session.id) { const e = new Error('No such checkout.session: cs_secret_internal sk_test_leak'); e.statusCode = 404; throw e; }
       return session;
     }) } },
   });
+  app._private.setStripeForTests(fakeStripe);
 });
 
 afterAll(() => app._private.setStripeForTests(null));
@@ -41,9 +43,28 @@ describe('GET /api/checkout/session privacy', () => {
     expect(res.headers['cache-control']).toMatch(/no-store/);
   });
 
-  test('unknown session is 404 with no-store', async () => {
+  test('unknown session is 404 with no-store and no Stripe error echo', async () => {
     const res = await request(app).get('/api/checkout/session').query({ session_id: 'cs_nope' });
     expect(res.status).toBe(404);
     expect(res.headers['cache-control']).toMatch(/no-store/);
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toMatch(/cs_secret_internal|sk_test_leak|No such checkout/);
+  });
+
+  test('missing session_id is 400 with no-store', async () => {
+    const res = await request(app).get('/api/checkout/session');
+    expect(res.status).toBe(400);
+    expect(res.headers['cache-control']).toMatch(/no-store/);
+  });
+
+  test('Stripe not configured is 503 with no-store', async () => {
+    app._private.setStripeForTests(null);
+    try {
+      const res = await request(app).get('/api/checkout/session').query({ session_id: session.id });
+      expect(res.status).toBe(503);
+      expect(res.headers['cache-control']).toMatch(/no-store/);
+    } finally {
+      app._private.setStripeForTests(fakeStripe);
+    }
   });
 });
