@@ -1,159 +1,132 @@
 FitMunch App Store listing
 Version 1.0 (9)
 Bundle ID: com.fitmunch.app
-App name: FitMunch
+App name: FitMunch: Macro Meal Planner
 
 Paste the blocks marked PASTE into App Store Connect.
 Notes under each block are for the person submitting. Do not paste the notes.
 
-This listing matches the iPhone app in build 9. It does not claim Link pay, Apple Watch, HealthKit, a subscription free trial, ratings, user counts, testimonials, or a medical outcome.
+This listing matches asc-update-metadata.js. It does not claim Link pay, Apple Watch, HealthKit, a subscription free trial, ratings, user counts, testimonials, or a medical outcome.
+
+It does not cite supermarket prices, savings dollar figures, specials, or catalogue dates. It says FitMunch builds your list split by store, and that you check prices at checkout.
+
+Build 9 has no shopping-list screen. Do not add a shopping-list screenshot. The public text says "your list", not "shopping list".
 
 
 SUBTITLE
-Paste the primary. Keep one subtitle only.
+Keep one subtitle only.
 
 PASTE
-Meal plans, macros, workouts
-
-Characters: 28 / 30
-
-ALTERNATE 1
-Daily coaching and training
+Scan your shop, hit protein
 
 Characters: 27 / 30
-
-ALTERNATE 2
-Log food. Plan the week.
-
-Characters: 24 / 30
-
-Note: The keyword field below is written for the primary subtitle. If you switch to an alternate, remove any keyword that repeats a word in that alternate. Do not repeat FitMunch, or the words meal, plans, macros, or workouts, in the keyword field while the primary subtitle is in use. Apple already indexes the app name and the subtitle.
 
 
 KEYWORD FIELD
 Comma-separated. No space after a comma.
 
 PASTE
-woolworths,coles,aldi,iga,receipt,protein,calorie,grocery,nutrition,diet,gym,history,coach,australia
+calorie,counter,tracker,diet,food,log,receipt,grocery,shopping,list,woolworths,coles,aldi,coach,ai
 
-Characters: 100 / 100
+Characters: 98 / 100
 
-Rationale: The primary subtitle already carries meal plans, macros, and workouts, so those words are left out of the keyword field. The 100 characters go to Australian shop and food searches that build 9 actually supports. Scan reads a Woolworths, Coles, Aldi, or IGA receipt. Meals is written as a Woolworths or Coles week. Home shows protein and calories. History, the coach, and the gym or home workout plan are separate tabs. Build 9 does not have a shopping-list screen, so shopping and list are not in this field. Grocery and receipt are the true words for that search.
+Note: "shopping" stays in the keyword field. The description does not say "shopping list" because build 9 has no shopping-list screen.
 
 
 PROMOTIONAL TEXT
-Paste one. Promotional text can be changed without a new binary.
+Paste this block only. Promotional text can be changed without a new binary.
 
 PASTE
-Log meals, plan a high-protein week, follow a gym or home workout, and scan a Woolworths or Coles receipt. Calories and protein, on your iPhone.
+Scan your Woolies, Coles, Aldi or IGA receipt for macros and a haul score. FitMunch builds your list split by store. You check prices at checkout.
 
-Characters: 144 / 170
-
-ALTERNATE 1
-Plan the week's meals, follow a workout, and scan your Woolworths or Coles receipt. Calories, protein, carbs, and fats on one screen.
-
-Characters: 133 / 170
-
-ALTERNATE 2
-See today's calories and macros, ask the coach what to eat after training, and look back at the meals you logged on this iPhone.
-
-Characters: 128 / 170
+Characters: 146 / 170
 
 
 DESCRIPTION
 PASTE
-FitMunch is the daily iPhone app for meals, coaching, workouts, a receipt scan, and your history.
+Turn your weekly shop into a plan you'll actually stick to.
 
-Today
-Home shows calories, protein, carbs, and fats for the day you are viewing. Meals you have logged sit on that screen, with what is still left against your targets.
+FitMunch reads your Woolies, Coles, Aldi or IGA receipt, shows the protein and macros in what you bought, and builds a high-protein week around it. FitMunch builds your list split by store. You check prices at checkout.
 
-Log a meal
-The plus button logs a meal on the device. You name the meal and add foods, then the totals update. A free account can log 3 meals for the day you are viewing.
+SCAN YOUR SHOP
+• Snap your receipt or pick a photo
+• See protein, carbs, fat and calories across your haul
+• Get a haul score with simple swaps that lift your protein
 
-Meal plan
-On Meals, set a calorie target and a protein target, choose a goal, and generate a 7-day plan. The goal picker includes general fitness, fat loss, muscle gain, and maintain. Those are labels on the plan, not a promise of a result. Each day lists breakfast, lunch, dinner, and a snack, with calories, protein, and prep time. The screen is written for a Woolworths or Coles week.
+HIT YOUR MACROS EVERY DAY
+• Set calorie and protein targets for your goal
+• Log meals in a few taps and watch your rings fill
+• Track progress over time
 
-Coach
-The AI coach is a chat for food and training. You can ask what to eat after training. Replies come from your FitMunch account.
+A WEEK OF MEALS, SORTED
+• 7-day high-protein meal plans from your targets
+• FitMunch builds your list split by store
+• You check prices at checkout
 
-Workout
-Generate a weekly plan for the gym or at home, at beginner, intermediate, or advanced. Tick a day when you finish it. Log an exercise with sets, reps, and weight in kilograms. The steps figure is a counter in the app: tap to add 1,000 toward the goal you set.
+YOUR AI COACH
+• Ask "What should I eat tonight?" or "Build my workout"
+• Answers that know your goals and your last shop
 
-Scan a shop
-Photograph a grocery receipt, or choose one from your photo library. FitMunch reads a Woolworths, Coles, Aldi, or IGA receipt for each item's macros and a haul score. You can log that haul to today's meals.
+TRAIN WITH A PLAN
+• Weekly gym or home workout plan
+• Log sets and exercises
 
-History
-History lists the meals you logged, with averages and a calorie chart. Ranges are a week, a month, three months, or a custom range. Premium can export that history.
+FREE TO START
+Log up to 3 meals a day, scan receipts and try the coach for free.
 
-Premium
-FitMunch Premium is an auto-renewing subscription.
-Monthly: fitmunch_monthly
-Annual: fitmunch_annual
-The price you pay is the price shown on the paywall before you confirm. Payment is charged to your Apple ID account at confirmation of purchase. The subscription renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account is charged for renewal within 24 hours before the end of the current period. You can manage and cancel subscriptions in your App Store account settings after purchase. Restore Purchases is on the paywall and in Settings.
+FITMUNCH PREMIUM
+Unlimited meal logging, full history, unlimited coach and meal plans.
+• Monthly: A$19.99
+• Annual: A$149.99
 
-Premium removes the 3-meal cap for the day you are viewing, and it opens full history and export.
+Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your App Store account settings.
 
-Your data
-Meals and workout logs you enter are stored on the device. The coach, meal plans, and receipt scans use your FitMunch account, so those actions need a connection.
-
-Privacy: https://fitmunch.com.au/privacy
-Terms: https://fitmunch.com.au/terms
+Made in Australia by Develoop.
+Terms: https://www.fitmunch.com.au/terms
+Privacy: https://www.fitmunch.com.au/privacy
 Support: support@fitmunch.com.au
-
 END PASTE
 
-Description characters: 2611 / 4000
-Counted from the first character after the DESCRIPTION PASTE line through the support email, with the trailing newline removed.
+Description characters: 1541 / 4000
 
 
-SCREENSHOTS
-Real SwiftUI captures from the iOS App Store screenshots workflow, with a benefit headline added on the frame. Not HTML mockups.
+SCREENSHOT CAPTIONS
+These are the storyboard headlines in scripts/frame-appstore-screenshots.py. They do not cite supermarket prices, savings dollar figures, specials, or catalogue dates.
 
-iPhone 6.7 inch and 6.9 inch slot: 1290 x 2796
-docs/app-store/screenshots/iphone-1290x2796/
+01-scan.png
+Scan your shop. Know your macros.
 
-13 inch iPad slot: 2064 x 2752
-docs/app-store/screenshots/ipad-2064x2752/
-
-Build 9 is an iPhone app (TARGETED_DEVICE_FAMILY 1). The iPad frames are that same app running in iPad compatibility mode.
-
-01-home.png
-See today's calories and macros
-
-02-coach.png
-Ask what to eat after training
+02-home.png
+Hit your protein. Every day.
 
 03-meals.png
-Plan a high-protein week
+High-protein week, built from your shop.
 
-04-workout.png
-A weekly gym or home plan
+04-coach.png
+Ask your AI coach anything.
 
-05-scan.png
-Scan a Woolies or Coles receipt
+05-workout.png
+Train with a plan that fits your week.
 
-06-history.png
-Look back across the week
+06-start.png
+Free to start. Built in Australia.
 
-07-settings.png
-Metric units and notifications
-
-The scan headline says Woolies because that is the word on the Scan screen. The listing uses Woolworths, which is the same shop.
+The framed sample under docs/app-store/pipeline-test/ is stamped pipeline test, not for upload. There is no shopping-list frame.
 
 
 DO NOT CLAIM
 These are true of build 9 and must stay out of the public text.
 
-The two subscriptions have no introductory offer in FitMunchProducts.storekit. The create-account line about a 14-day Premium trial is account-screen copy. It is not the App Store offer, so this listing does not mention a trial.
+The two subscriptions have no introductory offer in FitMunchProducts.storekit. Do not mention a trial.
 
-Info.plist contains Health usage strings. No Swift code calls HealthKit. Steps are the in-app +1,000 control. There is no Apple Watch target.
+Info.plist contains Health usage strings. No Swift code calls HealthKit. There is no Apple Watch target. Do not mention steps, barcode scan, restaurants, Apple Health, or a user count.
 
 Continue on the web opens fitmunch.com.au in Safari. There is no Link payment in the app.
 
-The StoreKit file lists reference prices of 19.99 a month and 149.99 a year. The paywall shows the App Store price for the storefront. Do not replace the description with one hard-coded charge.
+The description states the App Store subscription prices only: Monthly A$19.99 and Annual A$149.99. Do not add a supermarket price, a weekly equivalent, or a savings dollar figure.
 
-The annual card can show a fixed Save 20% label. This listing does not repeat that label.
+Do not cite specials or a catalogue date.
 
-There is no shopping-list screen in the iOS app. Do not add one to the screenshots.
+There is no shopping-list screen in the iOS app. Do not add one to the screenshots. The listing still says FitMunch builds your list split by store, and that you check prices at checkout.
 
 Do not add ratings, download counts, testimonials, or a medical claim.
