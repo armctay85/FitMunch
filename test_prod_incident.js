@@ -1,5 +1,6 @@
+const fs = require('fs');
 const { handleIncident, shouldSendDownEmail, emailMarker, redact } = require('./scripts/lib/prod-incident');
-const { runProbe } = require('./scripts/prod-uptime-probe');
+const { runProbe, buildSmokeArgs, missingNames } = require('./scripts/prod-uptime-probe');
 
 function githubDouble(openIssues) {
   const calls = [];
@@ -94,12 +95,43 @@ describe('production incidents', () => {
   it('exits success and names missing configuration', async () => {
     const logs = [];
     const result = await runProbe({
-      env: {},
+      env: { SMOKE_CHECKS: 'full' },
       log: (line) => logs.push(line),
       smoke: async () => { throw new Error('should not probe'); },
     });
     expect(result.exitCode).toBe(0);
     expect(logs.join('\n')).toContain('SMOKE_TOKEN');
     expect(logs.join('\n')).toContain('::warning::');
+  });
+
+  it('defaults the uptime probe to health and keeps checkout smoke opt-in', () => {
+    expect(missingNames({})).toEqual([]);
+    expect(buildSmokeArgs({}).checks).toBe('health');
+    expect(buildSmokeArgs({}).args).toContain('health');
+    expect(buildSmokeArgs({ SMOKE_CHECKS: 'full' }).checks).toBe('full');
+    expect(missingNames({ SMOKE_CHECKS: 'full' })).toEqual(expect.arrayContaining(['SMOKE_TOKEN', 'SMOKE_USER_EMAIL', 'SMOKE_USER_PASSWORD']));
+    const yaml = fs.readFileSync('.github/workflows/prod-uptime-probe.yml', 'utf8');
+    expect(yaml).toContain('*/5 * * * *');
+    expect(yaml).toContain('12 * * * *');
+    expect(yaml).toContain('checks=health');
+    expect(yaml).toContain('checks=full');
+    const rollback = fs.readFileSync('.github/workflows/prod-smoke-rollback.yml', 'utf8');
+    expect(rollback).toContain('SMOKE_AUTO_ROLLBACK');
+    expect(rollback).toContain('*-armctay85s-projects.vercel.app');
+  });
+
+  it('runs a health check without smoke credentials', async () => {
+    let called = false;
+    const github = githubDouble([]);
+    const result = await runProbe({
+      env: {},
+      now: Date.parse('2026-10-03T03:00:00Z'),
+      smoke: async () => { called = true; return { code: 0, log: '' }; },
+      github,
+      fetch: async () => ({ ok: true, text: async () => '', status: 200 }),
+      log: () => {},
+    });
+    expect(called).toBe(true);
+    expect(result.exitCode).toBe(0);
   });
 });

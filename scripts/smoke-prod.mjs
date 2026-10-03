@@ -12,11 +12,14 @@ function parseArgs(argv, env) {
   const out = {
     target: env.SMOKE_TARGET_URL || '',
     mode: env.SMOKE_MODE || 'probe',
+    checks: env.SMOKE_CHECKS || 'full',
   };
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--target') out.target = argv[++i] || '';
     else if (argv[i] === '--mode') out.mode = argv[++i] || out.mode;
+    else if (argv[i] === '--checks') out.checks = argv[++i] || out.checks;
   }
+  out.checks = String(out.checks || 'full').toLowerCase() === 'health' ? 'health' : 'full';
   return out;
 }
 
@@ -55,6 +58,32 @@ function bypassHeaders(target, env) {
   };
 }
 
+function requestTimeout() {
+  const value = Number(process.env.SMOKE_REQUEST_TIMEOUT_MS);
+  return Number.isFinite(value) && value > 0 ? value : 15000;
+}
+
+function safeErrorCode(value) {
+  const text = String(value || '').trim();
+  if (/^[a-z0-9_]+$/.test(text) && text.length <= 64) return text;
+  return '';
+}
+
+function smokeCheckoutReason(status, errorText) {
+  const code = safeErrorCode(errorText);
+  if (status === 503 && code === 'smoke_misconfigured') return 'smoke-checkout 503 smoke_misconfigured';
+  if (code) return `smoke-checkout ${status} ${code}`;
+  return `smoke-checkout ${status}`;
+}
+
+function failureExit(name, result) {
+  const reason = String((result && result.reason) || '');
+  if (name === 'login' && /^login (401|403)$/.test(reason)) return 2;
+  if (name === 'smoke-checkout' && /^smoke-checkout (401|403|404)(\s|$)/.test(reason)) return 2;
+  if (name === 'smoke-checkout' && reason === 'smoke-checkout 503 smoke_misconfigured') return 2;
+  return 1;
+}
+
 async function requestOnce(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -73,7 +102,7 @@ function parseJson(text) {
 }
 
 async function checkHealth(target, headers) {
-  const response = await requestOnce(`${target}/api/health`, { method: 'GET', headers }, 15000);
+  const response = await requestOnce(`${target}/api/health`, { method: 'GET', headers }, requestTimeout());
   if (isVercelWall(response.status, response.text)) {
     return { ok: false, reason: 'behind Vercel Authentication: set VERCEL_AUTOMATION_BYPASS_SECRET' };
   }
@@ -85,7 +114,7 @@ async function checkHealth(target, headers) {
 }
 
 async function checkHome(target, headers) {
-  const response = await requestOnce(target.endsWith('/') ? target : `${target}/`, { method: 'GET', headers }, 15000);
+  const response = await requestOnce(target.endsWith('/') ? target : `${target}/`, { method: 'GET', headers }, requestTimeout());
   if (isVercelWall(response.status, response.text)) {
     return { ok: false, reason: 'behind Vercel Authentication: set VERCEL_AUTOMATION_BYPASS_SECRET' };
   }
@@ -99,7 +128,7 @@ async function checkLogin(target, headers, env) {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: env.SMOKE_USER_EMAIL, password: env.SMOKE_USER_PASSWORD }),
-  }, 15000);
+  }, requestTimeout());
   if (isVercelWall(response.status, response.text)) {
     return { ok: false, reason: 'behind Vercel Authentication: set VERCEL_AUTOMATION_BYPASS_SECRET' };
   }
@@ -120,12 +149,12 @@ async function checkSmokeCheckout(target, headers, env, bearer) {
       'x-fitmunch-smoke-token': env.SMOKE_TOKEN,
     },
     body: '{}',
-  }, 15000);
+  }, requestTimeout());
   const body = parseJson(response.text) || {};
   const url = String(body.url || '');
   const session = String(body.session || '');
   if (response.status !== 200 || body.ok !== true || body.mode !== 'live') {
-    return { ok: false, reason: `smoke-checkout ${response.status} ${redact(body.error || '')}` };
+    return { ok: false, reason: smokeCheckoutReason(response.status, body.error) };
   }
   if (!url.startsWith(CHECKOUT_PREFIX)) return { ok: false, reason: 'smoke-checkout url was not Checkout' };
   if (!session.startsWith('cs_live_')) return { ok: false, reason: 'smoke-checkout session was not live' };
@@ -137,7 +166,7 @@ async function checkNegative(target, headers, path) {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: '{}',
-  }, 15000);
+  }, requestTimeout());
   if (response.status >= 500) return { ok: false, reason: `${path} returned ${response.status}` };
   if (response.status < 400) return { ok: false, reason: `${path} returned ${response.status}` };
   if (/https:\/\/checkout\.stripe\.com/i.test(response.text || '')) {
@@ -171,7 +200,7 @@ async function withColdStart(name, fn, backoffs) {
 async function main() {
   const env = process.env;
   const args = parseArgs(process.argv, env);
-  const missing = missingNames(env);
+  const missing = args.checks === 'health' ? [] : missingNames(env);
   if (!args.target) missing.push('SMOKE_TARGET_URL');
   if (missing.length) {
     console.log(`SMOKE not configured. Missing: ${missing.join(', ')}`);
@@ -202,23 +231,29 @@ async function main() {
   }
 
   const health = await withColdStart('health', () => checkHealth(target, headers), backoffs);
-  if (!await record('health', health)) return finish(1, args, host, checks);
+  await record('health', health);
+  if (!health.ok) return finish(failureExit('health', health), args, host, checks);
+  if (args.checks === 'health') return finish(0, args, host, checks);
+
   const home = await withColdStart('home', () => checkHome(target, headers), backoffs);
-  if (!await record('home', home)) return finish(1, args, host, checks);
+  await record('home', home);
+  if (!home.ok) return finish(failureExit('home', home), args, host, checks);
 
   const loginStarted = Date.now();
   let login;
   try { login = await checkLogin(target, headers, env); }
   catch (err) { login = { ok: false, reason: err && err.name === 'AbortError' ? 'login timeout' : 'login failed' }; }
   login.ms = Date.now() - loginStarted;
-  if (!await record('login', login)) return finish(1, args, host, checks);
+  await record('login', login);
+  if (!login.ok) return finish(failureExit('login', login), args, host, checks);
 
   const checkoutStarted = Date.now();
   let checkout;
   try { checkout = await checkSmokeCheckout(target, headers, env, login.token); }
   catch (err) { checkout = { ok: false, reason: err && err.name === 'AbortError' ? 'smoke-checkout timeout' : 'smoke-checkout failed' }; }
   checkout.ms = Date.now() - checkoutStarted;
-  if (!await record('smoke-checkout', checkout)) return finish(1, args, host, checks);
+  await record('smoke-checkout', checkout);
+  if (!checkout.ok) return finish(failureExit('smoke-checkout', checkout), args, host, checks);
 
   for (const path of ['/api/quick-checkout', '/api/coach/checkout']) {
     const started = Date.now();
@@ -227,7 +262,8 @@ async function main() {
     catch (err) { negative = { ok: false, reason: 'negative check failed' }; }
     negative.ms = Date.now() - started;
     const name = path === '/api/quick-checkout' ? 'quick-checkout' : 'coach-checkout';
-    if (!await record(name, negative)) return finish(1, args, host, checks);
+    await record(name, negative);
+    if (!negative.ok) return finish(failureExit(name, negative), args, host, checks);
   }
 
   return finish(0, args, host, checks);

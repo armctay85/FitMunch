@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const request = require('supertest');
 
 const SKIP = new Set([
   'privacy.html',
@@ -18,7 +19,8 @@ function htmlFiles(dir, prefix) {
   return found;
 }
 
-function loadAnalytics(pathname) {
+function loadAnalytics(pathname, options) {
+  const opts = options || {};
   const created = [];
   const document = {
     createElement() {
@@ -30,14 +32,25 @@ function loadAnalytics(pathname) {
     documentElement: { appendChild() {} },
   };
   const window = {
-    location: { pathname, origin: 'https://www.fitmunch.com.au' },
+    location: {
+      pathname,
+      search: opts.search || '',
+      origin: 'https://www.fitmunch.com.au',
+    },
     document,
   };
+  if (opts.analytics === true) window.FM_WEB_ANALYTICS = 1;
+  else if (opts.analytics === false) window.FM_WEB_ANALYTICS = 0;
+  const fetchImpl = opts.fetch || (async () => ({
+    ok: true,
+    json: async () => ({ webAnalytics: false }),
+  }));
   const context = vm.createContext({
     window,
     document,
     location: window.location,
     URL,
+    fetch: fetchImpl,
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'public/js/fm-va.js'), 'utf8'), context);
   const beforeSend = Array.from(window.vaq || []).find((args) => args[0] === 'beforeSend');
@@ -73,8 +86,60 @@ describe('Vercel Web Analytics snippet', () => {
     expect(loader).not.toContain('https://va.vercel-scripts.com');
   });
 
+  it('does not inject the insights script when the flag is off', async () => {
+    const explicit = loadAnalytics('/pricing', { analytics: false });
+    expect(explicit.created).toEqual([]);
+    expect(explicit.beforeSend).toBeUndefined();
+
+    const fromConfig = loadAnalytics('/', {
+      fetch: async () => ({ ok: true, json: async () => ({ webAnalytics: false }) }),
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(fromConfig.created).toEqual([]);
+  });
+
+  it('exposes the flag from the server and keeps it off by default', async () => {
+    const app = require('./server');
+    const previous = process.env.FM_WEB_ANALYTICS;
+    delete process.env.FM_WEB_ANALYTICS;
+    const off = await request(app).get('/api/public-config');
+    expect(off.status).toBe(200);
+    expect(off.body).toEqual({ webAnalytics: false });
+    process.env.FM_WEB_ANALYTICS = '1';
+    const on = await request(app).get('/api/public-config');
+    expect(on.body).toEqual({ webAnalytics: true });
+    if (previous == null) delete process.env.FM_WEB_ANALYTICS;
+    else process.env.FM_WEB_ANALYTICS = previous;
+
+    const home = await request(app).get('/');
+    expect(home.text).toContain('/js/fm-va.js');
+    expect(home.text).not.toContain('/_vercel/insights/script.js');
+  });
+
+  it('blocks reset links on /login and /login.html on load and beforeSend', () => {
+    for (const pathname of ['/login', '/login.html']) {
+      const page = loadAnalytics(pathname, { analytics: true, search: '?reset=secret-token' });
+      expect(page.created).toHaveLength(0);
+      expect(page.beforeSend({
+        url: `https://www.fitmunch.com.au${pathname}?reset=secret-token`,
+      })).toBeNull();
+    }
+    const withReset = loadAnalytics('/login', { analytics: true, search: '?plan=premium&reset=abc' });
+    expect(withReset.created).toHaveLength(0);
+    expect(withReset.beforeSend({
+      url: 'https://www.fitmunch.com.au/login.html?foo=1&reset=abc',
+    })).toBeNull();
+
+    const login = loadAnalytics('/login.html', { analytics: true, search: '?plan=premium' });
+    expect(login.created).toHaveLength(1);
+    expect(login.created[0].src).toBe('/_vercel/insights/script.js');
+    expect(login.beforeSend({
+      url: 'https://www.fitmunch.com.au/login.html?plan=premium',
+    }).url).toBe('https://www.fitmunch.com.au/login.html');
+  });
+
   it('strips query and hash, and drops authenticated or token pages', () => {
-    const pricing = loadAnalytics('/pricing');
+    const pricing = loadAnalytics('/pricing', { analytics: true });
     expect(pricing.created).toHaveLength(1);
     expect(pricing.created[0].src).toBe('/_vercel/insights/script.js');
     expect(typeof pricing.created[0].onerror).toBe('function');
@@ -95,7 +160,7 @@ describe('Vercel Web Analytics snippet', () => {
       '/c/share-token',
     ];
     for (const pathname of blocked) {
-      const page = loadAnalytics(pathname);
+      const page = loadAnalytics(pathname, { analytics: true });
       expect(page.created).toHaveLength(0);
       expect(page.beforeSend({ url: `https://www.fitmunch.com.au${pathname}?session_id=cs_live_secret` })).toBeNull();
     }

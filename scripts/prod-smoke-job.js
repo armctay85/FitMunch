@@ -5,9 +5,12 @@
  * is the live alias. A protection-bypass secret is optional and is only used
  * when a preview host is smoked on purpose.
  *
- * Automatic rollback targets the newest READY production deployment created
- * before the failing one. Pro can also roll back to any earlier production
- * deployment when workflow_dispatch passes deployment_id.
+ * Automatic rollback is off unless SMOKE_AUTO_ROLLBACK=on. When it is on, a
+ * real smoke failure (exit 1) rolls back to the newest READY production
+ * deployment older than the failing one that is not the current alias.
+ * A deployment that previously passed prod-smoke is preferred. Setup errors
+ * (exit 2), an unresolved target, or a target equal to the current deploy
+ * notify only.
  */
 
 const { spawn } = require('child_process');
@@ -53,6 +56,78 @@ function emailTo(env) {
 
 function prodUrl(env) {
   return env.PROD_URL || 'https://www.fitmunch.com.au';
+}
+
+function autoRollbackEnabled(env) {
+  const raw = String((env && env.SMOKE_AUTO_ROLLBACK) || 'off').trim().toLowerCase();
+  return raw === 'on' || raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function isAllowlistedDeploymentUrl(value) {
+  let parsed;
+  try { parsed = new URL(value); } catch (_) { return false; }
+  if (parsed.protocol !== 'https:') return false;
+  if (parsed.username || parsed.password) return false;
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'fitmunch.com.au' || host === 'www.fitmunch.com.au') return true;
+  const suffix = '-armctay85s-projects.vercel.app';
+  if (!host.endsWith(suffix) || host.length <= suffix.length) return false;
+  return /^[a-z0-9-]+$/.test(host.slice(0, -suffix.length));
+}
+
+function gitSha(row) {
+  const meta = (row && row.meta) || {};
+  return String(meta.githubCommitSha || '');
+}
+
+function chooseRollbackTarget(client, list, failing, alias, passedShas) {
+  const failingId = client.deploymentId(failing);
+  const aliasId = client.deploymentId(alias);
+  if (!failingId || !aliasId || !client.deploymentCreated(failing)) return null;
+  const candidates = client.priorProductionDeployments(list, failing).filter((row) => {
+    const id = client.deploymentId(row);
+    return id && id !== failingId && id !== aliasId;
+  });
+  if (!candidates.length) return null;
+  if (passedShas && passedShas.size) {
+    const passed = candidates.filter((row) => {
+      const sha = gitSha(row);
+      return Boolean(sha) && (passedShas.has(sha) || passedShas.has(sha.slice(0, 7)));
+    });
+    if (passed.length) return passed[0];
+  }
+  return candidates[0];
+}
+
+async function loadSmokePasses(fetchImpl, env, candidates) {
+  const passed = new Set();
+  const token = env.GITHUB_TOKEN;
+  const repo = env.GITHUB_REPOSITORY;
+  if (!token || !repo || typeof fetchImpl !== 'function') return passed;
+  for (const row of candidates) {
+    const sha = gitSha(row);
+    if (!sha) continue;
+    try {
+      const response = await fetchImpl(
+        `https://api.github.com/repos/${repo}/commits/${encodeURIComponent(sha)}/status`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'fitmunch-prod-smoke',
+          },
+        }
+      );
+      if (!response || !response.ok || typeof response.text !== 'function') continue;
+      const body = JSON.parse(await response.text());
+      const statuses = (body && body.statuses) || (Array.isArray(body) ? body : []);
+      const mine = statuses.find((item) => item && item.context === 'prod-smoke');
+      if (mine && mine.state === 'success') passed.add(sha);
+    } catch (_) {
+      /* unknown smoke history falls through to a non-alias prior deploy */
+    }
+  }
+  return passed;
 }
 
 async function runSmokeCommand(options, deps) {
@@ -316,7 +391,14 @@ async function runProdSmokeJob(event, deps) {
     }
   }
 
-  const smokeTarget = (name === 'workflow_dispatch' && inputs.deployment_url) || prodUrl(env);
+  let smokeTarget = prodUrl(env);
+  if (name === 'workflow_dispatch' && inputs.deployment_url) {
+    if (!isAllowlistedDeploymentUrl(inputs.deployment_url)) {
+      log('Refusing deployment_url outside fitmunch.com.au and *-armctay85s-projects.vercel.app. Smoke credentials were not sent.');
+      return { exitCode: 1, rollback: false, reason: 'deployment-url-rejected' };
+    }
+    smokeTarget = inputs.deployment_url;
+  }
   const smoke = await runSmokeCommand({
     target: smokeTarget,
     mode: name === 'deployment_status' ? 'deploy' : 'probe',
@@ -325,6 +407,11 @@ async function runProdSmokeJob(event, deps) {
 
   if (smoke.code === 2) {
     await postStatus('error', 'not configured');
+    await notify(helpers, env, {
+      title: `PROD SMOKE NOT CONFIGURED${sha ? `: ${shortSha(sha)}` : ''}`,
+      body: 'Smoke exited 2 (not configured). No rollback was attempted.',
+      repeatEmail: false,
+    });
     return { exitCode: 0, rollback: false, missing: true };
   }
   if (smoke.code === 0) {
@@ -355,6 +442,17 @@ async function runProdSmokeJob(event, deps) {
   }
 
   const resultJson = smoke.result ? JSON.stringify(smoke.result) : '{}';
+  if (!autoRollbackEnabled(env)) {
+    const description = 'SMOKE_AUTO_ROLLBACK is off. Alert only, no rollback.';
+    log(description);
+    await postStatus('failure', 'Smoke failed, auto-rollback is off');
+    await notify(helpers, env, {
+      title: `PROD DEPLOY FAILED SMOKE: ${shortSha(sha)} auto-rollback off`,
+      body: `${description}\n\n${resultJson}`,
+      repeatEmail: false,
+    });
+    return { exitCode: 1, rollback: false, reason: 'rollback-off' };
+  }
   if (!env.VERCEL_TOKEN) {
     const description = 'AUTO-ROLLBACK NOT CONFIGURED - roll back manually in Vercel > fit-munch > Deployments';
     log(description);
@@ -366,22 +464,65 @@ async function runProdSmokeJob(event, deps) {
     });
     return { exitCode: 1, rollback: false, reason: 'no-token' };
   }
+  if (!failing || !client.deploymentId(failing) || !client.deploymentCreated(failing)) {
+    const description = 'Failing deployment could not be resolved. Not rolling back.';
+    log(description);
+    await postStatus('failure', 'Smoke failed, failing deployment unresolved');
+    await notify(helpers, env, {
+      title: `PROD DEPLOY FAILED SMOKE: ${shortSha(sha)} deployment unresolved`,
+      body: `${description}\n\n${resultJson}`,
+      repeatEmail: false,
+    });
+    return { exitCode: 1, rollback: false, reason: 'unresolved-deployment' };
+  }
+
+  let alias = null;
+  try {
+    alias = await client.getProductionAlias(helpers.fetch, {
+      token: env.VERCEL_TOKEN,
+      teamId: env.VERCEL_TEAM_ID,
+    });
+  } catch (_) {
+    alias = null;
+  }
+  if (!alias || !client.deploymentId(alias)) {
+    const description = 'Current production alias could not be resolved. Not rolling back.';
+    log(description);
+    await postStatus('failure', 'Smoke failed, production alias unresolved');
+    await notify(helpers, env, {
+      title: `PROD DEPLOY FAILED SMOKE: ${shortSha(sha)} alias unresolved`,
+      body: `${description}\n\n${resultJson}`,
+      repeatEmail: false,
+    });
+    return { exitCode: 1, rollback: false, reason: 'unresolved-alias' };
+  }
 
   const list = await client.listProductionDeployments(helpers.fetch, {
     token: env.VERCEL_TOKEN,
     teamId: env.VERCEL_TEAM_ID,
     projectId: env.VERCEL_PROJECT_ID,
   });
-  const target = client.findRollbackTarget(list, failing || { id: '', created: Date.now() });
-  if (!target) {
-    log('No earlier production deployment to roll back to.');
-    await postStatus('failure', 'Smoke failed and no rollback target was found');
+  const failingId = client.deploymentId(failing);
+  const aliasId = client.deploymentId(alias);
+  const candidates = client.priorProductionDeployments(list, failing).filter((row) => {
+    const id = client.deploymentId(row);
+    return id && id !== failingId && id !== aliasId;
+  });
+  const passedShas = await loadSmokePasses(helpers.fetch, env, candidates);
+  const target = chooseRollbackTarget(client, list, failing, alias, passedShas);
+  const targetId = client.deploymentId(target);
+  if (!target || !targetId || targetId === failingId || targetId === aliasId) {
+    const description = targetId && (targetId === failingId || targetId === aliasId)
+      ? 'Refusing to roll back to the current or failing deployment.'
+      : 'No earlier production deployment to roll back to.';
+    log(description);
+    await postStatus('failure', 'Smoke failed and no safe rollback target was found');
     await notify(helpers, env, {
       title: `PROD DEPLOY FAILED SMOKE: ${shortSha(sha)} no rollback target`,
-      body: resultJson,
+      body: `${description}\n\n${resultJson}`,
       repeatEmail: false,
     });
-    return { exitCode: 1, rollback: false };
+    return { exitCode: 1, rollback: false, reason: targetId ? 'rollback-target-is-current' : 'unresolved-target' };
   }
 
   await client.requestRollback(helpers.fetch, {
@@ -454,5 +595,8 @@ module.exports = {
   runProdSmokeJob,
   missingSmokeConfig,
   isFitMunchProduction,
+  isAllowlistedDeploymentUrl,
+  autoRollbackEnabled,
+  chooseRollbackTarget,
   PROD_ENVIRONMENTS,
 };

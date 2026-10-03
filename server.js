@@ -200,6 +200,17 @@ const apiLimiter = rateLimit({
   keyGenerator: rateLimitKey,
 });
 
+function webAnalyticsEnabled() {
+  const raw = String(process.env.FM_WEB_ANALYTICS || '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+}
+
+// Public flag for fm-va.js. Default off, so pages do not load Vercel Web Analytics.
+app.get('/api/public-config', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ webAnalytics: webAnalyticsEnabled() });
+});
+
 app.use('/api/', apiLimiter);
 
 // Strict limiter ONLY on login + register — NOT on /me (called on every page load)

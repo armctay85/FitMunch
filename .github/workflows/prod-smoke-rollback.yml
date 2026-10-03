@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       deployment_url:
-        description: Optional URL. Production domain by default. A vercel.app host is smoked only when the optional bypass secret is set.
+        description: Optional https URL on fitmunch.com.au, www.fitmunch.com.au, or *-armctay85s-projects.vercel.app. Other hosts are refused so smoke credentials are not sent elsewhere.
         required: false
         type: string
       action:
@@ -57,6 +57,7 @@ jobs:
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       RESEND_FROM: ${{ secrets.RESEND_FROM }}
       ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO }}
+      SMOKE_AUTO_ROLLBACK: ${{ vars.SMOKE_AUTO_ROLLBACK }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_REPOSITORY: ${{ github.repository }}
     steps:

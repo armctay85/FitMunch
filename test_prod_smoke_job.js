@@ -1,4 +1,6 @@
-const { runProdSmokeJob } = require('./scripts/prod-smoke-job');
+const fs = require('fs');
+const ops = require('./scripts/lib/vercel-deploy-ops');
+const { runProdSmokeJob, chooseRollbackTarget, isAllowlistedDeploymentUrl, autoRollbackEnabled } = require('./scripts/prod-smoke-job');
 
 const TOKEN = 'super-secret-token-value';
 
@@ -72,6 +74,10 @@ function harness(overrides) {
   };
 }
 
+function rollbackPosts(calls) {
+  return calls.filter((call) => call.method === 'POST' && String(call.url).includes('/rollback/'));
+}
+
 function prodEvent(extra) {
   return {
     event_name: 'deployment_status',
@@ -106,7 +112,7 @@ describe('production smoke job', () => {
     expect(box.statuses.some((status) => status.state === 'success')).toBe(true);
   });
 
-  it('rolls back to the previous production deployment when smoke fails', async () => {
+  it('rolls back to the previous production deployment when smoke fails and auto-rollback is on', async () => {
     let n = 0;
     const box = harness({
       smoke: async () => {
@@ -116,6 +122,7 @@ describe('production smoke job', () => {
           : { code: 0, result: { ok: true }, log: '' };
       },
     });
+    box.deps.env.SMOKE_AUTO_ROLLBACK = 'on';
     const result = await runProdSmokeJob(prodEvent(), box.deps);
     expect(result.rollback).toBe(true);
     expect(result.target).toBe('dpl_old');
@@ -193,5 +200,197 @@ describe('production smoke job', () => {
     }, box.deps);
     expect(result.skipped).toBe(true);
     expect(result.exitCode).toBe(0);
+  });
+
+  it.each([
+    'login 401',
+    'login 403',
+    'smoke-checkout 401',
+    'smoke-checkout 403',
+    'smoke-checkout 404',
+    'smoke-checkout 503 smoke_misconfigured',
+  ])('does not roll back when smoke exits 2 (%s)', async (reason) => {
+    const box = harness({
+      smoke: async () => ({
+        code: 2,
+        result: { ok: false, checks: [{ name: 'login', ok: false, reason }] },
+        log: reason,
+      }),
+    });
+    box.deps.env.SMOKE_AUTO_ROLLBACK = 'on';
+    const result = await runProdSmokeJob(prodEvent(), box.deps);
+    expect(result.rollback).toBe(false);
+    expect(rollbackPosts(box.calls)).toEqual([]);
+    expect(box.notices.length).toBeGreaterThan(0);
+    expect(box.notices[0].body).toContain('exited 2');
+  });
+
+  it('does not roll back when the failing deployment cannot be resolved', async () => {
+    const box = harness({
+      smoke: async () => ({ code: 1, result: { ok: false, checks: [{ name: 'health', ok: false, reason: 'health 500' }] }, log: '' }),
+      fetch: async (url, options = {}) => {
+        const method = options.method || 'GET';
+        if (method === 'POST' && String(url).includes('/rollback/')) throw new Error('rollback posted');
+        if (String(url).includes('fit-munch-abc.vercel.app')) {
+          const error = new Error('not found');
+          error.status = 404;
+          throw error;
+        }
+        return json({}, 404);
+      },
+    });
+    box.deps.env.SMOKE_AUTO_ROLLBACK = 'on';
+    const result = await runProdSmokeJob(prodEvent(), box.deps);
+    expect(result.rollback).toBe(false);
+    expect(result.reason).toBe('unresolved-deployment');
+    expect(box.notices.length).toBeGreaterThan(0);
+    expect(box.notices[0].title).toContain('unresolved');
+  });
+
+  it('does not roll back when the prior deploy is the current alias', async () => {
+    let aliasReads = 0;
+    const posts = [];
+    const box = harness({
+      smoke: async () => ({ code: 1, result: { ok: false, checks: [{ name: 'health', ok: false, reason: 'health 500' }] }, log: '' }),
+      fetch: async (url, options = {}) => {
+        const method = options.method || 'GET';
+        const href = String(url);
+        if (method === 'POST' && href.includes('/rollback/')) {
+          posts.push(href);
+          return json({});
+        }
+        if (href.includes('/api/health')) return json({ success: true });
+        if (href.includes('fit-munch-abc.vercel.app')) {
+          return json({ id: 'dpl_new', uid: 'dpl_new', created: 300, target: 'production', state: 'READY', meta: { githubCommitSha: 'abcdef0fff' } });
+        }
+        if (href.includes('api.vercel.com') && href.includes('www.fitmunch.com.au')) {
+          aliasReads += 1;
+          const id = aliasReads === 1 ? 'dpl_new' : 'dpl_old';
+          return json({
+            id,
+            uid: id,
+            created: id === 'dpl_new' ? 300 : 200,
+            target: 'production',
+            state: 'READY',
+            meta: { githubCommitSha: id === 'dpl_new' ? 'abcdef0fff' : '1111111aaa' },
+          });
+        }
+        if (href.includes('/v6/deployments')) {
+          return json({
+            deployments: [
+              { uid: 'dpl_new', created: 300, target: 'production', state: 'READY', meta: { githubCommitSha: 'abcdef0fff' } },
+              { uid: 'dpl_old', created: 200, target: 'production', state: 'READY', meta: { githubCommitSha: '1111111aaa' } },
+            ],
+          });
+        }
+        return json({}, 404);
+      },
+    });
+    box.deps.env.SMOKE_AUTO_ROLLBACK = 'on';
+    const result = await runProdSmokeJob(prodEvent(), box.deps);
+    expect(posts).toEqual([]);
+    expect(result.rollback).toBe(false);
+    expect(box.notices.length).toBeGreaterThan(0);
+    expect(chooseRollbackTarget(ops, [
+      { uid: 'dpl_new', created: 300, target: 'production', state: 'READY' },
+      { uid: 'dpl_old', created: 200, target: 'production', state: 'READY' },
+    ], { uid: 'dpl_new', created: 300, target: 'production', state: 'READY' }, { uid: 'dpl_old', created: 200 }, new Set())).toBeNull();
+  });
+
+  it('posts rollback only to the deploy that previously passed smoke', async () => {
+    const posts = [];
+    let n = 0;
+    const box = harness({
+      smoke: async () => {
+        n += 1;
+        return n === 1
+          ? { code: 1, result: { ok: false, checks: [{ name: 'health', ok: false, reason: 'health 500' }] }, log: '' }
+          : { code: 0, result: { ok: true }, log: '' };
+      },
+      fetch: async (url, options = {}) => {
+        const method = options.method || 'GET';
+        const href = String(url);
+        if (method === 'POST' && href.includes('/rollback/')) {
+          posts.push(href);
+          return json({});
+        }
+        if (href.includes('/api/health')) return json({ success: true });
+        if (href.includes('fit-munch-abc.vercel.app')) {
+          return json({ id: 'dpl_new', uid: 'dpl_new', created: 300, target: 'production', state: 'READY', meta: { githubCommitSha: 'abcdef0fffffffffff' } });
+        }
+        if (href.includes('www.fitmunch.com.au')) {
+          return json({ id: 'dpl_new', uid: 'dpl_new', created: 300, target: 'production', state: 'READY', meta: { githubCommitSha: 'abcdef0fffffffffff' } });
+        }
+        if (href.includes('/v6/deployments')) {
+          return json({
+            deployments: [
+              { uid: 'dpl_new', created: 300, target: 'production', state: 'READY', meta: { githubCommitSha: 'abcdef0fffffffffff' } },
+              { uid: 'dpl_recent', created: 200, target: 'production', state: 'READY', meta: { githubCommitSha: '1111111aaaaaaaaaaa' } },
+              { uid: 'dpl_good', created: 100, target: 'production', state: 'READY', meta: { githubCommitSha: '2222222bbbbbbbbbbb' } },
+            ],
+          });
+        }
+        if (href.includes('/commits/2222222bbbbbbbbbbb/status')) {
+          return json({ statuses: [{ context: 'prod-smoke', state: 'success' }] });
+        }
+        if (href.includes('/commits/1111111aaaaaaaaaaa/status')) {
+          return json({ statuses: [{ context: 'prod-smoke', state: 'failure' }] });
+        }
+        return json({}, 404);
+      },
+    });
+    box.deps.env.SMOKE_AUTO_ROLLBACK = 'on';
+    const result = await runProdSmokeJob(prodEvent(), box.deps);
+    expect(result.rollback).toBe(true);
+    expect(result.target).toBe('dpl_good');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain('/rollback/dpl_good');
+    expect(posts[0]).not.toContain('dpl_new');
+    expect(posts[0]).not.toContain('dpl_recent');
+  });
+
+  it('stays alert-only when SMOKE_AUTO_ROLLBACK is off', async () => {
+    const box = harness({
+      smoke: async () => ({ code: 1, result: { ok: false, checks: [{ name: 'health', ok: false, reason: 'health 500' }] }, log: '' }),
+    });
+    expect(autoRollbackEnabled(box.deps.env)).toBe(false);
+    const result = await runProdSmokeJob(prodEvent(), box.deps);
+    expect(result.reason).toBe('rollback-off');
+    expect(result.rollback).toBe(false);
+    expect(rollbackPosts(box.calls)).toEqual([]);
+    expect(box.notices[0].body).toContain('SMOKE_AUTO_ROLLBACK is off');
+  });
+
+  it('refuses a deployment_url outside FitMunch hosts and allows our own', async () => {
+    let smoked = false;
+    let target = '';
+    const blocked = harness({
+      smoke: async () => { smoked = true; return { code: 0, result: {}, log: '' }; },
+    });
+    const refused = await runProdSmokeJob({
+      event_name: 'workflow_dispatch',
+      inputs: { action: 'smoke', deployment_url: 'https://evil.example/phish' },
+    }, blocked.deps);
+    expect(smoked).toBe(false);
+    expect(refused.reason).toBe('deployment-url-rejected');
+    expect(rollbackPosts(blocked.calls)).toEqual([]);
+    expect(isAllowlistedDeploymentUrl('https://www.fitmunch.com.au')).toBe(true);
+    expect(isAllowlistedDeploymentUrl('https://fitmunch.com.au/pricing')).toBe(true);
+    expect(isAllowlistedDeploymentUrl('https://fit-munch-abc-armctay85s-projects.vercel.app')).toBe(true);
+    expect(isAllowlistedDeploymentUrl('http://www.fitmunch.com.au')).toBe(false);
+    expect(isAllowlistedDeploymentUrl('https://evil.fitmunch.com.au')).toBe(false);
+    expect(isAllowlistedDeploymentUrl('https://not-armctay85s-projects.vercel.app.evil.com')).toBe(false);
+
+    const allowed = harness({
+      smoke: async (options) => { target = options.target; return { code: 0, result: { ok: true }, log: '' }; },
+    });
+    const url = 'https://fit-munch-abc123-armctay85s-projects.vercel.app';
+    const result = await runProdSmokeJob({
+      event_name: 'workflow_dispatch',
+      inputs: { action: 'smoke', deployment_url: url },
+    }, allowed.deps);
+    expect(result.exitCode).toBe(0);
+    expect(target).toBe(url);
+    expect(fs.readFileSync('.github/workflows/prod-smoke-rollback.yml', 'utf8')).toContain('SMOKE_AUTO_ROLLBACK');
   });
 });

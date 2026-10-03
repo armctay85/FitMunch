@@ -144,6 +144,24 @@ describe('smoke checkout endpoint', () => {
     expect(stripe.calls.some((call) => call.requestPath.endsWith('/expire'))).toBe(true);
   });
 
+  it('hides internal failures behind smoke_failed and logs the detail server-side', async () => {
+    const errors = [];
+    const spy = jest.spyOn(console, 'error').mockImplementation((line) => errors.push(String(line)));
+    const storage = storageFor({ id: 'user-smoke' });
+    storage.getUserById = async () => { throw new Error('relation "users" does not exist'); };
+    const res = await postSmoke({
+      token: 'correct-token',
+      email: SMOKE_EMAIL,
+      getStripe: () => stripeFactory(liveSession),
+      storage,
+    }, { token: 'correct-token', bearer: sign(SMOKE_EMAIL) });
+    spy.mockRestore();
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ ok: false, error: 'smoke_failed' });
+    expect(JSON.stringify(res.body)).not.toContain('relation');
+    expect(errors.some((line) => line.includes('relation') && line.includes('users') && line.includes('does not exist'))).toBe(true);
+  });
+
   it('does not return a payable URL when expire fails', async () => {
     const stripe = {
       async rawRequest(method, requestPath, params) {

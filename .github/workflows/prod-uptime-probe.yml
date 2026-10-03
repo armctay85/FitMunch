@@ -1,16 +1,26 @@
 name: Production uptime probe
 
-# GitHub cron can start several minutes late. This probe is the backstop for a
-# process that dies before app code runs. In-app email and Vercel alerts are faster
-# for handled 5xx responses.
+# GitHub cron can start several minutes late. Health runs every 5 minutes.
+# The live checkout session runs at most hourly. In-app email and Vercel alerts
+# are faster for handled 5xx responses.
 
 on:
   schedule:
     - cron: "*/5 * * * *"
+    - cron: "12 * * * *"
   workflow_dispatch:
+    inputs:
+      checks:
+        description: health checks /api/health only. full also creates one live checkout session.
+        required: false
+        default: health
+        type: choice
+        options:
+          - health
+          - full
 
 concurrency:
-  group: prod-uptime-probe
+  group: prod-uptime-${{ github.event.schedule == '12 * * * *' && 'checkout' || (github.event.inputs.checks == 'full' && 'checkout' || 'health') }}
   cancel-in-progress: false
 
 permissions:
@@ -38,4 +48,12 @@ jobs:
           ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/prod-uptime-probe.js
+        run: |
+          checks=health
+          if [ "${{ github.event.schedule }}" = "12 * * * *" ]; then
+            checks=full
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.checks }}" = "full" ]; then
+            checks=full
+          fi
+          SMOKE_CHECKS="$checks" node scripts/prod-uptime-probe.js

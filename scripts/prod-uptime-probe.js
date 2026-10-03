@@ -1,6 +1,8 @@
 /**
- * External uptime probe. Retries the production smoke a few times, then
- * opens or updates one GitHub incident. Missing smoke configuration exits 0.
+ * External uptime probe. The default is a health check only. A full probe,
+ * including the live checkout session, runs when SMOKE_CHECKS=full.
+ * Retries a few times, then opens or updates one GitHub incident.
+ * Missing smoke configuration exits 0.
  */
 
 const { spawn } = require('child_process');
@@ -11,19 +13,33 @@ const { formatSydney } = require('./lib/vercel-deploy-ops');
 const TITLE = 'PROD DOWN: fitmunch.com.au smoke failing';
 const REQUIRED = ['SMOKE_USER_EMAIL', 'SMOKE_USER_PASSWORD', 'SMOKE_TOKEN'];
 
+function checksMode(env) {
+  return String((env && env.SMOKE_CHECKS) || 'health').toLowerCase() === 'full' ? 'full' : 'health';
+}
+
 function missingNames(env) {
-  return REQUIRED.filter((name) => !String(env[name] || '').trim());
+  if (checksMode(env) !== 'full') return [];
+  return REQUIRED.filter((name) => !String((env && env[name]) || '').trim());
+}
+
+function buildSmokeArgs(env) {
+  const target = (env && (env.PROD_URL || env.SMOKE_TARGET_URL)) || 'https://www.fitmunch.com.au';
+  const checks = checksMode(env);
+  const args = [
+    path.join(__dirname, 'smoke-prod.mjs'),
+    '--target',
+    target,
+    '--mode',
+    'probe',
+    '--checks',
+    checks,
+  ];
+  return { args, checks };
 }
 
 function runSmokeOnce(env) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [
-      path.join(__dirname, 'smoke-prod.mjs'),
-      '--target',
-      'https://www.fitmunch.com.au',
-      '--mode',
-      'probe',
-    ], { env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, buildSmokeArgs(env).args, { env: { ...process.env, ...env, SMOKE_CHECKS: checksMode(env) }, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     child.stdout.on('data', (chunk) => {
       out += chunk;
@@ -106,4 +122,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runProbe, TITLE, missingNames };
+module.exports = { runProbe, TITLE, missingNames, buildSmokeArgs, checksMode };

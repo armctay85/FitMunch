@@ -1,13 +1,16 @@
 const fs = require('fs');
 const request = require('supertest');
 const express = require('express');
-const { register5xxAlerts, deliverEmail, resetAlertStateForTests, groupFor } = require('./lib/alert-5xx');
+const { register5xxAlerts, deliverEmail, resetAlertStateForTests, groupFor, noteServerError, redactFreeText } = require('./lib/alert-5xx');
 
 function buildApp(options) {
   const app = express();
   register5xxAlerts(app, options);
   app.post('/api/auth/login', (req, res) => {
-    res.locals.fmErrorHint = req.query.hint || 'storage.withStripeCustomerLock is not a function';
+    const err = new Error('storage.withStripeCustomerLock is not a function');
+    err.name = 'TypeError';
+    if (req.query.code) err.code = String(req.query.code);
+    noteServerError(res, err);
     res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
   });
   app.post('/api/quick-checkout', (req, res) => {
@@ -119,7 +122,7 @@ describe('5xx alerts', () => {
     expect(errors.some((line) => line.startsWith('FM_ALERT_5XX '))).toBe(true);
   });
 
-  it('strips secrets and personal data from the email body', async () => {
+  it('sends only the error name and code, with free text redacted', async () => {
     const pending = [];
     const sent = [];
     const app = buildApp({
@@ -128,15 +131,33 @@ describe('5xx alerts', () => {
       waitUntil: (promise) => pending.push(promise),
       send: async (payload) => { sent.push(payload); return true; },
     });
-    await request(app).post('/api/auth/login?hint=' + encodeURIComponent(
-      'user buyer@example.com failed sk_live_abc123 Bearer tok.123 https://pay.example/x?token=secret'
+    await request(app).post('/api/auth/login?code=' + encodeURIComponent(
+      '10.1.2.3 "buyer@example.com" cus_abc123 cs_live_abc pi_123 sub_456 sk_live_abc123'
     ));
     await flush(pending);
-    expect(sent[0].text).not.toContain('@');
+    expect(sent[0].text).toContain('Error: TypeError');
+    expect(sent[0].text).toContain('Code:');
+    expect(sent[0].text).not.toContain('Hint:');
+    expect(sent[0].text).not.toContain('withStripeCustomerLock');
+    expect(sent[0].text).not.toContain('10.1.2.3');
+    expect(sent[0].text).not.toContain('buyer@example.com');
+    expect(sent[0].text).not.toContain('cus_');
+    expect(sent[0].text).not.toContain('cs_');
+    expect(sent[0].text).not.toContain('pi_');
+    expect(sent[0].text).not.toContain('sub_');
     expect(sent[0].text).not.toContain('sk_live_');
-    expect(sent[0].text).not.toContain('Bearer tok');
-    expect(sent[0].text).not.toContain('token=secret');
     expect(sent[0].to).toEqual(['support@fitmunch.com.au']);
+  });
+
+  it('redacts IPs, quoted values, and Stripe ids left in free text', () => {
+    const out = redactFreeText('saw 203.0.113.10 and "secret value" and \'quoted\' cus_abc cs_live_zz pi_1 sub_2');
+    expect(out).not.toContain('203.0.113.10');
+    expect(out).not.toContain('secret value');
+    expect(out).not.toContain('quoted');
+    expect(out).not.toContain('cus_');
+    expect(out).not.toContain('cs_');
+    expect(out).not.toContain('pi_');
+    expect(out).not.toContain('sub_');
   });
 
   it('posts to Resend with an idempotency key and does not throw', async () => {

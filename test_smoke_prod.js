@@ -33,6 +33,7 @@ describe('smoke-prod script', () => {
 
   afterEach((done) => {
     if (!server) return done();
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
     server.close(() => {
       server = null;
       done();
@@ -161,5 +162,123 @@ describe('smoke-prod script', () => {
     });
     expect(ran.code).toBe(0);
     expect(hits).toBeGreaterThanOrEqual(3);
+  });
+
+  function smokeEnv(extra) {
+    return {
+      SMOKE_USER_EMAIL: 'smoke-prod@fitmunch.com.au',
+      SMOKE_USER_PASSWORD: 'super-secret-pass',
+      SMOKE_TOKEN: 'smoke-token-value',
+      ...extra,
+    };
+  }
+
+  async function readyTarget(routes) {
+    const app = express();
+    app.use(express.json());
+    app.get('/api/health', routes.health || ((req, res) => res.json({ success: true })));
+    app.get('/', routes.home || ((req, res) => res.type('html').send('FitMunch')));
+    app.post('/api/auth/login', routes.login || ((req, res) => res.json({ success: true, token: 'tok' })));
+    app.post('/api/internal/smoke/checkout', routes.checkout || ((req, res) => res.json({
+      ok: true, mode: 'live', session: 'cs_live_abcd', url: 'https://checkout.stripe.com/pay/cs_live_abcd',
+    })));
+    app.post('/api/quick-checkout', routes.quick || ((req, res) => res.status(400).json({})));
+    app.post('/api/coach/checkout', routes.coach || ((req, res) => res.status(400).json({})));
+    server = await listen(app);
+    return `http://127.0.0.1:${server.address().port}`;
+  }
+
+  async function closeCurrent() {
+    if (!server) return;
+    await new Promise((resolve) => {
+      if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+      server.close(() => {
+        server = null;
+        resolve();
+      });
+    });
+  }
+
+  it('exits 2 for login 401 and 403', async () => {
+    for (const status of [401, 403]) {
+      const target = await readyTarget({
+        login: (req, res) => res.status(status).json({ success: false, error: 'nope' }),
+      });
+      const ran = await runSmoke(['--target', target], smokeEnv());
+      expect(ran.code).toBe(2);
+      expect(ran.out).toContain(`login ${status}`);
+      await closeCurrent();
+    }
+  });
+
+  it('exits 2 for smoke-checkout 401, 403, 404, and 503 smoke_misconfigured', async () => {
+    const cases = [
+      [401, { ok: false, error: 'unauthorized' }],
+      [403, { ok: false, error: 'forbidden' }],
+      [404, { ok: false, error: 'Not found' }],
+      [503, { ok: false, error: 'smoke_misconfigured', missing: ['stripe'] }],
+    ];
+    for (const [status, body] of cases) {
+      const target = await readyTarget({
+        checkout: (req, res) => res.status(status).json(body),
+      });
+      const ran = await runSmoke(['--target', target], smokeEnv());
+      expect(ran.code).toBe(2);
+      expect(ran.out).toContain(`smoke-checkout ${status}`);
+      if (status === 503) expect(ran.out).toContain('smoke_misconfigured');
+      expect(ran.out).not.toContain('relation');
+      await closeCurrent();
+    }
+  });
+
+  it('exits 1 for health failure, home failure, checkout 5xx, and timeout', async () => {
+    const health = await readyTarget({
+      health: (req, res) => res.status(500).json({ success: false }),
+    });
+    const healthRun = await runSmoke(['--target', health, '--checks', 'health'], smokeEnv({ SMOKE_BACKOFF_MS: '0' }));
+    expect(healthRun.code).toBe(1);
+    expect(healthRun.out).toContain('health 500');
+    await closeCurrent();
+
+    const home = await readyTarget({
+      home: (req, res) => res.status(500).type('html').send('down'),
+    });
+    const homeRun = await runSmoke(['--target', home], smokeEnv());
+    expect(homeRun.code).toBe(1);
+    expect(homeRun.out).toContain('home 500');
+    await closeCurrent();
+
+    const checkout = await readyTarget({
+      checkout: (req, res) => res.status(500).json({ ok: false, error: 'relation "users" does not exist' }),
+    });
+    const checkoutRun = await runSmoke(['--target', checkout], smokeEnv());
+    expect(checkoutRun.code).toBe(1);
+    expect(checkoutRun.out).toContain('smoke-checkout 500');
+    expect(checkoutRun.out).not.toContain('relation');
+    await closeCurrent();
+
+    const hanging = express();
+    hanging.get('/api/health', () => {});
+    server = await listen(hanging);
+    const timed = await runSmoke(
+      ['--target', `http://127.0.0.1:${server.address().port}`, '--checks', 'health'],
+      { SMOKE_REQUEST_TIMEOUT_MS: '150', SMOKE_BACKOFF_MS: '0' }
+    );
+    expect(timed.code).toBe(1);
+    expect(timed.out).toContain('timeout');
+  });
+
+  it('checks health only and does not call login or checkout', async () => {
+    let login = 0;
+    let checkout = 0;
+    const target = await readyTarget({
+      login: (req, res) => { login += 1; res.status(500).json({}); },
+      checkout: (req, res) => { checkout += 1; res.status(500).json({}); },
+    });
+    const ran = await runSmoke(['--target', target, '--checks', 'health'], {});
+    expect(ran.code).toBe(0);
+    expect(login).toBe(0);
+    expect(checkout).toBe(0);
+    expect(ran.out).not.toContain('login');
   });
 });
