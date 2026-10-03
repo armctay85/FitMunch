@@ -1,73 +1,105 @@
 import SwiftUI
 import SwiftData
 
-/// Main content view with tab navigation
+/// Five tabs. iOS hides a sixth item behind More, so History lives on Me.
+enum AppTab: Hashable {
+    case today
+    case plan
+    case scan
+    case coach
+    case me
+}
+
+/// Main content view with tab navigation.
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage(Constants.UserDefaultsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
-    @State private var selectedTab = 0
-    
+    @State private var selectedTab: AppTab = .today
+
     var body: some View {
         if hasCompletedOnboarding {
-            mainContentView
+            mainTabs
+                .tint(Theme.brandGreen)
+                .onAppear {
+                    ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
+                }
         } else {
             OnboardingView()
         }
     }
-    
-    /// Main content view with tabs
-    private var mainContentView: some View {
+
+    @ViewBuilder
+    private var mainTabs: some View {
+        if #available(iOS 18.0, *) {
+            modernTabs
+        } else {
+            legacyTabs
+        }
+    }
+
+    @available(iOS 18.0, *)
+    private var modernTabs: some View {
+        TabView(selection: $selectedTab) {
+            Tab("Today", systemImage: "sun.max.fill", value: AppTab.today) {
+                HomeView(modelContext: modelContext)
+                    .accessibilityIdentifier("tab-today")
+                    .aboveTabBar()
+            }
+            Tab("Plan", systemImage: "calendar", value: AppTab.plan) {
+                PlanView()
+                    .accessibilityIdentifier("tab-plan")
+                    .aboveTabBar()
+            }
+            Tab("Scan", systemImage: "viewfinder", value: AppTab.scan) {
+                ReceiptScanView()
+                    .accessibilityIdentifier("tab-scan")
+                    .aboveTabBar()
+            }
+            Tab("Coach", systemImage: "sparkles", value: AppTab.coach) {
+                CoachView()
+                    .accessibilityIdentifier("tab-coach")
+                    .aboveTabBar()
+            }
+            Tab("Me", systemImage: "person.crop.circle.fill", value: AppTab.me) {
+                SettingsView()
+                    .accessibilityIdentifier("tab-me")
+                    .aboveTabBar()
+            }
+        }
+    }
+
+    /// iOS 17 deployment fallback. Same five tabs, classic TabView items.
+    private var legacyTabs: some View {
         TabView(selection: $selectedTab) {
             HomeView(modelContext: modelContext)
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .accessibilityIdentifier("tab-home")
-                .tag(0)
-            
-            CoachView()
-                .tabItem {
-                    Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill")
-                }
-                .accessibilityIdentifier("tab-coach")
-                .tag(1)
-            
-            ReceiptScanView()
-                .tabItem {
-                    Label("Scan", systemImage: "camera.viewfinder")
-                }
-                .accessibilityIdentifier("tab-scan")
-                .tag(2)
+                .tabItem { Label("Today", systemImage: "sun.max.fill") }
+                .accessibilityIdentifier("tab-today")
+                .aboveTabBar()
+                .tag(AppTab.today)
 
-            MealPlanView()
-                .tabItem {
-                    Label("Meals", systemImage: "fork.knife")
-                }
+            PlanView()
+                .tabItem { Label("Plan", systemImage: "calendar") }
                 .accessibilityIdentifier("tab-plan")
-                .tag(3)
+                .aboveTabBar()
+                .tag(AppTab.plan)
 
-            WorkoutView()
-                .tabItem {
-                    Label("Workout", systemImage: "figure.strengthtraining.traditional")
-                }
-                .tag(4)
-            
-            HistoryView(modelContext: modelContext)
-                .tabItem {
-                    Label("History", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .tag(5)
-            
+            ReceiptScanView()
+                .tabItem { Label("Scan", systemImage: "viewfinder") }
+                .accessibilityIdentifier("tab-scan")
+                .aboveTabBar()
+                .tag(AppTab.scan)
+
+            CoachView()
+                .tabItem { Label("Coach", systemImage: "sparkles") }
+                .accessibilityIdentifier("tab-coach")
+                .aboveTabBar()
+                .tag(AppTab.coach)
+
             SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gear")
-                }
-                .accessibilityIdentifier("tab-settings")
-                .tag(6)
-        }
-        .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
-        .onAppear {
-            ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
+                .tabItem { Label("Me", systemImage: "person.crop.circle.fill") }
+                .accessibilityIdentifier("tab-me")
+                .aboveTabBar()
+                .tag(AppTab.me)
         }
     }
 }

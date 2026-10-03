@@ -1,35 +1,35 @@
 import SwiftUI
 import SwiftData
 
-/// Home screen with daily dashboard
+/// Today screen with the daily dashboard.
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: HomeViewModel
+    @ObservedObject private var network = NetworkMonitor.shared
     @State private var showLogMeal = false
     @State private var showPaywall = false
-    
+    @State private var freeLimitHits = 0
+
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(modelContext: modelContext))
     }
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // Date navigation
+                VStack(spacing: Theme.Spacing.six) {
+                    OfflineNotice(prominent: true)
+
                     dateNavigation
-                    
-                    // Progress rings
                     progressSection
-                    
-                    // Daily summary
                     summarySection
-                    
-                    // Today's meals
                     mealsSection
                 }
                 .padding()
+                .padding(.bottom, Theme.Spacing.eight)
             }
+            .scrollClearsTabBar()
+            .background(Theme.surface)
             .navigationTitle("Today")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -37,14 +37,19 @@ struct HomeView: View {
                         if viewModel.canLogMeal {
                             showLogMeal = true
                         } else {
+                            freeLimitHits += 1
                             showPaywall = true
                         }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
+                            .symbolRenderingMode(.hierarchical)
                     }
+                    .accessibilityIdentifier("today-log-meal")
+                    .accessibilityLabel("Log a meal")
                 }
             }
+            .sensoryFeedback(.warning, trigger: freeLimitHits)
             .sheet(isPresented: $showLogMeal) {
                 DetailView(modelContext: modelContext)
             }
@@ -57,7 +62,7 @@ struct HomeView: View {
                         .scaleEffect(1.5)
                         .padding()
                         .background(.regularMaterial)
-                        .cornerRadius(16)
+                        .cornerRadius(Theme.Radius.large)
                 }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -74,8 +79,7 @@ struct HomeView: View {
             }
         }
     }
-    
-    /// Date navigation header
+
     private var dateNavigation: some View {
         HStack {
             Button {
@@ -84,27 +88,28 @@ struct HomeView: View {
                 Image(systemName: "chevron.left")
                     .font(.headline)
             }
-            
+            .accessibilityLabel("Previous day")
+
             Spacer()
-            
+
             VStack {
                 Text(viewModel.formattedDate)
                     .font(.title2)
                     .fontWeight(.semibold)
-                
+
                 if viewModel.isToday {
                     Text("Today")
                         .font(.caption)
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 8)
+                        .foregroundStyle(Theme.brandGreen)
+                        .padding(.horizontal, Theme.Spacing.two)
                         .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(4)
+                        .background(Theme.brandGreenSoft)
+                        .cornerRadius(Theme.Spacing.one)
                 }
             }
-            
+
             Spacer()
-            
+
             Button {
                 viewModel.nextDay()
             } label: {
@@ -112,23 +117,24 @@ struct HomeView: View {
                     .font(.headline)
             }
             .disabled(viewModel.isToday)
+            .accessibilityLabel("Next day")
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(Theme.Radius.medium)
+        .sensoryFeedback(.selection, trigger: viewModel.selectedDate)
     }
-    
-    /// Progress rings section
+
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
             Text("Daily Progress")
                 .font(.title2)
                 .fontWeight(.semibold)
-            
+
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible())
-            ], spacing: 16) {
+            ], spacing: Theme.Spacing.four) {
                 ProgressRing(
                     title: "Calories",
                     value: viewModel.totalCalories,
@@ -136,16 +142,16 @@ struct HomeView: View {
                     progress: viewModel.progress(for: .calories, goal: Constants.DefaultGoals.dailyCalories),
                     color: .red
                 )
-                
+
                 ProgressRing(
                     title: "Protein",
                     value: viewModel.totalProtein,
                     goal: Constants.DefaultGoals.dailyProtein,
                     progress: viewModel.progress(for: .protein, goal: Constants.DefaultGoals.dailyProtein),
-                    color: .blue,
+                    color: Theme.brandGreen,
                     unit: "g"
                 )
-                
+
                 ProgressRing(
                     title: "Carbs",
                     value: viewModel.totalCarbs,
@@ -154,74 +160,80 @@ struct HomeView: View {
                     color: .orange,
                     unit: "g"
                 )
-                
+
                 ProgressRing(
                     title: "Fats",
                     value: viewModel.totalFats,
                     goal: Constants.DefaultGoals.dailyFats,
                     progress: viewModel.progress(for: .fats, goal: Constants.DefaultGoals.dailyFats),
-                    color: .green,
+                    color: .mint,
                     unit: "g"
                 )
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("today-rings")
         }
     }
-    
-    /// Daily summary section
+
     private var summarySection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
             Text("Daily Summary")
                 .font(.title2)
                 .fontWeight(.semibold)
-            
+
             HStack {
                 SummaryCard(
                     title: "Meals",
-                    value: "\(viewModel.meals.count)",
+                    value: viewModel.meals.count,
                     icon: "fork.knife",
-                    color: .blue
+                    color: Theme.brandGreen
                 )
-                
+
                 SummaryCard(
                     title: "Calories",
-                    value: "\(viewModel.totalCalories)",
+                    value: viewModel.totalCalories,
                     icon: "flame",
                     color: .red
                 )
-                
+
                 SummaryCard(
                     title: "Remaining",
-                    value: "\(max(0, Constants.DefaultGoals.dailyCalories - viewModel.totalCalories))",
+                    value: max(0, Constants.DefaultGoals.dailyCalories - viewModel.totalCalories),
                     icon: "target",
-                    color: .green
+                    color: Theme.brandGreen
                 )
             }
         }
     }
-    
-    /// Today's meals section
+
     private var mealsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
             HStack {
-                Text("Today's Meals")
+                Text(viewModel.isToday ? "Today's Meals" : "Meals")
                     .font(.title2)
                     .fontWeight(.semibold)
-                
+
                 Spacer()
-                
+
                 if !viewModel.canLogMeal {
                     Text("Free limit reached")
                         .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.horizontal, 8)
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, Theme.Spacing.two)
                         .padding(.vertical, 2)
                         .background(Color.orange.opacity(0.1))
-                        .cornerRadius(4)
+                        .cornerRadius(Theme.Spacing.one)
                 }
             }
-            
-            if viewModel.meals.isEmpty {
-                emptyState
+
+            if viewModel.meals.isEmpty && !network.isOnline {
+                OfflineNotice(prominent: true)
+            } else if viewModel.meals.isEmpty {
+                ContentUnavailableView {
+                    Label("No meals logged today", systemImage: "fork.knife")
+                } description: {
+                    Text("Tap + to log your first meal")
+                }
             } else {
                 ForEach(viewModel.meals) { meal in
                     MealCard(meal: meal) {
@@ -231,31 +243,9 @@ struct HomeView: View {
             }
         }
     }
-    
-    /// Empty state when no meals logged
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "fork.knife.circle")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.5))
-            
-            Text("No meals logged today")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            
-            Text("Tap the + button to log your first meal")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
-    }
 }
 
-/// Progress ring for nutrient tracking
+/// Progress ring for nutrient tracking. The arc starts at 0 unless Reduce Motion is on.
 private struct ProgressRing: View {
     let title: String
     let value: Int
@@ -263,7 +253,10 @@ private struct ProgressRing: View {
     let progress: Double
     let color: Color
     let unit: String
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown: Double = 0
+
     init(title: String, value: Int, goal: Int, progress: Double, color: Color, unit: String = "") {
         self.title = title
         self.value = value
@@ -272,119 +265,142 @@ private struct ProgressRing: View {
         self.color = color
         self.unit = unit
     }
-    
+
+    private var spoken: String {
+        if unit == "g" {
+            return "\(title) \(value) of \(goal) grams"
+        }
+        return "\(title) \(value) of \(goal)"
+    }
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.two) {
             ZStack {
                 Circle()
                     .stroke(color.opacity(0.2), lineWidth: 8)
                     .frame(width: 80, height: 80)
-                
+
                 Circle()
-                    .trim(from: 0, to: progress)
+                    .trim(from: 0, to: shown)
                     .stroke(color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .frame(width: 80, height: 80)
                     .rotationEffect(.degrees(-90))
-                
+
                 VStack {
-                    Text("\(value)")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    Text(unit)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    MacroNumber(value: value, style: .headline)
+                    if !unit.isEmpty {
+                        Text(unit)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
-            
+
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
-            
+                .foregroundStyle(.secondary)
+
             Text("\(Int(progress * 100))%")
-                .font(.caption2)
+                .font(.caption2.monospacedDigit())
                 .fontWeight(.medium)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(color.opacity(0.1))
-                .foregroundColor(color)
-                .cornerRadius(4)
+                .foregroundStyle(color)
+                .cornerRadius(Theme.Spacing.one)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spoken)
+        .onAppear { apply(progress) }
+        .onChange(of: progress) { _, newValue in apply(newValue) }
+    }
+
+    private func apply(_ newValue: Double) {
+        if reduceMotion || ScreenshotLaunch.isActive {
+            shown = newValue
+        } else {
+            withAnimation(.spring(duration: 0.8)) {
+                shown = newValue
+            }
         }
     }
 }
 
-/// Summary card for quick stats
+/// Summary card for quick stats.
 private struct SummaryCard: View {
     let title: String
-    let value: String
+    let value: Int
     let icon: String
     let color: Color
-    
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.two) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(color)
-            
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-            
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(color)
+
+            MacroNumber(value: value, style: .title2)
+
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding()
         .background(color.opacity(0.1))
-        .cornerRadius(12)
+        .cornerRadius(Theme.Radius.medium)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title) \(value)")
     }
 }
 
-/// Meal card for displaying a meal
+/// Meal card for displaying a meal.
 private struct MealCard: View {
     let meal: Meal
     let onDelete: () -> Void
     @State private var showDeleteAlert = false
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.one) {
                     Text(meal.name)
                         .font(.headline)
                     Text(Constants.timeFormatter.string(from: meal.date))
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 Button(role: .destructive) {
                     showDeleteAlert = true
                 } label: {
                     Image(systemName: "trash")
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundStyle(.red)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Delete \(meal.name)")
             }
-            
+
             HStack {
                 NutritionBadge(value: meal.totalCalories, unit: "cal", color: .red)
-                NutritionBadge(value: meal.totalProtein, unit: "P", color: .blue)
+                NutritionBadge(value: meal.totalProtein, unit: "P", color: Theme.brandGreen)
                 NutritionBadge(value: meal.totalCarbs, unit: "C", color: .orange)
-                NutritionBadge(value: meal.totalFats, unit: "F", color: .green)
-                
+                NutritionBadge(value: meal.totalFats, unit: "F", color: .mint)
+
                 Spacer()
-                
+
                 Text("\(meal.foodItems.count) items")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(Theme.Radius.medium)
         .alert("Delete Meal", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive, action: onDelete)
@@ -394,26 +410,26 @@ private struct MealCard: View {
     }
 }
 
-/// Nutrition badge for meal cards
+/// Nutrition badge for meal cards.
 private struct NutritionBadge: View {
     let value: Int
     let unit: String
     let color: Color
-    
+
     var body: some View {
         HStack(spacing: 2) {
             Text("\(value)")
-                .font(.caption)
+                .font(.caption.monospacedDigit())
                 .fontWeight(.semibold)
             Text(unit)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Theme.Spacing.two)
+        .padding(.vertical, Theme.Spacing.one)
         .background(color.opacity(0.1))
-        .foregroundColor(color)
-        .cornerRadius(4)
+        .foregroundStyle(color)
+        .cornerRadius(Theme.Spacing.one)
     }
 }
 

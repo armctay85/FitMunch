@@ -220,7 +220,7 @@ final class PreASCDeviceAuditTests: XCTestCase {
     func testG_NoCrash() throws {
         let app = try launchReview()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "G FAIL: tab bar missing")
-        openTab("Home", in: app)
+        openTab("Today", in: app)
         openTab("Coach", in: app)
         openUpgradePaywall(in: app)
         let close = app.buttons["paywall-close"]

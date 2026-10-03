@@ -11,7 +11,7 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .badURL: return "Invalid request."
-        case .unauthorised: return "Session expired — please sign in again."
+        case .unauthorised: return "Session expired. Please sign in again."
         case .server(let message): return message
         case .network(let message): return "Network problem: \(message)"
         case .decoding: return "Unexpected server response."

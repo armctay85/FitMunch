@@ -162,7 +162,7 @@ class HistoryViewModel: ObservableObject {
 enum DateRange: String, CaseIterable {
     case week = "Week"
     case month = "Month"
-    case threeMonths = "3 Months"
+    case threeMonths = "3M"
     case custom = "Custom"
 }
 

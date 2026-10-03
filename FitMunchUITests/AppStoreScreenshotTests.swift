@@ -8,18 +8,18 @@ final class AppStoreScreenshotTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = [ScreenshotLaunchArgument.flag, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared. Auth or onboarding leaked into screenshot mode.")
     }
 
     func testCaptureRequiredStoreScreens() throws {
         let screens: [(file: String, tab: String, proof: String)] = [
-            ("home", "Home", "Today"),
-            ("coach", "Coach", "AI Coach"),
-            ("scan", "Scan", "Receipt Scanner"),
-            ("plan", "Meals", "Meal Plan"),
-            ("settings", "Settings", "Settings"),
+            ("home", "Today", "Today"),
+            ("coach", "Coach", "Coach"),
+            ("scan", "Scan", "Scan"),
+            ("plan", "Plan", "Plan"),
+            ("settings", "Me", "Me"),
         ]
 
         for screen in screens {
@@ -52,9 +52,11 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
-            XCTAssertFalse(app.staticTexts["Budget $"].exists)
         case "settings":
-            XCTAssertTrue(app.staticTexts["Premium Subscriber"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Sample profile"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Premium"].waitForExistence(timeout: 4))
+            XCTAssertFalse(app.staticTexts["Alex Chen"].exists)
+            XCTAssertFalse(app.staticTexts["Premium Subscriber"].exists)
             XCTAssertFalse(app.staticTexts["Free Tier"].exists)
             XCTAssertFalse(app.buttons["Upgrade"].exists)
             XCTAssertFalse(app.buttons["Upgrade to Premium"].exists)
@@ -78,27 +80,10 @@ final class AppStoreScreenshotTests: XCTestCase {
     private func openTab(_ name: String) {
         let bar = app.tabBars.firstMatch
         XCTAssertTrue(bar.waitForExistence(timeout: 5))
-
+        XCTAssertFalse(bar.buttons["More"].exists, "More tab is showing. Store shots use the five-tab bar.")
         let direct = bar.buttons[name]
-        if direct.exists {
-            direct.tap()
-            return
-        }
-
-        let more = bar.buttons["More"]
-        XCTAssertTrue(more.exists, "Tab '\(name)' is not in the bar and More is missing")
-        more.tap()
-
-        let candidates = [
-            app.staticTexts[name],
-            app.buttons[name],
-            app.cells[name],
-        ]
-        for candidate in candidates where candidate.waitForExistence(timeout: 3) {
-            candidate.tap()
-            return
-        }
-        XCTFail("Could not open tab \(name) from More")
+        XCTAssertTrue(direct.waitForExistence(timeout: 5), "Tab '\(name)' is not on the tab bar")
+        direct.tap()
     }
 
     private func assertNoRejectedCopy(on screen: String) {

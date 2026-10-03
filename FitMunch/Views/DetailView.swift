@@ -7,8 +7,10 @@ struct DetailView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: DetailViewModel
     @State private var quantity: String = "1.0"
+    @State private var manualName: String = ""
     @State private var selectedFoodItem: FoodItem?
     @State private var showQuantitySheet = false
+    @State private var mealSavedTick = 0
     
     init(modelContext: ModelContext, meal: Meal? = nil) {
         if let meal = meal {
@@ -25,36 +27,31 @@ struct DetailView: View {
                 Section("Meal Details") {
                     TextField("Meal name (e.g., Breakfast, Lunch)", text: $viewModel.mealName)
                         .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("meal-name")
                 }
                 
-                // Food search section
+                // No nutrition catalogue is connected. Do not show invented foods.
                 Section("Add Food") {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Search for food...", text: $viewModel.searchQuery)
-                            .onSubmit {
-                                viewModel.searchFoods()
-                            }
-                    }
-                    
-                    if !viewModel.searchResults.isEmpty {
-                        ForEach(viewModel.searchResults) { foodItem in
-                            Button {
-                                selectedFoodItem = foodItem
-                                showQuantitySheet = true
-                            } label: {
-                                FoodItemRow(foodItem: foodItem)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    } else if !viewModel.searchQuery.isEmpty {
-                        Text("No results found")
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.two) {
+                        Label("Search coming soon", systemImage: "magnifyingglass")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.brandGreen)
+                        Text("Add a food manually.")
                             .font(.caption)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding()
+                            .foregroundStyle(.secondary)
                     }
+                    .accessibilityIdentifier("meal-search-soon")
+
+                    TextField("Food name", text: $manualName)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("meal-manual-name")
+
+                    Button("Add manually") {
+                        viewModel.addManualFood(name: manualName)
+                        manualName = ""
+                    }
+                    .disabled(manualName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("meal-add-manual")
                 }
                 
                 // Added foods section
@@ -105,7 +102,7 @@ struct DetailView: View {
                                 title: "Protein",
                                 value: viewModel.totalNutrition.protein,
                                 unit: "g",
-                                color: .blue
+                                color: Theme.brandGreen
                             )
                             
                             NutritionSummaryItem(
@@ -133,6 +130,7 @@ struct DetailView: View {
                 }
             }
             .navigationTitle(viewModel.isEditing ? "Edit Meal" : "Log Meal")
+            .sensoryFeedback(.success, trigger: mealSavedTick)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -145,11 +143,14 @@ struct DetailView: View {
                     Button("Save") {
                         Task {
                             if await viewModel.saveMeal() {
+                                mealSavedTick += 1
+                                try? await Task.sleep(for: .milliseconds(160))
                                 dismiss()
                             }
                         }
                     }
                     .disabled(!viewModel.canSave)
+                    .accessibilityIdentifier("meal-save")
                 }
             }
             .overlay {
@@ -224,7 +225,7 @@ private struct NutritionInfo: View {
     var body: some View {
         HStack(spacing: 8) {
             NutritionPill(value: foodItem.calories, unit: "cal", color: .red)
-            NutritionPill(value: foodItem.protein, unit: "P", color: .blue)
+            NutritionPill(value: foodItem.protein, unit: "P", color: Theme.brandGreen)
             NutritionPill(value: foodItem.carbs, unit: "C", color: .orange)
             NutritionPill(value: foodItem.fats, unit: "F", color: .green)
         }
@@ -262,10 +263,8 @@ private struct NutritionSummaryItem: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            Text("\(value)")
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(color)
+            MacroNumber(value: value, style: .title3)
+                .foregroundStyle(color)
             
             Text(unit)
                 .font(.caption2)
@@ -334,7 +333,7 @@ private struct QuantitySheet: View {
                                         title: "Protein",
                                         value: nutrition.protein,
                                         unit: "g",
-                                        color: .blue
+                                        color: Theme.brandGreen
                                     )
                                     
                                     NutritionSummaryItem(
@@ -374,6 +373,7 @@ private struct QuantitySheet: View {
                         onAdd(quantity)
                     }
                     .disabled(Double(quantity) == nil || Double(quantity)! <= 0)
+                    .accessibilityIdentifier("meal-add-food")
                 }
             }
         }
