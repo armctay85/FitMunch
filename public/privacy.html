@@ -65,11 +65,10 @@
 
 <h2>3. AI and automated processing</h2>
 <p>When you scan a receipt while signed in, the photo is tied to your account and sent to an AI provider so it can read the items. We don't keep the original photo on our servers after the scan. Extracted meals and macros stay on the account if you save them.</p>
-<p>The app can call Google Gemini, xAI (Grok, United States), OpenAI (United States), and Anthropic (United States). Which one runs depends on which key is configured. Google Gemini is the AI receipt reader when a Gemini key is set.</p>
-<p>Google's Gemini API terms say prompts and responses may be stored or cached in any country where Google or its agents maintain facilities, and those terms do not name one country for the Gemini API this app calls. Where a country is not set in our config or named in the provider's docs, data may be processed outside Australia, including the United States.</p>
+<p>The app can call Google Gemini, xAI (Grok, United States), OpenAI (United States), and Anthropic (United States). Google Gemini is the AI receipt reader. Where a country is not named in the provider's docs, data may be processed outside Australia, including the United States.</p>
 
 <h2>4. Data storage and security</h2>
-<p>FitMunch is hosted on Vercel. The deploy config sets the region to Sydney (syd1), in Australia. Account data is stored with Neon (database hosting, Amazon Web Services us-east-1, United States). We encrypt data in transit and review access to the account.</p>
+<p>FitMunch is hosted on Vercel. FitMunch runs in Sydney, Australia. Account data is stored with Neon (database hosting, Amazon Web Services us-east-1, United States). We encrypt data in transit and review access to the account.</p>
 
 <h2>5. Data sharing</h2>
 <p>We share data only:</p>
@@ -80,8 +79,7 @@
 </ul>
 <p>Australian Privacy Principle 8 (APP 8) applies when personal information is disclosed to an overseas recipient.</p>
 <p>Vercel runs this app in Sydney, Australia. Neon hosts the database in the United States. Welcome emails and password reset emails go through Resend (United States). Website card payments go through Stripe (United States). App Store purchases go through RevenueCat (United States).</p>
-<p>Google's Gemini API terms say prompts and responses may be stored or cached in any country where Google or its agents maintain facilities, and those terms do not name one country for the Gemini API this app calls. Where a country is not set in our config or named in the provider's docs, data may be processed outside Australia, including the United States.</p>
-<p>The same kind of request can go to xAI (Grok, United States), OpenAI (United States), and Anthropic (United States) when those providers are configured.</p>
+<p>The same kind of request can go to xAI (Grok, United States), OpenAI (United States), and Anthropic (United States).</p>
 
 <h2>6. Your rights</h2>
 <p>You can:</p>

@@ -53,7 +53,12 @@ describe('estimateNutrition', () => {
   });
 
   it('matches whole words and skips excluded foods', () => {
-    expect(estimateNutrition('goats cheese', 100, 'g').protein).toBe(25);
+    expect(estimateNutrition('goats cheese', 100, 'g')).toBeNull();
+    expect(estimateNutrition('egg noodles', 100, 'g')).toBeNull();
+    expect(estimateNutrition('tuna mornay', 100, 'g')).toBeNull();
+    expect(estimateNutrition('peanut butter cups', 30, 'g')).toBeNull();
+    expect(estimateNutrition('peanut butter', 100, 'g').protein).toBe(25);
+    expect(estimateNutrition('Tuna chunks', 100, 'g').protein).toBe(27);
     expect(estimateNutrition('cheesecake', 100, 'g')).toBeNull();
     expect(estimateNutrition('coconut milk', 250, 'ml')).toBeNull();
     expect(estimateNutrition('oat milk', 250, 'ml')).toBeNull();

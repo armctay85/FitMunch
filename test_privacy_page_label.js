@@ -56,7 +56,10 @@ describe('privacy page label', () => {
   it('names APP 8, the host, the database, and only proven countries', () => {
     expect(privacy).toContain('Australian Privacy Principle 8 (APP 8)');
     expect(privacy).toContain('Vercel');
-    expect(privacy).toContain('Sydney (syd1)');
+    expect(privacy).toContain('FitMunch runs in Sydney, Australia');
+    expect(privacy).not.toContain('syd1');
+    expect(privacy).not.toMatch(/deploy config/i);
+    expect(privacy).not.toContain('which key is configured');
     expect(privacy).toContain('Neon (database hosting, Amazon Web Services us-east-1, United States)');
     expect(privacy).not.toMatch(/ep-blue-base|neon\.tech/i);
     expect(privacy).toContain('United States');

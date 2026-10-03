@@ -20,7 +20,10 @@ describe('Fitness Butler shopper engine', () => {
     expect(ingredients.some((line) => line.sku === 'salmon-400g')).toBe(true);
 
     const draft = shopper.buildDraft();
-    expect(draft.recommendation.split).toBe(false);
+    expect(draft.recommendation.split).toBeUndefined();
+    expect(draft.recommendation.extraTrips).toBeUndefined();
+    expect(draft.recommendation.bestSingleStore).toBeUndefined();
+    expect(draft.recommendation.bestSingleStoreName).toBeUndefined();
     expect(draft.recommendation.stores).toEqual(['woolworths']);
     expect(draft.recommendation.reason).toBe('Shop at Woolworths.');
     expect(draft.lines.every((line) => line.assignedStore === 'woolworths')).toBe(true);
@@ -48,7 +51,9 @@ describe('Fitness Butler shopper engine', () => {
 
   it('uses the preferred store when one is set', () => {
     const coles = shopper.buildDraft({ preferredStore: 'coles' });
-    expect(coles.recommendation.split).toBe(false);
+    expect(coles.recommendation.split).toBeUndefined();
+    expect(coles.recommendation.extraTrips).toBeUndefined();
+    expect(coles.recommendation.bestSingleStore).toBeUndefined();
     expect(coles.recommendation.stores).toEqual(['coles']);
     expect(coles.lines.every((line) => line.assignedStore === 'coles')).toBe(true);
     expect(coles.recommendation.reason).toBe('Shop at Coles.');
@@ -201,6 +206,9 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(html).not.toContain('Fit<span>Munch</span>');
     expect(html).toContain('Sample list');
     expect(html).toContain('1g protein / 1 banana');
+    expect(html).toContain('33g protein / 150g');
+    expect(html).toContain('12g protein / 2 eggs');
+    expect(html).not.toContain('7g protein / 2 slices');
     expect(html).not.toContain('Cucumber each');
     expect(html).not.toContain('No Apple Watch. No HealthKit.');
     expect(html).not.toMatch(/fm-groceries/);
@@ -261,11 +269,11 @@ describe('Fitness Butler shopper HTTP', () => {
       throw err;
     };
     try {
-      const failed = await request(app).post('/api/shopper/draft').send({}).expect(400);
+      const failed = await request(app).post('/api/shopper/draft').send({}).expect(500);
       expect(failed.body).toEqual({
         success: false,
         error: 'Could not build the list.',
-        code: 'driver_down',
+        code: 'shopper_error',
       });
       expect(JSON.stringify(failed.body)).not.toContain('secret driver detail');
     } finally {

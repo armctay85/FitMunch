@@ -33,6 +33,7 @@ module.exports = {
     '**/test_honest_fallbacks.js',
     '**/test_nutrition.js',
     '**/test_privacy_page_label.js',
+    '**/test_planted_prices.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

@@ -17,6 +17,8 @@ const DROP_KEYS = new Set([
   'bestSingleAud', 'saveVsSingleAud', 'secondTripCostAud', 'secondTripCostCents',
   'aud', 'quotes', 'goodsCents', 'tripCents', 'totalCents', 'bestSingleCents',
   'saveVsSingleCents',   'lineAud', 'unitAud', 'price', 'was',
+  'split', 'extraTrips', 'bestSingleStore', 'bestSingleStoreName',
+  'wasPrice', 'salePrice', 'specialsUrl', 'retailerLink', 'tips',
 ]);
 
 function omitKeys(value) {
@@ -31,13 +33,14 @@ function omitKeys(value) {
 }
 
 function sendError(res, err) {
-  const status = err && err.code === 'unknown_week' ? 404 : 400;
-  const error = status === 404 ? 'That week is not available.' : 'Could not build the list.';
+  const unknown = !!(err && err.code === 'unknown_week');
+  const status = unknown ? 404 : 500;
+  const error = unknown ? 'That week is not available.' : 'Could not build the list.';
   console.error('[shopper]', err && err.code, err && err.message);
   return res.status(status).json({
     success: false,
     error,
-    code: (err && err.code) || 'shopper_error',
+    code: unknown ? 'unknown_week' : 'shopper_error',
   });
 }
 

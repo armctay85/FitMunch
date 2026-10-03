@@ -325,7 +325,7 @@ describe('public price and claim ban', () => {
 
   it('uses the GST sentence on /terms and does not name a person or a sole trader', async () => {
     const page = await request(app).get('/terms').expect(200);
-    expect(page.text).toContain('We are not registered for GST, so no GST is charged on FitMunch prices.');
+    expect(page.text).toContain('No GST is charged.');
     expect(page.text).not.toMatch(/\bDrew\b/);
     expect(page.text).not.toMatch(/sole trader/i);
     expect(fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8')).not.toContain('Client count gate: open.');

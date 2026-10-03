@@ -200,7 +200,7 @@
       try { sessionStorage.setItem('fm_shopper_draft', JSON.stringify(payload.draft)); } catch (_) {}
       renderDraft(payload.draft);
       setStatus('Draft trolley ready. Approve when the list looks right.');
-      track('shopper_commit_week', { split: payload.draft.recommendation.split });
+      track('shopper_commit_week');
     } catch (err) {
       setError(err.message || 'Could not draft the trolley.');
     } finally {
