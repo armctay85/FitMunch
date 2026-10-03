@@ -13,9 +13,11 @@
 </head>
 <body>
 <header>
-  <a href="/app.html">Trainer dashboard</a>
-  <h1>Coach plan builder</h1>
-  <p>Pick a client, set targets, and draft a 7-day plan with a Woolworths, Coles, or Aldi list.</p>
+  <div class="header-inner">
+    <a href="/app.html">Trainer dashboard</a>
+    <h1>Coach plan builder</h1>
+    <p>Pick a client, set targets, and draft a 7-day plan with a Woolworths, Coles, or Aldi list.</p>
+  </div>
 </header>
 <main>
   <p class="gate" id="coach-gate" hidden></p>
@@ -96,12 +98,16 @@
         </div>
         <div>
           <label for="coach-logo">Logo</label>
-          <input id="coach-logo" type="file" accept="image/png,image/jpeg"/>
+          <div class="file-row">
+            <label class="file-btn" for="coach-logo">Choose file</label>
+            <span class="file-name" id="coach-logo-name">No file chosen</span>
+            <input id="coach-logo" class="file-input" type="file" accept="image/png,image/jpeg"/>
+          </div>
           <img id="coach-logo-preview" class="logo-preview" alt="" hidden/>
         </div>
         <button type="submit" class="secondary" id="coach-save-brand">Save branding</button>
       </form>
-      <div class="card stack">
+      <div class="card stack" id="coach-send-card">
         <h2>Send</h2>
         <button type="button" id="coach-send">Send plan</button>
         <p class="share-link" id="coach-share" hidden></p>
@@ -113,6 +119,7 @@
     <p>See a dietitian for medical nutrition.</p>
   </footer>
 </main>
+<script src="/js/fm-accent.js"></script>
 <script src="/js/fm-plan-list.js"></script>
 <script src="/js/fm-coach.js"></script>
 </body>

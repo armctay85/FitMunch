@@ -195,3 +195,73 @@ footer p { color: var(--mute); font-size: .9rem; }
   .qty { grid-column: 2; }
   .meals-col .day-switch { margin-top: 12px; }
 }
+
+/* Header copy sits in the same column as the cards. */
+header { padding-left: 0; padding-right: 0; }
+.header-inner {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+:root {
+  --accent-ink: #07130d;
+  --accent-text: #1b8840;
+}
+.slot, .count { color: var(--accent-text); }
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.file-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  font-family: 'Bricolage Grotesque', 'Literata', Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.file-name {
+  font-family: 'IBM Plex Mono', 'Literata', Georgia, serif;
+  font-size: .82rem;
+  color: var(--mute);
+  overflow-wrap: anywhere;
+}
+@media (min-width: 1024px) {
+  .header-inner { padding: 0 24px; }
+}
+@media (max-width: 767px) {
+  #coach-result:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+  }
+  #coach-result:not([hidden]) > .plan-layout,
+  #coach-result:not([hidden]) > .action-row {
+    display: contents;
+  }
+  .meals-col { order: 1; }
+  #coach-send-card { order: 2; }
+  .shop-col { order: 3; }
+  #coach-brand { order: 4; }
+}

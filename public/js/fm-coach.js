@@ -33,9 +33,15 @@
   function applyAccent(hex) {
     if (!/^#[0-9a-fA-F]{6}$/.test(hex || '')) return;
     document.documentElement.style.setProperty('--accent', hex);
-    const n = parseInt(hex.slice(1), 16);
-    const y = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-    document.documentElement.style.setProperty('--accent-ink', y > 0.62 ? '#07130d' : '#ffffff');
+    if (!window.FmAccent) return;
+    const tone = window.FmAccent.tones(hex);
+    document.documentElement.style.setProperty('--accent-ink', tone.ink);
+    document.documentElement.style.setProperty('--accent-text', tone.text);
+  }
+
+  function setLogoName(name) {
+    const node = $('coach-logo-name');
+    if (node) node.textContent = name;
   }
 
   function flags() {
@@ -260,6 +266,7 @@
       if (state.logoDataUrl) {
         $('coach-logo-preview').src = state.logoDataUrl;
         $('coach-logo-preview').hidden = false;
+        setLogoName('Current logo');
       }
       const gate = await api('/api/coach/gate');
       renderGate(gate.gate);
@@ -334,6 +341,7 @@
   $('coach-logo').addEventListener('change', () => {
     const file = $('coach-logo').files && $('coach-logo').files[0];
     if (!file) return;
+    setLogoName(file.name);
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
