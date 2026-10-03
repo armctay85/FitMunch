@@ -17,7 +17,7 @@ struct FitMunchApp: App {
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
-            isStoredInMemoryOnly: ScreenshotLaunch.isActive || ReviewLaunch.isActive || PriceMemoryLaunch.isActive
+            isStoredInMemoryOnly: ScreenshotLaunch.isActive || PriceMemoryLaunch.isActive
         )
         
         do {

@@ -140,7 +140,7 @@ struct SettingsView: View {
                     .foregroundColor(.blue)
                 }
                 
-                if !ScreenshotLaunch.isActive {
+                if !ScreenshotLaunch.isActive && !ReviewLaunch.isActive {
                     Section("Price memory") {
                         NavigationLink {
                             PriceMemorySettingsView()
