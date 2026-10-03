@@ -8,8 +8,6 @@
 <link rel="canonical" href="https://fitmunch.com.au/pricing"/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
@@ -17,7 +15,36 @@
 html,body{max-width:100%;overflow-x:hidden}
 :focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
 
-.pr-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(48px,7vw,72px)}
+.pr-hero{padding-top:calc(84px + clamp(28px,4vw,48px));padding-bottom:clamp(28px,4vw,48px)}
+.pr-hero-grid{width:min(1180px,100%);margin:0 auto}
+.pr-sheet{
+  background:#f4efe6;color:#11180f;padding:18px 18px 8px;
+  box-shadow:0 18px 40px rgba(0,0,0,.28);
+}
+.pr-hero .pr-sheet p{color:#11180f;max-width:none;margin:0;font-size:1rem;line-height:1.35}
+.pr-hero .pr-sheet .pr-sheet-k{color:#16803c;margin-bottom:6px}
+.pr-hero .pr-sheet .pr-sheet-title{margin-bottom:12px}
+.pr-sheet-k{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#16803c;margin:0 0 6px;
+}
+.pr-sheet-title{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:1.35rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;
+  margin:0 0 12px;color:#11180f;
+}
+.pr-row{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  border-top:1px solid #e4dccf;padding:10px 0;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;
+}
+.pr-row span{color:#5c6d64;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.pr-row b{color:#11180f;letter-spacing:-.03em}
+@media(min-width:960px){
+  .pr-hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.85fr);gap:48px;align-items:center}
+  .trust-strip{width:min(1180px,100%);margin:28px auto 0}
+}
 .pr-hero .kicker{
   display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
@@ -52,6 +79,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .check strong{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.84rem;margin-bottom:3px}
 .check span{font-size:.78rem;color:var(--mute);line-height:1.45}
 .footnote{font-size:.8rem;color:var(--mute);margin-top:28px}
+.pr-page .fm-section{padding:clamp(28px,4vw,48px) clamp(20px,4vw,48px)}
 
 .trust-strip{
   display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
@@ -66,6 +94,9 @@ html,body{max-width:100%;overflow-x:hidden}
   font-size:.86rem;font-weight:800;color:#fff;margin-bottom:2px;
 }
 
+@media(max-width:959px){
+  .pr-sheet{margin-top:24px}
+}
 @media(max-width:860px){
   .plans{grid-template-columns:1fr}
   .plan{border-right:0;border-bottom:1px solid var(--line)}
@@ -79,7 +110,7 @@ html,body{max-width:100%;overflow-x:hidden}
 }
 </style>
 </head>
-<body class="fm-body">
+<body class="fm-body pr-page">
 
 <nav class="fm-nav fm-nav-abs">
   <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
@@ -92,12 +123,25 @@ html,body{max-width:100%;overflow-x:hidden}
 </nav>
 
 <header class="fm-hero-band pr-hero">
-  <div class="kicker">Your body wrote the trolley</div>
-  <h1>The full week. A$19.99 a month.</h1>
-  <p>Commit to the week. FitMunch plans meals, training, and the shop from the body you log. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
-  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px">
-    <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=mrr_sprint#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
-    <a class="fm-btn fm-btn-ghost" href="/#loop">See how the week works</a>
+  <div class="pr-hero-grid">
+    <div>
+      <div class="kicker">Your body wrote the trolley</div>
+      <h1>The full week. A$19.99 a month.</h1>
+      <p>Commit to the week. FitMunch plans meals, training, and the shop from the body you log. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px">
+        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+        <a class="fm-btn fm-btn-ghost" href="/#loop">See how the week works</a>
+      </div>
+    </div>
+    <aside class="pr-sheet" aria-label="Sample week the engine writes">
+      <p class="pr-sheet-k">Sample week</p>
+      <p class="pr-sheet-title">Meals, training, and the list.</p>
+      <div class="pr-row"><span>Mon</span><b>Mince pasta</b></div>
+      <div class="pr-row"><span>Wed</span><b>Thigh stir-fry</b></div>
+      <div class="pr-row"><span>Fri</span><b>Salmon tray</b></div>
+      <div class="pr-row"><span>Train</span><b>Three sessions</b></div>
+      <div class="pr-row"><span>List</span><b>Woolworths draft</b></div>
+    </aside>
   </div>
   <div class="trust-strip" aria-label="Product proof">
     <div class="t"><strong>Eat + train + shop</strong>The engine writes the day from your body.</div>
@@ -122,12 +166,12 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>Macro targets and trends</li>
           <li>14-day trial (card on file, cancel anytime)</li>
         </ul>
-        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=plan_card&utm_campaign=mrr_sprint#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
+        <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=plan_card&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
         <p class="p-note">Creates your account, then opens Stripe checkout.</p>
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
-        <div class="p-price">$0 <small>forever</small></div>
+        <div class="p-price">A$0 <small>forever</small></div>
         <p class="p-desc">Try food logging and a starter plan. Limited AI actions each month.</p>
         <ul>
           <li>Macro and food logging</li>
@@ -136,7 +180,7 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>Starter meal planning</li>
           <li class="muted">Weekly AI plans need Premium</li>
         </ul>
-        <a class="fm-btn fm-btn-ink" href="/login.html?utm_source=pricing&utm_medium=free_card&utm_campaign=mrr_sprint#register" data-fm-auth="register" style="width:100%">Start free</a>
+        <a class="fm-btn fm-btn-ink" href="/login.html?utm_source=pricing&utm_medium=free_card&utm_campaign=premium_trial#register" data-fm-auth="register" style="width:100%">Start free</a>
       </article>
       <article class="plan">
         <div class="p-name">Coach</div>
@@ -157,7 +201,12 @@ html,body{max-width:100%;overflow-x:hidden}
         <h2>What you get today</h2>
         <div class="checks">
           <div class="check"><strong>Included</strong><span>Macro snapshot from your shop, pantry gaps, shareable shop score.</span></div>
+          <div class="check"><strong>The week</strong><span>Meals, training, and a draft list from the body you log.</span></div>
         </div>
+      </div>
+      <div class="pbox">
+        <h2>After the 14 days</h2>
+        <p>Premium is A$19.99 a month. Coach is A$39 a month for up to 10 clients, or A$79 a month unlimited. Cancel before the trial ends and you are not charged. Free stays A$0 forever, with no card.</p>
       </div>
     </div>
     <p class="footnote">All prices are in AUD. Free starts as a free account with no card. Premium and Coach trials collect a card via Stripe. <a href="/refund">Refund policy</a>. General food planning support only, not medical advice. FitMunch is a browser web app (Add to Home Screen on iPhone). An App Store listing is not live yet.</p>

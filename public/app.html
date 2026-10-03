@@ -6,9 +6,7 @@
 <title>FitMunch - Your AI Health Partner</title>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/css/fm-coach-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
@@ -43,8 +41,12 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 
 .sidebar{
  width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);
- display:flex;flex-direction:column;padding:12px 8px;overflow-y:auto;
+ display:none;flex-direction:column;padding:12px 8px;overflow-y:auto;
 }
+@media(min-width:768px){
+ .sidebar.is-open{display:flex}
+}
+@media(max-width:767px){.sidebar{display:none}}
 .sb-section-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mute2);padding:8px 8px 4px;margin-top:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .sb-item{
  display:flex;align-items:center;gap:9px;padding:7px 10px;
@@ -288,10 +290,15 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .quick-action .ql{font-size:.72rem;font-weight:700;color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .metric .metric-value:empty::after,.metric-value.zero-soft{opacity:.55}
 #view-billing .card{border-radius:var(--radius)}
+#billing-coach[hidden],#billing-coach-public[hidden]{display:none !important}
+#billing-coach .coach-trial-btn{min-height:44px}
 #view-billing .card[style*="border:2px"]{border:1px solid var(--leaf)!important;background:linear-gradient(180deg,rgba(31,157,74,.07),transparent 48%)!important;box-shadow:none!important}
 @media (max-width: 900px){
  .receipt-layout{grid-template-columns:1fr}
  .quick-actions{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width: 520px) {
+ .billing-plans,.coach-plan-grid{grid-template-columns:1fr !important}
 }
 @media (max-width: 767px) {
  .mobile-nav{display:block}
@@ -359,7 +366,7 @@ html.fm-authed #app-gate{display:none}
 
 <div class="shell">
 <!-- SIDEBAR - MAIN (consumer-first; Trainer tools as secondary lane) -->
-<nav class="sidebar" id="sidebar-pt" style="display:none">
+<nav class="sidebar" id="sidebar-pt">
  <div class="sb-section-label">Today</div>
  <button class="sb-item active" data-nav="portal-home" onclick="nav('portal-home')"><span class="sb-icon">🏠</span>Home</button>
  <button class="sb-item" data-nav="ai-coach" onclick="nav('ai-coach')" id="nav-ai-coach"><span class="sb-icon">🤖</span>AI Coach</button>
@@ -382,7 +389,7 @@ html.fm-authed #app-gate{display:none}
 </nav>
 
 <!-- SIDEBAR - CLIENT VIEW -->
-<nav class="sidebar" id="sidebar-client" style="display:none">
+<nav class="sidebar" id="sidebar-client">
  <div class="sb-section-label">Today</div>
  <button class="sb-item active" onclick="nav('portal-home')" id="nav-portal-home"><span class="sb-icon">🏠</span>Home</button>
  <button class="sb-item" data-nav="ai-coach" onclick="nav('ai-coach')"><span class="sb-icon">🤖</span>AI Coach</button>
@@ -799,11 +806,11 @@ html.fm-authed #app-gate{display:none}
  <div class="view-header"><div><div class="view-title">Upgrade to Premium</div><div class="view-sub">Unlimited scans, coach and weekly plans. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</div></div></div>
  <div class="scroll-body">
  <div id="billing-usage" style="max-width:700px;margin-bottom:14px"></div>
- <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:14px;max-width:700px">
+ <div class="billing-plans" style="display:grid;grid-template-columns:1.15fr .85fr;gap:14px;max-width:700px">
  <div class="card" style="border:1px solid var(--leaf)">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Premium</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li><strong>Unlimited</strong> AI coach chat</li>
  <li><strong>Unlimited</strong> meal and workout plans</li>
@@ -817,7 +824,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
  <li>Limited AI actions per month</li>
@@ -827,27 +834,29 @@ html.fm-authed #app-gate{display:none}
  </div>
  </div>
  </div>
- <div style="max-width:700px;margin-top:28px;padding-top:18px;border-top:1px dashed var(--line)">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Trainer lane (optional)</div>
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+ <div id="billing-coach" hidden style="max-width:700px;margin-top:28px;padding-top:18px;border-top:1px dashed var(--line)">
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Coach plans</div>
+ <p style="font-size:.78rem;color:var(--text2);line-height:1.5;margin-bottom:12px">14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
+ <div class="coach-plan-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
  <div class="card">
  <div class="card-body">
- <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Starter</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$59.99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
- <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients + client portal</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter', this)">Select</button>
+ <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Up to 10 clients</div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$39<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div style="font-size:.75rem;color:var(--text2);margin:8px 0">7-day plans, a draft list, and a branded share link or PDF.</div>
+ <button class="btn btn-ghost2 coach-trial-btn" style="display:block;width:100%;min-height:44px" onclick="startCoachCheckout('coach-39', this)">Start Coach trial</button>
  </div>
  </div>
  <div class="card">
  <div class="card-body">
- <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Pro</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
- <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients + all features</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro', this)">Select</button>
+ <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Unlimited clients</div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$79<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div style="font-size:.75rem;color:var(--text2);margin:8px 0">The same Coach tools, with no client cap.</div>
+ <button class="btn btn-ghost2 coach-trial-btn" style="display:block;width:100%;min-height:44px" onclick="startCoachCheckout('coach-79', this)">Start Coach trial</button>
  </div>
  </div>
  </div>
  </div>
+ <p id="billing-coach-public" hidden style="max-width:700px;margin-top:28px;padding-top:18px;border-top:1px dashed var(--line);font-size:.82rem;color:var(--text2);line-height:1.5">Coach plans are for trainer accounts. <a href="/for-pts#coach" style="color:var(--leaf2);font-weight:700">See FitMunch Coach</a>.</p>
  </div>
 </div>
 
@@ -873,7 +882,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 a month with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -1602,11 +1611,12 @@ async function boot() {
  if (nudge) nudge.style.display = 'flex';
  }
  // Show correct sidebar
+ showCoachBilling();
  if (S.role === 'client') {
- document.getElementById('sidebar-client').style.display = 'flex';
+ document.getElementById('sidebar-client').classList.add('is-open');
  setupClientPortal();
  } else {
- document.getElementById('sidebar-pt').style.display = 'flex';
+ document.getElementById('sidebar-pt').classList.add('is-open');
  setupPT();
  }
  } catch { logout(); }
@@ -3532,6 +3542,60 @@ function checkoutButtons() {
   const attr = btn.getAttribute('onclick') || '';
   return attr.includes('startCheckout') || btn.dataset.checkout === '1';
  });
+}
+
+function showCoachBilling() {
+ const cards = document.getElementById('billing-coach');
+ const link = document.getElementById('billing-coach-public');
+ if (!cards || !link) return;
+ const trainer = S.role === 'pt';
+ cards.hidden = !trainer;
+ link.hidden = trainer;
+}
+
+async function startCoachCheckout(plan, button) {
+ if (checkoutInFlight) return checkoutInFlight;
+ const buttons = checkoutButtons();
+ if (button && button.tagName === 'BUTTON') buttons.push(button);
+ buttons.forEach((btn) => { btn.disabled = true; });
+ let leaving = false;
+ const unavailable = 'Checkout is unavailable right now. Try again shortly.';
+ checkoutInFlight = (async () => {
+  try {
+   const res = await fetch('/api/coach/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token },
+    body: JSON.stringify({ plan }),
+   });
+   let r = {};
+   try { r = await res.json(); } catch (_) { r = {}; }
+   if (r.upgraded) {
+    leaving = true;
+    window.location.href = '/coach/upgrade?checkout=started';
+    return r;
+   }
+   if (r.url) {
+    leaving = true;
+    window.location.href = r.url;
+    return r;
+   }
+   if (r.alreadySubscribed && res.ok) {
+    toast(r.message || 'You already have an active subscription. Check Billing.', 'success');
+    nav('billing');
+    return r;
+   }
+   toast(unavailable, 'error');
+   return r;
+  } catch {
+   toast(unavailable, 'error');
+  } finally {
+   if (!leaving) {
+    checkoutInFlight = null;
+    buttons.forEach((btn) => { btn.disabled = false; });
+   }
+  }
+ })();
+ return checkoutInFlight;
 }
 
 async function startCheckout(plan, button) {

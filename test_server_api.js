@@ -1,6 +1,8 @@
 /**
  * HTTP-level checks for server.js (health, JSON 404 for unknown /api routes).
  */
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 
@@ -104,6 +106,37 @@ describe('Server API shell', () => {
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ success: false, error: 'Invalid JSON' });
     expect(JSON.stringify(res.body)).not.toMatch(/Unexpected|SyntaxError|entity\.parse|position|in JSON/i);
+  });
+
+  it('POST /api/auth/login returns 400 for a malformed or invalid JSON body', async () => {
+    const malformed = await request(app)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"email":');
+    expect(malformed.status).toBe(400);
+    expect(malformed.body).toEqual({ success: false, error: 'Invalid JSON' });
+    expect(JSON.stringify(malformed.body)).not.toMatch(/Unexpected|SyntaxError|entity\.parse|position|Login failed|toLowerCase/i);
+
+    const invalid = await request(app)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send({ email: 1, password: { bad: true } });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body).toEqual({ success: false, error: 'Invalid JSON' });
+    expect(JSON.stringify(invalid.body)).not.toMatch(/Login failed|toLowerCase|TypeError/i);
+  });
+
+  it('GET /favicon.ico is an image', async () => {
+    const res = await request(app).get('/favicon.ico');
+    expect(res.status).toBe(200);
+    expect(String(res.headers['content-type'] || '')).toMatch(/^image\//);
+  });
+
+  it('signed-out coach form stays hidden when display rules would override the attribute', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'public', 'css', 'fm-coach.css'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8');
+    expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important\s*;?\s*\}/);
+    expect(html).toMatch(/id="coach-form"[^>]*\bhidden\b/);
   });
 
   it('webhook signature failures do not log the body or signature header', async () => {

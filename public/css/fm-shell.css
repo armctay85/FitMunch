@@ -1,12 +1,15 @@
 /* FitMunch marketing shell: shared nav + footer for public pages. */
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap');
+@import url('/css/fm-coach-fonts.css');
 
+html{max-width:100%;overflow-x:hidden}
 .fm-body{
   font-family:'Literata',Georgia,serif;
   background:var(--paper);
   color:var(--ink);
   -webkit-font-smoothing:antialiased;
   margin:0;
+  max-width:100%;
+  overflow-x:hidden;
 }
 .fm-body h1,.fm-body h2,.fm-body h3,.fm-brand,.fm-nav a,.fm-btn,.fm-footer-brand,.fm-footer-links a{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
@@ -14,9 +17,11 @@
 .fm-mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
 .fm-nav{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:20px clamp(20px,4vw,48px);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;
+  padding:20px clamp(16px,4vw,48px);
   background:var(--fridge);color:#fff;
+  max-width:100%;
+  box-sizing:border-box;
 }
 .fm-nav.fm-nav-abs{position:absolute;top:0;left:0;right:0;z-index:20;background:transparent}
 .fm-brand{
@@ -136,4 +141,36 @@
 
 @media(max-width:720px){
   .fm-nav-links a:not(.fm-nav-cta){display:none}
+}
+@media(max-width:420px){
+  .fm-nav{padding:14px 16px}
+  .fm-brand{font-size:1.08rem}
+  .fm-nav-cta{padding:8px 10px;font-size:.78rem}
+}
+
+.seo-hero-grid{width:min(1180px,100%);margin:0 auto}
+.seo-sheet{
+  background:#f4efe6;color:#11180f;padding:18px 18px 8px;
+  box-shadow:0 18px 40px rgba(0,0,0,.28);margin-top:8px;
+}
+.fm-hero-band .seo-sheet p{color:#11180f;max-width:none;margin:0}
+.seo-k{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#16803c;margin:0 0 6px;
+}
+.seo-title{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:1.35rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;
+  margin:0 0 12px;color:#11180f;
+}
+.seo-row{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  border-top:1px solid #e4dccf;padding:10px 0;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;color:#11180f;
+}
+.seo-row span{color:#5c6d64;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+@media(min-width:960px){
+  .seo-hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.85fr);gap:48px;align-items:center}
+  .seo-sheet{margin-top:0}
 }

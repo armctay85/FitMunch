@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
+body.dm-page{min-height:100vh;display:flex;flex-direction:column}
+body.dm-page .fm-footer{margin-top:auto}
 .dm-hero{padding-top:calc(96px + clamp(40px,6vw,64px));padding-bottom:clamp(36px,5vw,56px)}
 .dm-hero .kicker{
   display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
@@ -48,7 +50,7 @@
 #score-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
 </style>
 </head>
-<body class="fm-body">
+<body class="fm-body dm-page">
 
 <nav class="fm-nav fm-nav-abs">
   <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
@@ -88,7 +90,7 @@
   </div>
 </header>
 
-<section class="fm-section" style="padding-top:36px">
+<section class="fm-section dm-results" id="result-band" hidden>
   <div class="fm-section-inner" style="max-width:820px">
     <div class="stage" id="stage-result" hidden>
       <div class="result-head">
@@ -115,7 +117,7 @@
       </div>
       <div class="fm-convert">
         <h2>That is the loop. Now run it on your docket.</h2>
-        <p>Create a free account to scan your Woolies, Coles, Aldi or IGA receipt. Premium is A$19.99 AUD/mo after a 14-day trial (card on file) if you want unlimited scans and coach.</p>
+        <p>Create a free account to scan your Woolies, Coles, Aldi or IGA receipt. Premium is A$19.99 a month after a 14-day trial (card on file) if you want unlimited scans and coach.</p>
         <div class="fm-ctas">
           <a class="fm-btn fm-btn-leaf" href="/login.html?utm_source=demo&utm_medium=result&utm_campaign=value_first#register" data-fm-auth="register" data-fm-track="demo_scan_mine">Scan my receipt</a>
           <a class="fm-btn fm-btn-ghost" href="/login.html?plan=premium&utm_source=demo&utm_medium=result&utm_campaign=value_first#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
@@ -144,6 +146,7 @@
   if (!btn) return;
   btn.addEventListener('click', function () {
     document.getElementById('stage-run').hidden = true;
+    document.getElementById('result-band').hidden = false;
     document.getElementById('stage-result').hidden = false;
     var scoreEl = document.getElementById('score-n');
     var metaEl = document.getElementById('score-meta');

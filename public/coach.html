@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <meta name="robots" content="noindex"/>
 <title>Coach plan builder</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-coach-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-coach.css"/>
 </head>
 <body>
@@ -17,9 +20,29 @@
 <main>
   <p class="gate" id="coach-gate" hidden></p>
   <p class="error" id="coach-error" hidden></p>
-  <section class="card" id="coach-locked">
-    <p>Trainer accounts build client plans here.</p>
-    <a class="btn secondary" href="/login.html?plan=starter">Sign in</a>
+  <section class="coach-gate" id="coach-locked">
+    <div class="coach-pitch">
+      <h2>What Coach does</h2>
+      <ul>
+        <li>Writes a 7-day plan from the client's targets.</li>
+        <li>Drafts a Woolworths, Coles or Aldi list.</li>
+        <li>Hands over a branded share link or a PDF.</li>
+      </ul>
+      <aside class="sample-week" aria-label="Sample week">
+        <p class="k">Sample week</p>
+        <p class="t">Alex, 2,000 kcal</p>
+        <div class="row"><span>Mon</span><b>Mince pasta</b></div>
+        <div class="row"><span>Wed</span><b>Thigh stir-fry</b></div>
+        <div class="row"><span>Fri</span><b>Salmon tray</b></div>
+        <div class="row"><span>List</span><b>Woolworths draft</b></div>
+      </aside>
+    </div>
+    <div class="coach-signin card">
+      <h2>Sign in</h2>
+      <p>Trainer accounts build the client week here.</p>
+      <a class="btn" href="/login.html?plan=coach-39#register">Start the 14-day Coach trial</a>
+      <a class="btn secondary" href="/login.html">Sign in</a>
+    </div>
   </section>
   <form class="card stack" id="coach-form" hidden>
     <div>

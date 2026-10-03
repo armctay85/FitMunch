@@ -69,22 +69,60 @@
     `).join('');
   }
 
+  const AISLE_WALK = ['Produce', 'Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry', 'Other'];
+
+  function aisleRank(name) {
+    const index = AISLE_WALK.indexOf(name);
+    return index === -1 ? AISLE_WALK.length : index;
+  }
+
+  function groupByAisle(lines) {
+    const buckets = new Map();
+    (lines || []).forEach((line) => {
+      const aisle = line.aisle || 'Other';
+      if (!buckets.has(aisle)) buckets.set(aisle, []);
+      buckets.get(aisle).push(line);
+    });
+    return [...buckets.entries()].sort((a, b) => aisleRank(a[0]) - aisleRank(b[0]) || a[0].localeCompare(b[0]));
+  }
+
+  function groupByStore(lines) {
+    const buckets = new Map();
+    (lines || []).forEach((line) => {
+      const store = line.assignedStoreName || 'Draft list';
+      if (!buckets.has(store)) buckets.set(store, []);
+      buckets.get(store).push(line);
+    });
+    return [...buckets.entries()];
+  }
+
+  function aisleBlocks(lines, nameKey) {
+    return groupByAisle(lines).map(([aisle, aisleLines]) => `
+      <section class="sp-aisle">
+        <h3>${escapeHtml(aisle)}</h3>
+        ${aisleLines.map((line) => `
+          <div class="sp-line">
+            <div class="n">${line.packs} × ${escapeHtml(line[nameKey] || line.name)}</div>
+          </div>
+        `).join('')}
+      </section>
+    `).join('');
+  }
+
   function renderDraft(draft) {
     if (!draftMount) return;
+    const stores = groupByStore(draft.lines);
     draftMount.innerHTML = `
       <div class="sp-ticket" id="draft-trolley">
-        <p class="sp-verdict">${escapeHtml(((draft.recommendation && draft.recommendation.storeNames) || []).join(', ') || 'Draft list.')}</p>
-        <div class="sp-lines">
-          ${(draft.lines || []).map((line) => `
-            <div class="sp-line">
-              <div>
-                <div class="n">${line.packs} × ${escapeHtml(line.name)}</div>
-                <div class="m">${escapeHtml(line.aisle)}</div>
-              </div>
-              <div class="st">${escapeHtml(line.assignedStoreName || '')}</div>
+        ${stores.map(([store, lines]) => `
+          <article class="sp-store-card">
+            <div class="sp-store-head">
+              <span class="sp-store-k">Store</span>
+              <strong>${escapeHtml(store)}</strong>
             </div>
-          `).join('')}
-        </div>
+            ${aisleBlocks(lines, 'name')}
+          </article>
+        `).join('')}
         <div class="sp-approve">
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-approve>Approve this trolley</button>
           <p class="sp-status">One tap locks the draft. Checkout is a list you take. FitMunch does not pay the supermarket.</p>
@@ -107,10 +145,9 @@
         <div class="sp-baskets">
           ${checkout.baskets.map((basket) => `
             <article class="sp-basket">
+              <p class="sp-store-k">Store</p>
               <h3>${escapeHtml(basket.storeName)}</h3>
-              <ol>
-                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)}</li>`).join('')}
-              </ol>
+              ${aisleBlocks(basket.lines, 'name')}
               <a href="${escapeAttr(basket.lines[0] ? basket.lines[0].searchUrl : basket.searchHome)}" target="_blank" rel="noopener">Open ${escapeHtml(basket.storeName)} public search</a>
             </article>
           `).join('')}
