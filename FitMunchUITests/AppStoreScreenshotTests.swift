@@ -117,6 +117,13 @@ final class AppStoreScreenshotTests: XCTestCase {
             "\(screen) shows Free copy"
         )
         XCTAssertFalse(app.staticTexts["Paywall"].exists, "\(screen) shows a paywall")
+        let priceLines = app.staticTexts.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Price")
+        ).allElementsBoundByIndex
+        XCTAssertLessThanOrEqual(priceLines.count, 1, "\(screen) repeats the price line")
+        if let line = priceLines.first {
+            XCTAssertEqual(line.label, "Prices vary by store and week.")
+        }
     }
 
     private func savePNG(named name: String) {
