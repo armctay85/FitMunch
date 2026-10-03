@@ -91,11 +91,11 @@ const subscriptionPlans = {
 // Annual discount option
 const annualDiscount = 0.20; // 20% discount for annual subscriptions
 
-// Special offers and promotions
+// Offers and promotions
 const specialOffers = [
   {
     id: "NEWYEAR2025",
-    name: "New Year Special",
+    name: "New Year offer",
     discount: 0.30, // 30% off
     validUntil: new Date(2025, 0, 31), // Jan 31, 2025
     applicablePlans: ["basic", "premium", "proCoach"],

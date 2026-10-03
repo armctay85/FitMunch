@@ -885,9 +885,7 @@ async function updateShoppingList() {
       { name: "Olive Oil", quantity: "500ml", category: "Pantry", brand: "Italian Harvest", weeklyAmount: "500ml" }
     ];
 
-    // Get catalogue prices or a shelf estimate
-    let itemsWithPrices = await getLivePricingData(shoppingItems);
-    console.log("Got live pricing data:", itemsWithPrices);
+    const itemsWithPrices = shoppingItems;
 
     // Group items by category
     const groupedItems = itemsWithPrices.reduce((groups, item) => {
@@ -987,99 +985,6 @@ function getCategoryIcon(category) {
     'Other': '🛒'
   };
   return icons[category] || '🛒';
-}
-
-// Get live pricing data from multiple sources
-async function getLivePricingData(items) {
-  const pricedItems = [];
-
-  for (const item of items) {
-    try {
-      // Try supermarket API first
-      let livePrice = null;
-      if (window.supermarketAPI && typeof window.supermarketAPI.getProductPrice === 'function') {
-        livePrice = await window.supermarketAPI.getProductPrice(item.name);
-      }
-
-      // Fallback to generic price API
-      if (!livePrice && typeof fitMunchAPI !== 'undefined') {
-        const priceData = await fitMunchAPI.getProductPrices(item.name);
-        if (priceData && priceData.length > 0) {
-          livePrice = {
-            price: priceData[0].price,
-            store: priceData[0].store,
-            unit: priceData[0].unit,
-            lastUpdated: new Date().toISOString()
-          };
-        }
-      }
-
-      // Use live price if available, otherwise use estimated price
-      const finalItem = {
-        ...item,
-        price: livePrice ? livePrice.price : getEstimatedPrice(item.name),
-        store: livePrice ? livePrice.store : 'Estimated',
-        lastUpdated: livePrice ? livePrice.lastUpdated : new Date().toISOString(),
-        isLivePrice: !!livePrice
-      };
-
-      pricedItems.push(finalItem);
-
-    } catch (error) {
-      console.warn(`Failed to get live price for ${item.name}:`, error);
-      // Fallback to estimated price
-      pricedItems.push({
-        ...item,
-        price: getEstimatedPrice(item.name),
-        store: 'Estimated',
-        lastUpdated: new Date().toISOString(),
-        isLivePrice: false
-      });
-    }
-  }
-
-  return pricedItems;
-}
-
-// Get estimated price for items without live data
-function getEstimatedPrice(itemName) {
-  const priceEstimates = {
-    'chicken breast': 8.99,
-    'salmon fillet': 12.99,
-    'ground beef': 6.99,
-    'eggs': 3.49,
-    'milk': 2.99,
-    'bread': 2.49,
-    'rice': 1.99,
-    'pasta': 1.49,
-    'bananas': 1.29,
-    'apples': 2.99,
-    'spinach': 2.49,
-    'broccoli': 1.99,
-    'olive oil': 4.99,
-    'quinoa': 5.99
-  };
-
-  // Try exact match first
-  const lowerName = itemName.toLowerCase();
-  if (priceEstimates[lowerName]) {
-    return priceEstimates[lowerName];
-  }
-
-  // Try partial match
-  for (const [key, price] of Object.entries(priceEstimates)) {
-    if (lowerName.includes(key) || key.includes(lowerName)) {
-      return price;
-    }
-  }
-
-  // Default price based on category
-  if (lowerName.includes('meat') || lowerName.includes('protein')) return 7.99;
-  if (lowerName.includes('vegetable') || lowerName.includes('fruit')) return 2.99;
-  if (lowerName.includes('grain') || lowerName.includes('pasta')) return 1.99;
-  if (lowerName.includes('dairy')) return 3.99;
-
-  return 2.99; // Default fallback price
 }
 
 // Ensure shopping stats elements exist
@@ -2287,9 +2192,7 @@ window.addItemToShoppingList = function() {
     shoppingList.push({
       name: itemName,
       quantity: '1',
-      category: 'Other',
-      price: getEstimatedPrice(itemName),
-      isLivePrice: false
+      category: 'Other'
     });
     localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
     updateShoppingList();

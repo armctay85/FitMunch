@@ -52,13 +52,19 @@
 
   function renderGate(gate) {
     const node = $('coach-gate');
+    if (!node || !state.token) return;
     if (!gate || !gate.installed) {
-      node.textContent = 'Client count gate: open.';
+      node.hidden = true;
+      node.textContent = '';
       return;
     }
-    node.textContent = gate.allowed
-      ? 'Client count gate: on.'
-      : 'Client count gate: this roster is at its client limit.';
+    if (gate.allowed) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.textContent = "You have reached your plan's client limit. Upgrade to add more clients.";
   }
 
   function renderAdherence(adherence) {

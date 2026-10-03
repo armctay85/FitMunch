@@ -138,7 +138,7 @@ class SubscriptionManager {
       },
       {
         id: 'win_back',
-        name: 'Special Return Offer',
+        name: 'Return offer',
         description: 'Return to FitMunch and save 30% for 3 months',
         eligible: this.isFormerSubscriber(),
         discountType: 'percentage',

@@ -2342,7 +2342,7 @@ function renderShoppingLists(lists, targetId) {
  const el = document.getElementById(targetId);
  if (!el) return;
  if (!lists.length) {
- el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build a Woolies/Coles list with estimated prices.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
+ el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build a Woolies/Coles ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
  return;
  }
  el.innerHTML = lists.map(list => `

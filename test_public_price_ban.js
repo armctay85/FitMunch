@@ -121,6 +121,30 @@ describe('public price and claim ban', () => {
     expect(found).toEqual([]);
   });
 
+  it('keeps specials, cheap claims, and two-store wording out of public HTML, JS, and structured data', () => {
+    const banned = [
+      [/\bspecials?\b/i, 'special'],
+      [/estimated price/i, 'estimated price'],
+      [/\bcheap(?:er|est)?\b/i, 'cheap'],
+      [/2nd\s+(?:store|trip)/i, '2nd store or trip'],
+      [/save beats/i, 'save beats'],
+      [/prices the list/i, 'prices the list'],
+      [/the total/i, 'the total'],
+      [/client count gate/i, 'Client count gate'],
+      [/pt test account/i, 'PT test account'],
+      [/when the split looks right/i, 'when the split looks right'],
+    ];
+    const found = [];
+    for (const file of files) {
+      const text = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(__dirname, file);
+      for (const [re, label] of banned) {
+        if (re.test(text)) found.push(`${rel} ${label}`);
+      }
+    }
+    expect(found).toEqual([]);
+  });
+
   it('keeps supermarket dollars, catalogue dates, and banned claims out of public HTML and JS', () => {
     const found = [];
     for (const file of files) {
