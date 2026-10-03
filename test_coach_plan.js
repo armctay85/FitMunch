@@ -318,7 +318,7 @@ describe('Coach plan HTTP', () => {
     await request(app)
       .put('/api/coach/branding')
       .set(auth(token))
-      .send({ practiceName: 'Northside training', accent: '#14532d', logoDataUrl: logo })
+      .send({ practiceName: 'Paperbark Coaching', accent: '#14532d', logoDataUrl: logo })
       .expect(200);
 
     const created = await request(app)
@@ -361,7 +361,7 @@ describe('Coach plan HTTP', () => {
     expect(sent.body.plan.sharePath).toMatch(/^\/c\//);
 
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
-    expect(share.text).toContain('Northside training');
+    expect(share.text).toContain('Paperbark Coaching');
     expect(share.text).toContain('id="share-logo"');
     expect(share.text).toContain('Prices vary by store and week.');
     expect(share.text).toContain('id="share-left"');
@@ -379,7 +379,7 @@ describe('Coach plan HTTP', () => {
     expect(share.text).not.toContain('class="mono day-macros"');
     expect(share.text).toContain('width:96px');
     expect(share.text).toContain('General guidance, not medical advice');
-    expect(share.text).toContain('Prepared by Northside training with FitMunch');
+    expect(share.text).toContain('Prepared by Paperbark Coaching with FitMunch');
     expect(share.text).toContain('Week of');
     expect(share.text).toContain('Shopping list');
     expect(share.text).not.toMatch(PRICE_OR_DATE);
@@ -396,9 +396,9 @@ describe('Coach plan HTTP', () => {
     const pdfText = pdf.body.toString('latin1');
     const drawn = pdfDrawnText(pdf.body);
     expect(pdfText.slice(0, 5)).toBe('%PDF-');
-    expect(pdfText).toContain('Northside training');
+    expect(pdfText).toContain('Paperbark Coaching');
     expect(pdfText).toContain('General guidance, not medical advice');
-    expect(pdfText).toContain('Prepared by Northside training with FitMunch');
+    expect(pdfText).toContain('Prepared by Paperbark Coaching with FitMunch');
     expect(drawn).toContain('Prices vary by store and week.');
     expect(drawn).toContain('Sample · Week of');
     expect(drawn).not.toContain('Check prices at checkout.');
@@ -413,7 +413,8 @@ describe('Coach plan HTTP', () => {
     expect(drawn).not.toMatch(PRICE_OR_DATE);
     expect(drawn).not.toContain(CATALOGUE.weekLabel);
     expect(drawn).not.toContain(CATALOGUE.validFrom);
-    expect((pdfText.match(/\/Type \/Page(?!s)/g) || []).length).toBeLessThanOrEqual(3);
+    expect((pdfText.match(/\/Type \/Page(?!s)/g) || []).length).toBe(1);
+    expect(pdfText).toContain('/Count 1');
     expect(pdfText).not.toMatch(/\d+\.\d+ (g|ml)/);
 
     const viewed = await request(app)
