@@ -77,11 +77,11 @@ describe('Coach plan builder', () => {
     expect(JSON.stringify(plan)).not.toContain('au-public-specials-2026-w35');
     expect(plan.shopping.note).toBe('Prices vary by store and week.');
     expect(plan.priceNote).toBe('Prices vary by store and week.');
-    expect(plan.catalogue).toEqual({ priceNote: 'Prices vary by store and week.' });
+    expect(plan.catalogue).toBeUndefined();
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
-    expect(plan.honesty.pricesFrom).toBe('checkout');
+    expect(plan.honesty.pricesFrom).toBeUndefined();
   });
 
   it('drops animal foods for a vegan plan and scales the household list', () => {

@@ -21,7 +21,7 @@
 <a class="skip" href="#commit">Skip to commit the week</a>
 
 <nav class="fm-nav fm-nav-abs" aria-label="Primary">
-  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>FitMunch</a>
   <div class="fm-nav-links">
     <a href="#week">The week</a>
     <a href="/pricing">Pricing</a>
@@ -34,6 +34,7 @@
   <div class="sp-hero-media" aria-hidden="true"></div>
   <div class="sp-hero-grain" aria-hidden="true"></div>
   <div class="sp-hero-inner">
+    <div class="sp-hero-copy">
     <div class="sp-kicker">Fitness Butler · Shopper</div>
     <h1>Commit the week. Take the trolley.</h1>
     <p class="lead">Lock seven days of meals. FitMunch writes the ingredients.</p>
@@ -51,9 +52,21 @@
       <button type="button" class="fm-btn fm-btn-leaf" data-sp-commit data-fm-track="shopper_commit">Commit this week</button>
       <a class="fm-btn fm-btn-ghost" href="#split-rule">How the list works</a>
     </div>
-    <p class="sp-honest">Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.</p>
+    <p class="sp-honest">Draft trolley. You check out at the store. We do not pay Woolies. <span data-sp-price-note>Prices vary by store and week.</span></p>
     <p class="sp-status" data-sp-status></p>
     <p class="sp-err" data-sp-error hidden></p>
+    </div>
+    <aside class="sp-hero-list" aria-label="Sample list">
+      <p class="sp-hero-list-kicker">Sample list</p>
+      <h2>Produce</h2>
+      <div class="sp-hero-row"><span>1 × Bananas 1kg</span><b>1g protein / 1 banana</b></div>
+      <h2>Bakery</h2>
+      <div class="sp-hero-row"><span>1 × Wholegrain loaf</span><b>7g protein / 2 slices</b></div>
+      <h2>Meat</h2>
+      <div class="sp-hero-row"><span>1 × Chicken breast 1kg</span><b>33g protein / 150g</b></div>
+      <h2>Dairy</h2>
+      <div class="sp-hero-row"><span>1 × Free range eggs 12 pack</span><b>12g protein / 2 eggs</b></div>
+    </aside>
   </div>
 </header>
 
@@ -122,7 +135,7 @@
 
 <footer class="fm-footer">
   <div class="fm-footer-inner">
-    <div class="fm-footer-brand">Fit<span>Munch</span></div>
+    <div class="fm-footer-brand">FitMunch</div>
     <div class="fm-footer-links">
       <a href="/">Home</a>
       <a href="/shopper">Shopper</a>

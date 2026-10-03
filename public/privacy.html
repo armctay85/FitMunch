@@ -11,8 +11,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+  body.fm-privacy .fm-doc p,
+  body.fm-privacy .fm-doc li{color:#1a2822}
+</style>
 </head>
-<body class="fm-body">
+<body class="fm-body fm-privacy">
 
 <nav class="fm-nav">
   <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
@@ -20,7 +24,7 @@
     <a href="/#loop">How it works</a>
     <a href="/pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
-    <a class="fm-nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a>
   </div>
 </nav>
 
@@ -39,20 +43,20 @@
 <tr><td data-label="Data">Email address</td><td data-label="What it is">Your sign-in email. We also use it for billing and support messages.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your account</td></tr>
 <tr><td data-label="Data">Health (food and nutrition)</td><td data-label="What it is">Meals, foods and macros you log or save, and your nutrition goals and preferences. This is not Apple Health or HealthKit data.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run the app, and to personalise meal suggestions and nutrition insights</td></tr>
 <tr><td data-label="Data">Photos</td><td data-label="What it is">Receipt photos you choose to scan while signed in. We don't keep the original photo on our servers after the scan.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To read your receipt</td></tr>
-<tr><td data-label="Data">User ID</td><td data-label="What it is">Your FitMunch account ID.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your account, and for subscription analytics (customer history and charts in RevenueCat)</td></tr>
-<tr><td data-label="Data">Purchase history</td><td data-label="What it is">Your FitMunch subscriptions and trials: App Store purchases through RevenueCat, website purchases through Stripe.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your subscription, and for subscription analytics</td></tr>
+<tr><td data-label="Data">User ID</td><td data-label="What it is">Your FitMunch account ID.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your account, and for subscription analytics (customer history and charts in RevenueCat (United States))</td></tr>
+<tr><td data-label="Data">Purchase history</td><td data-label="What it is">Your FitMunch subscriptions and trials: App Store purchases through RevenueCat (United States), website purchases through Stripe (United States).</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your subscription, and for subscription analytics</td></tr>
 <tr><td data-label="Data">Product interaction</td><td data-label="What it is">How many AI features you use each month (receipt scans, Coach, meal plans), so the free limit can apply.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run the app</td></tr>
 </tbody>
 </table>
 </div>
 <p><strong>Website-only data:</strong> shopping lists, pantry items and meal plans you create on fitmunch.com.au are saved to your account. The public website also records page views and button clicks with FitMunch's own script. Each event carries a session id stored in the browser for that visit, plus the path of the page. It is not tied to your account or your email, and it is not used to track you across other companies' apps or websites. We do not load a third-party analytics script.</p>
 <p><strong>Trainer sharing:</strong> if you connect with a personal trainer through FitMunch, your trainer can see the nutrition and meal plan data you choose to share.</p>
-<p><strong>What we don't collect:</strong> location, contacts, your device's advertising ID, Apple Health or HealthKit data, or your card number (Apple or Stripe take payment details). In the iOS app, workout logs stay on your phone.</p>
+<p><strong>What we don't collect:</strong> location, contacts, your device's advertising ID, Apple Health or HealthKit data, or your card number (Apple or Stripe (United States) take payment details). In the iOS app, workout logs stay on your phone.</p>
 
 <h2>2. How we use your data</h2>
 <ul>
 <li>To provide the FitMunch service: receipt scanning, meal planning, nutrition tracking, shopping lists, pantry management.</li>
-<li>For subscription analytics: RevenueCat customer history and charts, tied to your user ID. Website card payments go through Stripe.</li>
+<li>For subscription analytics: RevenueCat (United States) customer history and charts, tied to your user ID. Website card payments go through Stripe (United States).</li>
 <li>To improve our AI extraction and food matching accuracy.</li>
 <li>To communicate service updates, billing, and support responses.</li>
 <li>To personalise your experience: meal suggestions, nutrition insights, and food recommendations.</li>
@@ -60,7 +64,9 @@
 <p>None of this is used for ads or tracking. We do not sell your personal data.</p>
 
 <h2>3. AI and automated processing</h2>
-<p>Google Gemini is the AI receipt reader. When you scan a receipt while signed in, the photo is tied to your account and sent to Gemini so it can read the items. We don't keep the original photo on our servers after the scan. Extracted meals and macros stay on the account if you save them.</p>
+<p>When you scan a receipt while signed in, the photo is tied to your account and sent to an AI provider so it can read the items. We don't keep the original photo on our servers after the scan. Extracted meals and macros stay on the account if you save them.</p>
+<p>The app can call Google Gemini, xAI (Grok, United States), OpenAI (United States), and Anthropic (United States). Which one runs depends on which key is configured. Google Gemini is the AI receipt reader when a Gemini key is set.</p>
+<p>Google's Gemini API terms say prompts and responses may be stored or cached in any country where Google or its agents maintain facilities, and those terms do not name one country for the Gemini API this app calls. Where a country is not set in our config or named in the provider's docs, data may be processed outside Australia, including the United States.</p>
 
 <h2>4. Data storage and security</h2>
 <p>FitMunch is hosted on Vercel. The deploy config sets the region to Sydney (syd1), in Australia. Account data is stored with Neon (database hosting, Amazon Web Services us-east-1, United States). We encrypt data in transit and review access to the account.</p>
@@ -69,10 +75,13 @@
 <p>We share data only:</p>
 <ul>
 <li>With your personal trainer, if you've connected your account and opted into sharing.</li>
-<li>With service providers who run FitMunch for us: Vercel, which hosts the app, Neon, which hosts the database, Stripe for card payments on the website, RevenueCat for App Store purchases, and Google Gemini, the AI receipt reader.</li>
+<li>With service providers who run FitMunch for us: Vercel, which hosts the app, Neon, which hosts the database, Stripe (United States) for card payments on the website, RevenueCat (United States) for App Store purchases, Resend (United States) for welcome and password reset emails, Google Gemini, xAI (Grok, United States), OpenAI (United States), and Anthropic (United States).</li>
 <li>When required by law or to protect our rights.</li>
 </ul>
-<p>Australian Privacy Principle 8 (APP 8) applies when personal information is disclosed to an overseas recipient. Vercel runs this app in Sydney, Australia. Neon hosts the database in the United States. Google's Gemini API terms say prompts and responses may be stored or cached in any country where Google or its agents maintain facilities, and those terms do not name one country for the Gemini API this app calls. Where a country is not set in our config or named in the provider's docs, data may be processed outside Australia, including the United States.</p>
+<p>Australian Privacy Principle 8 (APP 8) applies when personal information is disclosed to an overseas recipient.</p>
+<p>Vercel runs this app in Sydney, Australia. Neon hosts the database in the United States. Welcome emails and password reset emails go through Resend (United States). Website card payments go through Stripe (United States). App Store purchases go through RevenueCat (United States).</p>
+<p>Google's Gemini API terms say prompts and responses may be stored or cached in any country where Google or its agents maintain facilities, and those terms do not name one country for the Gemini API this app calls. Where a country is not set in our config or named in the provider's docs, data may be processed outside Australia, including the United States.</p>
+<p>The same kind of request can go to xAI (Grok, United States), OpenAI (United States), and Anthropic (United States) when those providers are configured.</p>
 
 <h2>6. Your rights</h2>
 <p>You can:</p>
@@ -96,7 +105,7 @@
 <p>Privacy questions: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
 <p>Data deletion requests: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
 
-<p style="margin-top:32px;color:var(--mute2);font-size:.9rem">FitMunch provides general food planning support. It is not a medical device and does not provide medical advice.</p>
+<p style="margin-top:32px;font-size:.9rem">FitMunch provides general food planning support. It is not a medical device and does not provide medical advice.</p>
 </main>
 
 <footer class="fm-footer">

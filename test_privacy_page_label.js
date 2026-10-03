@@ -61,6 +61,16 @@ describe('privacy page label', () => {
     expect(privacy).not.toMatch(/ep-blue-base|neon\.tech/i);
     expect(privacy).toContain('United States');
     expect(privacy).toContain('may be processed outside Australia, including the United States');
+    expect(privacy).toContain('Resend (United States)');
+    expect(privacy).toContain('welcome and password reset emails');
+    expect(privacy).toContain('Stripe (United States)');
+    expect(privacy).toContain('RevenueCat (United States)');
+    expect(privacy).toContain('Google Gemini');
+    expect(privacy).toContain('xAI (Grok, United States)');
+    expect(privacy).toContain('OpenAI (United States)');
+    expect(privacy).toContain('Anthropic (United States)');
+    expect(privacy).toContain('Start the 14-day trial');
+    expect(privacy).toContain('color:#1a2822');
   });
 
   it('lists all 7 collected data types', () => {

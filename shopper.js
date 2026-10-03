@@ -31,11 +31,13 @@ function omitKeys(value) {
 }
 
 function sendError(res, err) {
-  const status = err.code === 'unknown_week' ? 404 : 400;
+  const status = err && err.code === 'unknown_week' ? 404 : 400;
+  const error = status === 404 ? 'That week is not available.' : 'Could not build the list.';
+  console.error('[shopper]', err && err.code, err && err.message);
   return res.status(status).json({
     success: false,
-    error: err.message,
-    code: err.code || 'shopper_error',
+    error,
+    code: (err && err.code) || 'shopper_error',
   });
 }
 
@@ -63,7 +65,7 @@ router.post('/draft', (req, res) => {
       weekId: req.body && req.body.weekId,
       preferredStore: req.body && (req.body.preferredStore || req.body.storeId),
     }));
-    res.json({ success: true, draft });
+    res.json({ success: true, priceNote: shopper.CHECKOUT_LINE, draft });
   } catch (err) {
     sendError(res, err);
   }
@@ -75,7 +77,7 @@ router.post('/approve', (req, res) => {
       weekId: req.body && req.body.weekId,
       preferredStore: req.body && (req.body.preferredStore || req.body.storeId),
     }));
-    res.json({ success: true, trolley });
+    res.json({ success: true, priceNote: shopper.CHECKOUT_LINE, trolley });
   } catch (err) {
     sendError(res, err);
   }

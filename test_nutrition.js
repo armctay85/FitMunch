@@ -61,9 +61,32 @@ describe('estimateNutrition', () => {
     expect(estimateNutrition('potato', 100, 'g').protein).toBe(2);
     expect(estimateNutrition('cheddar', 30, 'g').protein).toBe(8);
   });
+
+  it('does not treat plant milks, banana bakery, or fries as the staple food', () => {
+    expect(estimateNutrition('almond milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('rice milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('soy milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('macadamia milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('cashew milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('full cream milk', 100, 'ml').protein).toBe(3);
+    expect(estimateNutrition('banana bread', 100, 'g')).toBeNull();
+    expect(estimateNutrition('banana cake', 100, 'g')).toBeNull();
+    expect(estimateNutrition('banana muffin', 100, 'g')).toBeNull();
+    expect(estimateNutrition('banana chips', 100, 'g')).toBeNull();
+    expect(estimateNutrition('banana', 1, 'each').protein).toBe(1);
+    expect(estimateNutrition('sweet potato fries', 100, 'g')).toBeNull();
+    expect(estimateNutrition('sweet potato wedges', 100, 'g')).toBeNull();
+    expect(estimateNutrition('sweet potato', 100, 'g').protein).toBe(2);
+    expect(estimateNutrition('brown rice', 100, 'g').protein).toBe(8);
+  });
 });
 
 describe('list protein labels and swaps', () => {
+  it('labels a banana serve from the plural staple name', () => {
+    const line = lineGuidance({ sku: 'bananas-1kg', name: 'Bananas 1kg', aisle: 'Produce' });
+    expect(line.proteinLabel).toBe('1g protein / 1 banana');
+  });
+
   it('hides the protein label when nutrition is unknown', () => {
     const line = lineGuidance({ sku: 'cucumber', name: 'Cucumber each', aisle: 'Produce' });
     expect(line.proteinPerServe).toBeNull();

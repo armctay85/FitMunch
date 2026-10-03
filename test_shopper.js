@@ -31,7 +31,19 @@ describe('Fitness Butler shopper engine', () => {
     expect(draft.honesty.stripeLinkGrocery).toBe(false);
     expect(draft.honesty.pricesFrom).toBeUndefined();
     expect(draft.catalogue).toBeUndefined();
+    expect(draft.priceNote).toBe('Prices vary by store and week.');
     expect(draft.draftId).toBe(`draft_${shopper.WEEK_ID}`);
+    expect(draft.lines.some((line) => line.name === 'Cucumber each')).toBe(false);
+    expect(draft.lines.find((line) => line.sku === 'cucumber').name).toBe('Cucumber');
+    expect(draft.lines.find((line) => line.sku === 'bananas-1kg').proteinLabel).toBe('1g protein / 1 banana');
+    const walk = ['Produce', 'Bakery', 'Meat', 'Dairy', 'Pantry', 'Frozen', 'Grocery'];
+    let last = -1;
+    for (const line of draft.lines) {
+      const index = walk.indexOf(line.aisle);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(index).toBeGreaterThanOrEqual(last);
+      last = index;
+    }
   });
 
   it('uses the preferred store when one is set', () => {
@@ -48,6 +60,11 @@ describe('Fitness Butler shopper engine', () => {
     expect(shopper.chosenStore({})).toBe('woolworths');
     expect(shopper.chosenStore({ preferredStore: 'aldi', cheapest: 'coles' })).toBe('aldi');
     expect(shopper.chosenStore({ storeId: 'coles' })).toBe('coles');
+    const proto = shopper.buildDraft({ preferredStore: '__proto__' });
+    expect(proto.recommendation.stores).toEqual(['woolworths']);
+    expect(proto.recommendation.reason).toBe('Shop at Woolworths.');
+    expect(proto.recommendation.reason).not.toMatch(/Object/);
+    expect(shopper.chosenStore({ storeId: '__proto__' })).toBe('woolworths');
     const src = read('lib/fitness-butler-shopper.js');
     const start = src.indexOf('function chosenStore');
     const body = src.slice(start, src.indexOf('function buildDraft'));
@@ -82,7 +99,7 @@ function priceKeys(value, found = []) {
       || key === 'pricedAt'
       || key === 'validFrom'
       || key === 'validTo'
-      || /price|cents|total|saving|\bsave/i.test(key)
+      || (key !== 'priceNote' && /price|cents|total|saving|\bsave/i.test(key))
     ) found.push(key);
     priceKeys(child, found);
   }
@@ -142,7 +159,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).toContain('We do not pay Woolies');
     expect(page.text).toContain('You pay at the supermarket.');
     expect(page.text).not.toContain('Stripe Link');
-    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
+    expect(page.text.replace(/<[^>]+>/g, '')).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
     expect(page.text).not.toContain('No Apple Watch. No HealthKit.');
 
     const home = await request(app).get('/').expect(200);
@@ -179,7 +196,12 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(html).toContain('$19.99 a month');
     expect(html).toContain('href="/login.html?plan=premium#register"');
     expect(html).toContain('We do not pay Woolies');
-    expect(html).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
+    expect(html.replace(/<[^>]+>/g, '')).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
+    expect(html).toContain('>FitMunch</a>');
+    expect(html).not.toContain('Fit<span>Munch</span>');
+    expect(html).toContain('Sample list');
+    expect(html).toContain('1g protein / 1 banana');
+    expect(html).not.toContain('Cucumber each');
     expect(html).not.toContain('No Apple Watch. No HealthKit.');
     expect(html).not.toMatch(/fm-groceries/);
     expect(read('public/index.html')).toContain('Your body wrote the trolley.');
@@ -213,6 +235,42 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(priceKeys(week.body)).toEqual([]);
     expect(priceKeys(draft.body)).toEqual([]);
     expect(priceKeys(approved.body)).toEqual([]);
+    expect(week.body.priceNote).toBe(shopper.CHECKOUT_LINE);
+    expect(week.body.catalogue).toBeUndefined();
+    expect(draft.body.priceNote).toBe(shopper.CHECKOUT_LINE);
+    expect(draft.body.draft.priceNote).toBe(shopper.CHECKOUT_LINE);
+    expect(draft.body.draft.catalogue).toBeUndefined();
+    expect(approved.body.priceNote).toBe(shopper.CHECKOUT_LINE);
+    expect(approved.body.trolley.priceNote).toBe(shopper.CHECKOUT_LINE);
+    expect(approved.body.trolley.catalogue).toBeUndefined();
+  });
+
+  it('returns fixed shopper errors and logs the detail', async () => {
+    const missing = await request(app).post('/api/shopper/draft').send({ weekId: 'missing-week' }).expect(404);
+    expect(missing.body).toEqual({
+      success: false,
+      error: 'That week is not available.',
+      code: 'unknown_week',
+    });
+    expect(JSON.stringify(missing.body)).not.toContain('Unknown week');
+
+    const original = shopper.buildDraft;
+    shopper.buildDraft = () => {
+      const err = new Error('secret driver detail');
+      err.code = 'driver_down';
+      throw err;
+    };
+    try {
+      const failed = await request(app).post('/api/shopper/draft').send({}).expect(400);
+      expect(failed.body).toEqual({
+        success: false,
+        error: 'Could not build the list.',
+        code: 'driver_down',
+      });
+      expect(JSON.stringify(failed.body)).not.toContain('secret driver detail');
+    } finally {
+      shopper.buildDraft = original;
+    }
   });
 
   it('shopper and checkout handlers omit catalogue fields and specials links', async () => {
