@@ -33,6 +33,7 @@ module.exports = {
     '**/test_vercel_deploy_ops.js',
     '**/test_prod_smoke_job.js',
     '**/test_prod_incident.js',
+    '**/test_stripe_webhook_monitor.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

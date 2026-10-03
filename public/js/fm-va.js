@@ -4,7 +4,7 @@
  * or { webAnalytics: true } from /api/public-config). Default is off, so
  * /_vercel/insights/script.js is not requested.
  * Strips query strings and fragments. Does not report authenticated,
- * reset, checkout-success, funnel, or coach share pages.
+ * reset, checkout-success, internal stats, or coach share pages.
  */
 (function () {
   if (window.__fmVa) return;
@@ -92,7 +92,7 @@
   try {
     var request = (typeof fetch === 'function') ? fetch : null;
     if (!request) return;
-    request('/api/public-config', { credentials: 'omit', cache: 'no-store' })
+    request('/api/public-config', { credentials: 'same-origin', cache: 'no-store' })
       .then(function (response) { return response && response.ok ? response.json() : null; })
       .then(function (body) {
         if (body && body.webAnalytics === true) boot();

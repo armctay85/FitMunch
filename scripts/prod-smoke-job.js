@@ -68,11 +68,10 @@ function isAllowlistedDeploymentUrl(value) {
   try { parsed = new URL(value); } catch (_) { return false; }
   if (parsed.protocol !== 'https:') return false;
   if (parsed.username || parsed.password) return false;
+  if (parsed.port) return false;
   const host = parsed.hostname.toLowerCase();
   if (host === 'fitmunch.com.au' || host === 'www.fitmunch.com.au') return true;
-  const suffix = '-armctay85s-projects.vercel.app';
-  if (!host.endsWith(suffix) || host.length <= suffix.length) return false;
-  return /^[a-z0-9-]+$/.test(host.slice(0, -suffix.length));
+  return /^(?:fit-munch|fitmunch)-[a-z0-9-]+-armctay85s-projects\.vercel\.app$/.test(host);
 }
 
 function gitSha(row) {
@@ -346,9 +345,17 @@ async function runProdSmokeJob(event, deps) {
   const missing = missingSmokeConfig(env);
   if (missing.length) {
     const description = `not configured: ${missing.join(', ')}`;
+    const body = `Production smoke secrets are missing (${missing.join(', ')}). Smoke did not run and nothing was rolled back.`;
     log(description);
     await postStatus('error', description);
-    return { exitCode: 0, rollback: false, missing };
+    incident.appendJobSummary(env, body);
+    if (typeof helpers.summary === 'function') helpers.summary(body);
+    await notify(helpers, env, {
+      title: 'PROD SMOKE NOT CONFIGURED',
+      body,
+      repeatEmail: false,
+    });
+    return { exitCode: 0, rollback: false, missing, notified: true };
   }
 
   await postStatus('pending', 'Production smoke running');
@@ -394,7 +401,7 @@ async function runProdSmokeJob(event, deps) {
   let smokeTarget = prodUrl(env);
   if (name === 'workflow_dispatch' && inputs.deployment_url) {
     if (!isAllowlistedDeploymentUrl(inputs.deployment_url)) {
-      log('Refusing deployment_url outside fitmunch.com.au and *-armctay85s-projects.vercel.app. Smoke credentials were not sent.');
+      log('Refusing deployment_url outside fitmunch.com.au, www.fitmunch.com.au, and fit-munch or fitmunch preview hosts. Smoke credentials were not sent.');
       return { exitCode: 1, rollback: false, reason: 'deployment-url-rejected' };
     }
     smokeTarget = inputs.deployment_url;
@@ -549,6 +556,7 @@ async function runProdSmokeJob(event, deps) {
       `Failing sha: ${shortSha(sha)}`,
       `Rolled back to: ${client.deploymentId(target)} (${client.deploymentSha(target) || 'unknown'})`,
       `Confirm smoke: ${confirm.code === 0 ? 'passed' : 'failed'}`,
+      'A rollback pauses production auto-assign until someone promotes a deploy.',
       resultJson,
       `Logs: https://vercel.com/armctay85s-projects/fit-munch/logs`,
     ].join('\n'),

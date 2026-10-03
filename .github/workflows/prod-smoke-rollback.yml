@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       deployment_url:
-        description: Optional https URL on fitmunch.com.au, www.fitmunch.com.au, or *-armctay85s-projects.vercel.app. Other hosts are refused so smoke credentials are not sent elsewhere.
+        description: Optional https URL on fitmunch.com.au, www.fitmunch.com.au, or a fit-munch/fitmunch host on *-armctay85s-projects.vercel.app. Other hosts and explicit ports are refused so smoke credentials are not sent elsewhere.
         required: false
         type: string
       action:

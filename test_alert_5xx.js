@@ -1,7 +1,7 @@
 const fs = require('fs');
 const request = require('supertest');
 const express = require('express');
-const { register5xxAlerts, deliverEmail, resetAlertStateForTests, groupFor, noteServerError, redactFreeText } = require('./lib/alert-5xx');
+const { register5xxAlerts, deliverEmail, resetAlertStateForTests, groupFor, noteServerError, redactFreeText, buildEmail } = require('./lib/alert-5xx');
 
 function buildApp(options) {
   const app = express();
@@ -158,6 +158,43 @@ describe('5xx alerts', () => {
     expect(out).not.toContain('cs_');
     expect(out).not.toContain('pi_');
     expect(out).not.toContain('sub_');
+  });
+
+  it('keeps clock times and dates, and redacts phones and short IPv6', () => {
+    const clock = redactFreeText('First: 03 Oct 2026, 12:34:56 AEST');
+    expect(clock).toContain('12:34:56');
+    expect(clock).toContain('03 Oct 2026');
+    const phones = redactFreeText('call +61 412 345 678 or 0412 345 678');
+    expect(phones).not.toContain('+61 412 345 678');
+    expect(phones).not.toContain('0412 345 678');
+    expect(phones).toContain('[redacted]');
+    const v6 = redactFreeText('seen fe80::1 and 2001:db8::1 on the host');
+    expect(v6).not.toContain('fe80::1');
+    expect(v6).not.toContain('2001:db8::1');
+  });
+
+  it('leaves the sydney timestamp in the email and redacts only name and code', () => {
+    const email = buildEmail({
+      group: 'auth',
+      path: '/api/auth/login',
+      method: 'POST',
+      status: 500,
+      count: 1,
+      firstAt: Date.parse('2026-10-03T00:04:00Z'),
+      lastAt: Date.parse('2026-10-03T00:04:00Z'),
+      deployment: 'dpl_test',
+      sha: 'abc1234',
+      errorName: 'TypeError',
+      errorCode: 'fe80::1 +61 412 345 678',
+      from: 'FitMunch <hello@fitmunch.com.au>',
+      to: ['support@fitmunch.com.au'],
+      idempotencyKey: 'fm-5xx-auth-1',
+    });
+    expect(email.text).toContain('03 Oct 2026');
+    expect(email.text).toMatch(/\d{2}:\d{2}:\d{2}/);
+    expect(email.text).not.toContain('fe80::1');
+    expect(email.text).not.toContain('+61 412 345 678');
+    expect(email.text).toContain('Path: /api/auth/login');
   });
 
   it('posts to Resend with an idempotency key and does not throw', async () => {

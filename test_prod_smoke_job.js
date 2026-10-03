@@ -1,4 +1,6 @@
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const ops = require('./scripts/lib/vercel-deploy-ops');
 const { runProdSmokeJob, chooseRollbackTarget, isAllowlistedDeploymentUrl, autoRollbackEnabled } = require('./scripts/prod-smoke-job');
 
@@ -90,17 +92,29 @@ function prodEvent(extra) {
 describe('production smoke job', () => {
   it('does not roll back when smoke configuration is missing', async () => {
     let smoked = false;
-    const { deps, statuses, logs } = harness({
-      env: { VERCEL_TOKEN: TOKEN },
+    const summaryFile = path.join(os.tmpdir(), `fm-smoke-summary-${process.pid}.txt`);
+    fs.rmSync(summaryFile, { force: true });
+    const summaries = [];
+    const { deps, statuses, logs, notices } = harness({
+      env: { VERCEL_TOKEN: TOKEN, GITHUB_STEP_SUMMARY: summaryFile },
+      summary: (line) => summaries.push(line),
       smoke: async () => { smoked = true; return { code: 0, result: {}, log: '' }; },
     });
     const result = await runProdSmokeJob(prodEvent(), deps);
     expect(result.exitCode).toBe(0);
     expect(result.rollback).toBe(false);
+    expect(result.notified).toBe(true);
     expect(smoked).toBe(false);
     expect(statuses.map((status) => status.state)).toEqual(['error']);
     expect(statuses[0].description).toContain('SMOKE_TOKEN');
     expect(logs.join('\n')).not.toContain(TOKEN);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].title).toBe('PROD SMOKE NOT CONFIGURED');
+    expect(notices[0].body).toContain('nothing was rolled back');
+    expect(notices[0].body).not.toContain(TOKEN);
+    expect(fs.readFileSync(summaryFile, 'utf8')).toContain('nothing was rolled back');
+    expect(summaries[0]).toContain('nothing was rolled back');
+    fs.rmSync(summaryFile, { force: true });
   });
 
   it('passes without a rollback POST when production smoke passes', async () => {
@@ -129,6 +143,7 @@ describe('production smoke job', () => {
     expect(box.calls.some((call) => call.method === 'POST' && call.url.includes('/rollback/dpl_old'))).toBe(true);
     expect(box.logs.join('\n')).not.toContain(TOKEN);
     expect(box.notices[0].title).toContain('rolled back');
+    expect(box.notices[0].body).toContain('pauses production auto-assign until someone promotes a deploy');
   });
 
   it('prints the rollback target and makes no POST on dry run', async () => {
@@ -380,6 +395,9 @@ describe('production smoke job', () => {
     expect(isAllowlistedDeploymentUrl('http://www.fitmunch.com.au')).toBe(false);
     expect(isAllowlistedDeploymentUrl('https://evil.fitmunch.com.au')).toBe(false);
     expect(isAllowlistedDeploymentUrl('https://not-armctay85s-projects.vercel.app.evil.com')).toBe(false);
+    expect(isAllowlistedDeploymentUrl('https://evil-armctay85s-projects.vercel.app')).toBe(false);
+    expect(isAllowlistedDeploymentUrl('https://fitmunch.com.au:8443')).toBe(false);
+    expect(isAllowlistedDeploymentUrl('https://fitmunch-preview-armctay85s-projects.vercel.app')).toBe(true);
 
     const allowed = harness({
       smoke: async (options) => { target = options.target; return { code: 0, result: { ok: true }, log: '' }; },

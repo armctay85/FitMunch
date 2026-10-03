@@ -86,6 +86,23 @@ describe('Vercel Web Analytics snippet', () => {
     expect(loader).not.toContain('https://va.vercel-scripts.com');
   });
 
+  it('loads public-config with same-origin credentials', async () => {
+    let seen = null;
+    loadAnalytics('/', {
+      fetch: async (url, opts) => {
+        seen = { url, opts };
+        return { ok: true, json: async () => ({ webAnalytics: false }) };
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(seen.url).toBe('/api/public-config');
+    expect(seen.opts.credentials).toBe('same-origin');
+    const source = fs.readFileSync(path.join(__dirname, 'public/js/fm-va.js'), 'utf8');
+    const comment = source.slice(0, source.indexOf('(function'));
+    expect(comment).not.toMatch(/funnel/i);
+    expect(source).not.toContain("credentials: 'omit'");
+  });
+
   it('does not inject the insights script when the flag is off', async () => {
     const explicit = loadAnalytics('/pricing', { analytics: false });
     expect(explicit.created).toEqual([]);

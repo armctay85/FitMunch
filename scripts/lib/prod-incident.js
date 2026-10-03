@@ -3,8 +3,22 @@
  * Secret values are never written into the issue or the logs.
  */
 
+const fs = require('fs');
+
 const LABEL = 'prod-incident';
 const EMAIL_MARKER = /<!-- fm-alert-email:([^>]+) -->/;
+
+function appendJobSummary(env, text) {
+  const line = String(text || '').trim();
+  if (!line) return;
+  const file = env && env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+  try {
+    fs.appendFileSync(file, `${line}\n`);
+  } catch (_) {
+    /* summary must not hide the incident */
+  }
+}
 
 function redact(text) {
   return String(text == null ? '' : text)
@@ -160,6 +174,7 @@ async function handleIncident(options) {
 
 module.exports = {
   LABEL,
+  appendJobSummary,
   redact,
   lastEmailAt,
   shouldSendDownEmail,

@@ -115,6 +115,12 @@ describe('production incidents', () => {
     expect(yaml).toContain('12 * * * *');
     expect(yaml).toContain('checks=health');
     expect(yaml).toContain('checks=full');
+    expect(yaml).toContain('PROBE_SCHEDULE:');
+    expect(yaml).toContain('PROBE_CHECKS:');
+    expect(yaml).toContain('STRIPE_MONITOR_KEY');
+    expect(yaml).toContain('STRIPE_WEBHOOK_ENDPOINT_ID');
+    const run = yaml.split('run:').pop();
+    expect(run).not.toContain('${{');
     const rollback = fs.readFileSync('.github/workflows/prod-smoke-rollback.yml', 'utf8');
     expect(rollback).toContain('SMOKE_AUTO_ROLLBACK');
     expect(rollback).toContain('*-armctay85s-projects.vercel.app');

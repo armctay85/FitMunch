@@ -48,12 +48,19 @@ jobs:
           ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          STRIPE_MONITOR_KEY: ${{ secrets.STRIPE_MONITOR_KEY }}
+          STRIPE_WEBHOOK_ENDPOINT_ID: ${{ vars.STRIPE_WEBHOOK_ENDPOINT_ID }}
+          PROBE_SCHEDULE: ${{ github.event.schedule }}
+          PROBE_CHECKS: ${{ github.event.inputs.checks }}
         run: |
           checks=health
-          if [ "${{ github.event.schedule }}" = "12 * * * *" ]; then
+          check_stripe=0
+          if [ "$PROBE_SCHEDULE" = "12 * * * *" ]; then
             checks=full
+            check_stripe=1
           fi
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.checks }}" = "full" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "$PROBE_CHECKS" = "full" ]; then
             checks=full
+            check_stripe=1
           fi
-          SMOKE_CHECKS="$checks" node scripts/prod-uptime-probe.js
+          SMOKE_CHECKS="$checks" CHECK_STRIPE_WEBHOOK="$check_stripe" node scripts/prod-uptime-probe.js

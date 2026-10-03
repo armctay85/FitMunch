@@ -2,13 +2,15 @@
  * External uptime probe. The default is a health check only. A full probe,
  * including the live checkout session, runs when SMOKE_CHECKS=full.
  * Retries a few times, then opens or updates one GitHub incident.
- * Missing smoke configuration exits 0.
+ * Missing smoke configuration exits 0. The hourly run also checks the live
+ * Stripe webhook endpoint when CHECK_STRIPE_WEBHOOK=1.
  */
 
 const { spawn } = require('child_process');
 const path = require('path');
 const incident = require('./lib/prod-incident');
 const { formatSydney } = require('./lib/vercel-deploy-ops');
+const { runStripeWebhookMonitor } = require('./stripe-webhook-monitor');
 
 const TITLE = 'PROD DOWN: fitmunch.com.au smoke failing';
 const REQUIRED = ['SMOKE_USER_EMAIL', 'SMOKE_USER_PASSWORD', 'SMOKE_TOKEN'];
@@ -50,7 +52,7 @@ function runSmokeOnce(env) {
   });
 }
 
-async function runProbe(deps) {
+async function runUptimeSmoke(deps) {
   const env = deps.env || process.env;
   const log = deps.log || ((line) => console.log(line));
   const missing = missingNames(env);
@@ -108,6 +110,17 @@ async function runProbe(deps) {
     emailTo: String(env.ALERT_EMAIL_TO || 'support@fitmunch.com.au').split(',').map((item) => item.trim()).filter(Boolean),
   });
   return { exitCode: 1 };
+}
+
+async function runProbe(deps) {
+  const result = await runUptimeSmoke(deps);
+  const env = (deps && deps.env) || process.env;
+  if (String(env.CHECK_STRIPE_WEBHOOK || '') !== '1') return result;
+  const stripe = await runStripeWebhookMonitor(deps);
+  if (!stripe.ok && result.exitCode === 0) {
+    return { ...result, exitCode: 1, stripe };
+  }
+  return { ...result, stripe };
 }
 
 async function main() {
