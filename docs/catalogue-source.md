@@ -38,3 +38,9 @@ The embedded catalogue ends 2026-08-31. On 2 October 2026 that is more than 8 da
 ### Escape hatch
 
 `CATALOGUE_STALE_OK=1` skips the process exit for an emergency hotfix deploy. The shopper, Coach share page, and PDF still show the catalogue dates either way. Do not set it on the weekly refresh, and do not set it to make a stale catalogue look current.
+
+Every use of that hatch leaves a trail:
+
+1. The script prints one line: `CATALOGUE_STALE_OVERRIDE used: validTo=<date>, age=<n>d, commit=<sha>`.
+2. In GitHub Actions, where `GITHUB_TOKEN` is set, the same line opens a GitHub issue labelled `catalogue-stale-override`, or comments on the open issue with that label. The `test` job has `issues: write`. If filing the issue fails, the job fails.
+3. Vercel builds have no `GITHUB_TOKEN`. `GET /api/health/catalogue` returns `{ validFrom, validTo, ageDays, staleOverride }`. `staleOverride` is true while `CATALOGUE_STALE_OK=1` is set on the running app. A monitor can poll that path.

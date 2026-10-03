@@ -10,8 +10,18 @@ const {
   validateCatalogue,
   summariseChange,
   daysBefore,
+  sydneyToday,
 } = require('./scripts/catalogue-lib');
-const { checkFreshness } = require('./scripts/check-catalogue-freshness');
+const request = require('supertest');
+const app = require('./server.js');
+const {
+  checkFreshness,
+  catalogueHealth,
+  overrideLine,
+  fileStaleOverrideIssue,
+  applyOverrideTrail,
+  STALE_OVERRIDE_LABEL,
+} = require('./scripts/check-catalogue-freshness');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -111,9 +121,135 @@ describe('freshness gate', () => {
     const edge = '2026-09-24';
     expect(daysBefore(edge, today)).toBe(8);
     expect(checkFreshness({ validTo: edge }, {}, now).ok).toBe(true);
-    const stale = checkFreshness({ validTo: '2026-08-31' }, { CATALOGUE_STALE_OK: '1' }, now);
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    const stale = checkFreshness(
+      { validFrom: '2026-08-25', validTo: '2026-08-31' },
+      { CATALOGUE_STALE_OK: '1', GITHUB_SHA: sha },
+      now,
+    );
     expect(stale.ok).toBe(true);
     expect(stale.skipped).toBe(true);
+    expect(stale.staleOverride).toBe(true);
+    expect(stale.age).toBe(32);
+    expect(stale.line).toBe(`CATALOGUE_STALE_OVERRIDE used: validTo=2026-08-31, age=32d, commit=${sha}`);
+  });
+
+  it('prints the override line and does not call GitHub outside Actions', () => {
+    const sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const env = {
+      ...process.env,
+      CATALOGUE_STALE_OK: '1',
+      GITHUB_SHA: sha,
+    };
+    delete env.GITHUB_ACTIONS;
+    delete env.GITHUB_TOKEN;
+    delete env.GH_TOKEN;
+    const result = spawnSync(process.execPath, ['scripts/check-catalogue-freshness.js'], {
+      cwd: path.join(__dirname),
+      encoding: 'utf8',
+      env,
+    });
+    expect(result.status).toBe(0);
+    const age = daysBefore('2026-08-31', sydneyToday(new Date()));
+    expect(result.stderr.trim().split('\n')).toEqual([
+      `CATALOGUE_STALE_OVERRIDE used: validTo=2026-08-31, age=${age}d, commit=${sha}`,
+    ]);
+    expect(result.stdout).not.toMatch(/CATALOGUE_STALE_OVERRIDE/);
+  });
+});
+
+describe('stale override trail', () => {
+  const now = new Date('2026-10-02T02:00:00.000Z');
+  const sha = '0123456789abcdef0123456789abcdef01234567';
+  const catalogue = { validFrom: '2026-08-25', validTo: '2026-08-31' };
+
+  function actionsEnv() {
+    return {
+      CATALOGUE_STALE_OK: '1',
+      GITHUB_ACTIONS: 'true',
+      GITHUB_TOKEN: 'test-token',
+      GITHUB_SHA: sha,
+      GITHUB_REPOSITORY: 'armctay85/FitMunch',
+    };
+  }
+
+  it('uses the Vercel commit when GitHub has no sha', () => {
+    const record = overrideLine(catalogue, { VERCEL_GIT_COMMIT_SHA: sha }, now);
+    expect(record.line).toBe(`CATALOGUE_STALE_OVERRIDE used: validTo=2026-08-31, age=32d, commit=${sha}`);
+  });
+
+  it('comments on the open catalogue-stale-override issue', () => {
+    const calls = [];
+    const run = (cmd, args) => {
+      calls.push([cmd, ...args]);
+      if (args.includes('list')) return { stdout: '42\n', stderr: '' };
+      return { stdout: '', stderr: '' };
+    };
+    const record = overrideLine(catalogue, actionsEnv(), now);
+    const filed = fileStaleOverrideIssue(record, actionsEnv(), run);
+    expect(filed).toEqual({ filed: true, action: 'comment', number: '42' });
+    expect(calls[0]).toEqual(expect.arrayContaining(['label', 'create', STALE_OVERRIDE_LABEL, '--repo', 'armctay85/FitMunch', '--force']));
+    expect(calls[1]).toEqual(expect.arrayContaining(['issue', 'list', '--label', STALE_OVERRIDE_LABEL, '--repo', 'armctay85/FitMunch']));
+    expect(calls[2]).toEqual(['gh', 'issue', 'comment', '42', '--repo', 'armctay85/FitMunch', '--body', record.line]);
+  });
+
+  it('opens a labelled issue when none is open', () => {
+    const calls = [];
+    const run = (cmd, args) => {
+      calls.push(args);
+      if (args.includes('list')) return { stdout: '\n', stderr: '' };
+      return { stdout: 'https://github.com/armctay85/FitMunch/issues/9\n', stderr: '' };
+    };
+    const record = overrideLine(catalogue, actionsEnv(), now);
+    const filed = fileStaleOverrideIssue(record, actionsEnv(), run);
+    expect(filed).toEqual({ filed: true, action: 'create' });
+    expect(calls[2]).toEqual(expect.arrayContaining([
+      'issue', 'create', '--title', 'Catalogue stale override', '--label', STALE_OVERRIDE_LABEL, '--body', record.line,
+    ]));
+  });
+
+  it('does not file an issue without Actions credentials, and fails the trail when gh fails', () => {
+    const record = overrideLine(catalogue, { CATALOGUE_STALE_OK: '1', GITHUB_SHA: sha }, now);
+    const calls = [];
+    expect(fileStaleOverrideIssue(record, { CATALOGUE_STALE_OK: '1' }, () => {
+      calls.push('run');
+      return { stdout: '' };
+    })).toEqual({ filed: false });
+    expect(calls).toEqual([]);
+
+    const logs = [];
+    const trail = applyOverrideTrail(record, actionsEnv(), {
+      log: (line) => logs.push(line),
+      run: () => {
+        throw new Error('token rejected');
+      },
+    });
+    expect(trail.ok).toBe(false);
+    expect(logs[0]).toBe(record.line);
+    expect(logs[1]).toMatch(/issue failed: token rejected/);
+  });
+
+  it('GET /api/health/catalogue reports the override flag without extra fields', async () => {
+    const prev = process.env.CATALOGUE_STALE_OK;
+    delete process.env.CATALOGUE_STALE_OK;
+    try {
+      const off = await request(app).get('/api/health/catalogue').expect(200);
+      expect(Object.keys(off.body).sort()).toEqual(['ageDays', 'staleOverride', 'validFrom', 'validTo']);
+      expect(off.body).toEqual(catalogueHealth(require('./lib/public-specials-catalogue').CATALOGUE, process.env, new Date()));
+      expect(off.body.staleOverride).toBe(false);
+      expect(off.body.validFrom).toBe('2026-08-25');
+      expect(off.body.validTo).toBe('2026-08-31');
+      expect(off.body.ageDays).toBeGreaterThan(8);
+
+      process.env.CATALOGUE_STALE_OK = '1';
+      const on = await request(app).get('/api/health/catalogue').expect(200);
+      expect(on.body.staleOverride).toBe(true);
+      expect(on.body.validTo).toBe('2026-08-31');
+      expect(on.body.ageDays).toEqual(off.body.ageDays);
+    } finally {
+      if (prev === undefined) delete process.env.CATALOGUE_STALE_OK;
+      else process.env.CATALOGUE_STALE_OK = prev;
+    }
   });
 });
 
