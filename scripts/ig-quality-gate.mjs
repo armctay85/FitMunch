@@ -45,7 +45,7 @@ export function assertIgQualityGate(input) {
   const firstLine = caption.split('\n').map((l) => l.trim()).find(Boolean) || '';
   if (wordCount(firstLine) < 3) errors.push('Hook too weak: first line needs a stop-worthy hook');
   if (
-    /budget protein tip|stop comparing shelf price|same grocery budget|same weekly shop|snap the woolies|price per 25g protein wins|987g protein from one woolies|monday protein check|sunday shop check|build the week from the shop|protein check from the real shop|meal-plan draft/i.test(
+    /budget protein tip|same grocery budget|same weekly shop|snap the woolies|price per 25g protein wins|987g protein from one woolies|monday protein check|sunday shop check|build the week from the shop|protein check from the real shop|meal-plan draft/i.test(
       firstLine
     )
   ) {

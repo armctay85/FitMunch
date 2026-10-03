@@ -120,7 +120,7 @@ struct CoachView: View {
                 .foregroundColor(.secondary)
             VStack(spacing: 8) {
                 starter("What should I eat tonight to hit my protein target?")
-                starter("Build me a cheap high-protein Woolies shop")
+                starter("Build me a high-protein Woolies shop for the week")
                 starter("I keep snacking at 9pm. How do I stop?")
             }
         }

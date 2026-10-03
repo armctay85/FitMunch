@@ -80,10 +80,15 @@ describe('Server API shell', () => {
 
   it('does not serve removed public scripts and sets Permissions-Policy', async () => {
     const policy = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
-    for (const path of ['/api_server.js', '/deploy.js', '/payment-gateway.js']) {
+    for (const path of ['/api_server.js', '/deploy.js', '/payment-gateway.js', '/developer_dashboard.js', '/developer_dashboard.css', '/fitness_connector.js', '/app_review_summary.js']) {
       const res = await request(app).get(path);
       expect(res.status).toBe(404);
       expect(res.headers['permissions-policy']).toBe(policy);
+    }
+    for (const path of ['/best-pt-software-australia', '/best-pt-software-australia.html']) {
+      const res = await request(app).get(path);
+      expect(res.status).toBe(301);
+      expect(res.headers.location).toBe('/for-pts');
     }
     const home = await request(app).get('/');
     expect(home.headers['permissions-policy']).toBe(policy);

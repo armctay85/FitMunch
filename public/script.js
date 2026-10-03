@@ -842,7 +842,7 @@ async function updateShoppingList() {
     if (!shopLoadingIndicator) {
       shopLoadingIndicator = document.createElement('div');
       shopLoadingIndicator.className = 'loading-indicator';
-      shopLoadingIndicator.innerHTML = '<span>Fetching catalogue prices...</span>';
+      shopLoadingIndicator.innerHTML = '<span>Loading the list...</span>';
       shoppingSection.appendChild(shopLoadingIndicator);
     }
     shopLoadingIndicator.style.display = 'flex';
@@ -885,9 +885,7 @@ async function updateShoppingList() {
       { name: "Olive Oil", quantity: "500ml", category: "Pantry", brand: "Italian Harvest", weeklyAmount: "500ml" }
     ];
 
-    // Get catalogue prices or a shelf estimate
-    let itemsWithPrices = await getLivePricingData(shoppingItems);
-    console.log("Got live pricing data:", itemsWithPrices);
+    const itemsWithPrices = shoppingItems;
 
     // Group items by category
     const groupedItems = itemsWithPrices.reduce((groups, item) => {
@@ -911,21 +909,15 @@ async function updateShoppingList() {
       `;
 
       items.forEach(item => {
-        const priceValue = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-        const priceDisplay = `$${priceValue.toFixed(2)}`;
-        const priceIndicator = item.isLivePrice ? 'live' : 'estimated';
-
         listHTML += `<li class="shopping-item">
           <div class="item-details">
             <input type="checkbox" id="item-${item.name.replace(/\s+/g, '-')}" />
             <label for="item-${item.name.replace(/\s+/g, '-')}">
               <span class="item-name">${item.name}</span>
               ${item.brand ? `<span class="item-brand">${item.brand}</span>` : ''}
-              <small class="price-source ${priceIndicator}">${item.store || 'Unknown'} • ${item.isLivePrice ? 'Live' : 'Est.'}</small>
             </label>
           </div>
           <span class="item-quantity">${item.weeklyAmount || 'as needed'}</span>
-          <span class="item-cost ${priceIndicator}">${priceDisplay}</span>
         </li>`;
       });
 
@@ -937,38 +929,10 @@ async function updateShoppingList() {
 
     listHTML += '</div>';
 
-    // Add summary section
-    listHTML += `
-      <div class="shopping-summary">
-        <div class="summary-row">
-          <span class="summary-label">Estimated Savings with Premium:</span>
-          <span class="summary-value savings">-$${(itemsWithPrices.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0) * 0.15).toFixed(2)}</span>
-        </div>
-      </div>
-    `;
-
     shopList.innerHTML = listHTML;
 
-    // Calculate and update shopping stats with live data
-    let totalCost = 0;
-    let totalItems = itemsWithPrices.length;
-    let livePriceCount = 0;
-
-    itemsWithPrices.forEach(item => {
-      const priceValue = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-      totalCost += priceValue;
-      if (item.isLivePrice) livePriceCount++;
-    });
-
-    // Update stats elements
-    const totalCostEl = document.getElementById('totalCost');
+    const totalItems = itemsWithPrices.length;
     const totalItemsEl = document.getElementById('totalItems');
-
-    if (totalCostEl) {
-      totalCostEl.innerHTML = `$${totalCost.toFixed(2)} <small>(${livePriceCount}/${totalItems} catalogue prices)</small>`;
-    } else {
-      console.log("Total cost element not found");
-    }
 
     if (totalItemsEl) {
       totalItemsEl.textContent = totalItems;
@@ -1023,99 +987,6 @@ function getCategoryIcon(category) {
   return icons[category] || '🛒';
 }
 
-// Get live pricing data from multiple sources
-async function getLivePricingData(items) {
-  const pricedItems = [];
-
-  for (const item of items) {
-    try {
-      // Try supermarket API first
-      let livePrice = null;
-      if (window.supermarketAPI && typeof window.supermarketAPI.getProductPrice === 'function') {
-        livePrice = await window.supermarketAPI.getProductPrice(item.name);
-      }
-
-      // Fallback to generic price API
-      if (!livePrice && typeof fitMunchAPI !== 'undefined') {
-        const priceData = await fitMunchAPI.getProductPrices(item.name);
-        if (priceData && priceData.length > 0) {
-          livePrice = {
-            price: priceData[0].price,
-            store: priceData[0].store,
-            unit: priceData[0].unit,
-            lastUpdated: new Date().toISOString()
-          };
-        }
-      }
-
-      // Use live price if available, otherwise use estimated price
-      const finalItem = {
-        ...item,
-        price: livePrice ? livePrice.price : getEstimatedPrice(item.name),
-        store: livePrice ? livePrice.store : 'Estimated',
-        lastUpdated: livePrice ? livePrice.lastUpdated : new Date().toISOString(),
-        isLivePrice: !!livePrice
-      };
-
-      pricedItems.push(finalItem);
-
-    } catch (error) {
-      console.warn(`Failed to get live price for ${item.name}:`, error);
-      // Fallback to estimated price
-      pricedItems.push({
-        ...item,
-        price: getEstimatedPrice(item.name),
-        store: 'Estimated',
-        lastUpdated: new Date().toISOString(),
-        isLivePrice: false
-      });
-    }
-  }
-
-  return pricedItems;
-}
-
-// Get estimated price for items without live data
-function getEstimatedPrice(itemName) {
-  const priceEstimates = {
-    'chicken breast': 8.99,
-    'salmon fillet': 12.99,
-    'ground beef': 6.99,
-    'eggs': 3.49,
-    'milk': 2.99,
-    'bread': 2.49,
-    'rice': 1.99,
-    'pasta': 1.49,
-    'bananas': 1.29,
-    'apples': 2.99,
-    'spinach': 2.49,
-    'broccoli': 1.99,
-    'olive oil': 4.99,
-    'quinoa': 5.99
-  };
-
-  // Try exact match first
-  const lowerName = itemName.toLowerCase();
-  if (priceEstimates[lowerName]) {
-    return priceEstimates[lowerName];
-  }
-
-  // Try partial match
-  for (const [key, price] of Object.entries(priceEstimates)) {
-    if (lowerName.includes(key) || key.includes(lowerName)) {
-      return price;
-    }
-  }
-
-  // Default price based on category
-  if (lowerName.includes('meat') || lowerName.includes('protein')) return 7.99;
-  if (lowerName.includes('vegetable') || lowerName.includes('fruit')) return 2.99;
-  if (lowerName.includes('grain') || lowerName.includes('pasta')) return 1.99;
-  if (lowerName.includes('dairy')) return 3.99;
-
-  return 2.99; // Default fallback price
-}
-
 // Ensure shopping stats elements exist
 function ensureShoppingStatsElements() {
   const shoppingSection = document.getElementById('shopping');
@@ -1131,10 +1002,6 @@ function ensureShoppingStatsElements() {
         <span class="stat-label">Total Items:</span>
         <span id="totalItems" class="stat-value">0</span>
       </div>
-      <div class="stat-item">
-        <span class="stat-label">Total Cost:</span>
-        <span id="totalCost" class="stat-value">$0.00</span>
-      </div>
     `;
 
     // Insert at the beginning of shopping section
@@ -1146,28 +1013,6 @@ function ensureShoppingStatsElements() {
     }
   }
 
-  // Add price check feature if missing
-  let priceCheckContainer = shoppingSection.querySelector('.price-check-container');
-  if (!priceCheckContainer) {
-    const priceCheckHTML = `
-      <div class="supermarket-comparison">
-        <h3>Live Price Check</h3>
-        <div class="price-check-container">
-          <div class="price-check-input">
-            <input type="text" id="priceCheckInput" placeholder="Enter product name for live pricing...">
-            <button id="priceCheckBtn" class="price-check-btn">
-              <i class="fas fa-search"></i> Check Live Prices
-            </button>
-          </div>
-          <div id="priceCheckResults" class="price-check-results"></div>
-        </div>
-      </div>
-    `;
-
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = priceCheckHTML;
-    shoppingSection.appendChild(tempDiv.firstElementChild);
-  }
 }
 
 // Check live product prices
@@ -1186,63 +1031,7 @@ async function checkProductPrice() {
     return;
   }
 
-  resultsContainer.innerHTML = '<div class="loading">Checking catalogue prices...</div>';
-
-  try {
-    // Get live pricing from multiple sources
-    let prices = [];
-
-    // Try supermarket API
-    if (window.supermarketAPI && typeof window.supermarketAPI.getProductPrices === 'function') {
-      const supermarketPrices = await window.supermarketAPI.getProductPrices(productName);
-      if (supermarketPrices && supermarketPrices.length > 0) {
-        prices = prices.concat(supermarketPrices);
-      }
-    }
-
-    // Try generic API
-    if (typeof fitMunchAPI !== 'undefined') {
-      const apiPrices = await fitMunchAPI.getProductPrices(productName);
-      if (apiPrices && apiPrices.length > 0) {
-        prices = prices.concat(apiPrices);
-      }
-    }
-
-    // If no catalogue prices, show an estimated price
-    if (prices.length === 0) {
-      const estimatedPrice = getEstimatedPrice(productName);
-      prices = [{
-        store: 'Estimated Price',
-        price: estimatedPrice,
-        unit: '1 unit',
-        isEstimate: true
-      }];
-    }
-
-    // Display results
-    const resultsHTML = prices.map((price, index) => `
-      <div class="price-result ${price.isEstimate ? 'estimated' : 'live'}">
-        <div class="store-name">${price.store}</div>
-        <div class="price-info">
-          <span class="price">$${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}</span>
-          <span class="unit">${price.unit || '1 unit'}</span>
-          ${price.isEstimate ? '<span class="estimate-tag">Estimated</span>' : '<span class="live-tag">Live</span>'}
-        </div>
-      </div>
-    `).join('');
-
-    resultsContainer.innerHTML = `
-      <div class="price-results-header">
-        <h4>Price Comparison for "${productName}"</h4>
-        <small>Last updated: ${new Date().toLocaleTimeString()}</small>
-      </div>
-      <div class="price-results-list">${resultsHTML}</div>
-    `;
-
-  } catch (error) {
-    console.error('Error checking product price:', error);
-    resultsContainer.innerHTML = '<div class="error">Unable to fetch live pricing data</div>';
-  }
+  resultsContainer.textContent = 'Prices vary by store and week.';
 }
 
 // Handle Enter key press for price check input
@@ -2403,9 +2192,7 @@ window.addItemToShoppingList = function() {
     shoppingList.push({
       name: itemName,
       quantity: '1',
-      category: 'Other',
-      price: getEstimatedPrice(itemName),
-      isLivePrice: false
+      category: 'Other'
     });
     localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
     updateShoppingList();

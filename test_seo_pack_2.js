@@ -8,12 +8,12 @@ const app = require('./server.js');
 const PAGES = [
   {
     route: '/woolworths-meal-planner',
-    title: 'Woolworths Meal Planner | Cheap Weekly Meal Plan, Draft Trolley | FitMunch',
-    h1: 'Woolworths meal planner: a cheap week, drafted into a trolley',
+    title: 'Woolworths Meal Planner | Weekly Draft Trolley | FitMunch',
+    h1: 'Woolworths meal planner: a week drafted into a trolley',
   },
   {
     route: '/coles-meal-planner',
-    title: 'Coles Weekly Meal Plan | Coles Meal Planner From Public Specials | FitMunch',
+    title: 'Coles Weekly Meal Plan | 7 Days, 1 Draft Trolley | FitMunch',
     h1: 'Coles weekly meal plan: 7 days, 1 draft trolley',
   },
   {
@@ -51,9 +51,9 @@ describe('SEO pack 2: new search landers', () => {
 
     it(`${page.route} CTA points at the trial door and keeps product claims honest`, async () => {
       const html = (await request(app).get(page.route).expect(200)).text;
-      expect(html).toContain('14-day trial, then $19.99 a month');
+      expect(html).toContain('14-day trial, then A$19.99 a month');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
-      expect(html).toContain('public catalogue specials');
+      expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/check out/i);
       expect(html).toContain('"@type": "FAQPage"');
       expect(html).toContain('The FitMunch team');

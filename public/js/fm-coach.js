@@ -52,13 +52,19 @@
 
   function renderGate(gate) {
     const node = $('coach-gate');
+    if (!node || !state.token) return;
     if (!gate || !gate.installed) {
-      node.textContent = 'Client count gate: open.';
+      node.hidden = true;
+      node.textContent = '';
       return;
     }
-    node.textContent = gate.allowed
-      ? 'Client count gate: on.'
-      : 'Client count gate: this roster is at its client limit.';
+    if (gate.allowed) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.textContent = "You have reached your plan's client limit. Upgrade to add more clients.";
   }
 
   function renderAdherence(adherence) {
@@ -150,8 +156,13 @@
   }
 
   async function boot() {
-    const preview = await api('/api/coach/preview-status');
-    $('coach-preview').hidden = !preview.enabled;
+    const preview = $('coach-preview');
+    if (preview) preview.remove();
+    const gate = $('coach-gate');
+    if (!state.token && gate) {
+      gate.hidden = true;
+      gate.textContent = '';
+    }
     if (!state.token) return;
     try {
       await loadClients();
@@ -173,18 +184,6 @@
       showError(err.message);
     }
   }
-
-  $('coach-preview').addEventListener('click', async () => {
-    showError('');
-    try {
-      const data = await api('/api/coach/preview-session', { method: 'POST' });
-      state.token = data.token;
-      localStorage.setItem('fm_token', data.token);
-      await boot();
-    } catch (err) {
-      showError(err.message);
-    }
-  });
 
   $('coach-from-logs').addEventListener('click', async () => {
     showError('');

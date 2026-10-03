@@ -136,11 +136,11 @@ describe('Trust bar 5: web app, not store', () => {
 
 describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
   const surfaces = [
-    ['/', ['92', '143', '987']],
-    ['/demo', ['92', '143', '987']],
-    ['/haul-teardown', ['92', '143', '987']],
-    ['/receipt-nutrition-scanner', ['92', '143', '987']],
-    ['/pricing', ['92', '143']],
+    ['/', ['92', '987']],
+    ['/demo', ['92', '987']],
+    ['/haul-teardown', ['92', '987']],
+    ['/receipt-nutrition-scanner', ['92', '987']],
+    ['/pricing', ['92']],
   ];
 
   it.each(surfaces)('%s labels those numbers as an example', async (route, tokens) => {

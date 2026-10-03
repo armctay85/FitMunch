@@ -51,9 +51,9 @@ describe('SEO pack 3: new search landers', () => {
 
     it(`${page.route} CTA points at the trial door and keeps product claims honest`, async () => {
       const html = (await request(app).get(page.route).expect(200)).text;
-      expect(html).toContain('14-day trial, then $19.99 a month');
+      expect(html).toContain('14-day trial, then A$19.99 a month');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
-      expect(html).toContain('public catalogue specials');
+      expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/check out/i);
       expect(html).toContain('"@type": "FAQPage"');
       expect(html).toContain('The FitMunch team');
@@ -76,7 +76,7 @@ describe('SEO pack 3: new search landers', () => {
 
   it('does not retarget pack 1 or pack 2 routes', async () => {
     const woolies = await request(app).get('/woolworths-meal-planner').expect(200);
-    expect(woolies.text).toContain('Woolworths meal planner: a cheap week, drafted into a trolley');
+    expect(woolies.text).toContain('Woolworths meal planner: a week drafted into a trolley');
     const home = await request(app).get('/').expect(200);
     expect(home.text).not.toContain('href="/family-meal-plan"');
     expect(home.text).not.toContain('href="/macro-meal-planner"');

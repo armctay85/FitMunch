@@ -21,7 +21,7 @@ if (!KEY) throw new Error('POSTIZ_API_KEY missing');
 
 const caption = `987g protein from one Woolies run.
 
-Ignore shelf price. Compare price per 25g protein instead — eggs, Greek yoghurt, tuna, lentils, cottage cheese, tofu and marked-down chicken all win on different weeks.
+Compare price per 25g protein instead: eggs, Greek yoghurt, tuna, lentils, cottage cheese, tofu and marked-down chicken all win on different weeks.
 
 Snap the receipt. FitMunch grades the haul and turns it into meals for the week.
 
@@ -31,7 +31,7 @@ Free to start — link in bio.
 
 const imagePaths = ['.tmp-ig/slide-1.jpg', '.tmp-ig/slide-2.jpg', '.tmp-ig/slide-3.jpg'];
 const overlayTexts = [
-  'Price per 25g protein wins Not shelf price',
+  'Price per 25g protein wins',
   'Scan the Woolies receipt Macros from the real shop',
   'Then build the week Link in bio FitMunch',
 ];

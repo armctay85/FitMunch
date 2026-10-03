@@ -85,7 +85,6 @@ const GrokAgent = {
 
   generateShoppingResponse(query) {
     const responses = [
-      "I've found the best deals on protein sources at Woolworths this week - chicken breast is on special.",
       "Based on your meal plan, here's an optimized shopping list that should cost approximately $85 for the week.",
       "Buying in bulk can save you around 15% on items like rice, oats, and frozen vegetables.",
       "Consider shopping at Aldi for basics and Woolworths for fresh produce based on current pricing trends.",

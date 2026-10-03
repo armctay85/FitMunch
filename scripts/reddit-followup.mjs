@@ -33,7 +33,7 @@ const body = {
       },
       value: [
         {
-          content: `Method: ignore shelf price, compare price per ~25g protein, then build meals from what you already bought.
+          content: `Method: compare price per ~25g protein, then build meals from what you already bought.
 
 Worked AU example: https://www.fitmunch.com.au/haul-teardown?utm_source=reddit&utm_medium=organic&utm_campaign=mrr_sprint&utm_content=mealprep_followup
 

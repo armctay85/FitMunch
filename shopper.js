@@ -10,6 +10,27 @@ const shopper = require('./lib/fitness-butler-shopper');
 
 const router = express.Router();
 
+const DROP_KEYS = new Set([
+  'pricedAt', 'validFrom', 'validTo', 'validUntil', 'updatedAt',
+  'valid_from', 'valid_to', 'priced_at', 'weekLabel',
+  'assignedAud', 'assignedCents', 'goodsAud', 'tripAud', 'totalAud',
+  'bestSingleAud', 'saveVsSingleAud', 'secondTripCostAud', 'secondTripCostCents',
+  'aud', 'quotes', 'goodsCents', 'tripCents', 'totalCents', 'bestSingleCents',
+  'saveVsSingleCents', 'lineAud', 'unitAud', 'price', 'was',
+  'priceNote', 'reason', 'copyText', 'copyAll',
+]);
+
+function omitKeys(value) {
+  if (Array.isArray(value)) return value.map(omitKeys);
+  if (!value || typeof value !== 'object') return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (DROP_KEYS.has(key)) continue;
+    out[key] = omitKeys(child);
+  }
+  return out;
+}
+
 function sendError(res, err) {
   const status = err.code === 'unknown_week' ? 404 : 400;
   return res.status(status).json({
@@ -34,15 +55,15 @@ router.get('/', (_req, res) => {
 });
 
 router.get('/week', (_req, res) => {
-  res.json({ success: true, ...shopper.getWeekPayload() });
+  res.json({ success: true, ...omitKeys(shopper.getWeekPayload()) });
 });
 
 router.post('/draft', (req, res) => {
   try {
-    const draft = shopper.buildDraft({
+    const draft = omitKeys(shopper.buildDraft({
       weekId: req.body && req.body.weekId,
       secondTripCostAud: req.body && req.body.secondTripCostAud,
-    });
+    }));
     res.json({ success: true, draft });
   } catch (err) {
     sendError(res, err);
@@ -51,10 +72,10 @@ router.post('/draft', (req, res) => {
 
 router.post('/approve', (req, res) => {
   try {
-    const trolley = shopper.approveDraft({
+    const trolley = omitKeys(shopper.approveDraft({
       weekId: req.body && req.body.weekId,
       secondTripCostAud: req.body && req.body.secondTripCostAud,
-    });
+    }));
     res.json({ success: true, trolley });
   } catch (err) {
     sendError(res, err);

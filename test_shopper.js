@@ -5,7 +5,7 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const shopper = require('./lib/fitness-butler-shopper');
-const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
+const { CATALOGUE } = require('./lib/public-specials-catalogue');
 
 function read(rel) {
   return fs.readFileSync(path.join(__dirname, rel), 'utf8');
@@ -73,9 +73,8 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(read('public/css/fm-shopper.css')).toMatch(/\.skip\{[\s\S]*transform:translateY\(-160%\)/);
     expect(page.text).toContain('data-sp-commit');
     expect(page.text).toContain('Approve this trolley');
-    expect(page.text).toContain(priceEstimateNote(CATALOGUE));
-    expect(page.text).toContain('priced from public catalogue specials');
-    expect(page.text).toContain('14-day trial, then <strong>$19.99 a month.</strong> <span>Card on file.</span>');
+    expect(page.text).toContain('Prices vary by store and week.');
+    expect(page.text).toContain('14-day trial, then <strong>A$19.99 a month.</strong> <span>Card on file.</span>');
     expect(page.text).toContain('Start the 14-day trial');
     expect(page.text).toContain('href="/login.html?plan=premium#register"');
     expect(page.text).toContain('web app');
@@ -88,7 +87,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).toContain('We do not pay Woolies');
     expect(page.text).toContain('You pay at the supermarket.');
     expect(page.text).not.toContain('Stripe Link');
-    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices are public catalogue specials, not a live trolley scrape.');
+    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
     expect(page.text).not.toContain('No Apple Watch. No HealthKit.');
 
     const home = await request(app).get('/').expect(200);
@@ -120,12 +119,12 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(css).toMatch(/\.sp-ctas \.fm-btn\{width:100%;max-width:100%;box-sizing:border-box/);
     expect(html).toContain('Commit the week. Take the trolley.');
     expect(html).toContain('Commit this week');
-    expect(html).toContain('How the split works');
+    expect(html).toContain('How the list works');
     expect(html).toContain('14-day trial, then');
     expect(html).toContain('$19.99 a month');
     expect(html).toContain('href="/login.html?plan=premium#register"');
     expect(html).toContain('We do not pay Woolies');
-    expect(html).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices are public catalogue specials, not a live trolley scrape.');
+    expect(html).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
     expect(html).not.toContain('No Apple Watch. No HealthKit.');
     expect(html).not.toMatch(/fm-groceries/);
     expect(read('public/index.html')).toContain('Your body wrote the trolley.');
@@ -141,10 +140,13 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(draft.body.success).toBe(true);
     expect(draft.body.draft.status).toBe('draft');
     expect(draft.body.draft.catalogue.sourceKind).toBe('public_specials_catalogue');
-    expect(draft.body.draft.catalogue.validFrom).toBe(CATALOGUE.validFrom);
-    expect(draft.body.draft.catalogue.validTo).toBe(CATALOGUE.validTo);
-    expect(draft.body.draft.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
-    expect(draft.body.draft.catalogue.priceNote).toBe(priceEstimateNote(CATALOGUE));
+    expect(draft.body.draft.catalogue.validFrom).toBeUndefined();
+    expect(draft.body.draft.catalogue.validTo).toBeUndefined();
+    expect(draft.body.draft.catalogue.updatedAt).toBeUndefined();
+    expect(draft.body.draft.catalogue.pricedAt).toBeUndefined();
+    expect(draft.body.draft.catalogue.weekLabel).toBeUndefined();
+    expect(draft.body.draft.catalogue.priceNote).toBeUndefined();
+    expect(JSON.stringify(draft.body)).not.toMatch(/2026-08-25|2026-08-31/);
     expect(draft.body.draft.honesty.trolleyApi).toBe(false);
     expect(draft.body.draft.honesty.stripeLinkGrocery).toBe(false);
 

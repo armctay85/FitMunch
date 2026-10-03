@@ -90,7 +90,7 @@ function classify(m) {
 
 function inferPillar(caption = '') {
   const c = caption.toLowerCase();
-  if (/price per 25g|budget protein|shelf price/.test(c)) return 'budget-protein';
+  if (/price per 25g|budget protein/.test(c)) return 'budget-protein';
   if (/receipt|docket|haul|woolies|coles/.test(c)) return 'receipt-haul';
   if (/ai coach|asked.*ai|coach said/.test(c)) return 'ai-coach';
   if (/workout|dumbbell|3 days|program/.test(c)) return 'workout-plans';
@@ -281,7 +281,7 @@ async function main() {
         status: 'TODO',
         commentDraft:
           t.action === 'value_comment'
-            ? 'AU tip I wish someone told me earlier: ignore shelf price, compare protein per ~25g. Changes the whole shop. Curious what you use as your protein anchors?'
+            ? 'AU tip I wish someone told me earlier: compare protein per ~25g. Changes the whole shop. Curious what you use as your protein anchors?'
             : 'Engage only if thread is about groceries/macros — add specific AU value, soft mention FitMunch once max.',
       }) + '\n'
     );

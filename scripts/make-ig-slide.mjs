@@ -15,7 +15,7 @@ const svg = Buffer.from(`<svg width="${W}" height="${H}" xmlns="http://www.w3.or
   <text x="60" y="180" font-family="Segoe UI, Arial" font-size="42" font-weight="700" fill="#86efac">FitMunch</text>
   <text x="60" y="520" font-family="Segoe UI, Arial" font-size="72" font-weight="800" fill="#ffffff">Price per 25g</text>
   <text x="60" y="610" font-family="Segoe UI, Arial" font-size="72" font-weight="800" fill="#ffffff">protein wins</text>
-  <text x="60" y="720" font-family="Segoe UI, Arial" font-size="36" fill="#bbf7d0">Not shelf price. Real AU grocery math.</text>
+  <text x="60" y="720" font-family="Segoe UI, Arial" font-size="36" fill="#bbf7d0">Real AU grocery math.</text>
   <text x="60" y="1260" font-family="Segoe UI, Arial" font-size="28" fill="#86efac">fitmunch.com.au</text>
 </svg>`);
 

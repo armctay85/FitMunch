@@ -12,14 +12,13 @@
 <header>
   <a href="/app.html">Trainer dashboard</a>
   <h1>Coach plan builder</h1>
-  <p>Pick a client, set targets, and draft a 7-day plan with a priced Woolworths, Coles, or Aldi list.</p>
+  <p>Pick a client, set targets, and draft a 7-day plan with a Woolworths, Coles, or Aldi list.</p>
 </header>
 <main>
-  <p class="gate" id="coach-gate">Client count gate: open.</p>
+  <p class="gate" id="coach-gate" hidden></p>
   <p class="error" id="coach-error" hidden></p>
   <section class="card" id="coach-locked">
     <p>Trainer accounts build client plans here.</p>
-    <button type="button" id="coach-preview" hidden>Continue as PT test account</button>
     <a class="btn secondary" href="/login.html?plan=starter">Sign in</a>
   </section>
   <form class="card stack" id="coach-form" hidden>
@@ -58,7 +57,6 @@
         </select>
       </div>
     </div>
-    <p class="note">Estimated from public catalogue specials. Check prices at checkout.</p>
     <button type="submit" id="coach-generate">Generate 7-day plan</button>
   </form>
 

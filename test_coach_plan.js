@@ -42,13 +42,8 @@ describe('Coach plan builder', () => {
     expect(plan.shopping.lines.every((line) => line.priced && line.lineAud > 0)).toBe(true);
     const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
     expect(plan.shopping.totalCents).toBe(cents);
-    expect(plan.shopping.note).toBe(coach.PRICE_NOTE);
-    expect(plan.priceNote).toBe(priceEstimateNote(CATALOGUE));
-    expect(plan.priceNote).toContain(CATALOGUE.validFrom);
-    expect(plan.priceNote).toContain(CATALOGUE.validTo);
-    expect(plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
-    expect(plan.catalogue.validTo).toBe(CATALOGUE.validTo);
-    expect(plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
+    expect(plan.shopping.note).toBe('Prices vary by store and week.');
+    expect(plan.priceNote).toBe(coach.PRICE_NOTE);
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
@@ -224,7 +219,7 @@ describe('Coach plan HTTP', () => {
     expect(share.text).toContain('Northside training');
     expect(share.text).toContain('id="share-logo"');
     expect(share.text).toContain('Prices vary by store and week.');
-    expect(share.text).not.toContain(coach.PRICE_NOTE);
+    expect(share.text).not.toContain(priceEstimateNote(CATALOGUE));
     expect(share.text).not.toContain('2026-08-25');
     expect(share.text).toContain('See a dietitian for medical nutrition.');
     expect(share.text).toContain('Coles draft list');
@@ -294,7 +289,10 @@ describe('Coach plan HTTP', () => {
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
     const page = await request(app).get('/coach').expect(200);
     expect(page.text).toContain('Coach plan builder');
-    expect(page.text).toContain('Estimated from public catalogue specials');
+    expect(page.text).not.toContain('Prices vary by store and week.');
+    expect(page.text).not.toContain('Estimated from public catalogue specials');
+    expect(read('public/js/fm-coach.js').split('Prices vary by store and week.').length - 1).toBe(1);
+    expect(page.text).not.toContain('Client count gate: open.');
     expect(page.text).toContain('See a dietitian for medical nutrition.');
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');
