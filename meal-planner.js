@@ -9,6 +9,7 @@ const express = require('express');
 const jwt     = require('jsonwebtoken');
 const aiClient = require('./lib/ai-client');
 const aiUsage  = require('./lib/ai-usage');
+const { sendApiError } = require('./lib/public-error');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -175,8 +176,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
 
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch(err) {
-    console.error('[meal-planner]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err, '[meal-planner]');
   }
 });
 
@@ -268,8 +268,7 @@ router.post('/shopping', requireAuth, async (req, res) => {
       }
     });
   } catch(err) {
-    console.error('[meal-planner/shopping]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err, '[meal-planner/shopping]');
   }
 });
 

@@ -5,6 +5,7 @@ const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sendWelcomeEmail } = require('./server/email.js');
+const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
   // Basic configuration for Replit environment
@@ -215,7 +216,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error('Webhook sig failed:', err.message);
+    console.error('Webhook sig failed:', err);
+    if (isInternalLeak(err && err.message)) return res.status(400).send('Webhook Error');
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -344,7 +346,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         console.log(`Webhook: ${event.type}`);
     }
   } catch (err) {
-    console.error('Webhook handler error:', err.message);
+    console.error('Webhook handler error:', err);
     return res.status(500).send('Handler error');
   }
   res.json({ received: true });
@@ -463,7 +465,8 @@ app.get("/api/db-test", (req, res) => {
       await pool.end();
       res.json({ ok: true, tables: tables.rows.map(r => r.table_name) });
     } catch (e) {
-      res.json({ ok: false, error: e.message });
+      console.error('[db-test]', e);
+      res.status(500).json({ ok: false, error: GENERIC_API_ERROR });
     }
   })();
 });
@@ -534,10 +537,9 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Failed to create checkout session',
-      error: error.message
     });
   }
 });
@@ -665,8 +667,7 @@ app.post('/api/quick-checkout', async (req, res) => {
 
     return res.json({ success: true, url: result.url, id: result.id });
   } catch (error) {
-    console.error('Quick checkout error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return sendApiError(res, error, 'Quick checkout error');
   }
 });
 
@@ -734,8 +735,7 @@ app.post('/api/checkout', async (req, res) => {
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
-    console.error('Checkout error:', err.message);
-    res.status(500).json({ error: 'Checkout failed: ' + err.message });
+    return sendApiError(res, err, 'Checkout error');
   }
 });
 
@@ -840,8 +840,13 @@ app.post('/api/coach/checkout', async (req, res) => {
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
-    console.error('Coach checkout error:', err.message);
-    return res.status(err.statusCode || 500).json({ success: false, error: err.message || 'Coach checkout failed.' });
+    const status = Number(err.statusCode);
+    const code = status >= 400 && status < 500 ? status : 500;
+    if (code >= 500 || isInternalLeak(err && err.message)) {
+      console.error('Coach checkout error:', err);
+      return res.status(500).json({ success: false, error: 'Coach checkout failed.' });
+    }
+    return res.status(code).json({ success: false, error: err.message || 'Coach checkout failed.' });
   }
 });
 
@@ -906,8 +911,7 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
       ...(coach ? { coach } : {}),
     });
   } catch (err) {
-    console.error('[sync-subscription]', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return sendApiError(res, err, '[sync-subscription]');
   }
 });
 
@@ -955,7 +959,6 @@ app.post('/api/complete-subscription', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to complete subscription',
-      error: error.message
     });
   }
 });
@@ -1007,7 +1010,6 @@ app.post('/api/stripe/customers', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to create customer',
-      error: error.message
     });
   }
 });
@@ -1054,8 +1056,7 @@ app.post('/api/billing-portal', async (req, res) => {
   } catch (e) {
     if (sendAuthError(e, res)) return;
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
-    console.error('Billing portal error:', e.message);
-    res.status(500).json({ error: e.message });
+    return sendApiError(res, e, 'Billing portal error');
   }
 });
 
@@ -1098,11 +1099,10 @@ app.use((err, req, res, next) => {
   console.error(err);
   let code = Number(err.status || err.statusCode);
   if (!Number.isFinite(code) || code < 400 || code >= 600) code = 500;
-  const message =
-    process.env.NODE_ENV === 'production' && code >= 500
-      ? 'Internal server error'
-      : err.message || 'Error';
-  res.status(code).json({ success: false, error: message });
+  if (code >= 500 || isInternalLeak(err && err.message)) {
+    return res.status(code >= 500 ? code : 500).json({ success: false, error: GENERIC_API_ERROR });
+  }
+  res.status(code).json({ success: false, error: err.message || 'Error' });
 });
 
 // Catch-all for unmatched non-API routes → custom 404 page

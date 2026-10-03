@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const aiUsage = require('./lib/ai-usage');
 const core = require('./lib/receipt-scan-core');
+const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
 
 let visionOverride = null;
 function getVision() {
@@ -153,8 +154,7 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     res.json(payload);
 
   } catch (err) {
-    console.error('[receipt-scan]', err.message);
-    res.json({ success: false, error: err.message });
+    sendApiError(res, err, '[receipt-scan]');
   }
 });
 
@@ -270,7 +270,8 @@ router.get('/sample', async (_req, res) => {
       geminiChatModel: require('./lib/ai-client').geminiModel(),
     };
   } catch (err) {
-    result.visionTest = { ok: false, error: err.message };
+    console.error('[receipt-scan] sample vision', err);
+    result.visionTest = { ok: false, error: GENERIC_API_ERROR };
   }
 
   res.json(result);

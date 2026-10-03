@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('./lib/fitmunch-checkout');
+const { isInternalLeak, GENERIC_API_ERROR } = require('./lib/public-error');
 const store = require('./lib/coach-store');
 const {
   buildCoachPlan,
@@ -37,10 +38,16 @@ function sendError(res, err) {
     client_count_gate: 403,
     not_found: 404,
   }[err.code] || 500;
+  if (status >= 500) console.error('[coach]', err);
+  let message = status === 500 ? 'Could not build that plan.' : err.message;
+  if (isInternalLeak(message)) {
+    console.error('[coach]', err);
+    message = status === 500 ? 'Could not build that plan.' : GENERIC_API_ERROR;
+  }
   const body = {
     success: false,
     error: err.code || 'error',
-    message: status === 500 ? 'Could not build that plan.' : err.message,
+    message,
   };
   if (err.gate) body.gate = err.gate;
   res.status(status).json(body);
