@@ -146,7 +146,9 @@ function checkHeaders() {
   const block = (vercel.headers || []).find((row) => row.source === '/(.*)');
   if (!block) fail('vercel.json is missing headers for /(.*)');
   const map = Object.fromEntries((block ? block.headers : []).map((row) => [row.key, row.value]));
-  if (map['Permissions-Policy']) fail('vercel.json must not set Permissions-Policy; Express sets it');
+  if (map['Permissions-Policy'] !== headers.PERMISSIONS_POLICY) {
+    fail('vercel.json Permissions-Policy does not match lib/security-headers.js');
+  }
   if (map['Content-Security-Policy'] !== headers.CONTENT_SECURITY_POLICY) {
     fail('vercel.json Content-Security-Policy does not match lib/security-headers.js');
   }
@@ -172,6 +174,37 @@ function checkHeaders() {
   }
   if (!server.includes('webhookHandlerErrorLabel(err)')) {
     fail('webhook handler error log must use webhookHandlerErrorLabel');
+  }
+  if (!server.includes('NO_REFERRER_PATH') || !server.includes("res.setHeader('Referrer-Policy', 'no-referrer')")) {
+    fail('server.js must set Referrer-Policy no-referrer for /login after helmet');
+  }
+  const helmetAt = server.indexOf('app.use(helmet(');
+  const noReferrerAt = server.indexOf('const NO_REFERRER_PATH');
+  if (helmetAt < 0 || noReferrerAt < 0 || noReferrerAt < helmetAt) {
+    fail('NO_REFERRER_PATH middleware must stay after the helmet block');
+  }
+}
+
+async function checkExpressHeaders() {
+  const request = require('supertest');
+  const app = require(path.join(root, 'server.js'));
+  const headers = require(path.join(root, 'lib/security-headers.js'));
+  for (const urlPath of ['/login', '/login?reset=x', '/login.html']) {
+    const res = await request(app).get(urlPath);
+    const referrer = res.headers['referrer-policy'];
+    if (referrer !== 'no-referrer') {
+      fail(`${urlPath} Express Referrer-Policy is ${referrer || 'unset'}, expected no-referrer`);
+    }
+    if (res.headers['permissions-policy'] !== headers.PERMISSIONS_POLICY) {
+      fail(`${urlPath} Express Permissions-Policy does not match lib/security-headers.js`);
+    }
+  }
+  const home = await request(app).get('/pricing');
+  if (home.headers['referrer-policy'] !== headers.REFERRER_POLICY) {
+    fail(`/pricing Express Referrer-Policy is ${home.headers['referrer-policy'] || 'unset'}`);
+  }
+  if (home.headers['permissions-policy'] !== headers.PERMISSIONS_POLICY) {
+    fail('/pricing Express Permissions-Policy does not match lib/security-headers.js');
   }
 }
 
@@ -306,6 +339,7 @@ checkSecrets();
 checkFakeData();
 checkBannedCopy();
 checkHeaders();
+await checkExpressHeaders();
 if (failures.length) {
   console.error(failures.map((line) => `FAIL ${line}`).join('\n'));
   process.exit(1);

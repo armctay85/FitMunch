@@ -5,7 +5,7 @@ const request = require('supertest');
 const app = require('./server.js');
 const { sanitizeApiJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
-const { CONTENT_SECURITY_POLICY } = require('./lib/security-headers');
+const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 
 function loggedText(spy) {
   return spy.mock.calls.map((args) => args.map((arg) => {
@@ -19,9 +19,7 @@ describe('response headers', () => {
     const res = await request(app).get('/').expect(200);
     expect(res.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
     expect(res.headers['content-security-policy']).not.toMatch(/report-only/i);
-    expect(res.headers['permissions-policy']).toBe(
-      'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")'
-    );
+    expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   });
@@ -49,6 +47,16 @@ describe('response headers', () => {
     expect(effective('/')).toBe('strict-origin-when-cross-origin');
     expect(effective('/pricing')).toBe('strict-origin-when-cross-origin');
   });
+
+  it('sends no-referrer from Express on /login, /login?reset= and /login.html', async () => {
+    for (const urlPath of ['/login', '/login?reset=x', '/login.html']) {
+      const res = await request(app).get(urlPath);
+      expect(res.headers['referrer-policy']).toBe('no-referrer');
+      expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
+    }
+    const home = await request(app).get('/');
+    expect(home.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  });
 });
 
 describe('API JSON name strip', () => {
@@ -74,6 +82,15 @@ describe('API JSON name strip', () => {
 });
 
 describe('webhook handler error log', () => {
+  it('redacts secret-shaped and email-shaped labels', () => {
+    expect(webhookHandlerErrorLabel({ name: 'sk_live_abcdef' })).toBe('Error');
+    expect(webhookHandlerErrorLabel({ code: 'sk_test_abcdef' })).toBe('Error');
+    expect(webhookHandlerErrorLabel({ code: 'whsec_abc' })).toBe('Error');
+    expect(webhookHandlerErrorLabel({ name: 'admin@fitmunch.com.au' })).toBe('Error');
+    expect(webhookHandlerErrorLabel({ code: 'ECONNREFUSED' })).toBe('ECONNREFUSED');
+    expect(webhookHandlerErrorLabel({ name: 'Error' })).toBe('Error');
+  });
+
   it('logs only a name or code for a failing DB query', () => {
     const err = new Error('Failed query: select "id" from "users" where stripe_customer_id = $1 params: cus_LogLeak123 cs_LogLeak456 pi_LogLeak789 sub_LogLeak012 in_LogLeak345 evt_LogLeak678');
     err.code = '42703';
@@ -231,6 +248,68 @@ describe('GET /api/receipt/sample', () => {
       expect(blocked.body).toEqual({ success: false, error: 'Too many requests' });
       expect(blocked.headers['retry-after']).toMatch(/^\d+$/);
       assertNoModelNames(blocked.body);
+    });
+  });
+
+  it('limits wrong keys before the key check, including a different length', async () => {
+    await withEnv({ VERCEL_ENV: 'preview', NODE_ENV: 'development', RECEIPT_SAMPLE_KEY: sampleKey }, async () => {
+      const shortKey = await request(app)
+        .get('/api/receipt/sample')
+        .set('x-receipt-sample-key', 'x')
+        .set('x-forwarded-for', '198.51.100.41');
+      expect(shortKey.status).toBe(401);
+      const longKey = await request(app)
+        .get('/api/receipt/sample')
+        .set('x-receipt-sample-key', `${sampleKey}-extra`)
+        .set('x-forwarded-for', '198.51.100.42');
+      expect(longKey.status).toBe(401);
+
+      const ip = '198.51.100.43';
+      for (let i = 0; i < 5; i += 1) {
+        const res = await request(app)
+          .get('/api/receipt/sample')
+          .set('x-receipt-sample-key', `wrong-${i}`)
+          .set('x-forwarded-for', ip);
+        expect(res.status).toBe(401);
+      }
+      const blocked = await request(app)
+        .get('/api/receipt/sample')
+        .set('x-receipt-sample-key', 'still-wrong')
+        .set('x-forwarded-for', ip);
+      expect(blocked.status).toBe(429);
+      expect(blocked.body).toEqual({ success: false, error: 'Too many requests' });
+    });
+  });
+
+  it('does not give a new bucket for a rotated left-most X-Forwarded-For or X-Real-IP', async () => {
+    await withEnv({ VERCEL_ENV: 'preview', NODE_ENV: 'development', RECEIPT_SAMPLE_KEY: sampleKey }, async () => {
+      for (let i = 0; i < 5; i += 1) {
+        const res = await request(app)
+          .get('/api/receipt/sample')
+          .set('x-receipt-sample-key', 'nope')
+          .set('x-real-ip', `203.0.113.${i}`)
+          .set('x-forwarded-for', `203.0.113.${i}, 198.51.100.80`);
+        expect(res.status).toBe(401);
+      }
+      const blocked = await request(app)
+        .get('/api/receipt/sample')
+        .set('x-receipt-sample-key', 'nope')
+        .set('x-real-ip', '198.51.100.9')
+        .set('x-forwarded-for', '203.0.113.99, 198.51.100.80');
+      expect(blocked.status).toBe(429);
+
+      for (let i = 0; i < 5; i += 1) {
+        const res = await request(app)
+          .get('/api/receipt/sample')
+          .set('x-receipt-sample-key', 'nope')
+          .set('x-real-ip', `192.0.2.${i + 1}`);
+        expect(res.status).toBe(401);
+      }
+      const realIpBlocked = await request(app)
+        .get('/api/receipt/sample')
+        .set('x-receipt-sample-key', 'nope')
+        .set('x-real-ip', '192.0.2.200');
+      expect(realIpBlocked.status).toBe(429);
     });
   });
 });

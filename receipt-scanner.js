@@ -45,11 +45,10 @@ router.use(attachApiJsonSanitizer);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // In-memory store, one window per server instance. A second isolate does not share the count.
+// Key on req.ip. trust proxy is 1, so this is the hop the proxy appended,
+// not a client-supplied X-Forwarded-For or X-Real-IP.
 function sampleClientKey(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const hop = forwarded ? String(forwarded).split(',')[0].trim() : '';
-  const real = String(req.headers['x-real-ip'] || '').split(',')[0].trim();
-  const raw = hop || real;
+  const raw = req.ip || '';
   if (!raw) return 'missing-ip';
   try {
     return ipKeyGenerator(raw);
@@ -82,9 +81,8 @@ function sampleKeyOk(req) {
   const expected = String(process.env.RECEIPT_SAMPLE_KEY || '');
   const provided = String(req.headers['x-receipt-sample-key'] || '');
   if (!expected || !provided) return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
+  const a = crypto.createHash('sha256').update(expected).digest();
+  const b = crypto.createHash('sha256').update(provided).digest();
   return crypto.timingSafeEqual(a, b);
 }
 
@@ -283,7 +281,7 @@ router.get('/first-scan', (_req, res) => res.json({
 }));
 
 // Preview and dev only. Production 404s. Key required. Five calls per 10 minutes per IP.
-router.get('/sample', sampleGate, sampleLimiter, async (_req, res) => {
+router.get('/sample', sampleLimiter, sampleGate, async (_req, res) => {
   const configured = Boolean(process.env.GEMINI_API_KEY);
   const result = {
     success: configured,

@@ -10,11 +10,12 @@ const { sendWelcomeEmail } = require('./server/email.js');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
-const { CONTENT_SECURITY_POLICY } = require('./lib/security-headers');
+const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
-  // Basic configuration for Replit environment
-  app.set('trust proxy', true);
+  // One trusted hop (Railway or Vercel). req.ip is the address that hop
+  // appended, not a client-supplied left-most X-Forwarded-For or X-Real-IP.
+  app.set('trust proxy', 1);
 };
 // Initialize Stripe only if key is available
 let stripe = null;
@@ -72,6 +73,15 @@ app.use(helmet({
   },
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+
+// Helmet sets strict-origin-when-cross-origin. On Vercel that header wins over
+// vercel.json for function responses, including the /login 301. Override it
+// for the login page before anything else writes the response.
+const NO_REFERRER_PATH = /^\/login(?:\.html)?\/?$/i;
+app.use((req, res, next) => {
+  if (NO_REFERRER_PATH.test(req.path)) res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
 // Enable CORS with explicit origin allowlist (credentials-safe)
 app.use(cors({
@@ -141,7 +151,6 @@ app.use((req, res, next) => {
   return next();
 });
 
-const PERMISSIONS_POLICY = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
   res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
