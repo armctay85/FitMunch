@@ -73,7 +73,10 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
       </ol>`;
 
   const attachHtml = claimUrl
-    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Paid before you had an account? <a href="${claimUrl}" style="color:#1f9d4a;font-weight:600">Attach this subscription to your account</a>. The link works once and expires soon.</p>`
+    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Paid before you had an account? Attach this subscription to the FitMunch account you choose. The link works once and expires soon.</p>
+    <p style="margin:20px 0">
+      <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Attach this subscription</a>
+    </p>`
     : '';
 
   const bodyHtml = `

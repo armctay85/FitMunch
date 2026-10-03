@@ -28,7 +28,6 @@ const original = {
   createUser: storage.createUser,
   updateUserSubscription: storage.updateUserSubscription,
   updateUserCoachBilling: storage.updateUserCoachBilling,
-  findUserByNormalizedEmail: storage.findUserByNormalizedEmail,
   db: storage.db,
 };
 
@@ -38,7 +37,6 @@ function restoreStorage() {
   storage.createUser = original.createUser;
   storage.updateUserSubscription = original.updateUserSubscription;
   storage.updateUserCoachBilling = original.updateUserCoachBilling;
-  storage.findUserByNormalizedEmail = original.findUserByNormalizedEmail;
   storage.db = original.db;
 }
 
@@ -72,7 +70,6 @@ beforeEach(() => {
   emptyDb();
   storage.updateUserSubscription = jest.fn(async () => {});
   storage.updateUserCoachBilling = jest.fn(async () => {});
-  storage.findUserByNormalizedEmail = async () => null;
   stripeEvents.resetStripeEventsForTests();
 });
 
@@ -848,6 +845,214 @@ describe('guest checkout links on signup', () => {
     expect(users['owner@example.com'].stripeCustomerId).toBeNull();
     expect(users['owner@example.com'].subscriptionTier).toBe('free');
   });
+
+  test('an attacker with a session id cannot get or redeem a claim token', async () => {
+    const jwt = require('jsonwebtoken');
+    const { jwtSecret } = require('./lib/fitmunch-checkout');
+    const { mintGuestClaimToken } = require('./lib/guest-claim');
+    const users = installAccounts();
+    const created = Math.floor(Date.now() / 1000);
+    users['victim@example.com'] = {
+      id: 'u-victim',
+      email: 'victim@example.com',
+      stripeCustomerId: 'cus_victim',
+      subscriptionTier: 'premium',
+      settings: {},
+    };
+    users['attacker@example.com'] = {
+      id: 'u-attacker',
+      email: 'attacker@example.com',
+      stripeCustomerId: null,
+      subscriptionTier: 'free',
+      settings: {},
+    };
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [users['victim@example.com']] }) }),
+      update: () => ({ set: () => ({ where: async () => { throw new Error('should not write'); } }) }),
+    };
+    app._private.setStripeForTests({
+      checkout: {
+        sessions: {
+          retrieve: async () => ({
+            id: 'cs_victim_login',
+            customer: 'cus_victim',
+            status: 'complete',
+            created,
+            customer_details: { email: 'victim@example.com' },
+            metadata: { app: 'fitmunch', plan: 'premium', priceId: PRICE_IDS.premium, userId: 'u-victim' },
+          }),
+        },
+      },
+    });
+    const attackerJwt = jwt.sign({ userId: 'u-attacker' }, jwtSecret());
+    const signedOut = await request(app).get('/api/checkout/session').query({ session_id: 'cs_victim_login' });
+    const signedIn = await request(app).get('/api/checkout/session').query({ session_id: 'cs_victim_login' })
+      .set('Authorization', 'Bearer ' + attackerJwt);
+    for (const lookup of [signedOut, signedIn]) {
+      expect(lookup.status).toBe(200);
+      expect(lookup.headers['cache-control']).toContain('no-store');
+      expect(lookup.body.claimToken).toBeUndefined();
+      expect(lookup.body.email).toBeUndefined();
+      expect(lookup.body.customerId).toBeUndefined();
+      expect(JSON.stringify(lookup.body)).not.toContain('victim@example.com');
+      expect(JSON.stringify(lookup.body)).not.toContain('cus_victim');
+    }
+    const token = mintGuestClaimToken({
+      sessionId: 'cs_victim_login',
+      customerId: 'cus_victim',
+      sessionCreated: created,
+    });
+    const redeemed = await request(app)
+      .post('/api/stripe/claim-guest')
+      .set('Authorization', 'Bearer ' + attackerJwt)
+      .send({ token });
+    expect(redeemed.status).toBe(409);
+    expect(users['attacker@example.com'].stripeCustomerId).toBeNull();
+    expect(users['attacker@example.com'].subscriptionTier).toBe('free');
+    expect(users['victim@example.com'].stripeCustomerId).toBe('cus_victim');
+    expect(users['victim@example.com'].subscriptionTier).toBe('premium');
+  });
+
+  test('redeem refuses a customer already linked to another user', async () => {
+    const jwt = require('jsonwebtoken');
+    const { jwtSecret } = require('./lib/fitmunch-checkout');
+    const { mintGuestClaimToken } = require('./lib/guest-claim');
+    const users = installAccounts();
+    const created = Math.floor(Date.now() / 1000);
+    users['owner@example.com'] = {
+      id: 'u-owner',
+      email: 'owner@example.com',
+      stripeCustomerId: 'cus_owned',
+      subscriptionTier: 'premium',
+      settings: {},
+    };
+    users['attacker@example.com'] = {
+      id: 'u-attacker',
+      email: 'attacker@example.com',
+      stripeCustomerId: null,
+      subscriptionTier: 'free',
+      settings: {},
+    };
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [users['owner@example.com']] }) }),
+      update: () => ({ set: () => ({ where: async () => { throw new Error('should not write'); } }) }),
+    };
+    app._private.setStripeForTests({
+      checkout: {
+        sessions: {
+          retrieve: async () => ({
+            id: 'cs_guest_owned',
+            customer: 'cus_owned',
+            status: 'complete',
+            created,
+            customer_details: { email: 'payer@example.com' },
+            metadata: { app: 'fitmunch', plan: 'premium', priceId: PRICE_IDS.premium },
+          }),
+        },
+      },
+    });
+    const token = mintGuestClaimToken({
+      sessionId: 'cs_guest_owned',
+      customerId: 'cus_owned',
+      sessionCreated: created,
+    });
+    const redeemed = await request(app)
+      .post('/api/stripe/claim-guest')
+      .set('Authorization', 'Bearer ' + jwt.sign({ userId: 'u-attacker' }, jwtSecret()))
+      .send({ token });
+    expect(redeemed.status).toBe(409);
+    expect(users['attacker@example.com'].stripeCustomerId).toBeNull();
+    expect(users['owner@example.com'].stripeCustomerId).toBe('cus_owned');
+  });
+
+  test('same-user redeem is already attached and preview masks both emails', async () => {
+    const jwt = require('jsonwebtoken');
+    const { jwtSecret } = require('./lib/fitmunch-checkout');
+    const { mintGuestClaimToken } = require('./lib/guest-claim');
+    const users = installAccounts();
+    const created = Math.floor(Date.now() / 1000);
+    users['bob@y.com'] = {
+      id: 'u-bob',
+      email: 'bob@y.com',
+      stripeCustomerId: 'cus_bob',
+      subscriptionTier: 'premium',
+      settings: {},
+    };
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [users['bob@y.com']] }) }),
+      update: () => ({ set: () => ({ where: async () => { throw new Error('should not write'); } }) }),
+    };
+    app._private.setStripeForTests({
+      checkout: {
+        sessions: {
+          retrieve: async () => ({
+            id: 'cs_bob',
+            customer: 'cus_bob',
+            status: 'complete',
+            created,
+            customer_details: { email: 'alice@x.com' },
+            metadata: { app: 'fitmunch', plan: 'premium', priceId: PRICE_IDS.premium },
+          }),
+        },
+      },
+    });
+    const token = mintGuestClaimToken({
+      sessionId: 'cs_bob',
+      customerId: 'cus_bob',
+      sessionCreated: created,
+    });
+    const auth = 'Bearer ' + jwt.sign({ userId: 'u-bob' }, jwtSecret());
+    const preview = await request(app).post('/api/stripe/claim-preview').set('Authorization', auth).send({ token });
+    expect(preview.status).toBe(200);
+    expect(preview.body.payerEmailMasked).toBe('a***@x.com');
+    expect(preview.body.accountEmailMasked).toBe('b***@y.com');
+    expect(JSON.stringify(preview.body)).not.toContain('alice@x.com');
+    expect(JSON.stringify(preview.body)).not.toContain('bob@y.com');
+    const redeemed = await request(app).post('/api/stripe/claim-guest').set('Authorization', auth).send({ token });
+    expect(redeemed.status).toBe(200);
+    expect(redeemed.body.alreadyAttached).toBe(true);
+    expect(redeemed.body.success).toBe(true);
+    expect(users['bob@y.com'].stripeCustomerId).toBe('cus_bob');
+    expect(users['bob@y.com'].subscriptionTier).toBe('premium');
+  });
+
+  test('a token forged with the dev secret is rejected', async () => {
+    const crypto = require('crypto');
+    const jwt = require('jsonwebtoken');
+    const { jwtSecret } = require('./lib/fitmunch-checkout');
+    const { readGuestClaimToken } = require('./lib/guest-claim');
+    const prevClaim = process.env.GUEST_CLAIM_SECRET;
+    const prevJwt = process.env.JWT_SECRET;
+    delete process.env.GUEST_CLAIM_SECRET;
+    process.env.JWT_SECRET = 'fitmunch-dev-secret';
+    const users = installAccounts();
+    users['forger@example.com'] = {
+      id: 'u-forger',
+      email: 'forger@example.com',
+      stripeCustomerId: null,
+      subscriptionTier: 'free',
+      settings: {},
+    };
+    const payload = `cs_forged.cus_forged.${Math.floor(Date.now() / 1000) + 3600}`;
+    const sig = crypto.createHmac('sha256', 'fitmunch-dev-secret').update(payload).digest('base64url');
+    const token = `${Buffer.from(payload, 'utf8').toString('base64url')}.${sig}`;
+    try {
+      expect(readGuestClaimToken(token)).toBeNull();
+      const res = await request(app)
+        .post('/api/stripe/claim-guest')
+        .set('Authorization', 'Bearer ' + jwt.sign({ userId: 'u-forger' }, jwtSecret()))
+        .send({ token });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Claim link is invalid or expired.');
+      expect(JSON.stringify(res.body)).not.toContain('fitmunch-dev-secret');
+      expect(users['forger@example.com'].stripeCustomerId).toBeNull();
+    } finally {
+      if (prevClaim == null) delete process.env.GUEST_CLAIM_SECRET;
+      else process.env.GUEST_CLAIM_SECRET = prevClaim;
+      if (prevJwt == null) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = prevJwt;
+    }
+  });
 });
 
 describe('webhook access, claims, and retries', () => {
@@ -1040,7 +1245,6 @@ describe('webhook access, claims, and retries', () => {
       settings: {},
       emailVerified: false,
     };
-    storage.findUserByNormalizedEmail = async () => user;
     storage.db = {
       select: () => ({ from: () => ({ where: async () => [] }) }),
       update: () => ({
@@ -1090,7 +1294,6 @@ describe('webhook access, claims, and retries', () => {
       settings: {},
       emailVerified: true,
     };
-    storage.findUserByNormalizedEmail = async () => user;
     storage.db = {
       select: () => ({ from: () => ({ where: async () => [] }) }),
       update: () => ({
@@ -1153,6 +1356,97 @@ describe('webhook access, claims, and retries', () => {
     }
   });
 
+  test('a re-read 500 on a deleted event does not downgrade', async () => {
+    const user = linkedUser('premium');
+    const err = Object.assign(new Error('upstream'), { statusCode: 500, type: 'StripeAPIError' });
+    app._private.setStripeForTests({
+      subscriptions: {
+        retrieve: jest.fn(async () => { throw err; }),
+        list: jest.fn(async () => ({ data: [{ id: 'sub_live', status: 'active' }] })),
+      },
+      webhooks: { constructEvent },
+    });
+    const res = await postEvent({
+      id: 'evt_z3',
+      type: 'customer.subscription.deleted',
+      data: {
+        object: {
+          id: 'sub_live',
+          customer: 'cus_m',
+          status: 'canceled',
+          metadata: { app: 'fitmunch', product: 'fitmunch', plan: 'premium' },
+          items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+        },
+      },
+    });
+    expect(res.status).toBe(500);
+    expect(user.subscriptionTier).toBe('premium');
+    expect(storage.updateUserSubscription).not.toHaveBeenCalled();
+  });
+
+  test('a guest welcome link keeps the claim token in the fragment', async () => {
+    emptyDb();
+    const sendWelcomeEmail = jest.spyOn(emailApi, 'sendWelcomeEmail').mockResolvedValue({ success: true, messageId: 'msg_guest' });
+    const created = Math.floor(Date.now() / 1000);
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      webhooks: { constructEvent },
+    });
+    try {
+      const guest = await postEvent({
+        id: 'evt_guest_mail',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_guest_mail',
+            created,
+            customer: 'cus_guest_mail',
+            customer_details: { email: 'guest.mail@example.com', name: 'Guest' },
+            metadata: { plan: 'premium', app: 'fitmunch', priceId: PRICE_IDS.premium },
+          },
+        },
+      });
+      expect(guest.status).toBe(200);
+      const guestCall = sendWelcomeEmail.mock.calls.find((call) => call[0] === 'guest.mail@example.com');
+      expect(guestCall[3]).toContain('https://www.fitmunch.com.au/login.html#claim=');
+      expect(guestCall[3]).not.toContain('?claim=');
+      const member = await postEvent({
+        id: 'evt_member_mail',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_member_mail',
+            created,
+            customer: 'cus_member_mail',
+            customer_details: { email: 'member.mail@example.com', name: 'Member' },
+            metadata: { plan: 'premium', app: 'fitmunch', priceId: PRICE_IDS.premium, userId: 'u-member' },
+          },
+        },
+      });
+      expect(member.status).toBe(200);
+      const memberCall = sendWelcomeEmail.mock.calls.find((call) => call[0] === 'member.mail@example.com');
+      expect(memberCall).toEqual(['member.mail@example.com', 'Member', 'Premium']);
+    } finally {
+      sendWelcomeEmail.mockRestore();
+    }
+  });
+
+  test('a missing webhook secret returns a generic message', async () => {
+    app._private.setStripeForTests({ webhooks: { constructEvent } });
+    const prev = process.env.STRIPE_WEBHOOK_SECRET;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const res = await postEvent({ id: 'evt_nosecret', type: 'checkout.session.completed', data: { object: {} } });
+      expect(res.status).toBe(400);
+      expect(res.text).toBe('Webhook is not configured');
+      expect(res.text).not.toContain('STRIPE_WEBHOOK_SECRET');
+    } finally {
+      spy.mockRestore();
+      process.env.STRIPE_WEBHOOK_SECRET = prev;
+    }
+  });
+
   test('login logs an error label and not the raw message', async () => {
     storage.getUserByEmail = async () => {
       throw new Error('password authentication failed for user secret@example.com');
@@ -1168,5 +1462,93 @@ describe('webhook access, claims, and retries', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe('claim token transport', () => {
+  test('the token is read from the fragment and stripped from the URL', () => {
+    const { takeClaimToken } = require('./public/js/fm-claim.js');
+    let next = '';
+    const token = takeClaimToken(
+      { href: 'https://www.fitmunch.com.au/login.html#claim=sekret-token' },
+      (url) => { next = url; }
+    );
+    expect(token).toBe('sekret-token');
+    expect(next).toBe('/login.html');
+    expect(next).not.toContain('claim');
+    expect(next).not.toContain('sekret-token');
+    let kept = '';
+    const fromQuery = takeClaimToken(
+      { href: 'https://www.fitmunch.com.au/login.html?claim=query-token#register' },
+      (url) => { kept = url; }
+    );
+    expect(fromQuery).toBe('query-token');
+    expect(kept).toBe('/login.html#register');
+    expect(kept).not.toContain('query-token');
+    const login = fs.readFileSync(path.join(__dirname, 'public/login.html'), 'utf8');
+    const success = fs.readFileSync(path.join(__dirname, 'public/success.html'), 'utf8');
+    const webhook = fs.readFileSync(path.join(__dirname, 'lib/stripe-webhook.js'), 'utf8');
+    const vercel = fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8');
+    const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    expect(login.indexOf('/js/fm-claim.js')).toBeGreaterThan(-1);
+    expect(login.indexOf('/js/fm-claim.js')).toBeLessThan(login.indexOf('/js/fm-track.js'));
+    expect(login).toContain('Attach the purchase made with ');
+    expect(login).toContain('already attached');
+    expect(login).toContain('id="claim-intent"');
+    expect(login).toContain('id="claim-result"');
+    expect(login).toContain('Attach this purchase');
+    expect(login).not.toContain('?claim=');
+    expect(login).not.toContain('search).get(\'claim\')');
+    expect(success).not.toContain('?claim=');
+    expect(success).not.toContain('claimToken');
+    expect(success).toContain('no-referrer');
+    expect(success).toContain('fm-btn fm-btn-leaf');
+    expect(webhook).toContain('login.html#claim=');
+    expect(webhook).not.toContain('login.html?claim=');
+    expect(vercel).toContain('"value": "no-referrer"');
+    expect(server).toContain("filePath.endsWith('/success.html')");
+    expect(server).toContain("res.set('Referrer-Policy', 'no-referrer')");
+    const { redactLogString, sanitizeAnalyticsPayload } = require('./lib/url-redact');
+    const logged = redactLogString('GET /login.html#claim=sekret-token');
+    expect(logged).not.toContain('sekret-token');
+    expect(logged).toContain('claim=[redacted]');
+    const analytics = sanitizeAnalyticsPayload({ claim: 'sekret-token', path: '/login.html#claim=sekret-token' });
+    expect(analytics.claim).toBeUndefined();
+    expect(JSON.stringify(analytics)).not.toContain('sekret-token');
+  });
+
+  test('production without GUEST_CLAIM_SECRET fails closed', () => {
+    const prevNode = process.env.NODE_ENV;
+    const prevClaim = process.env.GUEST_CLAIM_SECRET;
+    process.env.NODE_ENV = 'production';
+    delete process.env.GUEST_CLAIM_SECRET;
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { mintGuestClaimToken, readGuestClaimToken, warnMissingGuestClaimSecret } = require('./lib/guest-claim');
+      warnMissingGuestClaimSecret();
+      expect(mintGuestClaimToken({ sessionId: 'cs_prod', customerId: 'cus_prod', sessionCreated: 20 })).toBe('');
+      expect(readGuestClaimToken('fitmunch-dev-secret.not-a-real-token')).toBeNull();
+      const text = spy.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(text).toContain('GUEST_CLAIM_SECRET');
+      expect(text).not.toContain('fitmunch-dev-secret');
+    } finally {
+      spy.mockRestore();
+      process.env.NODE_ENV = prevNode;
+      if (prevClaim == null) delete process.env.GUEST_CLAIM_SECRET;
+      else process.env.GUEST_CLAIM_SECRET = prevClaim;
+    }
+  });
+
+  test('a pool error with no code is retryable and a customer search outage is not skipped', async () => {
+    const { isTransientWebhookError } = require('./lib/webhook-error');
+    const { listCustomersWithEmail } = require('./lib/fitmunch-checkout');
+    expect(isTransientWebhookError(new Error('Cannot use a pool after calling end on the pool'))).toBe(true);
+    const down = Object.assign(new Error('search down'), { statusCode: 500, type: 'StripeAPIError' });
+    await expect(listCustomersWithEmail({
+      customers: {
+        search: async () => { throw down; },
+        list: async () => ({ data: [] }),
+      },
+    }, 'payer@example.com')).rejects.toBe(down);
   });
 });
