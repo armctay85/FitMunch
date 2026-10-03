@@ -83,7 +83,7 @@
       days.appendChild(block);
     });
     const shopping = plan.plan.shopping;
-    $('coach-store-heading').textContent = 'Estimated list';
+    $('coach-store-heading').textContent = shopping.storeName + ' list';
     const list = $('coach-list');
     list.replaceChildren();
     shopping.lines.forEach((line) => {
@@ -98,7 +98,7 @@
       row.appendChild(price);
       list.appendChild(row);
     });
-    $('coach-total').textContent = 'Estimated total ' + money(shopping.totalAud);
+    $('coach-total').textContent = shopping.storeName + ' total ' + money(shopping.totalAud);
     $('coach-price-note').textContent = plan.plan.priceNote;
     const share = $('coach-share');
     if (plan.sharePath) {
