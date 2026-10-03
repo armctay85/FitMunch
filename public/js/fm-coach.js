@@ -125,7 +125,7 @@
       list.appendChild(row);
     });
     $('coach-total').textContent = shopping.splitLabel || '';
-    $('coach-price-note').textContent = plan.plan.priceNote || 'Check prices at checkout.';
+    $('coach-price-note').textContent = plan.plan.priceNote || 'Prices vary by store and week.';
     const share = $('coach-share');
     if (plan.sharePath) {
       const link = document.createElement('a');

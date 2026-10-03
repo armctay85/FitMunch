@@ -61,8 +61,11 @@ describe('Coach plan builder', () => {
     const listed = new Set(plan.shopping.lines.map((line) => line.sku));
     expect(plan.shopping.lines.every((line) => !line.swapSku || !listed.has(line.swapSku))).toBe(true);
     expect(plan.shopping.lines.every((line) => line.storeId === 'woolworths')).toBe(true);
-    expect(plan.shopping.note).toBe('Check prices at checkout.');
-    expect(plan.priceNote).toBe('Check prices at checkout.');
+    expect(plan.shopping.note).toBe('Prices vary by store and week.');
+    expect(plan.priceNote).toBe('Prices vary by store and week.');
+    expect(coach.formatPack({ name: 'Chicken breast 1kg', packs: 2, sku: 'chicken-breast-1kg' })).toBe('Chicken breast 1kg × 2');
+    expect(coach.formatPack({ name: 'Olive oil 500ml', packs: 1, sku: 'olive-oil-500ml' })).toBe('Olive oil 500ml');
+    expect(plan.shopping.lines.every((line) => !/: \d+ (pack|packs|tub|tubs|carton|cartons|bottle|bottles)/.test(line.packLabel))).toBe(true);
     expect(plan.shopping.splitLabel).toBe("Your coach's store split: Woolworths.");
     expect(plan.shopping.storeLine).toBe('Woolworths');
     expect(plan.shopping.itemCount).toBe(plan.shopping.lines.length);
@@ -193,7 +196,7 @@ describe('Coach plan builder', () => {
     expect(aldi.shopping.split).toBe(false);
     expect(aldi.shopping.lines.every((line) => line.storeId === 'aldi')).toBe(true);
     expect(aldi.shopping.splitLabel).toBe("Your coach's store split: Aldi.");
-    expect(aldi.shopping.note).toBe('Check prices at checkout.');
+    expect(aldi.shopping.note).toBe('Prices vary by store and week.');
     expect(JSON.stringify(aldi.shopping)).not.toMatch(PRICE_OR_DATE);
     const produce = aldi.shopping.lines.find((line) => line.aisle === 'Produce');
     expect(produce).toBeTruthy();
@@ -338,7 +341,7 @@ describe('Coach plan HTTP', () => {
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
     expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
-    expect(created.body.plan.plan.priceNote).toBe('Check prices at checkout.');
+    expect(created.body.plan.plan.priceNote).toBe('Prices vary by store and week.');
     expect(created.body.plan.plan.shopping.splitLabel).toBe("Your coach's store split: Coles.");
     const movedSku = created.body.plan.plan.shopping.lines[0].sku;
     const moved = await request(app)
@@ -360,7 +363,10 @@ describe('Coach plan HTTP', () => {
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
     expect(share.text).toContain('Northside training');
     expect(share.text).toContain('id="share-logo"');
-    expect(share.text).toContain('Check prices at checkout.');
+    expect(share.text).toContain('Prices vary by store and week.');
+    expect(share.text).toContain('id="share-left"');
+    expect(share.text).toContain('data-sku=');
+    expect(share.text).not.toContain('Check prices at checkout.');
     expect(share.text).toContain('id="share-split">Coles and Woolworths<');
     expect((share.text.match(/Your coach's store split/g) || []).length).toBe(1);
     expect(share.text).toContain('id="share-summary"');
@@ -393,7 +399,9 @@ describe('Coach plan HTTP', () => {
     expect(pdfText).toContain('Northside training');
     expect(pdfText).toContain('General guidance, not medical advice');
     expect(pdfText).toContain('Prepared by Northside training with FitMunch');
-    expect(drawn).toContain('Check prices at checkout.');
+    expect(drawn).toContain('Prices vary by store and week.');
+    expect(drawn).toContain('Sample · Week of');
+    expect(drawn).not.toContain('Check prices at checkout.');
     expect(drawn).toContain("Your coach's store split");
     expect(drawn).toContain('Coles and Woolworths');
     expect(drawn).not.toContain("Your coach's store split:");
@@ -459,7 +467,7 @@ describe('Coach plan HTTP', () => {
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
     const page = await request(app).get('/coach').expect(200);
     expect(page.text).toContain('Coach plan builder');
-    expect(page.text).toContain('Check prices at checkout.');
+    expect(page.text).toContain('Prices vary by store and week.');
     expect(page.text).not.toMatch(/25 Aug 2026|2026-08-25/);
     const coachPage = read('public/meal-plan-software-personal-trainers.html');
     expect(coachPage).toContain('A$39');
