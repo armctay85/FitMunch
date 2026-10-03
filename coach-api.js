@@ -7,6 +7,7 @@ const { jwtSecret } = require('./lib/fitmunch-checkout');
 const store = require('./lib/coach-store');
 const {
   buildCoachPlan,
+  applyStoreChoices,
   evaluateCoachClientGate,
   targetsFromLogs,
   PRICE_NOTE,
@@ -30,6 +31,8 @@ function sendError(res, err) {
     bad_targets: 400,
     bad_household: 400,
     bad_store: 400,
+    bad_stores: 400,
+    bad_shopping: 400,
     bad_flags: 400,
     bad_logo: 400,
     no_meals: 400,
@@ -242,6 +245,18 @@ api.post('/plans', requirePt, async (req, res) => {
       source: body.source === 'logs' ? 'logs' : 'manual',
     });
     res.status(201).json({ success: true, plan: await store.withAdherence(row), gate });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+api.put('/plans/:id/stores', requirePt, async (req, res) => {
+  try {
+    const row = await store.getPlan(req.params.id, req.user.userId);
+    if (!row) return res.status(404).json({ success: false, error: 'not_found' });
+    row.plan.shopping = applyStoreChoices(row.plan.shopping, (req.body || {}).stores);
+    await store.writePlan(row);
+    res.json({ success: true, plan: await store.withAdherence(row) });
   } catch (err) {
     sendError(res, err);
   }

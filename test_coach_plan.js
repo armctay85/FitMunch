@@ -5,8 +5,24 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const coach = require('./lib/coach-plan');
-const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
+const { CATALOGUE } = require('./lib/public-specials-catalogue');
 const store = require('./lib/coach-store');
+
+const PRICE_OR_DATE = /\$\s?\d|A\$\s?\d|totalAud|lineAud|on special|catalogue specials|validFrom|validTo|pricedAt|2026-08-\d{2}|\d{1,2}\s*[–-]\s*\d{1,2}\s+Aug|Aug\s+2026|public specials|Woolworths estimate|save \$|savings/i;
+
+function pdfDrawnText(buf) {
+  const raw = buf.toString('latin1');
+  const parts = [];
+  const re = /\((?:\\[()\\]|[^\\)])*\)\s*Tj/g;
+  let match;
+  while ((match = re.exec(raw))) {
+    const inner = match[0].replace(/\)\s*Tj$/, '').slice(1);
+    parts.push(inner.replace(/\\([()\\])/g, '$1'));
+  }
+  return parts.join('\n');
+}
+const { buildCoachPdf } = require('./lib/coach-pdf');
+const { renderSharePage } = require('./lib/coach-share');
 const { encodeRgbPng } = require('./lib/coach-png');
 const { decodePng } = require('./lib/coach-png');
 
@@ -27,7 +43,7 @@ function skuSet(plan) {
 describe('Coach plan builder', () => {
   const base = { kcal: 2000, protein: 140, carbs: 180, fat: 60, householdSize: 1, storeId: 'woolworths', flags: [] };
 
-  it('builds a 7-day plan and prices the chosen store from public specials', () => {
+  it('builds a 7-day plan with a store split and no supermarket prices', () => {
     const plan = coach.buildCoachPlan(base);
     expect(plan.dayCount).toBe(7);
     expect(plan.days.map((day) => day.day)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
@@ -39,20 +55,118 @@ describe('Coach plan builder', () => {
     }
     expect(plan.shopping.storeName).toBe('Woolworths');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
-    expect(plan.shopping.lines.every((line) => line.priced && line.lineAud > 0)).toBe(true);
-    const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
-    expect(plan.shopping.totalCents).toBe(cents);
-    expect(plan.shopping.note).toBe(coach.PRICE_NOTE);
-    expect(plan.priceNote).toBe(priceEstimateNote(CATALOGUE));
-    expect(plan.priceNote).toContain(CATALOGUE.validFrom);
-    expect(plan.priceNote).toContain(CATALOGUE.validTo);
-    expect(plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
-    expect(plan.catalogue.validTo).toBe(CATALOGUE.validTo);
-    expect(plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
+    expect(plan.shopping.lines.every((line) => line.aisle && line.packLabel && line.storeName)).toBe(true);
+    expect(plan.shopping.lines.some((line) => /^\d+g protein \/ \d+(g|ml) serve$/.test(line.proteinLabel))).toBe(true);
+    expect(plan.shopping.lines.every((line) => !line.proteinLabel || !/\/ serve$/.test(line.proteinLabel))).toBe(true);
+    const oats = plan.shopping.lines.find((line) => line.sku === 'oats-750g');
+    expect(oats && oats.swapLabel).toBe('');
+    expect(plan.shopping.lines.every((line) => !line.swapSku || coach.foodRole(line.sku) === coach.foodRole(line.swapSku))).toBe(true);
+    const listed = new Set(plan.shopping.lines.map((line) => line.sku));
+    expect(plan.shopping.lines.every((line) => !line.swapSku || !listed.has(line.swapSku))).toBe(true);
+    expect(plan.shopping.lines.every((line) => line.storeId === 'woolworths')).toBe(true);
+    expect(plan.shopping.note).toBe('Prices vary by store and week.');
+    expect(plan.priceNote).toBe('Prices vary by store and week.');
+    expect(coach.formatPack({ name: 'Chicken breast 1kg', packs: 2, sku: 'chicken-breast-1kg' })).toBe('Chicken breast 1kg × 2');
+    expect(coach.formatPack({ name: 'Olive oil 500ml', packs: 1, sku: 'olive-oil-500ml' })).toBe('Olive oil 500ml');
+    expect(plan.shopping.lines.every((line) => !/: \d+ (pack|packs|tub|tubs|carton|cartons|bottle|bottles)/.test(line.packLabel))).toBe(true);
+    expect(plan.shopping.splitLabel).toBe("Your coach's store split: Woolworths.");
+    expect(plan.shopping.storeLine).toBe('Woolworths');
+    expect(plan.shopping.itemCount).toBe(plan.shopping.lines.length);
+    expect(plan.shopping.weeklyProtein).toBeGreaterThan(0);
+    expect(plan.shopping.aisles[0]).toBe('Produce');
+    expect(JSON.stringify(plan.shopping)).not.toMatch(PRICE_OR_DATE);
+    expect(JSON.stringify(plan.shopping)).not.toMatch(/cheaper|Split across|catalogue/i);
+    expect(coach.nutritionFacts('chicken-breast-1kg').proteinLabel).toBe('56g protein / 180g serve');
+    expect(coach.nutritionFacts('chicken-thigh-1kg').proteinLabel).toBe('47g protein / 180g serve');
+    expect(coach.nutritionFacts('eggs-12').proteinLabel).toBe('13g protein / 2 eggs');
+    expect(coach.nutritionFacts('bread-loaf').proteinLabel).toBe('8g protein / 2 slices');
+    expect(coach.nutritionFacts('tuna-4pk').proteinLabel).toBe('26g protein / 1 can');
+    expect(coach.nutritionFacts('milk-2l').proteinLabel).toBe('9g protein / 250ml serve');
+    expect(coach.nutritionFacts('olive-oil-500ml').proteinLabel).toBe('');
+    expect(coach.nutritionFacts('frozen-berries-500g').proteinLabel).toBe('');
+    expect(coach.nutritionFacts('chicken-thigh-1kg').swapLabel).toBe('Swap: chicken breast · +9g protein');
+    expect(coach.nutritionFacts('chicken-thigh-1kg', [], ['chicken-breast-1kg']).swapLabel).toBe('');
+    expect(coach.nutritionFacts('greek-yoghurt-1kg').swapLabel).toBe('Swap: cottage cheese · +4g protein');
+    expect(coach.nutritionFacts('greek-yoghurt-1kg', [], ['cottage-cheese-250g']).swapLabel).toBe('');
+    expect(coach.nutritionFacts('oats-750g').swapLabel).toBe('');
+    expect(coach.nutritionFacts('oats-750g', ['nut-free']).swapLabel).toBe('');
+    expect(coach.nutritionFacts('chicken-breast-1kg').swapLabel).toBe('');
+    expect(coach.nutritionFacts('chicken-thigh-1kg', ['vegetarian']).swapLabel).toBe('');
+    const dinners = plan.days.map((day) => day.meals.find((meal) => meal.slot === 'Dinner').name);
+    expect(new Set(dinners).size).toBeGreaterThanOrEqual(5);
+    for (const slot of ['Breakfast', 'Lunch', 'Dinner']) {
+      const counts = {};
+      for (const day of plan.days) {
+        const name = day.meals.find((meal) => meal.slot === slot).name;
+        counts[name] = (counts[name] || 0) + 1;
+      }
+      expect(Math.max(...Object.values(counts))).toBeLessThanOrEqual(2);
+    }
+    for (const day of plan.days) {
+      expect(Math.abs(day.kcal - plan.targets.kcal) / plan.targets.kcal).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(day.protein - plan.targets.protein) / plan.targets.protein).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(day.carbs - plan.targets.carbs) / plan.targets.carbs).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(day.fat - plan.targets.fat) / plan.targets.fat).toBeLessThanOrEqual(0.05);
+      for (const meal of day.meals) {
+        for (const ing of meal.ingredients) {
+          expect(ing.qty).not.toMatch(/\d+\.\d+/);
+        }
+      }
+    }
+    expect(coach.formatQty({ sku: 'eggs-12', amount: 2.627, unit: 'each', name: 'Free range eggs 12 pack' })).toBe('3 eggs');
+    expect(coach.formatQty({ sku: 'bread-loaf', amount: 0.197, unit: 'each', name: 'Wholegrain loaf' })).toBe('3 slices');
+    expect(coach.formatQty({ sku: 'greek-yoghurt-1kg', amount: 201.142, unit: 'g', name: 'Greek yoghurt 1kg' })).toBe('200 g Greek yoghurt');
+    expect(plan.shopping.lines.every((line) => line.packLabel && !/\d+\.\d+/.test(line.packLabel.split(':')[1] || line.packLabel))).toBe(true);
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
-    expect(plan.honesty.pricesFrom).toBe('public_specials_catalogue');
+    expect(plan.honesty.pricesFrom).toBe('none');
+  });
+
+  it('keeps 1600, 2000 and 2600 days inside trainer bands', () => {
+    const cases = [
+      { kcal: 1600, protein: 112, carbs: 144, fat: 48 },
+      { kcal: 2000, protein: 140, carbs: 180, fat: 60 },
+      { kcal: 2600, protein: 182, carbs: 234, fat: 78 },
+    ];
+    for (const targets of cases) {
+      const plan = coach.buildCoachPlan({ ...base, ...targets });
+      for (const key of ['kcal', 'protein', 'carbs', 'fat']) {
+        expect(Math.abs(plan.days[0][key] - targets[key]) / targets[key]).toBeLessThanOrEqual(0.05);
+      }
+      for (const day of plan.days) {
+        expect(Math.abs(day.kcal - targets.kcal) / targets.kcal).toBeLessThanOrEqual(0.05);
+        expect(Math.abs(day.protein - targets.protein) / targets.protein).toBeLessThanOrEqual(0.05);
+        expect(Math.abs(day.carbs - targets.carbs) / targets.carbs).toBeLessThanOrEqual(0.05);
+        expect(Math.abs(day.fat - targets.fat) / targets.fat).toBeLessThanOrEqual(0.05);
+        for (const meal of day.meals) {
+          const [lo, hi] = coach.mealBand(meal.slot, targets.kcal);
+          const raw = coach.sumIngredientMacros(meal.ingredients);
+          expect(meal.kcal).toBe(Math.round(raw.kcal));
+          expect(meal.protein).toBe(Math.round(raw.protein));
+          expect(meal.carbs).toBe(Math.round(raw.carbs));
+          expect(meal.fat).toBe(Math.round(raw.fat));
+          expect(meal.kcal).toBeGreaterThan(0);
+          expect(meal.kcal).toBeLessThanOrEqual(900);
+          expect(meal.kcal).toBeGreaterThanOrEqual(lo);
+          expect(meal.kcal).toBeLessThanOrEqual(hi);
+          if (meal.slot !== 'Snack') expect(meal.protein).toBeGreaterThanOrEqual(25);
+          for (const ing of meal.ingredients) {
+            expect(ing.amount).toBeGreaterThan(0);
+            if (ing.sku === 'brown-rice-1kg' || ing.sku === 'pasta-500g') {
+              expect(ing.amount).toBeGreaterThanOrEqual(30);
+              expect(ing.amount).toBeLessThanOrEqual(130);
+            }
+            if (ing.sku === 'chicken-breast-1kg' || ing.sku === 'beef-mince-500g') {
+              expect(ing.amount).toBeGreaterThanOrEqual(70);
+              expect(ing.amount).toBeLessThanOrEqual(220);
+            }
+            if (ing.sku === 'olive-oil-500ml') expect(ing.amount).toBeLessThanOrEqual(20);
+            if (ing.sku === 'bananas-1kg') expect(ing.amount).toBeLessThanOrEqual(180);
+          }
+        }
+      }
+    }
   });
 
   it('drops animal foods for a vegan plan and scales the household list', () => {
@@ -63,17 +177,47 @@ describe('Coach plan builder', () => {
     }
     const one = coach.buildCoachPlan(base);
     const two = coach.buildCoachPlan({ ...base, householdSize: 2 });
-    expect(two.shopping.totalCents).toBeGreaterThan(one.shopping.totalCents);
+    const packs = (row) => row.shopping.lines.reduce((sum, line) => sum + line.packs, 0);
+    expect(packs(two)).toBeGreaterThan(packs(one));
   });
 
-  it('prices only the chosen store and leaves Aldi gaps unpriced', () => {
+  it('only suggests a swap within the same food role', () => {
+    expect(coach.foodRole('oats-750g')).toBe('carb');
+    expect(coach.foodRole('peanut-butter-375g')).toBe('fat');
+    expect(coach.foodRole('chicken-thigh-1kg')).toBe('protein');
+    expect(coach.foodRole('greek-yoghurt-1kg')).toBe('dairy');
+    expect(coach.nutritionFacts('oats-750g').swapLabel).toBe('');
+    expect(coach.nutritionFacts('oats-750g').swapSku).toBe('');
+    expect(coach.nutritionFacts('chicken-thigh-1kg').swapSku).toBe('chicken-breast-1kg');
+    expect(coach.foodRole('chicken-thigh-1kg')).toBe(coach.foodRole(coach.nutritionFacts('chicken-thigh-1kg').swapSku));
+    expect(coach.nutritionFacts('greek-yoghurt-1kg').swapSku).toBe('cottage-cheese-250g');
+    expect(coach.foodRole('greek-yoghurt-1kg')).toBe(coach.foodRole('cottage-cheese-250g'));
+    const plan = coach.buildCoachPlan(base);
+    expect(plan.shopping.lines.some((line) => /peanut butter/i.test(line.swapLabel))).toBe(false);
+    for (const line of plan.shopping.lines) {
+      if (!line.swapSku) continue;
+      expect(coach.foodRole(line.sku)).toBe(coach.foodRole(line.swapSku));
+    }
+  });
+
+  it('keeps every item on the coach store until the coach moves one', () => {
     const aldi = coach.buildCoachPlan({ ...base, storeId: 'aldi' });
     expect(aldi.shopping.storeId).toBe('aldi');
-    expect(aldi.shopping.unpricedCount).toBeGreaterThan(0);
-    expect(aldi.shopping.lines.some((line) => line.priced === false && line.lineAud == null)).toBe(true);
-    const priced = aldi.shopping.lines.filter((line) => line.priced);
-    const cents = priced.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
-    expect(aldi.shopping.totalCents).toBe(cents);
+    expect(aldi.shopping.split).toBe(false);
+    expect(aldi.shopping.lines.every((line) => line.storeId === 'aldi')).toBe(true);
+    expect(aldi.shopping.splitLabel).toBe("Your coach's store split: Aldi.");
+    expect(aldi.shopping.note).toBe('Prices vary by store and week.');
+    expect(JSON.stringify(aldi.shopping)).not.toMatch(PRICE_OR_DATE);
+    const produce = aldi.shopping.lines.find((line) => line.aisle === 'Produce');
+    expect(produce).toBeTruthy();
+    const moved = coach.applyStoreChoices(aldi.shopping, { [produce.sku]: 'woolworths' });
+    expect(moved.split).toBe(true);
+    expect(moved.lines.find((line) => line.sku === produce.sku).storeId).toBe('woolworths');
+    expect(moved.lines.some((line) => line.storeId === 'aldi')).toBe(true);
+    expect(moved.splitLabel).toBe("Your coach's store split: Aldi and Woolworths.");
+    expect(moved.storeLine).toBe('Aldi and Woolworths');
+    expect(JSON.stringify(moved)).not.toMatch(PRICE_OR_DATE);
+    expect(JSON.stringify(moved)).not.toMatch(/cheaper|Split across/i);
   });
 
   it('reads adherence and targets from meal logs', () => {
@@ -184,7 +328,7 @@ describe('Coach plan HTTP', () => {
     await request(app)
       .put('/api/coach/branding')
       .set(auth(token))
-      .send({ practiceName: 'Northside training', accent: '#14532d', logoDataUrl: logo })
+      .send({ practiceName: 'Paperbark Coaching', accent: '#14532d', logoDataUrl: logo })
       .expect(200);
 
     const created = await request(app)
@@ -207,10 +351,17 @@ describe('Coach plan HTTP', () => {
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
     expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
-    expect(created.body.plan.plan.priceNote).toBe(coach.PRICE_NOTE);
-    expect(created.body.plan.plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
-    expect(created.body.plan.plan.catalogue.validTo).toBe(CATALOGUE.validTo);
-    expect(created.body.plan.plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
+    expect(created.body.plan.plan.priceNote).toBe('Prices vary by store and week.');
+    expect(created.body.plan.plan.shopping.splitLabel).toBe("Your coach's store split: Coles.");
+    const movedSku = created.body.plan.plan.shopping.lines[0].sku;
+    const moved = await request(app)
+      .put(`/api/coach/plans/${created.body.plan.id}/stores`)
+      .set(auth(token))
+      .send({ stores: { [movedSku]: 'woolworths' } })
+      .expect(200);
+    expect(moved.body.plan.plan.shopping.lines.find((line) => line.sku === movedSku).storeId).toBe('woolworths');
+    expect(moved.body.plan.plan.shopping.splitLabel).toContain("Your coach's store split");
+    expect(JSON.stringify(moved.body.plan.plan.shopping)).not.toMatch(PRICE_OR_DATE);
 
     const sent = await request(app)
       .post(`/api/coach/plans/${created.body.plan.id}/send`)
@@ -220,23 +371,79 @@ describe('Coach plan HTTP', () => {
     expect(sent.body.plan.sharePath).toMatch(/^\/c\//);
 
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
-    expect(share.text).toContain('Northside training');
+    expect(share.text).toContain('Paperbark Coaching');
     expect(share.text).toContain('id="share-logo"');
-    expect(share.text).toContain(coach.PRICE_NOTE);
-    expect(share.text).toContain('See a dietitian for medical nutrition.');
-    expect(share.text).toContain('Coles total');
+    expect(share.text).toContain('Prices vary by store and week.');
+    expect(share.text).toContain('id="share-left"');
+    expect(share.text).toContain('data-sku=');
+    expect(share.text).not.toContain('Check prices at checkout.');
+    expect(share.text).toContain('id="share-split">Coles and Woolworths<');
+    expect((share.text.match(/Your coach's store split/g) || []).length).toBe(1);
+    expect(share.text).toContain('id="share-summary"');
+    expect(share.text).toMatch(/\d+g protein \/ \d+(g|ml) serve/);
+    expect(share.text).not.toMatch(/g protein \/ serve(?!\w)/);
+    expect(share.text).toContain('class="qty"');
+    expect(share.text).toContain('class="stat"');
+    expect(share.text).toContain('class="chip-scroller"');
+    expect(share.text).toContain('height:92px');
+    expect(share.text).toContain('grid-auto-flow:row');
+    expect(share.text).toContain('id="share-pdf"');
+    expect(share.text.indexOf('id="share-pdf"')).toBeLessThan(share.text.indexOf('id="share-list"'));
+    expect(share.text).toMatch(/\d+g protein/);
+    expect(share.text).toMatch(/\d+ kcal · P\d+ C\d+ F\d+/);
+    expect(share.text).toContain('class="day-macros"');
+    expect(share.text).not.toContain('class="mono day-macros"');
+    expect(share.text).toContain('width:96px');
+    expect(share.text).toContain('General guidance, not medical advice');
+    expect(share.text).toContain('Prepared by Paperbark Coaching with FitMunch');
+    expect(share.text).toContain('Week of');
+    expect(share.text).toContain('Shopping list');
+    expect(share.text).not.toMatch(PRICE_OR_DATE);
+    expect(share.text).not.toContain(CATALOGUE.weekLabel);
+    expect(share.text).not.toContain(CATALOGUE.validFrom);
+    expect(share.text).toContain('class="aisle"');
+    expect(share.text).toContain('/img/meals/');
+    expect(share.text).not.toMatch(/\d+\.\d+\s*(g|ml|eggs|slices)/);
+    expect(share.text).not.toMatch(/HealthKit|Apple Watch|Stripe Link/i);
     expect(share.headers['x-robots-tag']).toBe('noindex');
 
     const pdf = await request(app).get(`${sent.body.plan.sharePath}/pdf`).expect(200);
     expect(pdf.headers['content-type']).toMatch(/pdf/);
     const pdfText = pdf.body.toString('latin1');
+    const drawn = pdfDrawnText(pdf.body);
     expect(pdfText.slice(0, 5)).toBe('%PDF-');
-    expect(pdfText).toContain('Northside training');
-    expect(pdfText).toContain('See a dietitian for medical nutrition.');
-    expect(pdfText).toContain(`dated ${CATALOGUE.validFrom} to ${CATALOGUE.validTo}`);
-    expect(pdfText).toContain('Check prices at');
-    expect(pdfText).toContain('checkout.');
+    expect(pdfText).toContain('Paperbark Coaching');
+    expect(pdfText).toContain('General guidance, not medical advice');
+    expect(pdfText).toContain('Prepared by Paperbark Coaching with FitMunch');
+    expect(drawn).toContain('Prices vary by store and week.');
+    expect(drawn).toContain('Sample · Week of');
+    expect(drawn).not.toContain('Check prices at checkout.');
+    expect(drawn).toContain("Your coach's store split");
+    expect(drawn).toContain('Coles and Woolworths');
+    expect(drawn).not.toContain("Your coach's store split:");
+    expect(drawn).toMatch(/\d+g protein \/ \d+(g|ml) serve/);
+    expect(drawn).not.toMatch(/g protein \/ serve(?!\w)/);
+    const bandDraw = pdfText.match(/0 ([\d.]+) 595 ([\d.]+) re f/);
+    const logoDraw = pdfText.match(/q ([\d.]+) 0 0 ([\d.]+) [\d.]+ ([\d.]+) cm \/ImLogo Do/);
+    expect(bandDraw).toBeTruthy();
+    expect(logoDraw).toBeTruthy();
+    const bandY = Number(bandDraw[1]);
+    const bandH = Number(bandDraw[2]);
+    const logoH = Number(logoDraw[2]);
+    const logoY = Number(logoDraw[3]);
+    expect(logoH).toBeGreaterThanOrEqual(65);
+    expect(logoY).toBeGreaterThanOrEqual(bandY - 0.2);
+    expect(logoY + logoH).toBeLessThanOrEqual(bandY + bandH + 0.2);
+    expect(drawn).toContain('g protein from this list');
+    expect(drawn).toMatch(/\d+g protein/);
+    expect(drawn).not.toMatch(/Split across|cheaper/);
     expect(pdfText).toContain('/Subtype /Image');
+    expect(drawn).not.toMatch(PRICE_OR_DATE);
+    expect(drawn).not.toContain(CATALOGUE.weekLabel);
+    expect(drawn).not.toContain(CATALOGUE.validFrom);
+    expect((pdfText.match(/\/Type \/Page(?!s)/g) || []).length).toBe(1);
+    expect(pdfText).toContain('/Count 1');
+    expect(pdfText).not.toMatch(/\d+\.\d+ (g|ml)/);
 
     const viewed = await request(app)
       .get(`/api/coach/plans/${created.body.plan.id}`)
@@ -289,7 +496,11 @@ describe('Coach plan HTTP', () => {
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
     const page = await request(app).get('/coach').expect(200);
     expect(page.text).toContain('Coach plan builder');
-    expect(page.text).toContain('Estimated from public catalogue specials');
+    expect(page.text).toContain('Prices vary by store and week.');
+    expect(page.text).not.toMatch(/25 Aug 2026|2026-08-25/);
+    const coachPage = read('public/meal-plan-software-personal-trainers.html');
+    expect(coachPage).toContain('A$39');
+    expect(coachPage).toContain('A$79');
     expect(page.text).toContain('See a dietitian for medical nutrition.');
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');
@@ -300,5 +511,117 @@ describe('Coach plan HTTP', () => {
     expect(home.text).toContain('<h1>Your body wrote the trolley.</h1>');
     const shopper = await request(app).get('/shopper').expect(200);
     expect(shopper.text).toContain('$19.99 a month');
+  });
+
+  it('keeps each store in walk order and renders quantity pills with stat tiles', () => {
+    const aisles = ['Pantry', 'Bakery', 'Meat', 'Dairy', 'Frozen'];
+    const lines = aisles.map((aisle, index) => ({
+      sku: `sku-${aisle}`,
+      name: `${aisle} item`,
+      aisle,
+      packs: index === 2 ? 2 : 1,
+      packLabel: index === 2 ? `${aisle} item × 2` : `${aisle} item`,
+      storeId: 'aldi',
+      storeName: 'Aldi',
+      proteinLabel: '56g protein / 180g serve',
+    }));
+    const html = renderSharePage({
+      planRow: {
+        token: 'walk',
+        clientLabel: 'Sample client',
+        plan: {
+          days: [{ day: 'Mon', kcal: 1900, protein: 140, carbs: 186, fat: 61, meals: [] }],
+          targets: { kcal: 2000 },
+          shopping: {
+            storeLine: 'Aldi',
+            itemCount: lines.length,
+            weeklyProtein: 56,
+            aisles: ['Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry'],
+            note: 'Prices vary by store and week.',
+            stores: [{ storeId: 'aldi', storeName: 'Aldi' }],
+            lines,
+          },
+        },
+      },
+      branding: { practiceName: 'Paperbark Coaching', accent: '#14532d' },
+    });
+    const positions = ['Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry'].map((name) => html.indexOf(`>${name}<`));
+    expect(positions.every((pos) => pos >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(html).toContain('class="qty">× 2<');
+    expect(html).not.toContain('class="col"');
+    expect(html).toContain('Protein from this list');
+    expect(html).not.toMatch(PRICE_OR_DATE);
+  });
+
+  it('prints every line of a 60-line list across pages', () => {
+    const lines = [];
+    for (let i = 1; i <= 60; i += 1) {
+      lines.push({
+        sku: `line-${i}`,
+        name: `Line ${i} end`,
+        aisle: ['Produce', 'Bakery', 'Meat', 'Dairy', 'Frozen', 'Pantry'][i % 6],
+        packs: i % 5 === 0 ? 2 : 1,
+        storeId: 'aldi',
+        storeName: 'Aldi',
+        proteinLabel: i % 2 === 0 ? '10g protein / 100g serve' : '',
+        packLabel: i % 5 === 0 ? `Line ${i} end × 2` : `Line ${i} end`,
+      });
+    }
+    const pdf = buildCoachPdf({
+      branding: { practiceName: 'Paperbark Coaching', accent: '#14532d' },
+      clientLabel: 'Sample client',
+      plan: {
+        priceNote: 'Prices vary by store and week.',
+        shopping: {
+          itemCount: 60,
+          weeklyProtein: 100,
+          storeLine: 'Aldi',
+          note: 'Prices vary by store and week.',
+          stores: [{ storeId: 'aldi', storeName: 'Aldi' }],
+          lines,
+        },
+      },
+    });
+    const drawn = pdfDrawnText(pdf);
+    const raw = pdf.toString('latin1');
+    for (let i = 1; i <= 60; i += 1) {
+      expect(drawn).toContain(`Line ${i} end`);
+    }
+    const pages = (raw.match(/\/Type \/Page(?!s)/g) || []).length;
+    expect(pages).toBeGreaterThan(1);
+    expect(raw).toContain(`/Count ${pages}`);
+    expect(drawn).toContain('Prices vary by store and week.');
+    expect(drawn).not.toMatch(PRICE_OR_DATE);
+    const word = fs.readFileSync(path.join(__dirname, 'public', 'img', 'sample-wordmark.png'));
+    const branded = buildCoachPdf({
+      branding: {
+        practiceName: 'Paperbark Coaching',
+        accent: '#14532d',
+        logo: { mime: 'png', buffer: word },
+      },
+      clientLabel: 'Sample client',
+      plan: {
+        shopping: {
+          itemCount: 0,
+          weeklyProtein: 0,
+          storeLine: 'Aldi',
+          note: 'Prices vary by store and week.',
+          stores: [{ storeId: 'aldi', storeName: 'Aldi' }],
+          lines: [],
+        },
+      },
+    });
+    const brandedRaw = branded.toString('latin1');
+    const logoDraw = brandedRaw.match(/q ([\d.]+) 0 0 ([\d.]+) [\d.]+ ([\d.]+) cm \/ImLogo Do/);
+    const bandDraw = brandedRaw.match(/0 ([\d.]+) 595 ([\d.]+) re f/);
+    expect(logoDraw).toBeTruthy();
+    const logoH = Number(logoDraw[2]);
+    const logoY = Number(logoDraw[3]);
+    const bandY = Number(bandDraw[1]);
+    const bandH = Number(bandDraw[2]);
+    expect(logoH * (22 / 159)).toBeGreaterThanOrEqual(9);
+    expect(logoY).toBeGreaterThanOrEqual(bandY - 0.2);
+    expect(logoY + logoH).toBeLessThanOrEqual(bandY + bandH + 0.2);
   });
 });

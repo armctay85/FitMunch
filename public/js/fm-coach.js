@@ -24,11 +24,6 @@
     return data;
   }
 
-  function money(value) {
-    if (value == null) return 'No public special at this store';
-    return '$' + Number(value).toFixed(2);
-  }
-
   function flags() {
     return [...document.querySelectorAll('#coach-flags input:checked')].map((node) => node.value);
   }
@@ -54,6 +49,19 @@
       + ' days. Average ' + adherence.avgKcal + ' kcal, ' + adherence.avgProtein
       + 'g protein, ' + adherence.avgCarbs + 'g carbs, ' + adherence.avgFat
       + 'g fat. Plan target ' + (adherence.targetKcal || 0) + ' kcal.';
+  }
+
+  async function saveStores() {
+    if (!state.plan) return;
+    const stores = {};
+    document.querySelectorAll('#coach-list select[data-sku]').forEach((node) => {
+      stores[node.dataset.sku] = node.value;
+    });
+    const data = await api('/api/coach/plans/' + state.plan.id + '/stores', {
+      method: 'PUT',
+      body: JSON.stringify({ stores }),
+    });
+    renderPlan(data.plan);
   }
 
   function renderPlan(plan) {
@@ -83,23 +91,41 @@
       days.appendChild(block);
     });
     const shopping = plan.plan.shopping;
-    $('coach-store-heading').textContent = shopping.storeName + ' draft list';
+    $('coach-store-heading').textContent = 'Shopping list';
     const list = $('coach-list');
     list.replaceChildren();
     shopping.lines.forEach((line) => {
       const row = document.createElement('div');
       row.className = 'line';
       const name = document.createElement('span');
-      name.textContent = line.packs + ' x ' + line.name;
-      const price = document.createElement('span');
-      price.className = 'price';
-      price.textContent = line.priced ? money(line.lineAud) : 'No public special at this store';
+      name.textContent = line.packLabel || line.name;
+      const facts = document.createElement('span');
+      facts.className = 'facts';
+      facts.textContent = [line.aisle, line.proteinLabel, line.swapLabel].filter(Boolean).join(' · ');
+      const select = document.createElement('select');
+      select.dataset.sku = line.sku;
+      select.setAttribute('aria-label', 'Store for ' + (line.name || line.sku));
+      [
+        ['woolworths', 'Woolworths'],
+        ['coles', 'Coles'],
+        ['aldi', 'Aldi'],
+      ].forEach((pair) => {
+        const option = document.createElement('option');
+        option.value = pair[0];
+        option.textContent = pair[1];
+        if (line.storeId === pair[0]) option.selected = true;
+        select.appendChild(option);
+      });
+      select.addEventListener('change', () => {
+        saveStores().catch((err) => showError(err.message));
+      });
       row.appendChild(name);
-      row.appendChild(price);
+      row.appendChild(select);
+      row.appendChild(facts);
       list.appendChild(row);
     });
-    $('coach-total').textContent = shopping.storeName + ' total ' + money(shopping.totalAud);
-    $('coach-price-note').textContent = plan.plan.priceNote;
+    $('coach-total').textContent = shopping.splitLabel || '';
+    $('coach-price-note').textContent = plan.plan.priceNote || 'Prices vary by store and week.';
     const share = $('coach-share');
     if (plan.sharePath) {
       const link = document.createElement('a');
