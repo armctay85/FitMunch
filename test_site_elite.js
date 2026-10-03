@@ -162,23 +162,28 @@ describe('390 overflow on legal pages', () => {
 
   test('terms, refund, and privacy do not overflow a 390px viewport', async () => {
     if (!chrome) return;
-    jest.setTimeout(40000);
+    jest.setTimeout(50000);
     const server = app.listen(0);
     const port = server.address().port;
     try {
       const script = `
         const http = require('http');
+        const fs = require('fs');
+        const os = require('os');
+        const path = require('path');
         const { spawn } = require('child_process');
         const port = process.argv[1];
         const chrome = process.argv[2];
         const routes = ['/terms', '/refund', '/privacy', '/support'];
+        const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'fm-overflow-'));
         const child = spawn(chrome, [
-          '--headless=new', '--disable-gpu', '--no-sandbox',
-          '--remote-debugging-port=9333', '--window-size=390,844', 'about:blank'
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage',
+          '--remote-debugging-port=0', '--remote-allow-origins=*',
+          '--user-data-dir=' + userData, '--window-size=390,844', 'about:blank'
         ], { stdio: 'ignore' });
-        function get(pathname) {
+        function get(debugPort, pathname) {
           return new Promise((resolve, reject) => {
-            http.get({ host: '127.0.0.1', port: 9333, path: pathname }, (res) => {
+            http.get({ host: '127.0.0.1', port: debugPort, path: pathname }, (res) => {
               let body = '';
               res.on('data', (c) => { body += c; });
               res.on('end', () => resolve(body));
@@ -186,13 +191,19 @@ describe('390 overflow on legal pages', () => {
           });
         }
         async function waitJson() {
-          for (let i = 0; i < 40; i++) {
-            try { return JSON.parse(await get('/json')); } catch (e) { await new Promise(r => setTimeout(r, 150)); }
+          for (let i = 0; i < 80; i++) {
+            try {
+              const active = fs.readFileSync(path.join(userData, 'DevToolsActivePort'), 'utf8');
+              const debugPort = Number(active.split('\\n')[0]);
+              if (debugPort) return { targets: JSON.parse(await get(debugPort, '/json/list')), debugPort };
+            } catch (e) {}
+            await new Promise(r => setTimeout(r, 150));
           }
           throw new Error('chrome debug port did not open');
         }
         (async () => {
-          const targets = await waitJson();
+          const ready = await waitJson();
+          const targets = ready.targets;
           const wsUrl = targets[0].webSocketDebuggerUrl;
           const ws = new WebSocket(wsUrl);
           let id = 0;
@@ -226,7 +237,7 @@ describe('390 overflow on legal pages', () => {
           }
         })().catch((err) => { console.error(err); try { child.kill(); } catch (e) {} process.exit(1); });
       `;
-      execFileSync(process.execPath, ['-e', script, String(port), chrome], { stdio: 'inherit', timeout: 30000 });
+      execFileSync(process.execPath, ['-e', script, String(port), chrome], { stdio: 'inherit', timeout: 45000 });
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
