@@ -345,6 +345,20 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         }
         break;
       }
+      case 'invoice.created': {
+        try {
+          const { applyFitMunchStatementSuffix } = require('./lib/fitmunch-checkout');
+          const applied = await applyFitMunchStatementSuffix(stripe, event.data.object);
+          if (applied && applied.error) {
+            console.error('FitMunch statement suffix skipped', applied.error.type, applied.error.code);
+          } else if (applied && applied.applied) {
+            console.log('FitMunch statement suffix set');
+          }
+        } catch (err) {
+          console.error('FitMunch statement suffix skipped', err && err.type, err && err.code);
+        }
+        break;
+      }
       case 'invoice.payment_failed':
         console.warn(`Payment failed: customer ${event.data.object.customer}`);
         break;
@@ -352,7 +366,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         console.log(`Webhook: ${event.type}`);
     }
   } catch (err) {
-    console.error('Webhook handler error:', err && err.type, err && err.message);
+    console.error('Webhook handler error:', err && err.type, err && err.code);
     return res.status(500).send('Handler error');
   }
   res.json({ received: true });

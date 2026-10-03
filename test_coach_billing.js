@@ -19,6 +19,8 @@ const {
   PREMIUM_PRICE_AUD_CENTS,
   jwtSecret,
   buildSubscriptionCheckoutParams,
+  STATEMENT_DESCRIPTOR_SUFFIX,
+  applyFitMunchStatementSuffix,
 } = require('./lib/fitmunch-checkout');
 const {
   COACH_39_ACTIVE_CLIENT_LIMIT,
@@ -264,6 +266,185 @@ describe('Coach webhook tier', () => {
     expect(storage.updateUserSubscription).toHaveBeenCalledWith('pt-1', 'premium', expect.any(Date));
     expect(storage.updateUserCoachBilling).not.toHaveBeenCalled();
     expect(user.subscriptionTier).toBe('premium');
+  });
+
+  function installSuffixStripe(invoices, subscriptions = {}) {
+    app._private.setStripeForTests({
+      invoices,
+      subscriptions: {
+        list: jest.fn(async () => ({ data: [] })),
+        ...subscriptions,
+      },
+      webhooks: {
+        constructEvent: (body) => JSON.parse(Buffer.isBuffer(body) ? body.toString() : String(body)),
+      },
+    });
+  }
+
+  async function withCapturedLogs(run) {
+    const lines = [];
+    const originals = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error,
+    };
+    const capture = (...args) => {
+      lines.push(args.map((part) => (part == null ? '' : String(part))).join(' '));
+    };
+    console.log = capture;
+    console.warn = capture;
+    console.error = capture;
+    try {
+      const result = await run();
+      return { result, lines };
+    } finally {
+      console.log = originals.log;
+      console.warn = originals.warn;
+      console.error = originals.error;
+    }
+  }
+
+  test('invoice.created writes the FitMunch suffix on a draft invoice', async () => {
+    const invoice = {
+      id: 'in_fit',
+      status: 'draft',
+      metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'premium' },
+    };
+    const update = jest.fn(async () => ({}));
+    installSuffixStripe({
+      update,
+      retrieve: jest.fn(async () => invoice),
+    });
+    const res = await postWebhook({
+      id: 'evt_suffix',
+      type: 'invoice.created',
+      data: { object: invoice },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ received: true });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][1]).toEqual({ statement_descriptor: STATEMENT_DESCRIPTOR_SUFFIX });
+    expect(update.mock.calls[0][1].statement_descriptor).toBe('FITMUNCH');
+  });
+
+  test('invoice.created still returns 200 when the suffix update or lookup fails, and logs no ids', async () => {
+    const updateError = new Error('No such invoice in_secret for ada@example.com');
+    updateError.type = 'invalid_request_error';
+    updateError.code = 'resource_missing';
+    const update = jest.fn(async () => {
+      throw updateError;
+    });
+    installSuffixStripe({
+      update,
+      retrieve: jest.fn(async () => ({
+        id: 'in_secret',
+        status: 'draft',
+        metadata: { product: 'fitmunch', brand: 'FitMunch' },
+      })),
+    });
+    const failedUpdate = await withCapturedLogs(() => postWebhook({
+      id: 'evt_suffix_fail',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_secret',
+          status: 'draft',
+          metadata: { product: 'fitmunch', brand: 'FitMunch' },
+        },
+      },
+    }));
+    expect(failedUpdate.result.status).toBe(200);
+    expect(failedUpdate.result.body).toEqual({ received: true });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(failedUpdate.lines.join('\n')).not.toMatch(/in_secret|ada@example.com|@/);
+
+    const lookupError = new Error('No such subscription sub_secret for other@example.com');
+    lookupError.type = 'invalid_request_error';
+    lookupError.code = 'resource_missing';
+    const lookupUpdate = jest.fn();
+    installSuffixStripe(
+      {
+        update: lookupUpdate,
+        retrieve: jest.fn(async () => ({
+          id: 'in_lookup',
+          status: 'draft',
+          metadata: {},
+          subscription: 'sub_secret',
+        })),
+      },
+      {
+        retrieve: jest.fn(async () => {
+          throw lookupError;
+        }),
+      }
+    );
+    const failedLookup = await withCapturedLogs(() => postWebhook({
+      id: 'evt_lookup_fail',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_lookup',
+          status: 'draft',
+          metadata: {},
+          subscription: 'sub_secret',
+        },
+      },
+    }));
+    expect(failedLookup.result.status).toBe(200);
+    expect(lookupUpdate).not.toHaveBeenCalled();
+    expect(failedLookup.lines.join('\n')).not.toMatch(/in_lookup|sub_secret|other@example.com|@/);
+  });
+
+  test('paid, void, and uncollectible invoices make no Stripe call', async () => {
+    for (const status of ['paid', 'void', 'uncollectible']) {
+      const update = jest.fn();
+      const retrieve = jest.fn();
+      installSuffixStripe({ update, retrieve });
+      const res = await postWebhook({
+        id: `evt_${status}`,
+        type: 'invoice.created',
+        data: {
+          object: {
+            id: 'in_closed',
+            status,
+            metadata: { product: 'fitmunch', brand: 'FitMunch' },
+          },
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(retrieve).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    }
+  });
+
+  test('a wipper invoice with plan premium makes no suffix call', async () => {
+    const update = jest.fn();
+    const subscriptionRetrieve = jest.fn();
+    installSuffixStripe(
+      {
+        update,
+        retrieve: jest.fn(async () => ({
+          id: 'in_wipper',
+          status: 'draft',
+          metadata: { brand: 'wipper', plan: 'premium' },
+        })),
+      },
+      { retrieve: subscriptionRetrieve }
+    );
+    const res = await postWebhook({
+      id: 'evt_wipper',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_wipper',
+          status: 'draft',
+          metadata: { brand: 'wipper', plan: 'premium' },
+        },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(update).not.toHaveBeenCalled();
+    expect(subscriptionRetrieve).not.toHaveBeenCalled();
   });
 
   test('non-live Stripe statuses map to cancelled', () => {
@@ -518,6 +699,35 @@ liveDescribe('Stripe test mode Coach checkout', () => {
       ? Math.round((expanded.subscription.trial_end - expanded.subscription.trial_start) / 86400)
       : null;
     expect(trialDays === 14 || session.mode === 'subscription').toBe(true);
+    const paymentIntent = expanded.payment_intent && typeof expanded.payment_intent === 'object'
+      ? expanded.payment_intent
+      : null;
+    if (paymentIntent && paymentIntent.statement_descriptor_suffix) {
+      expect(paymentIntent.statement_descriptor_suffix).toBe('FITMUNCH');
+    }
+    const latestInvoice = expanded.subscription && expanded.subscription.latest_invoice;
+    if (latestInvoice && typeof latestInvoice === 'object' && latestInvoice.statement_descriptor) {
+      expect(latestInvoice.statement_descriptor).toBe('FITMUNCH');
+    }
+    const draft = await stripe.invoices.create({
+      customer: customer.id,
+      auto_advance: false,
+      metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'coach-39' },
+      pending_invoice_items_behavior: 'exclude',
+    });
+    try {
+      const applied = await applyFitMunchStatementSuffix(stripe, draft);
+      expect(applied.applied).toBe(true);
+      const readBack = await stripe.invoices.retrieve(draft.id);
+      expect(readBack.statement_descriptor).toBe('FITMUNCH');
+      expect(readBack.statement_descriptor).toBe(STATEMENT_DESCRIPTOR_SUFFIX);
+    } finally {
+      try {
+        await stripe.invoices.del(draft.id);
+      } catch (_) {
+        /* draft cleanup */
+      }
+    }
     await stripe.checkout.sessions.expire(session.id);
   });
 });
