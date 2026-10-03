@@ -11,8 +11,6 @@ struct PaywallView: View {
     @State private var alertError = ""
     @State private var purchaseSuccessTick = 0
 
-    private let brandGreen = Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)
-
     private var plans: [PaywallPlan] { premiumManager.paywallPlans }
     private var isLoadingPlans: Bool { premiumManager.paywallPhase == .loading && plans.isEmpty }
     private var plansLoadFailed: Bool { premiumManager.paywallPhase == .failed && plans.isEmpty }
@@ -125,7 +123,7 @@ struct PaywallView: View {
     private var benefitsSection: some View {
         VStack(spacing: 12) {
             ForEach(PaywallBenefits.rows, id: \.title) { row in
-                BenefitRow(icon: row.icon, title: row.title, tint: brandGreen)
+                BenefitRow(icon: row.icon, title: row.title, tint: Theme.green)
             }
         }
         .padding(.horizontal)
@@ -153,7 +151,7 @@ struct PaywallView: View {
                 .font(.caption.weight(.bold))
                 .foregroundColor(.white)
                 .frame(width: 22, height: 22)
-                .background(brandGreen)
+                .background(Theme.green)
                 .clipShape(Circle())
             Text(text)
                 .font(.subheadline)
@@ -169,7 +167,7 @@ struct PaywallView: View {
                         plan: plan,
                         monthlyAmount: monthlyAmount,
                         isSelected: selectedPlan?.id == plan.id,
-                        brandGreen: brandGreen,
+                        brandGreen: Theme.green,
                         action: { selectedPlan = plan }
                     )
                 }
@@ -240,7 +238,7 @@ struct PaywallView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(brandGreen)
+            .background(Theme.green)
             .cornerRadius(12)
             .padding(.horizontal)
             .disabled(premiumManager.isLoading)

@@ -9,21 +9,19 @@ final class FullScreenWindowTests: XCTestCase {
 
     func testFullScreenWindow() throws {
         let slug = deviceSlug()
+        let tag = shotTag()
         let app = XCUIApplication()
-        app.launchArguments = []
-        app.launch()
-        XCTAssertTrue(
-            app.staticTexts["Create Free Account"].waitForExistence(timeout: 25),
-            "FitMunch create-account screen did not appear"
-        )
-        XCTAssertEqual(app.state, .runningForeground)
-
-        _ = try assertFullScreen(app, slug: slug, phase: "first-run")
-        saveShot(app, name: "first-run-\(slug)")
-
-        app.terminate()
         app.launchArguments = [ReviewLaunchArgument.flag, "-UseLocalStoreKit"]
         app.launch()
+
+        let today = app.navigationBars["Today"].waitForExistence(timeout: 25)
+            || app.staticTexts["Today"].waitForExistence(timeout: 5)
+        XCTAssertTrue(today, "Today did not appear. The shot would be the home screen.")
+        XCTAssertEqual(app.state, .runningForeground)
+
+        let todayShot = try assertFullScreen(app, slug: slug, phase: "today")
+        saveShot(todayShot, name: "today-\(tag)")
+
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 25), "Tab bar missing before paywall")
         openUpgradePaywall(in: app)
 
@@ -40,24 +38,49 @@ final class FullScreenWindowTests: XCTestCase {
             "Restore missing on the paywall"
         )
 
+        XCTAssertTrue(
+            app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 8),
+            "Paywall headline missing. The shot would not be the paywall."
+        )
         XCTAssertEqual(app.state, .runningForeground)
-        _ = try assertFullScreen(app, slug: slug, phase: "paywall")
-        saveShot(app, name: "paywall-\(slug)")
+        let paywallShot = try assertFullScreen(app, slug: slug, phase: "paywall")
+        saveShot(paywallShot, name: "paywall-\(tag)")
     }
 
-    /// Window frame of the running app. 6.9-inch Pro Max is 440x956. 6.5-inch 11 Pro Max is 414x896.
-    private func assertFullScreen(_ app: XCUIApplication, slug: String, phase: String) throws -> CGSize {
+    /// App frame and the app screenshot. 6.9-inch Pro Max is 440x956. 6.5-inch 11 Pro Max is 414x896.
+    /// XCUIScreen has no bounds. A letterboxed legacy app is 320x480 with black bands.
+    private func assertFullScreen(_ app: XCUIApplication, slug: String, phase: String) throws -> XCUIScreenshot {
         XCTAssertEqual(app.state, .runningForeground, "Screenshot would miss the app during \(phase)")
-        let window = app.windows.firstMatch
-        XCTAssertTrue(window.waitForExistence(timeout: 25), "App window missing during \(phase)")
-        let size = "\(Int(window.frame.width.rounded()))x\(Int(window.frame.height.rounded()))"
+        let frame = app.frame
+        let shot = app.screenshot()
+        let size = pointLabel(frame.size)
+        let shotSize = pointLabel(shot.image.size)
         let expected = expectedPoints()
+        let pixels = pixelLabel(expected)
         print("FULLSCREEN_SIZE \(phase) \(slug) \(size)")
-        print("APP_FOREGROUND_SHOT \(phase) \(slug) \(size)")
+        print("APP_FOREGROUND_SHOT \(phase) \(slug) frame=\(size) shot=\(shotSize)")
         XCTAssertNotEqual(size, "320x480", "App is letterboxed")
         XCTAssertEqual(size, expected, "Expected \(expected) on this simulator, got \(size)")
+        XCTAssertTrue(
+            shotSize == expected || shotSize == pixels,
+            "App screenshot is \(shotSize), expected \(expected) points or \(pixels) pixels. Black bands or the home screen fail this."
+        )
         appendSize("\(phase)\t\(slug)\t\(size)\n")
-        return window.frame.size
+        return shot
+    }
+
+    private func shotTag() -> String {
+        expectedPoints() == "414x896" ? "6.5" : "6.9"
+    }
+
+    private func pointLabel(_ size: CGSize) -> String {
+        "\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+    }
+
+    private func pixelLabel(_ points: String) -> String {
+        let parts = points.split(separator: "x").compactMap { Int($0) }
+        guard parts.count == 2 else { return points }
+        return "\(parts[0] * 3)x\(parts[1] * 3)"
     }
 
     private func expectedPoints() -> String {
@@ -92,20 +115,26 @@ final class FullScreenWindowTests: XCTestCase {
         return urls
     }
 
-    private func saveShot(_ app: XCUIApplication, name: String) {
-        let shot = XCUIScreen.main.screenshot()
+    private func saveShot(_ shot: XCUIScreenshot, name: String) {
         let attachment = XCTAttachment(screenshot: shot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
 
         let data = shot.pngRepresentation
+        var wrote = false
         for dir in screenshotDirectories() {
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let url = dir.appendingPathComponent("\(name).png")
-            try? data.write(to: url)
-            print("FULLSCREEN_SHOT \(url.path)")
+            do {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let url = dir.appendingPathComponent("\(name).png")
+                try data.write(to: url)
+                wrote = true
+                print("FULLSCREEN_SHOT \(url.path)")
+            } catch {
+                print("FULLSCREEN_SHOT_FAIL \(dir.path) \(error)")
+            }
         }
+        XCTAssertTrue(wrote, "Could not write \(name).png")
     }
 
     private func appendSize(_ line: String) {
