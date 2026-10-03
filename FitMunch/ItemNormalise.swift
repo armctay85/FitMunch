@@ -16,7 +16,7 @@ enum ItemNormalise {
     }
 
     static func normaliseLabel(_ raw: String) -> Result {
-        let pack = parsePack(raw)
+        let pack = parsePackValue(raw)
         let cleaned = clean(raw)
         if let key = keyword(in: cleaned) {
             return Result(itemKey: key, packSizeValue: pack.value, packSizeUnit: pack.unit, confidence: "high")

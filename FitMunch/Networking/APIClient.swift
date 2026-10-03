@@ -141,7 +141,7 @@ struct MealPlanMeal: Decodable {
     let carbs: Int?
     let fat: Int?
     let prepMins: Int?
-    let ingredients: [MealPlanIngredient]?
+    let ingredients: [MealPlanIngredient]? = nil
 }
 
 struct MealPlanIngredient: Decodable {
