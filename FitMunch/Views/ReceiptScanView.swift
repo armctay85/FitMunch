@@ -81,7 +81,7 @@ struct ReceiptScanView: View {
             Text("📸").font(.system(size: 52)).padding(.top, 28)
             Text("Scan your shop")
                 .font(.title2.weight(.heavy))
-            Text("Snap your Woolies, Coles, Aldi or IGA receipt. Get every item's macros, a haul score, and meal ideas in seconds.")
+            Text("Snap a supermarket receipt. Get every item's macros, a haul score, and meal ideas in seconds.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

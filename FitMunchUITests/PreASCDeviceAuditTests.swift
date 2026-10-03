@@ -126,7 +126,7 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertNotNil(premiumRow, "C FAIL: Upgrade to Premium missing")
         premiumRow?.tap()
         let again = app.buttons["paywall-close"].waitForExistence(timeout: 8)
-            || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
+            || app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 2)
         XCTAssertTrue(again, "C FAIL: Upgrade to Premium did not open the paywall")
         XCTAssertEqual(app.state, .runningForeground)
         recordAudit(row: "C", status: "PASS", screenshot: shot)
@@ -174,16 +174,18 @@ final class PreASCDeviceAuditTests: XCTestCase {
 
         let error = app.staticTexts[loadFailure]
         XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: retry copy did not appear")
-        reveal(error, in: app)
-        let retry = scrollUntilAnyExists([
+        guard let retry = scrollUntilHittable([
             app.buttons["paywall-retry"],
-        ], in: app) ?? app.buttons["paywall-retry"]
-        XCTAssertTrue(retry.exists, "E FAIL: Retry missing")
+            app.buttons["Retry"],
+        ], in: app) else {
+            XCTFail("E FAIL: Retry missing")
+            return
+        }
         XCTAssertTrue(
             app.buttons["paywall-restore"].exists || app.buttons["paywall-restore-inline"].exists || app.buttons["Restore Purchases"].exists,
             "E FAIL: Restore Purchases missing on the error state"
         )
-        XCTAssertTrue(app.staticTexts["Unlock Premium Features"].exists, "E FAIL: paywall header missing (blank screen)")
+        XCTAssertTrue(app.staticTexts["Eat to your goals with every shop"].exists, "E FAIL: paywall header missing (blank screen)")
         XCTAssertFalse(app.staticTexts["Premium plans did not load from the App Store."].exists)
         XCTAssertFalse(app.otherElements["paywall-plans"].exists, "E FAIL: plans rendered on the forced-empty path")
 

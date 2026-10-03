@@ -1,15 +1,11 @@
 import SwiftUI
 import SwiftData
 
-/// Workout tab — full parity with the web fitness half:
-/// `generateActivityPlan.js` (weekly plan) + `exercise_tracker.js` (log sets/reps) + steps goal.
+/// Workout tab: weekly plan on device plus an exercise log.
 struct WorkoutView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutLog.date, order: .reverse) private var logs: [WorkoutLog]
 
-    // Steps goal — parity with fitness_connector.js steps goal (web uses a local/mock tracker).
-    @AppStorage("stepsGoal") private var stepsGoal = 10000
-    @AppStorage("stepsToday") private var stepsToday = 0
     @AppStorage("completedWorkoutDays") private var completedWorkoutDays = ""
 
     @State private var planType = "gym"
@@ -35,7 +31,6 @@ struct WorkoutView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    stepsCard
                     planCard
                     exerciseLogCard
                 }
@@ -46,38 +41,6 @@ struct WorkoutView: View {
                 if !hasGeneratedPlan { generate() }
             }
         }
-    }
-
-    // MARK: - Steps
-
-    private var stepsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Daily steps")
-                .font(.headline)
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(stepsToday)")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("of \(stepsGoal) goal")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    stepsToday += 1000
-                } label: {
-                    Label("+1,000", systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.bordered)
-                .tint(brandGreen)
-            }
-            ProgressView(value: Double(min(stepsToday, stepsGoal)), total: Double(stepsGoal))
-                .tint(brandGreen)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Plan

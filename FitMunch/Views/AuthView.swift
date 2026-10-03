@@ -84,12 +84,12 @@ struct AuthView: View {
 
                     if mode == .login {
                         Link("Forgot your password?",
-                             destination: URL(string: "https://www.fitmunch.com.au/login.html")!)
+                             destination: URL(string: "https://www.fitmunch.com.au/")!)
                             .font(.footnote)
                             .foregroundColor(.white.opacity(0.65))
                     }
 
-                    Text("Free to start · 14-day Premium trial, no card needed")
+                    Text("Free to start. Premium trial available in-app.")
                         .font(.caption2)
                         .foregroundColor(.white.opacity(0.45))
                         .padding(.bottom, 32)

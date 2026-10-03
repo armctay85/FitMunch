@@ -155,7 +155,7 @@ class DetailViewModel: ObservableObject {
             return true
         } catch {
             errorMessage = "Failed to save meal: \(error.localizedDescription)"
-            print("Error saving meal: \(error)")
+            print("Meal write failed: \(error)")
             return false
         }
     }

@@ -42,4 +42,60 @@ final class PaywallCatalogTests: XCTestCase {
             "Plans couldn't load. Check your connection and try again."
         )
     }
+
+    func testAnnualPerWeekAndSavingsComeFromAmounts() {
+        let monthly = Decimal(string: "19.99")!
+        let annual = Decimal(string: "149.99")!
+        let week = NSDecimalNumber(decimal: PaywallPricing.perWeekAmount(annual: annual)).doubleValue
+        XCTAssertEqual(week, 2.88, accuracy: 0.01)
+        XCTAssertEqual(PaywallPricing.savingsPercent(monthly: monthly, annual: annual), 37)
+        let label = PaywallPricing.perWeekLabel(annual: annual, currencyCode: "AUD")
+        XCTAssertNotNil(label)
+        XCTAssertTrue(label?.contains("2.88") == true)
+        XCTAssertTrue(label?.hasSuffix("/wk") == true)
+        XCTAssertNil(PaywallPricing.savingsPercent(monthly: monthly, annual: monthly * 12))
+    }
+
+    func testSubscribeCopyWhenIntroMissingOrIneligible() {
+        let ineligible = PaywallPricing.cta(
+            displayPrice: "A$19.99",
+            periodUnit: .month,
+            intro: PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true),
+            eligible: false
+        )
+        XCTAssertEqual(ineligible.title, "Subscribe for A$19.99/month")
+        XCTAssertNil(ineligible.subline)
+
+        let noOffer = PaywallPricing.cta(
+            displayPrice: "A$149.99",
+            periodUnit: .year,
+            intro: nil,
+            eligible: true
+        )
+        XCTAssertEqual(noOffer.title, "Subscribe for A$149.99/year")
+        XCTAssertNil(noOffer.subline)
+        XCTAssertNil(PaywallPricing.trialTimeline(intro: nil, eligible: true))
+        XCTAssertNil(
+            PaywallPricing.trialTimeline(
+                intro: PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true),
+                eligible: false
+            )
+        )
+    }
+
+    func testTrialCopyWhenEligibleForIntro() {
+        let intro = PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true)
+        let cta = PaywallPricing.cta(
+            displayPrice: "A$19.99",
+            periodUnit: .month,
+            intro: intro,
+            eligible: true
+        )
+        XCTAssertEqual(cta.title, "Start 14-day free trial")
+        XCTAssertEqual(cta.subline, "then A$19.99/month · cancel anytime")
+        let timeline = PaywallPricing.trialTimeline(intro: intro, eligible: true)
+        XCTAssertEqual(timeline?.today, "Today full access")
+        XCTAssertEqual(timeline?.remind, "Day 12 we remind you")
+        XCTAssertEqual(timeline?.billed, "Day 14 billed")
+    }
 }

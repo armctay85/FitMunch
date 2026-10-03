@@ -29,7 +29,7 @@ final class ReviewCrashGuardTests: XCTestCase {
 
         let paywallReady = app.otherElements["paywall-root"].waitForExistence(timeout: 8)
             || app.buttons["paywall-close"].waitForExistence(timeout: 2)
-            || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
+            || app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 2)
             || app.buttons["paywall-retry"].waitForExistence(timeout: 2)
         XCTAssertTrue(paywallReady, "Paywall did not appear after Upgrade")
         XCTAssertTrue(app.exists, "App died after Upgrade")
