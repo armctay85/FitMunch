@@ -7,7 +7,6 @@ const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
-const { useStripeClient } = require('./lib/fitmunch-account-link');
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
@@ -23,7 +22,6 @@ if (process.env.STRIPE_SECRET_KEY) {
 } else {
   console.log('Warning: STRIPE_SECRET_KEY not found. Stripe functionality will be disabled.');
 }
-useStripeClient(() => stripe);
 
 const app = express();
 
@@ -246,9 +244,17 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     return res.json({ received: true });
   }
 
+  let claim;
   try {
-    const claim = await stripeEvents.claimStripeEvent(event && event.id, event && event.type);
-    if (!claim.proceed) return res.json({ received: true });
+    claim = await stripeEvents.claimStripeEvent(event && event.id, event && event.type);
+  } catch (err) {
+    console.error('Webhook handler error:', ...webhookErrorFields(err));
+    return res.status(500).send('Handler error');
+  }
+  if (claim.alreadyProcessed) return res.json({ received: true });
+  if (!claim.proceed) return res.status(409).json({ received: false });
+
+  try {
     await stripeWebhook.dispatchStripeEvent(event, stripe);
     await stripeEvents.markStripeEventProcessed(event && event.id);
   } catch (err) {
@@ -478,6 +484,7 @@ const {
   checkoutRequestParts,
   openUnauthenticatedCheckout,
   createFitMunchCustomer,
+  checkoutSessionIsFitMunch,
   cancelNewerDuplicatesAcrossCustomers,
   linkedCustomerHasLiveFitMunchSub,
   LIVE_SUBSCRIPTION_STATUSES,
@@ -767,6 +774,30 @@ app.post('/api/coach/checkout', async (req, res) => {
   }
 });
 
+// Logged-in redemption of a guest checkout claim token. Email is not accepted.
+app.post('/api/stripe/claim-guest', async (req, res) => {
+  try {
+    const decoded = requireAuthUser(req);
+    const { user } = await loadCheckoutUser(decoded);
+    const token = req.body && req.body.token;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, error: 'Claim link is invalid or expired.' });
+    }
+    const { redeemGuestClaim } = require('./lib/guest-claim');
+    const result = await redeemGuestClaim(user, token, stripe);
+    return res.status(result.status).json({
+      success: Boolean(result.ok),
+      linked: Boolean(result.ok),
+      ...(result.ok ? {} : { error: result.error }),
+    });
+  } catch (err) {
+    if (sendAuthError(err, res)) return;
+    if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
+    console.error('[claim-guest] failed', ...webhookErrorFields(err));
+    return res.status(500).json({ success: false, error: 'Could not attach billing. Try again.' });
+  }
+});
+
 // ── SUBSCRIPTION SYNC (webhook-independent) ───────────────────────────────────
 // Called by the app when returning from Stripe checkout (?subscribed=1) and
 // available any time from Billing. Reads the customer's subscriptions straight
@@ -785,16 +816,6 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
     let user = await getUserById(decoded.userId);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
-    if (!user.stripeCustomerId) {
-      try {
-        const { attachGuestBilling } = require('./lib/fitmunch-account-link');
-        const linked = await attachGuestBilling(user);
-        if (linked && linked.user) user = linked.user;
-      } catch (linkErr) {
-        if (isTransientWebhookError(linkErr)) throw linkErr;
-        console.error('[sync-subscription] guest link failed', ...webhookErrorFields(linkErr));
-      }
-    }
     if (!user.stripeCustomerId) {
       return res.json({ success: true, tier: effectiveTier(user), synced: false });
     }
@@ -951,10 +972,21 @@ app.get('/api/checkout/session', async (req, res) => {
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id || null;
+    let claimToken = '';
+    if (session.status === 'complete' && customerId && checkoutSessionIsFitMunch(session)) {
+      const { mintGuestClaimToken } = require('./lib/guest-claim');
+      claimToken = mintGuestClaimToken({
+        sessionId: session.id,
+        customerId,
+        sessionCreated: session.created,
+      });
+    }
     res.json({
       plan: session.metadata?.plan || null,
       planLabel: session.metadata?.plan || null,
       paymentStatus: session.payment_status,
+      ...(claimToken ? { claimToken } : {}),
     });
   } catch (e) {
     res.status(404).json({ error: 'Session not found.' });
@@ -1073,6 +1105,7 @@ function setStripeForTests(next) {
   stripe = next;
   resetCheckoutGuardsForTests();
   stripeEvents.resetStripeEventsForTests();
+  require('./lib/guest-claim').resetGuestClaimsForTests();
 }
 
 module.exports = app;

@@ -286,6 +286,8 @@ describe('webhook brand filter and idempotency', () => {
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
       expect(user.subscriptionTier).toBe('premium');
+      expect(user.subscriptionExpiresAt).toBeInstanceOf(Date);
+      expect(user.subscriptionExpiresAt.getTime()).toBeGreaterThan(Date.now());
       expect(storage.updateUserSubscription).toHaveBeenCalledTimes(1);
       expect(sendWelcomeEmail).toHaveBeenCalledTimes(1);
       expect(sendWelcomeEmail).toHaveBeenCalledWith('member@example.com', 'Member', 'Premium');
@@ -350,7 +352,8 @@ describe('webhook brand filter and idempotency', () => {
     expect(stripe.cancels[0].options.idempotencyKey).toContain('evt_dup_once');
     expect(stripe.refundsMade).toHaveLength(1);
     expect(stripe.refundsMade[0].params).toEqual({ charge: 'ch_dup', reason: 'duplicate' });
-    expect(stripe.refundsMade[0].options.idempotencyKey).toContain('evt_dup_once');
+    expect(stripe.refundsMade[0].options.idempotencyKey).toContain('ch_dup');
+    expect(stripe.refundsMade[0].options.idempotencyKey).not.toContain('evt_dup_once');
     expect(subs.find((sub) => sub.id === 'sub_keep').status).toBe('trialing');
   });
 
@@ -490,10 +493,28 @@ describe('guest checkout links on signup', () => {
           throw missing;
         }),
       },
+      checkout: {
+        sessions: {
+          retrieve: jest.fn(async (sessionId) => {
+            const session = S.sessions.find((row) => row.id === sessionId);
+            if (session) return session;
+            const missing = new Error('missing');
+            missing.code = 'resource_missing';
+            throw missing;
+          }),
+        },
+      },
       subscriptions: {
         list: jest.fn(async ({ customer } = {}) => ({
           data: S.subs.filter((sub) => !customer || sub.customer === customer),
         })),
+        retrieve: jest.fn(async (subId) => {
+          const sub = S.subs.find((row) => row.id === subId);
+          if (sub) return sub;
+          const missing = new Error('missing');
+          missing.code = 'resource_missing';
+          throw missing;
+        }),
         cancel: jest.fn(async (sid) => {
           const sub = S.subs.find((row) => row.id === sid);
           if (sub) sub.status = 'canceled';
@@ -512,6 +533,7 @@ describe('guest checkout links on signup', () => {
             status: 'open',
             customer: params.customer,
             metadata: params.metadata || {},
+            created: Math.floor(Date.now() / 1000),
             params,
           };
           S.sessions.push(session);
@@ -528,6 +550,7 @@ describe('guest checkout links on signup', () => {
           customer: session.customer,
           status: 'trialing',
           created: 100 + S.n,
+          current_period_end: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60,
           items: { data: [{ price: { id: session.params.line_items[0].price } }] },
           metadata: {
             ...((session.params.subscription_data && session.params.subscription_data.metadata) || {}),
@@ -535,6 +558,7 @@ describe('guest checkout links on signup', () => {
           },
         };
         S.subs.push(sub);
+        session.subscription = sub.id;
         return sub;
       },
     };
@@ -543,17 +567,18 @@ describe('guest checkout links on signup', () => {
 
   function installAccounts() {
     const users = {};
-    storage.getUserByEmail = jest.fn(async (email) => users[String(email || '').toLowerCase()] || null);
+    storage.getUserByEmail = jest.fn(async (email) => users[String(email || '').trim().toLowerCase()] || null);
     storage.getUserById = jest.fn(async (id) => Object.values(users).find((user) => user.id === id) || null);
-    storage.createUser = jest.fn(async (email, name) => {
+    storage.createUser = jest.fn(async (email, name, passwordHash) => {
       const user = {
         id: `u-${Object.keys(users).length + 1}`,
-        email: String(email).toLowerCase(),
+        email: String(email).trim().toLowerCase(),
         name,
         subscriptionTier: 'free',
         stripeCustomerId: null,
         settings: {},
-        passwordHash: 'stub',
+        passwordHash: passwordHash || 'stub',
+        emailVerified: false,
       };
       users[user.email] = user;
       return user;
@@ -582,7 +607,17 @@ describe('guest checkout links on signup', () => {
     return users;
   }
 
-  test('a guest Premium checkout then signup gets access and does not create another customer', async () => {
+  function claimTokenFor(stripe, sessionId) {
+    const { mintGuestClaimToken } = require('./lib/guest-claim');
+    const session = stripe.S.sessions.find((row) => row.id === sessionId);
+    return mintGuestClaimToken({
+      sessionId: session.id,
+      customerId: session.customer,
+      sessionCreated: session.created,
+    });
+  }
+
+  test('a guest Premium checkout does not link on signup until the claim token is redeemed', async () => {
     const stripe = makeCheckoutStripe();
     app._private.setStripeForTests(stripe);
     const checkout = await request(app)
@@ -595,16 +630,46 @@ describe('guest checkout links on signup', () => {
 
     const res = await request(app)
       .post('/api/auth/register')
-      .send({ name: 'Guest Premium', email: 'guest.premium@example.com', password: 'password1' });
+      .send({ name: 'Guest Premium', email: '  Guest.Premium@Example.com ', password: 'password1' });
 
     expect(res.status).toBe(201);
     const user = users['guest.premium@example.com'];
+    expect(user.emailVerified).toBe(false);
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.subscriptionTier).toBe('free');
+    expect(stripe.customers.create.mock.calls.length).toBe(createdBefore);
+
+    const claim = claimTokenFor(stripe, checkout.body.id);
+    const claimed = await request(app)
+      .post('/api/stripe/claim-guest')
+      .set('Authorization', 'Bearer ' + res.body.token)
+      .send({ token: claim });
+    expect(claimed.status).toBe(200);
     expect(user.stripeCustomerId).toBe(sub.customer);
     expect(user.subscriptionTier).toBe('premium');
+    expect(user.subscriptionExpiresAt).toBeInstanceOf(Date);
+
+    users['other.premium@example.com'] = {
+      id: 'u-other',
+      email: 'other.premium@example.com',
+      subscriptionTier: 'free',
+      stripeCustomerId: null,
+      settings: {},
+      emailVerified: false,
+    };
+    const jwt = require('jsonwebtoken');
+    const { jwtSecret } = require('./lib/fitmunch-checkout');
+    const reused = await request(app)
+      .post('/api/stripe/claim-guest')
+      .set('Authorization', 'Bearer ' + jwt.sign({ userId: 'u-other' }, jwtSecret()))
+      .send({ token: claim });
+    expect(reused.status).toBe(409);
+    expect(users['other.premium@example.com'].stripeCustomerId).toBeNull();
+    expect(user.stripeCustomerId).toBe(sub.customer);
     expect(stripe.customers.create.mock.calls.length).toBe(createdBefore);
   });
 
-  test('a guest Coach checkout gets coach billing', async () => {
+  test('a guest Coach checkout links coach billing only when the claim token is redeemed', async () => {
     const stripe = makeCheckoutStripe();
     app._private.setStripeForTests(stripe);
     const checkout = await request(app)
@@ -621,6 +686,14 @@ describe('guest checkout links on signup', () => {
 
     expect(res.status).toBe(201);
     const user = users['guest.coach@example.com'];
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.subscriptionTier).toBe('free');
+
+    const claimed = await request(app)
+      .post('/api/stripe/claim-guest')
+      .set('Authorization', 'Bearer ' + res.body.token)
+      .send({ token: claimTokenFor(stripe, checkout.body.id) });
+    expect(claimed.status).toBe(200);
     expect(user.stripeCustomerId).toBe(sub.customer);
     expect(user.settings.coach.tier).toBe('trial');
     expect(user.settings.coach.plan).toBe('coach-39');
@@ -696,5 +769,404 @@ describe('guest checkout links on signup', () => {
     expect(users['ada@example.com'].subscriptionTier).toBe('starter');
     expect(storage.updateUserSubscription).not.toHaveBeenCalled();
     expect(stripe.customers.create).not.toHaveBeenCalled();
+  });
+
+  test('unverified register and login do not link a guest, and lookup trims the email', async () => {
+    const stripe = makeCheckoutStripe();
+    stripe.S.customers.push({
+      id: 'cus_victim',
+      email: 'victim@example.com',
+      metadata: { brand: 'fitmunch', product: 'fitmunch' },
+    });
+    stripe.S.subs.push({
+      id: 'sub_victim',
+      customer: 'cus_victim',
+      status: 'trialing',
+      created: 4,
+      current_period_end: Math.floor(Date.now() / 1000) + 86400,
+      metadata: { app: 'fitmunch', plan: 'premium' },
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    });
+    app._private.setStripeForTests(stripe);
+    const users = installAccounts();
+    const registered = await request(app)
+      .post('/api/auth/register')
+      .send({ name: 'Victim', email: '  VICTIM@Example.com ', password: 'password1' });
+    expect(registered.status).toBe(201);
+    const user = users['victim@example.com'];
+    expect(user.email).toBe('victim@example.com');
+    expect(user.emailVerified).toBe(false);
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.subscriptionTier).toBe('free');
+
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: '  VICTIM@Example.com ', password: 'password1' });
+    expect(login.status).toBe(200);
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.subscriptionTier).toBe('free');
+    expect(storage.updateUserSubscription).not.toHaveBeenCalled();
+  });
+
+  test('a claim token for a different Stripe customer is rejected', async () => {
+    const { mintGuestClaimToken } = require('./lib/guest-claim');
+    const jwt = require('jsonwebtoken');
+    const { jwtSecret } = require('./lib/fitmunch-checkout');
+    const users = installAccounts();
+    users['owner@example.com'] = {
+      id: 'u-owner',
+      email: 'owner@example.com',
+      subscriptionTier: 'free',
+      stripeCustomerId: null,
+      settings: {},
+      emailVerified: true,
+    };
+    const created = Math.floor(Date.now() / 1000);
+    const token = mintGuestClaimToken({
+      sessionId: 'cs_victim',
+      customerId: 'cus_victim',
+      sessionCreated: created,
+    });
+    app._private.setStripeForTests({
+      checkout: {
+        sessions: {
+          retrieve: async () => ({
+            id: 'cs_victim',
+            customer: 'cus_other',
+            status: 'complete',
+            created,
+            metadata: { app: 'fitmunch', plan: 'premium', priceId: PRICE_IDS.premium },
+          }),
+        },
+      },
+    });
+    const res = await request(app)
+      .post('/api/stripe/claim-guest')
+      .set('Authorization', 'Bearer ' + jwt.sign({ userId: 'u-owner' }, jwtSecret()))
+      .send({ token });
+    expect(res.status).toBe(400);
+    expect(users['owner@example.com'].stripeCustomerId).toBeNull();
+    expect(users['owner@example.com'].subscriptionTier).toBe('free');
+  });
+});
+
+describe('webhook access, claims, and retries', () => {
+  function linkedUser(tier = 'free') {
+    const user = {
+      id: 'u1',
+      email: 'm@example.com',
+      stripeCustomerId: 'cus_m',
+      subscriptionTier: tier,
+      settings: {},
+      emailVerified: true,
+    };
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [user] }) }),
+      update: () => ({ set: () => ({ where: async () => {} }) }),
+    };
+    storage.updateUserSubscription = jest.fn(async (_id, next, expiresAt) => {
+      user.subscriptionTier = next;
+      user.subscriptionExpiresAt = expiresAt;
+    });
+    return user;
+  }
+
+  function checkoutEvent(id) {
+    return {
+      id,
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          customer: 'cus_m',
+          customer_details: { email: 'm@example.com', name: 'Member' },
+          metadata: { app: 'fitmunch', plan: 'premium', priceId: PRICE_IDS.premium },
+        },
+      },
+    };
+  }
+
+  test('an in-progress claim returns 409 and a stale claim is reclaimed', async () => {
+    const user = linkedUser();
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      webhooks: { constructEvent },
+    });
+    const event = checkoutEvent('evt_stale');
+    await stripeEvents.claimStripeEvent(event.id, event.type);
+    const busy = await postEvent(event);
+    expect(busy.status).toBe(409);
+    expect(user.subscriptionTier).toBe('free');
+    stripeEvents.ageStripeEventForTests(event.id, stripeEvents.STALE_CLAIM_MS + 1000);
+    const again = await postEvent(event);
+    expect(again.status).toBe(200);
+    expect(user.subscriptionTier).toBe('premium');
+    expect(user.subscriptionExpiresAt).toBeInstanceOf(Date);
+  });
+
+  test('processed stripe events past the retention window are pruned idempotently', async () => {
+    await stripeEvents.claimStripeEvent('evt_old', 'invoice.paid');
+    await stripeEvents.markStripeEventProcessed('evt_old');
+    await stripeEvents.claimStripeEvent('evt_open', 'invoice.paid');
+    stripeEvents.ageStripeEventForTests('evt_old', stripeEvents.EVENT_RETENTION_MS + 1000);
+    stripeEvents.ageStripeEventForTests('evt_open', stripeEvents.EVENT_RETENTION_MS + 1000);
+    await stripeEvents.pruneStripeEvents();
+    expect(stripeEvents.stripeEventCountForTests()).toBe(1);
+    await stripeEvents.pruneStripeEvents();
+    expect(stripeEvents.stripeEventCountForTests()).toBe(1);
+  });
+
+  test('connection drops and statement timeouts are retried', async () => {
+    const cases = [
+      { message: 'Connection terminated unexpectedly' },
+      { message: 'timeout exceeded when trying to connect' },
+      { message: 'Connection terminated due to connection timeout' },
+      { message: 'canceling statement due to statement timeout', code: '57014' },
+    ];
+    for (const item of cases) {
+      stripeEvents.resetStripeEventsForTests();
+      const user = linkedUser();
+      let fail = true;
+      storage.updateUserSubscription = jest.fn(async (_id, tier, expiresAt) => {
+        if (fail) {
+          fail = false;
+          throw Object.assign(new Error(item.message), item.code ? { code: item.code } : {});
+        }
+        user.subscriptionTier = tier;
+        user.subscriptionExpiresAt = expiresAt;
+      });
+      app._private.setStripeForTests({
+        subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+        webhooks: { constructEvent },
+      });
+      const event = checkoutEvent('evt_outage_' + (item.code || String(cases.indexOf(item))));
+      const first = await postEvent(event);
+      const second = await postEvent(event);
+      expect(first.status).toBe(500);
+      expect(second.status).toBe(200);
+      expect(user.subscriptionTier).toBe('premium');
+    }
+  });
+
+  test('a permanent database error while claiming returns 500', async () => {
+    linkedUser();
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      webhooks: { constructEvent },
+    });
+    const claim = jest.spyOn(stripeEvents, 'claimStripeEvent').mockRejectedValueOnce(
+      Object.assign(new Error('password authentication failed'), { code: '28P01' })
+    );
+    try {
+      const res = await postEvent(checkoutEvent('evt_claim_perm'));
+      expect(res.status).toBe(500);
+      expect(res.text).toBe('Handler error');
+    } finally {
+      claim.mockRestore();
+    }
+  });
+
+  test('a non-temporary duplicate cleanup error still grants access', async () => {
+    const user = linkedUser();
+    app._private.setStripeForTests({
+      subscriptions: {
+        list: jest.fn(async () => { throw new TypeError('list failed'); }),
+      },
+      webhooks: { constructEvent },
+    });
+    const res = await postEvent(checkoutEvent('evt_cleanup'));
+    expect(res.status).toBe(200);
+    expect(user.subscriptionTier).toBe('premium');
+  });
+
+  test('a Stripe permission error during cleanup is retryable after access is granted', async () => {
+    const user = linkedUser();
+    const err = Object.assign(new Error('restricted'), { type: 'StripePermissionError', statusCode: 403 });
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => { throw err; }) },
+      webhooks: { constructEvent },
+    });
+    const res = await postEvent(checkoutEvent('evt_perm'));
+    expect(res.status).toBe(500);
+    expect(user.subscriptionTier).toBe('premium');
+  });
+
+  test('a late created or checkout event does not re-grant a canceled subscription', async () => {
+    const user = linkedUser('premium');
+    const live = {
+      id: 'sub_1',
+      customer: 'cus_m',
+      status: 'canceled',
+      created: 100,
+      current_period_end: 2000000000,
+      metadata: { app: 'fitmunch', product: 'fitmunch', plan: 'premium' },
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    };
+    app._private.setStripeForTests({
+      subscriptions: {
+        list: jest.fn(async () => ({ data: [live] })),
+        retrieve: jest.fn(async () => live),
+      },
+      webhooks: { constructEvent },
+    });
+    await postEvent({ id: 'evt_del_late', type: 'customer.subscription.deleted', data: { object: { ...live } } });
+    expect(user.subscriptionTier).toBe('free');
+    await postEvent({
+      id: 'evt_created_late',
+      type: 'customer.subscription.created',
+      data: { object: { ...live, status: 'trialing' } },
+    });
+    expect(user.subscriptionTier).not.toBe('premium');
+    user.subscriptionTier = 'free';
+    await postEvent({
+      id: 'evt_checkout_late',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          customer: 'cus_m',
+          subscription: 'sub_1',
+          metadata: { app: 'fitmunch', plan: 'premium', priceId: PRICE_IDS.premium },
+        },
+      },
+    });
+    expect(user.subscriptionTier).not.toBe('premium');
+  });
+
+  test('a webhook does not link an unverified user by Stripe customer email', async () => {
+    const user = {
+      id: 'u-sq',
+      email: 'victim3@example.com',
+      stripeCustomerId: null,
+      subscriptionTier: 'free',
+      settings: {},
+      emailVerified: false,
+    };
+    storage.findUserByNormalizedEmail = async () => user;
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [] }) }),
+      update: () => ({
+        set: (values) => ({
+          where: async () => {
+            if (values.stripeCustomerId) user.stripeCustomerId = values.stripeCustomerId;
+          },
+        }),
+      }),
+    };
+    const sub = {
+      id: 'sub_v3',
+      customer: 'cus_v3',
+      status: 'trialing',
+      created: 100,
+      current_period_end: 2000000000,
+      metadata: { app: 'fitmunch', plan: 'premium' },
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    };
+    app._private.setStripeForTests({
+      subscriptions: {
+        list: jest.fn(async () => ({ data: [sub] })),
+        retrieve: jest.fn(async () => sub),
+      },
+      customers: {
+        retrieve: jest.fn(async () => ({
+          id: 'cus_v3',
+          email: 'Victim3@Example.com',
+          metadata: { brand: 'fitmunch' },
+        })),
+      },
+      webhooks: { constructEvent },
+    });
+    const res = await postEvent({ id: 'evt_email_link', type: 'customer.subscription.created', data: { object: sub } });
+    expect(res.status).toBe(200);
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.subscriptionTier).toBe('free');
+    expect(storage.updateUserSubscription).not.toHaveBeenCalled();
+  });
+
+  test('a changed Stripe customer email does not link the subscription to that inbox', async () => {
+    const user = {
+      id: 'u-bob',
+      email: 'bob@example.com',
+      stripeCustomerId: null,
+      subscriptionTier: 'free',
+      settings: {},
+      emailVerified: true,
+    };
+    storage.findUserByNormalizedEmail = async () => user;
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [] }) }),
+      update: () => ({
+        set: (values) => ({
+          where: async () => {
+            if (values.stripeCustomerId) user.stripeCustomerId = values.stripeCustomerId;
+          },
+        }),
+      }),
+    };
+    const sub = {
+      id: 'sub_al',
+      customer: 'cus_alice',
+      status: 'active',
+      created: 100,
+      current_period_end: 2000000000,
+      metadata: { app: 'fitmunch', plan: 'premium' },
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    };
+    app._private.setStripeForTests({
+      subscriptions: {
+        list: jest.fn(async () => ({ data: [sub] })),
+        retrieve: jest.fn(async () => sub),
+      },
+      customers: {
+        retrieve: jest.fn(async () => ({
+          id: 'cus_alice',
+          email: 'bob@example.com',
+          metadata: { brand: 'fitmunch' },
+        })),
+      },
+      webhooks: { constructEvent },
+    });
+    const res = await postEvent({ id: 'evt_email_change', type: 'customer.subscription.updated', data: { object: sub } });
+    expect(res.status).toBe(200);
+    expect(user.stripeCustomerId).toBeNull();
+    expect(user.subscriptionTier).toBe('free');
+  });
+
+  test('a retry after a welcome email was sent does not send a second one', async () => {
+    linkedUser();
+    const sendWelcomeEmail = jest.spyOn(emailApi, 'sendWelcomeEmail').mockResolvedValue({ success: true, messageId: 'msg_1' });
+    const mark = jest.spyOn(stripeEvents, 'markStripeEventProcessed').mockRejectedValueOnce(
+      Object.assign(new Error('reset'), { code: 'ECONNRESET' })
+    );
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      webhooks: { constructEvent },
+    });
+    const event = checkoutEvent('evt_welcome_once');
+    try {
+      const first = await postEvent(event);
+      const second = await postEvent(event);
+      expect(first.status).toBe(500);
+      expect(second.status).toBe(200);
+      expect(sendWelcomeEmail).toHaveBeenCalledTimes(1);
+    } finally {
+      sendWelcomeEmail.mockRestore();
+      mark.mockRestore();
+    }
+  });
+
+  test('login logs an error label and not the raw message', async () => {
+    storage.getUserByEmail = async () => {
+      throw new Error('password authentication failed for user secret@example.com');
+    };
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await request(app).post('/api/auth/login').send({ email: 'a@example.com', password: 'password1' });
+      expect(res.status).toBe(500);
+      const text = loggedText(spy);
+      expect(text).toContain('Login error');
+      expect(text).not.toContain('secret@example.com');
+      expect(text).not.toContain('password authentication failed');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

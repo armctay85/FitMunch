@@ -355,7 +355,8 @@ async function ensureMigrations() {
 router.post('/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password)
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!name || !normalizedEmail || !password)
       return res.status(400).json({ success: false, error: 'Name, email and password are required.' });
     if (password.length < 8)
       return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
@@ -363,7 +364,7 @@ router.post('/auth/register', async (req, res) => {
     await ensureMigrations();
 
     const storage = require('./server/storage.js');
-    const existing = await storage.getUserByEmail(email.toLowerCase());
+    const existing = await storage.getUserByEmail(normalizedEmail);
     if (existing)
       return res.status(409).json({ success: false, error: 'An account with that email already exists.' });
 
@@ -402,7 +403,7 @@ router.post('/auth/register', async (req, res) => {
     const trialExpiresAt = new Date();
     trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
     // Atomic role + trial on create — never leave consumers stuck on DB default 'pt'.
-    const user = await storage.createUser(email.toLowerCase(), name, passwordHash, {
+    const user = await storage.createUser(normalizedEmail, name, passwordHash, {
       role,
       ptId,
       trialExpiresAt,
@@ -452,13 +453,6 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
-    try {
-      const { attachGuestBilling } = require('./lib/fitmunch-account-link');
-      await attachGuestBilling(user);
-    } catch (linkErr) {
-      console.error('[register] guest billing link failed', linkErr && linkErr.type, linkErr && linkErr.code);
-    }
-
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
@@ -471,11 +465,12 @@ router.post('/auth/register', async (req, res) => {
 router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password)
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail || !password)
       return res.status(400).json({ success: false, error: 'Email and password are required.' });
 
     const storage = require('./server/storage.js');
-    const user = await storage.getUserByEmail(email.toLowerCase());
+    const user = await storage.getUserByEmail(normalizedEmail);
     if (!user)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
 
@@ -483,29 +478,22 @@ router.post('/auth/login', async (req, res) => {
     if (!valid)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
 
-    try {
-      const { attachGuestBilling } = require('./lib/fitmunch-account-link');
-      await attachGuestBilling(user);
-    } catch (linkErr) {
-      console.error('[login] guest billing link failed', linkErr && linkErr.type, linkErr && linkErr.code);
-    }
-
     let role = 'client';
     try {
       const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
       role = roleRow.rows[0]?.role || 'client';
     } catch (e) {
-      console.warn('[login] role lookup failed (non-fatal):', e.message);
+      console.warn('[login] role lookup failed');
     }
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     try {
       await _pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
     } catch (e) {
-      console.warn('[login] last_login_at update failed (non-fatal):', e.message);
+      console.warn('[login] last login time update failed');
     }
     res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: effectiveTier(user), role } });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login error');
     res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
   }
 });
