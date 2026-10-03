@@ -111,7 +111,7 @@
 }
 .fm-section .lead{color:var(--mute);font-size:1.05rem;line-height:1.65;max-width:42ch;margin:0 0 28px}
 
-/* Proof tables + conversion strips (MRR content) */
+/* Proof tables and conversion strips */
 .fm-table-wrap{overflow-x:auto;max-width:100%;margin:24px 0;border:1px solid var(--line);background:#fff}
 .fm-privacy-table{width:100%;border-collapse:collapse;font-size:.92rem}
 .fm-privacy-table th,.fm-privacy-table td{

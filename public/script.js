@@ -320,128 +320,16 @@ function updateProgressBars() {
 // Enhanced Meal Plan Generation
 // `force` is accepted for compatibility with callers; generation runs whenever #meal exists.
 window.generateMealPlan = function(_force) {
-  console.log("Generating enhanced meal plan");
-
   const mealSection = document.getElementById('meal');
-  if (!mealSection) {
-    console.warn("generateMealPlan: #meal section not found in DOM");
-    return;
-  }
-
-  const goalType = document.getElementById('goalType')?.value || "Maintenance";
-
-  // Enhanced meal plans with detailed nutrition
-  const mealPlans = {
-    "Weight Loss": {
-      breakfast: [
-        { name: "Protein Veggie Scramble", calories: 280, protein: 25, carbs: 8, fat: 16 },
-        { name: "Greek Yogurt Berry Bowl", calories: 220, protein: 20, carbs: 25, fat: 5 },
-        { name: "Avocado Toast with Egg", calories: 320, protein: 18, carbs: 24, fat: 18 }
-      ],
-      lunch: [
-        { name: "Grilled Chicken Salad", calories: 380, protein: 35, carbs: 15, fat: 20 },
-        { name: "Turkey Lettuce Wraps", calories: 290, protein: 28, carbs: 12, fat: 15 },
-        { name: "Quinoa Power Bowl", calories: 420, protein: 22, carbs: 45, fat: 18 }
-      ],
-      dinner: [
-        { name: "Baked Salmon & Vegetables", calories: 450, protein: 38, carbs: 20, fat: 25 },
-        { name: "Lean Beef Stir-fry", calories: 380, protein: 32, carbs: 25, fat: 18 },
-        { name: "Grilled Chicken & Sweet Potato", calories: 420, protein: 35, carbs: 30, fat: 15 }
-      ],
-      snacks: [
-        { name: "Apple with Almond Butter", calories: 190, protein: 6, carbs: 18, fat: 12 },
-        { name: "Protein Smoothie", calories: 150, protein: 20, carbs: 8, fat: 5 }
-      ]
-    },
-    "Maintenance": {
-      breakfast: [
-        { name: "Overnight Oats with Berries", calories: 380, protein: 15, carbs: 52, fat: 12 },
-        { name: "Whole Grain Toast & Avocado", calories: 420, protein: 12, carbs: 45, fat: 22 },
-        { name: "Protein Pancakes", calories: 450, protein: 28, carbs: 48, fat: 16 }
-      ],
-      lunch: [
-        { name: "Mediterranean Wrap", calories: 520, protein: 25, carbs: 58, fat: 22 },
-        { name: "Chicken & Rice Bowl", calories: 480, protein: 30, carbs: 55, fat: 15 },
-        { name: "Lentil Soup & Bread", calories: 440, protein: 18, carbs: 62, fat: 12 }
-      ],
-      dinner: [
-        { name: "Grilled Fish & Quinoa", calories: 580, protein: 35, carbs: 48, fat: 26 },
-        { name: "Pasta with Lean Meat Sauce", calories: 520, protein: 28, carbs: 65, fat: 16 },
-        { name: "Chicken Stir-fry with Brown Rice", calories: 550, protein: 32, carbs: 58, fat: 18 }
-      ],
-      snacks: [
-        { name: "Greek Yogurt & Granola", calories: 220, protein: 12, carbs: 28, fat: 8 },
-        { name: "Trail Mix", calories: 200, protein: 6, carbs: 16, fat: 14 }
-      ]
-    },
-    "Muscle Gain": {
-      breakfast: [
-        { name: "High-Protein Smoothie Bowl", calories: 650, protein: 45, carbs: 65, fat: 20 },
-        { name: "Egg & Sausage Burrito", calories: 720, protein: 35, carbs: 48, fat: 38 },
-        { name: "Protein Oatmeal with Nuts", calories: 580, protein: 32, carbs: 58, fat: 22 }
-      ],
-      lunch: [
-        { name: "Double Chicken Rice Bowl", calories: 780, protein: 55, carbs: 68, fat: 25 },
-        { name: "Beef & Sweet Potato", calories: 720, protein: 48, carbs: 55, fat: 28 },
-        { name: "Salmon Pasta", calories: 850, protein: 42, carbs: 78, fat: 32 }
-      ],
-      dinner: [
-        { name: "Steak & Loaded Potato", calories: 920, protein: 52, carbs: 68, fat: 42 },
-        { name: "Chicken Alfredo Pasta", calories: 880, protein: 48, carbs: 85, fat: 35 },
-        { name: "Turkey Meatballs & Rice", calories: 820, protein: 45, carbs: 72, fat: 28 }
-      ],
-      snacks: [
-        { name: "Protein Shake & Banana", calories: 320, protein: 25, carbs: 35, fat: 8 },
-        { name: "Peanut Butter Sandwich", calories: 420, protein: 18, carbs: 42, fat: 22 }
-      ]
-    }
-  };
-
-  const selectedPlan = mealPlans[goalType] || mealPlans["Maintenance"];
-
-  // Display meal plan
+  if (!mealSection) return;
   const mealDisplay = document.getElementById('mealDisplay');
   if (mealDisplay) {
-    let planHTML = `
-      <div class="meal-plan-header">
-        <h3>${goalType} Meal Plan</h3>
-        <div class="plan-stats">
-          <div class="stat">Target: ${window.userProfile.goals?.calories || 2000} cal</div>
-        </div>
-      </div>
-    `;
-
-    ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(mealType => {
-      planHTML += `
-        <div class="meal-category">
-          <h4>${mealType.charAt(0).toUpperCase() + mealType.slice(1)} Options</h4>
-          <div class="meal-options">
-            ${selectedPlan[mealType].map(meal => `
-              <div class="meal-option">
-                <h5>${meal.name}</h5>
-                <div class="meal-macros">
-                  <span class="calories">${meal.calories} cal</span>
-                  <span class="macro">P: ${meal.protein}g</span>
-                  <span class="macro">C: ${meal.carbs}g</span>
-                  <span class="macro">F: ${meal.fat}g</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    });
-
-    mealDisplay.innerHTML = planHTML;
+    mealDisplay.innerHTML = '<p>No meal plan yet. Build the week in FitMunch. Prices vary by store and week.</p>';
   }
-
-  // Update nutritional info
-  document.getElementById('mealCalories').textContent = '2,100';
-  document.getElementById('mealProtein').textContent = '110g';
-  document.getElementById('mealCarbs').textContent = '135g';
-  document.getElementById('mealFat').textContent = '60g';
-
-  return selectedPlan;
+  ['mealCalories', 'mealProtein', 'mealCarbs', 'mealFat', 'dailyCost', 'weeklyCost'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  });
 };
 
 // Enhanced Food Search
