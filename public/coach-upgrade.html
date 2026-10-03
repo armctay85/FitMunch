@@ -11,12 +11,17 @@
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{max-width:100%}
   body.fm-body{background:var(--fridge);min-height:100vh}
   .upgrade-wrap{
     width:min(420px,100%);
     margin:0 auto;
     padding:28px 20px 48px;
   }
+  .upgrade-brand,.upgrade-card,h1,.price-name,.body,.detail{min-width:0;max-width:100%}
+  h1,.price-name{overflow-wrap:anywhere}
+  .price-row{flex-wrap:wrap;min-width:0}
   .upgrade-brand{
     display:flex;align-items:center;gap:10px;
     color:#fff;text-decoration:none;

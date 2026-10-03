@@ -120,7 +120,9 @@ describe('AI routes', () => {
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
     expect(r.body.reply).toMatch(/protein/);
-    expect(r.body.provider).toBe('openai');
+    expect(r.body.provider).toBeUndefined();
+    expect(r.body.model).toBeUndefined();
+    expect(JSON.stringify(r.body)).not.toMatch(/gemini|openai|grok|anthropic/i);
   });
 
   it('POST /api/ai/insight returns LLM text when provider is available', async () => {
@@ -130,7 +132,8 @@ describe('AI routes', () => {
       .send({ todayCalories: 1200, todayProtein: 60, streak: 3, goal: 'muscle_gain', targetCalories: 2500, targetProtein: 180 });
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
-    expect(r.body.provider).toBe('openai');
+    expect(r.body.provider).toBeUndefined();
+    expect(JSON.stringify(r.body)).not.toMatch(/gemini|openai|grok|anthropic/i);
     expect(r.body.insight.length).toBeGreaterThan(10);
   });
 
@@ -141,7 +144,8 @@ describe('AI routes', () => {
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
     expect(r.body.limit).toBe(10);
-    expect(r.body.provider).toBe('openai');
+    expect(r.body.provider).toBeUndefined();
+    expect(JSON.stringify(r.body)).not.toMatch(/gemini|openai|grok|anthropic/i);
   });
 
   it('POST /api/ai/workout-plan generates a structured program', async () => {

@@ -1,0 +1,461 @@
+{
+  "deferUntil": "2026-11-30",
+  "deferReason": "Storefront wording still on main, being removed in PR #44 and PR #46. Counts may fall. A higher count fails.",
+  "bannedPatterns": [
+    {
+      "id": "specials",
+      "source": "specials",
+      "flags": "i"
+    },
+    {
+      "id": "catalogue",
+      "source": "catalogue",
+      "flags": "i"
+    },
+    {
+      "id": "cheap",
+      "source": "\\bcheap\\b",
+      "flags": "i"
+    },
+    {
+      "id": "cheapest",
+      "source": "\\bcheapest\\b",
+      "flags": "i"
+    },
+    {
+      "id": "estimated-price",
+      "source": "estimated price",
+      "flags": "i"
+    },
+    {
+      "id": "shelf-price",
+      "source": "shelf price",
+      "flags": "i"
+    },
+    {
+      "id": "pty-ltd",
+      "source": "pty ltd",
+      "flags": "i"
+    },
+    {
+      "id": "inc-gst",
+      "source": "inc\\. gst",
+      "flags": "i"
+    },
+    {
+      "id": "grok",
+      "source": "\\bgrok\\b",
+      "flags": "i"
+    },
+    {
+      "id": "openclaw",
+      "source": "openclaw",
+      "flags": "i"
+    },
+    {
+      "id": "mrr",
+      "source": "\\bmrr\\b",
+      "flags": "i"
+    }
+  ],
+  "deferred": [
+    {
+      "file": "public/ai-meal-planner-australia.html",
+      "id": "specials",
+      "count": 4
+    },
+    {
+      "file": "public/ai-meal-planner-australia.html",
+      "id": "catalogue",
+      "count": 3
+    },
+    {
+      "file": "public/ai-meal-planner-australia.html",
+      "id": "cheap",
+      "count": 1
+    },
+    {
+      "file": "public/app.html",
+      "id": "specials",
+      "count": 1
+    },
+    {
+      "file": "public/app.html",
+      "id": "catalogue",
+      "count": 1
+    },
+    {
+      "file": "public/app.html",
+      "id": "cheap",
+      "count": 2
+    },
+    {
+      "file": "public/app.html",
+      "id": "estimated-price",
+      "count": 1
+    },
+    {
+      "file": "public/budget-meal-planner.html",
+      "id": "cheap",
+      "count": 6
+    },
+    {
+      "file": "public/budget-meal-planner.html",
+      "id": "cheapest",
+      "count": 2
+    },
+    {
+      "file": "public/budget-meal-planner.html",
+      "id": "shelf-price",
+      "count": 2
+    },
+    {
+      "file": "public/coach.html",
+      "id": "specials",
+      "count": 1
+    },
+    {
+      "file": "public/coach.html",
+      "id": "catalogue",
+      "count": 1
+    },
+    {
+      "file": "public/coles-meal-planner.html",
+      "id": "specials",
+      "count": 17
+    },
+    {
+      "file": "public/coles-meal-planner.html",
+      "id": "catalogue",
+      "count": 15
+    },
+    {
+      "file": "public/coles-meal-planner.html",
+      "id": "shelf-price",
+      "count": 1
+    },
+    {
+      "file": "public/demo.html",
+      "id": "cheap",
+      "count": 1
+    },
+    {
+      "file": "public/family-meal-plan.html",
+      "id": "specials",
+      "count": 9
+    },
+    {
+      "file": "public/family-meal-plan.html",
+      "id": "catalogue",
+      "count": 10
+    },
+    {
+      "file": "public/family-meal-plan.html",
+      "id": "shelf-price",
+      "count": 1
+    },
+    {
+      "file": "public/fitmunch-coach-vs-spreadsheets.html",
+      "id": "specials",
+      "count": 14
+    },
+    {
+      "file": "public/fitmunch-coach-vs-spreadsheets.html",
+      "id": "catalogue",
+      "count": 12
+    },
+    {
+      "file": "public/fitmunch-coach-vs-spreadsheets.html",
+      "id": "shelf-price",
+      "count": 3
+    },
+    {
+      "file": "public/for-pts.html",
+      "id": "specials",
+      "count": 3
+    },
+    {
+      "file": "public/for-pts.html",
+      "id": "catalogue",
+      "count": 1
+    },
+    {
+      "file": "public/haul-teardown.html",
+      "id": "cheap",
+      "count": 1
+    },
+    {
+      "file": "public/index.html",
+      "id": "specials",
+      "count": 6
+    },
+    {
+      "file": "public/index.html",
+      "id": "catalogue",
+      "count": 3
+    },
+    {
+      "file": "public/js/fm-shopper.js",
+      "id": "specials",
+      "count": 2
+    },
+    {
+      "file": "public/js/fm-shopper.js",
+      "id": "catalogue",
+      "count": 20
+    },
+    {
+      "file": "public/js/fm-shopper.js",
+      "id": "cheapest",
+      "count": 1
+    },
+    {
+      "file": "public/macro-meal-planner.html",
+      "id": "specials",
+      "count": 11
+    },
+    {
+      "file": "public/macro-meal-planner.html",
+      "id": "catalogue",
+      "count": 12
+    },
+    {
+      "file": "public/macro-meal-planner.html",
+      "id": "cheap",
+      "count": 1
+    },
+    {
+      "file": "public/macro-meal-planner.html",
+      "id": "shelf-price",
+      "count": 1
+    },
+    {
+      "file": "public/meal-plan-for-one.html",
+      "id": "specials",
+      "count": 7
+    },
+    {
+      "file": "public/meal-plan-for-one.html",
+      "id": "catalogue",
+      "count": 7
+    },
+    {
+      "file": "public/meal-plan-for-one.html",
+      "id": "shelf-price",
+      "count": 1
+    },
+    {
+      "file": "public/meal-plan-software-personal-trainers.html",
+      "id": "specials",
+      "count": 14
+    },
+    {
+      "file": "public/meal-plan-software-personal-trainers.html",
+      "id": "catalogue",
+      "count": 12
+    },
+    {
+      "file": "public/meal-plan-software-personal-trainers.html",
+      "id": "shelf-price",
+      "count": 2
+    },
+    {
+      "file": "public/meal-prep-shopping-list.html",
+      "id": "specials",
+      "count": 9
+    },
+    {
+      "file": "public/meal-prep-shopping-list.html",
+      "id": "catalogue",
+      "count": 9
+    },
+    {
+      "file": "public/meal-prep-shopping-list.html",
+      "id": "shelf-price",
+      "count": 1
+    },
+    {
+      "file": "public/pricing.html",
+      "id": "specials",
+      "count": 1
+    },
+    {
+      "file": "public/pt-client-meal-plans-woolworths.html",
+      "id": "specials",
+      "count": 18
+    },
+    {
+      "file": "public/pt-client-meal-plans-woolworths.html",
+      "id": "catalogue",
+      "count": 15
+    },
+    {
+      "file": "public/pt-client-meal-plans-woolworths.html",
+      "id": "shelf-price",
+      "count": 4
+    },
+    {
+      "file": "public/receipt-nutrition-scanner.html",
+      "id": "catalogue",
+      "count": 1
+    },
+    {
+      "file": "public/script.js",
+      "id": "catalogue",
+      "count": 5
+    },
+    {
+      "file": "public/script.js",
+      "id": "estimated-price",
+      "count": 5
+    },
+    {
+      "file": "public/shopper.html",
+      "id": "specials",
+      "count": 6
+    },
+    {
+      "file": "public/shopper.html",
+      "id": "catalogue",
+      "count": 6
+    },
+    {
+      "file": "public/woolworths-meal-planner.html",
+      "id": "specials",
+      "count": 12
+    },
+    {
+      "file": "public/woolworths-meal-planner.html",
+      "id": "catalogue",
+      "count": 17
+    },
+    {
+      "file": "public/woolworths-meal-planner.html",
+      "id": "cheap",
+      "count": 12
+    },
+    {
+      "file": "public/woolworths-meal-planner.html",
+      "id": "shelf-price",
+      "count": 3
+    }
+  ],
+  "publicAllow": [
+    ".well-known/security.txt",
+    "404.html",
+    "ai-meal-planner-australia.html",
+    "app.html",
+    "assets/apple-touch-icon.png",
+    "assets/favicon-32.png",
+    "assets/logo-512.png",
+    "assets/fm-groceries.webp",
+    "assets/fm-hero-mealprep.webp",
+    "assets/fm-receipt-scan.webp",
+    "assets/logo.svg",
+    "assets/og-image.jpg",
+    "assets/og-image.webp",
+    "brand/index.html",
+    "brand/logo-icon.svg",
+    "brand/logo-social-profile.svg",
+    "brand/logo-wordmark.svg",
+    "budget-meal-planner.html",
+    "coach-upgrade.html",
+    "coach.html",
+    "coles-meal-planner.html",
+    "contact.html",
+    "css/fm-coach-fonts.css",
+    "css/fm-coach-shell.css",
+    "css/fm-coach.css",
+    "css/fm-lander.css",
+    "css/fm-shell.css",
+    "css/fm-shopper.css",
+    "css/fm-tokens-auth.css",
+    "css/fm-tokens.css",
+    "demo.html",
+    "family-meal-plan.html",
+    "FitMunch_broccoli_logo.png",
+    "fitmunch-coach-vs-spreadsheets.html",
+    "fonts/NOTICE.txt",
+    "fonts/OFL.txt",
+    "fonts/bricolage-grotesque-800.woff2",
+    "fonts/ibm-plex-mono-500.woff2",
+    "fonts/ibm-plex-mono-600.woff2",
+    "fonts/literata-400.woff2",
+    "for-pts.html",
+    "funnel.html",
+    "generated-icon.png",
+    "google3b5c73dd27c81eaf.html",
+    "haul-teardown.html",
+    "index.html",
+    "js/chart.umd.min.js",
+    "js/fm-api.js",
+    "js/fm-coach.js",
+    "js/fm-first-scan.js",
+    "js/fm-identity.js",
+    "js/fm-shopper.js",
+    "js/fm-storage.js",
+    "js/fm-track.js",
+    "login.html",
+    "macro-meal-planner.html",
+    "meal-plan-for-one.html",
+    "meal-plan-software-personal-trainers.html",
+    "meal-prep-shopping-list.html",
+    "pricing.html",
+    "privacy.html",
+    "pt-client-meal-plans-woolworths.html",
+    "receipt-nutrition-scanner.html",
+    "refund.html",
+    "robots.txt",
+    "script.js",
+    "shopper.html",
+    "sitemap.xml",
+    "success.html",
+    "support.html",
+    "terms.html",
+    "woolworths-meal-planner.html"
+  ],
+  "denyNames": [
+    "(^|/)deploy\\.js$",
+    "payment-gateway",
+    "grok",
+    "openclaw",
+    "developer_dashboard",
+    "app_review_summary"
+  ],
+  "probeHosts": [
+    "https://fitmunch.com.au",
+    "https://www.fitmunch.com.au"
+  ],
+  "probePaths": [
+    "/deploy.js",
+    "/payment-gateway.js",
+    "/api_server.js",
+    "/server.js",
+    "/receipt-scanner.js",
+    "/coach-api.js",
+    "/developer_dashboard.js",
+    "/app_review_summary.js",
+    "/fitness_connector.js",
+    "/growth_optimization.js",
+    "/grok_agent.js",
+    "/grok_developer.js",
+    "/.env",
+    "/package.json",
+    "/lib/ai-client.js"
+  ],
+  "fakeData": [
+    "lorem ipsum",
+    "images\\.unsplash\\.com",
+    "via\\.placeholder\\.com",
+    "google_user@example\\.com"
+  ],
+  "secretPatterns": [
+    "sk_live_[A-Za-z0-9]{24,}",
+    "sk_test_[A-Za-z0-9]{24,}",
+    "rk_live_[A-Za-z0-9]{24,}",
+    "whsec_[A-Za-z0-9]{24,}",
+    "-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
+    "AKIA[0-9A-Z]{16}",
+    "AIza[0-9A-Za-z\\-_]{30,}"
+  ]
+}

@@ -1,6 +1,10 @@
 /* FitMunch marketing shell: shared nav + footer for public pages. */
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap');
 
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%}
+img,svg,video{max-width:100%;height:auto}
+
 .fm-body{
   font-family:'Literata',Georgia,serif;
   background:var(--paper);
@@ -111,7 +115,8 @@
 }
 .fm-section .lead{color:var(--mute);font-size:1.05rem;line-height:1.65;max-width:42ch;margin:0 0 28px}
 
-.fm-table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);background:#fff}
+.fm-table-wrap{display:block;width:100%;overflow-x:auto;max-width:100%;min-width:0;margin:24px 0;border:1px solid var(--line);background:#fff}
+.fm-table-wrap > table{width:max-content;min-width:100%}
 .fm-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .fm-table th,.fm-table td{padding:12px 14px;text-align:left;border-bottom:1px dashed var(--line)}
 .fm-table th{
