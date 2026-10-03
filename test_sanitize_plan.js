@@ -6,7 +6,21 @@ const store = require('./lib/coach-store');
 const fs = require('fs');
 const path = require('path');
 const { sanitizePlan, stripFragments, roundAmount } = require('./lib/sanitize-plan');
-const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
+
+const CATALOGUE = {
+  id: 'au-public-specials-2026-w35',
+  weekLabel: 'Catalogue week 25 to 31 Aug 2026',
+  validFrom: '2026-08-25',
+  validTo: '2026-08-31',
+};
+
+function priceEstimateNote(catalogue) {
+  const cat = catalogue || CATALOGUE;
+  if (cat.validFrom && cat.validTo) {
+    return `Estimated from public catalogue specials dated ${cat.validFrom}\u2013${cat.validTo}. Check prices at checkout.`;
+  }
+  return 'Estimated from public catalogue specials. Check prices at checkout.';
+}
 
 const CURRENT_NOTE = 'Prices vary by store and week.';
 const OLD_NOTE = priceEstimateNote(CATALOGUE);
