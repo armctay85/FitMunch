@@ -26,6 +26,22 @@ const CATALOGUE_DATE = [
   { name: 'on special', re: /\bon special\b/i },
   { name: 'catalogue date range', re: /\b\d{1,2}\s+(?:to|through|-)\s+\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/i },
   { name: 'catalogue week date', re: /\bweek\s+(?:ending|of)\s+\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/i },
+  { name: 'catalogue date range', re: /\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s*(?:to|through|-)\s*\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/i },
+];
+
+// Whole-file wording. The only grocery price sentence allowed is
+// "Prices vary by store and week."
+const BANNED_WORDS = [
+  { name: 'cheap', re: /\bcheap\b/i },
+  { name: 'special', re: /\bspecial\b/i },
+  { name: 'specials', re: /\bspecials\b/i },
+  { name: 'estimated price', re: /\bestimated price\b/i },
+  { name: 'Check prices at checkout', re: /check prices at checkout/i },
+  { name: 'Check the shelf price', re: /check the shelf price/i },
+  {
+    name: 'Woolies, Coles or Aldi $ figure',
+    re: /\b(?:woolies|woolworths|coles|aldi)\b[^\n$]{0,80}\$\s*\d+(?:\.\d+)?|\$\s*\d+(?:\.\d+)?[^\n]{0,80}\b(?:woolies|woolworths|coles|aldi)\b/i,
+  },
 ];
 
 // Supermarket wording inside Swift string literals only. Identifiers such as
@@ -74,6 +90,9 @@ function supermarketHits(relPath, source) {
   lines.forEach((line, index) => {
     const reasons = [];
     for (const rule of CATALOGUE_DATE) {
+      if (rule.re.test(line)) reasons.push(rule.name);
+    }
+    for (const rule of BANNED_WORDS) {
       if (rule.re.test(line)) reasons.push(rule.name);
     }
     reasons.push(...groceryWordHits(relPath, line));
@@ -159,6 +178,39 @@ describe('iOS supermarket price and catalogue-date gate', () => {
     const storeKit = 'displayPrice: "A$19.99"\nannual "A$149.99"';
     expect(supermarketHits('FitMunchTests/PaywallCatalogTests.swift', storeKit)).toEqual([]);
     expect(supermarketHits('ios/PaywallCatalogTests.swift', storeKit).length).toBeGreaterThan(0);
+  });
+
+  it('fails on banned supermarket words', () => {
+    const banned = [
+      ['Woolies $4.50', 'Woolies, Coles or Aldi $ figure'],
+      ['Chicken at Coles $12.00', 'Woolies, Coles or Aldi $ figure'],
+      ['$3.99 at Aldi', 'Woolies, Coles or Aldi $ figure'],
+      ['Build me a cheap high-protein shop', 'cheap'],
+      ['a special shop', 'special'],
+      ['Prices from public specials', 'specials'],
+      ['estimated price for the trolley', 'estimated price'],
+      ['25 to 31 Aug', 'catalogue date range'],
+      ['week ending 3 Oct', 'catalogue week date'],
+      ['Check prices at checkout', 'Check prices at checkout'],
+      ['Check the shelf price', 'Check the shelf price'],
+    ];
+    for (const [line, reason] of banned) {
+      const hits = supermarketHits('FitMunch/Views/CoachView.swift', line);
+      expect(hits.some((hit) => hit.includes(reason))).toBe(true);
+    }
+
+    const allowed = supermarketHits(
+      'FitMunch/Views/MealPlanView.swift',
+      'Text("Prices vary by store and week.")',
+    );
+    expect(allowed).toEqual([]);
+
+    const coach = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/CoachView.swift'), 'utf8');
+    expect(coach).toContain('starter("Build me a high-protein week for my macros")');
+    expect(coach).not.toContain('Build me a cheap high-protein Woolies shop');
+    expect(coach).not.toContain('Plan a high-protein week around my meals');
+
+    expect(scanIosTrees(__dirname)).toEqual([]);
   });
 
   it('flags cheap, special, and saving inside Swift string literals', () => {
