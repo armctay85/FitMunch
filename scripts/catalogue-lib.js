@@ -70,12 +70,18 @@ function applyOffers(previous, offers) {
     const item = next.items.find((row) => row.id === sku);
     const onSpecial = Boolean(offer.onSpecial);
     item.stores = item.stores || {};
+    const prevItem = (previous.items || []).find((row) => row.id === sku);
+    const prevQuote = prevItem && prevItem.stores && prevItem.stores[offer.storeId];
     item.stores[offer.storeId] = {
       price: roundMoney(offer.price),
       was: offer.was == null || offer.was === '' ? null : roundMoney(offer.was),
       onSpecial,
       estimate: !onSpecial,
+      source: offer.source || (prevQuote && prevQuote.source) || item.source || null,
+      date: offer.date || (prevQuote && prevQuote.date) || item.date || null,
     };
+    if (offer.source && offer.source.name && offer.source.url) item.source = offer.source;
+    if (offer.date && offer.date.validFrom && offer.date.validTo) item.date = offer.date;
     if (offer.priceMoveFlag) item.stores[offer.storeId].priceMoveFlag = true;
     touched.add(`${sku}|${offer.storeId}`);
   }
@@ -90,11 +96,14 @@ function applyOffers(previous, offers) {
         delete item.stores[storeId];
         continue;
       }
+      const prevQuote = prevItem && prevItem.stores && prevItem.stores[storeId];
       item.stores[storeId] = {
         price: shelf,
         was: null,
         onSpecial: false,
         estimate: true,
+        source: (prevQuote && prevQuote.source) || (prevItem && prevItem.source) || null,
+        date: (prevQuote && prevQuote.date) || (prevItem && prevItem.date) || null,
       };
     }
   }
@@ -119,8 +128,20 @@ function validateCatalogue(catalogue, previous) {
       errors.push(`${item.id} is priced at ${priced.length} stores`);
     }
     const prev = prevItems.get(item.id);
+    if (!item.source || !item.source.name || !item.source.url) {
+      errors.push(`${item.id} is missing source name or url`);
+    }
+    if (!item.date || !item.date.validFrom || !item.date.validTo) {
+      errors.push(`${item.id} is missing date validFrom or validTo`);
+    }
     for (const [storeId, quote] of Object.entries(item.stores || {})) {
       if (!quote) continue;
+      if (!quote.source || !quote.source.name || !quote.source.url) {
+        errors.push(`${item.id} ${storeId} is missing source name or url`);
+      }
+      if (!quote.date || !quote.date.validFrom || !quote.date.validTo) {
+        errors.push(`${item.id} ${storeId} is missing date validFrom or validTo`);
+      }
       const price = Number(quote.price);
       if (!(price > 0)) errors.push(`${item.id} ${storeId} price is not above 0`);
       const prevPrice = prev && prev.stores && prev.stores[storeId] && Number(prev.stores[storeId].price);

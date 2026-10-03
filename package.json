@@ -9,7 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "jest",
+    "test": "jest && node scripts/check-catalogue-freshness.js",
     "build": "node scripts/check-catalogue-freshness.js",
     "vercel-build": "node scripts/check-catalogue-freshness.js",
     "test:watch": "jest --watch",

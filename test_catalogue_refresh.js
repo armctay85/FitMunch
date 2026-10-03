@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { EMBEDDED_CATALOGUE, loadCommittedCatalogue } = require('./lib/public-specials-catalogue');
+const { EMBEDDED_CATALOGUE, loadCommittedCatalogue, reelsVideoFooter } = require('./lib/public-specials-catalogue');
 const {
   applyOffers,
   validateCatalogue,
@@ -90,6 +90,53 @@ describe('catalogue mapping and validation', () => {
     expect(summary.changed).toBeGreaterThan(0);
     expect(summary.missing).toContain(previous.items[previous.items.length - 1].id);
     expect(summary.moves[0].to).not.toBe(summary.moves[0].from);
+  });
+});
+
+describe('reels video footer provenance', () => {
+  it('fails when any catalogue item is missing source or date', () => {
+    expect(EMBEDDED_CATALOGUE.items.length).toBeGreaterThan(0);
+    for (const row of EMBEDDED_CATALOGUE.items) {
+      expect(row.source && row.source.name).toBeTruthy();
+      expect(row.source.url).toMatch(/^https:\/\//);
+      expect(row.date.validFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(row.date.validTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      const footer = reelsVideoFooter(row);
+      expect(footer).toContain(row.source.name);
+      expect(footer).toContain(row.source.url);
+      expect(footer).toContain(row.date.validFrom);
+      expect(footer).toContain(row.date.validTo);
+      expect(footer).toContain('Check prices at checkout.');
+    }
+
+    const stripped = clone(EMBEDDED_CATALOGUE);
+    delete stripped.items[0].source;
+    expect(() => reelsVideoFooter(stripped.items[0])).toThrow(/missing source or date/);
+    expect(validateCatalogue(stripped, EMBEDDED_CATALOGUE).some((line) => /missing source name or url/.test(line))).toBe(true);
+
+    const undated = clone(EMBEDDED_CATALOGUE);
+    delete undated.items[1].date;
+    expect(validateCatalogue(undated, EMBEDDED_CATALOGUE).some((line) => /missing date validFrom or validTo/.test(line))).toBe(true);
+  });
+
+  it('keeps the offer source on the matched store and the old source on an estimate', () => {
+    const next = applyOffers(EMBEDDED_CATALOGUE, [{
+      storeId: 'woolworths',
+      title: 'Free range eggs 12 pack',
+      price: 4.2,
+      was: 6.2,
+      onSpecial: true,
+      source: { name: 'Example public catalogue', url: 'https://example.com/catalogue' },
+      date: { validFrom: '2026-09-30', validTo: '2026-10-06' },
+    }]);
+    const eggs = next.items.find((row) => row.id === 'eggs-12');
+    expect(eggs.source).toEqual({ name: 'Example public catalogue', url: 'https://example.com/catalogue' });
+    expect(eggs.date).toEqual({ validFrom: '2026-09-30', validTo: '2026-10-06' });
+    expect(eggs.stores.woolworths.source.url).toBe('https://example.com/catalogue');
+    expect(eggs.stores.coles.estimate).toBe(true);
+    expect(eggs.stores.coles.source.name).toBe(EMBEDDED_CATALOGUE.items.find((row) => row.id === 'eggs-12').source.name);
+    expect(reelsVideoFooter(eggs)).toContain('https://example.com/catalogue');
+    expect(reelsVideoFooter(eggs)).toContain('2026-09-30');
   });
 });
 

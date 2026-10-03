@@ -4,7 +4,23 @@ The shopper prices from `lib/public-specials-catalogue.js`. That module reads `d
 
 `scripts/refresh-catalogue.js` is the weekly writer. It does not call Woolworths, Coles, or Aldi trolley, cart, checkout, or product APIs. It does not claim FitMunch pays for a shop or fills a retailer trolley.
 
-Checked 2 October 2026 from the agent environment. No source below is permitted for an automated commercial catalogue, so the script exits before requesting prices and does not write a file.
+Checked 3 October 2026 from the agent environment, for the NSW metro week of 30 September to 6 October 2026. No source below is permitted for an automated commercial catalogue, so the script exits before requesting prices and does not write a file. No NSW catalogue HTML was downloaded.
+
+## Rejected for 30 September to 6 October 2026
+
+- Woolworths: `robots.txt` returned HTTP 403, so the weekly catalogue page was not opened.
+- Coles: website terms forbid copying, reproducing, or distributing any part of the site. Not used.
+- Aldi: the legal notice forbids scripts and web crawlers, and forbids reproducing site data. `catalogues.aldi.com.au/api/` stays disallowed. Not used.
+- weeklyshop.au: `robots.txt` allows `/prices` and disallows `/api/`, but the terms limit accounts to personal household planning. Not used, and `/prices/eggs` was not opened.
+- 1001catalogues.com: terms limit use to personal, non-commercial purposes and forbid harvesting and commercial databases. Not used.
+- mailerdesk.com: terms allow personal, non-commercial use only and forbid bots, data mining, and compiling a database. Not used.
+- kimbino.com.au: terms allow browsing only and protect the databases on the platform. `robots.txt` also disallows the leaflet deals API and offers paths. Not used.
+- currentspecials.com.au: terms say the services are strictly for personal use. Not used.
+- catalogue-au.com: terms describe a consumer brochure viewer and do not grant a licence to copy offers into another product. Not used.
+- au-catalogues.com: `/terms`, `/privacy`, `/legal`, and `/disclaimer` are HTTP 404, and the footer disclaimer is empty. No licence to copy. Not used.
+- yapik.com: the Australia page says the site is for information only, `/terms` publishes no copy licence, and `robots.txt` disallows PDF catalogues. Not used.
+- SaleFinder: no `robots.txt`, and the terms forbid harvesting and a commercial database. Not used.
+- Shopfully: terms forbid robots and spiders, and forbid copying the site into a derived product. Not used.
 
 ## What was checked
 
@@ -23,7 +39,7 @@ A public catalogue page that a person can open is not the same as permission to 
 1. Map offer titles onto the existing ingredient SKUs.
 2. Where a line is not on special, keep the last known non-special shelf price and set `estimate: true`.
 3. Write `data/catalogue/<validFrom>.json`, `data/catalogue/current.json` (a pointer at that file), and `data/catalogue/SUMMARY.md`.
-4. Reject the file unless every ingredient is priced at two or more stores, every price is above 0, no price is more than 3 times the previous week unless that quote has `priceMoveFlag: true`, and `validFrom`, `validTo`, and `updatedAt` are set.
+4. Reject the file unless every ingredient is priced at two or more stores, every price is above 0, no price is more than 3 times the previous week unless that quote has `priceMoveFlag: true`, `validFrom`, `validTo`, and `updatedAt` are set, and every item has `source.name`, `source.url`, `date.validFrom`, and `date.validTo`. Each store quote keeps the same fields. The reels video footer reads them.
 
 The GitHub workflow `.github/workflows/catalogue-refresh.yml` runs at 21:00 UTC Tuesday (07:00 AEST Wednesday, 08:00 during AEDT) and on `workflow_dispatch`. A valid file opens or updates a pull request titled `Catalogue <validFrom> to <validTo>` with the diff summary. It does not merge. A failed source opens or comments on an issue titled `Catalogue refresh failed`.
 
@@ -31,7 +47,7 @@ The GitHub workflow `.github/workflows/catalogue-refresh.yml` runs at 21:00 UTC 
 
 `scripts/check-catalogue-freshness.js` fails when `validTo` is more than 8 days before today in Australia/Sydney.
 
-It runs in the required `test` job (`.github/workflows/web-quality.yml`) and as `npm run build` / `npm run vercel-build`, which is the Vercel build step.
+It runs at the end of `npm test`, in the required `test` job (`.github/workflows/web-quality.yml`), and as `npm run build` / `npm run vercel-build`, which is the Vercel build step.
 
 The embedded catalogue ends 2026-08-31. On 2 October 2026 that is more than 8 days ago, so the gate fails until a real catalogue is committed. That failure is the gate working. Do not paper over it with made-up prices.
 
