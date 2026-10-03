@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <link rel="stylesheet" href="/css/fm-shopper.css"/>
+<link rel="stylesheet" href="/css/fm-price-memory.css"/>
 </head>
 <body class="fm-body">
 <a class="skip" href="#commit">Skip to commit the week</a>
@@ -98,6 +99,23 @@
   </div>
 </section>
 
+<section class="sp-section" id="price-memory" style="padding-top:0">
+  <div class="sp-inner">
+    <section class="pm-empty" id="pm-empty" data-pm-empty data-pm-copy>
+      <div>
+        <p class="pm-eyebrow">Price memory</p>
+        <h3>Your prices, from your receipts.</h3>
+        <p>Scan a receipt and FitMunch remembers what you paid, item by item. Only you see it.</p>
+        <div class="pm-actions">
+          <a class="fm-btn fm-btn-leaf" data-pm-cta href="/login.html?next=scan#register">Scan your first receipt</a>
+          <a class="fm-btn fm-btn-ghost" href="/privacy#price-memory">How it works</a>
+        </div>
+      </div>
+      <div class="pm-receipt" aria-hidden="true"><span></span><span></span><span></span></div>
+    </section>
+  </div>
+</section>
+
 <section class="sp-section sp-checkout" id="checkout" data-sp-checkout hidden></section>
 
 <section class="sp-section" style="padding-top:0">
@@ -139,6 +157,7 @@
   </div>
 </footer>
 
+<script src="/js/fm-price-memory.js" defer></script>
 <script src="/js/fm-shopper.js" defer></script>
 <script src="/js/fm-track.js" defer></script>
 </body>

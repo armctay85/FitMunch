@@ -1,5 +1,5 @@
 // FitMunch Database Schema - PostgreSQL with Drizzle ORM
-const { pgTable, serial, text, integer, timestamp, boolean, jsonb, real, varchar, uuid } = require('drizzle-orm/pg-core');
+const { pgTable, serial, text, integer, timestamp, boolean, jsonb, real, varchar, uuid, bigserial, date, numeric, primaryKey } = require('drizzle-orm/pg-core');
 const { relations } = require('drizzle-orm');
 
 // Users table - Enhanced with comprehensive profile data
@@ -233,6 +233,59 @@ const progressLogsRelations = relations(progressLogs, ({ one }) => ({
   }),
 }));
 
+const priceMemoryConsents = pgTable('price_memory_consents', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  purpose: text('purpose').notNull(),
+  granted: boolean('granted').notNull(),
+  policyVersion: text('policy_version').notNull(),
+  surface: text('surface').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+const receipts = pgTable('receipts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  storeId: text('store_id').notNull(),
+  storeLabel: text('store_label'),
+  purchasedOn: date('purchased_on').notNull(),
+  dateSource: text('date_source').notNull(),
+  scannedAt: timestamp('scanned_at').defaultNow().notNull(),
+  source: text('source').notNull(),
+  itemCount: integer('item_count').notNull(),
+  fingerprint: text('fingerprint').notNull(),
+});
+
+const priceObservations = pgTable('price_observations', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  receiptId: uuid('receipt_id').references(() => receipts.id, { onDelete: 'cascade' }).notNull(),
+  itemKey: text('item_key').notNull(),
+  itemKeySource: text('item_key_source').notNull(),
+  itemLabel: text('item_label').notNull(),
+  category: text('category').notNull(),
+  storeId: text('store_id').notNull(),
+  purchasedOn: date('purchased_on').notNull(),
+  quantity: numeric('quantity', { precision: 10, scale: 3 }).notNull(),
+  packSizeValue: numeric('pack_size_value', { precision: 10, scale: 3 }),
+  packSizeUnit: text('pack_size_unit'),
+  lineTotalCents: integer('line_total_cents').notNull(),
+  unitPriceCents: integer('unit_price_cents').notNull(),
+  unitRateCents: integer('unit_rate_cents'),
+  unitRateBasis: text('unit_rate_basis'),
+  promoFlag: boolean('promo_flag').notNull(),
+  confidence: text('confidence').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+const priceMemoryAliases = pgTable('price_memory_aliases', {
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  rawLabelSlug: text('raw_label_slug').notNull(),
+  itemKey: text('item_key').notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.rawLabelSlug] }),
+}));
+
 module.exports = {
   users,
   userProfiles,
@@ -253,4 +306,8 @@ module.exports = {
   mealLogsRelations,
   workoutLogsRelations,
   progressLogsRelations,
+  priceMemoryConsents,
+  receipts,
+  priceObservations,
+  priceMemoryAliases,
 };

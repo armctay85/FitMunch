@@ -16,6 +16,7 @@ struct ReceiptScanView: View {
     @State private var showLibraryPicker = false
     @State private var showCameraFallback = false
     @State private var cameraFallbackMessage = ""
+    @State private var showConsent = false
 
     private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290)
 
@@ -23,6 +24,37 @@ struct ReceiptScanView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if !ScreenshotLaunch.isActive && (PriceMemoryLaunch.showSaved || (scan?.priceMemory?.saved ?? 0) > 0) {
+                        HStack {
+                            Text("Saved \(scan?.priceMemory?.saved ?? 4) prices to your price memory")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Button("Undo") {}
+                        }
+                        .padding()
+                        .background(Color(red: 0.027, green: 0.075, blue: 0.051))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityIdentifier("pm-saved-banner")
+                    }
+                    if !ScreenshotLaunch.isActive && (PriceMemoryLaunch.showOptIn || scan?.priceMemory?.reason == "not_opted_in") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Remember what you paid?")
+                                .font(.headline)
+                            Text("Keep the prices from this scan so your lists can show what you paid last time.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Button("Turn on price memory") { showConsent = true }
+                                .buttonStyle(.borderedProminent)
+                                .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
+                            Button("Not now") {}
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .accessibilityIdentifier("pm-opt-in-card")
+                    }
                     if let scan = scan {
                         resultsView(scan)
                     } else {
@@ -60,6 +92,24 @@ struct ReceiptScanView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(cameraFallbackMessage)
+            }
+            .sheet(isPresented: $showConsent) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Remember what you paid?")
+                        .font(.title3.bold())
+                    Text("Turn this on and FitMunch saves the item prices from receipts you scan: the item, the price you paid, pack size, store and receipt date. We use them for one thing: showing you what you paid last time, next to your shopping list.")
+                    Text("Only you can see them. We don't share them with your trainer, other users, supermarkets or advertisers, and we don't sell them. We never keep the receipt photo, card numbers or loyalty numbers. Turn it off or delete your price history any time in Settings. Prices older than 18 months are deleted automatically.")
+                        .foregroundStyle(.secondary)
+                    Button("Turn on price memory") { showConsent = false }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
+                    Button("Not now") { showConsent = false }
+                }
+                .padding()
+                .presentationDetents([.medium, .large])
+            }
+            .onAppear {
+                if PriceMemoryLaunch.showOptIn { showConsent = false }
             }
             .onChange(of: pickedItem) { _, newItem in
                 guard let newItem = newItem else { return }

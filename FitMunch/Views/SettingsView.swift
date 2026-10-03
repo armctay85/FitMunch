@@ -140,6 +140,17 @@ struct SettingsView: View {
                     .foregroundColor(.blue)
                 }
                 
+                if !ScreenshotLaunch.isActive && !ReviewLaunch.isActive {
+                    Section("Price memory") {
+                        NavigationLink {
+                            PriceMemorySettingsView()
+                        } label: {
+                            Text("Price memory")
+                        }
+                        .accessibilityIdentifier("settings-price-memory")
+                    }
+                }
+
                 // Data section
                 Section("Data") {
                     Button("Export Data") {
@@ -227,7 +238,7 @@ struct SettingsView: View {
                     Task { _ = await auth.deleteAccount() }
                 }
             } message: {
-                Text("This permanently deletes your FitMunch account and all data (meals, plans, progress and subscriptions) on all devices. This cannot be undone.")
+                Text("This permanently deletes your FitMunch account and all data (meals, plans, progress, subscriptions and your price memory) on all devices. This cannot be undone.")
             }
             .alert("Reset Data", isPresented: $showResetAlert) {
                 Button("Cancel", role: .cancel) { }

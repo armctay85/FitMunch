@@ -102,6 +102,8 @@ struct MealPlanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                     }
+
+                    PriceMemoryShopSection()
                 }
                 .padding()
             }

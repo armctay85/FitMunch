@@ -1,0 +1,57 @@
+FitMunch price memory: Australian Privacy Principles self-check
+Policy version 2026-10
+Status: draft for CEO review. This is an engineering self-check, not legal advice.
+
+Scope: optional own-receipt price memory (Phase 1). The feature flag PRICE_MEMORY_ENABLED stays off. Pooling prices across users is not built. POOLED_PRICES_ALLOWED is a code constant set to false.
+
+Sources checked in the repo (3 Oct 2026):
+- vercel.json regions: ["syd1"] (app compute in Sydney)
+- lib/ai-client.js receipt vision calls generativelanguage.googleapis.com when GEMINI_API_KEY is set (Google Gemini)
+- .env.example: DATABASE_URL is required and blank; GEMINI_API_KEY is the production AI key noted for Vercel
+- DEPLOY.md (older Railway guide): describes Neon PostgreSQL and prints the host ep-blue-base-ad7cuhxw.c-2.us-east-1.aws.neon.tech
+- No render.yaml in the repo
+- No live DATABASE_URL in this environment
+- Vercel, Neon and Render dashboards were not readable from this run (not authenticated)
+
+TODO: database provider and region are NOT confirmed.
+DEPLOY.md names Neon and a us-east-1 host, but that file is an old deploy note (it also prices Railway Hobby and a domain still "to purchase"). It was not checked against the current Vercel DATABASE_URL. Do not publish us-east-1, Neon, or any other database region on the public privacy page until someone reads the live host. public/privacy.html therefore says app servers run in Sydney and that Google may process receipt photos outside Australia, including in the United States. It does not name a database region.
+
+APP 1 Open and transparent management
+The public privacy page (public/privacy.html, last updated October 2026, version 2026-10) has a dedicated section 4, "Price memory (optional)". It says the feature is off unless the person turns it on, that it is free and not part of Premium, what is saved, the only use, who can see it, 18 months, how to delete, how to download, and that combined prices would need a separate ask. Settings on web and iOS link to that section. This self-check stays in docs/ and is not served as the policy.
+
+APP 3 Collection of solicited personal information
+Collection is opt-in, not bundled with sign-up, the trial, or Premium. Nothing is pre-ticked. "Not now" is the same size and weight as "Turn on price memory".
+Only grocery lines are eligible. Pharmacy, medicine, alcohol, tobacco, baby formula and gift cards are dropped. The vision prompt tells the model to leave out addresses, card numbers and loyalty numbers. The server stores a fixed column list only: item label, normalised key, category, store banner, receipt date, pack, quantity, integer cents, promo flag, confidence. Photos, receipt totals, card digits, loyalty numbers and street addresses are not columns and are rejected if they appear in a line.
+Price records are treated as personal information. Health-related lines are excluded so the feature does not drift into health information.
+Unsolicited sample fallback items (scannerProvider fallback) are never written. The guest first-scan path never writes.
+
+APP 5 Notification of collection
+The opt-in sheet is the collection notice. It states what is saved (item, price paid, pack size, store, receipt date), the single use (show you what you paid last time, next to your list), that only you can see it, that it is not shared with a trainer, other users, supermarkets or advertisers, that the photo, card numbers and loyalty numbers are not kept, that it can be turned off or deleted in Settings, and that prices older than 18 months are deleted. It links to privacy section 4. The same notice is on web and iOS. The policy version 2026-10 is stored with each grant or withdrawal.
+
+APP 6 Use or disclosure
+The stated use is showing the person their own past prices on their own lists. Lookup reads that person's high-confidence or user-corrected rows from the last 180 days only. There is no trainer path (canAccessUser is not used). Coach share and PDFs do not read these tables. There is no pooled, community, average or crowd endpoint. Price memory data is not used to improve the receipt reader in this version (privacy section 2 and section 3 say so). A later de-identified use needs a new purpose value, a new opt-in and a policy change. Turning the feature on is not agreement to that.
+Q5 from the spec (using this data to improve the reader) was not approved. v1 does not do it.
+
+APP 8 Cross-border disclosure
+Receipt photos are sent to Google (Gemini vision, lib/ai-client.js, generativelanguage.googleapis.com) to read that scan. Google may process them outside Australia, including in the United States. FitMunch does not keep the photo after the scan. The saved price rows are the text fields above, not the photo.
+App servers are configured for Sydney (vercel.json region syd1).
+The database location is unknown from the live config. See the TODO at the top. No guessed region is published.
+Price rows are not sold and are not sent to supermarkets or advertisers by this feature.
+
+APP 11 Security
+Access is the signed-in account only. user id comes from the verified JWT. A userId in the body or query is ignored. Another person's receipt id returns 404.
+Postgres row level security is enabled and forced on price_memory_consents, receipts, price_observations and price_memory_aliases. The app sets the role fm_price_memory and app.user_id inside the transaction. Tests check that user A cannot read user B through the API or through a widened query under that role.
+The four tables use ON DELETE CASCADE from users. Account deletion removes them. Per-receipt delete, delete-all, and an 18-month purge (on write, on lookup, and a daily cron) are implemented. The cron route does nothing useful until CRON_SECRET is set, which this change does not do.
+Logs record counts only, not item labels, prices or the user id.
+
+APP 12 Access
+GET /api/price-memory/export returns the person's receipts and observations as JSON, and CSV with ?format=csv. Settings has "Download my prices" on web and iOS. The privacy page also points at support@fitmunch.com.au.
+
+APP 13 Correction
+A person can correct an item match (PATCH observation, which stores an alias for the next scan), delete one receipt, or delete all price history. Turning the feature off asks "Turn off and delete N saved prices?" and deletes by default. "Keep it for now" leaves the rows hidden until the 18-month purge or a later delete. The privacy page states the correction path and the OAIC complaint path (oaic.gov.au) if we do not resolve a complaint.
+
+Open before the flag is turned on
+1. Confirm the live database host and region, then add one accurate sentence to public/privacy.html. Do not guess.
+2. Drew updates the App Store privacy label for Purchase History (linked, not used for tracking, app functionality). The manifest in this change declares that. Email and Name are still marked not linked in the manifest. That looks wrong because they are the account. Out of scope here. Fix it with the App Store label.
+3. A short legal read of the privacy text. This note is not that read.
+4. Set PRICE_MEMORY_ENABLED only after that review. Set CRON_SECRET so the daily purge runs. Neither is set by this change.

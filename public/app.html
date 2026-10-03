@@ -10,6 +10,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="stylesheet" href="/css/fm-price-memory.css"/>
+<script src="/js/fm-price-memory.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -372,6 +374,7 @@ html.fm-authed #app-gate{display:none}
  <button class="sb-item" onclick="nav('workout-plans')" id="nav-workout-plans"><span class="sb-icon">🏋️</span>Workout Planner</button>
  <button class="sb-item" onclick="nav('shopping-lists')" id="nav-shopping-lists"><span class="sb-icon">🛒</span>Shopping Lists</button>
  <button class="sb-item" onclick="nav('receipt-scanner')" id="nav-receipt-scanner"><span class="sb-icon">📸</span>Receipt Scanner</button>
+ <button class="sb-item" onclick="nav('price-memory')" id="nav-price-memory" data-nav="price-memory"><span class="sb-icon">🧾</span>Price memory</button>
  <div class="sb-section-label">More</div>
  <button class="sb-item" onclick="nav('favourites')" id="nav-favourites"><span class="sb-icon">❤️</span>Favourites</button>
  <button class="sb-item" onclick="nav('billing')" id="nav-billing"><span class="sb-icon">💳</span>Billing</button>
@@ -394,6 +397,7 @@ html.fm-authed #app-gate{display:none}
  <div class="sb-section-label">My Stuff</div>
  <button class="sb-item" onclick="nav('portal-shopping')" id="nav-portal-shopping"><span class="sb-icon">🛒</span>Shopping List</button>
  <button class="sb-item" onclick="nav('receipt-scanner')" id="nav-receipt-scanner-c"><span class="sb-icon">📸</span>Receipt Scanner</button>
+ <button class="sb-item" onclick="nav('price-memory')" id="nav-price-memory-c" data-nav="price-memory"><span class="sb-icon">🧾</span>Price memory</button>
  <button class="sb-item" onclick="nav('portal-favourites')" id="nav-portal-favourites"><span class="sb-icon">❤️</span>Favourites</button>
 </nav>
 
@@ -751,16 +755,18 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div class="scroll-body">
 
+ <!-- pm-copy-start -->
+ <div id="sl-pm-empty" data-pm-copy></div>
+ <!-- pm-copy-end -->
  <!-- Active AI list (shown after generation) -->
  <div id="sl-ai-list" style="display:none">
  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
  <div>
  <div style="font-size:.88rem;font-weight:800" id="sl-ai-name"></div>
- <div id="sl-ai-cost-badge" style="display:inline-flex;align-items:center;gap:6px;background:rgba(31,157,74,.08);border:1px solid rgba(31,157,74,.28);border-radius:20px;padding:3px 10px;font-size:.72rem;margin-top:4px">
- <span style="color:#14532d;font-weight:700">Est. total: </span><span style="color:var(--green2);font-weight:900" id="sl-ai-total">$0</span>
- <span style="color:var(--text3)">|</span>
- <span style="color:var(--text3)" id="sl-ai-remaining"></span>
- </div>
+ <div id="sl-pm-header" class="pm-head" data-pm-copy hidden></div>
+ <p id="sl-pm-coverage" class="pm-coverage" data-pm-copy></p>
+ <p id="sl-pm-note" class="pm-note" data-pm-copy></p>
+ <div style="font-size:.72rem;color:var(--text3);margin-top:4px" id="sl-ai-remaining"></div>
  </div>
  <div style="display:flex;gap:6px">
  <a id="sl-woolies-link" href="https://www.woolworths.com.au" target="_blank" style="text-decoration:none">
@@ -792,6 +798,16 @@ html.fm-authed #app-gate{display:none}
  <div class="fav-grid" id="pt-favs-grid">
  <div style="grid-column:1/-1;padding:20px;text-align:center"><div class="loader"></div></div>
  </div>
+ </div>
+</div>
+
+<!-- ══ PRICE MEMORY ══ -->
+<div class="view" id="view-price-memory">
+ <div class="view-header">
+ <div><div class="view-title">Price memory</div><div class="view-sub">Your own receipt prices. Free. Only you can see them.</div></div>
+ </div>
+ <div class="scroll-body">
+ <div id="pm-settings"></div>
  </div>
 </div>
 
@@ -1610,6 +1626,10 @@ async function boot() {
  document.getElementById('sidebar-pt').style.display = 'flex';
  setupPT();
  }
+ const hash = (location.hash || '').replace('#', '');
+ if (hash === 'scan') nav('receipt-scanner');
+ else if (hash === 'shopping-lists') nav('shopping-lists');
+ else if (hash === 'price-memory') nav('price-memory');
  } catch { logout(); }
 }
 
@@ -1650,6 +1670,9 @@ function nav(id) {
  if (id === 'portal-shopping') renderPortalShopping();
  if (id === 'ai-coach') initChatView();
  if (id === 'billing') loadBillingUsage();
+ if (id === 'price-memory' && window.FitMunchPriceMemory) {
+ window.FitMunchPriceMemory.mountSettings(document.getElementById('pm-settings'));
+ }
  } catch(e) { showErr('nav('+id+'): '+e.message); }
 }
 
@@ -3182,6 +3205,7 @@ function renderScanResults(data) {
  // Share card
  document.getElementById('share-text-box').value = st;
  document.getElementById('share-card').style.display = '';
+ if (window.FitMunchPriceMemory) window.FitMunchPriceMemory.afterScan(data);
 }
 
 function toggleAllScanItems(checked) {
@@ -3405,9 +3429,12 @@ async function buildAiShoppingList(plan) {
  renderAiShoppingList(r.list);
 }
 
+function pmAttr(value) {
+ return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
 function renderAiShoppingList(list) {
  document.getElementById('sl-ai-name').textContent = list.name || 'AI Shopping List';
- document.getElementById('sl-ai-total').textContent = '$' + list.totalEstimated.toFixed(2);
  document.getElementById('sl-ai-remaining').textContent = list.itemCount + ' items';
 
  const aislesEl = document.getElementById('sl-ai-aisles');
@@ -3418,10 +3445,10 @@ function renderAiShoppingList(list) {
  html += `<div class="sl-aisle-header">${aisle} <span style="margin-left:auto;font-weight:400;font-family:'IBM Plex Mono',monospace;font-size:.72rem">${items.length} items</span></div>`;
  items.forEach((item, idx) => {
  html += `<div class="sl-item" id="slitem-${aisle}-${idx}">
- <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}',${item.estimatedPrice})"/>
+ <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}')"/>
  <span class="sl-item-name">${item.name}</span>
  <span class="sl-item-qty">${item.qty}</span>
- <span class="sl-item-price">~$${item.estimatedPrice.toFixed(2)}</span>
+ <span class="sl-item-price" data-pm-name="${pmAttr(item.name)}" data-pm-copy></span>
  <div class="sl-item-links">
  <a class="sl-item-link" href="${item.wooliesUrl}" target="_blank" title="Woolworths">W</a>
  <a class="sl-item-link" href="${item.colesUrl}" target="_blank" title="Coles">C</a>
@@ -3431,23 +3458,20 @@ function renderAiShoppingList(list) {
  }
  aislesEl.innerHTML = html;
  document.getElementById('sl-ai-list').style.display = '';
- document.getElementById('sl-sub').textContent = 'Est. $' + list.totalEstimated.toFixed(2) + ' · ' + list.itemCount + ' items · tap items you already have';
+ document.getElementById('sl-sub').textContent = list.itemCount + ' items. Tap items you already have.';
+ if (window.FitMunchPriceMemory) window.FitMunchPriceMemory.decorateShoppingList(document.getElementById('sl-ai-aisles'));
 }
 
-let slCheckedTotal = 0;
-function slItemCheck(cb, rowId, price) {
+function slItemCheck(cb, rowId) {
  const row = document.getElementById(rowId);
- if (cb.checked) {
- row.classList.add('checked');
- slCheckedTotal += price;
- } else {
- row.classList.remove('checked');
- slCheckedTotal -= price;
- }
+ if (!row) return;
+ if (cb.checked) row.classList.add('checked');
+ else row.classList.remove('checked');
  const list = S_activeShoppingList;
  if (!list) return;
- const remaining = Math.max(0, list.totalEstimated - slCheckedTotal);
- document.getElementById('sl-ai-remaining').textContent = 'Still need: ~$' + remaining.toFixed(2);
+ const checked = document.querySelectorAll('#sl-ai-aisles .sl-item.checked').length;
+ const left = Math.max(0, (list.itemCount || 0) - checked);
+ document.getElementById('sl-ai-remaining').textContent = left + ' items still to get';
 }
 
 async function saveAiList() {

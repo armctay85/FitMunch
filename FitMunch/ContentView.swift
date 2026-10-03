@@ -68,6 +68,14 @@ struct ContentView: View {
         .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
         .onAppear {
             ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
+            if let tab = PriceMemoryLaunch.initialTab, !ScreenshotLaunch.isActive {
+                selectedTab = tab
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .fitmunchSelectTab)) { note in
+            if let tab = note.object as? Int {
+                selectedTab = tab
+            }
         }
     }
 }
