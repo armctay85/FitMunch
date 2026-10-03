@@ -316,4 +316,18 @@ describe('public price and claim ban', () => {
     expect(page.text).not.toMatch(/sole trader/i);
     expect(fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8')).not.toContain('Client count gate: open.');
   });
+
+  it('homepage hero is one Woolies sample week with protein serves', () => {
+    const home = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    const start = home.indexOf('class="phone"');
+    const hero = home.slice(start, home.indexOf('</aside>', start));
+    expect(hero).toContain('Woolies');
+    expect(hero).toContain('Sample week');
+    expect(hero).not.toContain('From last shop');
+    expect(hero).not.toContain('Coles');
+    expect(hero).not.toContain('Aldi');
+    expect(hero).toContain('33g protein / 150g');
+    expect(hero).toContain('12g protein / 2 eggs');
+    expect(hero).toContain('7g protein / 50g');
+  });
 });

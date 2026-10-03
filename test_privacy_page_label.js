@@ -53,6 +53,16 @@ describe('privacy page label', () => {
     expect(privacy).not.toMatch(/Pty Ltd/i);
   });
 
+  it('names APP 8, the host, the database, and only proven countries', () => {
+    expect(privacy).toContain('Australian Privacy Principle 8 (APP 8)');
+    expect(privacy).toContain('Vercel');
+    expect(privacy).toContain('Sydney (syd1)');
+    expect(privacy).toContain('Neon');
+    expect(privacy).toContain('ep-blue-base-ad7cuhxw.c-2.us-east-1.aws.neon.tech');
+    expect(privacy).toContain('United States');
+    expect(privacy).toContain('may be processed outside Australia, including the United States');
+  });
+
   it('lists all 7 collected data types', () => {
     expect(privacy).toContain('>Name<');
     expect(privacy).toContain('>Email address<');

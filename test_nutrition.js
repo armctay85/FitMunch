@@ -26,6 +26,41 @@ describe('estimateNutrition', () => {
     const per100 = estimateNutrition('Tuna chunks', 100, 'g');
     expect(per100.protein).toBe(27);
   });
+
+  it('returns null for pack and unknown units', () => {
+    expect(estimateNutrition('banana', 1, 'pack')).toBeNull();
+    expect(estimateNutrition('eggs', 12, 'packet')).toBeNull();
+    expect(estimateNutrition('chicken breast', 1, 'box')).toBeNull();
+    expect(estimateNutrition('rolled oats', 750, '')).toBeNull();
+    expect(estimateNutrition('rolled oats', 750, 'unit')).toBeNull();
+  });
+
+  it('converts a counted food when the receipt quantity is grams', () => {
+    const banana = estimateNutrition('banana', 120, 'g');
+    expect(banana.protein).toBe(1);
+
+    const eggs = estimateNutrition('eggs', 600, 'g');
+    expect(eggs.protein).toBe(72);
+
+    const dozen = estimateNutrition('Free range eggs', 600, 'g');
+    expect(dozen.protein).toBe(72);
+  });
+
+  it('does not show 0 protein for a known food', () => {
+    expect(estimateNutrition('olive oil', 15, 'ml')).toBeNull();
+    expect(estimateNutrition('spinach', 5, 'g')).toBeNull();
+    expect(estimateNutrition('apple', 1, 'each').protein).toBe(1);
+  });
+
+  it('matches whole words and skips excluded foods', () => {
+    expect(estimateNutrition('goats cheese', 100, 'g').protein).toBe(25);
+    expect(estimateNutrition('cheesecake', 100, 'g')).toBeNull();
+    expect(estimateNutrition('coconut milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('oat milk', 250, 'ml')).toBeNull();
+    expect(estimateNutrition('potato chips', 100, 'g')).toBeNull();
+    expect(estimateNutrition('potato', 100, 'g').protein).toBe(2);
+    expect(estimateNutrition('cheddar', 30, 'g').protein).toBe(8);
+  });
 });
 
 describe('list protein labels and swaps', () => {
