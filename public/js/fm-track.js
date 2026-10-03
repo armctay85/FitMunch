@@ -34,12 +34,76 @@
     }
   }
 
+  var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+
   function attr() {
     try {
       return JSON.parse(localStorage.getItem('fm_attribution') || '{}') || {};
     } catch (_) {
       return {};
     }
+  }
+
+  function allowlistedUtms(search) {
+    var out = {};
+    try {
+      var params = new URLSearchParams(search || '');
+      for (var i = 0; i < UTM_KEYS.length; i++) {
+        var key = UTM_KEYS[i];
+        var value = params.get(key);
+        if (!value) continue;
+        value = String(value).trim().slice(0, 80);
+        if (!value || value.indexOf('?') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1) continue;
+        out[key] = value;
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  function pathOnly(value) {
+    var s = String(value || '');
+    var hash = s.indexOf('#');
+    if (hash >= 0) s = s.slice(0, hash);
+    var q = s.indexOf('?');
+    if (q >= 0) s = s.slice(0, q);
+    if (s.indexOf('reset=') !== -1 || s.indexOf('token=') !== -1) return '';
+    return s;
+  }
+
+  function scrub(value) {
+    if (typeof value === 'string') {
+      if (value.indexOf('?') !== -1 || value.indexOf('#') !== -1 || value.indexOf('reset=') !== -1 || value.indexOf('token=') !== -1) {
+        return pathOnly(value);
+      }
+      return value;
+    }
+    if (!value || typeof value !== 'object') return value;
+    if (Object.prototype.toString.call(value) !== '[object Object]') return value;
+    var out = {};
+    var key;
+    for (key in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+      if (/^(reset|token|code|key|session|email|sig|jwt|password)$/i.test(key)) continue;
+      if (UTM_KEYS.indexOf(key) !== -1 && typeof value[key] === 'string') {
+        var utm = String(value[key]).trim().slice(0, 80);
+        if (utm && utm.indexOf('?') === -1 && utm.indexOf('reset=') === -1 && utm.indexOf('token=') === -1) out[key] = utm;
+        continue;
+      }
+      out[key] = scrub(value[key]);
+    }
+    return out;
+  }
+
+  function safeAttr() {
+    var raw = attr();
+    var out = {};
+    for (var i = 0; i < UTM_KEYS.length; i++) {
+      var key = UTM_KEYS[i];
+      if (typeof raw[key] !== 'string') continue;
+      var value = raw[key].trim().slice(0, 80);
+      if (value && value.indexOf('?') === -1 && value.indexOf('reset=') === -1 && value.indexOf('token=') === -1) out[key] = value;
+    }
+    return out;
   }
 
   function landingPage(pathname) {
@@ -75,10 +139,9 @@
   }
 
   function send(eventType, eventData, extras) {
-    var base = Object.assign({
-      path: location.pathname,
-      href: location.pathname + location.search.slice(0, 160),
-    }, attr(), eventData || {});
+    var base = scrub(Object.assign({
+      path: pathOnly(location.pathname) || '/',
+    }, safeAttr(), allowlistedUtms(location.search), eventData || {}));
     var sessionId = sid();
     var events = [{
       eventType: eventType,
@@ -90,7 +153,7 @@
         events.push({
           eventType: extras[i].eventType,
           sessionId: sessionId,
-          eventData: Object.assign({}, base, extras[i].eventData || {}),
+          eventData: scrub(Object.assign({}, base, extras[i].eventData || {})),
         });
       }
     }
@@ -117,7 +180,7 @@
       });
     }
     send('cta_click', {
-      href: href.slice(0, 200),
+      href: pathOnly(href).slice(0, 200),
       plan: plan || undefined,
       auth: auth || undefined,
       label: label,

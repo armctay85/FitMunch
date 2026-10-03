@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { installLogRedaction } = require('./lib/url-redact');
+installLogRedaction();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -163,6 +165,9 @@ app.use(express.static(PUBLIC_DIR, {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+    if (filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html')) {
+      res.setHeader('Referrer-Policy', 'no-referrer');
     }
   }
 }));

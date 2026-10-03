@@ -34,6 +34,7 @@ module.exports = {
     '**/test_prod_smoke_job.js',
     '**/test_prod_incident.js',
     '**/test_stripe_webhook_monitor.js',
+    '**/test_reset_token_leak.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
