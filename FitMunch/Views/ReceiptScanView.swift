@@ -162,7 +162,12 @@ struct ReceiptScanView: View {
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
-            // Items
+            Text("Check prices at checkout")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Items. Aisle (category) and protein per item. Never a shelf price.
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array((scan.items ?? []).enumerated()), id: \.offset) { _, item in
                     HStack {

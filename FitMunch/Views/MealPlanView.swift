@@ -6,7 +6,6 @@ struct MealPlanView: View {
 
     @State private var calories = "2000"
     @State private var protein = "150"
-    @State private var budget = "120"
     @State private var goal = "general_fitness"
     @State private var plan: MealPlanPayload?
     @State private var isLoading = false
@@ -59,8 +58,12 @@ struct MealPlanView: View {
                     HStack {
                         labeledField("Calories", text: $calories)
                         labeledField("Protein g", text: $protein)
-                        labeledField(ScreenshotLaunch.isActive ? "Shop budget" : "Budget $", text: $budget)
                     }
+
+                    Text("Check prices at checkout")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground))
@@ -130,10 +133,10 @@ struct MealPlanView: View {
                 if let protein = plan.avgDailyProtein {
                     metric("Avg protein", "\(protein)g")
                 }
-                if let budget = plan.weeklyBudgetEst, !ScreenshotLaunch.isActive {
-                    metric("Est. shop", "$\(budget)")
-                }
             }
+            Text("Check prices at checkout")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
 
         ForEach(plan.days ?? [], id: \.day) { day in
@@ -200,7 +203,7 @@ struct MealPlanView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(label): \(meal.name ?? "Meal")")
                     .font(.subheadline.weight(.semibold))
-                Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein · \(meal.prepMins ?? 0) min")
+                Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -219,7 +222,7 @@ struct MealPlanView: View {
                     "goal": goal,
                     "calories": Int(calories) ?? 2000,
                     "protein": Int(protein) ?? 150,
-                    "budget": Int(budget) ?? 120,
+                    "budget": 120,
                     "days": 7,
                 ],
                 as: MealPlanGenerateResponse.self
