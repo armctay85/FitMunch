@@ -238,7 +238,7 @@ struct PaywallView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.blue)
+            .background(Theme.buttonFill)
             .cornerRadius(12)
             .padding(.horizontal)
             .disabled(premiumManager.isLoading)
@@ -251,7 +251,7 @@ struct PaywallView: View {
             Task { await restore() }
         }
         .font(.subheadline)
-        .foregroundColor(.blue)
+        .foregroundStyle(Theme.brandGreen)
         .accessibilityIdentifier("paywall-restore")
     }
 
@@ -269,7 +269,7 @@ struct PaywallView: View {
                     }
                 }
                 .font(.caption2)
-                .foregroundColor(.blue)
+                .foregroundStyle(Theme.brandGreen)
 
                 Button("Terms of Service") {
                     if let url = URL(string: "https://fitmunch.com.au/terms") {
@@ -277,7 +277,7 @@ struct PaywallView: View {
                     }
                 }
                 .font(.caption2)
-                .foregroundColor(.blue)
+                .foregroundStyle(Theme.brandGreen)
             }
         }
         .padding(.horizontal)
@@ -345,11 +345,11 @@ private struct PackageCard: View {
                 priceRow
             }
             .padding()
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
+            .background(isSelected ? Theme.brandGreenSoft : Color.gray.opacity(0.1))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? Theme.brandGreen : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)
@@ -370,7 +370,7 @@ private struct PackageCard: View {
             Spacer()
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     .font(.title2)
             }
         }
@@ -413,7 +413,7 @@ private struct FeatureRow: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundColor(.blue)
+                .foregroundStyle(Theme.brandGreen)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 4) {

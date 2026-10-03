@@ -12,6 +12,17 @@ struct SettingsView: View {
     @ObservedObject private var premium = PremiumManager.shared
     @Environment(\.modelContext) private var modelContext
 
+    /// Signed-in name and email. Blank or placeholder accounts stay on the empty state.
+    private var signedInProfile: (name: String, email: String)? {
+        guard let user = auth.user else { return nil }
+        let name = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.isEmpty && email.isEmpty { return nil }
+        if name == "Alex Chen" || email == "alex@fitmunch.com.au" { return nil }
+        let title = name.isEmpty ? email : name
+        return (title, name.isEmpty ? "" : email)
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -24,34 +35,43 @@ struct SettingsView: View {
                     .accessibilityIdentifier("me-progress")
                 }
 
-                // Profile section
+                // Profile section. Name and email come from the signed-in account only.
                 Section {
-                    HStack {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 50))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(Theme.brandGreen)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(viewModel.userDisplayName)
-                                .font(.headline)
-                            Text(viewModel.userEmail)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                    if let profile = signedInProfile {
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 50))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(Theme.brandGreen)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(profile.name)
+                                    .font(.headline)
+                                if !profile.email.isEmpty {
+                                    Text(profile.email)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
                         }
-                        
-                        Spacer()
-                        
-                        Text(premium.isPremium ? "Premium Subscriber" : "Free Tier")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background((premium.isPremium ? Color.green : Color.orange).opacity(0.2))
-                            .foregroundColor(premium.isPremium ? .green : .orange)
-                            .cornerRadius(4)
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(profile.email.isEmpty ? profile.name : "\(profile.name), \(profile.email)")
+                    } else {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
+                            Label("No profile yet", systemImage: "person.crop.circle.badge.plus")
+                                .font(.headline)
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(Theme.brandGreen)
+                            Text("Sign in and your name and email show up here.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("me-profile-empty")
                     }
-                    .padding(.vertical, 8)
 
                     // Dedicated full-width List row. Nested buttons inside the profile HStack were untappable on iPad.
                     if !premium.isPremium {

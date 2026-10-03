@@ -36,6 +36,15 @@ struct ReceiptScanView: View {
                 .padding()
             }
             .scrollClearsTabBar()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if scan == nil && !isScanning {
+                    scanActions
+                        .padding(.horizontal, Theme.Spacing.four)
+                        .padding(.top, Theme.Spacing.two)
+                        .padding(.bottom, Theme.Spacing.three)
+                        .background(Theme.surface)
+                }
+            }
             .background(Theme.surface)
             .sensoryFeedback(.success, trigger: scanCompletions)
             .navigationTitle("Scan")
@@ -81,6 +90,27 @@ struct ReceiptScanView: View {
         }
     }
 
+    private var scanActions: some View {
+        VStack(spacing: 10) {
+            Button {
+                Task { await openCameraSafely() }
+            } label: {
+                Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
+                    .symbolRenderingMode(.hierarchical)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(isRequestingCamera)
+            .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
+            .accessibilityIdentifier("scan-take-photo")
+            PhotosPicker(selection: $pickedItem, matching: .images) {
+                Label("Choose from library", systemImage: "photo.on.rectangle")
+                    .symbolRenderingMode(.hierarchical)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("scan-choose-library")
+        }
+    }
+
     // MARK: - Intro
 
     private var introView: some View {
@@ -108,26 +138,6 @@ struct ReceiptScanView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.top, 20)
-            } else {
-                VStack(spacing: 10) {
-                    Button {
-                        Task { await openCameraSafely() }
-                    } label: {
-                        Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isRequestingCamera)
-                    .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
-                    .accessibilityIdentifier("scan-take-photo")
-                    PhotosPicker(selection: $pickedItem, matching: .images) {
-                        Label("Choose from library", systemImage: "photo.on.rectangle")
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("scan-choose-library")
-                }
-                .padding(.top, 8)
             }
 
             if let errorMessage = errorMessage {

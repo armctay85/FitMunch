@@ -35,6 +35,9 @@ final class DesignFeelUITests: XCTestCase {
                 }
                 if tab == "Me" {
                     XCTAssertTrue(app.staticTexts["Progress"].waitForExistence(timeout: 4))
+                    XCTAssertTrue(app.staticTexts["No profile yet"].waitForExistence(timeout: 4))
+                    XCTAssertFalse(app.staticTexts["Alex Chen"].exists)
+                    XCTAssertFalse(app.staticTexts["Premium Subscriber"].exists)
                 }
                 saveDesignShot(app, folder: folder, name: tab.lowercased())
                 if tab == "Plan" {
@@ -45,6 +48,22 @@ final class DesignFeelUITests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testPaywallShot() throws {
+        app.terminate()
+        let review = XCUIApplication()
+        review.launchArguments = [ReviewLaunchArgument.flag]
+        review.launch()
+        XCTAssertTrue(review.tabBars.firstMatch.waitForExistence(timeout: 20))
+        openTab("Me", in: review)
+        XCTAssertFalse(review.staticTexts["Alex Chen"].exists)
+        XCTAssertFalse(review.staticTexts["Premium Subscriber"].exists)
+        let upgrade = review.buttons["settings-upgrade"]
+        XCTAssertTrue(upgrade.waitForExistence(timeout: 6))
+        upgrade.tap()
+        XCTAssertTrue(review.buttons["paywall-close"].waitForExistence(timeout: 10), "Paywall did not open")
+        saveDesignShot(review, folder: "light", name: "paywall")
     }
 
     func testLogScanPlanAndSwitchTabs() throws {

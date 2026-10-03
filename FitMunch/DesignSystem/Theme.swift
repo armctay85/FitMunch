@@ -30,6 +30,8 @@ enum Theme {
         static let five: CGFloat = 20
         static let six: CGFloat = 24
         static let eight: CGFloat = 32
+        /// Clears a floating tab bar that draws over the home-indicator safe area.
+        static let tabClearance: CGFloat = 88
     }
 }
 
@@ -103,12 +105,12 @@ extension View {
     /// Extra inset so primary controls clear a floating tab bar.
     func aboveTabBar() -> some View {
         safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: Theme.Spacing.four)
+            Color.clear.frame(height: Theme.Spacing.tabClearance)
         }
     }
 
     /// Bottom margin inside scroll views so the last row can rest above the tab bar.
     func scrollClearsTabBar() -> some View {
-        contentMargins(.bottom, Theme.Spacing.six, for: .scrollContent)
+        contentMargins(.bottom, Theme.Spacing.tabClearance, for: .scrollContent)
     }
 }
