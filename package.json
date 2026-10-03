@@ -10,6 +10,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "jest",
+    "build": "node scripts/check-catalogue-freshness.js",
+    "vercel-build": "node scripts/check-catalogue-freshness.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "smoke:assets": "node scripts/smoke-assets.mjs",

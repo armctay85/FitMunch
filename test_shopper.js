@@ -33,6 +33,9 @@ describe('Fitness Butler shopper engine', () => {
     const draft = shopper.buildDraft({ secondTripCostAud: 22 });
     expect(draft.status).toBe('draft');
     expect(draft.recommendation.split).toBe(false);
+    expect(draft.recommendation.goodsAud).toBeGreaterThan(0);
+    expect(draft.lines.every((line) => line.assignedAud > 0)).toBe(true);
+    expect(draft.recommendation.storeNames.length).toBe(draft.recommendation.stores.length);
     expect(draft.recommendation.stores).toEqual(['woolworths']);
     expect(draft.recommendation.saveVsSingleAud).toBeGreaterThan(0);
     expect(draft.recommendation.saveVsSingleAud).toBeLessThan(draft.recommendation.secondTripCostAud);
