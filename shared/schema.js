@@ -17,6 +17,7 @@ const users = pgTable('users', {
   stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
   settings: jsonb('settings').default('{}'),
   profileImage: text('profile_image'),
+  isTest: boolean('is_test').default(false).notNull(),
 });
 
 // User profiles - Detailed fitness and health data

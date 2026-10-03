@@ -322,7 +322,10 @@ html.fm-authed #app-gate{display:none}
 <script>
 (function () {
   try {
-    if (!localStorage.getItem('fm_token')) {
+    var raw = localStorage.getItem('fm_token') || '';
+    var parts = String(raw).split('.');
+    if (!(parts.length === 3 && parts.every(function (part) { return !!part; }))) {
+      if (raw) localStorage.removeItem('fm_token');
       location.replace('/login.html');
     }
   } catch (e) {
@@ -831,18 +834,18 @@ html.fm-authed #app-gate{display:none}
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
  <div class="card">
  <div class="card-body">
- <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Starter</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',monospace"><span style="white-space:nowrap">$59.99</span><span style="font-size:.78rem;font-weight:500;color:var(--text2);margin-left:8px;letter-spacing:0">/mo AUD</span></div>
- <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients + client portal</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter', this)">Select</button>
+ <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Coach, up to 10 clients</div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',monospace"><span style="white-space:nowrap">A$39</span><span style="font-size:.78rem;font-weight:500;color:var(--text2);margin-left:8px;letter-spacing:0">/mo AUD</span></div>
+ <div style="font-size:.75rem;color:var(--text2);margin:8px 0">7-day plans, one-store list, share link or PDF. The 11th client is blocked.</div>
+ <a class="btn btn-ghost2 btn-sm" style="display:block;width:100%;text-align:center;text-decoration:none" href="/login.html?plan=coach-39#register">Start Coach trial</a>
  </div>
  </div>
  <div class="card">
  <div class="card-body">
- <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Pro</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',monospace"><span style="white-space:nowrap">$99</span><span style="font-size:.78rem;font-weight:500;color:var(--text2);margin-left:8px;letter-spacing:0">/mo AUD</span></div>
- <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients + all features</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro', this)">Select</button>
+ <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Coach, unlimited clients</div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',monospace"><span style="white-space:nowrap">A$79</span><span style="font-size:.78rem;font-weight:500;color:var(--text2);margin-left:8px;letter-spacing:0">/mo AUD</span></div>
+ <div style="font-size:.75rem;color:var(--text2);margin:8px 0">The same Coach tools, with no client cap.</div>
+ <a class="btn btn-ghost2 btn-sm" style="display:block;width:100%;text-align:center;text-decoration:none" href="/login.html?plan=coach-79#register">Start Coach trial</a>
  </div>
  </div>
  </div>
@@ -1553,6 +1556,10 @@ const S = {
 };
 
 const API = (path, opts={}) => {
+ const parts = String(S.token || '').split('.');
+ if (!(parts.length === 3 && parts.every(function (part) { return !!part; }))) {
+  return Promise.resolve({ success: false });
+ }
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
 };

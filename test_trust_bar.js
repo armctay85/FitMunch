@@ -134,13 +134,13 @@ describe('Trust bar 5: web app, not store', () => {
   });
 });
 
-describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
+describe('Trust bar 6: haul 92 and 987g is a labelled example', () => {
   const surfaces = [
-    ['/', ['92', '143', '987']],
-    ['/demo', ['92', '143', '987']],
-    ['/haul-teardown', ['92', '143', '987']],
-    ['/receipt-nutrition-scanner', ['92', '143', '987']],
-    ['/pricing', ['92', '143']],
+    ['/', ['92', '987']],
+    ['/demo', ['92', '987']],
+    ['/haul-teardown', ['92', '987']],
+    ['/receipt-nutrition-scanner', ['92', '987']],
+    ['/pricing', ['92']],
   ];
 
   it.each(surfaces)('%s labels those numbers as an example', async (route, tokens) => {
@@ -148,8 +148,9 @@ describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
     for (const token of tokens) {
       expect(res.text).toContain(token);
     }
-    expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
+    expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example|labelled woolies/);
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+    expect(res.text).not.toMatch(/\$143/);
   });
 });
 
@@ -214,8 +215,10 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/login.html?plan=premium#register"');
     expect(hero).not.toContain('href="/pricing"');
-    expect(hero).toContain('Approve this trolley');
-    expect(hero).toContain('Not a shop charge');
+    expect(hero).toContain('overhead-chicken.webp');
+    expect(hero).toContain('Sample week');
+    expect(hero).toContain('>Mince<');
+    expect(hero).toContain('>Pasta<');
     expect(hero).not.toContain('$19.99');
     expect(hero).not.toMatch(/photograph your receipt/i);
     expect(hero).not.toMatch(/viewfinder|getUserMedia|capture=/i);

@@ -22,6 +22,19 @@
  }
  :focus-visible { outline: 2px solid var(--green2); outline-offset: 2px; }
 
+ .auth-layout{width:min(960px,100%);display:flex;flex-direction:column;align-items:center;gap:16px}
+ .plan-recap{display:none;width:100%;max-width:420px;background:#0a1610;border:1px solid var(--border);border-radius:8px;padding:22px 20px;color:var(--text)}
+ .auth-layout.has-recap .plan-recap{display:block}
+ .plan-kicker{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#A7F3D0;margin-bottom:8px}
+ .plan-recap h2{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:1.8rem;letter-spacing:0;font-variant-numeric:tabular-nums;margin-bottom:8px}
+ .plan-recap p{font-size:.9rem;line-height:1.5;color:#d7e6dc}
+ .plan-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+ .plan-toggle a{display:block;text-align:center;padding:10px 8px;border:1px solid var(--border);border-radius:4px;color:#A7F3D0;text-decoration:underline;text-underline-offset:2px;font-weight:700;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
+ .plan-toggle a.is-on{background:var(--cta);color:#fff;border-color:var(--cta)}
+ @media (min-width:960px){
+  .auth-layout.has-recap{flex-direction:row;align-items:flex-start;justify-content:center}
+  .auth-layout.has-recap .plan-recap,.auth-layout.has-recap .card{width:min(420px,100%);max-width:420px;flex:1 1 420px}
+ }
  .card {
  background: var(--card); border: 1px solid var(--border);
  border-radius: 8px; padding: 40px 36px; width: 100%; max-width: 420px;
@@ -121,6 +134,16 @@
 </head>
 <body>
 
+<div class="auth-layout" id="auth-layout">
+<aside class="plan-recap" id="plan-recap">
+ <p class="plan-kicker" id="plan-kicker">Coach trial</p>
+ <h2 id="plan-price">A$39</h2>
+ <p id="plan-copy">Up to 10 active clients. 14-day trial, then A$39 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
+ <div class="plan-toggle" id="plan-toggle" role="group" aria-label="Coach tier">
+  <a href="/login.html?plan=coach-39#register" id="tier-39">A$39, up to 10</a>
+  <a href="/login.html?plan=coach-79#register" id="tier-79">A$79, unlimited</a>
+ </div>
+</aside>
 <div class="card">
  <div class="logo">
  <img src="/assets/logo.svg" alt="FitMunch" width="44" height="44" style="flex-shrink:0;display:block"/>
@@ -217,6 +240,7 @@
  </div>
  </div>
 </div>
+</div>
 
 <script>
  const urlParams = new URLSearchParams(window.location.search);
@@ -271,20 +295,57 @@
  return payload;
  }
 
- // Redirect if already logged in
- const existingToken = localStorage.getItem('fm_token');
+ function signedInToken() {
+  let token = '';
+  try { token = localStorage.getItem('fm_token') || ''; } catch (e) { return ''; }
+  const parts = String(token).split('.');
+  if (parts.length !== 3 || parts.some(function (part) { return !part; })) {
+   if (token) {
+    try { localStorage.removeItem('fm_token'); } catch (e) {}
+   }
+   return '';
+  }
+  return token;
+ }
+
+ const layout = document.getElementById('auth-layout');
+ const recap = document.getElementById('plan-recap');
+ const toggle = document.getElementById('plan-toggle');
+ if (layout && recap && (coachPlan || plan === 'premium')) {
+  layout.classList.add('has-recap');
+  if (plan === 'premium') {
+   document.getElementById('plan-kicker').textContent = 'Premium trial';
+   document.getElementById('plan-price').textContent = 'A$19.99';
+   document.getElementById('plan-copy').textContent = '14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.';
+   if (toggle) toggle.hidden = true;
+  } else if (plan === 'coach-79') {
+   document.getElementById('plan-price').textContent = 'A$79';
+   document.getElementById('plan-copy').textContent = 'No client cap. 14-day trial, then A$79 a month. Card on file. Cancel before the trial ends and you are not charged. Same plans, flags, one-store list, and share link or PDF as A$39.';
+   document.getElementById('tier-79').classList.add('is-on');
+  } else {
+   document.getElementById('tier-39').classList.add('is-on');
+  }
+ }
+
+ // Signed-out visitors do not call authed endpoints. A stored JWT is checked once.
+ const existingToken = signedInToken();
  if (existingToken) {
  fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + existingToken } })
  .then(parseApiJson)
  .then(async d => {
-   if (!d.success) return;
+   if (!d.success) {
+    try { localStorage.removeItem('fm_token'); } catch (e) {}
+    return;
+   }
    try {
      await redirectAfterAuth(existingToken);
    } catch (error) {
      showError(plan ? 'register-error' : 'login-error', error.message || 'Could not open Stripe checkout.');
    }
  })
- .catch(() => {});
+ .catch(function () {
+   try { localStorage.removeItem('fm_token'); } catch (e) {}
+ });
  }
 
  let checkoutInFlight = null;
@@ -507,7 +568,6 @@
  else if (document.getElementById('panel-register').classList.contains('active')) doRegister();
  });
 </script>
-<script src="/js/fm-track.js" defer></script>
 <script src="/js/fm-track.js" defer></script>
 </body>
 </html>

@@ -11,10 +11,6 @@
   const statusEl = document.querySelector('[data-sp-status]');
   const errEl = document.querySelector('[data-sp-error]');
 
-  function money(n) {
-    return '$' + Number(n).toFixed(2);
-  }
-
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text || '';
   }
@@ -76,29 +72,23 @@
   function renderDraft(draft) {
     if (!draftMount) return;
     const rec = draft.recommendation;
-    const stay = rec.split ? 'Split this shop' : 'One store';
+    const stay = rec.split ? 'More than one store' : 'One store';
     draftMount.innerHTML = `
       <div class="sp-ticket" id="draft-trolley">
         <div class="sp-ticket-top">
           <div>
-            <div class="sp-total">${money(rec.goodsAud)}<small>${escapeHtml(rec.storeNames.join(' + '))} from public specials</small></div>
+            <div class="sp-total">${escapeHtml(rec.storeNames.join(' + '))}<small>Ingredient list. Check the price at the checkout.</small></div>
           </div>
-          <p class="sp-verdict"><strong>${stay}</strong>${escapeHtml(rec.reason)}</p>
-        </div>
-        <div class="sp-math" aria-label="Split maths">
-          <div><b>${money(rec.bestSingleAud)}</b><span>Cheapest single store</span></div>
-          <div><b>${money(rec.saveVsSingleAud)}</b><span>Catalogue save if you split</span></div>
-          <div><b>${money(rec.secondTripCostAud)}</b><span>Cost of a second trip</span></div>
+          <p class="sp-verdict"><strong>${stay}</strong>You take this list to the store. FitMunch does not show a supermarket total.</p>
         </div>
         <div class="sp-lines">
           ${draft.lines.map((line) => `
             <div class="sp-line">
               <div>
                 <div class="n">${line.packs} × ${escapeHtml(line.name)}</div>
-                <div class="m">${escapeHtml(line.aisle)}${line.onSpecial ? ' · catalogue special' : ''}</div>
+                <div class="m">${escapeHtml(line.aisle)}</div>
               </div>
               <div class="st">${escapeHtml(line.assignedStoreName)}</div>
-              <div class="p${line.onSpecial ? ' sp-special' : ''}">${money(line.assignedAud)}</div>
             </div>
           `).join('')}
         </div>
@@ -125,9 +115,8 @@
           ${checkout.baskets.map((basket) => `
             <article class="sp-basket">
               <h3>${escapeHtml(basket.storeName)}</h3>
-              <div class="t">${money(basket.totalAud)}</div>
               <ol>
-                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)} · ${money(line.aud)}</li>`).join('')}
+                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)}</li>`).join('')}
               </ol>
               <a href="${escapeAttr(basket.lines[0] ? basket.lines[0].searchUrl : basket.searchHome)}" target="_blank" rel="noopener">Open ${escapeHtml(basket.storeName)} public search</a>
             </article>
@@ -174,7 +163,7 @@
       btn.disabled = true;
       btn.textContent = 'Writing the trolley…';
     });
-    setStatus('Writing ingredients from the week, then pricing public specials.');
+    setStatus('Writing the ingredient list for this week.');
     try {
       const payload = await api('/api/shopper/draft', { method: 'POST', body: {} });
       window.__fmShopperDraft = payload.draft;

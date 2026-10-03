@@ -4,35 +4,60 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Support | FitMunch</title>
-<meta name="description" content="Contact FitMunch support, manage an App Store or web subscription, restore purchases, or delete your account and data.">
+<meta name="description" content="FitMunch help centre: billing, trial, cancel, receipts, Coach, and privacy. Email support@fitmunch.com.au.">
 <link rel="canonical" href="https://www.fitmunch.com.au/support">
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
-.fm-doc h3{
-  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
-  font-size:1.02rem;font-weight:800;letter-spacing:-.02em;
-  margin:26px 0 8px;color:var(--ink);
+*,*::before,*::after{box-sizing:border-box}
+html,body.support-page{max-width:100%;overflow-x:hidden}
+.support-page{min-height:100vh;display:flex;flex-direction:column}
+.support-page .fm-nav{flex-wrap:wrap;gap:8px}
+.support-main{flex:1;width:min(880px,100%);margin:0 auto;padding:36px clamp(16px,4vw,32px) 64px}
+.support-kicker{
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--leaf2);margin:0 0 8px;
 }
+.support-main h1{
+  font-size:clamp(1.8rem,4vw,2.6rem);font-weight:800;letter-spacing:-.04em;
+  line-height:1.1;margin:0 0 10px;
+}
+.support-lead{color:var(--mute);font-size:1.02rem;line-height:1.6;margin:0 0 18px;max-width:62ch}
 .support-contact{
   background:#07130d;color:#eef2ee;
-  padding:22px 22px 18px;margin:4px 0 8px;
+  padding:18px 18px 16px;margin:0 0 18px;
 }
-.fm-doc .support-contact p{color:#d7e6dc;margin:0}
-.fm-doc .support-k{
-  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
-  font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  color:#A7F3D0;margin:0 0 8px;
+.support-contact p{color:#d7e6dc;margin:0}
+.support-mail{margin:0 0 6px;font-size:1.05rem;overflow-wrap:anywhere}
+.support-mail a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+#help-search{
+  width:100%;max-width:100%;
+  font:inherit;font-size:1rem;
+  padding:12px 14px;border:1px solid var(--line);border-radius:4px;
+  background:#fff;color:var(--ink);margin:0 0 22px;
 }
-.fm-doc .support-mail{margin:0 0 8px;font-size:1.15rem}
-.fm-doc .support-mail a{color:#fff;font-weight:700;text-decoration:underline;text-underline-offset:3px}
-.fm-doc .support-links{margin-top:28px}
-.fm-doc .support-links a{font-weight:700}
+.help-group{margin:0 0 22px;min-width:0}
+.help-group h2{
+  font-size:1.05rem;font-weight:800;letter-spacing:-.02em;
+  margin:0 0 8px;padding-top:8px;border-top:1px solid var(--line);
+}
+.faq{border-bottom:1px solid var(--line);padding:12px 0;min-width:0}
+.faq summary{
+  cursor:pointer;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
+  font-weight:700;font-size:.98rem;letter-spacing:-.02em;
+}
+.faq p{color:var(--mute);font-size:.95rem;line-height:1.65;margin:8px 0 0;overflow-wrap:anywhere}
+.faq a{color:var(--leaf2);font-weight:700}
+.support-links{margin-top:8px}
+.support-links a{font-weight:700;color:var(--leaf2)}
+.help-empty{display:none;color:var(--mute);margin:0 0 16px}
+.help-empty.show{display:block}
 </style>
 </head>
-<body class="fm-body">
+<body class="fm-body support-page">
 
 <nav class="fm-nav">
   <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
@@ -44,37 +69,97 @@
   </div>
 </nav>
 
-<main class="fm-doc legal">
-<a class="fm-back" href="/">&larr; FitMunch</a>
-<h1>Support</h1>
+<main class="support-main">
+  <p class="support-kicker">Help centre</p>
+  <h1>Support</h1>
+  <p class="support-lead">Billing, the trial, cancelling, receipts, Coach, and privacy. Search the questions, or email us.</p>
 
-<div class="support-contact">
-  <p class="support-k">Contact</p>
-  <p class="support-mail"><a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
-  <p>We reply within 1 business day.</p>
-</div>
+  <div class="support-contact">
+    <p class="support-mail"><a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
+    <p>We reply within 1 business day.</p>
+  </div>
 
-<h2>Getting started</h2>
-<p>FitMunch helps you track nutrition, scan receipts, plan meals, and stay on top of your food goals. New to FitMunch? Start with the <a href="/">homepage</a> or check <a href="/pricing">pricing</a>.</p>
-<p>Upload a photo of your supermarket receipt in the browser. FitMunch extracts items and matches nutrition data. The photo is processed and not stored on our servers. Saved meals and plans stay with your account.</p>
+  <label class="support-kicker" for="help-search">Search</label>
+  <input id="help-search" type="search" placeholder="Try billing, trial, cancel, receipts, Coach, privacy" autocomplete="off"/>
+  <p class="help-empty" id="help-empty">No matching questions. Email support@fitmunch.com.au and we will reply within 1 business day.</p>
 
-<h2>Common questions</h2>
+  <section class="help-group" data-group="billing">
+    <h2>Billing</h2>
+    <details class="faq" data-faq open>
+      <summary>What does FitMunch cost?</summary>
+      <p>Premium is A$19.99 a month after a 14-day trial. Coach is A$39 a month for up to 10 active clients, or A$79 a month with no client cap. A card is required. Cancel before the trial ends and you are not charged.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>Where do I see a receipt for a web payment?</summary>
+      <p>Web plans are billed by Stripe. Open the billing portal from the link in your trial email, or sign in and choose Manage subscription. The portal lists invoices and the card on file.</p>
+    </details>
+  </section>
 
-<h3>How do I cancel or manage an App Store subscription?</h3>
-<p>On your iPhone, open Settings, tap your Apple ID, then Subscriptions. Select FitMunch to change or cancel. In the FitMunch app you can also open Settings, Subscription, Manage Subscription. That opens the same Apple page. Cancel before the period ends and the next renewal does not run. Access stays until the end of the period you already paid for.</p>
+  <section class="help-group" data-group="trial">
+    <h2>Trial</h2>
+    <details class="faq" data-faq>
+      <summary>How does the 14-day trial work?</summary>
+      <p>Stripe collects a card before the trial begins. You can use the plan for 14 days. Cancel before the trial ends and you are not charged. After the first charge, the plan renews until you cancel.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>What if I only wanted a free account?</summary>
+      <p>Create an account with no plan selected. That path does not open Stripe and does not take a card. Premium and Coach stay optional from billing.</p>
+    </details>
+  </section>
 
-<h3>How do I cancel or manage a web subscription?</h3>
-<p>A plan bought on fitmunch.com.au uses the billing portal, not the App Store. Open the Manage or cancel link in your trial email, or sign in and choose Manage subscription. The billing portal is where you update the card or cancel. Access stays until the end of the paid period.</p>
+  <section class="help-group" data-group="cancel">
+    <h2>Cancel</h2>
+    <details class="faq" data-faq>
+      <summary>How do I cancel or manage an App Store subscription?</summary>
+      <p>On your iPhone, open Settings, tap your Apple ID, then Subscriptions. Select FitMunch to change or cancel. In the FitMunch app you can also open Settings, Subscription, Manage Subscription. That opens the same Apple page. Cancel before the period ends and the next renewal does not run. Access stays until the end of the period you already paid for.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>How do I cancel or manage a web subscription?</summary>
+      <p>A plan bought on fitmunch.com.au uses the billing portal, not the App Store. Open the Manage or cancel link in your trial email, or sign in and choose Manage subscription. The billing portal is where you update the card or cancel. Access stays until the end of the paid period.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>How do I restore purchases?</summary>
+      <p>In the FitMunch app, open the paywall and tap Restore Purchases. The same button is in Settings, Subscription, Restore Purchases. Use the Apple ID that bought the subscription. Restore looks up that App Store purchase and applies it on this device.</p>
+    </details>
+  </section>
 
-<h3>How do I restore purchases?</h3>
-<p>In the FitMunch app, open the paywall and tap Restore Purchases. The same button is in Settings, Subscription, Restore Purchases. Use the Apple ID that bought the subscription. Restore looks up that App Store purchase and applies it on this device.</p>
+  <section class="help-group" data-group="receipts">
+    <h2>Receipts</h2>
+    <details class="faq" data-faq>
+      <summary>What happens to a receipt photo?</summary>
+      <p>Upload a photo of your supermarket receipt in the browser. FitMunch extracts items and matches nutrition data. The photo is processed and not stored on our servers. Saved meals and plans stay with your account.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>Does FitMunch show supermarket prices on the public site?</summary>
+      <p>No. Public pages name meals and stores. You check the shelf price at Woolworths, Coles, or Aldi. FitMunch does not pay the supermarket for you.</p>
+    </details>
+  </section>
 
-<h3>How do I delete my account and data?</h3>
-<p>In the app, open Settings, then Delete Account, then Delete Everything. That permanently deletes your FitMunch account and the data stored with it, including meals, plans, and progress. Deleting the account does not cancel an App Store subscription. Cancel that under Settings, Apple ID, Subscriptions if you do not want it to renew. A web subscription is cancelled with the account when billing can be reached. If deletion fails, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</p>
+  <section class="help-group" data-group="coach">
+    <h2>Coach</h2>
+    <details class="faq" data-faq>
+      <summary>What do I get at A$39 and at A$79?</summary>
+      <p>Both tiers write a 7-day plan from the client's kcal, protein, carbs, and fat targets, with dietary flags, household size, and one store (Woolworths, Coles, or Aldi). You add a practice name, accent, and logo, then share a link or a PDF. A$39 stops at 10 active clients. The 11th client is blocked until you move to A$79. A$79 is the same tools with no client cap.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>Does my client get the FitMunch app free?</summary>
+      <p>No. You pay the Coach subscription. The client receives that week's plan through the share link or the PDF. That handoff is not a free FitMunch account.</p>
+    </details>
+  </section>
 
-<p class="support-links"><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+  <section class="help-group" data-group="privacy">
+    <h2>Privacy</h2>
+    <details class="faq" data-faq>
+      <summary>How do I delete my account and data?</summary>
+      <p>In the app, open Settings, then Delete Account, then Delete Everything. That permanently deletes your FitMunch account and the data stored with it, including meals, plans, and progress. Deleting the account does not cancel an App Store subscription. Cancel that under Settings, Apple ID, Subscriptions if you do not want it to renew. A web subscription is cancelled with the account when billing can be reached. If deletion fails, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</p>
+    </details>
+    <details class="faq" data-faq>
+      <summary>Where are the terms and the privacy policy?</summary>
+      <p class="support-links"><a href="/terms">Terms</a> and <a href="/privacy">Privacy</a> explain the trial, receipts, and what we keep.</p>
+    </details>
+  </section>
 
-<p style="margin-top:32px;color:var(--mute);font-size:.9rem">General food planning support only. Not medical advice.</p>
+  <p style="margin-top:28px;color:var(--mute);font-size:.9rem">General food planning support only. Not medical advice.</p>
 </main>
 
 <footer class="fm-footer">
@@ -95,6 +180,29 @@
     <p class="fm-footer-note">© 2026 FitMunch. Made in Australia for Australian shops.</p>
   </div>
 </footer>
-
+<script>
+(function () {
+  var input = document.getElementById('help-search');
+  var empty = document.getElementById('help-empty');
+  var items = Array.prototype.slice.call(document.querySelectorAll('[data-faq]'));
+  var groups = Array.prototype.slice.call(document.querySelectorAll('[data-group]'));
+  if (!input) return;
+  input.addEventListener('input', function () {
+    var q = input.value.trim().toLowerCase();
+    items.forEach(function (item) {
+      item.hidden = !!(q && item.textContent.toLowerCase().indexOf(q) === -1);
+    });
+    var shown = 0;
+    groups.forEach(function (group) {
+      var any = Array.prototype.some.call(group.querySelectorAll('[data-faq]'), function (item) {
+        return !item.hidden;
+      });
+      group.hidden = !any;
+      if (any) shown += 1;
+    });
+    if (empty) empty.classList.toggle('show', shown === 0);
+  });
+})();
+</script>
 </body>
 </html>

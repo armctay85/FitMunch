@@ -26,6 +26,8 @@ module.exports = {
     '**/test_server_ai.js',
     '**/test_site_elite.js',
     '**/test_trial_email.js',
+    '**/test_test_accounts.js',
+    '**/test_public_price_ban.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

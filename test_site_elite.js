@@ -70,6 +70,12 @@ describe('CTA contrast token', () => {
     expect(login).toMatch(/\.tab \{[\s\S]*color:\s*#A7F3D0/);
     expect(login).toMatch(/\.foot a \{[^}]*text-decoration:\s*underline/);
     expect(login).toMatch(/\.btn \{[\s\S]*background:\s*var\(--cta\)/);
+    expect(login).toContain('function signedInToken()');
+    expect(login).toContain("split('.')");
+    expect(login).toContain('id="plan-recap"');
+    expect(login).toContain('id="tier-39"');
+    expect(login).toContain('id="tier-79"');
+    expect(login.match(/src="\/js\/fm-track\.js"/g) || []).toHaveLength(1);
   });
 });
 
@@ -78,9 +84,9 @@ describe('sample trolley and legal copy', () => {
     const home = await request(app).get('/').expect(200);
     const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
     expect(hero).toContain('Sample');
-    expect(hero).toContain('A$84.20');
-    expect(hero).toContain('Approve this trolley');
-    expect(hero).toContain('Not a shop charge');
+    expect(hero).toContain('overhead-chicken.webp');
+    expect(hero).not.toContain('A$84.20');
+    expect(hero).not.toContain('Approve this trolley');
     expect(hero).toContain('Sample week');
     expect(hero).toContain('>Mince<');
     expect(hero).toContain('>Pasta<');
@@ -114,12 +120,16 @@ describe('sample trolley and legal copy', () => {
       expect(page.text).toContain('Nothing in these terms excludes, restricts or modifies rights you have under the Australian Consumer Law.');
       expect(page.text).toContain('We provide remedies required by the ACL. Outside that, refunds are at our discretion.');
       expect(page.text).toContain('Prices in Australian dollars (AUD).');
-      expect(page.text).not.toMatch(/GST/i);
       expect(page.text).not.toMatch(/Pty Ltd/i);
       expect(page.text).not.toMatch(/\bABN\b/);
       expect(page.text).toContain('class="fm-doc legal"');
     }
     expect(terms.text).toContain('<!-- ENTITY_LINE: pending owner confirmation -->');
+    expect(terms.text).toContain('We are not registered for GST, so no GST is charged on FitMunch prices.');
+    expect(terms.text).not.toMatch(/inc\.?\s*GST/i);
+    expect(terms.text).not.toMatch(/\bDrew\b/);
+    expect(terms.text).not.toMatch(/sole trader/i);
+    expect(refund.text).not.toMatch(/GST/i);
     expect(refund.text).not.toContain('ENTITY_LINE');
     expect(terms.text).toContain('FitMunch Coach');
     expect(terms.text).toContain('Solo covers up to 10 clients.');
@@ -145,6 +155,13 @@ describe('sample trolley and legal copy', () => {
     expect(support.text).toContain('href="/terms"');
     expect(support.text).toContain('href="/privacy"');
     expect(support.text).toContain('not stored on our servers');
+    expect(support.text).toContain('id="help-search"');
+    expect(support.text).toContain('data-group="billing"');
+    expect(support.text).toContain('data-group="trial"');
+    expect(support.text).toContain('data-group="cancel"');
+    expect(support.text).toContain('data-group="receipts"');
+    expect(support.text).toContain('data-group="coach"');
+    expect(support.text).toContain('data-group="privacy"');
     expect(support.text).not.toMatch(/GST/i);
     expect(support.text).not.toMatch(/Pty Ltd/i);
     expect(support.text).not.toMatch(/hello@/i);

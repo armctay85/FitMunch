@@ -262,6 +262,15 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   max-width:22.5rem;
   justify-self:end;
 }
+.hero-visual{display:grid;gap:8px;min-width:0;justify-self:end;width:100%}
+.hero-shot,.hero-shot-row img{width:100%;object-fit:cover;display:block;background:#102018}
+.hero-shot{height:280px}
+.hero-shot-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hero-shot-row img{height:120px}
+.hero-days{list-style:none;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:0}
+.hero-days li{background:#04100a;border:1px solid rgba(125,255,163,.28);padding:6px 4px}
+.hero-days b{display:block;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:#7dffa3}
+.hero-days span{display:block;font-size:.72rem;font-weight:700;color:#f4f7f4}
 .phone-frame{display:none}
 .phone-list li{opacity:1}
 .trolley-total{
@@ -662,7 +671,10 @@ footer{
 }
 .ui-phone{display:none}
 @media(min-width:1200px){
-  .hero-inner{width:min(1240px,100%);grid-template-columns:minmax(280px,1fr) minmax(640px,760px);gap:36px}
+  .hero-inner{width:min(1240px,100%);grid-template-columns:minmax(280px,.8fr) minmax(640px,1fr);gap:36px}
+  .hero-visual{max-width:none}
+  .hero-shot{height:420px}
+  .hero-shot-row img{height:180px}
   .phone{width:100%;max-width:none;min-height:0;display:flex;align-items:stretch;justify-content:flex-end;gap:18px}
   .sheet{width:min(420px,100%);max-width:420px;position:relative;z-index:1;flex:1 1 auto}
   .ui-phone{
@@ -741,41 +753,21 @@ footer{
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
     </div>
-    <aside class="phone" aria-label="Sample trolley">
-      <div class="ui-phone" aria-label="Sample week plan">
-        <div class="ui-phone-bar"><span>9:41</span><span>FitMunch</span></div>
-        <p class="ui-phone-k">Sample week</p>
-        <ol>
-          <li><b>MON</b><span>Mince</span></li>
-          <li><b>TUE</b><span>Salmon</span></li>
-          <li><b>WED</b><span>Thigh</span></li>
-          <li><b>THU</b><span>Mince</span></li>
-          <li><b>FRI</b><span>Salmon</span></li>
-          <li><b>SAT</b><span>Chicken</span></li>
-          <li><b>SUN</b><span>Pasta</span></li>
-        </ol>
+    <aside class="hero-visual" aria-label="Sample plates from the week">
+      <img class="hero-shot" src="/assets/food/overhead-chicken.webp" width="800" height="600" alt="Overhead of chicken, broccoli and rice"/>
+      <div class="hero-shot-row">
+        <img src="/assets/food/overhead-salmon.webp" width="800" height="600" alt="Overhead of salmon, potatoes and beans"/>
+        <img src="/assets/food/overhead-oats.webp" width="800" height="600" alt="Overhead of oats, banana, eggs and spinach"/>
       </div>
-      <div class="sheet" id="sample-trolley">
-        <div class="sheet-top">
-          <p class="phone-k">Sample</p>
-          <p class="phone-week">This week · sample trolley</p>
-        </div>
-        <p class="sheet-body">Sample list from last shop and public specials. You take this list.</p>
-        <ol class="phone-list">
-          <li><b>Woolies</b><strong>Chicken 1kg</strong><span class="src">A$14.80</span></li>
-          <li><b>Woolies</b><strong>Salmon 400g</strong><span class="src">A$19.40</span></li>
-          <li><b>Coles</b><strong>Beef mince 500g</strong><span class="src">A$13.20</span></li>
-          <li><b>Coles</b><strong>Eggs x12</strong><span class="src">A$8.10</span></li>
-          <li><b>Aldi</b><strong>Greek yoghurt 1kg</strong><span class="src">A$9.50</span></li>
-          <li><b>Aldi</b><strong>Oats 1kg</strong><span class="src">A$5.40</span></li>
-          <li><b>Aldi</b><strong>Olive oil 500ml</strong><span class="src">A$13.80</span></li>
-        </ol>
-        <div class="sheet-foot">
-          <p class="trolley-total">Total <span data-trolley-total data-cents="8420">A$84.20</span></p>
-          <a class="phone-approve" href="#loop">Approve this trolley</a>
-          <p class="phone-honest">Not a shop charge. You take this list. Sample only.</p>
-        </div>
-      </div>
+      <ol class="hero-days" aria-label="Sample week">
+        <li><b>Mon</b><span>Mince</span></li>
+        <li><b>Tue</b><span>Salmon</span></li>
+        <li><b>Wed</b><span>Thigh</span></li>
+        <li><b>Thu</b><span>Mince</span></li>
+        <li><b>Fri</b><span>Salmon</span></li>
+        <li><b>Sat</b><span>Chicken</span></li>
+        <li><b>Sun</b><span>Pasta</span></li>
+      </ol>
     </aside>
   </div>
 </header>
@@ -849,7 +841,7 @@ footer{
 <section class="trust" aria-label="Product proof">
   <div class="trust-inner">
     <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph Woolworths, Coles, Aldi or IGA paper. The score is from that trolley.</div>
-    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a $143 Woolies shop, used only as a labelled example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
+    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a labelled Woolies shop. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
     <div class="trust-item"><strong>Premium trial</strong>14-day trial, then $19.99 a month. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
     <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
   </div>
@@ -859,7 +851,7 @@ footer{
   <div class="first-scan-inner">
     <div class="first-scan-head">
       <h2>After the shop.</h2>
-      <p>A receipt closes what you actually bought. It is not the first screen. Photograph Woolies, Coles, Aldi or IGA paper. FitMunch scores that haul from the lines it found. The $143 Woolies card further down is a worked example, not a demo shop.</p>
+      <p>A receipt closes what you actually bought. It is not the first screen. Photograph Woolies, Coles, Aldi or IGA paper. FitMunch scores that haul from the lines it found. The card further down is a worked example, not a demo shop.</p>
     </div>
     <div class="fs-grid">
       <div class="fs-card">
@@ -937,13 +929,13 @@ footer{
   <div class="proof-inner">
     <div class="proof-copy">
       <h2>One haul. Clear numbers.</h2>
-      <p>Worked example, not a live scan of your trolley. A sample $143 Woolies shop scored 92 with 987g protein.</p>
+      <p>Worked example, not a live scan of your trolley. A labelled Woolies shop scored 92 with 987g protein.</p>
       <a class="btn btn-leaf" href="#first-scan" data-fm-track="proof_scan_mine">Score your own shop</a>
     </div>
     <div class="receipt" id="proof-device" aria-label="Example haul score from Woolworths">
       <div class="device-top">
         <span class="device-store">WOOLWORTHS</span>
-        <span>22 items · $143.60</span>
+        <span>22 items · labelled example</span>
       </div>
       <div class="haul">
         <div>

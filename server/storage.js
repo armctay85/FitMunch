@@ -1,6 +1,6 @@
 // FitMunch Database Storage Layer
 const { drizzle } = require('drizzle-orm/node-postgres');
-const { eq, and, gte, lte, desc } = require('drizzle-orm');
+const { eq, and, gte, lte, desc, or, isNull } = require('drizzle-orm');
 const { Pool } = require('pg');
 const schema = require('../shared/schema.js');
 const { summarizeFunnel } = require('../lib/funnel-events');
@@ -19,6 +19,7 @@ const db = drizzle(pool, { schema });
 
 // Self-healing schema — ensures all tables exist on first DB use (cached).
 const { ensureSchema } = require('../lib/db-migrate');
+const { isTestAccountEmail } = require('../lib/test-accounts');
 
 // User operations
 async function createUser(email, name, passwordHash, extras = {}) {
@@ -27,6 +28,7 @@ async function createUser(email, name, passwordHash, extras = {}) {
     email,
     name,
     passwordHash,
+    isTest: extras.isTest === true || isTestAccountEmail(email),
   }).returning();
   // Role/pt_id are raw SQL columns (not in drizzle schema yet) — set immediately after insert.
   if (extras.role || extras.ptId != null || extras.trialExpiresAt) {
@@ -281,7 +283,11 @@ async function getFunnelStats(days = 14) {
     eventData: schema.analyticsEvents.eventData,
   })
     .from(schema.analyticsEvents)
-    .where(gte(schema.analyticsEvents.createdAt, since))
+    .leftJoin(schema.users, eq(schema.analyticsEvents.userId, schema.users.id))
+    .where(and(
+      gte(schema.analyticsEvents.createdAt, since),
+      or(isNull(schema.analyticsEvents.userId), eq(schema.users.isTest, false))
+    ))
     .limit(20000);
 
   return summarizeFunnel(rows, d);

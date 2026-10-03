@@ -22,7 +22,13 @@
 html,body{max-width:100%;overflow-x:hidden}
 :focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
 
-.pt-hero{padding-top:calc(96px + clamp(56px,8vw,96px))}
+.pt-hero{padding-top:calc(96px + clamp(28px,4vw,48px))}
+.pt-hero-grid{width:min(1240px,100%);margin:0 auto;display:grid;gap:22px;align-items:center}
+.pt-hero-visual{display:grid;gap:8px;min-width:0}
+.pt-hero-visual img{width:100%;object-fit:cover;display:block;background:#102018}
+.pt-shot{height:240px}
+.pt-hero-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pt-hero-row img{height:110px}
 .pt-hero .kicker{
   display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
@@ -73,6 +79,11 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
 .faq-q{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.94rem;font-weight:700;margin-bottom:8px}
 .faq-a{color:var(--mute);font-size:.88rem;line-height:1.65}
 
+@media(min-width:1100px){
+  .pt-hero-grid{grid-template-columns:minmax(280px,.75fr) minmax(640px,1fr);gap:36px}
+  .pt-shot{height:460px}
+  .pt-hero-row img{height:180px}
+}
 @media(max-width:860px){
   .pain-grid{grid-template-columns:1fr}
   .how-rail{grid-template-columns:1fr 1fr}
@@ -98,14 +109,25 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
 </nav>
 
 <header class="fm-hero-band pt-hero">
-  <div class="kicker">For Australian personal trainers</div>
-  <h1>Client meal plans with a priced shopping list, in your brand.</h1>
-  <p>Set each client's targets. FitMunch Coach writes a 7-day plan, drafts a Woolworths, Coles or Aldi list from public specials, and gives you a PT-branded share link or PDF.</p>
-  <div class="hero-ctas" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-    <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach">Start the 14-day Coach trial</a>
-    <a class="fm-btn fm-btn-ghost" href="/">See all features</a>
+  <div class="pt-hero-grid">
+    <div>
+      <div class="kicker">For Australian personal trainers</div>
+      <h1>Client meal plans in your brand, with a draft shopping list.</h1>
+      <p>Set each client's targets. FitMunch Coach writes a 7-day plan, drafts a Woolworths, Coles or Aldi list, and gives you a share link or PDF.</p>
+      <div class="hero-ctas" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach">Start the 14-day Coach trial</a>
+        <a class="fm-btn fm-btn-ghost" href="/">See all features</a>
+      </div>
+      <p class="trust">A$39 a month for up to 10 clients, or A$79 a month unlimited. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
+    </div>
+    <aside class="pt-hero-visual" aria-label="Sample plates">
+      <img class="pt-shot" src="/assets/food/overhead-chicken.webp" width="800" height="600" alt="Overhead of chicken, broccoli and rice"/>
+      <div class="pt-hero-row">
+        <img src="/assets/food/overhead-salmon.webp" width="800" height="600" alt="Overhead of salmon, potatoes and beans"/>
+        <img src="/assets/food/overhead-oats.webp" width="800" height="600" alt="Overhead of oats, banana, eggs and spinach"/>
+      </div>
+    </aside>
   </div>
-  <p class="trust">A$39 a month for up to 10 clients, or A$79 a month unlimited. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
 </header>
 
 <section class="fm-section">
@@ -204,13 +226,15 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
         <div class="pt-badge">FitMunch Coach</div>
         <div class="pt-name">Up to 10 clients</div>
         <div class="pt-price">A$39<small> /mo</small></div>
-        <p class="pt-desc">For a personal trainer planning a smaller roster.</p>
+        <p class="pt-desc">For a roster of up to 10 active clients. The 11th client is blocked until you move to A$79.</p>
         <ul>
-          <li>Up to 10 clients</li>
-          <li>7-day meal plans from each client's targets</li>
-          <li>Draft list from public Woolworths, Coles and Aldi specials</li>
-          <li>PT-branded share link or PDF</li>
-          <li>14-day trial, card required</li>
+          <li>Up to 10 active clients</li>
+          <li>7-day plan from that client's kcal, protein, carbs, and fat targets</li>
+          <li>Dietary flags: vegetarian, vegan, gluten-free, dairy-free, nut-free</li>
+          <li>Household size, and one store: Woolworths, Coles, or Aldi</li>
+          <li>Practice name, accent colour, and logo</li>
+          <li>Share link or PDF for the client</li>
+          <li>14-day trial, card required. Cancel before the trial ends and you are not charged</li>
         </ul>
         <a class="fm-btn fm-btn-ink" href="/login.html?plan=coach-39#register" style="width:100%">Start the 14-day Coach trial</a>
       </div>
@@ -218,13 +242,15 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
         <div class="pt-badge">FitMunch Coach</div>
         <div class="pt-name">Unlimited clients</div>
         <div class="pt-price">A$79<small> /mo</small></div>
-        <p class="pt-desc">The same Coach tools, with no client cap.</p>
+        <p class="pt-desc">The same Coach tools, with no client cap. This is the tier once the roster passes 10 active clients.</p>
         <ul>
-          <li>Unlimited clients</li>
-          <li>7-day meal plans from each client's targets</li>
-          <li>Draft list from public Woolworths, Coles and Aldi specials</li>
-          <li>PT-branded share link or PDF</li>
-          <li>14-day trial, card required</li>
+          <li>No cap on active clients</li>
+          <li>The same 7-day plan from kcal, protein, carbs, and fat targets</li>
+          <li>The same dietary flags and household size</li>
+          <li>The same one-store list: Woolworths, Coles, or Aldi</li>
+          <li>The same practice name, accent colour, and logo</li>
+          <li>The same share link or PDF</li>
+          <li>14-day trial, card required. Cancel before the trial ends and you are not charged</li>
         </ul>
         <a class="fm-btn fm-btn-leaf coach-trial" href="/login.html?plan=coach-79#register" style="width:100%">Start the 14-day Coach trial</a>
       </div>
@@ -238,7 +264,7 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
     <h2>Common questions from PTs</h2>
     <div class="faq-item">
       <div class="faq-q">Do my clients need to pay for FitMunch?</div>
-      <div class="faq-a">No. Your clients get free access to the full FitMunch app: macro tracking, receipt scanner, shopping lists, progress sharing. You pay the PT subscription, they get the app for free.</div>
+      <div class="faq-a">You pay the Coach subscription. The client receives that week's plan through the share link or the PDF. That handoff is not a free FitMunch account.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">How does the receipt scanner work?</div>

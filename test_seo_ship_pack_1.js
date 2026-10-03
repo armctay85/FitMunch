@@ -68,7 +68,8 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(h1(res.text)).toBe('Budget meal planner Australia: cheap high-protein weeks from the receipt');
     expect(metaDescription(res.text)).toBe('Rank Woolies and Coles staples by protein per dollar, plan a cheap high-protein week, then score the haul. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/budget-meal-planner');
-    expect(res.text).toContain('$/25g protein');
+    expect(res.text).toContain('Staples that carry the protein');
+    expect(res.text).not.toContain('$/25g protein');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/haul-teardown"');
     expect(res.text).toContain('href="/shopper"');

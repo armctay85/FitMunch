@@ -284,6 +284,8 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
   color:var(--leaf2);font-weight:700;
 }
+.sp-hero-visual{display:grid;gap:8px;min-width:0}
+.sp-hero-visual > img{width:100%;height:240px;object-fit:cover;display:block;background:#102018}
 .ui-phone{display:none}
 .ui-phone-show{display:flex}
 .ui-phone,.ui-phone-show{
@@ -299,8 +301,9 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 .ui-phone li span,.ui-phone-show li span{font-weight:700}
 @media(min-width:1100px){
   .sp-hero{align-items:center}
-  .sp-hero-inner{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:36px;align-items:center}
-  .sp-hero .ui-phone{display:flex}
+  .sp-hero-inner{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(640px,1fr);gap:36px;align-items:center;width:min(1280px,100%)}
+  .sp-hero .ui-phone{display:none}
+  .sp-hero-visual > img{height:520px}
 }
 
 .sp-err{
