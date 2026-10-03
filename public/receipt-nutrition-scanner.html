@@ -217,7 +217,7 @@ try {
       const v = p.get(k); if (v) attr[k] = v;
     });
     if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
-    attr.landing = location.pathname + location.search.slice(0, 120);
+    attr.landing = location.pathname;
     if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
   }
 } catch {}
