@@ -31,6 +31,8 @@ struct PaywallView: View {
                 }
                 .padding(.vertical)
             }
+            .scrollClearsTabBar()
+            .background(Theme.surface)
             .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

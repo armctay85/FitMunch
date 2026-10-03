@@ -170,6 +170,8 @@ struct HomeView: View {
                     unit: "g"
                 )
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("today-rings")
         }
     }
 

@@ -39,7 +39,7 @@ struct MealPlanView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.five) {
                 OfflineNotice()
 
-                Text("Build a Woolies/Coles week from your targets.")
+                Text("Build a week from your calorie and protein targets.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -77,18 +77,9 @@ struct MealPlanView: View {
 
                 if let plan {
                     planSummary(plan)
+                        .accessibilityIdentifier("plan-preview")
                 } else if !isLoading {
-                    ContentUnavailableView {
-                        Label("No week yet", systemImage: "calendar")
-                    } description: {
-                        Text("Set your targets, then build a week of meals.")
-                    } actions: {
-                        Button("Build my week") {
-                            Task { await generate() }
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .accessibilityIdentifier("plan-build-week")
-                    }
+                    planEmptyState
                 }
             }
             .padding()
@@ -161,6 +152,31 @@ struct MealPlanView: View {
         }
     }
 
+    /// Symbol, explanation, and action. A lone button is not an empty state.
+    private var planEmptyState: some View {
+        VStack(spacing: Theme.Spacing.three) {
+            Image(systemName: "calendar")
+                .font(.system(size: 44))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Theme.brandGreen)
+            Text("No week yet")
+                .font(.title3.bold())
+            Text("Set your calorie and protein targets, then build a week of meals. Breakfast, lunch, dinner, and a snack show up here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Build my week") {
+                Task { await generate() }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("plan-build-week")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.six)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan-empty")
+    }
+
     private var generateButton: some View {
         Button {
             Task { await generate() }
@@ -222,7 +238,6 @@ struct MealPlanView: View {
                     "goal": goal,
                     "calories": Int(calories) ?? 2000,
                     "protein": Int(protein) ?? 150,
-                    "budget": 120,
                     "days": 7,
                 ],
                 as: MealPlanGenerateResponse.self

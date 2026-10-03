@@ -21,7 +21,7 @@ struct CoachView: View {
 
     private let suggestions = [
         "What should I eat tonight to hit my protein target?",
-        "Build me a cheap high-protein Woolies shop",
+        "Plan a high-protein week around my meals",
         "I keep snacking at 9pm. How do I stop?",
     ]
 

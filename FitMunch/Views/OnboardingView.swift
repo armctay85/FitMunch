@@ -49,6 +49,7 @@ struct OnboardingView: View {
                     }
                     .padding()
                 }
+                .scrollClearsTabBar()
                 
                 // Navigation buttons
                 HStack {
@@ -191,7 +192,6 @@ struct OnboardingView: View {
         VStack(spacing: 24) {
             PlanCard(
                 title: "Free",
-                price: "$0",
                 period: "forever",
                 features: [
                     "Log up to 3 meals per day",
@@ -205,7 +205,6 @@ struct OnboardingView: View {
             
             PlanCard(
                 title: "Premium",
-                price: "$9.99",
                 period: "per month",
                 features: [
                     "Unlimited meal logging",
@@ -259,7 +258,6 @@ private struct FeatureRow: View {
 /// Plan card for plan selection
 private struct PlanCard: View {
     let title: String
-    let price: String
     let period: String
     let features: [String]
     let isSelected: Bool
@@ -280,14 +278,9 @@ private struct PlanCard: View {
                     }
                 }
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(price)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    Text(period)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+                Text(period)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
                 
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(features, id: \.self) { feature in

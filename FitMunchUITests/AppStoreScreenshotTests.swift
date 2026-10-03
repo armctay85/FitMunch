@@ -8,7 +8,7 @@ final class AppStoreScreenshotTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = [ScreenshotLaunchArgument.flag, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared. Auth or onboarding leaked into screenshot mode.")
     }
@@ -52,9 +52,9 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
-            XCTAssertFalse(app.staticTexts["Budget $"].exists)
         case "settings":
-            XCTAssertTrue(app.staticTexts["No profile yet"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Sample profile"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Premium"].waitForExistence(timeout: 4))
             XCTAssertFalse(app.staticTexts["Alex Chen"].exists)
             XCTAssertFalse(app.staticTexts["Premium Subscriber"].exists)
             XCTAssertFalse(app.staticTexts["Free Tier"].exists)
