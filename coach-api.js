@@ -227,7 +227,11 @@ api.post('/plans', requirePt, async (req, res) => {
       if (!gate.allowed) {
         return res.status(403).json({ success: false, error: 'client_count_gate', gate });
       }
-      return res.status(403).json({ success: false, error: 'not_your_client', gate });
+      return res.status(403).json({
+        success: false,
+        error: 'not_your_client',
+        message: 'You cannot open a plan for that client.',
+      });
     }
     if (!gate.allowed) {
       return res.status(403).json({ success: false, error: 'client_count_gate', gate });
