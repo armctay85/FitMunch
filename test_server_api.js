@@ -1,6 +1,8 @@
 /**
  * HTTP-level checks for server.js (health, JSON 404 for unknown /api routes).
  */
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 
@@ -163,6 +165,60 @@ describe('Server API shell', () => {
     await request(app).get('/register').expect(301).expect('Location', '/login.html#register');
     await request(app).get('/auth').expect(301).expect('Location', '/login.html#register');
     await request(app).get('/register?plan=premium').expect(301).expect('Location', '/login.html?plan=premium#register');
+  });
+
+  it('login, app, and success pages send the same security headers as the rest of the site', async () => {
+    const headerNames = [
+      'content-security-policy',
+      'cross-origin-opener-policy',
+      'cross-origin-resource-policy',
+      'origin-agent-cluster',
+      'permissions-policy',
+      'referrer-policy',
+      'strict-transport-security',
+      'x-content-type-options',
+      'x-dns-prefetch-control',
+      'x-download-options',
+      'x-permitted-cross-domain-policies',
+      'x-xss-protection',
+    ];
+    const home = await request(app).get('/').expect(200);
+    const pages = [
+      { path: '/login', status: 301, referrer: 'no-referrer' },
+      { path: '/login.html', status: 200, referrer: 'no-referrer' },
+      { path: '/app', status: 302, referrer: home.headers['referrer-policy'] },
+      { path: '/app.html', status: 200, referrer: home.headers['referrer-policy'] },
+      { path: '/success.html', status: 200, referrer: home.headers['referrer-policy'] },
+      { path: '/checkout/success', status: 200, referrer: home.headers['referrer-policy'] },
+    ];
+    for (const page of pages) {
+      const res = await request(app).get(page.path).expect(page.status);
+      for (const name of headerNames) {
+        const expected = name === 'referrer-policy' ? page.referrer : home.headers[name];
+        expect(res.headers[name]).toBe(expected);
+      }
+    }
+
+    // public/*.html is served by the Vercel CDN before the rewrite, so Express
+    // never runs. vercel.json has to send the same header set for those files.
+    const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
+    for (const page of ['/login.html', '/app.html', '/success.html']) {
+      const merged = {};
+      for (const rule of vercel.headers) {
+        if (rule.source !== '/(.*)' && rule.source !== page) continue;
+        for (const header of rule.headers) merged[header.key.toLowerCase()] = header.value;
+      }
+      for (const name of headerNames) {
+        const expected = name === 'referrer-policy' && page === '/login.html'
+          ? 'no-referrer'
+          : home.headers[name];
+        expect(merged[name]).toBe(expected);
+      }
+    }
+    const loginRedirect = vercel.headers.find((rule) => rule.source === '/login');
+    expect(loginRedirect.headers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'Referrer-Policy', value: 'no-referrer' }),
+    ]));
   });
 });
 
