@@ -6,7 +6,21 @@ const store = require('./lib/coach-store');
 const fs = require('fs');
 const path = require('path');
 const { sanitizePlan, stripFragments, roundAmount } = require('./lib/sanitize-plan');
-const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
+
+const CATALOGUE = {
+  id: 'au-public-specials-2026-w35',
+  weekLabel: 'Catalogue week 25 to 31 Aug 2026',
+  validFrom: '2026-08-25',
+  validTo: '2026-08-31',
+};
+
+function priceEstimateNote(catalogue) {
+  const cat = catalogue || CATALOGUE;
+  if (cat.validFrom && cat.validTo) {
+    return `Estimated from public catalogue specials dated ${cat.validFrom}\u2013${cat.validTo}. Check prices at checkout.`;
+  }
+  return 'Estimated from public catalogue specials. Check prices at checkout.';
+}
 
 const CURRENT_NOTE = 'Prices vary by store and week.';
 const OLD_NOTE = priceEstimateNote(CATALOGUE);
@@ -209,7 +223,19 @@ describe('sanitizePlan', () => {
       'Bread half price': 'Bread',
       'Oats save 30%': 'Oats',
       'Beef on special': 'Beef',
-      'Coles specials': 'Coles',
+      'Coles specials': 'Coles specials',
+      'Chef specials pie': 'Chef specials pie',
+      'Cottage cheese AUD 3.50 save 30c': 'Cottage cheese',
+      'Pasta 99c': 'Pasta',
+      'Bananas 1/2 price': 'Bananas',
+      'Eggs 12 pack 2 for 1': 'Eggs 12 pack',
+      'Spinach buy one get one free': 'Spinach',
+      'Frozen berries week 36 deal': 'Frozen berries',
+      'Rice 25/08/2026': 'Rice',
+      'Bread loaf Aug 25 2026': 'Bread loaf',
+      'Cucumber (2026-W36)': 'Cucumber',
+      'Olive oil save 20 percent': 'Olive oil',
+      'Chicken 1.5kg': 'Chicken 1.5kg',
       'Week catalogue w35': 'Week',
       'Tag au-public-specials': 'Tag',
       'Dated 2026-08-25': 'Dated',
@@ -291,6 +317,8 @@ describe('sanitizePlan', () => {
     expect(roundAmount(80.4, 'g')).toBe(80);
     expect(roundAmount(0.484, 'each')).toBe(1);
     expect(roundAmount(1.2, 'each')).toBe(2);
+    expect(roundAmount(0.2, 'g')).toBe(1);
+    expect(roundAmount(0.4, 'ml')).toBe(1);
     const clean = sanitizePlan({
       days: [{
         meals: [{

@@ -37,6 +37,45 @@
   padding:88px clamp(20px,4vw,48px) clamp(28px,6vw,56px);
   box-sizing:border-box;
 }
+.sp-hero-list{
+  margin-top:28px;
+  background:rgba(4,16,10,.62);
+  border:1px solid rgba(125,255,163,.32);
+  padding:18px 16px 10px;
+  box-sizing:border-box;
+}
+.sp-hero-list-kicker{
+  margin:0;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:#7dffa3;
+}
+.sp-hero-list h2{
+  margin:14px 0 6px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.66rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#7dffa3;
+}
+.sp-hero-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:baseline;
+  padding:11px 12px;
+  margin:0 0 6px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+}
+.sp-hero-row span{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-weight:700;font-size:.95rem;letter-spacing:-.02em;line-height:1.25;
+  color:#f4f7f4;
+}
+.sp-hero-row b{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-weight:600;font-size:.72rem;letter-spacing:.01em;
+  color:#7dffa3;
+}
 .sp-kicker{
   display:inline-flex;
   font-family:'IBM Plex Mono',ui-monospace,monospace;
@@ -182,9 +221,9 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   margin-bottom:16px;
 }
 .sp-total{
-  font-family:'IBM Plex Mono',ui-monospace,monospace;
-  font-size:clamp(2.4rem,8vw,3.4rem);
-  font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:clamp(1.8rem,5vw,2.6rem);
+  font-weight:700;letter-spacing:-.04em;color:var(--leaf2);line-height:1;
 }
 .sp-total small{
   display:block;
@@ -218,16 +257,32 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 .sp-math span{font-size:.76rem;color:var(--mute)}
 
 .sp-lines{display:grid;gap:0}
+.sp-aisle h3{
+  margin:16px 0 0;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.95rem;
+  letter-spacing:-.02em;
+}
 .sp-line{
   display:grid;
-  grid-template-columns:1fr auto auto;
-  gap:10px;
-  align-items:baseline;
-  padding:10px 0;
-  border-bottom:1px dashed var(--line);
+  grid-template-columns:1fr minmax(140px,28ch);
+  gap:12px;
+  align-items:center;
+  padding:12px 14px;
+  margin-top:8px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-left:3px solid var(--leaf);
   font-size:.88rem;
 }
-.sp-line:last-child{border-bottom:0}
+.sp-guide{text-align:right}
+.sp-guide .aisle{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--leaf2);
+}
+.sp-guide .prot{font-weight:650;margin-top:2px}
+.sp-guide .swap{color:var(--mute);font-size:.76rem;margin-top:4px;line-height:1.35}
+.sp-line:last-child{border-bottom:1px solid var(--line)}
 .sp-line .n{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700}
 .sp-line .m{color:var(--mute);font-size:.76rem;margin-top:2px}
 .sp-line .st{
@@ -240,8 +295,6 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   font-weight:600;
   color:var(--ink);
 }
-.sp-special{color:var(--leaf2)}
-
 .sp-approve{
   display:flex;flex-wrap:wrap;gap:10px;align-items:center;
   margin-top:20px;
@@ -284,13 +337,29 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   margin:8px 0 0;
 }
 
+@media(min-width:1100px){
+  .sp-hero-inner{
+    width:100%;
+    max-width:none;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    column-gap:clamp(32px,4vw,72px);
+    align-items:stretch;
+  }
+  .sp-hero-list{
+    margin-top:0;
+    align-self:stretch;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+}
 @media(max-width:720px){
   .sp-week-strip{max-width:none}
   .sp-pricebar{font-size:.7rem}
   .sp-meals,.sp-rule,.sp-math{grid-template-columns:1fr}
-  .sp-line{grid-template-columns:1fr auto;gap:4px 10px}
-  .sp-line .st{grid-column:1}
-  .sp-line .p{grid-column:2;grid-row:1}
+  .sp-line{grid-template-columns:1fr;gap:6px}
+  .sp-guide{text-align:left}
   .fm-nav-links a:not(.fm-nav-cta){display:none}
 }
 /* Phone first fold: wrap Mon-Sun to two rows so Chicken/Pasta are not clipped. */
@@ -309,6 +378,7 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
   }
   .sp-ctas{display:grid;grid-template-columns:1fr}
   .sp-ctas .fm-btn{width:100%;max-width:100%;box-sizing:border-box}
+  .sp-hero-row{grid-template-columns:1fr;gap:4px}
 }
 @media(max-width:420px){
   .sp-hero h1{max-width:11ch}

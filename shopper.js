@@ -2,7 +2,7 @@
 
 /**
  * Fitness Butler shopper HTTP surface.
- * Public specials only. No trolley APIs. No Stripe grocery spend.
+ * One store. No trolley APIs. No Stripe grocery spend.
  */
 
 const express = require('express');
@@ -16,8 +16,9 @@ const DROP_KEYS = new Set([
   'assignedAud', 'assignedCents', 'goodsAud', 'tripAud', 'totalAud',
   'bestSingleAud', 'saveVsSingleAud', 'secondTripCostAud', 'secondTripCostCents',
   'aud', 'quotes', 'goodsCents', 'tripCents', 'totalCents', 'bestSingleCents',
-  'saveVsSingleCents', 'lineAud', 'unitAud', 'price', 'was',
-  'priceNote', 'reason', 'copyText', 'copyAll',
+  'saveVsSingleCents',   'lineAud', 'unitAud', 'price', 'was',
+  'split', 'extraTrips', 'bestSingleStore', 'bestSingleStoreName',
+  'wasPrice', 'salePrice', 'specialsUrl', 'retailerLink', 'tips',
 ]);
 
 function omitKeys(value) {
@@ -32,11 +33,14 @@ function omitKeys(value) {
 }
 
 function sendError(res, err) {
-  const status = err.code === 'unknown_week' ? 404 : 400;
+  const unknown = !!(err && err.code === 'unknown_week');
+  const status = unknown ? 404 : 500;
+  const error = unknown ? 'That week is not available.' : 'Could not build the list.';
+  console.error('[shopper]', err && err.code, err && err.message);
   return res.status(status).json({
     success: false,
-    error: err.message,
-    code: err.code || 'shopper_error',
+    error,
+    code: unknown ? 'unknown_week' : 'shopper_error',
   });
 }
 
@@ -45,9 +49,9 @@ router.get('/', (_req, res) => {
     success: true,
     service: 'fitmunch-fitness-butler-shopper',
     surface: '/shopper',
-    honesty: shopper.honestyClaims(),
+    honesty: shopper.publicHonesty(),
     endpoints: {
-      'GET /api/shopper/week': 'Worked week plus public specials catalogue meta',
+      'GET /api/shopper/week': 'Worked week',
       'POST /api/shopper/draft': 'Commit the week and write a draft trolley',
       'POST /api/shopper/approve': 'Approve the draft and return a takeaway checkout',
     },
@@ -62,9 +66,9 @@ router.post('/draft', (req, res) => {
   try {
     const draft = omitKeys(shopper.buildDraft({
       weekId: req.body && req.body.weekId,
-      secondTripCostAud: req.body && req.body.secondTripCostAud,
+      preferredStore: req.body && (req.body.preferredStore || req.body.storeId),
     }));
-    res.json({ success: true, draft });
+    res.json({ success: true, priceNote: shopper.CHECKOUT_LINE, draft });
   } catch (err) {
     sendError(res, err);
   }
@@ -74,9 +78,9 @@ router.post('/approve', (req, res) => {
   try {
     const trolley = omitKeys(shopper.approveDraft({
       weekId: req.body && req.body.weekId,
-      secondTripCostAud: req.body && req.body.secondTripCostAud,
+      preferredStore: req.body && (req.body.preferredStore || req.body.storeId),
     }));
-    res.json({ success: true, trolley });
+    res.json({ success: true, priceNote: shopper.CHECKOUT_LINE, trolley });
   } catch (err) {
     sendError(res, err);
   }

@@ -140,7 +140,6 @@ describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
     ['/demo', ['92', '987']],
     ['/haul-teardown', ['92', '987']],
     ['/receipt-nutrition-scanner', ['92', '987']],
-    ['/pricing', ['92']],
   ];
 
   it.each(surfaces)('%s labels those numbers as an example', async (route, tokens) => {
@@ -150,6 +149,11 @@ describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
     }
     expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+  });
+
+  it('pricing does not carry the worked haul score line', async () => {
+    const res = await request(app).get('/pricing').expect(200);
+    expect(res.text).not.toContain('92 haul score and 987g protein on a labelled Example shop');
   });
 });
 
@@ -162,7 +166,7 @@ describe('Trust bar 7: receipt photo story matches the scanner', () => {
 
   it('privacy, terms, FAQ, and support say the photo is discarded on FitMunch servers', async () => {
     const privacy = await request(app).get('/privacy').expect(200);
-    expect(privacy.text).toContain('does not keep the original receipt photo');
+    expect(privacy.text).toContain("We don't keep the original photo on our servers after the scan.");
     expect(privacy.text).not.toContain('Original receipt images are stored securely');
 
     const terms = await request(app).get('/terms').expect(200);

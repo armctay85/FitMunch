@@ -69,7 +69,7 @@ describe('Server API shell', () => {
     expect(terms.text).not.toContain('Refunds are available within 7 days');
 
     const privacy = await request(app).get('/privacy').expect(200);
-    expect(privacy.text).toContain('does not keep the original receipt photo');
+    expect(privacy.text).toContain("We don't keep the original photo on our servers after the scan.");
     expect(privacy.text).not.toContain('Original receipt images are stored securely');
 
     const pts = await request(app).get('/for-pts').expect(200);

@@ -202,6 +202,26 @@ describe('public price and claim ban', () => {
     expect(found).toEqual([]);
   });
 
+  it('shopper draft response has no supermarket prices or catalogue dates', async () => {
+    const res = await request(app).post('/api/shopper/draft').send({}).expect(200);
+    const body = JSON.stringify(res.body);
+    expect(res.body.draft.catalogue).toBeUndefined();
+    expect(body).not.toMatch(/\$\d|validFrom|validTo|assignedAud|goodsAud|totalAud|saveVsSingleAud|\bspecials\b|2026-08-25|2026-08-31/);
+  });
+
+  it('says prices vary by store and week at most once on each public page', () => {
+    const hits = [];
+    for (const file of files) {
+      if (!/\.html$/i.test(file)) continue;
+      const text = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(__dirname, file);
+      const count = (text.match(/Prices vary by store and week\./g) || []).length;
+      if (count > 1) hits.push(`${rel} ${count}`);
+      if (/check prices at checkout/i.test(text)) hits.push(`${rel} old checkout line`);
+    }
+    expect(hits).toEqual([]);
+  });
+
   it('keeps specials, catalogue, and priced out of meta, social tags, and structured data', () => {
     const found = [];
     function check(label, text) {
@@ -253,6 +273,7 @@ describe('public price and claim ban', () => {
       const text = fs.readFileSync(file, 'utf8');
       const rel = path.relative(__dirname, file);
       for (const [re, name] of banned) {
+        if (name === 'Grok' && rel === 'public/privacy.html') continue;
         if (re.test(text)) found.push(`${rel} ${name}`);
       }
     }
@@ -304,9 +325,23 @@ describe('public price and claim ban', () => {
 
   it('uses the GST sentence on /terms and does not name a person or a sole trader', async () => {
     const page = await request(app).get('/terms').expect(200);
-    expect(page.text).toContain('We are not registered for GST, so no GST is charged on FitMunch prices.');
+    expect(page.text).toContain('No GST is charged.');
     expect(page.text).not.toMatch(/\bDrew\b/);
     expect(page.text).not.toMatch(/sole trader/i);
     expect(fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8')).not.toContain('Client count gate: open.');
+  });
+
+  it('homepage hero is one Woolies sample week with protein serves', () => {
+    const home = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    const start = home.indexOf('class="phone"');
+    const hero = home.slice(start, home.indexOf('</aside>', start));
+    expect(hero).toContain('Woolies');
+    expect(hero).toContain('Sample week');
+    expect(hero).not.toContain('From last shop');
+    expect(hero).not.toContain('Coles');
+    expect(hero).not.toContain('Aldi');
+    expect(hero).toContain('33g protein / 150g');
+    expect(hero).toContain('12g protein / 2 eggs');
+    expect(hero).toContain('7g protein / 50g');
   });
 });

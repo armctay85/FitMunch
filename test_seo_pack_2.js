@@ -54,6 +54,7 @@ describe('SEO pack 2: new search landers', () => {
       expect(html).toContain('14-day trial, then A$19.99 a month');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
       expect(html).toContain('Prices vary by store and week.');
+      expect(html).not.toContain('public catalogue specials');
       expect(html).toMatch(/check out/i);
       expect(html).toContain('"@type": "FAQPage"');
       expect(html).toContain('The FitMunch team');

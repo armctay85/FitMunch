@@ -129,27 +129,30 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     }
 
     let rawItems;
-    let scannerProvider = 'gemini';
-    let scannerWarning = null;
-      try {
-        rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
-      } catch (visionErr) {
-        scannerProvider = 'fallback';
-        scannerWarning = visionErr.message;
-        rawItems = core.fallbackReceiptItems();
-      }
+    try {
+      rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
+    } catch (visionErr) {
+      console.info('[receipt-scan]', JSON.stringify({
+        event: 'scan_unreadable',
+        userId: req.user?.userId || null,
+        warning: String(visionErr.message || '').replace(/GEMINI[^\s]*/ig, 'provider').slice(0, 160),
+      }));
+      return res.status(422).json({
+        success: false,
+        error: core.SCAN_READ_FAIL,
+        retry: true,
+      });
+    }
 
     const payload = core.buildScanPayload(rawItems, {
       guest: false,
-      scannerProvider,
-      scannerWarning,
+      scannerProvider: 'gemini',
     });
     console.info('[receipt-scan]', JSON.stringify({
-      event: scannerProvider === 'fallback' ? 'scan_fallback' : 'scan_success',
-      provider: scannerProvider,
+      event: 'scan_success',
+      provider: 'gemini',
       itemCount: payload.itemCount,
       userId: req.user?.userId || null,
-      warning: scannerWarning ? String(scannerWarning).slice(0, 160) : null,
     }));
     res.json(payload);
 

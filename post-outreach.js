@@ -46,7 +46,7 @@ FitMunch: PT client management platform
 ✅ Servers in AU (no lag)
 ✅ 14-day free trial
 
-Compared to TrueCoach (~$140 AUD/mo) and PT Distinction (no mobile app at all) — we're cheaper and actually built for how Aussie PTs work.
+Compared to TrueCoach (~$140 AUD/mo) and PT Distinction (no mobile app at all), FitMunch is built for how Aussie PTs work.
 
 fitmunch.com.au`
   },

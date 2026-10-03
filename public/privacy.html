@@ -11,8 +11,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+  body.fm-privacy .fm-doc p,
+  body.fm-privacy .fm-doc li{color:#1a2822}
+</style>
 </head>
-<body class="fm-body">
+<body class="fm-body fm-privacy">
 
 <nav class="fm-nav">
   <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
@@ -20,54 +24,71 @@
     <a href="/#loop">How it works</a>
     <a href="/pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
-    <a class="fm-nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
+    <a class="fm-nav-cta" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a>
   </div>
 </nav>
 
 <main class="fm-doc">
 <a class="fm-back" href="/">&larr; FitMunch</a>
 <h1>Privacy Policy</h1>
-<p><em>Last updated: May 2026</em></p>
+<p><em>Last updated: October 2026</em></p>
 
 <h2>1. What we collect</h2>
-<p><strong>Account data:</strong> email address, name (if provided), and account preferences when you sign up.</p>
-<p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to an AI processor to extract item names, quantities, and prices. FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
-<p><strong>Food and nutrition data:</strong> meals you log, foods you add to your pantry, shopping lists you create, meal plans you build, and nutrition preferences you set.</p>
-<p><strong>Usage data:</strong> pages visited, features used, and anonymised interaction data to improve FitMunch.</p>
-<p><strong>PT/client relationship data:</strong> if you connect with a personal trainer through FitMunch, your trainer may view shared nutrition and meal plan data you've opted into sharing.</p>
+<p>Everything below is linked to your FitMunch account, so it is personal information. We don't use it to track you across other companies' apps or websites, we don't sell it, and we don't use advertising or tracking tools.</p>
+<div class="fm-table-wrap">
+<table class="fm-privacy-table">
+<thead><tr><th scope="col">Data</th><th scope="col">What it is</th><th scope="col">Linked to you</th><th scope="col">Used to track you</th><th scope="col">Why we use it</th></tr></thead>
+<tbody>
+<tr><td data-label="Data">Name</td><td data-label="What it is">The name you give when you sign up (optional on the website).</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your account</td></tr>
+<tr><td data-label="Data">Email address</td><td data-label="What it is">Your sign-in email. We also use it for billing and support messages.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your account</td></tr>
+<tr><td data-label="Data">Health (food and nutrition)</td><td data-label="What it is">Meals, foods and macros you log or save, and your nutrition goals and preferences. This is not Apple Health or HealthKit data.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run the app, and to personalise meal suggestions and nutrition insights</td></tr>
+<tr><td data-label="Data">Photos</td><td data-label="What it is">Receipt photos you choose to scan while signed in. We don't keep the original photo on our servers after the scan.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To read your receipt</td></tr>
+<tr><td data-label="Data">User ID</td><td data-label="What it is">Your FitMunch account ID.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your account, and for subscription analytics (customer history and charts in RevenueCat (United States))</td></tr>
+<tr><td data-label="Data">Purchase history</td><td data-label="What it is">Your FitMunch subscriptions and trials: App Store purchases through RevenueCat (United States), website purchases through Stripe (United States).</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run your subscription, and for subscription analytics</td></tr>
+<tr><td data-label="Data">Product interaction</td><td data-label="What it is">How many AI features you use each month (receipt scans, Coach, meal plans), so the free limit can apply.</td><td data-label="Linked to you">Yes</td><td data-label="Used to track you">No</td><td data-label="Why we use it">To run the app</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Website-only data:</strong> shopping lists, pantry items and meal plans you create on fitmunch.com.au are saved to your account. The public website also records page views and button clicks with FitMunch's own script. Each event carries a session id stored in the browser for that visit, plus the path of the page. It is not tied to your account or your email, and it is not used to track you across other companies' apps or websites. We do not load a third-party analytics script.</p>
+<p><strong>Trainer sharing:</strong> if you connect with a personal trainer through FitMunch, your trainer can see the nutrition and meal plan data you choose to share.</p>
+<p><strong>What we don't collect:</strong> location, contacts, your device's advertising ID, Apple Health or HealthKit data, or your card number (Apple or Stripe (United States) take payment details). In the iOS app, workout logs stay on your phone.</p>
 
 <h2>2. How we use your data</h2>
 <ul>
 <li>To provide the FitMunch service: receipt scanning, meal planning, nutrition tracking, shopping lists, pantry management.</li>
+<li>For subscription analytics: RevenueCat (United States) customer history and charts, tied to your user ID. Website card payments go through Stripe (United States).</li>
 <li>To improve our AI extraction and food matching accuracy.</li>
 <li>To communicate service updates, billing, and support responses.</li>
 <li>To personalise your experience: meal suggestions, nutrition insights, and food recommendations.</li>
 </ul>
-<p>We do not sell your personal data to third parties.</p>
+<p>None of this is used for ads or tracking. We do not sell your personal data.</p>
 
 <h2>3. AI and automated processing</h2>
-<p>FitMunch uses AI to extract items from receipt images and match them to nutrition data. The photo is sent to our AI provider for that scan, then discarded on FitMunch servers. Extracted text and macros may be stored if you save them to your account.</p>
+<p>When you scan a receipt while signed in, the photo is tied to your account and sent to an AI provider so it can read the items. We don't keep the original photo on our servers after the scan. Extracted meals and macros stay on the account if you save them.</p>
+<p>The app can call Google Gemini, xAI (Grok, United States), OpenAI (United States), and Anthropic (United States). Google Gemini is the AI receipt reader. Where a country is not named in the provider's docs, data may be processed outside Australia, including the United States.</p>
 
 <h2>4. Data storage and security</h2>
-<p>Your data is stored on secure cloud infrastructure with encryption at rest and in transit. We use industry-standard security practices and regularly review our systems.</p>
+<p>FitMunch is hosted on Vercel. FitMunch runs in Sydney, Australia. Account data is stored with Neon (database hosting, Amazon Web Services us-east-1, United States). We encrypt data in transit and review access to the account.</p>
 
 <h2>5. Data sharing</h2>
 <p>We share data only:</p>
 <ul>
 <li>With your personal trainer, if you've connected your account and opted into sharing.</li>
-<li>With our service providers (hosting, AI processing, payment processing via Stripe) under data processing agreements.</li>
+<li>With service providers who run FitMunch for us: Vercel, which hosts the app, Neon, which hosts the database, Stripe (United States) for card payments on the website, RevenueCat (United States) for App Store purchases, Resend (United States) for welcome and password reset emails, Google Gemini, xAI (Grok, United States), OpenAI (United States), and Anthropic (United States).</li>
 <li>When required by law or to protect our rights.</li>
 </ul>
+<p>Australian Privacy Principle 8 (APP 8) applies when personal information is disclosed to an overseas recipient.</p>
+<p>Vercel runs this app in Sydney, Australia. Neon hosts the database in the United States. Welcome emails and password reset emails go through Resend (United States). Website card payments go through Stripe (United States). App Store purchases go through RevenueCat (United States).</p>
+<p>The same kind of request can go to xAI (Grok, United States), OpenAI (United States), and Anthropic (United States).</p>
 
 <h2>6. Your rights</h2>
 <p>You can:</p>
 <ul>
 <li>Access your data by emailing <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</li>
 <li>Request deletion of your account and all associated data.</li>
-<li>Opt out of AI-based receipt processing at any time.</li>
-<li>Export your meal plans, food logs, and pantry data.</li>
 <li>Withdraw PT sharing at any time from your account settings.</li>
 </ul>
+<p>Complaints: contact <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a> first. If you're not satisfied, you can complain to the Office of the Australian Information Commissioner (<a href="https://www.oaic.gov.au">oaic.gov.au</a>).</p>
 
 <h2>7. Cookies</h2>
 <p>We use essential cookies for authentication and session management. We do not use advertising or tracking cookies.</p>
@@ -82,7 +103,7 @@
 <p>Privacy questions: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
 <p>Data deletion requests: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a></p>
 
-<p style="margin-top:32px;color:var(--mute2);font-size:.9rem">FitMunch provides general food planning support. It is not a medical device and does not provide medical advice.</p>
+<p style="margin-top:32px;font-size:.9rem">FitMunch provides general food planning support. It is not a medical device and does not provide medical advice.</p>
 </main>
 
 <footer class="fm-footer">

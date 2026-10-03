@@ -3,7 +3,8 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// App Store screenshot capture only. Launch the UI test with `-AppStoreScreenshots`.
+/// Example meals for App Store screenshots only. Not a production session.
+/// Launch the UI test with `-AppStoreScreenshots`.
 /// Seeds real SwiftUI screens (Home, Coach, Scan, Plan, Settings) with no prices,
 /// no Free / trial copy, and no paywall. Never used for production sessions.
 /// App Review / UITest path: logged-in free user so Upgrade and Scan are tappable.

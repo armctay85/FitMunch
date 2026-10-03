@@ -225,7 +225,7 @@
                 throw new Error(data.error || 'Could not read that receipt. Try a flatter photo in better light.');
               }
               if (data.scannerProvider === 'fallback' || (data.items || []).some(function (i) {
-                return i.confidence === 'sample-fallback';
+                return String(i.confidence || '').indexOf('sample') === 0;
               })) {
                 throw new Error('Could not read that receipt. Try a flatter photo in better light.');
               }
