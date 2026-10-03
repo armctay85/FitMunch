@@ -2533,124 +2533,26 @@ window.regenerateWorkoutPlan = function() {
 class SupermarketAPI {
   constructor() {
     this.stores = ['Woolworths', 'Coles', 'Aldi'];
-    this.mockPrices = {
-      "Chicken Breast": { woolworths: 12.50, coles: 11.90, aldi: 10.99 },
-      "Greek Yogurt": { woolworths: 5.50, coles: 5.80, aldi: 4.99 },
-      "Salmon": { woolworths: 32.00, coles: 30.50, aldi: 29.99 },
-      "Sweet Potato": { woolworths: 4.50, coles: 4.20, aldi: 3.99 },
-      "Broccoli": { woolworths: 8.90, coles: 9.20, aldi: 7.99 },
-      "Quinoa": { woolworths: 7.50, coles: 8.00, aldi: 6.99 },
-      "Brown Rice": { woolworths: 5.40, coles: 5.20, aldi: 4.49 },
-      "Oats": { woolworths: 5.00, coles: 4.80, aldi: 4.29 },
-      "Eggs": { woolworths: 7.20, coles: 6.90, aldi: 6.49 },
-      "Banana": { woolworths: 4.90, coles: 4.50, aldi: 3.99 }
-    };
   }
 
   getProductPrice(productName) {
-    // Find exact or approximate match
-    const productKey = Object.keys(this.mockPrices).find(key =>
-      key.toLowerCase().includes(productName.toLowerCase()) ||
-      productName.toLowerCase().includes(key.toLowerCase())
-    );
-
-    if (productKey) {
-      const storeIndex = Math.floor(Math.random() * this.stores.length);
-      const store = this.stores[storeIndex];
-      const storeKey = store.toLowerCase();
-      const price = this.mockPrices[productKey][storeKey] ||
-        (Math.floor(Math.random() * 1000) / 100 + 3).toFixed(2);
-
-      return {
-        product: productName,
-        store: store,
-        price: parseFloat(price),
-        unit: 'per item'
-      };
-    } else {
-      // Random price for unknown products
-      const storeIndex = Math.floor(Math.random() * this.stores.length);
-      const price = (Math.floor(Math.random() * 1000) / 100 + 3).toFixed(2);
-
-      return {
-        product: productName,
-        store: this.stores[storeIndex],
-        price: parseFloat(price),
-        unit: 'per item'
-      };
-    }
+    return { product: productName, store: null, price: null, note: 'Check prices at checkout.' };
   }
 
   comparePrices(productName) {
-    const productKey = Object.keys(this.mockPrices).find(key =>
-      key.toLowerCase().includes(productName.toLowerCase()) ||
-      productName.toLowerCase().includes(key.toLowerCase())
-    );
-
-    if (productKey) {
-      const wPrice = this.mockPrices[productKey].woolworths;
-      const cPrice = this.mockPrices[productKey].coles;
-      const cheapest = wPrice <= cPrice ? 'Woolworths' : 'Coles';
-
-      return {
-        product: productKey,
-        woolworths: {
-          price: wPrice.toFixed(2),
-          unit: 'per pack'
-        },
-        coles: {
-          price: cPrice.toFixed(2),
-          unit: 'per pack'
-        },
-        cheapest: cheapest,
-        savings: Math.abs(wPrice - cPrice).toFixed(2)
-      };
-    } else {
-      // Generate random prices for unknown products
-      const wPrice = (Math.floor(Math.random() * 1000) / 100 + 3).toFixed(2);
-      const cPrice = (Math.floor(Math.random() * 1000) / 100 + 3).toFixed(2);
-      const cheapest = parseFloat(wPrice) <= parseFloat(cPrice) ? 'Woolworths' : 'Coles';
-
-      return {
-        product: productName,
-        woolworths: {
-          price: wPrice,
-          unit: 'per pack'
-        },
-        coles: {
-          price: cPrice,
-          unit: 'per pack'
-        },
-        cheapest: cheapest,
-        savings: Math.abs(parseFloat(wPrice) - parseFloat(cPrice)).toFixed(2)
-      };
-    }
+    return { product: productName, note: 'Check prices at checkout.' };
   }
 
-  // Enhanced method for use in shopping list display
+  async compareProductPrices(productName) {
+    return this.comparePrices(productName);
+  }
+
   async getPricedShoppingList(items) {
     if (!Array.isArray(items)) return [];
-
-    const pricedItems = await Promise.all(items.map(async (item) => {
-      try {
-        const priceInfo = await this.compareProductPrices(item.name);
-        return {
-          ...item,
-          priceInfo: priceInfo,
-          bestPrice: `$${priceInfo.cheapest === 'Woolworths' ?
-            priceInfo.woolworths.price : priceInfo.coles.price}`,
-          bestStore: priceInfo.cheapest,
-          savings: priceInfo.savings
-        };
-      } catch (error) {
-        console.error(`Error getting price for ${item.name}:`, error);
-        return item;
-      }
-    }));
-
-    return pricedItems;
+    return items.map((item) => ({ ...item, note: 'Check prices at checkout.' }));
   }
 }
+
 
 // Initialize SupermarketAPI
 window.supermarketAPI = new SupermarketAPI();

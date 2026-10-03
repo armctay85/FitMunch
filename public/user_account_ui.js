@@ -144,12 +144,12 @@ class UserAccountUI {
       <div class="account-overview">
         <div class="user-info">
           <div class="avatar-container">
-            <img src="https://via.placeholder.com/150" alt="Profile" class="user-avatar">
+            <div class="user-avatar" aria-hidden="true"></div>
             <button class="edit-avatar-btn">Change</button>
           </div>
           <div class="user-details">
-            <h3 id="user-name">User Name</h3>
-            <p id="user-email">user@example.com</p>
+            <h3 id="user-name"></h3>
+            <p id="user-email"></p>
             <p id="account-type">Free Plan</p>
           </div>
         </div>

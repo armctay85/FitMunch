@@ -170,6 +170,6 @@ class SettingsViewModel: ObservableObject {
     
     /// Get user's email (from UserDefaults or default)
     var userEmail: String {
-        return UserDefaults.standard.string(forKey: "userEmail") ?? "user@example.com"
+        return UserDefaults.standard.string(forKey: "userEmail") ?? ""
     }
 }

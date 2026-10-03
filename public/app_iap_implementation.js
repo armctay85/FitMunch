@@ -702,7 +702,7 @@ class FitMunchIAP {
       // Simulate processing time
       setTimeout(() => {
         // 90% success rate for demo
-        const success = Math.random() <= 0.9;
+        const success = false;
         
         if (success) {
           const transaction = {
@@ -800,7 +800,7 @@ class FitMunchIAP {
             id: `web_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
             productId: product.id,
             timestamp: Date.now(),
-            customerEmail: 'user@example.com',
+            customerEmail: '',
             paymentMethod: 'card'
           };
           

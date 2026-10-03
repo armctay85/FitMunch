@@ -12,96 +12,14 @@ class RecipeManager {
 
   initialize() {
     console.log("Initializing Recipe Manager...");
-    this.loadSampleRecipes();
     this.setupRecipeEventListeners();
   }
 
   // Generate personalized recipes based on goals
-  generatePersonalizedRecipes(goalType = 'Maintenance', dietaryRestrictions = []) {
-    const recipes = [];
-    const calorieTargets = {
-      'Weight Loss': { breakfast: 300, lunch: 400, dinner: 500, snack: 200 },
-      'Maintenance': { breakfast: 400, lunch: 500, dinner: 600, snack: 300 },
-      'Muscle Gain': { breakfast: 500, lunch: 600, dinner: 700, snack: 400 }
-    };
-
-    const target = calorieTargets[goalType] || calorieTargets['Maintenance'];
-
-    // Breakfast recipes
-    recipes.push({
-      id: 'recipe_001',
-      name: 'Protein Power Oatmeal',
-      category: 'Breakfast',
-      calories: target.breakfast,
-      protein: Math.round(target.breakfast * 0.25 / 4),
-      carbs: Math.round(target.breakfast * 0.45 / 4),
-      fat: Math.round(target.breakfast * 0.30 / 9),
-      prepTime: '10 minutes',
-      difficulty: 'Easy',
-      servings: 1,
-      ingredients: [
-        { name: 'Rolled oats', amount: '1/2 cup', price: 0.50 },
-        { name: 'Protein powder', amount: '1 scoop', price: 1.20 },
-        { name: 'Banana', amount: '1 medium', price: 0.80 },
-        { name: 'Almond milk', amount: '1 cup', price: 0.60 },
-        { name: 'Chia seeds', amount: '1 tbsp', price: 0.40 }
-      ],
-      instructions: [
-        'Heat almond milk in a saucepan over medium heat',
-        'Add rolled oats and cook for 5 minutes, stirring occasionally',
-        'Remove from heat and stir in protein powder',
-        'Top with sliced banana and chia seeds',
-        'Serve warm and enjoy!'
-      ],
-      nutrition: {
-        fiber: 8,
-        sugar: 15,
-        sodium: 120
-      },
-      tags: ['High Protein', 'Breakfast', 'Quick'],
-      dietary: dietaryRestrictions.includes('Vegan') ? ['Vegan'] : ['Vegetarian']
-    });
-
-    // Lunch recipes
-    recipes.push({
-      id: 'recipe_002',
-      name: 'Quinoa Power Bowl',
-      category: 'Lunch',
-      calories: target.lunch,
-      protein: Math.round(target.lunch * 0.30 / 4),
-      carbs: Math.round(target.lunch * 0.40 / 4),
-      fat: Math.round(target.lunch * 0.30 / 9),
-      prepTime: '20 minutes',
-      difficulty: 'Medium',
-      servings: 1,
-      ingredients: [
-        { name: 'Quinoa', amount: '1/2 cup dry', price: 1.20 },
-        { name: 'Chicken breast', amount: '150g', price: 4.50 },
-        { name: 'Sweet potato', amount: '1 medium', price: 1.00 },
-        { name: 'Spinach', amount: '2 cups', price: 1.50 },
-        { name: 'Avocado', amount: '1/2 medium', price: 1.25 },
-        { name: 'Olive oil', amount: '1 tbsp', price: 0.30 }
-      ],
-      instructions: [
-        'Cook quinoa according to package instructions',
-        'Season and grill chicken breast until cooked through',
-        'Roast diced sweet potato at 400°F for 25 minutes',
-        'Massage spinach with a little olive oil',
-        'Assemble bowl with quinoa, chicken, sweet potato, spinach, and avocado',
-        'Drizzle with remaining olive oil and season to taste'
-      ],
-      nutrition: {
-        fiber: 12,
-        sugar: 8,
-        sodium: 200
-      },
-      tags: ['Complete Meal', 'High Protein', 'Balanced'],
-      dietary: ['Gluten-Free']
-    });
-
-    // Smart recipe suggestions based on available ingredients
-    return this.filterRecipesByDietaryRestrictions(recipes, dietaryRestrictions);
+  generatePersonalizedRecipes() {
+    return [];
   }
+
 
   // Recipe search and filtering
   searchRecipes(query, filters = {}) {
@@ -140,14 +58,10 @@ class RecipeManager {
   }
 
   // Recipe cost calculator
-  calculateRecipeCost(recipe) {
-    const totalCost = recipe.ingredients.reduce((sum, ingredient) => sum + ingredient.price, 0);
-    return {
-      totalCost: totalCost.toFixed(2),
-      costPerServing: (totalCost / recipe.servings).toFixed(2),
-      costPerCalorie: (totalCost / recipe.calories).toFixed(4)
-    };
+  calculateRecipeCost(_recipe) {
+    return { note: 'Check prices at checkout.' };
   }
+
 
   // Meal prep suggestions
   generateMealPrepPlan(recipes, days = 7) {
@@ -160,20 +74,16 @@ class RecipeManager {
 
     recipes.forEach(recipe => {
       const multiplier = Math.ceil(days / recipe.servings);
-      const cost = this.calculateRecipeCost(recipe);
-      plan.totalCost += parseFloat(cost.totalCost) * multiplier;
-
+      
       // Aggregate shopping list
       recipe.ingredients.forEach(ingredient => {
         const key = ingredient.name;
         if (plan.shoppingList.has(key)) {
           const existing = plan.shoppingList.get(key);
           existing.amount += ` + ${ingredient.amount}`;
-          existing.totalPrice += ingredient.price * multiplier;
-        } else {
+                  } else {
           plan.shoppingList.set(key, {
             ...ingredient,
-            totalPrice: ingredient.price * multiplier
           });
         }
       });
@@ -250,8 +160,7 @@ class RecipeManager {
   }
 
   loadSampleRecipes() {
-    // Load sample recipes for demonstration
-    this.recipes = this.generatePersonalizedRecipes('Maintenance', []);
+    this.recipes = [];
   }
 
   setupRecipeEventListeners() {

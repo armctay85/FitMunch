@@ -336,10 +336,9 @@ describe('Meal Planning Tests', () => {
     // Call the function
     generateMealPlan();
     
-    // Check if meal plan was generated with correct content
-    expect(mealDisplay.innerHTML).toContain('Meal Plan');
-    expect(mealCaloriesEl.textContent).toBeTruthy();
-    expect(mealProteinEl.textContent).toBeTruthy();
+    expect(mealDisplay.innerHTML).toContain('No meal plan yet');
+    expect(mealCaloriesEl.textContent).toBe('');
+    expect(mealProteinEl.textContent).toBe('');
   });
   
   test('updateShoppingList should populate shopping list based on meal plan', async () => {

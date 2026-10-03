@@ -163,77 +163,9 @@ class UserAccount {
 
   // Log in with Google
   async loginWithGoogle() {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
-    try {
-      // In a real implementation, this would integrate with Google Sign-In
-      console.log("Initiating Google Sign-In...");
-
-      // Simulate Google Sign-In process
-      const googleUser = {
-        id: 'google_' + Date.now(),
-        name: 'Google User',
-        email: 'google_user@example.com',
-        profile: 'https://example.com/profile.jpg'
-      };
-
-      // Check if user already exists
-      let userId = Object.keys(this.userProfiles).find(
-        id => this.userProfiles[id].email === googleUser.email
-      );
-
-      if (!userId) {
-        // Create new user if not exists
-        userId = 'user_' + Date.now();
-        this.userProfiles[userId] = {
-          id: userId,
-          name: googleUser.name,
-          email: googleUser.email,
-          profilePicture: googleUser.profile,
-          googleId: googleUser.id,
-          createdAt: new Date().toISOString(),
-          preferences: {
-            theme: 'light',
-            notifications: true,
-            units: 'metric'
-          },
-          subscription: {
-            plan: 'free',
-            expiresAt: null
-          }
-        };
-      }
-
-      // Set current user
-      this.currentUser = this.userProfiles[userId];
-      this.authProvider = 'google';
-
-      // Generate auth token
-      this.authToken = 'google_token_' + Date.now();
-
-      // Store in local storage
-      this.saveUserToStorage();
-
-      // Notify listeners
-      this.notifyListeners({type: 'login', provider: 'google', user: this.currentUser});
-
-      console.log(`User logged in with Google: ${this.currentUser.name}`);
-
-      return {
-        success: true,
-        user: this.currentUser
-      };
-    } catch (error) {
-      console.error("Google login failed:", error);
-
-      return {
-        success: false,
-        error: error.message
-      };
-    }
+    return { success: false, error: 'Google sign-in is not available.' };
   }
+
 
   // Logout
   logout(notifyServer = true) {
