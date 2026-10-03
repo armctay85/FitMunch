@@ -57,10 +57,10 @@ describe('PRE-ASC device audit gate', () => {
     expect(camera).not.toContain('isSourceTypeAvailable');
   });
 
-  it('archives build 9 and unit-tests the processed camera plist', () => {
+  it('archives build 10 and unit-tests the processed camera plist', () => {
     expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
-    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=9\s*\\/);
-    expect(archive).toMatch(/expected 9/);
+    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=10\s*\\/);
+    expect(archive).toMatch(/expected 10/);
     expect(archive).not.toMatch(/submit-for-review|SubmitForReview/);
     expect(project).toContain('FitMunchTests');
     expect(catalogTests).toContain('fitmunch_monthly');
@@ -81,6 +81,10 @@ describe('PRE-ASC device audit gate', () => {
     expect(storekit).toContain('19.99');
     expect(storekit).toContain('149.99');
     expect(storekit).not.toContain('fitmunch_weekly');
+    expect(storekit).not.toContain('"introductoryOffer" : null');
+    expect(storekit).toContain('"_disableDialogs" : false');
+    expect(storekit.split('"subscriptionPeriod" : "P14D"').length - 1).toBe(2);
+    expect(storekit.split('"paymentMode" : "free"').length - 1).toBe(2);
     const runner = read('scripts/run-pre-asc-ci-tests.sh');
     expect(runner).toContain('iPad Air 11-inch (M3)');
     expect(runner).toContain('iPhone 14');

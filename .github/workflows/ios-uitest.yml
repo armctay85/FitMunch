@@ -159,7 +159,7 @@ jobs:
             fi
             simroot="$HOME/Library/Developer/CoreSimulator/Devices/$udid"
             if [[ -d "$simroot" ]]; then
-              find "$simroot" -type f \( -name 'first-run-*.png' -o -name 'paywall-*.png' -o -name 'sizes.txt' \) -print \
+              find "$simroot" -type f \( -name 'first-run-*.png' -o -name 'paywall-*.png' -o -name 'purchase-sheet*.png' -o -name 'sizes.txt' \) -print \
                 | while read -r found; do
                     cp "$found" artifacts/ios-uitest/screenshots/ || true
                   done
@@ -173,11 +173,14 @@ jobs:
             find "$attach_dir" -type f -name '*.png' -print | while read -r png; do
               base=$(basename "$png")
               case "$base" in
-                first-run-*|paywall-*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
+                first-run-*|paywall-*|purchase-sheet*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
                 *) cp "$png" "artifacts/ios-uitest/screenshots/${slug}-${base}" ;;
               esac
             done
-            xcrun simctl io "$udid" screenshot "artifacts/ios-uitest/screenshots/simulator-final-${slug}.png" || true
+            if ! grep -q 'APP_FOREGROUND_SHOT ' "artifacts/ios-uitest/${slug}.log"; then
+              echo "Missing APP_FOREGROUND_SHOT in $slug log. The capture was not the running app."
+              return 1
+            fi
             if ! grep -q 'FULLSCREEN_SIZE ' "artifacts/ios-uitest/${slug}.log"; then
               echo "Missing FULLSCREEN_SIZE in $slug log"
               return 1
@@ -207,6 +210,47 @@ jobs:
           test -n "$(find artifacts/ios-uitest/screenshots \( -name 'paywall-*.png' -o -name '*paywall*.png' \) | head -1)"
           grep -q '440x956' artifacts/ios-uitest/pro-max.log
           grep -q '414x896' artifacts/ios-uitest/iphone-11-pro-max.log
+          grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/pro-max.log
+          grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/iphone-11-pro-max.log
+
+          PURCHASE_BUNDLE="artifacts/ios-uitest/purchase-sheet.xcresult"
+          rm -rf "$PURCHASE_BUNDLE"
+          set +e
+          xcodebuild test \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunchStoreKit \
+            -destination "platform=iOS Simulator,id=$PRO_UDID" \
+            -only-testing:FitMunchUITests/PaywallPurchaseSheetTests \
+            -resultBundlePath "$PURCHASE_BUNDLE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
+            | tee artifacts/ios-uitest/purchase-sheet.log
+          PURCHASE_RC=${PIPESTATUS[0]}
+          set -e
+          echo "purchase_sheet_exit=$PURCHASE_RC" | tee -a artifacts/ios-uitest/destinations.txt
+          if [[ -d /tmp/fitmunch-b10-screenshots ]]; then
+            cp -R /tmp/fitmunch-b10-screenshots/. artifacts/ios-uitest/screenshots/ || true
+          fi
+          simroot="$HOME/Library/Developer/CoreSimulator/Devices/$PRO_UDID"
+          if [[ -d "$simroot" ]]; then
+            find "$simroot" -type f -name 'purchase-sheet*.png' -print \
+              | while read -r found; do
+                  cp "$found" artifacts/ios-uitest/screenshots/ || true
+                done
+          fi
+          attach_dir="artifacts/ios-uitest/attachments-purchase-sheet"
+          rm -rf "$attach_dir"
+          mkdir -p "$attach_dir"
+          xcrun xcresulttool export attachments --path "$PURCHASE_BUNDLE" --output-path "$attach_dir" \
+            || xcrun xcresulttool export --type attachments --path "$PURCHASE_BUNDLE" --output-path "$attach_dir" \
+            || true
+          find "$attach_dir" -type f -name '*.png' -print | while read -r png; do
+            cp "$png" "artifacts/ios-uitest/screenshots/purchase-sheet-$(basename "$png")"
+          done
+          grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/purchase-sheet.log
+          test "$PURCHASE_RC" = "0"
+          test -n "$(find artifacts/ios-uitest/screenshots -name 'purchase-sheet*.png' | head -1)"
 
       - name: Upload simulator screenshots
         if: always()
