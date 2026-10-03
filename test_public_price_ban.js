@@ -61,6 +61,45 @@ const PRICE_LINE_PAGES = [
   'public/pt-client-meal-plans-woolworths.html',
 ];
 
+const HEAD_WORDS = [
+  [/\bspecials?\b/i, 'special'],
+  [/\bcatalogues?\b/i, 'catalogue'],
+  [/\bpriced\b/i, 'priced'],
+];
+
+function headCopyChunks(html) {
+  const chunks = [];
+  const metaRe = /<meta\b[^>]*>/gi;
+  let match;
+  while ((match = metaRe.exec(html))) {
+    const tag = match[0];
+    if (/name=["']description["']/i.test(tag)
+      || /property=["']og:(?:title|description)["']/i.test(tag)
+      || /name=["']twitter:(?:title|description)["']/i.test(tag)) {
+      chunks.push(tag);
+    }
+  }
+  const ldRe = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  while ((match = ldRe.exec(html))) chunks.push(match[1]);
+  return chunks;
+}
+
+function publicListingFiles() {
+  const root = path.join(__dirname, 'public');
+  const out = [];
+  function walk(dir) {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) walk(full);
+      else if (/^(manifest\.json|llms\.txt|sitemap.*\.xml)$/i.test(name) || /\.webmanifest$/i.test(name)) {
+        out.push(full);
+      }
+    }
+  }
+  if (fs.existsSync(root)) walk(root);
+  return out;
+}
+
 function walkPublic(dir, out) {
   for (const name of fs.readdirSync(dir)) {
     const full = path.join(dir, name);
@@ -141,6 +180,25 @@ describe('public price and claim ban', () => {
       for (const [re, label] of banned) {
         if (re.test(text)) found.push(`${rel} ${label}`);
       }
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('keeps specials, catalogue, and priced out of meta, social tags, and structured data', () => {
+    const found = [];
+    function check(label, text) {
+      for (const [re, name] of HEAD_WORDS) {
+        if (re.test(text)) found.push(`${label} ${name}`);
+      }
+    }
+    for (const file of files) {
+      if (!/\.html$/i.test(file)) continue;
+      const rel = path.relative(__dirname, file);
+      const chunks = headCopyChunks(fs.readFileSync(file, 'utf8'));
+      chunks.forEach((chunk, index) => check(`${rel}#${index + 1}`, chunk));
+    }
+    for (const file of publicListingFiles()) {
+      check(path.relative(__dirname, file), fs.readFileSync(file, 'utf8'));
     }
     expect(found).toEqual([]);
   });
