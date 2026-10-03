@@ -24,11 +24,6 @@
     return data;
   }
 
-  function money(value) {
-    if (value == null) return 'Check at checkout';
-    return '$' + Number(value).toFixed(2);
-  }
-
   function flags() {
     return [...document.querySelectorAll('#coach-flags input:checked')].map((node) => node.value);
   }
@@ -83,23 +78,22 @@
       days.appendChild(block);
     });
     const shopping = plan.plan.shopping;
-    $('coach-store-heading').textContent = shopping.storeName + ' list';
+    $('coach-store-heading').textContent = 'Shopping list';
     const list = $('coach-list');
     list.replaceChildren();
     shopping.lines.forEach((line) => {
       const row = document.createElement('div');
       row.className = 'line';
       const name = document.createElement('span');
-      name.textContent = line.packs + ' x ' + line.name;
-      const price = document.createElement('span');
-      price.className = 'price';
-      price.textContent = line.priced ? money(line.lineAud) : 'Check at checkout';
+      name.textContent = line.packLabel || line.name;
+      const facts = document.createElement('span');
+      facts.textContent = [line.storeName, line.aisle, line.proteinLabel, line.swapLabel].filter(Boolean).join(' · ');
       row.appendChild(name);
-      row.appendChild(price);
+      row.appendChild(facts);
       list.appendChild(row);
     });
-    $('coach-total').textContent = shopping.storeName + ' total ' + money(shopping.totalAud);
-    $('coach-price-note').textContent = plan.plan.priceNote;
+    $('coach-total').textContent = shopping.splitLabel || '';
+    $('coach-price-note').textContent = plan.plan.priceNote || 'Check prices at checkout.';
     const share = $('coach-share');
     if (plan.sharePath) {
       const link = document.createElement('a');
