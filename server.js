@@ -10,6 +10,7 @@ const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/publi
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
+require('./lib/guest-claim').warnMissingGuestClaimSecret();
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
   // Basic configuration for Replit environment
@@ -166,7 +167,10 @@ app.use(express.static(PUBLIC_DIR, {
     } else {
       res.setHeader('Cache-Control', 'public, max-age=86400');
     }
-    if (filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html')) {
+    if (
+      filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html') ||
+      filePath.endsWith(`${path.sep}success.html`) || filePath.endsWith('/success.html')
+    ) {
       res.setHeader('Referrer-Policy', 'no-referrer');
     }
   }
@@ -223,7 +227,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!stripe) return res.status(503).send('Stripe not configured');
-  if (!webhookSecret) return res.status(400).send('STRIPE_WEBHOOK_SECRET not set');
+  if (!webhookSecret) {
+    console.warn('[webhook] signing secret is not set');
+    return res.status(400).send('Webhook is not configured');
+  }
 
   let event;
   try {
@@ -369,7 +376,11 @@ app.get('/pricing', (req, res) => res.sendFile('pricing.html', { root: 'public' 
 app.get('/coach/upgrade', (req, res) => res.sendFile('coach-upgrade.html', { root: 'public' }));
 app.get('/contact', (req, res) => res.sendFile('contact.html', { root: 'public' }));
 app.get('/privacy', (req, res) => res.sendFile('privacy.html', { root: 'public' }));
-app.get('/checkout/success', (req, res) => res.sendFile('success.html', { root: 'public' }));
+app.get('/checkout/success', (req, res) => {
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('success.html', { root: 'public' });
+});
 
 
 const { ok: apiOk } = require('./lib/api-json');
@@ -652,6 +663,7 @@ app.post('/api/checkout', async (req, res) => {
         plan,
         email: current.email,
         origin: checkoutOrigin(req),
+        userId: current.id,
       });
     });
 
@@ -708,6 +720,7 @@ app.post('/api/coach/checkout', async (req, res) => {
             plan,
             email: current.email,
             origin: checkoutOrigin(req),
+            userId: current.id,
           });
         }
         const customerId = await findOrCreateStripeCustomer(stripe, {
@@ -728,6 +741,7 @@ app.post('/api/coach/checkout', async (req, res) => {
           plan,
           email: current.email,
           origin: checkoutOrigin(req),
+          userId: current.id,
         });
       });
       if (result.upgraded) {
@@ -775,7 +789,34 @@ app.post('/api/coach/checkout', async (req, res) => {
 });
 
 // Logged-in redemption of a guest checkout claim token. Email is not accepted.
+app.post('/api/stripe/claim-preview', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const decoded = requireAuthUser(req);
+    const { user } = await loadCheckoutUser(decoded);
+    const token = req.body && req.body.token;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, error: 'Claim link is invalid or expired.' });
+    }
+    const { previewGuestClaim } = require('./lib/guest-claim');
+    const result = await previewGuestClaim(user, token, stripe);
+    return res.status(result.status).json({
+      success: Boolean(result.ok),
+      ...(result.ok ? {
+        payerEmailMasked: result.payerEmailMasked,
+        accountEmailMasked: result.accountEmailMasked,
+      } : { error: result.error }),
+    });
+  } catch (err) {
+    if (sendAuthError(err, res)) return;
+    if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
+    console.error('[claim-preview] failed', ...webhookErrorFields(err));
+    return res.status(500).json({ success: false, error: 'Could not attach billing. Try again.' });
+  }
+});
+
 app.post('/api/stripe/claim-guest', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const decoded = requireAuthUser(req);
     const { user } = await loadCheckoutUser(decoded);
@@ -788,6 +829,7 @@ app.post('/api/stripe/claim-guest', async (req, res) => {
     return res.status(result.status).json({
       success: Boolean(result.ok),
       linked: Boolean(result.ok),
+      ...(result.alreadyAttached ? { alreadyAttached: true } : {}),
       ...(result.ok ? {} : { error: result.error }),
     });
   } catch (err) {
@@ -962,31 +1004,27 @@ app.post('/api/stripe/customers', async (req, res) => {
 });
 
 // ── SESSION LOOKUP (used by success page) ─────────────────────────────────────
+// Unauthenticated: anyone holding a session id can call this, so it must never
+// return a claim token, personal data (email), or the Stripe customer id, and
+// no response from it may be cached. The success page only needs the plan.
 app.get('/api/checkout/session', async (req, res) => {
-  // Unauthenticated: anyone holding a session id can call this, so it must never
-  // return personal data (email) or the Stripe customer id, and no response from
-  // it may be cached. The success page only needs the plan.
   res.set('Cache-Control', 'no-store');
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
   const sessionId = req.query.session_id;
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id || null;
-    let claimToken = '';
-    if (session.status === 'complete' && customerId && checkoutSessionIsFitMunch(session)) {
-      const { mintGuestClaimToken } = require('./lib/guest-claim');
-      claimToken = mintGuestClaimToken({
-        sessionId: session.id,
-        customerId,
-        sessionCreated: session.created,
-      });
-    }
+    const { sessionLoggedInUserId } = require('./lib/guest-claim');
+    const guestCheckout = Boolean(
+      session.status === 'complete' &&
+      checkoutSessionIsFitMunch(session) &&
+      !sessionLoggedInUserId(session)
+    );
     res.json({
       plan: session.metadata?.plan || null,
       planLabel: session.metadata?.plan || null,
       paymentStatus: session.payment_status,
-      ...(claimToken ? { claimToken } : {}),
+      guestCheckout,
     });
   } catch (e) {
     res.status(404).json({ error: 'Session not found.' });

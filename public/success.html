@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
 <title>Subscription confirmed - FitMunch</title>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
@@ -106,8 +107,8 @@ body.fm-body{
         </div>
         <div class="info-block" id="claimBlock" style="display:none">
           <h3>Attach it to your account</h3>
-          <p id="claimText">Create an account or log in to keep this subscription on your FitMunch account.</p>
-          <p><a id="claimLink" href="/login.html">Log in to attach this subscription</a></p>
+          <p id="claimText">Paid before you had an account? Use the attach button in your welcome email. It works once.</p>
+          <p><a id="claimLink" class="fm-btn fm-btn-leaf" href="/login.html">Sign in to attach this subscription</a></p>
         </div>
         <div class="info-block">
           <h3>Next steps</h3>
@@ -201,33 +202,8 @@ async function openBillingPortal(e) {
         };
         planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
       }
-      if (data.claimToken) {
-        const claimBlock = document.getElementById('claimBlock');
-        const claimLink = document.getElementById('claimLink');
-        const claimText = document.getElementById('claimText');
-        const auth = localStorage.getItem('fm_token');
-        claimBlock.style.display = 'block';
-        if (auth) {
-          claimLink.style.display = 'none';
-          try {
-            const claimed = await fetch('/api/stripe/claim-guest', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + auth,
-              },
-              body: JSON.stringify({ token: data.claimToken }),
-            });
-            const claimedBody = await claimed.json().catch(() => ({}));
-            claimText.textContent = claimed.ok && claimedBody.success
-              ? 'This subscription is attached to your account.'
-              : 'Log in with the account that should own this subscription, then open the link in your welcome email.';
-          } catch (_) {
-            claimText.textContent = 'Open the link in your welcome email to attach this subscription.';
-          }
-        } else {
-          claimLink.href = '/login.html?claim=' + encodeURIComponent(data.claimToken);
-        }
+      if (data.guestCheckout) {
+        document.getElementById('claimBlock').style.display = 'block';
       }
     }
   } catch (err) {

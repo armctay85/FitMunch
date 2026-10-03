@@ -3,6 +3,7 @@
 <head>
  <meta charset="UTF-8" />
  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ <script src="/js/fm-claim.js"></script>
  <meta name="referrer" content="no-referrer" />
  <title>FitMunch - Sign In</title>
  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
@@ -119,6 +120,22 @@
  .strength-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
  .strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; width: 0%; }
  .strength-label { font-size: 0.65rem; color: var(--muted); margin-top: 3px; }
+ .claim-card {
+ margin-bottom: 18px; padding: 14px;
+ border: 1px solid rgba(31,157,74,.35); background: rgba(31,157,74,.1);
+ border-radius: 4px;
+ }
+ .claim-card h2, .claim-kicker {
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-size: .78rem; font-weight: 700; letter-spacing: .04em;
+ text-transform: uppercase; margin-bottom: 8px;
+ }
+ .claim-card p, .claim-copy { font-size: .9rem; line-height: 1.45; overflow-wrap: anywhere; }
+ .claim-actions { display: grid; gap: 8px; margin-top: 12px; }
+ .claim-actions .btn { margin-top: 0; text-align: center; text-decoration: none; }
+ .btn-quiet {
+ background: transparent; color: var(--text); border: 1px solid var(--border);
+ }
  </style>
 </head>
 <body>
@@ -136,6 +153,25 @@
  <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
  <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
+ </div>
+ <div id="claim-intent" class="claim-card" style="display:none">
+ <div class="claim-kicker" style="color:var(--green)">Attach a purchase</div>
+ <p class="claim-copy" style="color:var(--sub)">Sign in or create an account, then confirm which account should keep the subscription you already paid for. This does not start a new checkout.</p>
+ </div>
+ <div id="claim-card" class="claim-card" style="display:none">
+ <h2 class="claim-kicker" style="color:var(--green)">Confirm attachment</h2>
+ <p id="claim-question" class="claim-copy" style="color:var(--text)"></p>
+ <div class="claim-actions">
+ <button class="btn" id="claim-confirm-btn" type="button" onclick="confirmClaim()">Attach this purchase</button>
+ <button class="btn btn-quiet" id="claim-dismiss-btn" type="button" onclick="dismissClaim()">Not now</button>
+ </div>
+ </div>
+ <div id="claim-result" class="claim-card" style="display:none;background:#0d2d1a">
+ <h2 id="claim-result-title" class="claim-kicker" style="color:var(--green)">Purchase</h2>
+ <p id="claim-result-text" class="claim-copy" style="color:var(--text)"></p>
+ <div class="claim-actions">
+ <a class="btn" id="claim-continue" href="/app.html">Continue</a>
+ </div>
  </div>
 
  <div class="tabs">
@@ -234,7 +270,12 @@
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
- const registerLabel = plan === 'premium' ? 'Start Premium trial' : 'Create Free Account';
+ let registerLabel = plan === 'premium' ? 'Start Premium trial' : 'Create Free Account';
+ let pendingClaim = '';
+ try {
+  pendingClaim = String(window.__fmClaimToken || '');
+  delete window.__fmClaimToken;
+ } catch (e) {}
  if (paidPlan) {
   const banner = document.getElementById('premium-intent');
   if (banner) {
@@ -250,6 +291,12 @@
   const regBtn = document.getElementById('register-btn');
   if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
   if (regBtn && coachPlan) regBtn.textContent = 'Start Coach trial';
+ } else if (pendingClaim) {
+  const claimBanner = document.getElementById('claim-intent');
+  if (claimBanner) claimBanner.style.display = 'block';
+  registerLabel = 'Create account';
+  const regBtn = document.getElementById('register-btn');
+  if (regBtn) regBtn.textContent = registerLabel;
  } else {
   const freeBanner = document.getElementById('free-intent');
   if (freeBanner) freeBanner.style.display = 'block';
@@ -300,20 +347,100 @@
 
  let checkoutInFlight = null;
 
- async function redeemClaimIfPresent(token) {
-  const claim = new URLSearchParams(window.location.search).get('claim');
-  if (!claim) return;
+ function hideAuthPanels() {
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.style.display = 'none';
+  ['panel-login', 'panel-register', 'panel-forgot', 'panel-reset'].forEach((id) => {
+   const panel = document.getElementById(id);
+   if (panel) panel.classList.remove('active');
+  });
+ }
+
+ function showClaimResult(message) {
+  const intent = document.getElementById('claim-intent');
+  const card = document.getElementById('claim-card');
+  const result = document.getElementById('claim-result');
+  const text = document.getElementById('claim-result-text');
+  const title = document.getElementById('claim-result-title');
+  if (intent) intent.style.display = 'none';
+  if (card) card.style.display = 'none';
+  hideAuthPanels();
+  if (text) text.textContent = message;
+  if (title) {
+   if (/already attached/i.test(message)) title.textContent = 'Already attached';
+   else if (/attached to your account/i.test(message)) title.textContent = 'Attached';
+   else title.textContent = 'Could not attach';
+  }
+  if (result) result.style.display = 'block';
+ }
+
+ async function openClaimConfirm(authToken) {
   try {
-   await fetch('/api/stripe/claim-guest', {
+   const preview = await fetch('/api/stripe/claim-preview', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ token: claim }),
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+    body: JSON.stringify({ token: pendingClaim }),
    });
-  } catch (_) { /* the welcome email link can be used again until it expires */ }
+   const body = await preview.json().catch(() => ({}));
+   if (!preview.ok || !body.success || !body.payerEmailMasked || !body.accountEmailMasked) {
+    showClaimResult(body.error || 'Claim link is invalid or expired.');
+    return;
+   }
+   const question = document.getElementById('claim-question');
+   if (question) {
+    question.textContent = 'Attach the purchase made with ' + body.payerEmailMasked + ' to your account ' + body.accountEmailMasked + '?';
+   }
+   const intent = document.getElementById('claim-intent');
+   if (intent) intent.style.display = 'none';
+   hideAuthPanels();
+   const card = document.getElementById('claim-card');
+   if (card) card.style.display = 'block';
+  } catch (_) {
+   showClaimResult('Claim link is invalid or expired.');
+  }
+ }
+
+ async function confirmClaim() {
+  const authToken = localStorage.getItem('fm_token');
+  const btn = document.getElementById('claim-confirm-btn');
+  if (!authToken || !pendingClaim) {
+   showClaimResult('Claim link is invalid or expired.');
+   return;
+  }
+  if (btn) btn.disabled = true;
+  try {
+   const claimed = await fetch('/api/stripe/claim-guest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+    body: JSON.stringify({ token: pendingClaim }),
+   });
+   const body = await claimed.json().catch(() => ({}));
+   if (claimed.ok && body.alreadyAttached) {
+    showClaimResult('This purchase is already attached to your account.');
+    return;
+   }
+   if (claimed.ok && body.success) {
+    showClaimResult('This subscription is attached to your account.');
+    return;
+   }
+   showClaimResult(body.error || 'Could not attach this purchase.');
+  } catch (_) {
+   showClaimResult('Could not attach this purchase. Try the link in your email again.');
+  } finally {
+   if (btn) btn.disabled = false;
+  }
+ }
+
+ function dismissClaim() {
+  pendingClaim = '';
+  window.location.href = '/app.html';
  }
 
  async function redirectAfterAuth(token) {
-  await redeemClaimIfPresent(token);
+  if (pendingClaim) {
+   await openClaimConfirm(token);
+   return;
+  }
   if (!plan) {
  window.location.href = '/app.html';
  return;
@@ -479,7 +606,7 @@
  if (!data.success) { showError('login-error', data.error || 'Login failed.'); return; }
  localStorage.setItem('fm_token', data.token);
  localStorage.setItem('fm_user', JSON.stringify(data.user));
- showSuccess('login-success', plan ? 'Logged in! Opening Stripe checkout...' : 'Logged in! Redirecting...');
+ showSuccess('login-success', pendingClaim ? 'Logged in. Confirm the purchase below.' : (plan ? 'Logged in! Opening Stripe checkout...' : 'Logged in! Redirecting...'));
  await redirectAfterAuth(data.token);
  } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
  finally {
@@ -507,7 +634,7 @@
  if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
  localStorage.setItem('fm_token', data.token);
  localStorage.setItem('fm_user', JSON.stringify(data.user));
- showSuccess('register-success', plan ? 'Account created! Opening Stripe checkout...' : 'Account created! Redirecting...');
+ showSuccess('register-success', pendingClaim ? 'Account created. Confirm the purchase below.' : (plan ? 'Account created! Opening Stripe checkout...' : 'Account created! Redirecting...'));
  await redirectAfterAuth(data.token);
  } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
  finally {
