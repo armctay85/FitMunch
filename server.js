@@ -134,19 +134,18 @@ function analyticsKeyMatches(req) {
   return require('crypto').timingSafeEqual(a, b);
 }
 
-// Private analytics UI is not a public page. Block before static so /funnel.html
-// cannot be fetched without the server-side key.
+// Private analytics UI is not a public page. The file lives outside public/
+// so the CDN cannot serve it. Both paths use the same key gate.
+const FUNNEL_PAGE = path.join(__dirname, 'private/funnel.html');
 app.use((req, res, next) => {
   const pathOnly = (req.path || '').replace(/\/$/, '') || '/';
   if (pathOnly !== '/funnel' && pathOnly !== '/funnel.html') return next();
   res.set('X-Robots-Tag', 'noindex, nofollow');
+  res.set('Cache-Control', 'private, no-store');
   if (!analyticsKeyMatches(req)) {
     return res.status(401).sendFile(path.join(PUBLIC_DIR, '404.html'));
   }
-  if (pathOnly === '/funnel') {
-    return res.sendFile(path.join(PUBLIC_DIR, 'funnel.html'));
-  }
-  return next();
+  return res.sendFile(FUNNEL_PAGE);
 });
 
 const PERMISSIONS_POLICY = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';

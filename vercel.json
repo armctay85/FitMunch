@@ -2,6 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci --omit=dev",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "private/funnel.html"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -9,6 +14,15 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.stripe.com\")"
+        }
+      ]
+    },
+    {
+      "source": "/login.html",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
         }
       ]
     }
