@@ -35,6 +35,7 @@ struct HistoryView: View {
                 .padding()
             }
             .navigationTitle("History")
+            .navigationBarTitleDisplayMode(ScreenshotLaunch.isActive ? .inline : .large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {

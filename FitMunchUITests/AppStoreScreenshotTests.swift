@@ -1,6 +1,6 @@
 import XCTest
 
-/// Captures the real SwiftUI app for App Store 6.7" / 6.9" slots.
+/// Captures the real SwiftUI app for App Store 6.5" (1284x2778) and 6.9" (1320x2868) slots.
 /// Launch argument `-AppStoreScreenshots` skips auth and paywall copy.
 final class AppStoreScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
@@ -11,6 +11,10 @@ final class AppStoreScreenshotTests: XCTestCase {
         app.launchArguments = [ScreenshotLaunchArgument.flag, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared. Auth or onboarding leaked into screenshot mode.")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["screenshot-ready"].firstMatch.waitForExistence(timeout: 8),
+            "Screenshot window was not pinned before capture"
+        )
     }
 
     func testCaptureRequiredStoreScreens() throws {
@@ -20,6 +24,8 @@ final class AppStoreScreenshotTests: XCTestCase {
             ("scan", "Scan", "Receipt Scanner"),
             ("plan", "Meals", "Meal Plan"),
             ("settings", "Settings", "Settings"),
+            ("workout", "Workout", "Workout"),
+            ("history", "History", "History"),
         ]
 
         for screen in screens {
@@ -41,6 +47,27 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
+    /// Timed walk for the 15 to 25 second App Preview. Same seven screens, no prices.
+    func testWalkScreensForPreview() throws {
+        let tabs = ["Scan", "Home", "Meals", "Coach", "Workout", "History", "Settings"]
+        let dwell = previewDwell()
+        for tab in tabs {
+            openTab(tab)
+            dismissSystemAlerts()
+            assertNoRejectedCopy(on: tab)
+            Thread.sleep(forTimeInterval: dwell)
+        }
+    }
+
+    private func previewDwell() -> TimeInterval {
+        for key in ["SCREENSHOT_DWELL", "TEST_RUNNER_SCREENSHOT_DWELL"] {
+            if let raw = ProcessInfo.processInfo.environment[key], let value = Double(raw), value > 0 {
+                return value
+            }
+        }
+        return 2.4
+    }
+
     private func assertScreenLooksInUse(_ screen: String) {
         switch screen {
         case "home":
@@ -49,15 +76,25 @@ final class AppStoreScreenshotTests: XCTestCase {
         case "coach":
             XCTAssertTrue(app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 4))
         case "scan":
-            XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Weekly haul score"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Chicken breast"].waitForExistence(timeout: 4))
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Sunday"].waitForExistence(timeout: 4))
             XCTAssertFalse(app.staticTexts["Budget $"].exists)
         case "settings":
             XCTAssertTrue(app.staticTexts["Premium Subscriber"].waitForExistence(timeout: 4))
             XCTAssertFalse(app.staticTexts["Free Tier"].exists)
             XCTAssertFalse(app.buttons["Upgrade"].exists)
             XCTAssertFalse(app.buttons["Upgrade to Premium"].exists)
+        case "workout":
+            XCTAssertTrue(app.staticTexts["Weekly plan"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Full Body Foundation"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Daily steps"].waitForExistence(timeout: 4))
+        case "history":
+            XCTAssertTrue(app.staticTexts["Statistics"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Calorie Trends"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Breakfast"].waitForExistence(timeout: 4))
         default:
             break
         }
@@ -118,6 +155,41 @@ final class AppStoreScreenshotTests: XCTestCase {
             "\(screen) shows Free copy"
         )
         XCTAssertFalse(app.staticTexts["Paywall"].exists, "\(screen) shows a paywall")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "special")).firstMatch.exists,
+            "\(screen) shows specials"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "catalogue")).firstMatch.exists,
+            "\(screen) shows a catalogue"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "catalog")).firstMatch.exists,
+            "\(screen) shows a catalog"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "saving")).firstMatch.exists,
+            "\(screen) shows savings"
+        )
+    }
+
+    /// Ask the capture script to take a simctl framebuffer shot, which is the full
+    /// screen. XCUIScreen.screenshot letterboxes this app on the 6.7-inch sim.
+    private func waitForFramebufferShot(named name: String) -> Bool {
+        let readyRoot = "/tmp/fitmunch-shot-ready"
+        let ack = "/tmp/fitmunch-shot-ack/\(name)"
+        do {
+            try FileManager.default.createDirectory(atPath: readyRoot, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(atPath: "/tmp/fitmunch-shot-ack", withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: "\(readyRoot)/\(name)", contents: Data())
+        } catch {
+            return false
+        }
+        let start = Date()
+        while !FileManager.default.fileExists(atPath: ack), Date().timeIntervalSince(start) < 20 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return FileManager.default.fileExists(atPath: ack)
     }
 
     private func savePNG(named name: String) {
@@ -127,7 +199,13 @@ final class AppStoreScreenshotTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Always write a known path. TEST_RUNNER_* env does not always reach XCTest on GHA.
+        // The shell waiter writes the real framebuffer PNG when it acks.
+        // Fall back to XCUIScreen only if that waiter is not running.
+        if waitForFramebufferShot(named: name) {
+            print("Framebuffer shot acked for \(name)")
+            return
+        }
+
         let dirs = [
             "/tmp/fitmunch-appstore-screenshots",
             ProcessInfo.processInfo.environment["SCREENSHOT_DIR"],

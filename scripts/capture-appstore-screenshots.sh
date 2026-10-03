@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
-# Capture home.png coach.png scan.png plan.png settings.png from the real SwiftUI app.
+# Capture home.png coach.png scan.png plan.png settings.png workout.png history.png from the real SwiftUI app.
 # HTML mockup frames are not store art.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# Shoot only after PR 38 has landed and project.yml is build 10.
+# Until then the pipeline is ready and this script does not capture build 9.
+store_version="$(awk -F: '/CURRENT_PROJECT_VERSION:/ { gsub(/[^0-9]/, "", $2); print $2; exit }' project.yml)"
+if [[ "$store_version" != "10" ]]; then
+  echo "Store art shoots from build 10 only. project.yml CURRENT_PROJECT_VERSION is ${store_version:-missing}."
+  echo "Pipeline is ready: true 1320x2868 and 1284x2778, 7 captioned frames at each size, and a 15 to 25 second preview. Refusing to scale an iPhone screenshot."
+  exit 0
+fi
 
 OUT="$ROOT/artifacts/appstore-screenshots"
 rm -rf "$OUT"
@@ -83,7 +92,7 @@ verify_pngs() {
   local expected_w="$2"
   local expected_h="$3"
   local required w h png
-  for required in home coach scan plan settings; do
+  for required in home coach scan plan settings workout history; do
     png="$folder/$required.png"
     if [[ ! -f "$png" ]]; then
       echo "Missing $png"
@@ -99,17 +108,68 @@ verify_pngs() {
   done
 }
 
-run_capture() {
+# XCUIScreen.screenshot letterboxes this app. The UI test writes a ready file
+# per screen; this loop takes a simctl framebuffer shot and acks it.
+start_framebuffer_waiter() {
   local udid="$1"
   local folder="$2"
-  local expected_w="$3"
-  local expected_h="$4"
+  rm -rf /tmp/fitmunch-shot-ready /tmp/fitmunch-shot-ack /tmp/fitmunch-shot-waiter-stop
+  mkdir -p /tmp/fitmunch-shot-ready /tmp/fitmunch-shot-ack "$folder"
+  (
+    set +e
+    while [[ ! -f /tmp/fitmunch-shot-waiter-stop ]]; do
+      for name in home coach scan plan settings workout history; do
+        if [[ -f "/tmp/fitmunch-shot-ready/$name" && ! -f "/tmp/fitmunch-shot-ack/$name" ]]; then
+          sleep 0.35
+          if xcrun simctl io "$udid" screenshot "$folder/$name.png"; then
+            touch "/tmp/fitmunch-shot-ack/$name"
+            echo "Framebuffer wrote $folder/$name.png"
+          else
+            echo "simctl screenshot failed for $name" >&2
+          fi
+        fi
+      done
+      sleep 0.05
+    done
+  ) &
+  echo $! > /tmp/fitmunch-shot-waiter.pid
+}
+
+stop_framebuffer_waiter() {
+  touch /tmp/fitmunch-shot-waiter-stop
+  if [[ -f /tmp/fitmunch-shot-waiter.pid ]]; then
+    local pid
+    pid="$(cat /tmp/fitmunch-shot-waiter.pid)"
+    local tick
+    for tick in 1 2 3 4 5 6 7 8 9 10; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    rm -f /tmp/fitmunch-shot-waiter.pid
+  fi
+  rm -f /tmp/fitmunch-shot-waiter-stop
+}
+
+reject_letterbox() {
+  local folder="$1"
+  swift "$ROOT/scripts/reject-letterbox.swift" "$folder"
+}
+
+capture_pngs() {
+  local udid="$1"
+  local folder="$2"
   mkdir -p "$folder"
   prepare_sim "$udid"
 
-  echo "Capturing on $udid -> $folder (${expected_w}x${expected_h})"
+  echo "Capturing on $udid -> $folder"
   rm -rf /tmp/fitmunch-appstore-screenshots
   mkdir -p /tmp/fitmunch-appstore-screenshots
+  start_framebuffer_waiter "$udid" "$folder"
+  set +e
   xcodebuild test \
     -project FitMunch.xcodeproj \
     -scheme FitMunch \
@@ -120,15 +180,33 @@ run_capture() {
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY=- \
     TEST_RUNNER_SCREENSHOT_DIR="$folder"
+  local status=$?
+  set -e
+  stop_framebuffer_waiter
+  if [[ "$status" -ne 0 ]]; then
+    echo "xcodebuild test failed ($status)"
+    exit "$status"
+  fi
   if [[ ! -f "$folder/home.png" && -f /tmp/fitmunch-appstore-screenshots/home.png ]]; then
     echo "Copying PNGs from /tmp/fitmunch-appstore-screenshots"
     cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
   fi
+  reject_letterbox "$folder"
+}
 
+run_capture() {
+  local udid="$1"
+  local folder="$2"
+  local expected_w="$3"
+  local expected_h="$4"
+  echo "Expected ${expected_w}x${expected_h}"
+  capture_pngs "$udid" "$folder"
   verify_pngs "$folder" "$expected_w" "$expected_h"
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
 }
 
+# iPad compatibility shots may still be resized to the 13-inch slot.
+# iPhone 6.9 and 6.5 slots are never scaled. Refusing to scale is the rule.
 scale_real_shots() {
   local src="$1"
   local dest="$2"
@@ -136,35 +214,83 @@ scale_real_shots() {
   local h="$4"
   mkdir -p "$dest"
   local name
-  for name in home coach scan plan settings; do
+  for name in home coach scan plan settings workout history; do
     sips -z "$h" "$w" "$src/$name.png" --out "$dest/$name.png" >/dev/null
   done
   verify_pngs "$dest" "$w" "$h"
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$dest"
 }
 
+frame_slot() {
+  local raw="$1"
+  local dest="$2"
+  local w="$3"
+  local h="$4"
+  if ! python3 -c "import PIL" >/dev/null 2>&1; then
+    python3 -m pip install --user pillow
+  fi
+  python3 "$ROOT/scripts/frame-appstore-screenshots.py" "$raw" "$dest" \
+    --width "$w" --height "$h" \
+    --contact-sheet "$dest/contact-sheet.png"
+}
+
 UDID_69="$(find_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || create_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || true)"
-UDID_67="$(find_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || create_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || true)"
+UDID_65="$(find_udid "iPhone 14 Plus" "iPhone 13 Pro Max" "iPhone 12 Pro Max" || create_udid "iPhone 14 Plus" "iPhone 13 Pro Max" "iPhone 12 Pro Max" || true)"
 
-if [[ -z "${UDID_69:-}" && -z "${UDID_67:-}" ]]; then
-  echo "No large iPhone simulator could be found or created."
+if [[ -z "${UDID_69:-}" ]]; then
+  echo "No 6.9-inch simulator (iPhone 17 Pro Max or iPhone 16 Pro Max). Refusing to scale."
   exit 1
 fi
 
-if [[ -n "${UDID_69:-}" ]]; then
-  run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
-fi
-
-if [[ -n "${UDID_67:-}" ]]; then
-  run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796
-elif [[ -d "$OUT/iphone-69" ]]; then
-  echo "No 6.7-inch simulator on this runner. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
-  scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
-fi
-
-if [[ ! -d "$OUT/iphone-67" ]]; then
-  echo "6.7-inch 1290x2796 capture is required."
+if [[ -z "${UDID_65:-}" ]]; then
+  echo "No 6.5-inch simulator (iPhone 14 Plus, iPhone 13 Pro Max, or iPhone 12 Pro Max). Refusing to scale."
   exit 1
+fi
+
+run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
+run_capture "$UDID_65" "$OUT/iphone-65" 1284 2778
+frame_slot "$OUT/iphone-69" "$OUT/iphone-69-framed" 1320 2868
+frame_slot "$OUT/iphone-65" "$OUT/iphone-65-framed" 1284 2778
+bash "$ROOT/scripts/record-appstore-preview.sh" "$UDID_69" "$OUT/preview/fitmunch-preview.mov"
+
+# 13-inch iPad slot. Build 9 is iPhone-only, so this is the same SwiftUI app
+# in iPad compatibility mode. Do not change TARGETED_DEVICE_FAMILY.
+ipad_type_name() {
+  xcrun simctl list devicetypes \
+    | grep -F "iPad Pro 13-inch" \
+    | head -1 \
+    | sed -E 's/^[[:space:]]+//; s/ \(com\.apple\.CoreSimulator\.SimDeviceType\..*$//'
+}
+
+UDID_IPAD="$(find_udid "iPad Pro 13-inch (M5)" "iPad Pro 13-inch (M4)" || true)"
+if [[ -z "${UDID_IPAD:-}" ]]; then
+  IPAD_TYPE="$(ipad_type_name || true)"
+  if [[ -n "${IPAD_TYPE:-}" ]]; then
+    UDID_IPAD="$(create_udid "$IPAD_TYPE" || true)"
+  fi
+fi
+
+if [[ -z "${UDID_IPAD:-}" ]]; then
+  echo "No 13-inch iPad Pro simulator could be found or created."
+  exit 1
+fi
+
+capture_pngs "$UDID_IPAD" "$OUT/ipad-13"
+RAW_PNG="$OUT/ipad-13/home.png"
+if [[ ! -f "$RAW_PNG" ]]; then
+  echo "13-inch iPad capture did not write home.png"
+  exit 1
+fi
+RAW_W="$(sips -g pixelWidth "$RAW_PNG" | awk '/pixelWidth/ {print $2}')"
+RAW_H="$(sips -g pixelHeight "$RAW_PNG" | awk '/pixelHeight/ {print $2}')"
+if [[ "$RAW_W" == "2064" && "$RAW_H" == "2752" ]]; then
+  verify_pngs "$OUT/ipad-13" 2064 2752
+  swift "$ROOT/scripts/ocr-store-screenshots.swift" "$OUT/ipad-13"
+else
+  echo "iPad capture was ${RAW_W}x${RAW_H}. Scaling the real SwiftUI shots to 2064x2752."
+  mkdir -p "$OUT/ipad-13-native"
+  find "$OUT/ipad-13" -maxdepth 1 -name '*.png' -exec cp {} "$OUT/ipad-13-native/" \;
+  scale_real_shots "$OUT/ipad-13-native" "$OUT/ipad-13" 2064 2752
 fi
 
 echo "Real-app screenshots written to $OUT"

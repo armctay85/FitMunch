@@ -23,8 +23,8 @@ final class AuthManager: ObservableObject {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
                 id: "screenshot-user",
-                name: "Alex Chen",
-                email: "alex@fitmunch.com.au",
+                name: "Household",
+                email: "hello@fitmunch.com.au",
                 subscriptionTier: "premium",
                 role: "client"
             )

@@ -6,6 +6,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage(Constants.UserDefaultsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
     @State private var selectedTab = 0
+    @State private var screenshotReady = false
     
     var body: some View {
         if hasCompletedOnboarding {
@@ -66,8 +67,25 @@ struct ContentView: View {
                 .tag(6)
         }
         .tint(Color(red: 0.086, green: 0.639, blue: 0.290))
+        .preferredColorScheme(ScreenshotLaunch.isActive ? .light : nil)
+        .background {
+            if ScreenshotLaunch.isActive && screenshotReady {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityIdentifier("screenshot-ready")
+            }
+        }
         .onAppear {
             ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
+            ScreenshotLaunch.pinWindowsToScreen()
+        }
+        .task {
+            guard ScreenshotLaunch.isActive else { return }
+            for _ in 0..<6 {
+                ScreenshotLaunch.pinWindowsToScreen()
+                try? await Task.sleep(nanoseconds: 150_000_000)
+            }
+            screenshotReady = true
         }
     }
 }
