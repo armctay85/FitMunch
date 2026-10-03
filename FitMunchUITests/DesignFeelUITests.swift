@@ -33,14 +33,16 @@ final class DesignFeelUITests: XCTestCase {
                 if tab == "Plan" {
                     XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 6))
                 }
-                if tab == "Scan" {
-                    let photo = app.buttons["scan-take-photo"]
-                    assertClearsTabBar(photo, named: "Take a photo", in: app)
-                }
                 if tab == "Me" {
                     XCTAssertTrue(app.staticTexts["Progress"].waitForExistence(timeout: 4))
                 }
                 saveDesignShot(app, folder: folder, name: tab.lowercased())
+                if tab == "Plan" {
+                    assertClearsTabBar(app.buttons["plan-generate"], named: "Generate 7-day plan", in: app)
+                }
+                if tab == "Scan" {
+                    assertClearsTabBar(app.buttons["scan-take-photo"], named: "Take a photo", in: app)
+                }
             }
         }
     }
@@ -82,7 +84,7 @@ final class DesignFeelUITests: XCTestCase {
         openTab("Scan", in: app)
         let photo = app.buttons["scan-take-photo"]
         assertClearsTabBar(photo, named: "Take a photo", in: app)
-        photo.tap()
+        tapControl(photo)
         if app.alerts["Camera not available"].waitForExistence(timeout: 8) {
             let alert = app.alerts["Camera not available"]
             if alert.buttons["OK"].exists {
@@ -97,7 +99,7 @@ final class DesignFeelUITests: XCTestCase {
         openTab("Plan", in: app)
         let generate = app.buttons["plan-generate"]
         assertClearsTabBar(generate, named: "Generate 7-day plan", in: app)
-        generate.tap()
+        tapControl(generate)
         RunLoop.current.run(until: Date().addingTimeInterval(1.2))
 
         for tab in ["Today", "Plan", "Scan", "Coach", "Me"] {
@@ -121,21 +123,60 @@ final class DesignFeelUITests: XCTestCase {
         XCTAssertFalse(bar.buttons["Meals"].exists)
     }
 
+    /// A full swipeUp can park a top button under the nav bar. Nudge only when the
+    /// frame actually overlaps the tab bar or the nav bar.
     private func assertClearsTabBar(_ element: XCUIElement, named name: String, in app: XCUIApplication) {
         XCTAssertTrue(element.waitForExistence(timeout: 8), "\(name) missing")
         let bar = app.tabBars.firstMatch
-        var nudges = 0
-        while !element.isHittable && nudges < 3 {
-            app.swipeUp()
-            nudges += 1
-        }
-        XCTAssertTrue(element.isHittable, "\(name) is not hittable")
         XCTAssertGreaterThan(bar.frame.minY, 1, "Tab bar has no frame")
-        XCTAssertLessThanOrEqual(
-            element.frame.maxY,
-            bar.frame.minY + 1,
-            "\(name) sits under the tab bar (control bottom \(element.frame.maxY), tab top \(bar.frame.minY))"
+        let topLimit: CGFloat = 96
+        let scroller = firstScroller(in: app)
+
+        for _ in 0..<4 {
+            if controlClearsChrome(element, bar: bar, topLimit: topLimit) {
+                return
+            }
+            let frame = element.frame
+            if frame.width > 8 && frame.minY < topLimit {
+                drag(scroller, from: 0.42, to: 0.64)
+            } else {
+                drag(scroller, from: 0.68, to: 0.50)
+            }
+        }
+
+        let frame = element.frame
+        XCTAssertTrue(
+            controlClearsChrome(element, bar: bar, topLimit: topLimit),
+            "\(name) is not above the tab bar (control \(frame), hittable \(element.isHittable), tab \(bar.frame))"
         )
+    }
+
+    private func controlClearsChrome(_ element: XCUIElement, bar: XCUIElement, topLimit: CGFloat) -> Bool {
+        let frame = element.frame
+        guard frame.width > 8, frame.height > 8 else { return false }
+        return frame.minY >= topLimit && frame.maxY <= bar.frame.minY + 1
+    }
+
+    private func tapControl(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
+
+    private func firstScroller(in app: XCUIApplication) -> XCUIElement {
+        let scroll = app.scrollViews.firstMatch
+        if scroll.exists { return scroll }
+        let list = app.collectionViews.firstMatch
+        if list.exists { return list }
+        return app
+    }
+
+    private func drag(_ element: XCUIElement, from startY: CGFloat, to endY: CGFloat) {
+        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     private func saveDesignShot(_ app: XCUIApplication, folder: String, name: String) {
