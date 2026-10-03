@@ -231,46 +231,57 @@ describe('stripe webhook monitor', () => {
     expect(hourLater.incident.emailed).toBe(false);
   });
 
-  it('emails again when the issue body shows the last send was 6 hours ago', async () => {
-    const calls = [];
-    const open = [{
-      number: 22,
-      title: 'PROD STRIPE WEBHOOK DISABLED',
-      body: `The FitMunch Stripe webhook endpoint is not enabled.\n\n${emailMarker(now - DISABLED_EMAIL_INTERVAL_MS - 1000)}`,
-    }];
-    const github = {
-      calls,
-      async ensureLabel() {},
-      async listOpen() { return open; },
-      async listComments() { return []; },
-      async open(title, body) {
-        calls.push(['open', title, body]);
-        return { number: 23, title, body };
-      },
-      async comment(number, body) { calls.push(['comment', number, body]); },
-      async close() {},
-    };
-    const disabled = stripeFetch({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
-    const later = await runStripeWebhookMonitor({
-      env: env(),
-      fetch: disabled.fetchImpl,
-      github,
-      now,
-    });
-    expect(later.incident.action).toBe('commented');
-    expect(later.incident.emailed).toBe(true);
-    expect(calls.some((call) => call[0] === 'open')).toBe(false);
+  it('sends nothing when the body time is 5 hours ago and one email at exactly 6 hours, with no comments', async () => {
+    async function runAt(ageMs) {
+      const calls = [];
+      const open = [{
+        number: 22,
+        title: 'PROD STRIPE WEBHOOK DISABLED',
+        body: `The FitMunch Stripe webhook endpoint is not enabled.\n\n${emailMarker(now - ageMs)}`,
+      }];
+      const github = {
+        calls,
+        async ensureLabel() {},
+        async listOpen() {
+          return open.map((issue) => ({ number: issue.number, title: issue.title, body: issue.body }));
+        },
+        async listComments() { return []; },
+        async open() { throw new Error('should stay on the open issue'); },
+        async comment(number, body) { calls.push(['comment', number, body]); },
+        async close() {},
+      };
+      const disabled = stripeFetch({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
+      const result = await runStripeWebhookMonitor({
+        env: env(),
+        fetch: disabled.fetchImpl,
+        github,
+        now,
+      });
+      return { result, calls };
+    }
+
+    const fiveHours = await runAt(5 * 60 * 60 * 1000);
+    expect(fiveHours.result.incident.emailed).toBe(false);
+    expect(fiveHours.calls.filter((call) => call[0] === 'comment')).toHaveLength(0);
+
+    const sixHours = await runAt(DISABLED_EMAIL_INTERVAL_MS);
+    expect(sixHours.result.incident.action).toBe('commented');
+    expect(sixHours.result.incident.emailed).toBe(true);
+    expect(sixHours.calls.filter((call) => call[0] === 'comment')).toHaveLength(1);
   });
 
   it('closes an open incident on recovery and repeats the disabled email every 6 hours', async () => {
     const calls = [];
-    let open = [{ number: 8, title: 'PROD STRIPE WEBHOOK DISABLED' }];
-    let comments = [{ body: `still disabled\n\n${emailMarker(now - 60 * 60 * 1000)}` }];
+    let open = [{
+      number: 8,
+      title: 'PROD STRIPE WEBHOOK DISABLED',
+      body: `The FitMunch Stripe webhook endpoint is not enabled.\n\n${emailMarker(now - 60 * 60 * 1000)}`,
+    }];
     const github = {
       calls,
       async ensureLabel() { calls.push('label'); },
       async listOpen() { return open; },
-      async listComments() { return comments; },
+      async listComments() { return []; },
       async open(title, body) {
         calls.push(['open', title, body]);
         return { number: 9, title };
@@ -287,7 +298,7 @@ describe('stripe webhook monitor', () => {
     expect(recent.incident.action).toBe('commented');
     expect(recent.incident.emailed).toBe(false);
 
-    comments = [{ body: `still disabled\n\n${emailMarker(now - DISABLED_EMAIL_INTERVAL_MS - 1000)}` }];
+    open[0].body = `The FitMunch Stripe webhook endpoint is not enabled.\n\n${emailMarker(now - DISABLED_EMAIL_INTERVAL_MS - 1000)}`;
     const later = await runStripeWebhookMonitor({ env: env(), fetch: disabled.fetchImpl, github, now });
     expect(later.incident.action).toBe('commented');
     expect(later.incident.emailed).toBe(true);
@@ -343,6 +354,48 @@ describe('stripe webhook monitor', () => {
       now,
     });
     expect(oddPort.reason).toBe('explicit-port');
+  });
+
+  it('emails a disabled endpoint every 6 hours across 150 hourly runs when only the first 100 comments are listed', async () => {
+    let n = 1;
+    const issues = [];
+    const github = {
+      issues,
+      async ensureLabel() {},
+      async listOpen() {
+        return issues
+          .filter((issue) => issue.state === 'open')
+          .map(({ number, title, body }) => ({ number, title, body }));
+      },
+      async listComments(number) {
+        const issue = issues.find((item) => item.number === number);
+        return issue.comments.slice(0, 100).map((body) => ({ body }));
+      },
+      async open(title, body) {
+        const issue = { number: ++n, title, body, state: 'open', comments: [] };
+        issues.push(issue);
+        return { number: issue.number, title, body };
+      },
+      async comment(number, body) {
+        issues.find((item) => item.number === number).comments.push(body);
+      },
+      async close() {},
+    };
+    const disabled = stripeFetch({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
+    const emailed = [];
+    for (let hour = 0; hour < 150; hour += 1) {
+      const result = await runStripeWebhookMonitor({
+        env: env(),
+        fetch: disabled.fetchImpl,
+        github,
+        now: now + hour * 60 * 60 * 1000,
+      });
+      if (result.incident && result.incident.emailed) emailed.push(hour);
+    }
+    const expected = [];
+    for (let hour = 0; hour < 150; hour += 6) expected.push(hour);
+    expect(emailed).toEqual(expected);
+    expect(issues[0].comments).toHaveLength(expected.length - 1);
   });
 
   it('runs from the hourly probe and fails the job when the key is missing', async () => {

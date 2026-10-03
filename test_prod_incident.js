@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { handleIncident, shouldSendDownEmail, emailMarker, redact } = require('./scripts/lib/prod-incident');
+const { handleIncident, shouldSendDownEmail, lastEmailAt, emailMarker, redact } = require('./scripts/lib/prod-incident');
 const { runProbe, buildSmokeArgs, missingNames } = require('./scripts/prod-uptime-probe');
 
 function githubDouble(openIssues) {
@@ -53,7 +53,11 @@ describe('production incidents', () => {
   });
 
   it('comments without another email inside the hour', async () => {
-    const github = githubDouble([{ number: 4, title: 'PROD DOWN: fitmunch.com.au smoke failing' }]);
+    const github = githubDouble([{
+      number: 4,
+      title: 'PROD DOWN: fitmunch.com.au smoke failing',
+      body: `still down\n\n${emailMarker(Date.parse('2026-10-03T00:00:00Z'))}`,
+    }]);
     let mailed = 0;
     const result = await handleIncident({
       state: 'down',
@@ -69,6 +73,95 @@ describe('production incidents', () => {
     expect(result.action).toBe('commented');
     expect(result.emailed).toBe(false);
     expect(mailed).toBe(0);
+    expect(github.calls.some((call) => call[0] === 'comment')).toBe(false);
+  });
+
+  it('ignores an email time more than five minutes in the future', async () => {
+    const at = Date.parse('2026-10-03T00:00:00Z');
+    expect(lastEmailAt('<!-- fm-alert-email:2099-01-01T00:00:00Z -->', at)).toBeNull();
+    expect(lastEmailAt([{ body: '<!-- fm-alert-email:2099-01-01T00:00:00Z -->' }], at)).toBeNull();
+    expect(lastEmailAt(emailMarker(at + 5 * 60 * 1000), at)).toBe(at + 5 * 60 * 1000);
+    expect(lastEmailAt(emailMarker(at + 5 * 60 * 1000 + 1), at)).toBeNull();
+    expect(shouldSendDownEmail({
+      isNew: false,
+      body: '<!-- fm-alert-email:2099-01-01T00:00:00Z -->',
+      now: at,
+      intervalMs: 6 * 60 * 60 * 1000,
+    })).toBe(true);
+
+    const github = {
+      async ensureLabel() {},
+      async listOpen() {
+        return [{
+          number: 5,
+          title: 'PROD DOWN',
+          body: `down\n\n${emailMarker(at - 6 * 60 * 60 * 1000)}`,
+        }];
+      },
+      async listComments() {
+        return [
+          { body: emailMarker(at - 60 * 1000) },
+          { body: '<!-- fm-alert-email:2099-01-01T00:00:00Z -->' },
+        ];
+      },
+      async open() { throw new Error('should keep the open issue'); },
+      async comment() {},
+      async close() {},
+    };
+    const result = await handleIncident({
+      state: 'down',
+      title: 'PROD DOWN',
+      body: 'down',
+      now: at,
+      intervalMs: 6 * 60 * 60 * 1000,
+      github,
+      fetchImpl: async () => ({ ok: true }),
+      resendKey: 're_test',
+      resendFrom: 'FitMunch <hello@fitmunch.com.au>',
+      emailTo: ['support@fitmunch.com.au'],
+    });
+    expect(result.emailed).toBe(true);
+  });
+
+  it('emails once an hour for 12 hours when the check runs every 5 minutes', async () => {
+    let n = 0;
+    const issues = [];
+    const github = {
+      async ensureLabel() {},
+      async listOpen() {
+        return issues.filter((issue) => issue.open).map(({ number, title, body }) => ({ number, title, body }));
+      },
+      async listComments(number) {
+        return issues.find((issue) => issue.number === number).c.slice(0, 100).map((body) => ({ body }));
+      },
+      async open(title, body) {
+        const issue = { number: ++n, title, body, open: true, c: [] };
+        issues.push(issue);
+        return issue;
+      },
+      async comment(number, body) {
+        issues.find((issue) => issue.number === number).c.push(body);
+      },
+      async close() {},
+    };
+    const start = Date.parse('2026-10-03T00:00:00Z');
+    const emailed = [];
+    for (let minute = 0; minute <= 12 * 60; minute += 5) {
+      const result = await handleIncident({
+        state: 'down',
+        title: 'PROD DOWN',
+        body: 'down',
+        now: start + minute * 60 * 1000,
+        github,
+        fetchImpl: async () => ({ ok: true }),
+        resendKey: 're_test',
+        resendFrom: 'FitMunch <hello@fitmunch.com.au>',
+        emailTo: ['support@fitmunch.com.au'],
+      });
+      if (result.emailed) emailed.push(minute / 60);
+    }
+    expect(emailed).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(issues[0].c).toHaveLength(12);
   });
 
   it('closes an open incident when the probe recovers', async () => {

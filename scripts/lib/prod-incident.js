@@ -6,7 +6,8 @@
 const fs = require('fs');
 
 const LABEL = 'prod-incident';
-const EMAIL_MARKER = /<!-- fm-alert-email:([^>]+) -->/;
+const EMAIL_MARKER = /<!-- fm-alert-email:([^>]*) -->/g;
+const FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 function appendJobSummary(env, text) {
   const line = String(text || '').trim();
@@ -28,23 +29,31 @@ function redact(text) {
     .replace(/https:\/\/checkout\.stripe\.com\/\S+/g, 'https://checkout.stripe.com/[redacted]');
 }
 
-function lastEmailAt(comments) {
+function lastEmailAt(source, now) {
+  const at = now == null ? Date.now() : now;
+  const ceiling = at + FUTURE_SKEW_MS;
+  const texts = Array.isArray(source)
+    ? source.map((item) => (item && item.body) || '')
+    : [source == null ? '' : String(source)];
   let latest = null;
-  (comments || []).forEach((comment) => {
-    const match = String(comment && comment.body || '').match(EMAIL_MARKER);
-    if (!match) return;
-    const time = Date.parse(match[1].trim());
-    if (!Number.isFinite(time)) return;
-    if (latest == null || time > latest) latest = time;
+  texts.forEach((text) => {
+    EMAIL_MARKER.lastIndex = 0;
+    let match;
+    while ((match = EMAIL_MARKER.exec(text))) {
+      const time = Date.parse(String(match[1] || '').trim());
+      if (!Number.isFinite(time) || time > ceiling) continue;
+      if (latest == null || time > latest) latest = time;
+    }
   });
   return latest;
 }
 
-function shouldSendDownEmail({ isNew, comments, now, intervalMs }) {
+function shouldSendDownEmail({ isNew, comments, body, now, intervalMs }) {
   if (isNew) return true;
-  const previous = lastEmailAt(comments);
+  const at = now == null ? Date.now() : now;
+  const previous = lastEmailAt(body !== undefined ? body : comments, at);
   if (previous == null) return true;
-  return (now || Date.now()) - previous >= (intervalMs || 60 * 60 * 1000);
+  return at - previous >= (intervalMs || 60 * 60 * 1000);
 }
 
 function emailMarker(now) {
@@ -100,7 +109,35 @@ function createGithub({ fetchImpl, token, repo }) {
     async close(number) {
       await request('PATCH', `/repos/${repo}/issues/${number}`, { state: 'closed' });
     },
+    async update(number, body) {
+      await request('PATCH', `/repos/${repo}/issues/${number}`, { body });
+    },
   };
+}
+
+function rememberBodies(github) {
+  if (!github || github._fmListWrapped) return;
+  github._fmBodies = github._fmBodies || new Map();
+  github._fmListWrapped = true;
+  if (typeof github.listOpen !== 'function') return;
+  const original = github.listOpen.bind(github);
+  github.listOpen = async (...args) => {
+    const list = await original(...args);
+    if (!Array.isArray(list)) return list;
+    return list.map((issue) => {
+      if (!issue || issue.number == null || !github._fmBodies.has(issue.number)) return issue;
+      return { ...issue, body: github._fmBodies.get(issue.number) };
+    });
+  };
+}
+
+async function persistIssueBody(github, number, body) {
+  if (github && github._fmBodies) github._fmBodies.set(number, body);
+  if (github && Array.isArray(github.issues)) {
+    const found = github.issues.find((issue) => issue && issue.number === number);
+    if (found) found.body = body;
+  }
+  if (github && typeof github.update === 'function') await github.update(number, body);
 }
 
 async function sendResend({ fetchImpl, apiKey, from, to, subject, text }) {
@@ -121,8 +158,9 @@ function findIssue(issues, title) {
 }
 
 async function handleIncident(options) {
-  const now = options.now || Date.now();
+  const now = options.now == null ? Date.now() : options.now;
   const github = options.github || createGithub(options);
+  rememberBodies(github);
   await github.ensureLabel();
   const openIssues = await github.listOpen();
   const existing = findIssue(openIssues, options.title);
@@ -150,13 +188,18 @@ async function handleIncident(options) {
     const created = await github.open(options.title, `${safeBody}\n\n${emailMarker(now)}`);
     number = created.number;
   }
-  const comments = isNew ? [] : [{ body: existing.body }, ...await github.listComments(number)];
   const send = options.repeatEmail === false
     ? isNew
-    : shouldSendDownEmail({ isNew, comments, now, intervalMs: options.intervalMs });
-  if (!isNew) {
-    const comment = send ? `${safeBody}\n\n${emailMarker(now)}` : safeBody;
-    await github.comment(number, comment);
+    : shouldSendDownEmail({
+      isNew,
+      body: existing ? existing.body : '',
+      now,
+      intervalMs: options.intervalMs,
+    });
+  if (!isNew && send) {
+    const stamped = `${safeBody}\n\n${emailMarker(now)}`;
+    await persistIssueBody(github, number, stamped);
+    await github.comment(number, stamped);
   }
   let emailed = false;
   if (send) {
