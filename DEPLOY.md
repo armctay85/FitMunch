@@ -81,7 +81,7 @@ App runs at: http://localhost:5000
 
 Already live on Neon PostgreSQL with 9 tables.
 - No migration needed for first deploy
-- Connection: `ep-blue-base-ad7cuhxw.c-2.us-east-1.aws.neon.tech`
+- Connection: Neon (AWS us-east-1); see the Vercel env DATABASE_URL
 
 ---
 
