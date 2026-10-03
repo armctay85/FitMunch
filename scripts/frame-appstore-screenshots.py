@@ -7,8 +7,8 @@ canvases: 1320x2868, 1242x2688, and 1284x2778. The capture is placed at
 88% of the canvas width. A smaller simulator is never scaled up.
 
 Headlines are a heavy grotesk at 96 to 110pt, two lines maximum, and
-40 characters maximum. Build 9 has no shopping-list screen, so that
-frame is omitted.
+40 characters maximum. Seven frames, one per tab. The iOS app has no
+shopping-list screen, so that frame is omitted.
 
 Usage:
   python3 scripts/frame-appstore-screenshots.py RAW_DIR OUT_DIR
@@ -33,7 +33,8 @@ CAPTIONS = [
     ("03-meals.png", "plan.png", "High-protein week, built from your shop.", False),
     ("04-coach.png", "coach.png", "Ask your AI coach anything.", True),
     ("05-workout.png", "workout.png", "Train with a plan that fits your week.", False),
-    ("06-start.png", "settings.png", "Free to start. Built in Australia.", True),
+    ("06-history.png", "history.png", "Look back across the week.", True),
+    ("07-start.png", "settings.png", "Free to start. Built in Australia.", False),
 ]
 
 ALLOWED = {(1320, 2868), (1242, 2688), (1284, 2778)}

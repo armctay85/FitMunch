@@ -65,13 +65,35 @@ describe('Real-app screenshot path', () => {
     expect(capture).not.toMatch(/ASC_PASSWORD|AuthKey_|\.p8/);
   });
 
-  it('captures Home, Coach, Scan, Plan, Settings at 1290x2796', () => {
-    for (const name of ['home', 'coach', 'scan', 'plan', 'settings']) {
+  it('captures true 6.9-inch and 6.5-inch shots and seven frames from build 10', () => {
+    for (const name of ['home', 'coach', 'scan', 'plan', 'settings', 'workout', 'history']) {
       expect(uiTest).toContain(`"${name}"`);
       expect(capture).toContain(`${name}.png`);
     }
-    expect(capture).toContain('1290 2796');
     expect(capture).toContain('1320 2868');
+    expect(capture).toContain('1284 2778');
+    expect(capture).not.toContain('1290 2796');
+    expect(capture).toContain('Refusing to scale');
+    expect(capture).not.toContain('scale_real_shots "$OUT/iphone-69"');
+    expect(capture).not.toContain('scale_real_shots "$OUT/iphone-65"');
+    expect(shots).toContain("steps.store.outputs.version == '10'");
+    expect(capture).toContain('Store art shoots from build 10 only');
+    expect(capture).toContain('[[ "$store_version" != "10" ]]');
+    expect(capture).toContain('frame-appstore-screenshots.py');
+    expect(capture).toContain('record-appstore-preview.sh');
+    const frames = read('scripts/frame-appstore-screenshots.py');
+    expect(frames.match(/"\d\d-/g)).toHaveLength(7);
+    expect(frames).toContain('history.png');
+    expect(frames).toContain('Look back across the week.');
+    const preview = read('scripts/record-appstore-preview.sh');
+    expect(preview).toContain('testWalkScreensForPreview');
+    expect(preview).toContain('recordVideo');
+    expect(preview).toContain('886:1920');
+    expect(preview).toContain('15');
+    expect(preview).toContain('25');
+    expect(preview).not.toMatch(/altool|SubmitForReview|submit-for-review/i);
+    expect(uiTest).toContain('testWalkScreensForPreview');
+    expect(uiTest).toContain('SCREENSHOT_DWELL');
     expect(project).toContain('FitMunchUITests');
     expect(launch).toContain('-AppStoreScreenshots');
     expect(uiTest).toContain('-AppStoreScreenshots');
@@ -88,6 +110,12 @@ describe('Real-app screenshot path', () => {
     expect(ocr).toContain('"$"');
     expect(ocr).toContain('free');
     expect(ocr).toContain('trial');
+    expect(ocr).toContain('special');
+    expect(ocr).toContain('catalogue');
+    expect(ocr).toContain('saving');
+    expect(uiTest).toContain('specials');
+    expect(uiTest).toContain('catalogue');
+    expect(uiTest).toContain('savings');
   });
 
   it('does not invoke the HTML mockup renderer from any workflow', () => {

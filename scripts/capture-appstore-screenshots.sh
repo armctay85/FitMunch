@@ -6,6 +6,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Shoot only after PR 38 has landed and project.yml is build 10.
+# Until then the pipeline is ready and this script does not capture build 9.
+store_version="$(awk -F: '/CURRENT_PROJECT_VERSION:/ { gsub(/[^0-9]/, "", $2); print $2; exit }' project.yml)"
+if [[ "$store_version" != "10" ]]; then
+  echo "Store art shoots from build 10 only. project.yml CURRENT_PROJECT_VERSION is ${store_version:-missing}."
+  echo "Pipeline is ready: true 1320x2868 and 1284x2778, 7 captioned frames at each size, and a 15 to 25 second preview. Refusing to scale an iPhone screenshot."
+  exit 0
+fi
+
 OUT="$ROOT/artifacts/appstore-screenshots"
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -196,6 +205,8 @@ run_capture() {
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
 }
 
+# iPad compatibility shots may still be resized to the 13-inch slot.
+# iPhone 6.9 and 6.5 slots are never scaled. Refusing to scale is the rule.
 scale_real_shots() {
   local src="$1"
   local dest="$2"
@@ -210,29 +221,37 @@ scale_real_shots() {
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$dest"
 }
 
+frame_slot() {
+  local raw="$1"
+  local dest="$2"
+  local w="$3"
+  local h="$4"
+  if ! python3 -c "import PIL" >/dev/null 2>&1; then
+    python3 -m pip install --user pillow
+  fi
+  python3 "$ROOT/scripts/frame-appstore-screenshots.py" "$raw" "$dest" \
+    --width "$w" --height "$h" \
+    --contact-sheet "$dest/contact-sheet.png"
+}
+
 UDID_69="$(find_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || create_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || true)"
-UDID_67="$(find_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || create_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || true)"
+UDID_65="$(find_udid "iPhone 14 Plus" "iPhone 13 Pro Max" "iPhone 12 Pro Max" || create_udid "iPhone 14 Plus" "iPhone 13 Pro Max" "iPhone 12 Pro Max" || true)"
 
-if [[ -z "${UDID_69:-}" && -z "${UDID_67:-}" ]]; then
-  echo "No large iPhone simulator could be found or created."
+if [[ -z "${UDID_69:-}" ]]; then
+  echo "No 6.9-inch simulator (iPhone 17 Pro Max or iPhone 16 Pro Max). Refusing to scale."
   exit 1
 fi
 
-if [[ -n "${UDID_69:-}" ]]; then
-  run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
-fi
-
-if [[ -n "${UDID_67:-}" ]]; then
-  run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796
-elif [[ -d "$OUT/iphone-69" ]]; then
-  echo "No 6.7-inch simulator on this runner. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
-  scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
-fi
-
-if [[ ! -d "$OUT/iphone-67" ]]; then
-  echo "6.7-inch 1290x2796 capture is required."
+if [[ -z "${UDID_65:-}" ]]; then
+  echo "No 6.5-inch simulator (iPhone 14 Plus, iPhone 13 Pro Max, or iPhone 12 Pro Max). Refusing to scale."
   exit 1
 fi
+
+run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
+run_capture "$UDID_65" "$OUT/iphone-65" 1284 2778
+frame_slot "$OUT/iphone-69" "$OUT/iphone-69-framed" 1320 2868
+frame_slot "$OUT/iphone-65" "$OUT/iphone-65-framed" 1284 2778
+bash "$ROOT/scripts/record-appstore-preview.sh" "$UDID_69" "$OUT/preview/fitmunch-preview.mov"
 
 # 13-inch iPad slot. Build 9 is iPhone-only, so this is the same SwiftUI app
 # in iPad compatibility mode. Do not change TARGETED_DEVICE_FAMILY.

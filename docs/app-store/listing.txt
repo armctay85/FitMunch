@@ -108,10 +108,15 @@ Ask your AI coach anything.
 05-workout.png
 Train with a plan that fits your week.
 
-06-start.png
+06-history.png
+Look back across the week.
+
+07-start.png
 Free to start. Built in Australia.
 
-The framed sample under docs/app-store/pipeline-test/ is stamped pipeline test, not for upload. There is no shopping-list frame.
+Shoot these seven captions at 1320x2868 (6.9 inch) and at true 1284x2778 (6.5 inch). Do not scale one iPhone size into the other. The App Preview is one 886x1920 video, 15 to 25 seconds, from the same seven screens.
+
+The shoot runs only when project.yml is build 10. PR 38 was still open when this pipeline was prepared, so build 9 is not captured. The older sample under docs/app-store/pipeline-test/ is stamped pipeline test, not for upload. There is no shopping-list frame.
 
 
 DO NOT CLAIM

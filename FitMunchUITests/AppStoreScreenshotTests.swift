@@ -1,6 +1,6 @@
 import XCTest
 
-/// Captures the real SwiftUI app for App Store 6.7" / 6.9" slots.
+/// Captures the real SwiftUI app for App Store 6.5" (1284x2778) and 6.9" (1320x2868) slots.
 /// Launch argument `-AppStoreScreenshots` skips auth and paywall copy.
 final class AppStoreScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
@@ -45,6 +45,27 @@ final class AppStoreScreenshotTests: XCTestCase {
             assertNoRejectedCopy(on: screen.file)
             savePNG(named: screen.file)
         }
+    }
+
+    /// Timed walk for the 15 to 25 second App Preview. Same seven screens, no prices.
+    func testWalkScreensForPreview() throws {
+        let tabs = ["Scan", "Home", "Meals", "Coach", "Workout", "History", "Settings"]
+        let dwell = previewDwell()
+        for tab in tabs {
+            openTab(tab)
+            dismissSystemAlerts()
+            assertNoRejectedCopy(on: tab)
+            Thread.sleep(forTimeInterval: dwell)
+        }
+    }
+
+    private func previewDwell() -> TimeInterval {
+        for key in ["SCREENSHOT_DWELL", "TEST_RUNNER_SCREENSHOT_DWELL"] {
+            if let raw = ProcessInfo.processInfo.environment[key], let value = Double(raw), value > 0 {
+                return value
+            }
+        }
+        return 2.4
     }
 
     private func assertScreenLooksInUse(_ screen: String) {
@@ -134,6 +155,22 @@ final class AppStoreScreenshotTests: XCTestCase {
             "\(screen) shows Free copy"
         )
         XCTAssertFalse(app.staticTexts["Paywall"].exists, "\(screen) shows a paywall")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "special")).firstMatch.exists,
+            "\(screen) shows specials"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "catalogue")).firstMatch.exists,
+            "\(screen) shows a catalogue"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "catalog")).firstMatch.exists,
+            "\(screen) shows a catalog"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "saving")).firstMatch.exists,
+            "\(screen) shows savings"
+        )
     }
 
     /// Ask the capture script to take a simctl framebuffer shot, which is the full

@@ -6,7 +6,7 @@ import Vision
 /// Fail if App Store PNGs contain $ / Free / trial. Runs on the macos-26 runner.
 /// Usage: swift scripts/ocr-store-screenshots.swift <directory>
 
-let forbidden = ["$", "free", "trial"]
+let forbidden = ["$", "free", "trial", "special", "catalogue", "catalog", "saving"]
 let required = ["home.png", "coach.png", "scan.png", "plan.png", "settings.png", "workout.png", "history.png"]
 
 guard CommandLine.arguments.count >= 2 else {

@@ -25,8 +25,8 @@ function storyboardHeadlines() {
   const end = py.indexOf('\n]', start);
   const block = py.slice(start, end);
   const headlines = [...block.matchAll(/"([^"]+)"\s*,\s*(?:True|False)\)/g)].map((match) => match[1]);
-  if (headlines.length < 6) {
-    throw new Error('expected storyboard headlines in scripts/frame-appstore-screenshots.py');
+  if (headlines.length !== 7) {
+    throw new Error(`expected 7 storyboard headlines, found ${headlines.length}`);
   }
   return headlines;
 }
