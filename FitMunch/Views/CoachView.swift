@@ -64,7 +64,7 @@ struct CoachView: View {
 
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 10) {
+                        VStack(spacing: 10) {
                             if messages.isEmpty {
                                 emptyState
                             }
@@ -77,7 +77,7 @@ struct CoachView: View {
                     }
                     .scrollClearsTabBar()
                     .onChange(of: messages) { _, newValue in
-                        guard let last = newValue.last else { return }
+                        guard !ScreenshotLaunch.isActive, let last = newValue.last else { return }
                         if reduceMotion {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         } else {
