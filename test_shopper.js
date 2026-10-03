@@ -5,7 +5,7 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const shopper = require('./lib/fitness-butler-shopper');
-const { CATALOGUE } = require('./lib/public-specials-catalogue');
+const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
 
 function read(rel) {
   return fs.readFileSync(path.join(__dirname, rel), 'utf8');
@@ -73,7 +73,8 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(read('public/css/fm-shopper.css')).toMatch(/\.skip\{[\s\S]*transform:translateY\(-160%\)/);
     expect(page.text).toContain('data-sp-commit');
     expect(page.text).toContain('Approve this trolley');
-    expect(page.text).toContain('public specials');
+    expect(page.text).toContain(priceEstimateNote(CATALOGUE));
+    expect(page.text).toContain('priced from public catalogue specials');
     expect(page.text).toContain('14-day trial, then <strong>$19.99 a month.</strong> <span>Card on file.</span>');
     expect(page.text).toContain('Start the 14-day trial');
     expect(page.text).toContain('href="/login.html?plan=premium#register"');
@@ -139,6 +140,10 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(draft.body.success).toBe(true);
     expect(draft.body.draft.status).toBe('draft');
     expect(draft.body.draft.catalogue.sourceKind).toBe('public_specials_catalogue');
+    expect(draft.body.draft.catalogue.validFrom).toBe(CATALOGUE.validFrom);
+    expect(draft.body.draft.catalogue.validTo).toBe(CATALOGUE.validTo);
+    expect(draft.body.draft.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
+    expect(draft.body.draft.catalogue.priceNote).toBe(priceEstimateNote(CATALOGUE));
     expect(draft.body.draft.honesty.trolleyApi).toBe(false);
     expect(draft.body.draft.honesty.stripeLinkGrocery).toBe(false);
 
@@ -165,6 +170,28 @@ describe('Fitness Butler shopper honesty lock', () => {
     expect(files).not.toMatch(/syncs with HealthKit|watchOS|HealthKit connected/i);
     expect(files).toContain('public_specials_catalogue');
     expect(files).toContain('takeaway');
+  });
+
+  it("rg pattern this week's public specials|live prices|today's prices is absent from public and lib", () => {
+    const pattern = /this week's public specials|live prices|today's prices/;
+    const roots = ['public', 'lib'];
+    const hits = [];
+    function walk(rel) {
+      const abs = path.join(__dirname, rel);
+      for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+        const child = path.join(rel, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules') continue;
+          walk(child);
+          continue;
+        }
+        if (!/\.(html|js|mjs|cjs|md|json)$/.test(entry.name)) continue;
+        const text = read(child);
+        if (pattern.test(text)) hits.push(child);
+      }
+    }
+    roots.forEach(walk);
+    expect(hits).toEqual([]);
   });
 
   it('leaves the $19.99 Premium trial path untouched', () => {

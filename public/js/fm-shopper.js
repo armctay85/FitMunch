@@ -81,7 +81,7 @@
       <div class="sp-ticket" id="draft-trolley">
         <div class="sp-ticket-top">
           <div>
-            <div class="sp-total">${money(rec.goodsAud)}<small>${escapeHtml(rec.storeNames.join(' + '))} from public specials</small></div>
+            <div class="sp-total">${money(rec.goodsAud)}<small>${escapeHtml(rec.storeNames.join(' + '))} · ${escapeHtml(catalogueNote(draft.catalogue))}</small></div>
           </div>
           <p class="sp-verdict"><strong>${stay}</strong>${escapeHtml(rec.reason)}</p>
         </div>
@@ -137,7 +137,7 @@
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-copy>Copy the take list</button>
           <button type="button" class="fm-btn fm-btn-ink" data-sp-print>Print</button>
         </div>
-        <p class="sp-note">${escapeHtml(trolley.catalogue.weekLabel)}. Public specials catalogue, not a live trolley. 14-day trial, then $19.99 a month. Card on file.</p>
+        <p class="sp-note">${escapeHtml(catalogueNote(trolley.catalogue))} 14-day trial, then $19.99 a month. Card on file.</p>
       </div>
     `;
     const copyBtn = checkoutMount.querySelector('[data-sp-copy]');
@@ -154,6 +154,16 @@
     }
     if (printBtn) printBtn.addEventListener('click', () => window.print());
     checkoutMount.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function catalogueNote(catalogue) {
+    if (catalogue && catalogue.priceNote) return catalogue.priceNote;
+    const from = catalogue && catalogue.validFrom;
+    const to = catalogue && catalogue.validTo;
+    if (from && to) {
+      return 'Estimated from public catalogue specials dated ' + from + '\u2013' + to + '. Check prices at checkout.';
+    }
+    return 'Estimated from public catalogue specials. Check prices at checkout.';
   }
 
   function escapeHtml(value) {
@@ -174,7 +184,7 @@
       btn.disabled = true;
       btn.textContent = 'Writing the trolley…';
     });
-    setStatus('Writing ingredients from the week, then pricing public specials.');
+    setStatus('Writing ingredients from the week, then pricing the public catalogue.');
     try {
       const payload = await api('/api/shopper/draft', { method: 'POST', body: {} });
       window.__fmShopperDraft = payload.draft;
@@ -222,6 +232,8 @@
       renderWeek(payload.week);
       const example = document.querySelector('[data-sp-example]');
       if (example) example.textContent = payload.week.exampleLabel;
+      const priceNote = document.querySelector('[data-sp-price-note]');
+      if (priceNote) priceNote.textContent = catalogueNote(payload.catalogue);
     } catch (err) {
       setError(err.message || 'Could not load the week.');
     }

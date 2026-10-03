@@ -842,7 +842,7 @@ async function updateShoppingList() {
     if (!shopLoadingIndicator) {
       shopLoadingIndicator = document.createElement('div');
       shopLoadingIndicator.className = 'loading-indicator';
-      shopLoadingIndicator.innerHTML = '<span>Fetching live prices...</span>';
+      shopLoadingIndicator.innerHTML = '<span>Fetching catalogue prices...</span>';
       shoppingSection.appendChild(shopLoadingIndicator);
     }
     shopLoadingIndicator.style.display = 'flex';
@@ -885,7 +885,7 @@ async function updateShoppingList() {
       { name: "Olive Oil", quantity: "500ml", category: "Pantry", brand: "Italian Harvest", weeklyAmount: "500ml" }
     ];
 
-    // Get live prices from supermarket API or fallback
+    // Get catalogue prices or a shelf estimate
     let itemsWithPrices = await getLivePricingData(shoppingItems);
     console.log("Got live pricing data:", itemsWithPrices);
 
@@ -965,7 +965,7 @@ async function updateShoppingList() {
     const totalItemsEl = document.getElementById('totalItems');
 
     if (totalCostEl) {
-      totalCostEl.innerHTML = `$${totalCost.toFixed(2)} <small>(${livePriceCount}/${totalItems} live prices)</small>`;
+      totalCostEl.innerHTML = `$${totalCost.toFixed(2)} <small>(${livePriceCount}/${totalItems} catalogue prices)</small>`;
     } else {
       console.log("Total cost element not found");
     }
@@ -1186,7 +1186,7 @@ async function checkProductPrice() {
     return;
   }
 
-  resultsContainer.innerHTML = '<div class="loading">Checking live prices...</div>';
+  resultsContainer.innerHTML = '<div class="loading">Checking catalogue prices...</div>';
 
   try {
     // Get live pricing from multiple sources
@@ -1208,7 +1208,7 @@ async function checkProductPrice() {
       }
     }
 
-    // If no live prices, show estimated price
+    // If no catalogue prices, show an estimated price
     if (prices.length === 0) {
       const estimatedPrice = getEstimatedPrice(productName);
       prices = [{
