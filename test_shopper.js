@@ -29,7 +29,8 @@ describe('Fitness Butler shopper engine', () => {
     expect(draft.honesty.paysWoolworths).toBe(false);
     expect(draft.honesty.trolleyApi).toBe(false);
     expect(draft.honesty.stripeLinkGrocery).toBe(false);
-    expect(draft.honesty.pricesFrom).toBe('checkout');
+    expect(draft.honesty.pricesFrom).toBeUndefined();
+    expect(draft.catalogue).toEqual({ checkoutNote: 'Check prices at checkout.' });
   });
 
   it('uses the preferred store when one is set', () => {
@@ -56,6 +57,26 @@ describe('Fitness Butler shopper engine', () => {
     expect(trolley.honesty.healthKit).toBe(false);
   });
 });
+
+function priceKeys(value, found = []) {
+  if (!value || typeof value !== 'object') return found;
+  const nodes = Array.isArray(value) ? value : Object.entries(value);
+  if (Array.isArray(value)) {
+    for (const item of value) priceKeys(item, found);
+    return found;
+  }
+  for (const [key, child] of nodes) {
+    if (
+      key === 'secondTripCostAud'
+      || key === 'pricedAt'
+      || key === 'validFrom'
+      || key === 'validTo'
+      || /price|cents|total|saving|\bsave/i.test(key)
+    ) found.push(key);
+    priceKeys(child, found);
+  }
+  return found;
+}
 
 describe('Fitness Butler shopper HTTP', () => {
   it('GET /shopper is its own surface and does not fight the homepage job', async () => {
@@ -131,14 +152,8 @@ describe('Fitness Butler shopper HTTP', () => {
     const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
     expect(draft.body.success).toBe(true);
     expect(draft.body.draft.status).toBe('draft');
-    expect(draft.body.draft.catalogue.sourceKind).toBe('public_specials_catalogue');
-    expect(draft.body.draft.catalogue.validFrom).toBeUndefined();
-    expect(draft.body.draft.catalogue.validTo).toBeUndefined();
-    expect(draft.body.draft.catalogue.updatedAt).toBeUndefined();
-    expect(draft.body.draft.catalogue.pricedAt).toBeUndefined();
-    expect(draft.body.draft.catalogue.weekLabel).toBeUndefined();
-    expect(draft.body.draft.catalogue.priceNote).toBeUndefined();
-    expect(JSON.stringify(draft.body)).not.toMatch(/2026-08-25|2026-08-31/);
+    expect(draft.body.draft.catalogue).toEqual({ checkoutNote: 'Check prices at checkout.' });
+    expect(JSON.stringify(draft.body)).not.toMatch(/validFrom|validTo|sourceKind|\$\d|\bspecials\b/);
     expect(draft.body.draft.honesty.trolleyApi).toBe(false);
     expect(draft.body.draft.honesty.stripeLinkGrocery).toBe(false);
 
@@ -147,6 +162,15 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(approved.body.trolley.checkout.kind).toBe('takeaway');
     expect(approved.body.trolley.checkout.stripeLink).toBe(false);
     expect(JSON.stringify(approved.body)).not.toMatch(/payment_intent|checkout\.sessions/i);
+  });
+
+  it('week, draft, and approve responses have no price, cents, total, or saving keys', async () => {
+    const week = await request(app).get('/api/shopper/week').expect(200);
+    const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
+    const approved = await request(app).post('/api/shopper/approve').send({}).expect(200);
+    expect(priceKeys(week.body)).toEqual([]);
+    expect(priceKeys(draft.body)).toEqual([]);
+    expect(priceKeys(approved.body)).toEqual([]);
   });
 });
 

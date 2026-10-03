@@ -202,6 +202,13 @@ describe('public price and claim ban', () => {
     expect(found).toEqual([]);
   });
 
+  it('shopper draft response has no supermarket prices or catalogue dates', async () => {
+    const res = await request(app).post('/api/shopper/draft').send({}).expect(200);
+    const body = JSON.stringify(res.body);
+    expect(res.body.draft.catalogue.checkoutNote).toBe('Check prices at checkout.');
+    expect(body).not.toMatch(/\$\d|validFrom|validTo|assignedAud|goodsAud|totalAud|saveVsSingleAud|\bspecials\b|2026-08-25|2026-08-31/);
+  });
+
   it('keeps specials, catalogue, and priced out of meta, social tags, and structured data', () => {
     const found = [];
     function check(label, text) {
