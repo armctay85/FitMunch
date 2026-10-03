@@ -22,7 +22,7 @@ const {
   normalizeCheckoutPlan,
 } = require('./lib/fitmunch-checkout');
 
-const PUBLIC_PREMIUM_URL = '/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=mrr_sprint#register';
+const PUBLIC_PREMIUM_URL = '/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=premium_trial#register';
 
 describe('Public Premium CTA', () => {
   it('pricing Start Premium trial sends a stranger to register-then-checkout', async () => {

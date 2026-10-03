@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
+body.dm-page{min-height:100vh;display:flex;flex-direction:column}
+body.dm-page .fm-footer{margin-top:auto}
 .dm-hero{padding-top:calc(96px + clamp(40px,6vw,64px));padding-bottom:clamp(36px,5vw,56px)}
 .dm-hero .kicker{
   display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
@@ -48,7 +50,7 @@
 #score-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
 </style>
 </head>
-<body class="fm-body">
+<body class="fm-body dm-page">
 
 <nav class="fm-nav fm-nav-abs">
   <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="32" height="32"/>Fit<span>Munch</span></a>
