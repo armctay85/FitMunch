@@ -6,11 +6,14 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
-const { sendWelcomeEmail } = require('./server/email.js');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+const { useStripeClient } = require('./lib/fitmunch-account-link');
+const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
+const stripeEvents = require('./lib/stripe-events');
+const stripeWebhook = require('./lib/stripe-webhook');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
   // One trusted hop only when we are actually behind Railway or Vercel (or
@@ -29,6 +32,7 @@ if (process.env.STRIPE_SECRET_KEY) {
 } else {
   console.log('Warning: STRIPE_SECRET_KEY not found. Stripe functionality will be disabled.');
 }
+useStripeClient(() => stripe);
 
 const app = express();
 
@@ -239,141 +243,55 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error('Webhook sig failed:', err && err.type, err && err.message);
-    if (isInternalLeak(err && err.message)) return res.status(400).send('Webhook Error');
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('Webhook sig failed:', err && err.type);
+    return res.status(400).send('Invalid signature');
   }
 
-  const { updateUserSubscription, updateUserCoachBilling, effectiveTier, db, schema } = require('./server/storage.js');
-  const { eq } = require('drizzle-orm');
+  let fitmunch = false;
+  try {
+    fitmunch = await stripeWebhook.eventIsFitMunch(event, stripe);
+  } catch (err) {
+    return finishWebhook(res, err, event);
+  }
+  if (!fitmunch) {
+    console.log('ignored: other product');
+    return res.json({ received: true });
+  }
 
   try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        const customerEmail = session.customer_details?.email || session.metadata?.email;
-        const customerName = session.customer_details?.name || '';
-        const planId = session.metadata?.plan || '';
-        const planLabels = { 'pt-starter': 'Starter', 'pt-pro': 'Pro', 'premium': 'Premium' };
-        const planLabel = planLabels[planId] || planId || 'PT';
-        const sessionCustomerId = typeof session.customer === 'string'
-          ? session.customer
-          : session.customer?.id;
-        if (sessionCustomerId) {
-          await cancelNewerDuplicateSubscriptions(stripe, sessionCustomerId);
-          await cancelNewerDuplicatesAcrossCustomers(stripe, sessionCustomerId, customerEmail);
-        }
-        console.log(`Checkout completed: ${customerEmail} → plan ${planId}`);
-
-        // Send welcome email asynchronously (fire-and-forget, don't block webhook response)
-        if (customerEmail) {
-          sendWelcomeEmail(customerEmail, customerName, planLabel).then(r => {
-            console.log('Welcome email result:', r.success ? `sent (${r.messageId})` : `FAILED: ${r.error}`);
-          }).catch(e => console.error('Welcome email error:', e.message));
-        }
-        try {
-          const { isCoachPlanName } = require('./lib/fitmunch-checkout');
-          if (!isCoachPlanName(planId)) {
-            const { scheduleFunnelEvent, trialStartedFromCheckoutSession } = require('./lib/funnel-events');
-            scheduleFunnelEvent(
-              trialStartedFromCheckoutSession(session, 'webhook'),
-              event && event.id ? `trial:${event.id}` : ''
-            );
-          }
-        } catch (_) {
-          /* funnel log must not change the webhook response */
-        }
-        break;
-      }
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const sub = event.data.object;
-        let tierSource = sub;
-        const liveNow = LIVE_SUBSCRIPTION_STATUSES.includes(sub.status);
-        const runDedupe = Boolean(sub.customer) && (
-          event.type === 'customer.subscription.created' ||
-          (event.type === 'customer.subscription.updated' && liveNow)
-        );
-        if (runDedupe) {
-          const deduped = await cancelNewerDuplicateSubscriptions(stripe, sub.customer, [sub]);
-          if (deduped.kept) tierSource = deduped.kept;
-          const across = await cancelNewerDuplicatesAcrossCustomers(stripe, sub.customer);
-          const eventCancelled = (across.cancelled || []).some((row) => row.id === sub.id);
-          if (eventCancelled && across.kept) tierSource = across.kept;
-        }
-        const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
-        const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
-        if (isCoachSubscription(tierSource)) {
-          const coachUpdate = coachTierUpdateFromStripe(tierSource);
-          if (users[0]) {
-            await updateUserCoachBilling(users[0].id, coachUpdate, users[0].settings);
-          }
-          console.log(`Coach subscription ${event.type}: customer ${sub.customer} → ${coachUpdate.tier}`);
-          break;
-        }
-        const { tier, expiresAt } = subscriptionTierUpdateFromStripe(tierSource);
-        if (users[0]) {
-          await updateUserSubscription(users[0].id, tier, expiresAt);
-          if (tier === 'free' && effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
-            const until = users[0].settings && users[0].settings.compPremiumUntil;
-            console.log(`[comp] ${users[0].email || users[0].id} stays Premium until ${until} after Stripe set the tier to free`);
-          }
-        }
-        console.log(`Subscription ${event.type}: customer ${sub.customer} → ${tier}`);
-        break;
-      }
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object;
-        const users = await db.select().from(schema.users).where(eq(schema.users.stripeCustomerId, sub.customer));
-        const {
-          isCoachSubscription,
-          coachTierUpdateFromStripe,
-          customerStillHasLiveCoachSub,
-        } = require('./lib/fitmunch-coach-billing');
-        if (isCoachSubscription(sub)) {
-          const stillCoach = sub.customer
-            ? await customerStillHasLiveCoachSub(stripe, sub.customer, sub.id)
-            : false;
-          if (users[0] && !stillCoach) {
-            const coachUpdate = coachTierUpdateFromStripe({ ...sub, status: 'canceled' });
-            await updateUserCoachBilling(users[0].id, coachUpdate, users[0].settings);
-          }
-          if (stillCoach) {
-            console.warn(`[coach] ignored cancel for ${sub.id}; customer ${sub.customer} still has a live Coach subscription`);
-          } else {
-            console.log(`Coach subscription cancelled: customer ${sub.customer}`);
-          }
-          break;
-        }
-        const stillLive = sub.customer
-          ? await customerStillHasLiveFitMunchSub(stripe, sub.customer, sub.id)
-          : false;
-        if (users[0] && !stillLive) {
-          await updateUserSubscription(users[0].id, 'free', null);
-          if (effectiveTier({ ...users[0], subscriptionTier: 'free' }) === 'premium') {
-            const until = users[0].settings && users[0].settings.compPremiumUntil;
-            console.log(`[comp] ${users[0].email || users[0].id} stays Premium until ${until} after Stripe set the tier to free`);
-          }
-        }
-        if (stillLive) {
-          console.warn(`[checkout] ignored cancel for ${sub.id}; customer ${sub.customer} still has a live FitMunch subscription`);
-        } else {
-          console.log(`Subscription cancelled: customer ${sub.customer}`);
-        }
-        break;
-      }
-      case 'invoice.payment_failed':
-        console.warn(`Payment failed: customer ${event.data.object.customer}`);
-        break;
-      default:
-        console.log(`Webhook: ${event.type}`);
-    }
+    const claim = await stripeEvents.claimStripeEvent(event && event.id, event && event.type);
+    if (!claim.proceed) return res.json({ received: true });
+    await stripeWebhook.dispatchStripeEvent(event, stripe);
+    await stripeEvents.markStripeEventProcessed(event && event.id);
   } catch (err) {
-    console.error('Webhook handler error:', webhookHandlerErrorLabel(err));
-    return res.status(500).send('Handler error');
+    return finishWebhook(res, err, event);
   }
   res.json({ received: true });
 });
+
+function finishWebhook(res, err, event) {
+  console.error('Webhook handler error:', ...webhookErrorFields(err));
+  if (isTransientWebhookError(err)) {
+    return stripeEvents.releaseStripeEvent(event && event.id)
+      .catch((releaseErr) => {
+        console.error('Webhook handler error:', ...webhookErrorFields(releaseErr));
+      })
+      .then(() => res.status(500).send('Handler error'));
+  }
+  return stripeEvents.markStripeEventProcessed(event && event.id)
+    .catch((markErr) => {
+      console.error('Webhook handler error:', ...webhookErrorFields(markErr));
+      if (isTransientWebhookError(markErr)) {
+        res.status(500).send('Handler error');
+        return true;
+      }
+      return false;
+    })
+    .then((sent) => {
+      if (sent === true || res.headersSent) return;
+      res.json({ received: true });
+    });
+}
 
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
@@ -886,8 +804,18 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
 
     const { getUserById, updateUserSubscription, updateUserCoachBilling, effectiveTier } = require('./server/storage.js');
     const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
-    const user = await getUserById(decoded.userId);
+    let user = await getUserById(decoded.userId);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+    if (!user.stripeCustomerId) {
+      try {
+        const { attachGuestBilling } = require('./lib/fitmunch-account-link');
+        const linked = await attachGuestBilling(user);
+        if (linked && linked.user) user = linked.user;
+      } catch (linkErr) {
+        if (isTransientWebhookError(linkErr)) throw linkErr;
+        console.error('[sync-subscription] guest link failed', ...webhookErrorFields(linkErr));
+      }
+    }
     if (!user.stripeCustomerId) {
       return res.json({ success: true, tier: effectiveTier(user), synced: false });
     }
@@ -917,10 +845,9 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const accessTier = effectiveTier({ ...user, subscriptionTier: tier });
     if (previousTier !== tier) {
       await updateUserSubscription(user.id, tier, expiresAt);
-      console.log(`[sync-subscription] ${user.email}: ${previousTier} → ${tier}`);
+      console.log('[sync-subscription] tier updated');
       if (tier === 'free' && accessTier === 'premium') {
-        const until = user.settings && user.settings.compPremiumUntil;
-        console.log(`[comp] ${user.email} stays Premium until ${until} after Stripe sync set the tier to free`);
+        console.log('[comp] premium comp remains after Stripe sync set the tier to free');
       }
     }
     return res.json({
@@ -1166,6 +1093,7 @@ if (require.main === module) {
 function setStripeForTests(next) {
   stripe = next;
   resetCheckoutGuardsForTests();
+  stripeEvents.resetStripeEventsForTests();
 }
 
 module.exports = app;

@@ -21,6 +21,7 @@ module.exports = {
     '**/test_pay_path.js',
     '**/test_funnel_events.js',
     '**/test_checkout_duplicates.js',
+    '**/test_stripe_webhook.js',
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',
     '**/test_ios_store_art.js',

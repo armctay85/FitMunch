@@ -319,8 +319,8 @@ describe('funnel beacon and private viewer', () => {
   });
 
   it('the webhook records trial started from the checkout session and the viewer names the steps', () => {
-    const serverSrc = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
-    expect(serverSrc).toContain('trialStartedFromCheckoutSession(session, \'webhook\')');
+    const webhookSrc = fs.readFileSync(path.join(__dirname, 'lib/stripe-webhook.js'), 'utf8');
+    expect(webhookSrc).toContain('trialStartedFromCheckoutSession(session, \'webhook\')');
     const html = fs.readFileSync(path.join(__dirname, 'private/funnel.html'), 'utf8');
     expect(html).toContain('Conversion funnel');
     expect(html).toContain('landing_page_view');

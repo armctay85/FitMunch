@@ -142,6 +142,7 @@ describe('Server API shell', () => {
         .set('stripe-signature', header)
         .send(payload);
       expect(res.status).toBe(400);
+      expect(res.text).toBe('Invalid signature');
       const logged = spy.mock.calls.map((args) => args.map((arg) => {
         if (typeof arg === 'string') return arg;
         try { return JSON.stringify(arg); } catch (_) { return String(arg); }
@@ -151,10 +152,10 @@ describe('Server API shell', () => {
       expect(logged).not.toContain(header);
       expect(logged).not.toContain(payload);
       expect(logged).not.toContain('secret-signature-header');
+      expect(logged).not.toContain('No signatures found matching the expected signature for payload');
       expect(spy).toHaveBeenCalledWith(
         'Webhook sig failed:',
-        'StripeSignatureVerificationError',
-        'No signatures found matching the expected signature for payload'
+        'StripeSignatureVerificationError'
       );
     } finally {
       spy.mockRestore();

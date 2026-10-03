@@ -330,7 +330,7 @@ describe('checkout duplicate harness', () => {
   test('G webhook retries (same event delivered 3x) cause no Stripe writes', async () => {
     const before = fake.S.writes.length;
     const evs = [
-      { id: 'evt_1', type: 'checkout.session.completed', data: { object: { customer_details: {}, metadata: { plan: 'premium' } } } },
+      { id: 'evt_1', type: 'checkout.session.completed', data: { object: { customer_details: {}, metadata: { plan: 'premium', app: 'fitmunch' } } } },
       { id: 'evt_2', type: 'customer.subscription.created', data: { object: { customer: 'cus_existing', status: 'trialing', items: { data: [{ price: { id: PRICE_IDS.premium } }] } } } },
     ];
     for (const ev of evs) {
@@ -393,9 +393,9 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     ]);
     expect(fake.S.refunds).toEqual([{ charge: 'ch_dup', reason: 'duplicate' }]);
     const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
-    expect(logged).toMatch(/kept oldest sub_old/);
-    expect(logged).toMatch(/cancelled newer sub_new/);
-    expect(logged).toMatch(/cus_existing/);
+    expect(logged).toMatch(/kept the oldest and cancelled the newer one/);
+    expect(logged).toMatch(/refunded the duplicate charge/);
+    expect(logged).not.toMatch(/sub_old|sub_new|cus_existing|ch_dup/);
     warn.mockRestore();
   });
 
@@ -404,7 +404,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     await postEvent({
       id: 'evt_cs',
       type: 'checkout.session.completed',
-      data: { object: { customer: 'cus_existing', metadata: { plan: 'premium' }, customer_details: {} } },
+      data: { object: { customer: 'cus_existing', metadata: { plan: 'premium', app: 'fitmunch' }, customer_details: {} } },
     }).expect(200);
     expect(fake.S.subs.find((s) => s.id === 'sub_old').status).toBe('trialing');
     expect(fake.S.subs.find((s) => s.id === 'sub_new').status).toBe('canceled');
@@ -432,7 +432,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     await postEvent({
       id: 'evt_del',
       type: 'customer.subscription.deleted',
-      data: { object: { id: 'sub_new', customer: 'cus_existing', status: 'canceled' } },
+      data: { object: { id: 'sub_new', customer: 'cus_existing', status: 'canceled', items: { data: [{ price: { id: PRICE_IDS.premium } }] } } },
     }).expect(200);
     expect(storage.updateUserSubscription).not.toHaveBeenCalled();
 
@@ -440,7 +440,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     await postEvent({
       id: 'evt_del_last',
       type: 'customer.subscription.deleted',
-      data: { object: { id: 'sub_old', customer: 'cus_existing', status: 'canceled' } },
+      data: { object: { id: 'sub_old', customer: 'cus_existing', status: 'canceled', items: { data: [{ price: { id: PRICE_IDS.premium } }] } } },
     }).expect(200);
     expect(storage.updateUserSubscription).toHaveBeenCalledWith('u1', 'free', null);
   });
@@ -879,7 +879,7 @@ describe('guest subscriptions across customers', () => {
         object: {
           customer: newer.customer,
           customer_details: { email: 'guest@example.com' },
-          metadata: { plan: 'premium', email: 'guest@example.com' },
+          metadata: { plan: 'premium', app: 'fitmunch', email: 'guest@example.com' },
         },
       },
     }).expect(200);
@@ -945,7 +945,7 @@ describe('guest subscriptions across customers', () => {
         object: {
           customer: 'cus_g2',
           customer_details: { email: 'shared@example.com' },
-          metadata: { plan: 'premium' },
+          metadata: { plan: 'premium', app: 'fitmunch' },
         },
       },
     }).expect(200);
