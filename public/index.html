@@ -195,12 +195,13 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   color:#eef2ee;
 }
 .brand{
-  display:inline-flex;align-items:center;gap:8px;
+  display:inline-flex;align-items:center;gap:0;
   text-decoration:none;color:#f4f7f4;
   font-size:1.05rem;font-weight:800;letter-spacing:-.045em;
 }
-.brand img{width:28px;height:28px;border-radius:7px;display:block}
-.brand span{color:#7dffa3}
+.brand img{width:28px;height:28px;border-radius:7px;display:block;margin-right:8px}
+.brand .brand-name{color:#f4f7f4;letter-spacing:-.03em}
+.brand .brand-name span{color:#7dffa3}
 .nav-links{display:flex;align-items:center;gap:2px}
 .nav-links a{
   color:rgba(238,242,238,.72);text-decoration:none;
@@ -549,10 +550,13 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   text-transform:uppercase;color:var(--leaf2);margin-bottom:12px;
 }
 .price-n{
-  font-size:2.55rem;font-weight:600;letter-spacing:-.05em;line-height:1;
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;
+  font-size:2.55rem;font-weight:600;letter-spacing:0;line-height:1;
+  font-variant-numeric:tabular-nums;
   margin-bottom:10px;
 }
-.price-n small{font-size:.88rem;font-weight:500;color:var(--mute)}
+.price-n .amt{letter-spacing:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.price-n small{font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.88rem;font-weight:500;color:var(--mute);letter-spacing:0;white-space:nowrap}
 .plan > p{color:var(--mute);font-size:.95rem;line-height:1.55;margin-bottom:22px}
 .plan ul{list-style:none;display:grid;gap:9px;margin-bottom:26px}
 .plan li{
@@ -656,17 +660,22 @@ footer{
   .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:14px}
   .hero-ctas{display:flex;max-width:none}
 }
+.ui-phone{display:none}
 @media(min-width:1200px){
-  .hero-inner{grid-template-columns:minmax(0,1fr) 620px}
-  .phone{width:620px;max-width:620px;min-height:540px}
-  .sheet{width:520px;max-width:520px;position:relative;z-index:1}
-  .phone-frame{
-    display:block;position:absolute;z-index:0;right:0;top:12px;width:220px;
-    padding:8px;border-radius:28px;background:#04100a;
-    border:1px solid rgba(255,255,255,.16);
-    box-shadow:0 18px 40px rgba(0,0,0,.35);
+  .hero-inner{width:min(1240px,100%);grid-template-columns:minmax(280px,1fr) minmax(640px,760px);gap:36px}
+  .phone{width:100%;max-width:none;min-height:0;display:flex;align-items:stretch;justify-content:flex-end;gap:18px}
+  .sheet{width:min(420px,100%);max-width:420px;position:relative;z-index:1;flex:1 1 auto}
+  .ui-phone{
+    display:flex;flex-direction:column;flex:0 0 210px;width:210px;
+    background:#04100a;color:#f4f7f4;border:1px solid rgba(255,255,255,.16);
+    border-radius:28px;padding:14px 12px 16px;box-shadow:0 18px 40px rgba(0,0,0,.35);
   }
-  .phone-frame img{width:100%;height:auto;display:block;border-radius:20px}
+  .ui-phone-bar{display:flex;justify-content:space-between;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.62rem;color:#9fb0a5;margin-bottom:10px}
+  .ui-phone-k{margin:0 0 8px;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7dffa3}
+  .ui-phone ol{list-style:none;margin:0;padding:0;display:grid;gap:0}
+  .ui-phone li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:.78rem}
+  .ui-phone li b{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.62rem;letter-spacing:.06em;color:#7dffa3;font-weight:600}
+  .ui-phone li span{font-weight:700;text-align:right}
 }
 @media(max-width:860px){
   .nav-links a:not(.nav-cta):not([data-fm-auth="login"]){display:none}
@@ -712,7 +721,7 @@ footer{
 <nav class="site-nav" aria-label="Primary">
   <a class="brand" href="/" aria-label="FitMunch">
     <img src="/assets/logo.svg" alt="" width="32" height="32"/>
-    Fit<span>Munch</span>
+    <span class="brand-name">Fit<span>Munch</span></span>
   </a>
   <div class="nav-links">
     <a href="#loop">How it works</a>
@@ -733,8 +742,18 @@ footer{
       </div>
     </div>
     <aside class="phone" aria-label="Sample trolley">
-      <div class="phone-frame">
-        <img src="/assets/food/week-plan-screen.webp" alt="" width="360" height="640" decoding="async" fetchpriority="low"/>
+      <div class="ui-phone" aria-label="Sample week plan">
+        <div class="ui-phone-bar"><span>9:41</span><span>FitMunch</span></div>
+        <p class="ui-phone-k">Sample week</p>
+        <ol>
+          <li><b>MON</b><span>Mince</span></li>
+          <li><b>TUE</b><span>Salmon</span></li>
+          <li><b>WED</b><span>Thigh</span></li>
+          <li><b>THU</b><span>Mince</span></li>
+          <li><b>FRI</b><span>Salmon</span></li>
+          <li><b>SAT</b><span>Chicken</span></li>
+          <li><b>SUN</b><span>Pasta</span></li>
+        </ol>
       </div>
       <div class="sheet" id="sample-trolley">
         <div class="sheet-top">
@@ -953,7 +972,7 @@ footer{
     <div class="plans">
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
-        <div class="price-n">$19.99 <small>a month</small></div>
+        <div class="price-n"><span class="amt">A$19.99</span><small>a month</small></div>
         <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then $19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
         <ul>
           <li>Unlimited AI coach grounded in your logs</li>
@@ -965,7 +984,7 @@ footer{
       </article>
       <article class="plan">
         <div class="plan-kicker">Free</div>
-        <div class="price-n">$0 <small>forever</small></div>
+        <div class="price-n"><span class="amt">A$0</span><small>forever</small></div>
         <p>Macro logging, a starter plan allowance, and a receipt scan teaser.</p>
         <ul>
           <li>Macro and meal logging</li>

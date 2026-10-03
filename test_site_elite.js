@@ -81,7 +81,25 @@ describe('sample trolley and legal copy', () => {
     expect(hero).toContain('A$84.20');
     expect(hero).toContain('Approve this trolley');
     expect(hero).toContain('Not a shop charge');
-    expect(hero).toContain('week-plan-screen.webp');
+    expect(hero).toContain('Sample week');
+    expect(hero).toContain('>Mince<');
+    expect(hero).toContain('>Pasta<');
+    const shopper = await request(app).get('/shopper').expect(200);
+    const macro = await request(app).get('/macro-meal-planner').expect(200);
+    for (const page of [home, shopper, macro]) {
+      expect(page.text).toContain('>Mince<');
+      expect(page.text).toContain('>Salmon<');
+      expect(page.text).toContain('>Thigh<');
+      expect(page.text).toContain('>Chicken<');
+      expect(page.text).toContain('>Pasta<');
+    }
+    expect(macro.text).toContain('overhead-chicken.webp');
+    const terms = await request(app).get('/terms').expect(200);
+    expect(terms.text).toContain('App Store subscriptions are billed and managed by Apple.');
+    expect(terms.text).toContain('<!-- ENTITY_LINE: pending owner confirmation -->');
+    expect(terms.text).not.toMatch(/governing law/i);
+    const privacy = await request(app).get('/privacy').expect(200);
+    expect(privacy.text).toContain('Last updated: October 2026');
     expect(hero).not.toContain('$19.99');
     expect(home.text).toContain('prefers-reduced-motion: no-preference');
     expect(home.text).toContain('prefers-reduced-motion:reduce');

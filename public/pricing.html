@@ -32,8 +32,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .plan.main{background:linear-gradient(180deg, rgba(31,157,74,.08), transparent 42%)}
 .badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:var(--cta);color:#fff;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.66rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:2px}
 .p-name{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
-.p-price{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.05em;line-height:1;margin-bottom:10px}
-.p-price small{font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.82rem;font-weight:500;color:var(--mute)}
+.p-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;line-height:1;margin-bottom:10px}
+.p-price .amt{letter-spacing:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.p-price small{font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.82rem;font-weight:500;color:var(--mute);letter-spacing:0;white-space:nowrap}
+.footnote a{color:var(--leaf2);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .p-desc{color:var(--mute);font-size:.86rem;line-height:1.55;min-height:52px;margin-bottom:18px}
 .plan ul{list-style:none;display:grid;gap:8px;margin-bottom:22px}
 .plan li{font-size:.86rem;color:var(--ink);padding-left:14px;position:relative}
@@ -112,7 +114,7 @@ html,body{max-width:100%;overflow-x:hidden}
       <article class="plan main">
         <div class="badge">Most popular</div>
         <div class="p-name">Premium</div>
-        <div class="p-price">$19.99 <small>/mo AUD</small></div>
+        <div class="p-price"><span class="amt">A$19.99</span><small>a month</small></div>
         <p class="p-desc">Unlimited AI coach, meal plans, workouts and receipt scans, built for real Woolies and Coles shops.</p>
         <ul>
           <li>Unlimited AI coach chat</li>
@@ -127,7 +129,7 @@ html,body{max-width:100%;overflow-x:hidden}
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
-        <div class="p-price">$0 <small>forever</small></div>
+        <div class="p-price"><span class="amt">A$0</span><small>forever</small></div>
         <p class="p-desc">Try food logging and a starter plan. Limited AI actions each month.</p>
         <ul>
           <li>Macro and food logging</li>
@@ -140,7 +142,7 @@ html,body{max-width:100%;overflow-x:hidden}
       </article>
       <article class="plan">
         <div class="p-name">For trainers</div>
-        <div class="p-price">$59 to $99 <small>/mo AUD</small></div>
+        <div class="p-price"><span class="amt">$59 to $99</span><small>/mo AUD</small></div>
         <p class="p-desc">Secondary lane. Client roster and plan assignment after the consumer product works for you.</p>
         <ul>
           <li>Client roster dashboard</li>

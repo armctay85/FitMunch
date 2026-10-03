@@ -20,11 +20,11 @@
 }
 .fm-nav.fm-nav-abs{position:absolute;top:0;left:0;right:0;z-index:20;background:transparent}
 .fm-brand{
-  display:inline-flex;align-items:center;gap:10px;
+  display:inline-flex;align-items:center;gap:0;
   text-decoration:none;color:#fff;
   font-size:1.25rem;font-weight:800;letter-spacing:-.04em;
 }
-.fm-brand img{width:32px;height:32px;border-radius:8px;display:block}
+.fm-brand img{width:32px;height:32px;border-radius:8px;display:block;margin-right:10px}
 .fm-brand span{color:var(--leaf)}
 .fm-nav-links{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .fm-nav-links a{

@@ -37,6 +37,7 @@
   <div class="sp-hero-media" aria-hidden="true"></div>
   <div class="sp-hero-grain" aria-hidden="true"></div>
   <div class="sp-hero-inner">
+  <div class="sp-hero-copy">
     <div class="sp-kicker">Fitness Butler · Shopper</div>
     <h1>Commit the week. Take the trolley.</h1>
     <p class="lead">Lock seven days of meals. FitMunch writes the ingredients, prices Woolies, Coles and Aldi from this week's public specials, and only splits stores if the save beats a second trip.</p>
@@ -58,6 +59,20 @@
     <p class="sp-status" data-sp-status></p>
     <p class="sp-err" data-sp-error hidden></p>
   </div>
+  <aside class="ui-phone" aria-label="Sample week plan">
+    <div class="ui-phone-bar"><span>9:41</span><span>FitMunch</span></div>
+    <p class="ui-phone-k">Sample week</p>
+    <ol>
+      <li><b>MON</b><span>Mince</span></li>
+      <li><b>TUE</b><span>Salmon</span></li>
+      <li><b>WED</b><span>Thigh</span></li>
+      <li><b>THU</b><span>Mince</span></li>
+      <li><b>FRI</b><span>Salmon</span></li>
+      <li><b>SAT</b><span>Chicken</span></li>
+      <li><b>SUN</b><span>Pasta</span></li>
+    </ol>
+  </aside>
+  </div>
 </header>
 
 <section class="sp-section" id="week">
@@ -78,12 +93,22 @@
       <img src="/assets/food/overhead-salmon.webp" width="800" height="600" alt="Overhead of salmon, potatoes and beans" loading="lazy" decoding="async"/>
       <figcaption>Public specials decide the shop, not the photo.</figcaption>
     </figure>
-    <div class="sp-device">
-      <div class="sp-device-frame">
-        <img src="/assets/food/week-plan-screen.webp" width="360" height="640" alt="Sample FitMunch week plan on a phone screen" loading="lazy" decoding="async"/>
+      <div class="sp-device">
+        <aside class="ui-phone ui-phone-show" aria-label="Sample week plan">
+          <div class="ui-phone-bar"><span>9:41</span><span>FitMunch</span></div>
+          <p class="ui-phone-k">Sample week</p>
+          <ol>
+            <li><b>MON</b><span>Mince</span></li>
+            <li><b>TUE</b><span>Salmon</span></li>
+            <li><b>WED</b><span>Thigh</span></li>
+            <li><b>THU</b><span>Mince</span></li>
+            <li><b>FRI</b><span>Salmon</span></li>
+            <li><b>SAT</b><span>Chicken</span></li>
+            <li><b>SUN</b><span>Pasta</span></li>
+          </ol>
+        </aside>
+        <p>Sample week plan. Not your account.</p>
       </div>
-      <p>Sample week plan. Not your account.</p>
-    </div>
   </div>
 </section>
 
@@ -114,6 +139,21 @@
     <p class="lead">After you commit, the butler prices every line and says whether a split is worth the extra trip.</p>
     <div data-sp-draft>
       <div class="sp-ticket">
+        <div class="sp-ticket-top">
+          <div>
+            <p class="sp-sample-k">Sample</p>
+            <div class="sp-total">A$84.20<small>Same week as the chips above</small></div>
+          </div>
+          <p class="sp-verdict"><strong>One store unless the split wins</strong>Mince, salmon, thigh, chicken and pasta, priced as a sample. Commit replaces this card with the engine draft.</p>
+        </div>
+        <div class="sp-lines">
+          <div class="sp-line"><div><div class="n">Chicken 1kg</div><div class="m">Sat tray bake</div></div><div class="st">Woolies</div><div class="p">A$14.80</div></div>
+          <div class="sp-line"><div><div class="n">Salmon 400g</div><div class="m">Tue and Fri</div></div><div class="st">Woolies</div><div class="p">A$19.40</div></div>
+          <div class="sp-line"><div><div class="n">Beef mince 500g</div><div class="m">Mon and Thu</div></div><div class="st">Coles</div><div class="p">A$13.20</div></div>
+          <div class="sp-line"><div><div class="n">Chicken thigh 1kg</div><div class="m">Wed stir-fry</div></div><div class="st">Coles</div><div class="p">A$12.40</div></div>
+          <div class="sp-line"><div><div class="n">Pasta 500g</div><div class="m">Sun leftovers</div></div><div class="st">Aldi</div><div class="p">A$2.40</div></div>
+          <div class="sp-line"><div><div class="n">Eggs, oats, oil</div><div class="m">Breakfasts and the rest</div></div><div class="st">Aldi</div><div class="p">A$22.00</div></div>
+        </div>
         <p class="sp-note">Commit the week above. The draft stays empty until the engine writes the ingredients. Approve this trolley with one tap when the split looks right.</p>
       </div>
     </div>
