@@ -7,6 +7,7 @@ module.exports = {
     '**/test_fm_storage.js',
     '**/test_fm_identity.js',
     '**/test_server_api.js',
+    '**/test_checkout_session_privacy.js',
     '**/test_trust_bar.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',

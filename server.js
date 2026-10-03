@@ -1015,6 +1015,10 @@ app.post('/api/stripe/customers', async (req, res) => {
 
 // ── SESSION LOOKUP (used by success page) ─────────────────────────────────────
 app.get('/api/checkout/session', async (req, res) => {
+  // Unauthenticated: anyone holding a session id can call this, so it must never
+  // return personal data (email) or the Stripe customer id, and no response from
+  // it may be cached. The success page only needs the plan.
+  res.set('Cache-Control', 'no-store');
   if (!stripe) return res.status(503).json({ error: 'Stripe not configured.' });
   const sessionId = req.query.session_id;
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
@@ -1023,8 +1027,6 @@ app.get('/api/checkout/session', async (req, res) => {
     res.json({
       plan: session.metadata?.plan || null,
       planLabel: session.metadata?.plan || null,
-      email: session.customer_details?.email || null,
-      customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
       paymentStatus: session.payment_status,
     });
   } catch (e) {
