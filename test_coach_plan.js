@@ -5,9 +5,8 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const coach = require('./lib/coach-plan');
-const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
-const store = require('./lib/coach-store');
 const { CATALOGUE } = require('./lib/public-specials-catalogue');
+const store = require('./lib/coach-store');
 
 const PRICE_OR_DATE = /\$\s?\d|A\$\s?\d|totalAud|lineAud|on special|catalogue specials|validFrom|validTo|pricedAt|2026-08-\d{2}|\d{1,2}\s*[–-]\s*\d{1,2}\s+Aug|Aug\s+2026|public specials|Woolworths estimate|save \$|savings/i;
 
