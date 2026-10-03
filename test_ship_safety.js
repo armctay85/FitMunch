@@ -2,6 +2,9 @@
  * Ship-safety: webhook logs, receipt sample lockdown, API JSON name strip.
  */
 const request = require('supertest');
+// The limiter tests below simulate the one Vercel/Railway hop, so trust it here.
+// Direct runs (no VERCEL, RAILWAY_ENVIRONMENT or TRUST_PROXY) ignore X-Forwarded-For.
+process.env.TRUST_PROXY = '1';
 const app = require('./server.js');
 const { sanitizeApiJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
@@ -48,14 +51,113 @@ describe('response headers', () => {
     expect(effective('/pricing')).toBe('strict-origin-when-cross-origin');
   });
 
-  it('sends no-referrer from Express on /login, /login?reset= and /login.html', async () => {
-    for (const urlPath of ['/login', '/login?reset=x', '/login.html']) {
+  it('301s /login and /login?reset= to login.html with the query kept and no-referrer', async () => {
+    const plain = await request(app).get('/login').redirects(0);
+    expect(plain.status).toBe(301);
+    expect(plain.headers.location).toBe('/login.html');
+    expect(plain.headers['referrer-policy']).toBe('no-referrer');
+    const reset = await request(app).get('/login?reset=QAFAKE').redirects(0);
+    expect(reset.status).toBe(301);
+    expect(reset.headers.location).toBe('/login.html?reset=QAFAKE');
+    expect(reset.headers['referrer-policy']).toBe('no-referrer');
+  });
+
+  it('sends no-referrer from Express on /login, /login/, /login?reset= and /login.html', async () => {
+    for (const urlPath of ['/login', '/login/', '/login?reset=x', '/login.html']) {
       const res = await request(app).get(urlPath);
       expect(res.headers['referrer-policy']).toBe('no-referrer');
       expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
     }
     const home = await request(app).get('/');
     expect(home.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  });
+});
+
+describe('r3 hardening', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  it('sends CSP and Permissions-Policy on the /funnel 401s too', async () => {
+    for (const urlPath of ['/funnel', '/funnel.html']) {
+      const res = await request(app).get(urlPath).expect(401);
+      expect(res.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
+      expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
+    }
+  });
+
+  it('compares the analytics key with SHA-256 digests and timingSafeEqual, no length branch', async () => {
+    const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    const fn = src.slice(src.indexOf('function analyticsKeyMatches'), src.indexOf('function analyticsKeyMatches') + 700);
+    expect(fn).toMatch(/createHash\('sha256'\)/);
+    expect(fn).toMatch(/timingSafeEqual/);
+    expect(fn).not.toMatch(/\.length\s*!==/);
+    const previous = process.env.FM_ANALYTICS_KEY;
+    process.env.FM_ANALYTICS_KEY = 'r3-test-key';
+    try {
+      await request(app).get('/funnel.html?key=r3-test-ke').expect(401);
+      await request(app).get('/funnel.html?key=' + 'x'.repeat(5000)).expect(401);
+      await request(app).get('/funnel.html?key=r3-test-key').expect(200);
+    } finally {
+      if (previous === undefined) delete process.env.FM_ANALYTICS_KEY;
+      else process.env.FM_ANALYTICS_KEY = previous;
+    }
+  });
+
+  it('trusts X-Forwarded-For only behind a proxy', () => {
+    const { behindTrustedProxy } = app._private;
+    expect(behindTrustedProxy({})).toBe(false);
+    expect(behindTrustedProxy({ VERCEL: '1' })).toBe(true);
+    expect(behindTrustedProxy({ RAILWAY_ENVIRONMENT: 'production' })).toBe(true);
+    expect(behindTrustedProxy({ TRUST_PROXY: '1' })).toBe(true);
+    expect(behindTrustedProxy({ VERCEL: '1', TRUST_PROXY: '0' })).toBe(false);
+  });
+
+  it('keeps unused hosts out of the CSP, and vercel.json matches Express', () => {
+    for (const host of ['js.stripe.com', 'hooks.stripe.com', 'va.vercel-scripts.com', 'vitals.vercel-insights.com']) {
+      expect(CONTENT_SECURITY_POLICY).not.toContain(host);
+    }
+    const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
+    const csp = vercel.headers[0].headers.find((h) => h.key === 'Content-Security-Policy');
+    expect(csp.value).toBe(CONTENT_SECURITY_POLICY);
+  });
+
+  it('content tables never split words and label every cell for the phone card layout', () => {
+    for (const css of ['public/css/fm-shell.css', 'public/css/fm-coach-shell.css']) {
+      const text = fs.readFileSync(path.join(__dirname, css), 'utf8');
+      expect(text).not.toMatch(/overflow-wrap\s*:\s*anywhere/);
+      expect(text).not.toMatch(/word-break\s*:\s*break-all/);
+      expect(text).toMatch(/\.fm-table td::before\{\s*content:attr\(data-label\)/);
+      expect(text).not.toMatch(/(^|\n)\s*html\s*\{[^}]*overflow-x\s*:\s*hidden/);
+    }
+    const pages = fs.readdirSync(path.join(__dirname, 'public')).filter((f) => f.endsWith('.html'));
+    let tables = 0;
+    for (const page of pages) {
+      const html = fs.readFileSync(path.join(__dirname, 'public', page), 'utf8');
+      const found = html.match(/<table class="fm-table">[\s\S]*?<\/table>/g) || [];
+      for (const table of found) {
+        tables += 1;
+        expect(table).not.toMatch(/<td(?![^>]*data-label=")[^>]*>/);
+      }
+    }
+    expect(tables).toBeGreaterThan(0);
+  });
+
+  it('funnel table scrolls inside a hidden-until-loaded wrapper', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/funnel.html'), 'utf8');
+    expect(html).toMatch(/<div class="fn-tbl-wrap" id="tblWrap" hidden>/);
+    expect(html).toMatch(/\.fn-tbl-wrap\{[^}]*overflow-x:auto/);
+    expect(html).toMatch(/\.fn-tbl-wrap\[hidden\]\{display:none\}/);
+  });
+
+  it('tracks nothing under dist/', () => {
+    const { execFileSync } = require('child_process');
+    let out;
+    try {
+      out = execFileSync('git', ['ls-files', 'dist'], { cwd: __dirname, encoding: 'utf8' });
+    } catch (_) {
+      return; // no git checkout (e.g. a deploy bundle)
+    }
+    expect(out.trim()).toBe('');
   });
 });
 

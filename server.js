@@ -13,10 +13,15 @@ const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
-  // One trusted hop (Railway or Vercel). req.ip is the address that hop
-  // appended, not a client-supplied left-most X-Forwarded-For or X-Real-IP.
-  app.set('trust proxy', 1);
+  // One trusted hop only when we are actually behind Railway or Vercel (or
+  // TRUST_PROXY=1 is set for another proxy). req.ip is then the address that
+  // hop appended. Run directly, client X-Forwarded-For is ignored.
+  app.set('trust proxy', behindTrustedProxy() ? 1 : false);
 };
+function behindTrustedProxy(env = process.env) {
+  if (env.TRUST_PROXY === '0' || env.TRUST_PROXY === 'false') return false;
+  return Boolean(env.VERCEL || env.RAILWAY_ENVIRONMENT || env.TRUST_PROXY);
+}
 // Initialize Stripe only if key is available
 let stripe = null;
 if (process.env.STRIPE_SECRET_KEY) {
@@ -130,11 +135,20 @@ function analyticsKeyMatches(req) {
   const expected = process.env.FM_ANALYTICS_KEY;
   const provided = String(providedAnalyticsKey(req) || '');
   if (!expected || !provided) return false;
-  const a = Buffer.from(String(expected));
-  const b = Buffer.from(provided);
-  if (a.length !== b.length) return false;
-  return require('crypto').timingSafeEqual(a, b);
+  // Compare fixed-length digests so neither timing nor an early length check
+  // reveals anything about the key.
+  const crypto = require('crypto');
+  const a = crypto.createHash('sha256').update(String(expected)).digest();
+  const b = crypto.createHash('sha256').update(provided).digest();
+  return crypto.timingSafeEqual(a, b);
 }
+
+// CSP and Permissions-Policy go on every response, including the /funnel 401s.
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+  next();
+});
 
 // Private analytics UI is not a public page. Block before static so /funnel.html
 // cannot be fetched without the server-side key.
@@ -149,12 +163,6 @@ app.use((req, res, next) => {
     return res.sendFile(path.join(PUBLIC_DIR, 'funnel.html'));
   }
   return next();
-});
-
-app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
-  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
-  next();
 });
 
 app.use(express.static(PUBLIC_DIR, {
@@ -1155,4 +1163,5 @@ module.exports._private = {
   setStripeForTests,
   PRICE_IDS,
   jwtSecret,
+  behindTrustedProxy,
 };

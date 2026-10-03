@@ -16,8 +16,10 @@
 .fn label{display:block;font-family:'IBM Plex Mono',monospace;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
 .fn input{width:min(420px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:4px;font:inherit;margin-bottom:12px}
 .fn button{min-height:44px;padding:0 18px;border:none;border-radius:4px;background:var(--leaf);color:#fff;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;cursor:pointer}
-.fn table{width:100%;border-collapse:collapse;margin-top:28px;background:#fff;border:1px solid var(--line);font-size:.88rem}
-.fn th,.fn td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+.fn-tbl-wrap{display:block;width:100%;max-width:100%;min-width:0;margin-top:28px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff;border:1px solid var(--line)}
+.fn-tbl-wrap[hidden]{display:none}
+.fn table{width:100%;border-collapse:collapse;font-size:.88rem}
+.fn th,.fn td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
 .fn th{font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);background:var(--paper2)}
 .fn .err{color:#b42318;margin-top:12px}
 .fn .meta{margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--mute)}
@@ -38,8 +40,8 @@
   <p class="err" id="err" hidden></p>
   <p class="meta" id="meta"></p>
   <p class="meta" id="steps"></p>
-  <div class="fm-table-wrap">
-  <table id="tbl" hidden>
+  <div class="fn-tbl-wrap" id="tblWrap" hidden>
+  <table id="tbl">
     <thead><tr><th>Step</th><th>Page</th><th>Plan</th><th>Count</th><th>Sessions</th></tr></thead>
     <tbody></tbody>
   </table>
@@ -54,6 +56,7 @@
     var meta = document.getElementById('meta');
     var steps = document.getElementById('steps');
     var tbl = document.getElementById('tbl');
+    var tblWrap = document.getElementById('tblWrap');
     err.hidden = true;
     var key = document.getElementById('key').value.trim();
     var days = document.getElementById('days').value || '14';
@@ -77,11 +80,11 @@
       tb.innerHTML = (j.events || []).map(function (row) {
         return '<tr><td>' + esc(row.eventType) + '</td><td>' + esc(row.page || '') + '</td><td>' + esc(row.plan || '') + '</td><td>' + esc(row.count) + '</td><td>' + esc(row.sessions) + '</td></tr>';
       }).join('') || '<tr><td colspan="5">No events yet.</td></tr>';
-      tbl.hidden = false;
+      tblWrap.hidden = false;
     } catch (e) {
       err.textContent = e.message || String(e);
       err.hidden = false;
-      tbl.hidden = true;
+      tblWrap.hidden = true;
     }
   };
 })();
