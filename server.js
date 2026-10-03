@@ -375,7 +375,7 @@ app.use('/api/receipt', receiptScanner);
 const mealPlanner = require('./meal-planner');
 app.use('/api/meal-plan', mealPlanner);
 
-// Fitness Butler shopper (public specials, draft trolley, takeaway checkout)
+// Fitness Butler shopper (draft trolley, takeaway checkout)
 const shopperApi = require('./shopper');
 app.use('/api/shopper', shopperApi);
 

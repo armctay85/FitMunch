@@ -273,6 +273,35 @@ describe('Fitness Butler shopper HTTP', () => {
     }
   });
 
+  it('week response has no catalogue identifiers, dates, or retailer specials links', async () => {
+    const week = await request(app).get('/api/shopper/week').expect(200);
+    const text = JSON.stringify(week.body);
+    expect(week.body.week.id).toBe(shopper.WEEK_ID);
+    expect(week.body.week.id).not.toBe(CATALOGUE_ID);
+    expect(text).not.toContain(CATALOGUE_ID);
+    expect(text).not.toContain('public_specials_catalogue');
+    expect(text).not.toMatch(/\/specials\b|catalogueUrl|sourceKind|validFrom|validTo|weekLabel|2026-08-25|2026-08-31/i);
+    expect(week.body.priceNote).toBe('Prices vary by store and week.');
+    expect(week.body.catalogue).toBeUndefined();
+    const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
+    const approved = await request(app).post('/api/shopper/approve').send({}).expect(200);
+    for (const body of [draft.body, approved.body]) {
+      const blob = JSON.stringify(body);
+      expect(blob).not.toContain(CATALOGUE_ID);
+      expect(blob).not.toContain('public_specials_catalogue');
+      expect(blob).not.toMatch(/\/specials\b/);
+      expect(blob).toContain('Prices vary by store and week.');
+    }
+    expect(draft.body.draft.lines.every((line) => line.aisle && (line.proteinLabel || line.swap !== undefined))).toBe(true);
+    expect(draft.body.draft.recommendation.stores.length).toBe(1);
+  });
+
+  it('does not serve supermarket_api.js', async () => {
+    const res = await request(app).get('/supermarket_api.js').expect(404);
+    expect(res.text).not.toMatch(/getWeeklySpecials/);
+    expect(fs.existsSync(path.join(__dirname, 'public', 'supermarket_api.js'))).toBe(false);
+  });
+
   it('shopper and checkout handlers omit catalogue fields and specials links', async () => {
     const index = await request(app).get('/api/shopper').expect(200);
     const week = await request(app).get('/api/shopper/week').expect(200);
