@@ -2,6 +2,7 @@ artifacts/
 .derived-screenshots/
 
 node_modules/
+catalogue-refresh-failure.txt
 .env
 .env.*
 !.env.example

@@ -78,7 +78,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     const res = await request(app).get('/shopper').expect(200);
     expect(title(res.text)).toBe('Commit the Week, Take the Trolley | Woolies Coles Aldi Shopper | FitMunch');
     expect(h1(res.text)).toBe('Commit the week. Take the trolley.');
-    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a Woolies, Coles or Aldi trolley from public specials. Only split stores if the save beats a second trip. Premium $19.99 after 14-day trial.');
+    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a Woolies, Coles or Aldi trolley priced from public catalogue specials. Only split stores if the save beats a second trip. Premium $19.99 after 14-day trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/shopper');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/budget-meal-planner"');

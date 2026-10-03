@@ -207,7 +207,7 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     const fold = home.text.split('<div class="fold">')[1].split('</div>\n\n<section')[0];
     const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
     expect(fold).toContain('class="trial-bar"');
-    expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then $19.99 a month');
+    expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then A$19.99 a month');
     expect(fold).toContain('Card on file');
     expect(hero).toContain('Your body wrote the trolley.');
     expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
@@ -227,7 +227,7 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('id="first-scan"');
     expect(home.text).toContain('data-first-scan');
     expect(home.text).toContain('/js/fm-first-scan.js');
-    expect(home.text).toContain('14-day trial, then $19.99 a month');
+    expect(home.text).toContain('14-day trial, then A$19.99 a month');
     expect(home.text).toContain('Start the 14-day trial');
     const trialHrefs = [];
     const trialRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
@@ -247,9 +247,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('not a demo shop');
     expect(home.text.indexOf('id="loop"')).toBeLessThan(home.text.indexOf('id="first-scan"'));
     expect(home.text).toContain('Fitness Butler');
-    expect(home.text).toContain('Commit to the week. We buy the food.');
-    expect(home.text).toContain('Until Link agents land in AU, they get a trolley they can take.');
-    expect(home.text).toContain('No Link logo');
+    expect(home.text).toContain('Commit to the week. We write the trolley; you check out.');
+    expect(home.text).toContain('You check out at the supermarket.');
     expect(home.text).toContain('>Commit</h3>');
     expect(home.text).toContain('>The trolley</h3>');
     expect(home.text).toContain('>Cook and train</h3>');
@@ -262,7 +261,10 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(res.text).not.toContain('Unlimited weekly AI plans');
     expect(res.text).toContain('Limited AI actions per month');
     expect(res.text).toContain('Weekly AI plans need Premium');
-    expect(res.text).toContain('Secondary lane');
+    expect(res.text).toContain('A$39 a month for up to 10 clients, or A$79 a month unlimited.');
+    expect(res.text).toContain('14-day trial');
+    expect(res.text).toContain('A$19.99');
+    expect(res.text).not.toContain('Most popular');
   });
 
   it('haul teardown hero sends the stranger to photograph their own receipt', async () => {

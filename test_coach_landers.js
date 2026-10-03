@@ -14,7 +14,7 @@ const PAGES = [
   {
     route: '/pt-client-meal-plans-woolworths',
     title: 'PT Client Meal Plans for Woolworths | Draft List From Public Specials | FitMunch Coach',
-    h1: 'PT client meal plans for Woolworths: 7 days, priced from public specials',
+    h1: 'PT client meal plans for Woolworths: 7 days, priced from public catalogue specials',
   },
   {
     route: '/fitmunch-coach-vs-spreadsheets',

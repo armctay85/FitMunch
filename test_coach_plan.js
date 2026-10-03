@@ -5,6 +5,7 @@ const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 const coach = require('./lib/coach-plan');
+const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
 const store = require('./lib/coach-store');
 const { encodeRgbPng } = require('./lib/coach-png');
 const { decodePng } = require('./lib/coach-png');
@@ -41,8 +42,13 @@ describe('Coach plan builder', () => {
     expect(plan.shopping.lines.every((line) => line.priced && line.lineAud > 0)).toBe(true);
     const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
     expect(plan.shopping.totalCents).toBe(cents);
-    expect(plan.shopping.note).toBe('Prices from public specials, check at checkout.');
-    expect(plan.priceNote).toBe(coach.PRICE_NOTE);
+    expect(plan.shopping.note).toBe(coach.PRICE_NOTE);
+    expect(plan.priceNote).toBe(priceEstimateNote(CATALOGUE));
+    expect(plan.priceNote).toContain(CATALOGUE.validFrom);
+    expect(plan.priceNote).toContain(CATALOGUE.validTo);
+    expect(plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
+    expect(plan.catalogue.validTo).toBe(CATALOGUE.validTo);
+    expect(plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
@@ -201,7 +207,10 @@ describe('Coach plan HTTP', () => {
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
     expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
-    expect(created.body.plan.plan.priceNote).toBe('Prices from public specials, check at checkout.');
+    expect(created.body.plan.plan.priceNote).toBe(coach.PRICE_NOTE);
+    expect(created.body.plan.plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
+    expect(created.body.plan.plan.catalogue.validTo).toBe(CATALOGUE.validTo);
+    expect(created.body.plan.plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
 
     const sent = await request(app)
       .post(`/api/coach/plans/${created.body.plan.id}/send`)
@@ -213,7 +222,7 @@ describe('Coach plan HTTP', () => {
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
     expect(share.text).toContain('Northside training');
     expect(share.text).toContain('id="share-logo"');
-    expect(share.text).toContain('Prices from public specials, check at checkout.');
+    expect(share.text).toContain(coach.PRICE_NOTE);
     expect(share.text).toContain('See a dietitian for medical nutrition.');
     expect(share.text).toContain('Coles total');
     expect(share.headers['x-robots-tag']).toBe('noindex');
@@ -224,7 +233,9 @@ describe('Coach plan HTTP', () => {
     expect(pdfText.slice(0, 5)).toBe('%PDF-');
     expect(pdfText).toContain('Northside training');
     expect(pdfText).toContain('See a dietitian for medical nutrition.');
-    expect(pdfText).toContain('Prices from public specials, check at checkout.');
+    expect(pdfText).toContain(`dated ${CATALOGUE.validFrom} to ${CATALOGUE.validTo}`);
+    expect(pdfText).toContain('Check prices at');
+    expect(pdfText).toContain('checkout.');
     expect(pdfText).toContain('/Subtype /Image');
 
     const viewed = await request(app)
@@ -278,7 +289,7 @@ describe('Coach plan HTTP', () => {
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
     const page = await request(app).get('/coach').expect(200);
     expect(page.text).toContain('Coach plan builder');
-    expect(page.text).toContain('Prices from public specials');
+    expect(page.text).toContain('Estimated from public catalogue specials');
     expect(page.text).toContain('See a dietitian for medical nutrition.');
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');
