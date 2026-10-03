@@ -25,7 +25,7 @@
   }
 
   function money(value) {
-    if (value == null) return 'No public special at this store';
+    if (value == null) return 'Check at checkout';
     return '$' + Number(value).toFixed(2);
   }
 
@@ -83,7 +83,7 @@
       days.appendChild(block);
     });
     const shopping = plan.plan.shopping;
-    $('coach-store-heading').textContent = shopping.storeName + ' draft list';
+    $('coach-store-heading').textContent = 'Estimated list';
     const list = $('coach-list');
     list.replaceChildren();
     shopping.lines.forEach((line) => {
@@ -93,12 +93,12 @@
       name.textContent = line.packs + ' x ' + line.name;
       const price = document.createElement('span');
       price.className = 'price';
-      price.textContent = line.priced ? money(line.lineAud) : 'No public special at this store';
+      price.textContent = line.priced ? money(line.lineAud) : 'Check at checkout';
       row.appendChild(name);
       row.appendChild(price);
       list.appendChild(row);
     });
-    $('coach-total').textContent = shopping.storeName + ' total ' + money(shopping.totalAud);
+    $('coach-total').textContent = 'Estimated total ' + money(shopping.totalAud);
     $('coach-price-note').textContent = plan.plan.priceNote;
     const share = $('coach-share');
     if (plan.sharePath) {
