@@ -462,7 +462,15 @@ router.post('/auth/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const body = req.body;
+    if (body == null || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ success: false, error: 'Invalid JSON' });
+    }
+    if ((body.email != null && typeof body.email !== 'string') || (body.password != null && typeof body.password !== 'string')) {
+      return res.status(400).json({ success: false, error: 'Invalid JSON' });
+    }
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
     if (!email || !password)
       return res.status(400).json({ success: false, error: 'Email and password are required.' });
 

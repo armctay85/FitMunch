@@ -14,8 +14,6 @@
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
@@ -23,7 +21,47 @@
 html,body{max-width:100%;overflow-x:hidden}
 :focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
 
-.pt-hero{padding-top:calc(96px + clamp(56px,8vw,96px))}
+.pt-hero{padding-top:calc(84px + clamp(28px,4vw,48px));padding-bottom:clamp(28px,4vw,48px)}
+.pt-hero-grid{width:min(1180px,100%);margin:0 auto}
+.pt-sheet{
+  background:#f4efe6;color:#11180f;border-radius:4px;
+  padding:18px 18px 8px;box-shadow:0 18px 40px rgba(0,0,0,.28);
+}
+.pt-hero .pt-sheet p{color:#11180f;max-width:none;margin:0 0 4px;font-size:1rem;line-height:1.35}
+.pt-hero .pt-sheet .pt-sheet-k{color:#16803c}
+.pt-hero .pt-sheet .pt-sheet-store{color:#136b31;margin-bottom:12px}
+.pt-sheet-k{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#16803c;margin:0 0 6px;
+}
+.pt-sheet-title{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:1.35rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;
+  margin:0 0 4px;color:#11180f;
+}
+.pt-sheet-store{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.78rem;font-weight:600;letter-spacing:.04em;
+  color:#136b31;margin:0 0 12px;
+}
+.pt-aisle{border-top:1px solid #e4dccf;padding:10px 0 8px}
+.pt-aisle h2{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:.68rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#5c6d64;margin:0 0 6px;
+}
+.pt-aisle ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.pt-aisle li{
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-size:.92rem;font-weight:700;letter-spacing:-.02em;color:#11180f;
+}
+@media(min-width:960px){
+  .pt-hero-grid{
+    display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.9fr);
+    gap:48px;align-items:center;
+  }
+}
 .pt-hero .kicker{
   display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
@@ -32,6 +70,7 @@ html,body{max-width:100%;overflow-x:hidden}
 }
 .pt-hero p.trust{color:rgba(238,242,238,.6);font-size:.85rem;margin-top:2px}
 
+.fm-section{padding:clamp(36px,5vw,64px) clamp(20px,4vw,48px)}
 .pain-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:8px}
 .pain-card{background:var(--paper);padding:26px 24px}
 .pain-h{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.98rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
@@ -99,14 +138,39 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
 </nav>
 
 <header class="fm-hero-band pt-hero">
-  <div class="kicker">For Australian personal trainers</div>
-  <h1>Client meal plans with a shopping list, in your brand.</h1>
-  <p>Set each client's targets. FitMunch Coach writes a 7-day plan, drafts a Woolworths, Coles or Aldi list, and gives you a PT-branded share link or PDF.</p>
-  <div class="hero-ctas" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-    <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach">Start the 14-day Coach trial</a>
-    <a class="fm-btn fm-btn-ghost" href="/">See all features</a>
+  <div class="pt-hero-grid">
+    <div class="pt-hero-copy">
+      <div class="kicker">For Australian personal trainers</div>
+      <h1>Client meal plans with a shopping list, in your brand.</h1>
+      <p>Set each client's targets. FitMunch Coach writes a 7-day plan, drafts a Woolworths, Coles or Aldi list, and gives you a PT-branded share link or PDF.</p>
+      <div class="hero-ctas" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <a class="fm-btn fm-btn-leaf coach-trial" href="/for-pts#coach">Start the 14-day Coach trial</a>
+        <a class="fm-btn fm-btn-ghost" href="/">See all features</a>
+      </div>
+      <p class="trust">A$39 a month for up to 10 clients, or A$79 a month unlimited. Prices vary by store and week. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
+    </div>
+    <aside class="pt-sheet" aria-label="Sample client week">
+      <p class="pt-sheet-k">Sample client week</p>
+      <p class="pt-sheet-title">Alex, 2,000 kcal</p>
+      <p class="pt-sheet-store">Woolworths</p>
+      <div class="pt-aisle">
+        <h2>Produce</h2>
+        <ul><li>Broccoli</li><li>Baby spinach</li><li>Bananas</li></ul>
+      </div>
+      <div class="pt-aisle">
+        <h2>Meat</h2>
+        <ul><li>Chicken breast</li><li>Salmon</li><li>Beef mince</li></ul>
+      </div>
+      <div class="pt-aisle">
+        <h2>Dairy</h2>
+        <ul><li>Eggs</li><li>Greek yoghurt</li></ul>
+      </div>
+      <div class="pt-aisle">
+        <h2>Pantry</h2>
+        <ul><li>Rolled oats</li><li>Brown rice</li></ul>
+      </div>
+    </aside>
   </div>
-  <p class="trust">A$39 a month for up to 10 clients, or A$79 a month unlimited. Prices vary by store and week. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
 </header>
 
 <section class="fm-section">
@@ -134,7 +198,7 @@ a.coach-trial.fm-nav-cta:hover{background:#0f6e34;color:#fff !important}
   </div>
 </section>
 
-<section class="fm-hero-band" style="padding-top:clamp(56px,8vw,96px)">
+<section class="fm-hero-band" style="padding-top:clamp(36px,5vw,56px);padding-bottom:clamp(36px,5vw,56px)">
   <div style="width:min(1040px,100%);margin:0 auto">
     <h2 style="font-size:clamp(1.9rem,3.8vw,2.7rem);font-weight:800;letter-spacing:-.05em;margin-bottom:10px;max-width:24ch">How FitMunch works for PTs</h2>
     <p style="color:rgba(238,242,238,.7);font-size:1rem;margin-bottom:36px">From sign-up to full client roster in under 10 minutes.</p>

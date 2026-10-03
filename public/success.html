@@ -190,9 +190,11 @@ async function openBillingPortal(e) {
       const data = await resp.json();
       if (data.plan) {
         const labels = {
-          'pt-starter': 'FitMunch PT Starter · $59/mo AUD',
-          'pt-pro': 'FitMunch PT Pro · $99/mo AUD',
-          'premium': 'FitMunch Premium · A$19.99/mo AUD',
+          'coach-39': 'FitMunch Coach · A$39 a month',
+          'coach-79': 'FitMunch Coach · A$79 a month',
+          'pt-starter': 'FitMunch Coach · A$39 a month',
+          'pt-pro': 'FitMunch Coach · A$79 a month',
+          'premium': 'FitMunch Premium · A$19.99 a month',
         };
         planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
       }

@@ -34,26 +34,37 @@
   <div class="sp-hero-media" aria-hidden="true"></div>
   <div class="sp-hero-grain" aria-hidden="true"></div>
   <div class="sp-hero-inner">
-    <div class="sp-kicker">Fitness Butler · Shopper</div>
-    <h1>Commit the week. Take the trolley.</h1>
-    <p class="lead">Lock seven days of meals. FitMunch writes the ingredients.</p>
-    <div class="sp-pricebar">14-day trial, then <strong>A$19.99 a month.</strong> <span>Card on file.</span></div>
-    <div class="sp-week-strip" data-sp-strip aria-label="Seven dinners in this week">
-      <div class="sp-day"><b>Mon</b><span>Mince</span></div>
-      <div class="sp-day"><b>Tue</b><span>Salmon</span></div>
-      <div class="sp-day"><b>Wed</b><span>Thigh</span></div>
-      <div class="sp-day"><b>Thu</b><span>Mince</span></div>
-      <div class="sp-day"><b>Fri</b><span>Salmon</span></div>
-      <div class="sp-day"><b>Sat</b><span>Chicken</span></div>
-      <div class="sp-day"><b>Sun</b><span>Pasta</span></div>
+    <div class="sp-hero-copy">
+      <div class="sp-kicker">Fitness Butler · Shopper</div>
+      <h1>Commit the week. Take the trolley.</h1>
+      <p class="lead">Lock seven days of meals. FitMunch writes the ingredients.</p>
+      <div class="sp-pricebar">14-day trial, then <strong>A$19.99 a month.</strong> <span>Card on file.</span></div>
+      <div class="sp-week-strip" data-sp-strip aria-label="Seven dinners in this week">
+        <div class="sp-day"><b>Mon</b><span>Mince</span></div>
+        <div class="sp-day"><b>Tue</b><span>Salmon</span></div>
+        <div class="sp-day"><b>Wed</b><span>Thigh</span></div>
+        <div class="sp-day"><b>Thu</b><span>Mince</span></div>
+        <div class="sp-day"><b>Fri</b><span>Salmon</span></div>
+        <div class="sp-day"><b>Sat</b><span>Chicken</span></div>
+        <div class="sp-day"><b>Sun</b><span>Pasta</span></div>
+      </div>
+      <div class="sp-ctas">
+        <button type="button" class="fm-btn fm-btn-leaf" data-sp-commit data-fm-track="shopper_commit">Commit this week</button>
+        <a class="fm-btn fm-btn-ghost" href="#split-rule">How the list works</a>
+      </div>
+      <p class="sp-honest">Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.</p>
+      <p class="sp-status" data-sp-status></p>
+      <p class="sp-err" data-sp-error hidden></p>
     </div>
-    <div class="sp-ctas">
-      <button type="button" class="fm-btn fm-btn-leaf" data-sp-commit data-fm-track="shopper_commit">Commit this week</button>
-      <a class="fm-btn fm-btn-ghost" href="#split-rule">How the list works</a>
-    </div>
-    <p class="sp-honest">Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.</p>
-    <p class="sp-status" data-sp-status></p>
-    <p class="sp-err" data-sp-error hidden></p>
+    <aside class="sp-sample" aria-label="Sample Woolworths list">
+      <p class="sp-sample-k">Woolworths</p>
+      <p class="sp-sample-title">Sample week list</p>
+      <div class="sp-sample-aisle"><span>Produce</span><b>Broccoli, spinach, bananas</b></div>
+      <div class="sp-sample-aisle"><span>Meat</span><b>Chicken, salmon, mince</b></div>
+      <div class="sp-sample-aisle"><span>Dairy</span><b>Eggs, yoghurt, milk</b></div>
+      <div class="sp-sample-aisle"><span>Pantry</span><b>Oats, rice, tuna</b></div>
+      <div class="sp-sample-aisle"><span>Frozen</span><b>Berries, mixed veg</b></div>
+    </aside>
   </div>
 </header>
 
@@ -91,7 +102,8 @@
     <h2>Draft trolley.</h2>
     <p class="lead">After you commit, the list shows the ingredients for the week.</p>
     <div data-sp-draft>
-      <div class="sp-ticket">
+      <div class="sp-ticket sp-ticket-empty">
+        <p class="sp-store-k">Draft list</p>
         <p class="sp-note">Commit the week above. The draft stays empty until the engine writes the ingredients. Approve this trolley with one tap when the list looks right.</p>
       </div>
     </div>

@@ -53,7 +53,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(metaDescription(res.text)).toBe('Plan the week from your body and your Woolies, Coles or Aldi shop. AUD, grams, receipt-ready. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/ai-meal-planner-australia');
     expect(res.text).toContain('It does not scrape supermarket trolley APIs.');
-    expect(res.text).toContain('Premium is A$19.99 AUD/mo after a 14-day trial.');
+    expect(res.text).toContain('Premium is A$19.99 a month after a 14-day trial.');
     expect(res.text).toContain('href="/shopper"');
     expect(res.text).toContain('href="/budget-meal-planner"');
     expect(res.text).toContain('href="/haul-teardown"');

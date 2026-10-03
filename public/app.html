@@ -803,7 +803,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" style="border:1px solid var(--leaf)">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Premium</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li><strong>Unlimited</strong> AI coach chat</li>
  <li><strong>Unlimited</strong> meal and workout plans</li>
@@ -817,7 +817,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
  <li>Limited AI actions per month</li>
@@ -828,22 +828,22 @@ html.fm-authed #app-gate{display:none}
  </div>
  </div>
  <div style="max-width:700px;margin-top:28px;padding-top:18px;border-top:1px dashed var(--line)">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Trainer lane (optional)</div>
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Coach plans</div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
  <div class="card">
  <div class="card-body">
- <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Starter</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$59.99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
- <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients + client portal</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-starter', this)">Select</button>
+ <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Up to 10 clients</div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$39<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div style="font-size:.75rem;color:var(--text2);margin:8px 0">7-day plans, a draft list, and a branded share link or PDF.</div>
+ <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCoachCheckout('coach-39', this)">Start Coach trial</button>
  </div>
  </div>
  <div class="card">
  <div class="card-body">
- <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">PT Pro</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$99<span style="font-size:.78rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
- <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients + all features</div>
- <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCheckout('pt-pro', this)">Select</button>
+ <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Unlimited clients</div>
+ <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$79<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div style="font-size:.75rem;color:var(--text2);margin:8px 0">The same Coach tools, with no client cap.</div>
+ <button class="btn btn-ghost2 btn-sm" style="display:block;width:100%" onclick="startCoachCheckout('coach-79', this)">Start Coach trial</button>
  </div>
  </div>
  </div>
@@ -873,7 +873,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 a month with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -3532,6 +3532,44 @@ function checkoutButtons() {
   const attr = btn.getAttribute('onclick') || '';
   return attr.includes('startCheckout') || btn.dataset.checkout === '1';
  });
+}
+
+async function startCoachCheckout(plan, button) {
+ if (checkoutInFlight) return checkoutInFlight;
+ const buttons = checkoutButtons();
+ if (button && button.tagName === 'BUTTON') buttons.push(button);
+ buttons.forEach((btn) => { btn.disabled = true; });
+ let leaving = false;
+ checkoutInFlight = (async () => {
+  try {
+   const r = await API('/coach/checkout', { method:'POST', body: JSON.stringify({ plan }) });
+   if (r.upgraded) {
+    leaving = true;
+    window.location.href = '/coach/upgrade?checkout=started';
+    return r;
+   }
+   if (r.url) {
+    leaving = true;
+    window.location.href = r.url;
+    return r;
+   }
+   if (r.alreadySubscribed) {
+    toast(r.message || 'You already have an active subscription. Check Billing.', 'success');
+    nav('billing');
+    return r;
+   }
+   toast('Checkout unavailable. ' + (r.error || 'Please try again.'), 'error');
+   return r;
+  } catch {
+   toast('Could not start checkout. Try again.', 'error');
+  } finally {
+   if (!leaving) {
+    checkoutInFlight = null;
+    buttons.forEach((btn) => { btn.disabled = false; });
+   }
+  }
+ })();
+ return checkoutInFlight;
 }
 
 async function startCheckout(plan, button) {

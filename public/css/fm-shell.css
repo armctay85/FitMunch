@@ -1,12 +1,15 @@
 /* FitMunch marketing shell: shared nav + footer for public pages. */
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap');
+@import url('/css/fm-coach-fonts.css');
 
+html{max-width:100%;overflow-x:hidden}
 .fm-body{
   font-family:'Literata',Georgia,serif;
   background:var(--paper);
   color:var(--ink);
   -webkit-font-smoothing:antialiased;
   margin:0;
+  max-width:100%;
+  overflow-x:hidden;
 }
 .fm-body h1,.fm-body h2,.fm-body h3,.fm-brand,.fm-nav a,.fm-btn,.fm-footer-brand,.fm-footer-links a{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
@@ -14,9 +17,11 @@
 .fm-mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
 .fm-nav{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:20px clamp(20px,4vw,48px);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;
+  padding:20px clamp(16px,4vw,48px);
   background:var(--fridge);color:#fff;
+  max-width:100%;
+  box-sizing:border-box;
 }
 .fm-nav.fm-nav-abs{position:absolute;top:0;left:0;right:0;z-index:20;background:transparent}
 .fm-brand{
@@ -136,4 +141,9 @@
 
 @media(max-width:720px){
   .fm-nav-links a:not(.fm-nav-cta){display:none}
+}
+@media(max-width:420px){
+  .fm-nav{padding:14px 16px}
+  .fm-brand{font-size:1.08rem}
+  .fm-nav-cta{padding:8px 10px;font-size:.78rem}
 }
