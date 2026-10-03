@@ -1,0 +1,44 @@
+name: Catalogue refresh
+
+on:
+  schedule:
+    # 21:00 UTC Tuesday is 07:00 AEST Wednesday (UTC+10).
+    # During AEDT (UTC+11) that instant is 08:00 Wednesday in Sydney.
+    - cron: '0 21 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh public catalogue
+        run: node scripts/refresh-catalogue.js
+
+      - name: Open or update the catalogue pull request
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/open-catalogue-pr.sh
+
+      - name: Open or update a failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/open-catalogue-issue.sh

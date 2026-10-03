@@ -30,3 +30,6 @@ jobs:
 
       - name: Unit tests
         run: npm test -- --runInBand
+
+      - name: Catalogue freshness
+        run: node scripts/check-catalogue-freshness.js
