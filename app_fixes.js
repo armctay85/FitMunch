@@ -2536,11 +2536,11 @@ class SupermarketAPI {
   }
 
   getProductPrice(productName) {
-    return { product: productName, store: null, price: null, note: 'Check prices at checkout.' };
+    return { product: productName, store: null, price: null, note: 'Prices vary by store and week.' };
   }
 
   comparePrices(productName) {
-    return { product: productName, note: 'Check prices at checkout.' };
+    return { product: productName, note: 'Prices vary by store and week.' };
   }
 
   async compareProductPrices(productName) {
@@ -2549,7 +2549,7 @@ class SupermarketAPI {
 
   async getPricedShoppingList(items) {
     if (!Array.isArray(items)) return [];
-    return items.map((item) => ({ ...item, note: 'Check prices at checkout.' }));
+    return items.map((item) => ({ ...item, note: 'Prices vary by store and week.' }));
   }
 }
 

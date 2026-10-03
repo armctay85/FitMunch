@@ -218,7 +218,7 @@ describe('Coach plan HTTP', () => {
     expect(share.text).toContain('Northside training');
     expect(share.text).toContain('id="share-logo"');
     expect(share.text).toContain('Prices vary by store and week.');
-    expect(share.text).not.toContain(priceEstimateNote(CATALOGUE));
+    expect(share.text).not.toContain('Estimated from public catalogue');
     expect(share.text).not.toContain('2026-08-25');
     expect(share.text).toContain('See a dietitian for medical nutrition.');
     expect(share.text).toContain('Coles draft list');
@@ -233,6 +233,7 @@ describe('Coach plan HTTP', () => {
     expect(pdfText).toContain('See a dietitian for medical nutrition.');
     expect(pdfText).toContain('Prices vary by store and week.');
     expect(pdfText).not.toContain('dated 2026-08-25');
+    expect(pdfText).not.toContain('public catalogue');
     expect(pdfText).not.toContain('Check prices at');
     expect(pdfText).not.toContain('checkout.');
     expect(pdfText).toContain('/Subtype /Image');

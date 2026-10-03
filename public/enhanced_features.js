@@ -23,7 +23,7 @@ class EnhancedFeatures {
       <div class="features-grid">
         ${this.createFeatureCard('AI', 'AI Nutrition Coach', 'Meal plans from the targets you log.')}
         ${this.createFeatureCard('Stats', 'Progress', 'Track the meals and workouts you actually log.')}
-        ${this.createFeatureCard('List', 'Shopping lists', 'Aisle and protein on the list. Check prices at checkout.')}
+        ${this.createFeatureCard('List', 'Shopping lists', 'Aisle and protein on the list. Prices vary by store and week.')}
         ${this.createFeatureCard('Train', 'Workouts', 'Training plans that follow the week you commit.')}
       </div>
     `;

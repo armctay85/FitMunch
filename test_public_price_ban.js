@@ -205,8 +205,21 @@ describe('public price and claim ban', () => {
   it('shopper draft response has no supermarket prices or catalogue dates', async () => {
     const res = await request(app).post('/api/shopper/draft').send({}).expect(200);
     const body = JSON.stringify(res.body);
-    expect(res.body.draft.catalogue.checkoutNote).toBe('Check prices at checkout.');
+    expect(res.body.draft.catalogue.checkoutNote).toBe('Prices vary by store and week.');
     expect(body).not.toMatch(/\$\d|validFrom|validTo|assignedAud|goodsAud|totalAud|saveVsSingleAud|\bspecials\b|2026-08-25|2026-08-31/);
+  });
+
+  it('says prices vary by store and week at most once on each public page', () => {
+    const hits = [];
+    for (const file of files) {
+      if (!/\.html$/i.test(file)) continue;
+      const text = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(__dirname, file);
+      const count = (text.match(/Prices vary by store and week\./g) || []).length;
+      if (count > 1) hits.push(`${rel} ${count}`);
+      if (/check prices at checkout/i.test(text)) hits.push(`${rel} old checkout line`);
+    }
+    expect(hits).toEqual([]);
   });
 
   it('keeps specials, catalogue, and priced out of meta, social tags, and structured data', () => {

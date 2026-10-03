@@ -59,7 +59,7 @@ class RecipeManager {
 
   // Recipe cost calculator
   calculateRecipeCost(_recipe) {
-    return { note: 'Check prices at checkout.' };
+    return { note: 'Prices vary by store and week.' };
   }
 
 

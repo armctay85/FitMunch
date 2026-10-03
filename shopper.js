@@ -44,7 +44,7 @@ router.get('/', (_req, res) => {
     success: true,
     service: 'fitmunch-fitness-butler-shopper',
     surface: '/shopper',
-    honesty: shopper.honestyClaims(),
+    honesty: shopper.publicHonesty(),
     endpoints: {
       'GET /api/shopper/week': 'Worked week for the draft list',
       'POST /api/shopper/draft': 'Commit the week and write a draft trolley',

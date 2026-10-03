@@ -400,7 +400,15 @@ app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planne
 app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
 app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { root: 'public' }));
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
-app.get('/shopper', (req, res) => res.sendFile('shopper.html', { root: 'public' }));
+app.get('/shopper', (req, res) => {
+  const file = path.join(PUBLIC_DIR, 'shopper.html');
+  const html = fs.readFileSync(file, 'utf8');
+  const note = 'Prices vary by store and week.';
+  res.type('html').send(html.replace(
+    /(<span\s+data-sp-price-note>)[\s\S]*?(<\/span>)/,
+    `$1${note}$2`
+  ));
+});
 app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));

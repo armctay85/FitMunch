@@ -30,7 +30,7 @@ describe('Fitness Butler shopper engine', () => {
     expect(draft.honesty.trolleyApi).toBe(false);
     expect(draft.honesty.stripeLinkGrocery).toBe(false);
     expect(draft.honesty.pricesFrom).toBeUndefined();
-    expect(draft.catalogue).toEqual({ checkoutNote: 'Check prices at checkout.' });
+    expect(draft.catalogue).toEqual({ checkoutNote: 'Prices vary by store and week.' });
   });
 
   it('uses the preferred store when one is set', () => {
@@ -41,6 +41,16 @@ describe('Fitness Butler shopper engine', () => {
     expect(coles.recommendation.reason).toBe('Shop at Coles.');
     const unknown = shopper.buildDraft({ storeId: 'not-a-store' });
     expect(unknown.recommendation.stores).toEqual(['woolworths']);
+  });
+
+  it('picks the preferred store or Woolworths, never a price ranking', () => {
+    expect(shopper.chosenStore({})).toBe('woolworths');
+    expect(shopper.chosenStore({ preferredStore: 'aldi', cheapest: 'coles' })).toBe('aldi');
+    expect(shopper.chosenStore({ storeId: 'coles' })).toBe('coles');
+    const src = read('lib/fitness-butler-shopper.js');
+    const start = src.indexOf('function chosenStore');
+    const body = src.slice(start, src.indexOf('function buildDraft'));
+    expect(body).not.toMatch(/price|cheapest|aud|cents|special/i);
   });
 
   it('approve returns a takeaway checkout, not a Woolies payment', () => {
@@ -78,6 +88,27 @@ function priceKeys(value, found = []) {
   return found;
 }
 
+const CATALOGUE_KEYS = new Set(['pricesFrom', 'sourceKind', 'onSpecial', 'catalogueUrl']);
+const CATALOGUE_ID = 'au-public-specials-2026-w35';
+
+function catalogueLeaks(value, path, hits = []) {
+  if (typeof value === 'string') {
+    if (value.includes(CATALOGUE_ID)) hits.push(`${path || 'value'}=${CATALOGUE_ID}`);
+    return hits;
+  }
+  if (!value || typeof value !== 'object') return hits;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => catalogueLeaks(item, `${path}[${index}]`, hits));
+    return hits;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    const here = path ? `${path}.${key}` : key;
+    if (CATALOGUE_KEYS.has(key)) hits.push(here);
+    catalogueLeaks(child, here, hits);
+  }
+  return hits;
+}
+
 describe('Fitness Butler shopper HTTP', () => {
   it('GET /shopper is its own surface and does not fight the homepage job', async () => {
     const page = await request(app).get('/shopper').expect(200);
@@ -87,6 +118,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).toContain('data-sp-commit');
     expect(page.text).toContain('Approve this trolley');
     expect(page.text).toContain('Prices vary by store and week.');
+    expect(page.text).not.toContain('priced from public catalogue specials');
     expect(page.text).toContain('14-day trial, then <strong>A$19.99 a month.</strong> <span>Card on file.</span>');
     expect(page.text).toContain('Start the 14-day trial');
     expect(page.text).toContain('href="/login.html?plan=premium#register"');
@@ -152,7 +184,7 @@ describe('Fitness Butler shopper HTTP', () => {
     const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
     expect(draft.body.success).toBe(true);
     expect(draft.body.draft.status).toBe('draft');
-    expect(draft.body.draft.catalogue).toEqual({ checkoutNote: 'Check prices at checkout.' });
+    expect(draft.body.draft.catalogue).toEqual({ checkoutNote: 'Prices vary by store and week.' });
     expect(JSON.stringify(draft.body)).not.toMatch(/validFrom|validTo|sourceKind|\$\d|\bspecials\b/);
     expect(draft.body.draft.honesty.trolleyApi).toBe(false);
     expect(draft.body.draft.honesty.stripeLinkGrocery).toBe(false);
@@ -172,6 +204,19 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(priceKeys(draft.body)).toEqual([]);
     expect(priceKeys(approved.body)).toEqual([]);
   });
+
+  it('shopper handlers omit the catalogue id and catalogue fields', async () => {
+    const index = await request(app).get('/api/shopper').expect(200);
+    const week = await request(app).get('/api/shopper/week').expect(200);
+    const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
+    const approved = await request(app).post('/api/shopper/approve').send({}).expect(200);
+    for (const res of [index, week, draft, approved]) {
+      expect(catalogueLeaks(res.body)).toEqual([]);
+    }
+    expect(draft.body.draft.draftId).toBe('draft_week-protein-7');
+    expect(draft.body.draft.draftId).not.toContain('au-public-specials-2026-w35');
+    expect(index.body.honesty.pricesFrom).toBeUndefined();
+  });
 });
 
 describe('Fitness Butler shopper honesty lock', () => {
@@ -190,6 +235,29 @@ describe('Fitness Butler shopper honesty lock', () => {
     expect(files).not.toContain('public_specials_catalogue');
     expect(files).not.toMatch(/worth the extra trip/);
     expect(files).toContain('takeaway');
+  });
+
+  it('drops the budget price endpoint, cheapest ranking, and cheaper claim', () => {
+    expect(read('api_server.js')).not.toMatch(/shopping-list\/budget/);
+    expect(read('app_fixes.js')).not.toMatch(/\bcheapest\b/);
+    expect(read('post-outreach.js')).not.toMatch(/we're cheaper/);
+    const hits = [];
+    function walk(rel) {
+      const abs = path.join(__dirname, rel);
+      for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+        const child = path.join(rel, entry.name);
+        if (entry.isDirectory()) {
+          walk(child);
+          continue;
+        }
+        if (!entry.name.endsWith('.js')) continue;
+        const needle = ['save beats a ', 'second trip'].join('');
+        if (read(child).includes(needle)) hits.push(child);
+      }
+    }
+    walk('.');
+    expect(hits).toEqual([]);
   });
 
   it("rg pattern this week's public specials|live prices|today's prices is absent from public and lib", () => {
