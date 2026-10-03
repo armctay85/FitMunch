@@ -127,7 +127,7 @@ describe('Stripe cannot wipe a comp by setting the tier to free', () => {
       .set('Content-Type', 'application/json')
       .send(JSON.stringify({
         type: 'customer.subscription.deleted',
-        data: { object: { id: 'sub_old', customer: 'cus_comp', status: 'canceled' } },
+        data: { object: { id: 'sub_old', customer: 'cus_comp', status: 'canceled', items: { data: [{ price: { id: 'price_1ToYrXGMuYRuJYDrwHtvWD1c' } }] } } },
       }))
       .expect(200);
 

@@ -362,7 +362,8 @@ router.post('/auth/register', async (req, res) => {
 
     await ensureMigrations();
 
-    const existing = await getUserByEmail(email.toLowerCase());
+    const storage = require('./server/storage.js');
+    const existing = await storage.getUserByEmail(email.toLowerCase());
     if (existing)
       return res.status(409).json({ success: false, error: 'An account with that email already exists.' });
 
@@ -401,7 +402,7 @@ router.post('/auth/register', async (req, res) => {
     const trialExpiresAt = new Date();
     trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
     // Atomic role + trial on create — never leave consumers stuck on DB default 'pt'.
-    const user = await createUser(email.toLowerCase(), name, passwordHash, {
+    const user = await storage.createUser(email.toLowerCase(), name, passwordHash, {
       role,
       ptId,
       trialExpiresAt,
@@ -451,6 +452,13 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
+    try {
+      const { attachGuestBilling } = require('./lib/fitmunch-account-link');
+      await attachGuestBilling(user);
+    } catch (linkErr) {
+      console.error('[register] guest billing link failed', linkErr && linkErr.type, linkErr && linkErr.code);
+    }
+
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
@@ -466,13 +474,21 @@ router.post('/auth/login', async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ success: false, error: 'Email and password are required.' });
 
-    const user = await getUserByEmail(email.toLowerCase());
+    const storage = require('./server/storage.js');
+    const user = await storage.getUserByEmail(email.toLowerCase());
     if (!user)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid)
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+
+    try {
+      const { attachGuestBilling } = require('./lib/fitmunch-account-link');
+      await attachGuestBilling(user);
+    } catch (linkErr) {
+      console.error('[login] guest billing link failed', linkErr && linkErr.type, linkErr && linkErr.code);
+    }
 
     let role = 'client';
     try {

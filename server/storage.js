@@ -1,6 +1,6 @@
 // FitMunch Database Storage Layer
 const { drizzle } = require('drizzle-orm/node-postgres');
-const { eq, and, gte, lte, desc } = require('drizzle-orm');
+const { eq, and, gte, lte, desc, sql } = require('drizzle-orm');
 const { Pool } = require('pg');
 const schema = require('../shared/schema.js');
 const { summarizeFunnel } = require('../lib/funnel-events');
@@ -54,6 +54,16 @@ async function getUserById(id) {
   await ensureSchema();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
   return user;
+}
+
+async function findUserByNormalizedEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized || !process.env.DATABASE_URL) return null;
+  await ensureSchema();
+  const [user] = await db.select().from(schema.users).where(
+    sql`lower(${schema.users.email}) = ${normalized}`
+  ).limit(1);
+  return user || null;
 }
 
 async function updateUserSubscription(userId, tier, expiresAt) {
@@ -336,6 +346,7 @@ module.exports = {
   createUser,
   getUserByEmail,
   getUserById,
+  findUserByNormalizedEmail,
   updateUserSubscription,
   updateUserCoachBilling,
   effectiveTier,
