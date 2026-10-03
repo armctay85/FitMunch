@@ -475,6 +475,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Vercel builds have no GITHUB_TOKEN, so a monitor reads the override here.
+app.get('/api/health/catalogue', (req, res) => {
+  const { catalogueHealth } = require('./scripts/check-catalogue-freshness');
+  const { CATALOGUE } = require('./lib/public-specials-catalogue');
+  res.json(catalogueHealth(CATALOGUE, process.env, new Date()));
+});
+
 // Old public Stripe probe. Do not publish payment-test internals.
 app.get('/api/stripe-test', (_req, res) => {
   return res.status(404).json({ success: false, error: 'Not found' });

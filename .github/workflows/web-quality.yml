@@ -10,6 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -32,4 +35,6 @@ jobs:
         run: npm test -- --runInBand
 
       - name: Catalogue freshness
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-catalogue-freshness.js
