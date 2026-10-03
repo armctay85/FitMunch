@@ -47,7 +47,6 @@ const PRICE_LINE_PAGES = [
   'public/index.html',
   'public/app.html',
   'public/shopper.html',
-  'public/coach.html',
   'public/budget-meal-planner.html',
   'public/for-pts.html',
   'public/woolworths-meal-planner.html',
@@ -172,6 +171,10 @@ describe('public price and claim ban', () => {
       const count = text.split(PRICE_LINE).length - 1;
       if (count !== 1) found.push(`${rel} has the price line ${count} times`);
     }
+    const coachHtml = fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8');
+    const coachJs = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-coach.js'), 'utf8');
+    if (coachHtml.includes(PRICE_LINE)) found.push('public/coach.html still has a fixed price line');
+    if (coachJs.split(PRICE_LINE).length - 1 !== 1) found.push('public/js/fm-coach.js must fill the price line once');
     expect(found).toEqual([]);
   });
 
