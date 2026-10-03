@@ -154,7 +154,12 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     res.json(payload);
 
   } catch (err) {
-    sendApiError(res, err, '[receipt-scan]');
+    sendApiError(
+      res,
+      err,
+      '[receipt-scan]',
+      "We couldn't read that receipt. Please try again with a clearer photo."
+    );
   }
 });
 

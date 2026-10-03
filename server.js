@@ -147,6 +147,12 @@ app.use((req, res, next) => {
   return next();
 });
 
+const PERMISSIONS_POLICY = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+  next();
+});
+
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   index: 'index.html',
@@ -216,7 +222,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error('Webhook sig failed:', err);
+    console.error('Webhook sig failed:', err && err.type, err && err.message);
     if (isInternalLeak(err && err.message)) return res.status(400).send('Webhook Error');
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
@@ -346,7 +352,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         console.log(`Webhook: ${event.type}`);
     }
   } catch (err) {
-    console.error('Webhook handler error:', err);
+    console.error('Webhook handler error:', err && err.type, err && err.message);
     return res.status(500).send('Handler error');
   }
   res.json({ received: true });
@@ -1095,6 +1101,14 @@ app.use((err, req, res, next) => {
   const isApi = req.path.startsWith('/api') || req.originalUrl.startsWith('/api');
   if (!isApi) {
     return next(err);
+  }
+  const jsonParseError = err && (
+    err.type === 'entity.parse.failed'
+    || (err instanceof SyntaxError && Number(err.status || err.statusCode) === 400)
+  );
+  if (jsonParseError) {
+    console.error('Invalid JSON body');
+    return res.status(400).json({ success: false, error: 'Invalid JSON' });
   }
   console.error(err);
   let code = Number(err.status || err.statusCode);

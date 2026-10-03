@@ -78,6 +78,80 @@ describe('Server API shell', () => {
     expect(pts.text).not.toContain('reviewCount');
   });
 
+  it('does not serve removed public scripts and sets Permissions-Policy', async () => {
+    const policy = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
+    for (const path of ['/api_server.js', '/deploy.js', '/payment-gateway.js']) {
+      const res = await request(app).get(path);
+      expect(res.status).toBe(404);
+      expect(res.headers['permissions-policy']).toBe(policy);
+    }
+    const home = await request(app).get('/');
+    expect(home.headers['permissions-policy']).toBe(policy);
+    const health = await request(app).get('/api/health');
+    expect(health.headers['permissions-policy']).toBe(policy);
+  });
+
+  it('malformed JSON is a 400 with no parser message', async () => {
+    const res = await request(app)
+      .post('/api/pt-leads')
+      .set('Content-Type', 'application/json')
+      .send('{"email":');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: 'Invalid JSON' });
+    expect(JSON.stringify(res.body)).not.toMatch(/Unexpected|SyntaxError|entity\.parse|position|in JSON/i);
+  });
+
+  it('webhook signature failures do not log the body or signature header', async () => {
+    const email = 'ada-webhook@example.com';
+    const name = 'Ada Lovelace';
+    const payload = JSON.stringify({
+      type: 'checkout.session.completed',
+      data: { object: { customer_details: { email, name } } },
+    });
+    const header = 't=1710000000,v1=secret-signature-header';
+    const err = new Error('No signatures found matching the expected signature for payload');
+    err.type = 'StripeSignatureVerificationError';
+    err.payload = payload;
+    err.header = header;
+    const previousSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+    app._private.setStripeForTests({
+      webhooks: {
+        constructEvent() {
+          throw err;
+        },
+      },
+    });
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await request(app)
+        .post('/api/stripe/webhook')
+        .set('Content-Type', 'application/json')
+        .set('stripe-signature', header)
+        .send(payload);
+      expect(res.status).toBe(400);
+      const logged = spy.mock.calls.map((args) => args.map((arg) => {
+        if (typeof arg === 'string') return arg;
+        try { return JSON.stringify(arg); } catch (_) { return String(arg); }
+      }).join(' ')).join('\n');
+      expect(logged).not.toContain(email);
+      expect(logged).not.toContain(name);
+      expect(logged).not.toContain(header);
+      expect(logged).not.toContain(payload);
+      expect(logged).not.toContain('secret-signature-header');
+      expect(spy).toHaveBeenCalledWith(
+        'Webhook sig failed:',
+        'StripeSignatureVerificationError',
+        'No signatures found matching the expected signature for payload'
+      );
+    } finally {
+      spy.mockRestore();
+      app._private.setStripeForTests(null);
+      if (previousSecret == null) delete process.env.STRIPE_WEBHOOK_SECRET;
+      else process.env.STRIPE_WEBHOOK_SECRET = previousSecret;
+    }
+  });
+
   it('GET auth aliases redirect to register/login surfaces', async () => {
     await request(app).get('/signup').expect(301).expect('Location', '/login.html#register');
     await request(app).get('/sign-up').expect(301).expect('Location', '/login.html#register');

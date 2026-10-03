@@ -1,9 +1,12 @@
 'use strict';
 
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const app = require('./server.js');
 const receiptRouter = require('./receipt-scanner');
 const core = require('./lib/receipt-scan-core');
+const aiUsage = require('./lib/ai-usage');
+const storage = require('./server/storage');
 
 const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -92,5 +95,42 @@ describe('POST /api/receipt/first-scan', () => {
     expect(res.body.error).toBe(core.GUEST_READ_FAIL);
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY/);
     expect(res.body.items).toBeUndefined();
+  });
+});
+
+describe('POST /api/receipt/scan server errors', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('returns friendly copy and keeps the failure off the response', async () => {
+    const previousJwt = process.env.JWT_SECRET;
+    const previousGemini = process.env.GEMINI_API_KEY;
+    process.env.JWT_SECRET = 'fitmunch-dev-secret';
+    process.env.GEMINI_API_KEY = 'test-key';
+    const token = jwt.sign({ userId: 'u-scan' }, process.env.JWT_SECRET);
+    const sql = 'Failed query: insert into "ai_usage" params: secret-scan-param';
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free' });
+    jest.spyOn(aiUsage, 'checkAndConsume').mockRejectedValue(new Error(sql));
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await request(app)
+        .post('/api/receipt/scan')
+        .set('Authorization', `Bearer ${token}`)
+        .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' });
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        success: false,
+        error: "We couldn't read that receipt. Please try again with a clearer photo.",
+      });
+      expect(JSON.stringify(res.body)).not.toMatch(/Failed query|secret-scan-param|ai_usage|params/);
+      const logged = spy.mock.calls.map((args) => args.map((arg) => String(arg && arg.message ? arg.message : arg)).join(' ')).join('\n');
+      expect(logged).toContain('secret-scan-param');
+    } finally {
+      if (previousJwt == null) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = previousJwt;
+      if (previousGemini == null) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = previousGemini;
+    }
   });
 });
