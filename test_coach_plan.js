@@ -222,9 +222,12 @@ describe('Coach plan HTTP', () => {
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
     expect(share.text).toContain('Northside training');
     expect(share.text).toContain('id="share-logo"');
-    expect(share.text).toContain(coach.PRICE_NOTE);
+    expect(share.text).toContain('Prices vary by store and week.');
+    expect(share.text).not.toContain(coach.PRICE_NOTE);
+    expect(share.text).not.toContain('2026-08-25');
     expect(share.text).toContain('See a dietitian for medical nutrition.');
-    expect(share.text).toContain('Coles total');
+    expect(share.text).toContain('Coles draft list');
+    expect(share.text).not.toContain('Coles total');
     expect(share.headers['x-robots-tag']).toBe('noindex');
 
     const pdf = await request(app).get(`${sent.body.plan.sharePath}/pdf`).expect(200);
@@ -233,9 +236,10 @@ describe('Coach plan HTTP', () => {
     expect(pdfText.slice(0, 5)).toBe('%PDF-');
     expect(pdfText).toContain('Northside training');
     expect(pdfText).toContain('See a dietitian for medical nutrition.');
-    expect(pdfText).toContain(`dated ${CATALOGUE.validFrom} to ${CATALOGUE.validTo}`);
-    expect(pdfText).toContain('Check prices at');
-    expect(pdfText).toContain('checkout.');
+    expect(pdfText).toContain('Prices vary by store and week.');
+    expect(pdfText).not.toContain(`dated ${CATALOGUE.validFrom} to ${CATALOGUE.validTo}`);
+    expect(pdfText).not.toContain('Check prices at');
+    expect(pdfText).not.toContain('checkout.');
     expect(pdfText).toContain('/Subtype /Image');
 
     const viewed = await request(app)
