@@ -61,20 +61,6 @@ struct MealPlanView: View {
                         labeledField("Protein g", text: $protein)
                         labeledField(ScreenshotLaunch.isActive ? "Shop budget" : "Budget $", text: $budget)
                     }
-
-                    Button {
-                        Task { await generate() }
-                    } label: {
-                        if isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text("Generate 7-day plan")
-                        }
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isLoading)
-                    .accessibilityIdentifier("plan-generate")
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground))
@@ -104,7 +90,16 @@ struct MealPlanView: View {
             }
             .padding()
         }
+        .defaultScrollAnchor(.top)
         .scrollClearsTabBar()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            generateButton
+                .padding(.horizontal, Theme.Spacing.four)
+                .padding(.top, Theme.Spacing.two)
+                .padding(.bottom, Theme.Spacing.three)
+                .background(Theme.surface)
+        }
         .background(Theme.surface)
         .sensoryFeedback(.selection, trigger: goal)
         .sensoryFeedback(.success, trigger: plansGenerated)
@@ -161,6 +156,22 @@ struct MealPlanView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
         }
         }
+    }
+
+    private var generateButton: some View {
+        Button {
+            Task { await generate() }
+        } label: {
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            } else {
+                Text("Generate 7-day plan")
+            }
+        }
+        .buttonStyle(PrimaryButtonStyle())
+        .disabled(isLoading)
+        .accessibilityIdentifier("plan-generate")
     }
 
     private func labeledField(_ title: String, text: Binding<String>) -> some View {

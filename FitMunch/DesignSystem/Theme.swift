@@ -44,7 +44,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .multilineTextAlignment(.center)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 14)
             .padding(.horizontal, Theme.Spacing.four)
             .background(Theme.buttonFill, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))

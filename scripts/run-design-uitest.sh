@@ -69,25 +69,32 @@ xcrun simctl bootstatus "$UDID" -b
 rm -rf /tmp/fitmunch-design-uitest
 mkdir -p /tmp/fitmunch-design-uitest/light /tmp/fitmunch-design-uitest/dark
 
-xcodebuild test \
-  -project FitMunch.xcodeproj \
-  -scheme FitMunch \
-  -destination "platform=iOS Simulator,id=$UDID" \
-  -only-testing:FitMunchUITests/DesignFeelUITests/testTabScreenshotsLightAndDark \
-  -resultBundlePath "$OUT/screenshots/Test.xcresult" \
-  CODE_SIGNING_ALLOWED=NO \
-  CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGN_IDENTITY=-
-
-VIDEO="$OUT/recording/log-scan-plan-tabs.mp4"
-xcrun simctl io "$UDID" recordVideo --codec h264 "$VIDEO" &
-RECORD_PID=$!
+DERIVED="$OUT/DerivedData"
 
 set +e
 xcodebuild test \
   -project FitMunch.xcodeproj \
   -scheme FitMunch \
   -destination "platform=iOS Simulator,id=$UDID" \
+  -derivedDataPath "$DERIVED" \
+  -only-testing:FitMunchUITests/DesignFeelUITests/testTabScreenshotsLightAndDark \
+  -resultBundlePath "$OUT/screenshots/Test.xcresult" \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY=-
+SHOT_STATUS=$?
+set -e
+
+VIDEO="$OUT/recording/log-scan-plan-tabs.mp4"
+xcrun simctl io "$UDID" recordVideo --codec h264 "$VIDEO" &
+RECORD_PID=$!
+
+set +e
+xcodebuild test-without-building \
+  -project FitMunch.xcodeproj \
+  -scheme FitMunch \
+  -destination "platform=iOS Simulator,id=$UDID" \
+  -derivedDataPath "$DERIVED" \
   -only-testing:FitMunchUITests/DesignFeelUITests/testLogScanPlanAndSwitchTabs \
   -resultBundlePath "$OUT/recording/Test.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
@@ -96,6 +103,8 @@ xcodebuild test \
 FLOW_STATUS=$?
 set -e
 
+# Let the last frames land, then ask simctl to finish the file.
+sleep 2
 kill -INT "$RECORD_PID" >/dev/null 2>&1 || true
 wait "$RECORD_PID" || true
 
@@ -110,6 +119,11 @@ echo "Screenshots:"
 find "$OUT/screenshots" -name '*.png' -print
 echo "Recording:"
 find "$OUT/recording" -name '*.mp4' -print
+
+if [[ "$SHOT_STATUS" -ne 0 ]]; then
+  echo "Design screenshot UI test failed ($SHOT_STATUS)"
+  exit "$SHOT_STATUS"
+fi
 
 if [[ "$FLOW_STATUS" -ne 0 ]]; then
   echo "Design flow UI test failed ($FLOW_STATUS)"
