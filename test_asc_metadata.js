@@ -3,8 +3,10 @@ const { METADATA } = require('./asc-update-metadata');
 
 const FORBIDDEN = ['barcode', 'restaurant', 'no cloud', 'Apple Health', '100,000', 'steps'];
 
-// Wilson: the only price wording in the promo, description, captions, and frames.
+// Grocery price wording. Subscription disclosure is a separate allowlist.
 const ALLOWED_PRICE_LINE = 'Prices vary by store and week.';
+const ALLOWED_SUBSCRIPTION_STRINGS = ['A$19.99/month', 'A$149.99/year'];
+const SUBSCRIPTION_BLOCK = 'FitMunch Premium is A$19.99/month or A$149.99/year, with a 14-day free trial for new subscribers. It renews unless cancelled at least 24 hours before the period ends, and you manage or cancel it in your Apple ID settings.';
 
 const CATALOGUE_DATE = new RegExp(
   [
@@ -42,22 +44,30 @@ function listingSurfaces() {
   ];
 }
 
-function withoutAllowedPriceLine(text) {
-  return text.split(ALLOWED_PRICE_LINE).join('');
+function withoutGroceryAndSubscription(text) {
+  return text.split(ALLOWED_PRICE_LINE).join('').split(SUBSCRIPTION_BLOCK).join('');
+}
+
+function withoutAllowedPrices(text) {
+  return ALLOWED_SUBSCRIPTION_STRINGS.reduce(
+    (out, price) => out.split(price).join(''),
+    withoutGroceryAndSubscription(text)
+  );
 }
 
 function priceViolations(text) {
-  const stripped = withoutAllowedPriceLine(text);
+  const prose = withoutGroceryAndSubscription(text);
+  const stripped = withoutAllowedPrices(text);
   const found = [];
-  if (/check prices at checkout/i.test(stripped)) found.push('checkout');
-  if (/\btotals?\b/i.test(stripped)) found.push('total');
-  if (/\bpric(?:e|es|ing)\b/i.test(stripped)) found.push('price wording');
-  if (/\bspecials?\b/i.test(stripped)) found.push('specials');
-  if (/\bcatalogue\b/i.test(stripped)) found.push('catalogue');
-  if (/\bcatalog\b/i.test(stripped)) found.push('catalog');
+  if (/check prices at checkout/i.test(prose)) found.push('checkout');
+  if (/\btotals?\b/i.test(prose)) found.push('total');
+  if (/\bpric(?:e|es|ing)\b/i.test(prose)) found.push('price wording');
+  if (/\bspecials?\b/i.test(prose)) found.push('specials');
+  if (/\bcatalogue\b/i.test(prose)) found.push('catalogue');
+  if (/\bcatalog\b/i.test(prose)) found.push('catalog');
   if (CATALOGUE_DATE.test(stripped)) found.push('catalogue date');
+  if (/\b(?:save|saves|saving|savings)\b[^.\n]{0,40}\d/i.test(prose)) found.push('savings');
   if (/(?:A\$|\$|AUD)\s?\d|\b\d+\.\d{2}\b/i.test(stripped)) found.push('price');
-  if (/\b(?:save|saves|saving|savings)\b[^.\n]{0,40}\d/i.test(stripped)) found.push('savings');
   return found;
 }
 
@@ -110,6 +120,16 @@ describe('ASC metadata limits', () => {
       expect(text.toLowerCase()).not.toContain('check prices at checkout');
     }
     expect(priceViolations(ALLOWED_PRICE_LINE)).toEqual([]);
+    expect(priceViolations('A$19.99/month')).toEqual([]);
+    expect(priceViolations('A$149.99/year')).toEqual([]);
+    expect(priceViolations(SUBSCRIPTION_BLOCK)).toEqual([]);
+  });
+
+  it('discloses the Premium subscription, the trial, auto-renew terms, and policy links', () => {
+    expect(METADATA.description).toContain(SUBSCRIPTION_BLOCK);
+    expect(METADATA.description).toContain('https://www.fitmunch.com.au/terms');
+    expect(METADATA.description).toContain('https://www.fitmunch.com.au/privacy');
+    expect(METADATA.description.toLowerCase()).not.toContain('check prices at checkout');
     for (const file of [md, listing]) {
       expect(file.toLowerCase()).not.toContain('check prices at checkout');
     }
@@ -127,7 +147,10 @@ describe('ASC metadata limits', () => {
       'Week of 2/10',
       'Annual: A$149.99 (A$2.88 a week)',
       'You check prices at checkout',
+      'Check prices at checkout',
       'Monthly: A$19.99',
+      'save A$19.99/month',
+      'A$19.99 a week',
       'Basket total $40',
       'Prices vary by store',
     ];

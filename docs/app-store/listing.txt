@@ -8,7 +8,7 @@ Notes under each block are for the person submitting. Do not paste the notes.
 
 This listing matches asc-update-metadata.js. It does not claim Link pay, Apple Watch, HealthKit, a subscription free trial, ratings, user counts, testimonials, or a medical outcome.
 
-The only price wording in the promo, description, captions, and frames is "Prices vary by store and week." No supermarket prices, totals, savings, or catalogue dates. It says FitMunch builds your list split by store.
+Grocery price wording in the promo, description, captions, and frames is only "Prices vary by store and week." No supermarket prices, totals, savings, or catalogue dates. The description discloses the Premium subscription. It says FitMunch builds your list split by store.
 
 Build 9 has no shopping-list screen. Do not add a shopping-list screenshot. The public text says "your list", not "shopping list".
 
@@ -76,8 +76,7 @@ Log up to 3 meals a day, scan receipts and try the coach for free.
 
 FITMUNCH PREMIUM
 Unlimited meal logging, full history, unlimited coach and meal plans.
-
-Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your App Store account settings.
+FitMunch Premium is A$19.99/month or A$149.99/year, with a 14-day free trial for new subscribers. It renews unless cancelled at least 24 hours before the period ends, and you manage or cancel it in your Apple ID settings.
 
 Made in Australia by Develoop.
 Terms: https://www.fitmunch.com.au/terms
@@ -85,7 +84,7 @@ Privacy: https://www.fitmunch.com.au/privacy
 Support: support@fitmunch.com.au
 END PASTE
 
-Description characters: 1506 / 4000
+Description characters: 1497 / 4000
 
 
 SCREENSHOT CAPTIONS
@@ -126,7 +125,7 @@ Info.plist contains Health usage strings. No Swift code calls HealthKit. There i
 
 Continue on the web opens fitmunch.com.au in Safari. There is no Link payment in the app.
 
-Do not put a supermarket price, a basket total, a savings figure, or a catalogue date in the promo, description, captions, or frames. The only price sentence is "Prices vary by store and week."
+Do not put a supermarket price, a basket total, a savings figure, or a catalogue date in the promo, description, captions, or frames. Grocery price wording is only "Prices vary by store and week." The description may disclose FitMunch Premium as A$19.99/month or A$149.99/year, with a 14-day free trial for new subscribers.
 
 Do not cite specials or a catalogue date.
 

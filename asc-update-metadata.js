@@ -14,14 +14,15 @@ function getPrivateKey() {
 // FitMunch App Details
 const APP_ID = '6760215679';
 
-// Trial line stays commented until FitMunchProducts.storekit has an introductory offer.
+// Bracketed prefix stays unused. The subscription block below states the trial.
 // const TRIAL_LINE = '[Start with a free trial, then]';
 
 // Build 9 has no shopping-list screen, so there is no shopping-list screenshot.
-// The listing says FitMunch builds your list split by store. The only price
-// wording in the promo, description, captions, and frames is
-// "Prices vary by store and week."
+// The listing says FitMunch builds your list split by store.
+// Grocery price wording is only "Prices vary by store and week."
 // No supermarket prices, totals, savings, or catalogue dates.
+// The description discloses FitMunch Premium as A$19.99/month or A$149.99/year,
+// with a 14-day free trial for new subscribers, plus auto-renew terms.
 // "shopping" stays in keywords.
 const METADATA = {
   name: 'FitMunch: Macro Meal Planner',
@@ -64,8 +65,7 @@ Log up to 3 meals a day, scan receipts and try the coach for free.
 
 FITMUNCH PREMIUM
 Unlimited meal logging, full history, unlimited coach and meal plans.
-
-Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your App Store account settings.
+FitMunch Premium is A$19.99/month or A$149.99/year, with a 14-day free trial for new subscribers. It renews unless cancelled at least 24 hours before the period ends, and you manage or cancel it in your Apple ID settings.
 
 Made in Australia by Develoop.
 Terms: https://www.fitmunch.com.au/terms
