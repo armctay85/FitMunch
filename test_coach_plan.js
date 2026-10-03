@@ -207,10 +207,11 @@ describe('Coach plan HTTP', () => {
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
     expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
-    expect(created.body.plan.plan.priceNote).toBe(coach.PRICE_NOTE);
-    expect(created.body.plan.plan.catalogue.validFrom).toBe(CATALOGUE.validFrom);
-    expect(created.body.plan.plan.catalogue.validTo).toBe(CATALOGUE.validTo);
-    expect(created.body.plan.plan.catalogue.updatedAt).toBe(CATALOGUE.updatedAt);
+    expect(created.body.plan.plan.priceNote).toBe('Prices vary by store and week.');
+    expect(created.body.plan.plan.catalogue).toBeUndefined();
+    expect(JSON.stringify(created.body.plan.plan)).not.toContain('2026-08-25');
+    expect(JSON.stringify(created.body.plan.plan)).not.toContain('w35');
+    expect(created.body.plan.updatedAt).toBeTruthy();
 
     const sent = await request(app)
       .post(`/api/coach/plans/${created.body.plan.id}/send`)

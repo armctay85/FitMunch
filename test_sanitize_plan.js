@@ -3,7 +3,9 @@
 const request = require('supertest');
 const app = require('./server.js');
 const store = require('./lib/coach-store');
-const { sanitizePlan } = require('./lib/sanitize-plan');
+const fs = require('fs');
+const path = require('path');
+const { sanitizePlan, stripFragments, roundAmount } = require('./lib/sanitize-plan');
 const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
 
 const CURRENT_NOTE = 'Prices vary by store and week.';
@@ -198,6 +200,118 @@ describe('sanitizePlan', () => {
     expect(clean.days[0].meals[0].ingredients).toEqual(stored.days[0].meals[0].ingredients);
     expect(clean.priceNote).toBe(CURRENT_NOTE);
   });
+
+  it('strips price fragments and keeps real names', () => {
+    const names = {
+      'Chicken $12 off': 'Chicken',
+      'Milk was $9.50': 'Milk',
+      'Yoghurt 2 for $5': 'Yoghurt',
+      'Bread half price': 'Bread',
+      'Oats save 30%': 'Oats',
+      'Beef on special': 'Beef',
+      'Coles specials': 'Coles',
+      'Week catalogue w35': 'Week',
+      'Tag au-public-specials': 'Tag',
+      'Dated 2026-08-25': 'Dated',
+      'Week of 25 Aug': 'Week of',
+      'Week of 25 August': 'Week of',
+      'Specialty cheese': 'Specialty cheese',
+      'Special K': 'Special K',
+      'Special fried rice': 'Special fried rice',
+      '$12 off': 'Item',
+      'was $9.50': 'Item',
+      '2 for $5': 'Item',
+      'half price': 'Item',
+      'save 30%': 'Item',
+      '25 Aug': 'Item',
+    };
+    for (const [raw, expected] of Object.entries(names)) {
+      const clean = sanitizePlan({
+        days: [{
+          day: 'Mon',
+          meals: [{ slot: 'Dinner', name: raw, ingredients: [{ name: raw, amount: 1, unit: 'g' }] }],
+        }],
+        shopping: {
+          lines: [{ name: raw, aisle: 'Pantry', packs: 1, amount: 1, unit: 'g', priced: true }],
+        },
+      });
+      expect(clean.shopping.lines[0].name).toBe(expected);
+      expect(clean.days[0].meals[0].name).toBe(expected);
+      expect(clean.days[0].meals[0].ingredients[0].name).toBe(expected);
+      expect(stripFragments(raw) || 'Item').toBe(expected);
+    }
+  });
+
+  it('drops subtotal, cost and estTotal and keeps a plan-level updatedAt', () => {
+    const clean = sanitizePlan({
+      updatedAt: '2026-10-03T00:00:00.000Z',
+      shopping: {
+        updatedAt: '2026-08-25T00:00:00.000Z',
+        subtotal: 12,
+        cost: 4,
+        estTotal: 9,
+        was: 8,
+        approvedAt: '2026-08-25',
+        pricedAt: '2026-08-25',
+        validFrom: '2026-08-25',
+        validTo: '2026-08-31',
+        weekLabel: 'Catalogue week',
+        lines: [{
+          name: 'Oats',
+          aisle: 'Pantry',
+          packs: 1,
+          amount: 80,
+          unit: 'g',
+          subtotal: 3,
+          cost: 3,
+          estTotal: 3,
+        }],
+      },
+    });
+    expect(clean.updatedAt).toBe('2026-10-03T00:00:00.000Z');
+    expect(clean.shopping.updatedAt).toBeUndefined();
+    expect(clean.shopping.subtotal).toBeUndefined();
+    expect(clean.shopping.cost).toBeUndefined();
+    expect(clean.shopping.estTotal).toBeUndefined();
+    expect(clean.shopping.was).toBeUndefined();
+    expect(clean.shopping.approvedAt).toBeUndefined();
+    expect(clean.shopping.pricedAt).toBeUndefined();
+    expect(clean.shopping.validFrom).toBeUndefined();
+    expect(clean.shopping.validTo).toBeUndefined();
+    expect(clean.shopping.weekLabel).toBeUndefined();
+    expect(clean.shopping.lines[0].subtotal).toBeUndefined();
+    expect(clean.shopping.lines[0].cost).toBeUndefined();
+    expect(clean.shopping.lines[0].estTotal).toBeUndefined();
+    expect(JSON.stringify(clean)).not.toContain('2026-08-25');
+  });
+
+  it('rounds grams, millilitres and each', () => {
+    expect(roundAmount(1747.495, 'g')).toBe(1750);
+    expect(roundAmount(1747.495, 'ml')).toBe(1750);
+    expect(roundAmount(80.4, 'g')).toBe(80);
+    expect(roundAmount(0.484, 'each')).toBe(1);
+    expect(roundAmount(1.2, 'each')).toBe(2);
+    const clean = sanitizePlan({
+      days: [{
+        meals: [{
+          ingredients: [
+            { name: 'Mince', amount: 1747.495, unit: 'g' },
+            { name: 'Lemon', amount: 0.484, unit: 'each' },
+          ],
+        }],
+      }],
+      shopping: {
+        lines: [
+          { name: 'Mince', aisle: 'Meat', packs: 2, amount: 1747.495, unit: 'g' },
+          { name: 'Lemon', aisle: 'Produce', packs: 1, amount: 0.484, unit: 'each' },
+        ],
+      },
+    });
+    expect(clean.shopping.lines[0].amount).toBe(1750);
+    expect(clean.shopping.lines[1].amount).toBe(1);
+    expect(clean.days[0].meals[0].ingredients[0].amount).toBe(1750);
+    expect(clean.days[0].meals[0].ingredients[1].amount).toBe(1);
+  });
 });
 
 describe('saved coach plans on the share page and PDF', () => {
@@ -243,5 +357,87 @@ describe('saved coach plans on the share page and PDF', () => {
       expect(count(text, CURRENT_NOTE)).toBe(1);
       expect(text).not.toContain('$');
     }
+  });
+
+  it('rounds amounts and never prints undefined', async () => {
+    const plan = oldPlan();
+    plan.days[0].meals[0].name = 'Special fried rice';
+    plan.days[0].meals[0].ingredients = [
+      { name: 'Mince', amount: 1747.495, unit: 'g' },
+      { name: 'Lemon', amount: 0.484, unit: 'each' },
+      { name: 'Special fried rice', amount: 200, unit: 'g' },
+      { amount: 40, unit: 'g' },
+    ];
+    plan.shopping.lines.push(
+      { name: 'Mince', aisle: 'Meat', packs: 2, amount: 1747.495, unit: 'g', priced: true, lineAud: 12 },
+      { name: 'Lemon', aisle: 'Produce', packs: 1, amount: 0.484, unit: 'each', onSpecial: true },
+      { aisle: 'Pantry', packs: 3, amount: null, unit: 'g' },
+      { name: 'Specialty cheese', aisle: 'Dairy', packs: 1, amount: 250, unit: 'g' },
+      { name: 'Special K', aisle: 'Pantry', packs: 1, amount: 500, unit: 'g' }
+    );
+    const sent = await publish(plan, 'Old client');
+    const share = await request(app).get(`/c/${sent.token}`).expect(200);
+    const pdf = await request(app).get(`/c/${sent.token}/pdf`).expect(200);
+    const pdfText = pdf.body.toString('latin1');
+    for (const text of [share.text, pdfText]) {
+      expect(text).toContain('1750 g');
+      expect(text).toContain('1 each');
+      expect(text).toContain('Special fried rice');
+      expect(text).toContain('Specialty cheese');
+      expect(text).toContain('Special K');
+      expect(text).toContain('3 x Item');
+      expect(text).not.toContain('undefined');
+      expect(text).not.toContain('1747.495');
+      expect(text).not.toContain('0.484');
+      expect(text).not.toContain('$');
+    }
+  });
+
+  it('adds noindex on the missing plan page', async () => {
+    const missing = await request(app).get('/c/not-a-real-token').expect(404);
+    expect(missing.text).toContain('<meta name="robots" content="noindex"/>');
+  });
+
+  it('returns no prices, catalogue or old note from the coach API', async () => {
+    const session = await request(app).post('/api/coach/preview-session').expect(200);
+    const auth = { Authorization: `Bearer ${session.body.token}` };
+    const row = await store.createPlan({
+      ptId: store.PREVIEW_PT.id,
+      clientId: store.PREVIEW_CLIENT.id,
+      clientLabel: 'Old client',
+      plan: oldPlan(),
+      source: 'manual',
+    });
+    const got = await request(app).get(`/api/coach/plans/${row.id}`).set(auth).expect(200);
+    const sent = await request(app).post(`/api/coach/plans/${row.id}/send`).set(auth).expect(200);
+    for (const body of [got.body.plan, sent.body.plan]) {
+      const json = JSON.stringify(body);
+      expect(body.plan.priceNote).toBe(CURRENT_NOTE);
+      expect(body.updatedAt).toBeTruthy();
+      expect(json).not.toContain('2026-08-25');
+      expect(json).not.toContain('w35');
+      expect(json).not.toContain('au-public-specials');
+      expect(json).not.toContain('onSpecial');
+      expect(json).not.toContain('totalAud');
+      expect(json).not.toContain('catalogue');
+      expect(json).not.toContain('$');
+      expect(json).not.toContain(OLD_NOTE);
+      expect(json).not.toContain('Estimated from public');
+    }
+    const stored = await store.getPlan(row.id, row.ptId);
+    expect(stored.plan.priceNote).toBe(OLD_NOTE);
+    expect(stored.plan.shopping.totalAud).toBe(36.8);
+  });
+});
+
+describe('coach builder copy', () => {
+  it('shows aisle and amount, not a price or a total', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'public/js/fm-coach.js'), 'utf8');
+    expect(src).not.toContain('No public special');
+    expect(src).not.toContain('coach-total');
+    expect(src).toContain('Prices vary by store and week.');
+    expect(count(src, 'Prices vary by store and week.')).toBe(1);
+    expect(src).toContain('line.aisle');
+    expect(src).toContain('amountLabel');
   });
 });

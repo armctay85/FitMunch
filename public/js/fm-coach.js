@@ -24,9 +24,26 @@
     return data;
   }
 
-  function money(value) {
-    if (value == null) return 'No public special at this store';
-    return '$' + Number(value).toFixed(2);
+  function plain(value, fallback) {
+    if (value == null || value === '' || value === 'undefined' || value === 'null') return fallback || '';
+    return String(value);
+  }
+
+  function roundAmount(amount, unit) {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return null;
+    const u = String(unit || '').trim().toLowerCase();
+    if (u === 'each') return Math.max(1, Math.ceil(n));
+    if ((u === 'g' || u === 'ml') && n > 1000) return Math.round(n / 10) * 10;
+    return Math.round(n);
+  }
+
+  function amountLabel(line) {
+    const unit = plain(line.unit, '');
+    if (line.amount == null || line.amount === '' || !Number.isFinite(Number(line.amount))) return '';
+    const rounded = roundAmount(line.amount, unit);
+    if (rounded == null) return '';
+    return unit ? rounded + ' ' + unit : String(rounded);
   }
 
   function flags() {
@@ -67,13 +84,13 @@
       const block = document.createElement('section');
       block.className = 'day';
       const title = document.createElement('h2');
-      title.textContent = day.day + ' · ' + day.kcal + ' kcal';
+      title.textContent = plain(day.day, 'Day') + ' · ' + (day.kcal == null ? '' : day.kcal + ' kcal');
       block.appendChild(title);
-      day.meals.forEach((meal) => {
+      (day.meals || []).forEach((meal) => {
         const row = document.createElement('div');
         row.className = 'meal';
         const name = document.createElement('h3');
-        name.textContent = meal.slot + ': ' + meal.name;
+        name.textContent = plain(meal.slot, 'Meal') + ': ' + plain(meal.name, 'Item');
         const meta = document.createElement('p');
         meta.textContent = meal.kcal + ' kcal, ' + meal.protein + 'g protein, ' + meal.carbs + 'g carbs, ' + meal.fat + 'g fat';
         row.appendChild(name);
@@ -82,24 +99,23 @@
       });
       days.appendChild(block);
     });
-    const shopping = plan.plan.shopping;
-    $('coach-store-heading').textContent = shopping.storeName + ' draft list';
+    const shopping = (plan.plan && plan.plan.shopping) || { lines: [], storeName: '' };
+    $('coach-store-heading').textContent = plain(shopping.storeName, 'Store') + ' draft list';
     const list = $('coach-list');
     list.replaceChildren();
-    shopping.lines.forEach((line) => {
+    (shopping.lines || []).forEach((line) => {
       const row = document.createElement('div');
       row.className = 'line';
       const name = document.createElement('span');
-      name.textContent = line.packs + ' x ' + line.name;
-      const price = document.createElement('span');
-      price.className = 'price';
-      price.textContent = line.priced ? money(line.lineAud) : 'No public special at this store';
+      const packs = line.packs == null || line.packs === '' ? '' : (line.packs + ' x ');
+      name.textContent = packs + plain(line.name, 'Item');
+      const detail = document.createElement('span');
+      detail.textContent = [plain(line.aisle, ''), amountLabel(line)].filter(Boolean).join(' ');
       row.appendChild(name);
-      row.appendChild(price);
+      row.appendChild(detail);
       list.appendChild(row);
     });
-    $('coach-total').textContent = shopping.storeName + ' total ' + money(shopping.totalAud);
-    $('coach-price-note').textContent = plan.plan.priceNote;
+    $('coach-price-note').textContent = 'Prices vary by store and week.';
     const share = $('coach-share');
     if (plan.sharePath) {
       const link = document.createElement('a');
