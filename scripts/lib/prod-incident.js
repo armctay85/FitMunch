@@ -150,7 +150,7 @@ async function handleIncident(options) {
     const created = await github.open(options.title, `${safeBody}\n\n${emailMarker(now)}`);
     number = created.number;
   }
-  const comments = isNew ? [] : await github.listComments(number);
+  const comments = isNew ? [] : [{ body: existing.body }, ...await github.listComments(number)];
   const send = options.repeatEmail === false
     ? isNew
     : shouldSendDownEmail({ isNew, comments, now, intervalMs: options.intervalMs });

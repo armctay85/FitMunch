@@ -192,6 +192,76 @@ describe('stripe webhook monitor', () => {
     fs.rmSync(summaryFile, { force: true });
   });
 
+  it('does not email one hour later when the first send time is only in the issue body', async () => {
+    const calls = [];
+    let open = [];
+    const github = {
+      calls,
+      async ensureLabel() {},
+      async listOpen() { return open; },
+      async listComments() { return []; },
+      async open(title, body) {
+        calls.push(['open', title, body]);
+        const issue = { number: 21, title, body };
+        open = [issue];
+        return issue;
+      },
+      async comment(number, body) { calls.push(['comment', number, body]); },
+      async close() {},
+    };
+    const disabled = stripeFetch({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
+    const opened = await runStripeWebhookMonitor({
+      env: env(),
+      fetch: disabled.fetchImpl,
+      github,
+      now,
+    });
+    expect(opened.incident.action).toBe('opened');
+    expect(opened.incident.emailed).toBe(true);
+    expect(open[0].body).toContain('fm-alert-email:');
+    expect(github.calls.filter((call) => call[0] === 'comment')).toHaveLength(0);
+
+    const hourLater = await runStripeWebhookMonitor({
+      env: env(),
+      fetch: disabled.fetchImpl,
+      github,
+      now: now + 60 * 60 * 1000,
+    });
+    expect(hourLater.incident.action).toBe('commented');
+    expect(hourLater.incident.emailed).toBe(false);
+  });
+
+  it('emails again when the issue body shows the last send was 6 hours ago', async () => {
+    const calls = [];
+    const open = [{
+      number: 22,
+      title: 'PROD STRIPE WEBHOOK DISABLED',
+      body: `The FitMunch Stripe webhook endpoint is not enabled.\n\n${emailMarker(now - DISABLED_EMAIL_INTERVAL_MS - 1000)}`,
+    }];
+    const github = {
+      calls,
+      async ensureLabel() {},
+      async listOpen() { return open; },
+      async listComments() { return []; },
+      async open(title, body) {
+        calls.push(['open', title, body]);
+        return { number: 23, title, body };
+      },
+      async comment(number, body) { calls.push(['comment', number, body]); },
+      async close() {},
+    };
+    const disabled = stripeFetch({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
+    const later = await runStripeWebhookMonitor({
+      env: env(),
+      fetch: disabled.fetchImpl,
+      github,
+      now,
+    });
+    expect(later.incident.action).toBe('commented');
+    expect(later.incident.emailed).toBe(true);
+    expect(calls.some((call) => call[0] === 'open')).toBe(false);
+  });
+
   it('closes an open incident on recovery and repeats the disabled email every 6 hours', async () => {
     const calls = [];
     let open = [{ number: 8, title: 'PROD STRIPE WEBHOOK DISABLED' }];
