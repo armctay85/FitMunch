@@ -429,7 +429,12 @@ function registerRedirectTarget(req) {
   if (!q) return '/login.html#register';
   return `/login.html${q}#register`;
 }
-app.get('/login', (req, res) => res.redirect(301, '/login.html' + authQuery(req)));
+app.get('/login', (req, res) => {
+  // Helmet's strict-origin-when-cross-origin wins over vercel.json on this 301.
+  // Reset links hit /login, so the redirect itself must not send a referrer.
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.redirect(301, '/login.html' + authQuery(req));
+});
 app.get('/register', (req, res) => res.redirect(301, registerRedirectTarget(req)));
 // Common aliases people/typeahead/bookmarks hit - must not 404
 app.get('/auth', (req, res) => res.redirect(301, registerRedirectTarget(req)));
