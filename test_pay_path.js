@@ -39,7 +39,7 @@ describe('Public Premium CTA', () => {
   it('login?plan=premium is the account-create step that immediately opens checkout', async () => {
     const login = await request(app).get('/login.html?plan=premium').expect(200);
     expect(login.text).toContain('Start Premium trial');
-    expect(login.text).toContain('14-day trial, then $19.99 a month');
+    expect(login.text).toContain('14-day trial, then A$19.99 a month');
     expect(login.text).toContain('Stripe opens');
     expect(login.text).toContain("registerLabel = plan === 'premium' ? 'Start Premium trial'");
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);

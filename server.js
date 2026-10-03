@@ -387,7 +387,7 @@ app.use('/api/foods', foodDb);
 // Clean URLs for SEO landing pages
 app.get('/for-pts', (req, res) => res.sendFile('for-pts.html', { root: 'public' }));
 app.get('/for-trainers', (req, res) => res.redirect(301, '/for-pts'));
-app.get('/best-pt-software-australia', (req, res) => res.redirect(301, '/for-pts'));
+app.get(['/best-pt-software-australia', '/best-pt-software-australia.html'], (req, res) => res.redirect(301, '/for-pts'));
 app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(301, '/for-pts'));
 app.get('/receipt-nutrition-scanner', (req, res) => res.sendFile('receipt-nutrition-scanner.html', { root: 'public' }));
 app.get('/receipt-to-meal-plan', (req, res) => res.redirect(301, '/receipt-nutrition-scanner'));

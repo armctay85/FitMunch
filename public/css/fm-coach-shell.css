@@ -109,7 +109,6 @@
 }
 .fm-section .lead{color:var(--mute);font-size:1.05rem;line-height:1.65;max-width:42ch;margin:0 0 28px}
 
-/* Proof tables + conversion strips (MRR content) */
 .fm-table-wrap{overflow-x:auto;margin:24px 0;border:1px solid var(--line);background:#fff}
 .fm-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .fm-table th,.fm-table td{padding:12px 14px;text-align:left;border-bottom:1px dashed var(--line)}

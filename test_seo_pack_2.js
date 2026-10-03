@@ -51,7 +51,7 @@ describe('SEO pack 2: new search landers', () => {
 
     it(`${page.route} CTA points at the trial door and keeps product claims honest`, async () => {
       const html = (await request(app).get(page.route).expect(200)).text;
-      expect(html).toContain('14-day trial, then $19.99 a month');
+      expect(html).toContain('14-day trial, then A$19.99 a month');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
       expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/check out/i);

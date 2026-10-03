@@ -119,7 +119,7 @@
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-copy>Copy the take list</button>
           <button type="button" class="fm-btn fm-btn-ink" data-sp-print>Print</button>
         </div>
-        <p class="sp-note">Ingredient list, not a live trolley. 14-day trial, then $19.99 a month. Card on file.</p>
+        <p class="sp-note">Ingredient list, not a live trolley. 14-day trial, then A$19.99 a month. Card on file.</p>
       </div>
     `;
     const copyBtn = checkoutMount.querySelector('[data-sp-copy]');

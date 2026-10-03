@@ -74,7 +74,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).toContain('data-sp-commit');
     expect(page.text).toContain('Approve this trolley');
     expect(page.text).toContain('Prices vary by store and week.');
-    expect(page.text).toContain('14-day trial, then <strong>$19.99 a month.</strong> <span>Card on file.</span>');
+    expect(page.text).toContain('14-day trial, then <strong>A$19.99 a month.</strong> <span>Card on file.</span>');
     expect(page.text).toContain('Start the 14-day trial');
     expect(page.text).toContain('href="/login.html?plan=premium#register"');
     expect(page.text).toContain('web app');

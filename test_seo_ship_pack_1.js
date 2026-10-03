@@ -53,7 +53,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(metaDescription(res.text)).toBe('Plan the week from your body and your Woolies, Coles or Aldi shop. AUD, grams, receipt-ready. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/ai-meal-planner-australia');
     expect(res.text).toContain('It does not scrape supermarket trolley APIs.');
-    expect(res.text).toContain('Premium is $19.99 AUD/mo after a 14-day trial.');
+    expect(res.text).toContain('Premium is A$19.99 AUD/mo after a 14-day trial.');
     expect(res.text).toContain('href="/shopper"');
     expect(res.text).toContain('href="/budget-meal-planner"');
     expect(res.text).toContain('href="/haul-teardown"');
@@ -78,7 +78,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     const res = await request(app).get('/shopper').expect(200);
     expect(title(res.text)).toBe('Commit the Week, Take the Trolley | Woolies Coles Aldi Shopper | FitMunch');
     expect(h1(res.text)).toBe('Commit the week. Take the trolley.');
-    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a Woolies, Coles or Aldi list. Premium $19.99 after 14-day trial.');
+    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a Woolies, Coles or Aldi list. Premium A$19.99 after 14-day trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/shopper');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/budget-meal-planner"');
@@ -92,7 +92,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     const res = await request(app).get('/receipt-nutrition-scanner').expect(200);
     expect(title(res.text)).toBe('Receipt Nutrition Scanner Australia | Woolies Coles Aldi Haul Score | FitMunch');
     expect(h1(res.text)).toBe('Scan your Woolies, Coles or Aldi receipt. Get the haul score.');
-    expect(metaDescription(res.text)).toBe('Photograph an Australian supermarket receipt for macros and haul score, then turn it into the next plan. Free to try. Premium $19.99 after 14-day trial.');
+    expect(metaDescription(res.text)).toBe('Photograph an Australian supermarket receipt for macros and haul score, then turn it into the next plan. Free to try. Premium A$19.99 after 14-day trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/receipt-nutrition-scanner');
     expect(res.text).not.toContain('https://fitmunch.com.au/receipt-nutrition-scanner');
     expect(res.text).toContain('href="/haul-teardown"');

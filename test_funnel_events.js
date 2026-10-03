@@ -144,7 +144,7 @@ describe('funnel event helper', () => {
           href: '/login.html?plan=premium#register',
           plan: 'premium',
           cta: 'coles-meal-planner_trial',
-          label: '14-day trial, then $19.99 a month',
+          label: '14-day trial, then A$19.99 a month',
           email: 'buyer@example.com',
         },
       },

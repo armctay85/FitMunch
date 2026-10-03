@@ -91,12 +91,27 @@ function publicListingFiles() {
     for (const name of fs.readdirSync(dir)) {
       const full = path.join(dir, name);
       if (fs.statSync(full).isDirectory()) walk(full);
-      else if (/^(manifest\.json|llms\.txt|sitemap.*\.xml)$/i.test(name) || /\.webmanifest$/i.test(name)) {
+      else if (/^(app_manifest\.json|sitemap.*\.xml)$/i.test(name) || /\.webmanifest$/i.test(name)) {
         out.push(full);
       }
     }
   }
   if (fs.existsSync(root)) walk(root);
+  return out;
+}
+
+function htmlBody(html) {
+  const match = html.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
+  return match ? match[1] : html;
+}
+
+function walkServed(dir, out) {
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name);
+    const stat = fs.statSync(full);
+    if (stat.isDirectory()) walkServed(full, out);
+    else if (/\.(html|js|css|json|txt|xml|svg|webmanifest)$/i.test(name)) out.push(full);
+  }
   return out;
 }
 
@@ -199,6 +214,44 @@ describe('public price and claim ban', () => {
     }
     for (const file of publicListingFiles()) {
       check(path.relative(__dirname, file), fs.readFileSync(file, 'utf8'));
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('keeps priced and catalogue out of page bodies and app_manifest.json', () => {
+    const found = [];
+    const words = [
+      [/\bpriced\b/i, 'priced'],
+      [/\bcatalogues?\b/i, 'catalogue'],
+    ];
+    for (const file of files) {
+      if (!/\.html$/i.test(file)) continue;
+      const rel = path.relative(__dirname, file);
+      const body = htmlBody(fs.readFileSync(file, 'utf8'));
+      for (const [re, name] of words) {
+        if (re.test(body)) found.push(`${rel} body ${name}`);
+      }
+    }
+    const manifest = fs.readFileSync(path.join(__dirname, 'public', 'app_manifest.json'), 'utf8');
+    for (const [re, name] of words) {
+      if (re.test(manifest)) found.push(`public/app_manifest.json ${name}`);
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('keeps Grok, OpenClaw, and MRR out of every served public file', () => {
+    const banned = [
+      [/\bGrok\b/i, 'Grok'],
+      [/\bOpenClaw\b/i, 'OpenClaw'],
+      [/\bMRR\b/i, 'MRR'],
+    ];
+    const found = [];
+    for (const file of walkServed(path.join(__dirname, 'public'), [])) {
+      const text = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(__dirname, file);
+      for (const [re, name] of banned) {
+        if (re.test(text)) found.push(`${rel} ${name}`);
+      }
     }
     expect(found).toEqual([]);
   });

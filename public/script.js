@@ -842,7 +842,7 @@ async function updateShoppingList() {
     if (!shopLoadingIndicator) {
       shopLoadingIndicator = document.createElement('div');
       shopLoadingIndicator.className = 'loading-indicator';
-      shopLoadingIndicator.innerHTML = '<span>Fetching catalogue prices...</span>';
+      shopLoadingIndicator.innerHTML = '<span>Loading the list...</span>';
       shoppingSection.appendChild(shopLoadingIndicator);
     }
     shopLoadingIndicator.style.display = 'flex';
