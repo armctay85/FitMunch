@@ -314,7 +314,7 @@ describe('Statement descriptor suffix', () => {
       {
         invoices: {
           update,
-          retrieve: jest.fn(async () => ({ id: 'in_fit', status: 'paid' })),
+          retrieve: jest.fn(async () => draftInvoice({ status: 'paid' })),
         },
       },
       draftInvoice()
