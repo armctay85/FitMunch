@@ -14,8 +14,7 @@
 <meta property="og:type" content="article">
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
@@ -25,7 +24,7 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .bpt-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(40px,6vw,64px)}
 .bpt-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
@@ -35,10 +34,10 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .breadcrumb{font-size:.82rem;color:var(--mute);margin-bottom:8px}
 .breadcrumb a{color:var(--leaf2);text-decoration:none}
-.updated{font-size:.8rem;color:var(--mute2);margin-bottom:28px}
+.updated{font-size:.8rem;color:var(--mute);margin-bottom:28px}
 
 .comparison-table{width:100%;border-collapse:collapse;margin:28px 0 40px;font-size:.88rem}
-.comparison-table th{background:var(--fridge);color:#fff;padding:12px 14px;text-align:left;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.82rem}
+.comparison-table th{background:var(--fridge);color:#fff;padding:12px 14px;text-align:left;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:700;font-size:.82rem}
 .comparison-table td{padding:11px 14px;border-bottom:1px solid var(--line)}
 .comparison-table tr.highlight{background:rgba(31,157,74,.08);font-weight:600}
 .comparison-table tr.highlight td:first-child{color:var(--leaf2)}
@@ -48,8 +47,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:22px 0}
 @media(max-width:600px){.pros-cons{grid-template-columns:1fr}}
 .pros,.cons{background:#fff;padding:20px}
-.pros h4{color:var(--leaf2);margin-bottom:10px;font-size:.92rem;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.cons h4{color:var(--red);margin-bottom:10px;font-size:.92rem;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.pros h4{color:var(--leaf2);margin-bottom:10px;font-size:.92rem;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
+.cons h4{color:var(--red);margin-bottom:10px;font-size:.92rem;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .pros ul,.cons ul{padding-left:18px;margin-bottom:0}
 .pros li,.cons li{margin-bottom:6px;color:var(--mute);font-size:.86rem}
 
@@ -105,7 +104,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <td>$59 &ndash; $99</td>
     <td><span class="tick">&#10003; Unlimited</span></td>
     <td><span class="tick">&#10003; Yes</span></td>
-    <td><span class="tick">&#10003; Yes (GST-ready)</span></td>
+    <td><span class="tick">&#10003; Yes</span></td>
     <td><span class="tick">&#10003; Full</span></td>
     </tr>
     <tr>
@@ -143,7 +142,7 @@ html,body{max-width:100%;overflow-x:hidden}
     </table>
 
     <h2>1. FitMunch: best for Australian PTs</h2>
-    <p>FitMunch is the only PT management platform built specifically for the Australian market. It combines client workout programming, nutrition tracking and progress reporting in one dashboard, priced in AUD and invoiced with GST included.</p>
+    <p>FitMunch is the only PT management platform built specifically for the Australian market. It combines client workout programming, nutrition tracking and progress reporting in one dashboard, priced in Australian dollars (AUD).</p>
 
     <div class="pros-cons">
     <div class="pros">
@@ -152,7 +151,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <li>AUD pricing, no currency conversion</li>
     <li>Unlimited clients on all plans</li>
     <li>Workout and nutrition in one place</li>
-    <li>GST-compliant invoicing</li>
+    <li>Prices in Australian dollars (AUD)</li>
     <li>14-day trial, card on file</li>
     <li>Built and supported in Australia</li>
     </ul>
@@ -186,7 +185,6 @@ html,body{max-width:100%;overflow-x:hidden}
     <li>USD pricing, AUD cost fluctuates with exchange rate</li>
     <li>Client caps, pay more to grow</li>
     <li>US servers mean noticeable lag during AU business hours</li>
-    <li>No GST invoicing</li>
     <li>~$140&ndash;$210 AUD/mo for most AU trainers</li>
     </ul>
     </div>
@@ -256,8 +254,8 @@ html,body{max-width:100%;overflow-x:hidden}
     <h3>4. Nutrition and workout in one place</h3>
     <p>Most PTs use separate apps for workout programming and nutrition guidance. A combined platform means fewer tools to manage and a better experience for clients.</p>
 
-    <h3>5. GST-ready invoicing</h3>
-    <p>If you're registered for GST, you need software that generates compliant tax invoices. US-based software typically doesn't handle Australian tax requirements.</p>
+    <h3>5. Australian dollar billing</h3>
+    <p>Prices in Australian dollars (AUD) keep the monthly cost stable. A tool billed in US dollars moves with the exchange rate.</p>
 
     <div class="cta-box">
     <h2>Ready to try FitMunch?</h2>

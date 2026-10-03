@@ -18,36 +18,158 @@
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="preload" href="/fonts/bricolage-grotesque-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/literata-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* Critical copy of /css/fm-fonts.css and /css/fm-tokens.css so the hero is not render-blocked. */
+/* Self-hosted latin faces. font-display: swap, with size-adjust fallbacks. */
+
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  src: local("Arial"), local("ArialMT"), local("DejaVu Sans"), local("Liberation Sans");
+  size-adjust: 90%;
+  ascent-override: 103%;
+  descent-override: 30%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque-latin-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque-latin-800.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Literata Fallback";
+  src: local("Georgia"), local("DejaVu Serif"), local("Liberation Serif");
+  size-adjust: 118.24%;
+  ascent-override: 99.54%;
+  descent-override: 26.05%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("/fonts/literata-latin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("/fonts/literata-latin-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("/fonts/literata-latin-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Fallback";
+  src: local("Courier New"), local("DejaVu Sans Mono"), local("Liberation Mono");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.50%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/ibm-plex-mono-latin-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/ibm-plex-mono-latin-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --fm-sans: "Bricolage Grotesque", "Bricolage Grotesque Fallback", system-ui, sans-serif;
+  --fm-serif: "Literata", "Literata Fallback", Georgia, serif;
+  --fm-mono: "IBM Plex Mono", "IBM Plex Mono Fallback", ui-monospace, monospace;
+  --fridge: #07130d;
+  --fridge2: #0c1c14;
+  --leaf: #1f9d4a;
+  --leaf2: #146c34;
+  --leaf-glow: rgba(31, 157, 74, 0.35);
+  --cta: #15803D;
+  --accent: #22C55E;
+  --paper: #eef2ee;
+  --paper2: #e4ebe4;
+  --ink: #0c1210;
+  --mute: #5c6d64;
+  --mute2: #8a9a91;
+  --line: #cfd9d2;
+  --green: #2bbf5a;
+  --green2: var(--leaf);
+  --green3: var(--leaf2);
+  --bg: var(--paper);
+  --bg2: var(--paper2);
+  --dark: var(--fridge);
+  --dark2: var(--fridge2);
+  --text: var(--ink);
+  --text2: var(--mute);
+  --text3: var(--mute2);
+  --border: var(--line);
+  --border2: #b7c4bc;
+  --surface: #ffffff;
+  --radius: 6px;
+  --purple: #7c3aed;
+  --amber: #c47a12;
+  --red: #c23b3b;
+  --blue: #2f6fed;
+}
+</style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 html,body{max-width:100%;overflow-x:hidden}
 body{
-  font-family:'Literata',Georgia,serif;
+  font-family:'Literata','Literata Fallback',Georgia,serif;
   background:var(--paper);
   color:var(--ink);
   -webkit-font-smoothing:antialiased;
 }
 :focus-visible{
-  outline:2px solid var(--leaf);
+  outline:2px solid var(--accent);
   outline-offset:3px;
 }
 .skip{
   position:absolute;left:16px;top:12px;z-index:40;
-  background:var(--leaf);color:#fff;padding:10px 14px;
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.85rem;
+  background:var(--cta);color:#fff;padding:10px 14px;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:700;font-size:.85rem;
   text-decoration:none;border-radius:4px;
   transform:translateY(-140%);transition:transform .2s;
 }
 .skip:focus{transform:none}
 h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve,.lander-card a{
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
 }
-.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace}
 
 /* FIRST FOLD: studio product sheet. Price only in this thin bar. */
 .fold{
@@ -120,8 +242,8 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   transition:transform .2s, background .2s, border-color .2s, color .2s;
 }
 .btn:hover{transform:translateY(-1px)}
-.btn-leaf{background:#1f9d4a;color:#fff}
-.btn-leaf:hover{background:#17833c}
+.btn-leaf{background:var(--cta);color:#fff}
+.btn-leaf:hover{background:#166534}
 .btn-ghost{
   background:transparent;color:#fff;
   border-color:rgba(255,255,255,.38);
@@ -134,10 +256,47 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .btn-ink:hover{border-color:var(--mute)}
 
 .phone{
+  position:relative;
   width:100%;
   max-width:22.5rem;
   justify-self:end;
 }
+.phone-frame{display:none}
+.phone-list li{opacity:1}
+.trolley-total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin:0 0 10px;font-size:.95rem;font-weight:700;color:#11180f;
+}
+.trolley-total span{
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  min-width:6.5ch;text-align:right;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .phone-list li{animation:trolleyTick .45s ease forwards}
+  .phone-list li:nth-child(1){animation-delay:.12s}
+  .phone-list li:nth-child(2){animation-delay:.28s}
+  .phone-list li:nth-child(3){animation-delay:.44s}
+  .phone-list li:nth-child(4){animation-delay:.60s}
+  .phone-list li:nth-child(5){animation-delay:.76s}
+  .phone-list li:nth-child(6){animation-delay:.92s}
+  .phone-list li:nth-child(7){animation-delay:1.08s}
+  .phone-approve{animation:approvePulse 1.15s ease 1.7s 1}
+}
+@keyframes trolleyTick{from{transform:translateY(6px)}to{transform:none}}
+@keyframes approvePulse{
+  0%{box-shadow:0 0 0 0 rgba(21,128,61,.45)}
+  100%{box-shadow:0 0 0 12px rgba(21,128,61,0)}
+}
+.food-band{background:#fff;padding:clamp(36px,6vw,72px) clamp(20px,4vw,48px);border-top:1px solid var(--line)}
+.food-band-inner{width:min(1040px,100%);margin:0 auto}
+.food-band h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;letter-spacing:-.04em;margin:0 0 8px}
+.food-band .lead{color:var(--mute);margin:0 0 18px;max-width:42ch}
+.food-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.food-grid figure{margin:0}
+.food-grid img{width:100%;height:auto;display:block;background:#e4ebe4}
+.food-grid figcaption{margin-top:8px;font-size:.78rem;color:var(--mute)}
+@media (max-width:720px){.food-grid{grid-template-columns:1fr}}
 .sheet{
   background:#f4efe6;
   color:#11180f;
@@ -149,7 +308,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .sheet-top{padding:16px 16px 10px}
 .phone-k{
   font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-  color:#17833c;margin-bottom:6px;
+  color:#146c34;margin-bottom:6px;
 }
 .phone-week{
   font-size:1.28rem;font-weight:800;letter-spacing:-.045em;line-height:1.05;color:#11180f;
@@ -166,20 +325,21 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .phone-list b{
   display:inline-block;
   font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:#136b31;background:#e4efe6;padding:4px 6px;border-radius:2px;text-align:center;
+  color:#0f3d22;background:#e4efe6;padding:4px 6px;border-radius:2px;text-align:center;
 }
 .phone-list strong{
   display:block;font-size:.95rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
 }
 .phone-list .src{
-  font-size:.58rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5c6d64;
+  font-size:.58rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#3e4c45;
 }
 .sheet-foot{
   padding:14px 16px 16px;
+  min-height:128px;
 }
 .phone-approve{
   display:inline-block;
-  color:#136b31;background:transparent;
+  color:#146c34;background:transparent;
   font-size:.95rem;font-weight:700;
   text-decoration:underline;text-underline-offset:3px;
   padding:0;
@@ -206,14 +366,14 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   background:#fff;border:1px solid var(--line);padding:22px 20px;
 }
 .fs-drop{border:2px dashed rgba(31,157,74,.32);border-radius:8px;padding:22px 16px;text-align:center;background:rgba(31,157,74,.06)}
-.fs-drop strong{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1rem;margin-bottom:6px}
+.fs-drop strong{display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem;margin-bottom:6px}
 .fs-drop p{color:var(--mute);font-size:.88rem;line-height:1.5;margin-bottom:16px}
 .fs-actions{display:flex;flex-direction:column;gap:8px}
 .fs-preview-wrap img{width:100%;max-height:220px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .fs-error{margin-top:12px;font-size:.84rem;font-weight:600;color:#b91c1c}
 .fs-empty{color:var(--mute);font-size:.95rem;line-height:1.6}
 .fs-result-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:16px}
-.fs-score{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;line-height:.88;color:var(--leaf2);letter-spacing:-.06em}
+.fs-score{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:3.4rem;font-weight:600;line-height:.88;color:var(--leaf2);letter-spacing:-.06em}
 .fs-meta{text-align:right;font-size:.88rem;color:var(--mute);line-height:1.45}
 .fs-meta strong{display:block;color:var(--ink);font-size:1rem;margin-bottom:2px}
 .fs-meal{
@@ -401,7 +561,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 }
 .plan li::before{
   content:"";position:absolute;left:0;top:.55em;
-  width:6px;height:6px;border-radius:1px;background:var(--leaf2);
+  width:6px;height:6px;border-radius:1px;background:var(--accent);
 }
 
 /* FINAL */
@@ -433,10 +593,10 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 }
 .trust-item{
   font-size:.84rem;line-height:1.45;color:var(--mute);
-  padding-left:12px;border-left:2px solid var(--leaf);
+  padding-left:12px;border-left:2px solid var(--accent);
 }
 .trust-item strong{
-  display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.88rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin-bottom:3px;
 }
 
@@ -496,6 +656,18 @@ footer{
   .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:14px}
   .hero-ctas{display:flex;max-width:none}
 }
+@media(min-width:1200px){
+  .hero-inner{grid-template-columns:minmax(0,1fr) 620px}
+  .phone{width:620px;max-width:620px;min-height:540px}
+  .sheet{width:520px;max-width:520px;position:relative;z-index:1}
+  .phone-frame{
+    display:block;position:absolute;z-index:0;right:0;top:12px;width:220px;
+    padding:8px;border-radius:28px;background:#04100a;
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+  }
+  .phone-frame img{width:100%;height:auto;display:block;border-radius:20px}
+}
 @media(max-width:860px){
   .nav-links a:not(.nav-cta):not([data-fm-auth="login"]){display:none}
   .beats{grid-template-columns:1fr}
@@ -525,7 +697,7 @@ footer{
   .phone-list li{padding:10px 16px}
 }
 @media(prefers-reduced-motion:reduce){
-  .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
+  .hero-inner,.receipt,.step,.phone-list li,.phone-approve{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
 </style>
 </head>
@@ -560,33 +732,29 @@ footer{
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
     </div>
-    <aside class="phone" aria-label="Fitness Butler sample trolley">
-      <div class="sheet">
+    <aside class="phone" aria-label="Sample trolley">
+      <div class="phone-frame">
+        <img src="/assets/food/week-plan-screen.webp" alt="" width="360" height="640" decoding="async" fetchpriority="low"/>
+      </div>
+      <div class="sheet" id="sample-trolley">
         <div class="sheet-top">
-          <p class="phone-k">Fitness Butler</p>
-          <p class="phone-week">This week · sample</p>
+          <p class="phone-k">Sample</p>
+          <p class="phone-week">This week · sample trolley</p>
         </div>
-        <p class="sheet-body">From last shop and public specials. You take this list.</p>
+        <p class="sheet-body">Sample list from last shop and public specials. You take this list.</p>
         <ol class="phone-list">
-          <li>
-            <b>Woolies</b>
-            <strong>Chicken 1kg</strong>
-            <span class="src">specials</span>
-          </li>
-          <li>
-            <b>Coles</b>
-            <strong>Eggs x12</strong>
-            <span class="src">last shop</span>
-          </li>
-          <li>
-            <b>Aldi</b>
-            <strong>Oats</strong>
-            <span class="src">body</span>
-          </li>
+          <li><b>Woolies</b><strong>Chicken 1kg</strong><span class="src">A$14.80</span></li>
+          <li><b>Woolies</b><strong>Salmon 400g</strong><span class="src">A$19.40</span></li>
+          <li><b>Coles</b><strong>Beef mince 500g</strong><span class="src">A$13.20</span></li>
+          <li><b>Coles</b><strong>Eggs x12</strong><span class="src">A$8.10</span></li>
+          <li><b>Aldi</b><strong>Greek yoghurt 1kg</strong><span class="src">A$9.50</span></li>
+          <li><b>Aldi</b><strong>Oats 1kg</strong><span class="src">A$5.40</span></li>
+          <li><b>Aldi</b><strong>Olive oil 500ml</strong><span class="src">A$13.80</span></li>
         </ol>
         <div class="sheet-foot">
+          <p class="trolley-total">Total <span data-trolley-total data-cents="8420">A$84.20</span></p>
           <a class="phone-approve" href="#loop">Approve this trolley</a>
-          <p class="phone-honest">Not a shop charge. You take this list.</p>
+          <p class="phone-honest">Not a shop charge. You take this list. Sample only.</p>
         </div>
       </div>
     </aside>
@@ -721,6 +889,27 @@ footer{
           <p class="fs-trial-note">14-day trial, then $19.99 a month. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="food-band" aria-label="Food from a sample week">
+  <div class="food-band-inner">
+    <h2>What the week looks like.</h2>
+    <p class="lead">Overhead plates from a sample week. Your trolley is priced from public specials, not from these photos.</p>
+    <div class="food-grid">
+      <figure>
+        <img src="/assets/food/overhead-chicken.webp" width="800" height="600" alt="Overhead of chicken, broccoli and rice on a dark plate" loading="lazy" decoding="async"/>
+        <figcaption>Chicken, greens and rice.</figcaption>
+      </figure>
+      <figure>
+        <img src="/assets/food/overhead-salmon.webp" width="800" height="600" alt="Overhead of salmon, potatoes and green beans" loading="lazy" decoding="async"/>
+        <figcaption>Salmon and potatoes.</figcaption>
+      </figure>
+      <figure>
+        <img src="/assets/food/overhead-oats.webp" width="800" height="600" alt="Overhead of oats, banana, eggs and spinach" loading="lazy" decoding="async"/>
+        <figcaption>Oats, eggs and greens.</figcaption>
+      </figure>
     </div>
   </div>
 </section>
@@ -905,6 +1094,26 @@ try {
     }, { threshold: 0.35 });
     io.observe(device);
   } else run();
+})();
+
+(function sampleTrolley() {
+  var el = document.querySelector('[data-trolley-total]');
+  if (!el) return;
+  var cents = Number(el.getAttribute('data-cents') || 8420);
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function money(c) { return 'A$' + (c / 100).toFixed(2); }
+  if (reduced) { el.textContent = money(cents); return; }
+  var start = performance.now();
+  var dur = 1200;
+  var wait = 280;
+  function frame(now) {
+    var t = Math.min(1, Math.max(0, (now - start - wait) / dur));
+    var eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = money(Math.round(cents * eased));
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  el.textContent = money(0);
+  requestAnimationFrame(frame);
 })();
 </script>
 <script src="/js/fm-first-scan.js" defer></script>

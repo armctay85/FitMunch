@@ -6,8 +6,7 @@
 <title>404 - Page not found | FitMunch</title>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
@@ -20,18 +19,19 @@ body.fm-body{
 }
 .card{text-align:center;max-width:480px}
 .code{
-  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:6.5rem;font-weight:600;line-height:1;color:var(--leaf);
   letter-spacing:-.04em;margin-bottom:10px;
 }
 .card h1{
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:1.4rem;font-weight:800;letter-spacing:-.03em;margin-bottom:10px;
 }
 .card p{font-size:.94rem;color:rgba(238,242,238,.72);line-height:1.7;margin-bottom:30px}
 .links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .foot{font-size:.8rem;color:rgba(238,242,238,.5);margin-top:30px}
-.foot a{color:var(--leaf);text-decoration:none;font-weight:600}
+.foot a{color:#d7e6dc;text-decoration:underline;text-underline-offset:2px;font-weight:600}
+.card a.fm-btn.fm-btn-ghost{color:#fff;border-color:rgba(255,255,255,.45)}
 </style>
 </head>
 <body class="fm-body">

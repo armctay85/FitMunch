@@ -11,8 +11,7 @@
 <meta property="og:url" content="https://www.fitmunch.com.au/budget-meal-planner">
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
@@ -22,7 +21,7 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .bp-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(48px,7vw,72px)}
 .bp-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
@@ -31,7 +30,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .bp-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:46ch;margin-bottom:26px}
 .bp-ctas{display:flex;flex-wrap:wrap;gap:10px}
 
-.callout{background:#fff;border-left:3px solid var(--leaf2);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:18px 22px;margin:28px 0;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.9rem;color:var(--ink)}
+.callout{background:#fff;border-left:3px solid var(--leaf2);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:18px 22px;margin:28px 0;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.9rem;color:var(--ink)}
 .callout strong{color:var(--leaf2)}
 
 .content-inner li{margin:0 0 10px 0;color:var(--mute);line-height:1.65;padding-left:14px;position:relative;list-style:none}
@@ -43,7 +42,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .fm-steps li{counter-increment:bp-step;position:relative;padding:16px 0 16px 44px;border-bottom:1px dashed var(--line);color:var(--mute);line-height:1.6}
 .fm-steps li::before{
   content:counter(bp-step);position:absolute;left:0;top:14px;
-  font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;font-size:.82rem;
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-weight:600;font-size:.82rem;
   color:var(--leaf2);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   width:24px;height:24px;display:flex;align-items:center;justify-content:center;
 }
@@ -53,7 +52,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .meal{background:#fff;padding:18px 16px}
 .meal h3{font-size:.95rem;margin:0 0 6px}
 .meal p{margin:0;color:var(--mute);font-size:.88rem;line-height:1.55}
-.day-total{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.88rem;color:var(--leaf2);font-weight:600;margin:14px 0 0}
+.day-total{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.88rem;color:var(--leaf2);font-weight:600;margin:14px 0 0}
 
 @media(max-width:640px){.meal-grid{grid-template-columns:1fr}}
 </style>

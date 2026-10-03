@@ -6,15 +6,13 @@
  <title>FitMunch - Sign In</title>
  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
- <link rel="preconnect" href="https://fonts.googleapis.com"/>
- <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
- <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
+ <link rel="stylesheet" href="/css/fm-fonts.css"/>
  <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
  <style>
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
  body {
- font-family: 'Literata', Georgia, serif;
+ font-family: 'Literata','Literata Fallback', Georgia, serif;
  background: var(--bg); color: var(--text);
  min-height: 100vh; display: flex; align-items: center; justify-content: center;
  padding: 20px;
@@ -36,7 +34,7 @@
  display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center;
  }
  .logo img { width: 44px; height: 44px; border-radius: 8px; box-shadow: 0 4px 18px rgba(31,157,74,.28); }
- .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', system-ui, sans-serif; letter-spacing: -.03em; }
+ .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback', system-ui, sans-serif; letter-spacing: -.03em; }
  .logo-text span { color: var(--green); }
 
  .tabs {
@@ -46,11 +44,11 @@
  .tab {
  flex: 1; text-align: center; padding: 9px; border-radius: 3px;
  font-size: 0.88rem; font-weight: 600; cursor: pointer;
- color: var(--muted); transition: all 0.2s;
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ color: #A7F3D0; transition: all 0.2s;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback', system-ui, sans-serif;
  }
  .tab.active {
- background: var(--green2); color: white;
+ background: var(--cta); color: #fff;
  box-shadow: none;
  }
 
@@ -58,8 +56,8 @@
  label {
  display: block; font-size: 0.76rem; font-weight: 700;
  text-transform: uppercase; letter-spacing: 0.06em;
- color: var(--sub); margin-bottom: 7px;
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ color: #d7e6dc; margin-bottom: 7px;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback', system-ui, sans-serif;
  }
  input {
  width: 100%; background: #0a1610; border: 1px solid var(--border);
@@ -68,15 +66,15 @@
  transition: border-color 0.2s;
  }
  input:focus { border-color: var(--green); }
- input::placeholder { color: var(--muted); }
+ input::placeholder { color: #c5d0c7; }
 
  .btn {
- width: 100%; background: var(--green2); color: white;
+ width: 100%; background: var(--cta); color: #fff;
  border: none; padding: 13px; border-radius: 4px;
  font-size: 0.95rem; font-weight: 700; cursor: pointer;
  transition: background 0.2s, transform 0.1s; margin-top: 6px;
  letter-spacing: 0.02em;
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback', system-ui, sans-serif;
  }
  .btn:hover { background: #16803c; }
  .btn:active { transform: scale(0.98); }
@@ -99,10 +97,11 @@
  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
  .foot {
- text-align: center; font-size: 0.78rem; color: var(--muted); margin-top: 20px;
+ text-align: center; font-size: 0.78rem; color: #d7e6dc; margin-top: 20px;
  }
- .foot a { color: var(--green); text-decoration: none; }
- .foot a:hover { text-decoration: underline; }
+ .card a { text-decoration: underline; text-underline-offset: 2px; }
+ .foot a { color: #A7F3D0; text-decoration: underline; text-underline-offset: 2px; }
+ .foot a:hover { color: #d1fae5; }
 
  .spinner {
  display: inline-block; width: 16px; height: 16px;
@@ -129,11 +128,11 @@
  </div>
 
  <div id="premium-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(31,157,74,.35);background:rgba(31,157,74,.1);border-radius:4px">
- <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
+ <div style="font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens. 14-day trial, then $19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</div>
  </div>
  <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
- <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
+ <div style="font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
  </div>
 

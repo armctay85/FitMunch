@@ -2,7 +2,7 @@
 
 .skip{
   position:absolute;left:16px;top:12px;z-index:40;
-  background:var(--leaf);color:#fff;padding:10px 14px;
+  background:var(--cta);color:#fff;padding:10px 14px;
   font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.85rem;
   text-decoration:none;border-radius:4px;
   transform:translateY(-160%);transition:transform .2s;
@@ -312,6 +312,28 @@ button.fm-btn{appearance:none;-webkit-appearance:none;font-family:'Bricolage Gro
 }
 @media(max-width:420px){
   .sp-hero h1{max-width:11ch}
+}
+
+.sp-food-grid{
+  display:grid;
+  grid-template-columns:1.1fr 1.1fr .8fr;
+  gap:14px;
+  align-items:end;
+}
+.sp-food-grid figure{margin:0}
+.sp-food-grid img{width:100%;height:auto;display:block;background:#e4ebe4}
+.sp-food-grid figcaption,.sp-device p{margin:8px 0 0;font-size:.78rem;color:var(--mute)}
+.sp-device-frame{
+  width:min(220px,100%);
+  margin:0 auto;
+  padding:8px;
+  border-radius:28px;
+  background:#07130d;
+  border:1px solid #1a2e22;
+}
+.sp-device-frame img{width:100%;height:auto;border-radius:18px;display:block;background:#07130d}
+@media(max-width:720px){
+  .sp-food-grid{grid-template-columns:1fr}
 }
 
 @media print{

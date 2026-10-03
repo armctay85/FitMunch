@@ -225,8 +225,8 @@ router.post('/analytics/events', async (req, res) => {
     }
     res.json({ success: true, eventsProcessed: processed });
   } catch (error) {
-    console.error('Error tracking analytics events:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Error tracking analytics events:', error.message);
+    res.status(202).json({ success: false, stored: false });
   }
 });
 

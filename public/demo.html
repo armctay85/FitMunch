@@ -11,12 +11,13 @@
 <meta property="og:url" content="https://www.fitmunch.com.au/demo"/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="stylesheet" href="/css/fm-fonts.css"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
 <style>
 .dm-hero{padding-top:calc(96px + clamp(40px,6vw,64px));padding-bottom:clamp(36px,5vw,56px)}
 .dm-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
@@ -25,15 +26,15 @@
 .dm-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:42ch;margin-bottom:22px}
 .docket{
   background:#fff;border:1px solid var(--line);padding:22px 20px;max-width:420px;
-  font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.78rem;
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.78rem;
 }
-.docket h2{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:var(--mute)}
+.docket h2{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:var(--mute)}
 .docket .line{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);color:var(--ink)}
 .docket .tot{display:flex;justify-content:space-between;margin-top:12px;font-weight:700}
 .stage{margin-top:28px}
 .stage[hidden]{display:none}
 .result-head{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end;margin-bottom:20px}
-#score-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
+#score-n{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
 </style>
 </head>
 <body class="fm-body">
@@ -78,7 +79,7 @@
       <div class="result-head">
         <div>
           <div id="score-n">0</div>
-          <div class="fm-note" style="margin:8px 0 0;font-family:'Bricolage Grotesque',system-ui,sans-serif;letter-spacing:.08em">HAUL SCORE</div>
+          <div class="fm-note" style="margin:8px 0 0;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;letter-spacing:.08em">HAUL SCORE</div>
         </div>
         <div class="fm-score-meta">
           <strong id="score-meta">0g protein · $143.60 · 22 items</strong>
