@@ -221,5 +221,10 @@ describe('iOS views have no hard-coded price literals or web purchase door', () 
     expect(target).not.toContain('fitmunch.com.au/login');
     expect(target).not.toContain('NSHealthShareUsageDescription');
     expect(target).not.toContain('NSHealthUpdateUsageDescription');
+
+    const paywall = fs.readFileSync(path.join(root, 'Views/PaywallView.swift'), 'utf8');
+    expect(paywall).toContain('Theme.green');
+    expect(paywall).not.toContain('Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)');
+    expect(fs.readFileSync(path.join(root, 'Utilities/Theme.swift'), 'utf8')).toContain('static let green');
   });
 });

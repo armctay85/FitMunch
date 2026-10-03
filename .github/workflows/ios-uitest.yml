@@ -159,7 +159,7 @@ jobs:
             fi
             simroot="$HOME/Library/Developer/CoreSimulator/Devices/$udid"
             if [[ -d "$simroot" ]]; then
-              find "$simroot" -type f \( -name 'first-run-*.png' -o -name 'paywall-*.png' -o -name 'purchase-sheet*.png' -o -name 'sizes.txt' \) -print \
+              find "$simroot" -type f \( -name 'today-*.png' -o -name 'paywall-*.png' -o -name 'purchase-sheet*.png' -o -name 'sizes.txt' \) -print \
                 | while read -r found; do
                     cp "$found" artifacts/ios-uitest/screenshots/ || true
                   done
@@ -173,8 +173,7 @@ jobs:
             find "$attach_dir" -type f -name '*.png' -print | while read -r png; do
               base=$(basename "$png")
               case "$base" in
-                first-run-*|paywall-*|purchase-sheet*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
-                *) cp "$png" "artifacts/ios-uitest/screenshots/${slug}-${base}" ;;
+                today-*|paywall-*|purchase-sheet*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
               esac
             done
             if ! grep -q 'APP_FOREGROUND_SHOT ' "artifacts/ios-uitest/${slug}.log"; then
@@ -206,8 +205,10 @@ jobs:
           grep 'FULLSCREEN_SIZE ' artifacts/ios-uitest/*.log
           echo "=== screenshot files ==="
           find artifacts/ios-uitest/screenshots -type f -print | sort
-          test -n "$(find artifacts/ios-uitest/screenshots \( -name 'first-run-*.png' -o -name '*first-run*.png' \) | head -1)"
-          test -n "$(find artifacts/ios-uitest/screenshots \( -name 'paywall-*.png' -o -name '*paywall*.png' \) | head -1)"
+          test -f artifacts/ios-uitest/screenshots/today-6.9.png
+          test -f artifacts/ios-uitest/screenshots/paywall-6.9.png
+          test -f artifacts/ios-uitest/screenshots/today-6.5.png
+          test -f artifacts/ios-uitest/screenshots/paywall-6.5.png
           grep -q '440x956' artifacts/ios-uitest/pro-max.log
           grep -q '414x896' artifacts/ios-uitest/iphone-11-pro-max.log
           grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/pro-max.log
