@@ -11,10 +11,6 @@
   const statusEl = document.querySelector('[data-sp-status]');
   const errEl = document.querySelector('[data-sp-error]');
 
-  function money(n) {
-    return '$' + Number(n).toFixed(2);
-  }
-
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text || '';
   }
@@ -75,36 +71,23 @@
 
   function renderDraft(draft) {
     if (!draftMount) return;
-    const rec = draft.recommendation;
-    const stay = rec.split ? 'Split this shop' : 'One store';
     draftMount.innerHTML = `
       <div class="sp-ticket" id="draft-trolley">
-        <div class="sp-ticket-top">
-          <div>
-            <div class="sp-total">${money(rec.goodsAud)}<small>${escapeHtml(rec.storeNames.join(' + '))} · ${escapeHtml(catalogueNote(draft.catalogue))}</small></div>
-          </div>
-          <p class="sp-verdict"><strong>${stay}</strong>${escapeHtml(rec.reason)}</p>
-        </div>
-        <div class="sp-math" aria-label="Split maths">
-          <div><b>${money(rec.bestSingleAud)}</b><span>Cheapest single store</span></div>
-          <div><b>${money(rec.saveVsSingleAud)}</b><span>Catalogue save if you split</span></div>
-          <div><b>${money(rec.secondTripCostAud)}</b><span>Cost of a second trip</span></div>
-        </div>
+        <p class="sp-verdict">${escapeHtml((draft.recommendation && draft.recommendation.reason) || 'Check the shelf price at the store.')}</p>
         <div class="sp-lines">
-          ${draft.lines.map((line) => `
+          ${(draft.lines || []).map((line) => `
             <div class="sp-line">
               <div>
                 <div class="n">${line.packs} × ${escapeHtml(line.name)}</div>
-                <div class="m">${escapeHtml(line.aisle)}${line.onSpecial ? ' · catalogue special' : ''}</div>
+                <div class="m">${escapeHtml(line.aisle)}</div>
               </div>
-              <div class="st">${escapeHtml(line.assignedStoreName)}</div>
-              <div class="p${line.onSpecial ? ' sp-special' : ''}">${money(line.assignedAud)}</div>
+              <div class="st">${escapeHtml(line.assignedStoreName || '')}</div>
             </div>
           `).join('')}
         </div>
         <div class="sp-approve">
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-approve>Approve this trolley</button>
-          <p class="sp-status">One tap locks the draft. Checkout is a list you take. FitMunch does not pay the supermarket.</p>
+          <p class="sp-status">One tap locks the draft. Checkout is a list you take. FitMunch does not pay the supermarket. Check the shelf price at the store.</p>
         </div>
       </div>
     `;
@@ -125,9 +108,8 @@
           ${checkout.baskets.map((basket) => `
             <article class="sp-basket">
               <h3>${escapeHtml(basket.storeName)}</h3>
-              <div class="t">${money(basket.totalAud)}</div>
               <ol>
-                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)} · ${money(line.aud)}</li>`).join('')}
+                ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)}</li>`).join('')}
               </ol>
               <a href="${escapeAttr(basket.lines[0] ? basket.lines[0].searchUrl : basket.searchHome)}" target="_blank" rel="noopener">Open ${escapeHtml(basket.storeName)} public search</a>
             </article>
@@ -137,7 +119,7 @@
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-copy>Copy the take list</button>
           <button type="button" class="fm-btn fm-btn-ink" data-sp-print>Print</button>
         </div>
-        <p class="sp-note">${escapeHtml(catalogueNote(trolley.catalogue))} 14-day trial, then $19.99 a month. Card on file.</p>
+        <p class="sp-note">Ingredient list, not a live trolley. Check the shelf price at the store. 14-day trial, then $19.99 a month. Card on file.</p>
       </div>
     `;
     const copyBtn = checkoutMount.querySelector('[data-sp-copy]');
@@ -154,16 +136,6 @@
     }
     if (printBtn) printBtn.addEventListener('click', () => window.print());
     checkoutMount.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function catalogueNote(catalogue) {
-    if (catalogue && catalogue.priceNote) return catalogue.priceNote;
-    const from = catalogue && catalogue.validFrom;
-    const to = catalogue && catalogue.validTo;
-    if (from && to) {
-      return 'Estimated from public catalogue specials dated ' + from + '\u2013' + to + '. Check prices at checkout.';
-    }
-    return 'Estimated from public catalogue specials. Check prices at checkout.';
   }
 
   function escapeHtml(value) {
@@ -184,14 +156,14 @@
       btn.disabled = true;
       btn.textContent = 'Writing the trolley…';
     });
-    setStatus('Writing ingredients from the week, then pricing the public catalogue.');
+    setStatus('Writing the ingredient list for the week.');
     try {
       const payload = await api('/api/shopper/draft', { method: 'POST', body: {} });
       window.__fmShopperDraft = payload.draft;
       try { sessionStorage.setItem('fm_shopper_draft', JSON.stringify(payload.draft)); } catch (_) {}
       renderDraft(payload.draft);
-      setStatus('Draft trolley ready. Approve when the split looks right.');
-      track('shopper_commit_week', { split: payload.draft.recommendation.split });
+      setStatus('Draft list ready.');
+      track('shopper_commit_week', {});
     } catch (err) {
       setError(err.message || 'Could not draft the trolley.');
     } finally {
@@ -232,8 +204,6 @@
       renderWeek(payload.week);
       const example = document.querySelector('[data-sp-example]');
       if (example) example.textContent = payload.week.exampleLabel;
-      const priceNote = document.querySelector('[data-sp-price-note]');
-      if (priceNote) priceNote.textContent = catalogueNote(payload.catalogue);
     } catch (err) {
       setError(err.message || 'Could not load the week.');
     }

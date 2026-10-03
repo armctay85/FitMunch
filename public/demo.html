@@ -50,7 +50,7 @@
 <header class="fm-hero-band dm-hero">
   <div class="kicker">Worked example · sample Woolworths docket</div>
   <h1>A sample haul, labelled as a sample.</h1>
-  <p>Worked example: a sample $143.60 Woolies shop (score 92, 987g protein). This is not your trolley. Photograph your own receipt on the homepage to score that shop and get tonight's dinner.</p>
+  <p>Worked example: a sample Woolies shop (score 92, 987g protein). This is not your trolley. Photograph your own receipt on the homepage to score that shop and get tonight's dinner.</p>
   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">
     <a class="fm-btn fm-btn-leaf" href="/#first-scan" data-fm-track="demo_scan_mine">Photograph your receipt</a>
   </div>
@@ -60,13 +60,13 @@
   <div class="fm-section-inner" style="max-width:820px">
     <div class="docket" aria-label="Sample Woolworths receipt">
       <h2>Woolworths · sample docket</h2>
-      <div class="line"><span>Chicken breast 1kg</span><span>$12.50</span></div>
-      <div class="line"><span>Greek yoghurt 1kg</span><span>$6.50</span></div>
-      <div class="line"><span>Protein milk 2L</span><span>$5.20</span></div>
-      <div class="line"><span>Free range eggs x12</span><span>$6.80</span></div>
-      <div class="line"><span>Tuna + cottage cheese</span><span>$8.40</span></div>
-      <div class="line"><span>Plus 17 other lines</span><span>$104.20</span></div>
-      <div class="tot"><span>22 items</span><span>$143.60</span></div>
+      <div class="line"><span>Chicken breast 1kg</span></div>
+      <div class="line"><span>Greek yoghurt 1kg</span></div>
+      <div class="line"><span>Protein milk 2L</span></div>
+      <div class="line"><span>Free range eggs x12</span></div>
+      <div class="line"><span>Tuna + cottage cheese</span></div>
+      <div class="line"><span>Plus 17 other lines</span></div>
+      <div class="tot"><span>22 items</span></div>
     </div>
 
     <div class="stage" id="stage-run">
@@ -81,7 +81,7 @@
           <div class="fm-note" style="margin:8px 0 0;font-family:'Bricolage Grotesque',system-ui,sans-serif;letter-spacing:.08em">HAUL SCORE</div>
         </div>
         <div class="fm-score-meta">
-          <strong id="score-meta">0g protein · $143.60 · 22 items</strong>
+          <strong id="score-meta">0g protein · 22 items</strong>
           Worked example. Protein-heavy week. Next shop needs carbs and veg.
         </div>
       </div>
@@ -92,7 +92,7 @@
             <tr><td>Chicken breast 1kg</td><td>Batch cook base for lunches</td><td>220g</td></tr>
             <tr><td>Greek yoghurt 1kg</td><td>Breakfast and snacks</td><td>90g</td></tr>
             <tr><td>Protein milk 2L</td><td>Easy liquid protein</td><td>100g</td></tr>
-            <tr><td>Free range eggs x12</td><td>Cheap complete protein</td><td>72g</td></tr>
+            <tr><td>Free range eggs x12</td><td>Complete protein</td><td>72g</td></tr>
             <tr><td>Tuna + cottage stack</td><td>Fills busy-day gaps</td><td>~110g</td></tr>
           </tbody>
         </table>
@@ -134,19 +134,19 @@
     var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
       scoreEl.textContent = '92';
-      metaEl.textContent = '987g protein · $143.60 · 22 items';
+      metaEl.textContent = '987g protein · 22 items';
     } else {
       var start = performance.now();
       var tick = function (now) {
         var t = Math.min(1, (now - start) / 900);
         var e = 1 - Math.pow(1 - t, 3);
         scoreEl.textContent = String(Math.round(92 * e));
-        metaEl.textContent = Math.round(987 * e) + 'g protein · $143.60 · 22 items';
+        metaEl.textContent = Math.round(987 * e) + 'g protein · 22 items';
         if (t < 1) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     }
-    if (window.FMTrack && FMTrack.send) FMTrack.send('demo_run', { sample: 'woolies_143' });
+    if (window.FMTrack && FMTrack.send) FMTrack.send('demo_run', { sample: 'woolies_sample' });
   });
 })();
 </script>

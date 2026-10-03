@@ -231,7 +231,6 @@ router.post('/shopping', requireAuth, async (req, res) => {
         return {
           name: i.name,
           qty: i.mentions > 1 ? `×${i.mentions} (${[...new Set(i.qtys)].slice(0,2).join(', ')})` : i.qtys[0] || '1',
-          estimatedPrice: priceData.price,
           unit: priceData.unit,
           aisle: priceData.aisle,
           wooliesUrl: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(i.name)}`,
@@ -252,14 +251,12 @@ router.post('/shopping', requireAuth, async (req, res) => {
       (aisleOrder.indexOf(a)+1||99) - (aisleOrder.indexOf(b)+1||99)
     );
 
-    const totalEst = items.reduce((s,i) => s + i.estimatedPrice, 0);
     const itemCount = items.length;
 
     res.json({
       success: true,
       list: {
-        name: plan.planName + ' — Shopping List',
-        totalEstimated: Math.round(totalEst * 100) / 100,
+        name: (plan.planName || 'Week') + ': shopping list',
         itemCount,
         byAisle: Object.fromEntries(sortedAisles.map(a => [a, byAisle[a]])),
         aisleOrder: sortedAisles,
@@ -280,7 +277,7 @@ router.get('/', (_req, res) => res.json({
   endpoints: {
     'POST /api/meal-plan/generate': 'AI-generated 7-day meal plan (requires auth + JWT)',
     'GET /api/meal-plan/generate': 'Returns this info',
-    'POST /api/meal-plan/shopping': 'Consolidated shopping list with AU prices (requires auth + plan data)',
+    'POST /api/meal-plan/shopping': 'Consolidated ingredient list (requires auth + plan data)',
   },
   requiresAuth: true,
   aiProvider: aiClient.providerName() || 'none',

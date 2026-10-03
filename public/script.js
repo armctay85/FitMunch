@@ -911,21 +911,15 @@ async function updateShoppingList() {
       `;
 
       items.forEach(item => {
-        const priceValue = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-        const priceDisplay = `$${priceValue.toFixed(2)}`;
-        const priceIndicator = item.isLivePrice ? 'live' : 'estimated';
-
         listHTML += `<li class="shopping-item">
           <div class="item-details">
             <input type="checkbox" id="item-${item.name.replace(/\s+/g, '-')}" />
             <label for="item-${item.name.replace(/\s+/g, '-')}">
               <span class="item-name">${item.name}</span>
               ${item.brand ? `<span class="item-brand">${item.brand}</span>` : ''}
-              <small class="price-source ${priceIndicator}">${item.store || 'Unknown'} • ${item.isLivePrice ? 'Live' : 'Est.'}</small>
             </label>
           </div>
           <span class="item-quantity">${item.weeklyAmount || 'as needed'}</span>
-          <span class="item-cost ${priceIndicator}">${priceDisplay}</span>
         </li>`;
       });
 
@@ -937,38 +931,10 @@ async function updateShoppingList() {
 
     listHTML += '</div>';
 
-    // Add summary section
-    listHTML += `
-      <div class="shopping-summary">
-        <div class="summary-row">
-          <span class="summary-label">Estimated Savings with Premium:</span>
-          <span class="summary-value savings">-$${(itemsWithPrices.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0) * 0.15).toFixed(2)}</span>
-        </div>
-      </div>
-    `;
-
     shopList.innerHTML = listHTML;
 
-    // Calculate and update shopping stats with live data
-    let totalCost = 0;
-    let totalItems = itemsWithPrices.length;
-    let livePriceCount = 0;
-
-    itemsWithPrices.forEach(item => {
-      const priceValue = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-      totalCost += priceValue;
-      if (item.isLivePrice) livePriceCount++;
-    });
-
-    // Update stats elements
-    const totalCostEl = document.getElementById('totalCost');
+    const totalItems = itemsWithPrices.length;
     const totalItemsEl = document.getElementById('totalItems');
-
-    if (totalCostEl) {
-      totalCostEl.innerHTML = `$${totalCost.toFixed(2)} <small>(${livePriceCount}/${totalItems} catalogue prices)</small>`;
-    } else {
-      console.log("Total cost element not found");
-    }
 
     if (totalItemsEl) {
       totalItemsEl.textContent = totalItems;
@@ -1131,10 +1097,6 @@ function ensureShoppingStatsElements() {
         <span class="stat-label">Total Items:</span>
         <span id="totalItems" class="stat-value">0</span>
       </div>
-      <div class="stat-item">
-        <span class="stat-label">Total Cost:</span>
-        <span id="totalCost" class="stat-value">$0.00</span>
-      </div>
     `;
 
     // Insert at the beginning of shopping section
@@ -1146,28 +1108,6 @@ function ensureShoppingStatsElements() {
     }
   }
 
-  // Add price check feature if missing
-  let priceCheckContainer = shoppingSection.querySelector('.price-check-container');
-  if (!priceCheckContainer) {
-    const priceCheckHTML = `
-      <div class="supermarket-comparison">
-        <h3>Live Price Check</h3>
-        <div class="price-check-container">
-          <div class="price-check-input">
-            <input type="text" id="priceCheckInput" placeholder="Enter product name for live pricing...">
-            <button id="priceCheckBtn" class="price-check-btn">
-              <i class="fas fa-search"></i> Check Live Prices
-            </button>
-          </div>
-          <div id="priceCheckResults" class="price-check-results"></div>
-        </div>
-      </div>
-    `;
-
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = priceCheckHTML;
-    shoppingSection.appendChild(tempDiv.firstElementChild);
-  }
 }
 
 // Check live product prices
@@ -1186,63 +1126,7 @@ async function checkProductPrice() {
     return;
   }
 
-  resultsContainer.innerHTML = '<div class="loading">Checking catalogue prices...</div>';
-
-  try {
-    // Get live pricing from multiple sources
-    let prices = [];
-
-    // Try supermarket API
-    if (window.supermarketAPI && typeof window.supermarketAPI.getProductPrices === 'function') {
-      const supermarketPrices = await window.supermarketAPI.getProductPrices(productName);
-      if (supermarketPrices && supermarketPrices.length > 0) {
-        prices = prices.concat(supermarketPrices);
-      }
-    }
-
-    // Try generic API
-    if (typeof fitMunchAPI !== 'undefined') {
-      const apiPrices = await fitMunchAPI.getProductPrices(productName);
-      if (apiPrices && apiPrices.length > 0) {
-        prices = prices.concat(apiPrices);
-      }
-    }
-
-    // If no catalogue prices, show an estimated price
-    if (prices.length === 0) {
-      const estimatedPrice = getEstimatedPrice(productName);
-      prices = [{
-        store: 'Estimated Price',
-        price: estimatedPrice,
-        unit: '1 unit',
-        isEstimate: true
-      }];
-    }
-
-    // Display results
-    const resultsHTML = prices.map((price, index) => `
-      <div class="price-result ${price.isEstimate ? 'estimated' : 'live'}">
-        <div class="store-name">${price.store}</div>
-        <div class="price-info">
-          <span class="price">$${typeof price.price === 'number' ? price.price.toFixed(2) : price.price}</span>
-          <span class="unit">${price.unit || '1 unit'}</span>
-          ${price.isEstimate ? '<span class="estimate-tag">Estimated</span>' : '<span class="live-tag">Live</span>'}
-        </div>
-      </div>
-    `).join('');
-
-    resultsContainer.innerHTML = `
-      <div class="price-results-header">
-        <h4>Price Comparison for "${productName}"</h4>
-        <small>Last updated: ${new Date().toLocaleTimeString()}</small>
-      </div>
-      <div class="price-results-list">${resultsHTML}</div>
-    `;
-
-  } catch (error) {
-    console.error('Error checking product price:', error);
-    resultsContainer.innerHTML = '<div class="error">Unable to fetch live pricing data</div>';
-  }
+  resultsContainer.textContent = 'Check the shelf price at the store.';
 }
 
 // Handle Enter key press for price check input

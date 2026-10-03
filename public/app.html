@@ -742,7 +742,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
  <div class="view-header">
- <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles. The Fitness Butler shopper drafts a week trolley priced from public catalogue specials.</div></div>
+ <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles. The Fitness Butler shopper drafts a week trolley. Check the shelf price at the store.</div></div>
  <div class="view-actions">
  <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
  <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
@@ -757,9 +757,8 @@ html.fm-authed #app-gate{display:none}
  <div>
  <div style="font-size:.88rem;font-weight:800" id="sl-ai-name"></div>
  <div id="sl-ai-cost-badge" style="display:inline-flex;align-items:center;gap:6px;background:rgba(31,157,74,.08);border:1px solid rgba(31,157,74,.28);border-radius:20px;padding:3px 10px;font-size:.72rem;margin-top:4px">
- <span style="color:#14532d;font-weight:700">Est. total: </span><span style="color:var(--green2);font-weight:900" id="sl-ai-total">$0</span>
- <span style="color:var(--text3)">|</span>
  <span style="color:var(--text3)" id="sl-ai-remaining"></span>
+ <span id="sl-ai-total" hidden></span>
  </div>
  </div>
  <div style="display:flex;gap:6px">
@@ -966,7 +965,7 @@ html.fm-authed #app-gate{display:none}
  <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a cheap high-protein Woolies shop for the week')">Build me a cheap high-protein Woolies shop</button>
+ <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein Woolies shop for the week')">Build me a high-protein Woolies shop</button>
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('I keep snacking at 9pm. How do I stop?')">I keep snacking at 9pm. How do I stop?</button>
  </div>
  </div>
@@ -3407,7 +3406,8 @@ async function buildAiShoppingList(plan) {
 
 function renderAiShoppingList(list) {
  document.getElementById('sl-ai-name').textContent = list.name || 'AI Shopping List';
- document.getElementById('sl-ai-total').textContent = '$' + list.totalEstimated.toFixed(2);
+ const totalEl = document.getElementById('sl-ai-total');
+ if (totalEl) totalEl.textContent = '';
  document.getElementById('sl-ai-remaining').textContent = list.itemCount + ' items';
 
  const aislesEl = document.getElementById('sl-ai-aisles');
@@ -3418,10 +3418,9 @@ function renderAiShoppingList(list) {
  html += `<div class="sl-aisle-header">${aisle} <span style="margin-left:auto;font-weight:400;font-family:'IBM Plex Mono',monospace;font-size:.72rem">${items.length} items</span></div>`;
  items.forEach((item, idx) => {
  html += `<div class="sl-item" id="slitem-${aisle}-${idx}">
- <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}',${item.estimatedPrice})"/>
+ <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}')"/>
  <span class="sl-item-name">${item.name}</span>
  <span class="sl-item-qty">${item.qty}</span>
- <span class="sl-item-price">~$${item.estimatedPrice.toFixed(2)}</span>
  <div class="sl-item-links">
  <a class="sl-item-link" href="${item.wooliesUrl}" target="_blank" title="Woolworths">W</a>
  <a class="sl-item-link" href="${item.colesUrl}" target="_blank" title="Coles">C</a>
@@ -3431,23 +3430,17 @@ function renderAiShoppingList(list) {
  }
  aislesEl.innerHTML = html;
  document.getElementById('sl-ai-list').style.display = '';
- document.getElementById('sl-sub').textContent = 'Est. $' + list.totalEstimated.toFixed(2) + ' · ' + list.itemCount + ' items · tap items you already have';
+ document.getElementById('sl-sub').textContent = list.itemCount + ' items · tap items you already have';
 }
 
-let slCheckedTotal = 0;
-function slItemCheck(cb, rowId, price) {
+function slItemCheck(cb, rowId) {
  const row = document.getElementById(rowId);
- if (cb.checked) {
- row.classList.add('checked');
- slCheckedTotal += price;
- } else {
- row.classList.remove('checked');
- slCheckedTotal -= price;
- }
+ if (!row) return;
+ row.classList.toggle('checked', cb.checked);
  const list = S_activeShoppingList;
  if (!list) return;
- const remaining = Math.max(0, list.totalEstimated - slCheckedTotal);
- document.getElementById('sl-ai-remaining').textContent = 'Still need: ~$' + remaining.toFixed(2);
+ const left = list.itemCount - document.querySelectorAll('#sl-ai-aisles .sl-item.checked').length;
+ document.getElementById('sl-ai-remaining').textContent = left + ' items still on the list';
 }
 
 async function saveAiList() {

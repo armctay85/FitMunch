@@ -13,8 +13,8 @@ const PAGES = [
   },
   {
     route: '/pt-client-meal-plans-woolworths',
-    title: 'PT Client Meal Plans for Woolworths | Draft List From Public Specials | FitMunch Coach',
-    h1: 'PT client meal plans for Woolworths: 7 days, priced from public catalogue specials',
+    title: 'PT Client Meal Plans for Woolworths | 7-Day Client Plans | FitMunch Coach',
+    h1: 'PT client meal plans for Woolworths: 7 days, then a draft list',
   },
   {
     route: '/fitmunch-coach-vs-spreadsheets',
@@ -71,7 +71,7 @@ describe('FitMunch Coach landers', () => {
       expect(html).toContain('14-day');
       expect(html).toContain('card required');
       expect(html).toContain('Clients should see a dietitian for medical nutrition');
-      expect(html).toContain('public');
+      expect(html).toContain('Check the shelf price at the store.');
       expect(html).toMatch(/does not order or pay/i);
       expect(html).toContain('The FitMunch team');
       expect(html).not.toContain('$19.99');
@@ -104,7 +104,7 @@ describe('FitMunch Coach landers', () => {
     const res = await request(app).get('/for-pts').expect(200);
     const html = res.text;
     expect(html).toContain('id="coach"');
-    expect(html).toContain('<h1>Client meal plans with a priced shopping list, in your brand.</h1>');
+    expect(html).toContain('<h1>Client meal plans with a shopping list, in your brand.</h1>');
     expect(html).toContain('A$39 a month for up to 10 clients, or A$79 a month unlimited.');
     expect(html).toContain('14-day trial, card required.');
     expect(html).not.toContain('Clients love using it');
