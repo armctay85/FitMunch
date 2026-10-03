@@ -30,6 +30,8 @@ const {
 const { eq, and, desc, gte } = require('drizzle-orm');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
+const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
+const { consumePasswordReset, resetExpiresAt } = require('./lib/password-reset');
 const {
   isCoachPlan,
   evaluateCoachClientGate,
@@ -253,7 +255,7 @@ router.post('/analytics/events', async (req, res) => {
       await trackEvent(
         event.userId || null,
         eventType,
-        event.eventData || event.properties || event.data || {},
+        sanitizeAnalyticsPayload(event.eventData || event.properties || event.data || {}),
         event.sessionId || null
       );
       processed += 1;
@@ -413,7 +415,16 @@ router.post('/auth/register', async (req, res) => {
       if (a && typeof a === 'object') {
         const clean = {};
         for (const k of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'referrer', 'landing']) {
-          if (typeof a[k] === 'string' && a[k].length) clean[k] = a[k].slice(0, 300);
+          if (typeof a[k] !== 'string' || !a[k].length) continue;
+          if (k === 'referrer' || k === 'landing') {
+            const pathOnly = sanitizeUrlField(a[k]).slice(0, 300);
+            if (pathOnly) clean[k] = pathOnly;
+            continue;
+          }
+          if (UTM_KEYS.includes(k)) {
+            const value = a[k].trim().slice(0, 80);
+            if (value && !value.includes('?') && !/reset=|token=/i.test(value)) clean[k] = value;
+          }
         }
         if (Object.keys(clean).length) {
           clean.captured_at = new Date().toISOString();
@@ -494,10 +505,10 @@ router.post('/auth/forgot-password', async (req, res) => {
     const user = await getUserByEmail(email);
     if (!user) return res.json(generic);
 
-    const cryptoLib = require('crypto');
-    const token = cryptoLib.randomBytes(32).toString('hex');
-    const tokenHash = cryptoLib.createHash('sha256').update(token).digest('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const { hashResetToken } = require('./lib/password-reset');
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const tokenHash = hashResetToken(token);
+    const expires = resetExpiresAt(new Date());
 
     await require('./lib/db-migrate').ensureSchema(); // creates password_resets if missing
     await _pool.query(
@@ -544,19 +555,18 @@ router.post('/auth/reset-password', async (req, res) => {
     if (String(password).length < 8)
       return res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
 
-    const cryptoLib = require('crypto');
-    const tokenHash = cryptoLib.createHash('sha256').update(String(token)).digest('hex');
     await require('./lib/db-migrate').ensureSchema();
-    const row = await _pool.query(
-      'SELECT * FROM password_resets WHERE token_hash=$1 AND used=FALSE AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
-      [tokenHash]
-    );
-    if (!row.rows[0])
+    const consumed = await consumePasswordReset(_pool, String(token));
+    if (!consumed.ok)
       return res.status(400).json({ success: false, error: 'This reset link is invalid or has expired. Request a new one.' });
 
-    const passwordHash = await bcrypt.hash(String(password), SALT_ROUNDS);
-    await _pool.query('UPDATE users SET password_hash=$1, updated_at=now() WHERE id=$2', [passwordHash, row.rows[0].user_id]);
-    await _pool.query('UPDATE password_resets SET used=TRUE WHERE id=$1', [row.rows[0].id]);
+    try {
+      const passwordHash = await bcrypt.hash(String(password), SALT_ROUNDS);
+      await _pool.query('UPDATE users SET password_hash=$1, updated_at=now() WHERE id=$2', [passwordHash, consumed.userId]);
+    } catch (updateErr) {
+      await _pool.query('UPDATE password_resets SET used=FALSE WHERE id=$1', [consumed.id]).catch(() => {});
+      throw updateErr;
+    }
 
     return res.json({ success: true, message: 'Password updated. You can sign in now.' });
   } catch (err) {

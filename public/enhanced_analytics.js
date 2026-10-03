@@ -80,12 +80,23 @@ class EnhancedAnalytics {
   trackEvent(eventType, eventData = {}) {
     if (!this.isTracking) return;
 
+    const utm = {};
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach((key) => {
+        const value = params.get(key);
+        if (!value) return;
+        const clean = String(value).trim().slice(0, 80);
+        if (!clean || clean.includes('?') || clean.includes('reset=') || clean.includes('token=')) return;
+        utm[key] = clean;
+      });
+    } catch (_) {}
     const event = {
       eventType,
-      eventData,
+      eventData: Object.assign({}, utm, eventData),
       sessionId: this.sessionId,
       timestamp: new Date().toISOString(),
-      url: window.location.href,
+      url: window.location.pathname || '/',
       userAgent: navigator.userAgent,
     };
 

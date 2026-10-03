@@ -26,6 +26,7 @@ module.exports = {
     '**/test_pre_asc_gate.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
+    '**/test_reset_token_leak.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

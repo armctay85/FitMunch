@@ -3,6 +3,7 @@
 <head>
  <meta charset="UTF-8" />
  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ <meta name="referrer" content="no-referrer" />
  <title>FitMunch - Sign In</title>
  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
@@ -221,6 +222,15 @@
 
 <script>
  const urlParams = new URLSearchParams(window.location.search);
+ const resetToken = urlParams.get('reset');
+ if (resetToken) {
+  try {
+   const cleaned = new URLSearchParams(urlParams);
+   cleaned.delete('reset');
+   const qs = cleaned.toString();
+   window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+  } catch (e) {}
+ }
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
@@ -391,7 +401,7 @@
  async function doReset() {
  hideMsg('reset');
  const password = document.getElementById('reset-password').value;
- const token = urlParams.get('reset');
+ const token = resetToken;
  if (!password || password.length < 8) { showError('reset-error', 'Password must be at least 8 characters.'); return; }
  if (!token) { showError('reset-error', 'Missing reset token - use the link from your email.'); return; }
  const btn = document.getElementById('reset-btn');
@@ -405,8 +415,8 @@
  finally { btn.disabled = false; btn.textContent = 'Set new password'; }
  }
 
- // Deep links: ?reset=TOKEN opens the reset panel
- if (urlParams.get('reset')) showReset();
+ // Deep links: ?reset=TOKEN opens the reset panel. The token is already off the address bar.
+ if (resetToken) showReset();
 
  function setLoading(btnId, loading) {
  const btn = document.getElementById(btnId);
