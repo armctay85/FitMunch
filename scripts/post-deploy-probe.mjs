@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * After each deploy, and on a 6 hour schedule, internal paths must 404
- * on fitmunch.com.au and www. A Vercel Security Checkpoint 403 is
- * inconclusive: it is not a pass and it is not a fail.
+ * After a production deploy, and on a 6 hour schedule, internal paths must 404
+ * on fitmunch.com.au and www. Preview deploys do not update those hosts.
+ * A Vercel Security Checkpoint 403 is inconclusive: it is not a pass and it is not a fail.
  */
 import fs from 'node:fs';
 import path from 'node:path';

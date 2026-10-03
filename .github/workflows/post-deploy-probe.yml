@@ -11,7 +11,16 @@ permissions:
 
 jobs:
   probe:
-    if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
+    # Preview deploys do not change fitmunch.com.au. Probe those hosts after a
+    # Production deployment succeeds, on the 6 hour schedule, and on dispatch.
+    if: >-
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || (
+        github.event_name == 'deployment_status'
+        && github.event.deployment_status.state == 'success'
+        && contains(github.event.deployment.environment, 'Production')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
