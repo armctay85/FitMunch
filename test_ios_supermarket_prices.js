@@ -60,6 +60,7 @@ function supermarketHits(relPath, source) {
       if (/Est\.\s*shop/i.test(line)) reasons.push('Est. shop');
       if (/Shop budget/i.test(line)) reasons.push('Shop budget');
       if (/\bbasket\s+total\b/i.test(line)) reasons.push('basket total');
+      if (/Check prices at checkout/i.test(line)) reasons.push('Check prices at checkout');
     }
     if (reasons.length) {
       hits.push(`${relPath}:${index + 1}: ${reasons.join(', ')}: ${line.trim()}`);
@@ -120,13 +121,17 @@ describe('iOS supermarket price and catalogue-date gate', () => {
 
   it('keeps the list line and StoreKit subscription prices', () => {
     const honest = [
+      'Text("Prices vary by store and week.")',
       'Text("Check prices at checkout")',
       'Text("\\(meal.protein ?? 0)g protein per serve")',
       'let price: FlexDouble?',
       '["role": $0.role, "content": $0.content]',
     ].join('\n');
-    expect(supermarketHits('ios/Plan.swift', honest)).toEqual([]);
-    expect(supermarketHits('FitMunch/Views/MealPlanView.swift', honest)).toEqual([]);
+    expect(supermarketHits('ios/Plan.swift', honest).some((hit) => hit.includes('Check prices at checkout'))).toBe(true);
+    expect(supermarketHits('FitMunch/Views/MealPlanView.swift', [
+      'Text("Prices vary by store and week.")',
+      'Text("\\(meal.protein ?? 0)g protein per serve")',
+    ].join('\n'))).toEqual([]);
 
     const storeKit = 'displayPrice: "A$19.99"\nannual "A$149.99"';
     expect(supermarketHits('FitMunchTests/PaywallCatalogTests.swift', storeKit)).toEqual([]);
@@ -143,8 +148,19 @@ describe('iOS supermarket price and catalogue-date gate', () => {
 
   it('the iOS tree has no supermarket price literals or catalogue-date copy', () => {
     const plan = fs.readFileSync(path.join(__dirname, 'FitMunch/Views/MealPlanView.swift'), 'utf8');
-    expect(plan).toContain('Check prices at checkout');
+    expect(plan).toContain('Prices vary by store and week.');
+    expect(plan).not.toContain('Check prices at checkout');
+    expect(plan.split('Prices vary by store and week.').length - 1).toBe(1);
     expect(plan).toContain('protein per serve');
-    expect(scanIosTrees(__dirname)).toEqual([]);
+    const hits = scanIosTrees(__dirname);
+    expect(hits).toEqual([]);
+    for (const root of ROOTS) {
+      const abs = path.join(__dirname, root);
+      for (const file of walk(abs, [])) {
+        const text = fs.readFileSync(file, 'utf8');
+        const copies = text.split('Prices vary by store and week.').length - 1;
+        expect(copies).toBeLessThanOrEqual(1);
+      }
+    }
   });
 });

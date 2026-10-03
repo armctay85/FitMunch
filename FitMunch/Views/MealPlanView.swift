@@ -75,7 +75,7 @@ struct MealPlanView: View {
                                 if let c = plan.avgDailyCalories { metric("Avg kcal", "\(c)") }
                                 if let p = plan.avgDailyProtein { metric("Avg protein", "\(p)g") }
                             }
-                            Text("Check prices at checkout")
+                            Text("Prices vary by store and week.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
