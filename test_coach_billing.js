@@ -268,25 +268,57 @@ describe('Coach webhook tier', () => {
     expect(user.subscriptionTier).toBe('premium');
   });
 
-  test('invoice.created writes the FitMunch suffix on a draft invoice', async () => {
-    const update = jest.fn(async () => ({}));
+  function installSuffixStripe(invoices, subscriptions = {}) {
     app._private.setStripeForTests({
-      invoices: { update },
-      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
+      invoices,
+      subscriptions: {
+        list: jest.fn(async () => ({ data: [] })),
+        ...subscriptions,
+      },
       webhooks: {
         constructEvent: (body) => JSON.parse(Buffer.isBuffer(body) ? body.toString() : String(body)),
       },
     });
+  }
+
+  async function withCapturedLogs(run) {
+    const lines = [];
+    const originals = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error,
+    };
+    const capture = (...args) => {
+      lines.push(args.map((part) => (part == null ? '' : String(part))).join(' '));
+    };
+    console.log = capture;
+    console.warn = capture;
+    console.error = capture;
+    try {
+      const result = await run();
+      return { result, lines };
+    } finally {
+      console.log = originals.log;
+      console.warn = originals.warn;
+      console.error = originals.error;
+    }
+  }
+
+  test('invoice.created writes the FitMunch suffix on a draft invoice', async () => {
+    const invoice = {
+      id: 'in_fit',
+      status: 'draft',
+      metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'premium' },
+    };
+    const update = jest.fn(async () => ({}));
+    installSuffixStripe({
+      update,
+      retrieve: jest.fn(async () => invoice),
+    });
     const res = await postWebhook({
       id: 'evt_suffix',
       type: 'invoice.created',
-      data: {
-        object: {
-          id: 'in_fit',
-          status: 'draft',
-          metadata: { product: 'fitmunch', brand: 'FitMunch', plan: 'premium' },
-        },
-      },
+      data: { object: invoice },
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ received: true });
@@ -295,28 +327,124 @@ describe('Coach webhook tier', () => {
     expect(update.mock.calls[0][1].statement_descriptor).toBe('FITMUNCH');
   });
 
-  test('invoice.created does not stamp another brand', async () => {
-    const update = jest.fn(async () => ({}));
-    app._private.setStripeForTests({
-      invoices: { update },
-      subscriptions: { list: jest.fn(async () => ({ data: [] })) },
-      webhooks: {
-        constructEvent: (body) => JSON.parse(Buffer.isBuffer(body) ? body.toString() : String(body)),
-      },
+  test('invoice.created still returns 200 when the suffix update or lookup fails, and logs no ids', async () => {
+    const updateError = new Error('No such invoice in_secret for ada@example.com');
+    updateError.type = 'invalid_request_error';
+    updateError.code = 'resource_missing';
+    const update = jest.fn(async () => {
+      throw updateError;
     });
-    const res = await postWebhook({
-      id: 'evt_other',
+    installSuffixStripe({
+      update,
+      retrieve: jest.fn(async () => ({
+        id: 'in_secret',
+        status: 'draft',
+        metadata: { product: 'fitmunch', brand: 'FitMunch' },
+      })),
+    });
+    const failedUpdate = await withCapturedLogs(() => postWebhook({
+      id: 'evt_suffix_fail',
       type: 'invoice.created',
       data: {
         object: {
-          id: 'in_other',
+          id: 'in_secret',
           status: 'draft',
-          metadata: { product: 'other', brand: 'other' },
+          metadata: { product: 'fitmunch', brand: 'FitMunch' },
+        },
+      },
+    }));
+    expect(failedUpdate.result.status).toBe(200);
+    expect(failedUpdate.result.body).toEqual({ received: true });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(failedUpdate.lines.join('\n')).not.toMatch(/in_secret|ada@example.com|@/);
+
+    const lookupError = new Error('No such subscription sub_secret for other@example.com');
+    lookupError.type = 'invalid_request_error';
+    lookupError.code = 'resource_missing';
+    const lookupUpdate = jest.fn();
+    installSuffixStripe(
+      {
+        update: lookupUpdate,
+        retrieve: jest.fn(async () => ({
+          id: 'in_lookup',
+          status: 'draft',
+          metadata: {},
+          subscription: 'sub_secret',
+        })),
+      },
+      {
+        retrieve: jest.fn(async () => {
+          throw lookupError;
+        }),
+      }
+    );
+    const failedLookup = await withCapturedLogs(() => postWebhook({
+      id: 'evt_lookup_fail',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_lookup',
+          status: 'draft',
+          metadata: {},
+          subscription: 'sub_secret',
+        },
+      },
+    }));
+    expect(failedLookup.result.status).toBe(200);
+    expect(lookupUpdate).not.toHaveBeenCalled();
+    expect(failedLookup.lines.join('\n')).not.toMatch(/in_lookup|sub_secret|other@example.com|@/);
+  });
+
+  test('paid, void, and uncollectible invoices make no Stripe call', async () => {
+    for (const status of ['paid', 'void', 'uncollectible']) {
+      const update = jest.fn();
+      const retrieve = jest.fn();
+      installSuffixStripe({ update, retrieve });
+      const res = await postWebhook({
+        id: `evt_${status}`,
+        type: 'invoice.created',
+        data: {
+          object: {
+            id: 'in_closed',
+            status,
+            metadata: { product: 'fitmunch', brand: 'FitMunch' },
+          },
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(retrieve).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    }
+  });
+
+  test('a wipper invoice with plan premium makes no suffix call', async () => {
+    const update = jest.fn();
+    const subscriptionRetrieve = jest.fn();
+    installSuffixStripe(
+      {
+        update,
+        retrieve: jest.fn(async () => ({
+          id: 'in_wipper',
+          status: 'draft',
+          metadata: { brand: 'wipper', plan: 'premium' },
+        })),
+      },
+      { retrieve: subscriptionRetrieve }
+    );
+    const res = await postWebhook({
+      id: 'evt_wipper',
+      type: 'invoice.created',
+      data: {
+        object: {
+          id: 'in_wipper',
+          status: 'draft',
+          metadata: { brand: 'wipper', plan: 'premium' },
         },
       },
     });
     expect(res.status).toBe(200);
     expect(update).not.toHaveBeenCalled();
+    expect(subscriptionRetrieve).not.toHaveBeenCalled();
   });
 
   test('non-live Stripe statuses map to cancelled', () => {
