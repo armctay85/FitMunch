@@ -114,17 +114,14 @@ describe('honest fallbacks', () => {
 
   it('privacy page says account data is identified and names the providers', () => {
     const privacy = fs.readFileSync(path.join(__dirname, 'public', 'privacy.html'), 'utf8');
-    expect(privacy).toContain('this is not anonymised');
+    expect(privacy).not.toMatch(/anonymis/i);
+    expect(privacy).not.toMatch(/anonymiz/i);
     expect(privacy).toContain('RevenueCat');
     expect(privacy).toContain('AI receipt reader');
     expect(privacy).toContain('Google Gemini');
     expect(privacy).toContain('Vercel');
-    expect(privacy).toContain('processed overseas');
-    expect(privacy).toContain('does not keep the original receipt photo');
-    expect(privacy).toContain('None of this is used for tracking or ads');
-    expect(privacy.match(/does not keep the original receipt photo/g)).toHaveLength(1);
-    expect(privacy.match(/None of this is used for tracking or ads/g)).toHaveLength(1);
-    expect(privacy).not.toMatch(/usage data is anonymised/i);
+    expect(privacy).toContain("We don't keep the original photo on our servers after the scan.");
+    expect(privacy).toContain('None of this is used for ads or tracking.');
     expect(privacy).not.toContain('Opt out of AI');
     expect(privacy).not.toContain('Export your meal plans');
   });
