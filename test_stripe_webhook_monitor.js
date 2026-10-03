@@ -2,7 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runStripeWebhookMonitor, DEFAULT_WEBHOOK_ENDPOINT_ID, DISABLED_EMAIL_INTERVAL_MS, EVENTS_SUMMARY } = require('./scripts/stripe-webhook-monitor');
-const { emailMarker } = require('./scripts/lib/prod-incident');
+const { emailMarker, lastEmailAt, createGithub } = require('./scripts/lib/prod-incident');
 const { runProbe } = require('./scripts/prod-uptime-probe');
 
 const ENDPOINT_ID = 'we_test_endpoint_id';
@@ -38,6 +38,51 @@ function env(extra) {
     RESEND_FROM: 'FitMunch <hello@fitmunch.com.au>',
     ALERT_EMAIL_TO: 'support@fitmunch.com.au',
     ...extra,
+  };
+}
+
+function incidentNetwork(patchStatus) {
+  const issues = [];
+  const comments = [];
+  const calls = [];
+  let clock = 0;
+  const fetchImpl = async (url, options = {}) => {
+    const method = (options.method || 'GET').toUpperCase();
+    calls.push({ method, url: String(url), body: options.body || '' });
+    if (String(url).includes('api.stripe.com')) {
+      return json({ status: 'disabled', url: 'https://www.fitmunch.com.au/api/stripe/webhook' });
+    }
+    if (String(url).includes('api.resend.com')) return { ok: true, status: 200, text: async () => '{}' };
+    if (method === 'POST' && String(url).endsWith('/labels')) {
+      return { ok: false, status: 422, text: async () => '{"message":"Validation Failed"}' };
+    }
+    if (method === 'GET' && String(url).includes('/issues?')) return json(issues);
+    if (method === 'POST' && /\/issues$/.test(new URL(url).pathname)) {
+      const payload = JSON.parse(options.body);
+      const issue = { number: 41, title: payload.title, body: payload.body, state: 'open' };
+      issues.push(issue);
+      return { ok: true, status: 201, text: async () => JSON.stringify(issue) };
+    }
+    if (method === 'GET' && String(url).includes('/comments')) {
+      const since = new URL(url).searchParams.get('since');
+      if (!since) return json([]);
+      const sinceMs = Date.parse(since);
+      return json(comments.filter((comment) => comment.at >= sinceMs).map((comment) => ({ body: comment.body })));
+    }
+    if (method === 'POST' && String(url).includes('/comments')) {
+      comments.push({ body: JSON.parse(options.body).body, at: clock });
+      return { ok: true, status: 201, text: async () => '{}' };
+    }
+    if (method === 'PATCH' && /\/issues\/\d+$/.test(new URL(url).pathname)) {
+      return { ok: false, status: patchStatus, text: async () => '{"message":"body update failed"}' };
+    }
+    return { ok: false, status: 404, text: async () => '' };
+  };
+  return {
+    calls,
+    fetchImpl,
+    setClock(value) { clock = value; },
+    github: createGithub({ fetchImpl, token: 'ghs_test', repo: 'o/r' }),
   };
 }
 
@@ -372,9 +417,18 @@ describe('stripe webhook monitor', () => {
         return issue.comments.slice(0, 100).map((body) => ({ body }));
       },
       async open(title, body) {
-        const issue = { number: ++n, title, body, state: 'open', comments: [] };
+        const issue = {
+          number: ++n,
+          title,
+          body,
+          state: 'open',
+          comments: Array.from({ length: 100 }, () => 'older note'),
+        };
         issues.push(issue);
         return { number: issue.number, title, body };
+      },
+      async update(number, body) {
+        issues.find((item) => item.number === number).body = body;
       },
       async comment(number, body) {
         issues.find((item) => item.number === number).comments.push(body);
@@ -395,7 +449,26 @@ describe('stripe webhook monitor', () => {
     const expected = [];
     for (let hour = 0; hour < 150; hour += 6) expected.push(hour);
     expect(emailed).toEqual(expected);
-    expect(issues[0].comments).toHaveLength(expected.length - 1);
+    expect(issues[0].comments.length - 100).toBe(expected.length - 1);
+    expect(lastEmailAt(issues[0].body, now + 149 * 60 * 60 * 1000)).toBe(now + 144 * 60 * 60 * 1000);
+  });
+
+  it.each([500, 422])('emails every 6 hours when every body update returns %s', async (patchStatus) => {
+    const net = incidentNetwork(patchStatus);
+    const emailed = [];
+    for (let hour = 0; hour <= 24; hour += 1) {
+      const at = now + hour * 60 * 60 * 1000;
+      net.setClock(at);
+      const result = await runStripeWebhookMonitor({
+        env: env(),
+        fetch: net.fetchImpl,
+        github: net.github,
+        now: at,
+      });
+      if (result.incident && result.incident.emailed) emailed.push(hour);
+    }
+    expect(emailed).toEqual([0, 6, 12, 18, 24]);
+    expect(net.calls.some((call) => call.method === 'GET' && call.url.includes('since='))).toBe(true);
   });
 
   it('runs from the hourly probe and fails the job when the key is missing', async () => {

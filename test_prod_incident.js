@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { handleIncident, shouldSendDownEmail, lastEmailAt, emailMarker, redact } = require('./scripts/lib/prod-incident');
+const { handleIncident, shouldSendDownEmail, lastEmailAt, emailMarker, redact, createGithub, BODY_CAP } = require('./scripts/lib/prod-incident');
 const { runProbe, buildSmokeArgs, missingNames } = require('./scripts/prod-uptime-probe');
 
 function githubDouble(openIssues) {
@@ -99,10 +99,7 @@ describe('production incidents', () => {
         }];
       },
       async listComments() {
-        return [
-          { body: emailMarker(at - 60 * 1000) },
-          { body: '<!-- fm-alert-email:2099-01-01T00:00:00Z -->' },
-        ];
+        return [{ body: '<!-- fm-alert-email:2099-01-01T00:00:00Z -->' }];
       },
       async open() { throw new Error('should keep the open issue'); },
       async comment() {},
@@ -135,9 +132,12 @@ describe('production incidents', () => {
         return issues.find((issue) => issue.number === number).c.slice(0, 100).map((body) => ({ body }));
       },
       async open(title, body) {
-        const issue = { number: ++n, title, body, open: true, c: [] };
+        const issue = { number: ++n, title, body, open: true, c: Array.from({ length: 100 }, () => 'older note') };
         issues.push(issue);
         return issue;
+      },
+      async update(number, body) {
+        issues.find((issue) => issue.number === number).body = body;
       },
       async comment(number, body) {
         issues.find((issue) => issue.number === number).c.push(body);
@@ -161,7 +161,196 @@ describe('production incidents', () => {
       if (result.emailed) emailed.push(minute / 60);
     }
     expect(emailed).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-    expect(issues[0].c).toHaveLength(12);
+    expect(issues[0].c.length - 100).toBe(12);
+    expect(lastEmailAt(issues[0].body, start + 12 * 60 * 60 * 1000)).toBe(start + 12 * 60 * 60 * 1000);
+  });
+
+  it('PATCHes the issue body with the email marker through the GitHub client', async () => {
+    const issues = [];
+    const calls = [];
+    const fetchImpl = async (url, options = {}) => {
+      const method = (options.method || 'GET').toUpperCase();
+      calls.push({ method, url: String(url), body: options.body || '' });
+      if (String(url).includes('api.resend.com')) return { ok: true, status: 200, text: async () => '{}' };
+      if (method === 'POST' && String(url).endsWith('/labels')) {
+        return { ok: false, status: 422, text: async () => '{"message":"Validation Failed"}' };
+      }
+      if (method === 'GET' && String(url).includes('/issues?')) {
+        return { ok: true, status: 200, text: async () => JSON.stringify(issues) };
+      }
+      if (method === 'POST' && /\/issues$/.test(new URL(url).pathname)) {
+        const payload = JSON.parse(options.body);
+        const issue = { number: 41, title: payload.title, body: payload.body };
+        issues.push(issue);
+        return { ok: true, status: 201, text: async () => JSON.stringify(issue) };
+      }
+      if (method === 'GET' && String(url).includes('/comments')) {
+        return { ok: true, status: 200, text: async () => '[]' };
+      }
+      if (method === 'PATCH' && /\/issues\/\d+$/.test(new URL(url).pathname)) {
+        const payload = JSON.parse(options.body);
+        issues[0].body = payload.body;
+        return { ok: true, status: 200, text: async () => JSON.stringify(issues[0]) };
+      }
+      if (method === 'POST' && String(url).includes('/comments')) {
+        return { ok: true, status: 201, text: async () => '{}' };
+      }
+      return { ok: false, status: 404, text: async () => '' };
+    };
+    const github = createGithub({ fetchImpl, token: 'ghs_test', repo: 'o/r' });
+    const start = Date.parse('2026-10-03T00:00:00Z');
+    const base = {
+      state: 'down',
+      title: 'PROD DOWN',
+      body: 'down',
+      github,
+      fetchImpl,
+      resendKey: 're_test',
+      resendFrom: 'FitMunch <hello@fitmunch.com.au>',
+      emailTo: ['support@fitmunch.com.au'],
+    };
+    await handleIncident({ ...base, now: start });
+    await handleIncident({ ...base, now: start + 60 * 60 * 1000 });
+    const patches = calls.filter((call) => call.method === 'PATCH' && /\/repos\/o\/r\/issues\/41$/.test(new URL(call.url).pathname));
+    expect(patches).toHaveLength(1);
+    expect(JSON.parse(patches[0].body).body).toContain('<!-- fm-alert-email:');
+    expect(JSON.parse(patches[0].body).body).toContain(new Date(start + 60 * 60 * 1000).toISOString());
+  });
+
+  it('throws on a 422 body update and still accepts an existing label', async () => {
+    const fetchImpl = async (url, options = {}) => {
+      const method = (options.method || 'GET').toUpperCase();
+      if (method === 'POST' && String(url).endsWith('/labels')) {
+        return { ok: false, status: 422, text: async () => '{"message":"Validation Failed"}' };
+      }
+      if (method === 'PATCH') return { ok: false, status: 422, text: async () => '{"message":"body is too long"}' };
+      return { ok: false, status: 500, text: async () => '' };
+    };
+    const github = createGithub({ fetchImpl, token: 'ghs_test', repo: 'o/r' });
+    await expect(github.ensureLabel()).resolves.toBeUndefined();
+    await expect(github.update(41, 'body')).rejects.toThrow(/422/);
+  });
+
+  it.each([500, 422])('emails hourly for 12 hours when every body update returns %s', async (patchStatus) => {
+    const issues = [];
+    const comments = [];
+    const calls = [];
+    let clock = 0;
+    const fetchImpl = async (url, options = {}) => {
+      const method = (options.method || 'GET').toUpperCase();
+      calls.push({ method, url: String(url) });
+      if (String(url).includes('api.resend.com')) return { ok: true, status: 200, text: async () => '{}' };
+      if (method === 'POST' && String(url).endsWith('/labels')) {
+        return { ok: false, status: 422, text: async () => '{"message":"Validation Failed"}' };
+      }
+      if (method === 'GET' && String(url).includes('/issues?')) {
+        return { ok: true, status: 200, text: async () => JSON.stringify(issues) };
+      }
+      if (method === 'POST' && /\/issues$/.test(new URL(url).pathname)) {
+        const payload = JSON.parse(options.body);
+        const issue = { number: 41, title: payload.title, body: payload.body };
+        issues.push(issue);
+        return { ok: true, status: 201, text: async () => JSON.stringify(issue) };
+      }
+      if (method === 'GET' && String(url).includes('/comments')) {
+        const since = new URL(url).searchParams.get('since');
+        if (!since) return { ok: true, status: 200, text: async () => '[]' };
+        const sinceMs = Date.parse(since);
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify(comments.filter((comment) => comment.at >= sinceMs).map((comment) => ({ body: comment.body }))),
+        };
+      }
+      if (method === 'POST' && String(url).includes('/comments')) {
+        comments.push({ body: JSON.parse(options.body).body, at: clock });
+        return { ok: true, status: 201, text: async () => '{}' };
+      }
+      if (method === 'PATCH') return { ok: false, status: patchStatus, text: async () => '{"message":"nope"}' };
+      return { ok: false, status: 404, text: async () => '' };
+    };
+    const github = createGithub({ fetchImpl, token: 'ghs_test', repo: 'o/r' });
+    const start = Date.parse('2026-10-03T00:00:00Z');
+    const emailed = [];
+    for (let minute = 0; minute <= 12 * 60; minute += 5) {
+      const at = start + minute * 60 * 1000;
+      clock = at;
+      const result = await handleIncident({
+        state: 'down',
+        title: 'PROD DOWN',
+        body: 'down',
+        now: at,
+        github,
+        fetchImpl,
+        resendKey: 're_test',
+        resendFrom: 'FitMunch <hello@fitmunch.com.au>',
+        emailTo: ['support@fitmunch.com.au'],
+      });
+      if (result.emailed) emailed.push(minute / 60);
+    }
+    expect(emailed).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(calls.some((call) => call.method === 'GET' && call.url.includes('since='))).toBe(true);
+  });
+
+  it('caps the saved body at 60000 characters and keeps the marker', async () => {
+    let saved = '';
+    const issues = [{ number: 3, title: 'PROD DOWN', body: `down\n\n${emailMarker(0)}` }];
+    const github = {
+      async ensureLabel() {},
+      async listOpen() { return issues.map((issue) => ({ ...issue })); },
+      async listComments() { return []; },
+      async update(_number, body) { saved = body; issues[0].body = body; },
+      async comment() {},
+      async open() { throw new Error('should update the open issue'); },
+      async close() {},
+    };
+    await handleIncident({
+      state: 'down',
+      title: 'PROD DOWN',
+      body: '!'.repeat(70000),
+      now: 60 * 60 * 1000,
+      github,
+      fetchImpl: async () => ({ ok: true }),
+      resendKey: 're_test',
+      resendFrom: 'FitMunch <hello@fitmunch.com.au>',
+      emailTo: ['support@fitmunch.com.au'],
+    });
+    expect(saved.length).toBeLessThanOrEqual(BODY_CAP);
+    expect(saved.length).toBeGreaterThan(50000);
+    expect(saved).toContain('<!-- fm-alert-email:');
+    expect(lastEmailAt(saved, 60 * 60 * 1000)).toBe(60 * 60 * 1000);
+  });
+
+  it('sends the email when the comment after a saved body update throws', async () => {
+    const start = Date.parse('2026-10-03T00:00:00Z');
+    const issues = [{ number: 4, title: 'PROD DOWN', body: `down\n\n${emailMarker(start)}` }];
+    let mailed = 0;
+    const github = {
+      async ensureLabel() {},
+      async listOpen() { return issues.map((issue) => ({ ...issue })); },
+      async listComments() { return []; },
+      async update(_number, body) { issues[0].body = body; },
+      async comment() { throw new Error('comment failed'); },
+      async open() { throw new Error('should keep the open issue'); },
+      async close() {},
+    };
+    const base = {
+      state: 'down',
+      title: 'PROD DOWN',
+      body: 'down',
+      github,
+      fetchImpl: async () => { mailed += 1; return { ok: true }; },
+      resendKey: 're_test',
+      resendFrom: 'FitMunch <hello@fitmunch.com.au>',
+      emailTo: ['support@fitmunch.com.au'],
+    };
+    const result = await handleIncident({ ...base, now: start + 60 * 60 * 1000 });
+    expect(result.emailed).toBe(true);
+    expect(mailed).toBe(1);
+    expect(lastEmailAt(issues[0].body, start + 60 * 60 * 1000)).toBe(start + 60 * 60 * 1000);
+    const later = await handleIncident({ ...base, now: start + 90 * 60 * 1000 });
+    expect(later.emailed).toBe(false);
+    expect(mailed).toBe(1);
   });
 
   it('closes an open incident when the probe recovers', async () => {
