@@ -29,6 +29,7 @@ const {
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
 const { Pool } = require('pg');
+const { sendApiError, publicClientError } = require('./lib/public-error');
 const {
   isCoachPlan,
   evaluateCoachClientGate,
@@ -77,7 +78,7 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
     res.json({ success: true, profile });
   } catch (error) {
     console.error('Error fetching profile:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -89,7 +90,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving profile:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -103,7 +104,7 @@ router.post('/meals/log', authMiddleware, async (req, res) => {
     res.json({ success: true, meal });
   } catch (error) {
     console.error('Error logging meal:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -116,7 +117,7 @@ router.get('/meals/daily/:userId/:date', authMiddleware, async (req, res) => {
     res.json({ success: true, meals });
   } catch (error) {
     console.error('Error fetching daily meals:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -143,7 +144,7 @@ router.post('/workouts/log', authMiddleware, async (req, res) => {
     res.json({ success: true, workout });
   } catch (error) {
     console.error('Error logging workout:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -157,7 +158,7 @@ router.get('/workouts/history/:userId', authMiddleware, async (req, res) => {
     res.json({ success: true, workouts });
   } catch (error) {
     console.error('Error fetching workout history:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -171,7 +172,7 @@ router.post('/progress/log', authMiddleware, async (req, res) => {
     res.json({ success: true, progress });
   } catch (error) {
     console.error('Error logging progress:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
 
@@ -185,9 +186,40 @@ router.get('/progress/history/:userId', authMiddleware, async (req, res) => {
     res.json({ success: true, history });
   } catch (error) {
     console.error('Error fetching progress history:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error);
   }
 });
+
+const ANALYTICS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function containsNullByte(value, depth) {
+  if (depth > 8 || value == null) return false;
+  if (typeof value === 'string') return value.includes('\u0000');
+  if (typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some((item) => containsNullByte(item, depth + 1));
+  return Object.keys(value).some((key) => containsNullByte(key, depth + 1) || containsNullByte(value[key], depth + 1));
+}
+
+function analyticsEventsAreInvalid(events) {
+  if (!Array.isArray(events)) return true;
+  for (const event of events) {
+    if (!event || typeof event !== 'object') continue;
+    const eventType = event.eventType || event.event || event.name;
+    if (!eventType) continue;
+    const type = String(eventType);
+    if (!type.trim() || type.length > 100 || containsNullByte(type)) return true;
+    if (event.sessionId != null && event.sessionId !== '') {
+      const sessionId = String(event.sessionId);
+      if (sessionId.length > 255 || containsNullByte(sessionId)) return true;
+    }
+    const payload = event.eventData || event.properties || event.data;
+    if (containsNullByte(payload)) return true;
+    if (event.userId != null && event.userId !== '') {
+      if (typeof event.userId !== 'string' || !ANALYTICS_UUID_RE.test(event.userId)) return true;
+    }
+  }
+  return false;
+}
 
 // Analytics API routes
 router.post('/analytics/events', async (req, res) => {
@@ -211,6 +243,9 @@ router.post('/analytics/events', async (req, res) => {
     } catch (expandErr) {
       console.error('[funnel] expand failed:', expandErr.message);
     }
+    if (analyticsEventsAreInvalid(events)) {
+      return res.status(400).json({ success: false, error: 'Invalid events data' });
+    }
     let processed = 0;
     for (const event of events) {
       const eventType = event.eventType || event.event || event.name;
@@ -225,8 +260,7 @@ router.post('/analytics/events', async (req, res) => {
     }
     res.json({ success: true, eventsProcessed: processed });
   } catch (error) {
-    console.error('Error tracking analytics events:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error, 'Error tracking analytics events');
   }
 });
 
@@ -240,8 +274,7 @@ router.get('/analytics/funnel', async (req, res) => {
     const stats = await getFunnelStats(req.query.days);
     res.json({ success: true, ...stats });
   } catch (error) {
-    console.error('Error loading funnel stats:', error);
-    res.status(500).json({ success: false, error: error.message });
+    sendApiError(res, error, 'Error loading funnel stats');
   }
 });
 
@@ -314,13 +347,6 @@ async function ensureMigrations() {
     }
   })();
   return _migrationsPromise;
-}
-
-// Lightweight debug — set DEBUG_API_TOKEN in env, send `x-debug: <token>` to get
-// real error details in JSON responses (never leaks if token unset or wrong).
-function debugAllowed(req) {
-  const t = process.env.DEBUG_API_TOKEN;
-  return !!t && req.headers['x-debug'] === t;
 }
 
 // POST /api/auth/register
@@ -418,13 +444,7 @@ router.post('/auth/register', async (req, res) => {
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
-    const body = { success: false, error: 'Registration failed. Please try again.' };
-    if (debugAllowed(req)) {
-      body.details = err && err.message;
-      body.cause = err && err.cause && err.cause.message;
-      body.code = (err && err.code) || (err && err.cause && err.cause.code);
-    }
-    res.status(500).json(body);
+    res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
   }
 });
 
@@ -614,7 +634,7 @@ router.post('/revenuecat/webhook', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('[revenuecat/webhook]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err);
   }
 });
 
@@ -685,7 +705,7 @@ router.post('/clients/invite', authMiddleware, async (req, res) => {
     );
     const inviteUrl = `${req.headers.origin || 'https://fitmunch.com.au'}/login.html?invite=${token}`;
     res.json({ success: true, token, inviteUrl, expiresAt: expires });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // GET /api/clients/invite/:token — validate invite token
@@ -697,7 +717,7 @@ router.get('/clients/invite/:token', async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ valid: false, error: 'Invalid or expired invite link.' });
     res.json({ valid: true, ptName: r.rows[0].pt_name, email: r.rows[0].email });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── PT CLIENT MANAGEMENT ─────────────────────────────────────────────────────
@@ -723,7 +743,7 @@ router.get('/clients', authMiddleware, async (req, res) => {
       ORDER BY pc.joined_at DESC
     `, [req.user.userId]);
     res.json({ success: true, clients: r.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // GET /api/clients/:clientId — full client detail for PT
@@ -743,7 +763,7 @@ router.get('/clients/:clientId', authMiddleware, async (req, res) => {
       'SELECT * FROM plan_assignments WHERE client_id=$1 AND active=TRUE', [req.params.clientId]
     );
     res.json({ success: true, client: user, profile, meals, workouts, progress, assignments: plans.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // PATCH /api/clients/:clientId — update phase/notes/status
@@ -766,7 +786,7 @@ router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
       [phase, notes, status, req.user.userId, req.params.clientId]
     );
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // POST /api/clients/:clientId/assign-plan — PT assigns a meal or workout plan to client
@@ -781,7 +801,7 @@ router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) =
       [req.user.userId, req.params.clientId, planType, planId]
     );
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── SHOPPING LISTS ────────────────────────────────────────────────────────────
@@ -842,7 +862,7 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
       [req.user.userId, mealPlanId, name || plan.rows[0].name + ' — Shopping List', JSON.stringify(items)]
     );
     res.json({ success: true, list: list.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // GET /api/shopping-list — get all shopping lists for user
@@ -854,14 +874,14 @@ router.post('/shopping-list', authMiddleware, async (req, res) => {
       [req.user.userId, name || 'My List', JSON.stringify(items)]
     );
     res.json({ success: true, list: result.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.get('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
     res.json({ success: true, lists: r.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // GET /api/shopping-list/:id — single list
@@ -870,7 +890,7 @@ router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true, list: r.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // PATCH /api/shopping-list/:id — update items (check/uncheck) or complete
@@ -886,7 +906,7 @@ router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
     vals.push(req.params.id, req.user.userId);
     await _pool.query(`UPDATE shopping_lists SET ${sets.join(',')} WHERE id=$${i++} AND user_id=$${i++}`, vals);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // DELETE /api/shopping-list/:id
@@ -894,7 +914,7 @@ router.delete('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
     await _pool.query('DELETE FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── FAVOURITES ────────────────────────────────────────────────────────────────
@@ -904,7 +924,7 @@ router.get('/favourites', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
     res.json({ success: true, favourites: r.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // POST /api/favourites — add a favourite
@@ -926,7 +946,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
       [req.user.userId, String(itemType), String(itemId), JSON.stringify(itemData || {})]
     );
     res.json({ success: true, favourite: r.rows[0] || null, alreadyExists: false });
-  } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // DELETE /api/favourites/:type/:itemId — remove a favourite
@@ -935,7 +955,7 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
     await _pool.query('DELETE FROM favourites WHERE user_id=$1 AND item_type=$2 AND item_id=$3',
       [req.user.userId, req.params.type, req.params.itemId]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
@@ -944,7 +964,7 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
     res.json({ success: true, plans: r.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
@@ -955,7 +975,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
     res.json({ success: true, plan: r.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
@@ -981,14 +1001,14 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
     res.json({ success: true, plan: r.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.delete('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
     await _pool.query('DELETE FROM meal_plans WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── WORKOUT PLANS (CRUD) ──────────────────────────────────────────────────────
@@ -997,7 +1017,7 @@ router.get('/workout-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
     res.json({ success: true, plans: r.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.post('/workout-plans', authMiddleware, async (req, res) => {
@@ -1008,7 +1028,7 @@ router.post('/workout-plans', authMiddleware, async (req, res) => {
       [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
     );
     res.json({ success: true, plan: r.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.put('/workout-plans/:id', authMiddleware, async (req, res) => {
@@ -1024,14 +1044,14 @@ router.put('/workout-plans/:id', authMiddleware, async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
     res.json({ success: true, plan: r.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
   try {
     await _pool.query('DELETE FROM workout_plans WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
@@ -1130,7 +1150,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     });
 
     if (!r.ok || !r.text.trim()) {
-      return res.json({ success: true, insight: fallback, provider: r.provider || null, error: r.error });
+      return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
     }
     return res.json({
       success: true,
@@ -1141,7 +1161,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('[ai/insight]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err);
   }
 });
 
@@ -1229,7 +1249,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     });
 
     if (!r.ok) {
-      return res.status(502).json({ success: false, error: r.error || 'ai_error', provider: r.provider || null });
+      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
 
     return res.json({
@@ -1242,7 +1262,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('[ai/chat]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err);
   }
 });
 
@@ -1273,7 +1293,7 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       }[aiClient.providerName()]?.() || null,
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err);
   }
 });
 
@@ -1335,7 +1355,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
       temperature: 0.6,
     });
     if (!r.ok) {
-      return res.status(502).json({ success: false, error: r.error || 'ai_error', provider: r.provider || null });
+      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
     const plan = r.data;
     if (!plan.workouts || !Array.isArray(plan.workouts)) {
@@ -1344,7 +1364,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err);
   }
 });
 
@@ -1413,7 +1433,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
       temperature: 0.7,
     });
     if (!r.ok) {
-      return res.status(502).json({ success: false, error: r.error || 'ai_error', provider: r.provider || null });
+      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
     res.json({
       success: true,
@@ -1424,7 +1444,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     });
   } catch (err) {
     console.error('[ai/weekly-review]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    sendApiError(res, err);
   }
 });
 
@@ -1475,7 +1495,7 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
       favourites: favs.rows,
       pt: ptRow.rows[0] || null,
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // ── PT Referral System ──────────────────────────────────────────────────────
@@ -1501,7 +1521,7 @@ router.get('/referral/code', authMiddleware, async (req, res) => {
       credits: ref.credits,
       link: `https://fitmunch.com.au/login.html?plan=starter&ref=${ref.code}`
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // Claim a referral code at signup (extends trial by 30 days for referrer)
@@ -1527,7 +1547,7 @@ router.post('/referral/claim', authMiddleware, async (req, res) => {
     );
     console.log(`[referral] ${code} used by user ${req.user.userId} — referrer ${referrer.pt_id} gets +30 days`);
     res.json({ success: true, bonus: '7 extra trial days added to your account' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // POST /api/shopping-list/budget — generate shopping list from nutritional targets + budget
@@ -1635,7 +1655,7 @@ router.post('/shopping-list/budget', authMiddleware, async (req, res) => {
           : `⚠️ ~${dailyAvgProtein}g protein/day — add whey protein to hit ${dailyProtein}g target`,
       }
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // PT lead capture — no auth required, public endpoint
@@ -1653,7 +1673,7 @@ router.post('/pt-leads', async (req, res) => {
     );
     console.log(`[pt-lead] captured: ${email} via ${source}`);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { sendApiError(res, err); }
 });
 
 // Export router for use in other modules

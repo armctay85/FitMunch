@@ -8,6 +8,7 @@ jest.mock('./server/storage', () => {
   return {
     ...actual,
     trackEvent: jest.fn(async () => {}),
+    getFunnelStats: jest.fn(async () => ({ days: 14, totalEvents: 0, events: [], steps: [] })),
   };
 });
 
@@ -378,5 +379,78 @@ describe('funnel beacon and private viewer', () => {
       .expect(200);
     expect(forged.body.eventsProcessed).toBe(0);
     expect(storage.trackEvent).not.toHaveBeenCalled();
+  });
+
+  function sqlFailure() {
+    const err = new Error(
+      'Failed query: insert into "analytics_events" ("user_id", "event_type", "event_data", "session_id") values ($1, $2, $3, $4)\nparams: not-a-uuid,page_view,{},secret-param'
+    );
+    err.cause = new Error('invalid input syntax for type uuid: "not-a-uuid"');
+    err.stack = 'Error: Failed query\n    at trackEvent (/app/server/storage.js:267:3)';
+    return err;
+  }
+
+  function expectNoSql(body) {
+    const text = JSON.stringify(body);
+    expect(text).not.toMatch(/failed query/i);
+    expect(text).not.toMatch(/params\s*:/i);
+    expect(text).not.toMatch(/insert into/i);
+    expect(text).not.toMatch(/analytics_events/);
+    expect(text).not.toMatch(/invalid input syntax/i);
+    expect(text).not.toMatch(/secret-param/);
+    expect(text).not.toMatch(/not-a-uuid/);
+    expect(text).not.toMatch(/storage\.js/);
+  }
+
+  it('POST /api/analytics/events returns 400 for a non-uuid user id and does not insert', async () => {
+    storage.trackEvent.mockClear();
+    const res = await request(app)
+      .post('/api/analytics/events')
+      .send({
+        events: [{ eventType: 'page_view', userId: 'not-a-uuid', eventData: { path: '/' } }],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: 'Invalid events data' });
+    expect(storage.trackEvent).not.toHaveBeenCalled();
+    expectNoSql(res.body);
+  });
+
+  it('POST /api/analytics/events returns 400 for a null byte in the event type', async () => {
+    storage.trackEvent.mockClear();
+    const res = await request(app)
+      .post('/api/analytics/events')
+      .send({ events: [{ eventType: 'page_view\u0000', eventData: {} }] });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid events data');
+    expect(storage.trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('a failing analytics insert returns a generic message with no SQL text', async () => {
+    storage.trackEvent.mockRejectedValueOnce(sqlFailure());
+    const res = await request(app)
+      .post('/api/analytics/events')
+      .send({
+        events: [{ eventType: 'page_view', sessionId: 's_home', eventData: { path: '/pricing' } }],
+      });
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ success: false, error: 'Internal server error' });
+    expectNoSql(res.body);
+  });
+
+  it('a failing funnel stats query returns a generic message with no SQL text', async () => {
+    const previous = process.env.FM_ANALYTICS_KEY;
+    process.env.FM_ANALYTICS_KEY = 'test-key';
+    storage.getFunnelStats.mockRejectedValueOnce(sqlFailure());
+    try {
+      const res = await request(app)
+        .get('/api/analytics/funnel')
+        .query({ key: 'test-key' });
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ success: false, error: 'Internal server error' });
+      expectNoSql(res.body);
+    } finally {
+      if (previous == null) delete process.env.FM_ANALYTICS_KEY;
+      else process.env.FM_ANALYTICS_KEY = previous;
+    }
   });
 });
