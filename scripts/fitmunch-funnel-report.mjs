@@ -9,6 +9,7 @@ import pg from 'pg';
 const env = fs.readFileSync('.env', 'utf8');
 const DATABASE_URL = process.env.DATABASE_URL || env.match(/^DATABASE_URL=(.+)$/m)?.[1]?.trim();
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || env.match(/^STRIPE_SECRET_KEY=(.+)$/m)?.[1]?.trim();
+const SMOKE_USER_EMAIL = String(process.env.SMOKE_USER_EMAIL || env.match(/^SMOKE_USER_EMAIL=(.*)$/m)?.[1] || '').trim().toLowerCase();
 const OUT = 'C:/Users/Drew/.openclaw/workspace/state/fitmunch-funnel-weekly.jsonl';
 
 if (!DATABASE_URL) {
@@ -29,7 +30,8 @@ const users = await pool.query(`
     COUNT(*) FILTER (WHERE settings->'attribution'->>'utm_source' = 'reddit')::int AS reddit_all,
     COUNT(*) FILTER (WHERE COALESCE(subscription_tier,'free') <> 'free')::int AS paid_or_trial_tier
   FROM users
-`);
+  WHERE ($1 = '' OR lower(email) <> $1)
+`, [SMOKE_USER_EMAIL]);
 
 const byCampaign = await pool.query(`
   SELECT
@@ -38,10 +40,11 @@ const byCampaign = await pool.query(`
     COUNT(*)::int AS n
   FROM users
   WHERE created_at > NOW() - INTERVAL '30 days'
+    AND ($1 = '' OR lower(email) <> $1)
   GROUP BY 1,2
   ORDER BY n DESC
   LIMIT 20
-`);
+`, [SMOKE_USER_EMAIL]);
 
 let stripe = null;
 if (STRIPE_SECRET_KEY) {

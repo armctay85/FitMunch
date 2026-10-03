@@ -20,6 +20,8 @@ if (process.env.STRIPE_SECRET_KEY) {
 }
 
 const app = express();
+const { register5xxAlerts, noteServerError } = require('./lib/alert-5xx');
+register5xxAlerts(app);
 
 const parseAllowedOrigins = () => {
   const configured = process.env.ALLOWED_ORIGINS
@@ -234,6 +236,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+        const { isSmokeStripeSession } = require('./lib/smoke-checkout-endpoint');
+        if (isSmokeStripeSession(session)) {
+          console.log('Ignoring smoke checkout session');
+          break;
+        }
         const customerEmail = session.customer_details?.email || session.metadata?.email;
         const customerName = session.customer_details?.name || '';
         const planId = session.metadata?.plan || '';
@@ -353,6 +360,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     }
   } catch (err) {
     console.error('Webhook handler error:', err && err.type, err && err.message);
+    noteServerError(res, err);
     return res.status(500).send('Handler error');
   }
   res.json({ received: true });
@@ -531,6 +539,7 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    noteServerError(res, error);
     res.status(500).json({
       success: false,
       message: 'Failed to create checkout session',
@@ -661,6 +670,7 @@ app.post('/api/quick-checkout', async (req, res) => {
 
     return res.json({ success: true, url: result.url, id: result.id });
   } catch (error) {
+    noteServerError(res, error);
     return sendApiError(res, error, 'Quick checkout error');
   }
 });
@@ -729,6 +739,7 @@ app.post('/api/checkout', async (req, res) => {
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
+    noteServerError(res, err);
     return sendApiError(res, err, 'Checkout error');
   }
 });
@@ -838,6 +849,7 @@ app.post('/api/coach/checkout', async (req, res) => {
     const code = status >= 400 && status < 500 ? status : 500;
     if (code >= 500 || isInternalLeak(err && err.message)) {
       console.error('Coach checkout error:', err);
+      noteServerError(res, err);
       return res.status(500).json({ success: false, error: 'Coach checkout failed.' });
     }
     return res.status(code).json({ success: false, error: err.message || 'Coach checkout failed.' });
@@ -1050,6 +1062,7 @@ app.post('/api/billing-portal', async (req, res) => {
   } catch (e) {
     if (sendAuthError(e, res)) return;
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
+    noteServerError(res, e);
     return sendApiError(res, e, 'Billing portal error');
   }
 });
@@ -1072,6 +1085,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+const { mountSmokeCheckout } = require('./lib/smoke-checkout-endpoint');
+mountSmokeCheckout(app, { getStripe: () => stripe });
 
 // Unmatched /api/* → JSON 404 (consistent for clients and tools)
 app.use((req, res, next) => {
@@ -1099,6 +1115,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ success: false, error: 'Invalid JSON' });
   }
   console.error(err);
+  noteServerError(res, err);
   let code = Number(err.status || err.statusCode);
   if (!Number.isFinite(code) || code < 400 || code >= 600) code = 500;
   if (code >= 500 || isInternalLeak(err && err.message)) {
