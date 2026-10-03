@@ -94,7 +94,9 @@ button:disabled { opacity: .55; }
 .meal { border-top: 1px solid var(--line); padding: 8px 0; }
 .meal h3 { margin: 0; font-size: .95rem; }
 .meal p, .note, .gate, .adherence { color: var(--mute); font-size: .9rem; line-height: 1.4; }
-.line { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.line .facts { grid-column: 1 / -1; color: var(--mute); font-size: .92rem; }
+.line select { min-height: 36px; font: inherit; }
 .price, .total { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .total { font-size: 1.2rem; font-weight: 800; margin: 10px 0 4px; }
 .logo-preview { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }

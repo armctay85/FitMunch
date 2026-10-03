@@ -54,14 +54,25 @@ describe('Coach plan builder', () => {
     expect(plan.shopping.storeName).toBe('Woolworths');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
     expect(plan.shopping.lines.every((line) => line.aisle && line.packLabel && line.storeName)).toBe(true);
-    expect(plan.shopping.lines.some((line) => /^\d+g protein$/.test(line.proteinLabel))).toBe(true);
-    expect(plan.shopping.lines.some((line) => /\+\d+g protein$/.test(line.swapLabel))).toBe(true);
+    expect(plan.shopping.lines.some((line) => /^\d+g protein \/ serve$/.test(line.proteinLabel))).toBe(true);
+    expect(plan.shopping.lines.some((line) => /^Swap: .+ · \+\d+g protein$/.test(line.swapLabel))).toBe(true);
+    const listed = new Set(plan.shopping.lines.map((line) => line.sku));
+    expect(plan.shopping.lines.every((line) => !line.swapSku || !listed.has(line.swapSku))).toBe(true);
+    expect(plan.shopping.lines.every((line) => line.storeId === 'woolworths')).toBe(true);
     expect(plan.shopping.note).toBe('Check prices at checkout.');
     expect(plan.priceNote).toBe('Check prices at checkout.');
-    expect(plan.shopping.splitLabel).toMatch(/All at|Split across/);
+    expect(plan.shopping.splitLabel).toBe("Your coach's store split: Woolworths.");
+    expect(plan.shopping.itemCount).toBe(plan.shopping.lines.length);
+    expect(plan.shopping.weeklyProtein).toBeGreaterThan(0);
+    expect(plan.shopping.aisles[0]).toBe('Produce');
     expect(JSON.stringify(plan.shopping)).not.toMatch(PRICE_OR_DATE);
-    expect(coach.nutritionFacts('chicken-thigh-1kg').proteinLabel).toBe('47g protein');
-    expect(coach.nutritionFacts('chicken-thigh-1kg').swapLabel).toBe('Breast +9g protein');
+    expect(JSON.stringify(plan.shopping)).not.toMatch(/cheaper|Split across|catalogue/i);
+    expect(coach.nutritionFacts('chicken-thigh-1kg').proteinLabel).toBe('47g protein / serve');
+    expect(coach.nutritionFacts('chicken-thigh-1kg').swapLabel).toBe('Swap: chicken breast · +9g protein');
+    expect(coach.nutritionFacts('chicken-thigh-1kg', [], ['chicken-breast-1kg']).swapLabel).toBe('');
+    expect(coach.nutritionFacts('greek-yoghurt-1kg').swapLabel).toBe('Swap: cottage cheese · +4g protein');
+    expect(coach.nutritionFacts('greek-yoghurt-1kg', [], ['cottage-cheese-250g']).swapLabel).toBe('');
+    expect(coach.nutritionFacts('oats-750g', ['nut-free']).swapLabel).toBe('');
     expect(coach.nutritionFacts('chicken-breast-1kg').swapLabel).toBe('');
     expect(coach.nutritionFacts('chicken-thigh-1kg', ['vegetarian']).swapLabel).toBe('');
     const dinners = plan.days.map((day) => day.meals.find((meal) => meal.slot === 'Dinner').name);
@@ -153,15 +164,23 @@ describe('Coach plan builder', () => {
     expect(packs(two)).toBeGreaterThan(packs(one));
   });
 
-  it('splits items the chosen store does not stock, without prices', () => {
+  it('keeps every item on the coach store until the coach moves one', () => {
     const aldi = coach.buildCoachPlan({ ...base, storeId: 'aldi' });
     expect(aldi.shopping.storeId).toBe('aldi');
-    expect(aldi.shopping.split).toBe(true);
-    expect(aldi.shopping.stores.length).toBeGreaterThan(1);
-    expect(aldi.shopping.lines.some((line) => line.storeId !== 'aldi')).toBe(true);
-    expect(aldi.shopping.splitLabel).toMatch(/^Split across /);
+    expect(aldi.shopping.split).toBe(false);
+    expect(aldi.shopping.lines.every((line) => line.storeId === 'aldi')).toBe(true);
+    expect(aldi.shopping.splitLabel).toBe("Your coach's store split: Aldi.");
     expect(aldi.shopping.note).toBe('Check prices at checkout.');
     expect(JSON.stringify(aldi.shopping)).not.toMatch(PRICE_OR_DATE);
+    const produce = aldi.shopping.lines.find((line) => line.aisle === 'Produce');
+    expect(produce).toBeTruthy();
+    const moved = coach.applyStoreChoices(aldi.shopping, { [produce.sku]: 'woolworths' });
+    expect(moved.split).toBe(true);
+    expect(moved.lines.find((line) => line.sku === produce.sku).storeId).toBe('woolworths');
+    expect(moved.lines.some((line) => line.storeId === 'aldi')).toBe(true);
+    expect(moved.splitLabel).toBe("Your coach's store split: Aldi and Woolworths.");
+    expect(JSON.stringify(moved)).not.toMatch(PRICE_OR_DATE);
+    expect(JSON.stringify(moved)).not.toMatch(/cheaper|Split across/i);
   });
 
   it('reads adherence and targets from meal logs', () => {
@@ -296,7 +315,16 @@ describe('Coach plan HTTP', () => {
     expect(created.body.gate.installed).toBe(false);
     expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
     expect(created.body.plan.plan.priceNote).toBe('Check prices at checkout.');
-    expect(created.body.plan.plan.shopping.splitLabel).toBeTruthy();
+    expect(created.body.plan.plan.shopping.splitLabel).toBe("Your coach's store split: Coles.");
+    const movedSku = created.body.plan.plan.shopping.lines[0].sku;
+    const moved = await request(app)
+      .put(`/api/coach/plans/${created.body.plan.id}/stores`)
+      .set(auth(token))
+      .send({ stores: { [movedSku]: 'woolworths' } })
+      .expect(200);
+    expect(moved.body.plan.plan.shopping.lines.find((line) => line.sku === movedSku).storeId).toBe('woolworths');
+    expect(moved.body.plan.plan.shopping.splitLabel).toContain("Your coach's store split");
+    expect(JSON.stringify(moved.body.plan.plan.shopping)).not.toMatch(PRICE_OR_DATE);
 
     const sent = await request(app)
       .post(`/api/coach/plans/${created.body.plan.id}/send`)
@@ -310,6 +338,10 @@ describe('Coach plan HTTP', () => {
     expect(share.text).toContain('id="share-logo"');
     expect(share.text).toContain('Check prices at checkout.');
     expect(share.text).toContain('id="share-split"');
+    expect(share.text).toContain("Your coach's store split");
+    expect(share.text).toContain('id="share-summary"');
+    expect(share.text).toContain('g protein / serve');
+    expect(share.text).toContain('class="swap"');
     expect(share.text).toMatch(/\d+g protein/);
     expect(share.text).toMatch(/\d+ kcal · P\d+ C\d+ F\d+/);
     expect(share.text).toContain('class="day-macros"');
@@ -337,8 +369,11 @@ describe('Coach plan HTTP', () => {
     expect(pdfText).toContain('General guidance, not medical advice');
     expect(pdfText).toContain('Prepared by Northside training with FitMunch');
     expect(drawn).toContain('Check prices at checkout.');
-    expect(drawn).toMatch(/All at|Split across/);
+    expect(drawn).toContain("Your coach's store split");
+    expect(drawn).toContain('g protein / serve');
+    expect(drawn).toContain('g protein from this list');
     expect(drawn).toMatch(/\d+g protein/);
+    expect(drawn).not.toMatch(/Split across|cheaper/);
     expect(pdfText).toContain('/Subtype /Image');
     expect(drawn).not.toMatch(PRICE_OR_DATE);
     expect(drawn).not.toContain(CATALOGUE.weekLabel);

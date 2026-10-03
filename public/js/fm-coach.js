@@ -51,6 +51,19 @@
       + 'g fat. Plan target ' + (adherence.targetKcal || 0) + ' kcal.';
   }
 
+  async function saveStores() {
+    if (!state.plan) return;
+    const stores = {};
+    document.querySelectorAll('#coach-list select[data-sku]').forEach((node) => {
+      stores[node.dataset.sku] = node.value;
+    });
+    const data = await api('/api/coach/plans/' + state.plan.id + '/stores', {
+      method: 'PUT',
+      body: JSON.stringify({ stores }),
+    });
+    renderPlan(data.plan);
+  }
+
   function renderPlan(plan) {
     state.plan = plan;
     $('coach-result').hidden = false;
@@ -87,8 +100,27 @@
       const name = document.createElement('span');
       name.textContent = line.packLabel || line.name;
       const facts = document.createElement('span');
-      facts.textContent = [line.storeName, line.aisle, line.proteinLabel, line.swapLabel].filter(Boolean).join(' · ');
+      facts.className = 'facts';
+      facts.textContent = [line.aisle, line.proteinLabel, line.swapLabel].filter(Boolean).join(' · ');
+      const select = document.createElement('select');
+      select.dataset.sku = line.sku;
+      select.setAttribute('aria-label', 'Store for ' + (line.name || line.sku));
+      [
+        ['woolworths', 'Woolworths'],
+        ['coles', 'Coles'],
+        ['aldi', 'Aldi'],
+      ].forEach((pair) => {
+        const option = document.createElement('option');
+        option.value = pair[0];
+        option.textContent = pair[1];
+        if (line.storeId === pair[0]) option.selected = true;
+        select.appendChild(option);
+      });
+      select.addEventListener('change', () => {
+        saveStores().catch((err) => showError(err.message));
+      });
       row.appendChild(name);
+      row.appendChild(select);
       row.appendChild(facts);
       list.appendChild(row);
     });
