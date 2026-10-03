@@ -205,6 +205,7 @@ jobs:
           grep 'FULLSCREEN_SIZE ' artifacts/ios-uitest/*.log
           echo "=== screenshot files ==="
           find artifacts/ios-uitest/screenshots -type f -print | sort
+          # today-6.9.png and paywall-6.9.png are the running app, not the simulator home screen.
           test -f artifacts/ios-uitest/screenshots/today-6.9.png
           test -f artifacts/ios-uitest/screenshots/paywall-6.9.png
           test -f artifacts/ios-uitest/screenshots/today-6.5.png
