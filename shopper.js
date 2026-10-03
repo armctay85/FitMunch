@@ -46,7 +46,7 @@ router.get('/', (_req, res) => {
     surface: '/shopper',
     honesty: shopper.publicHonesty(),
     endpoints: {
-      'GET /api/shopper/week': 'Worked week for the draft list',
+      'GET /api/shopper/week': 'Worked week',
       'POST /api/shopper/draft': 'Commit the week and write a draft trolley',
       'POST /api/shopper/approve': 'Approve the draft and return a takeaway checkout',
     },

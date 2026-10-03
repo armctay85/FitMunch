@@ -13,6 +13,39 @@ function read(rel) {
   return fs.readFileSync(path.join(__dirname, rel), 'utf8');
 }
 
+const COACH_DROP_KEYS = new Set([
+  'onSpecial',
+  'assignedOnSpecial',
+  'lineAud',
+  'unitAud',
+  'totalAud',
+  'totalCents',
+  'priced',
+  'price',
+  'unitPrice',
+  'linePrice',
+  'total',
+  'unpricedCount',
+]);
+
+function coachPlanLeaks(value, path, hits = []) {
+  if (typeof value === 'string') {
+    if (value.includes('au-public-specials-2026-w35') || /w35/i.test(value)) hits.push(path || 'value');
+    return hits;
+  }
+  if (!value || typeof value !== 'object') return hits;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => coachPlanLeaks(item, `${path}[${index}]`, hits));
+    return hits;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    const here = path ? `${path}.${key}` : key;
+    if (COACH_DROP_KEYS.has(key) || /w35/i.test(key)) hits.push(here);
+    coachPlanLeaks(child, here, hits);
+  }
+  return hits;
+}
+
 function skuSet(plan) {
   const skus = new Set();
   for (const day of plan.days) {
@@ -38,8 +71,10 @@ describe('Coach plan builder', () => {
     }
     expect(plan.shopping.storeName).toBe('Woolworths');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
-    expect(plan.shopping.lines.every((line) => line.priced === false && line.lineAud == null)).toBe(true);
-    expect(plan.shopping.totalAud).toBeNull();
+    expect(plan.shopping.lines.every((line) => line.priced === undefined && line.lineAud === undefined && line.onSpecial === undefined)).toBe(true);
+    expect(plan.shopping.totalAud).toBeUndefined();
+    expect(plan.shopping.totalCents).toBeUndefined();
+    expect(JSON.stringify(plan)).not.toContain('au-public-specials-2026-w35');
     expect(plan.shopping.note).toBe('Prices vary by store and week.');
     expect(plan.priceNote).toBe('Prices vary by store and week.');
     expect(plan.catalogue).toEqual({ priceNote: 'Prices vary by store and week.' });
@@ -65,8 +100,9 @@ describe('Coach plan builder', () => {
     const aldi = coach.buildCoachPlan({ ...base, storeId: 'aldi' });
     expect(aldi.shopping.storeId).toBe('aldi');
     expect(aldi.shopping.storeName).toBe('Aldi');
-    expect(aldi.shopping.lines.every((line) => line.priced === false && line.lineAud == null)).toBe(true);
-    expect(aldi.shopping.totalAud).toBeNull();
+    expect(aldi.shopping.lines.every((line) => line.priced === undefined && line.lineAud === undefined && line.unitAud === undefined && line.onSpecial === undefined)).toBe(true);
+    expect(aldi.shopping.totalAud).toBeUndefined();
+    expect(aldi.shopping.totalCents).toBeUndefined();
     expect(JSON.stringify(aldi.shopping)).not.toMatch(/\$\d|validFrom|specials/);
   });
 
@@ -206,6 +242,13 @@ describe('Coach plan HTTP', () => {
     expect(JSON.stringify(created.body.plan.plan)).not.toContain('2026-08-25');
     expect(JSON.stringify(created.body.plan.plan)).not.toContain('w35');
     expect(created.body.plan.updatedAt).toBeTruthy();
+    expect(coachPlanLeaks(created.body)).toEqual([]);
+
+    const loaded = await request(app)
+      .get(`/api/coach/plans/${created.body.plan.id}`)
+      .set(auth(token))
+      .expect(200);
+    expect(coachPlanLeaks(loaded.body)).toEqual([]);
 
     const sent = await request(app)
       .post(`/api/coach/plans/${created.body.plan.id}/send`)

@@ -205,7 +205,7 @@ describe('public price and claim ban', () => {
   it('shopper draft response has no supermarket prices or catalogue dates', async () => {
     const res = await request(app).post('/api/shopper/draft').send({}).expect(200);
     const body = JSON.stringify(res.body);
-    expect(res.body.draft.catalogue.checkoutNote).toBe('Prices vary by store and week.');
+    expect(res.body.draft.catalogue).toBeUndefined();
     expect(body).not.toMatch(/\$\d|validFrom|validTo|assignedAud|goodsAud|totalAud|saveVsSingleAud|\bspecials\b|2026-08-25|2026-08-31/);
   });
 

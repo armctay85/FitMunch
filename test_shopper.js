@@ -30,7 +30,8 @@ describe('Fitness Butler shopper engine', () => {
     expect(draft.honesty.trolleyApi).toBe(false);
     expect(draft.honesty.stripeLinkGrocery).toBe(false);
     expect(draft.honesty.pricesFrom).toBeUndefined();
-    expect(draft.catalogue).toEqual({ checkoutNote: 'Prices vary by store and week.' });
+    expect(draft.catalogue).toBeUndefined();
+    expect(draft.draftId).toBe(`draft_${shopper.WEEK_ID}`);
   });
 
   it('uses the preferred store when one is set', () => {
@@ -88,7 +89,16 @@ function priceKeys(value, found = []) {
   return found;
 }
 
-const CATALOGUE_KEYS = new Set(['pricesFrom', 'sourceKind', 'onSpecial', 'catalogueUrl']);
+const CATALOGUE_KEYS = new Set([
+  'catalogue',
+  'sources',
+  'catalogueUrl',
+  'onSpecial',
+  'assignedOnSpecial',
+  'pricesFrom',
+  'sourceKind',
+  'approvedAt',
+]);
 const CATALOGUE_ID = 'au-public-specials-2026-w35';
 
 function catalogueLeaks(value, path, hits = []) {
@@ -184,7 +194,7 @@ describe('Fitness Butler shopper HTTP', () => {
     const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
     expect(draft.body.success).toBe(true);
     expect(draft.body.draft.status).toBe('draft');
-    expect(draft.body.draft.catalogue).toEqual({ checkoutNote: 'Prices vary by store and week.' });
+    expect(draft.body.draft.catalogue).toBeUndefined();
     expect(JSON.stringify(draft.body)).not.toMatch(/validFrom|validTo|sourceKind|\$\d|\bspecials\b/);
     expect(draft.body.draft.honesty.trolleyApi).toBe(false);
     expect(draft.body.draft.honesty.stripeLinkGrocery).toBe(false);
@@ -205,17 +215,23 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(priceKeys(approved.body)).toEqual([]);
   });
 
-  it('shopper handlers omit the catalogue id and catalogue fields', async () => {
+  it('shopper and checkout handlers omit catalogue fields and specials links', async () => {
     const index = await request(app).get('/api/shopper').expect(200);
     const week = await request(app).get('/api/shopper/week').expect(200);
     const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
     const approved = await request(app).post('/api/shopper/approve').send({}).expect(200);
     for (const res of [index, week, draft, approved]) {
       expect(catalogueLeaks(res.body)).toEqual([]);
+      expect(JSON.stringify(res.body)).not.toContain(CATALOGUE_ID);
     }
-    expect(draft.body.draft.draftId).toBe('draft_week-protein-7');
-    expect(draft.body.draft.draftId).not.toContain('au-public-specials-2026-w35');
-    expect(index.body.honesty.pricesFrom).toBeUndefined();
+    expect(index.body.endpoints['GET /api/shopper/week']).toBe('Worked week');
+    expect(index.body.endpoints['GET /api/shopper/week']).not.toMatch(/catalogue/i);
+    expect(draft.body.draft.draftId).toBe(`draft_${shopper.WEEK_ID}`);
+    expect(draft.body.draft.draftId).not.toContain(CATALOGUE_ID);
+    const baskets = approved.body.trolley.checkout.baskets;
+    const basketText = JSON.stringify(baskets);
+    expect(basketText).not.toMatch(/specials/i);
+    expect(basketText).not.toMatch(/catalogueUrl|onSpecial|assignedOnSpecial|sourceKind/);
   });
 });
 
