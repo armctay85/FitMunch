@@ -53,7 +53,7 @@ describe('SEO pack 3: new search landers', () => {
       const html = (await request(app).get(page.route).expect(200)).text;
       expect(html).toContain('14-day trial, then $19.99 a month');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
-      expect(html).toContain('Check the shelf price at the store.');
+      expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/check out/i);
       expect(html).toContain('"@type": "FAQPage"');
       expect(html).toContain('The FitMunch team');

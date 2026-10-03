@@ -14,7 +14,7 @@ const slides = [
     src: '.tmp-ig/fm-groceries.webp',
     out: '.tmp-ig/slide-1.jpg',
     hook: 'Price per 25g\nprotein wins',
-    sub: 'Not shelf price',
+    sub: 'Real grocery math',
   },
   {
     src: '.tmp-ig/fm-receipt-scan.webp',

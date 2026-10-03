@@ -31,6 +31,8 @@ const PHRASES = [
   [/pty ltd/i, 'Pty Ltd'],
   [/inc\.?\s*gst/i, 'inc. GST'],
   [/\$143\b/, '$143'],
+  [/check the shelf price at the store\./i, 'Check the shelf price at the store.'],
+  [/shelf price/i, 'shelf price'],
 ];
 
 const DATE_FIELDS = /\b(pricedAt|validFrom|validTo|priced_at|valid_from|valid_to|weekLabel)\b/;
@@ -39,6 +41,25 @@ const STORE = /woolworths|woolies|coles|aldi|\biga\b|catalogue|specials|docket|t
 const ALLOWED_DOLLARS = new Set([
   '0', '0.00', '19.99', '39', '39.00', '59', '59.00', '59.99', '79', '79.00', '99', '99.00', '100',
 ]);
+
+const PRICE_LINE = 'Prices vary by store and week.';
+const PRICE_LINE_PAGES = [
+  'public/index.html',
+  'public/app.html',
+  'public/shopper.html',
+  'public/coach.html',
+  'public/budget-meal-planner.html',
+  'public/for-pts.html',
+  'public/woolworths-meal-planner.html',
+  'public/coles-meal-planner.html',
+  'public/family-meal-plan.html',
+  'public/macro-meal-planner.html',
+  'public/meal-plan-for-one.html',
+  'public/meal-prep-shopping-list.html',
+  'public/fitmunch-coach-vs-spreadsheets.html',
+  'public/meal-plan-software-personal-trainers.html',
+  'public/pt-client-meal-plans-woolworths.html',
+];
 
 function walkPublic(dir, out) {
   for (const name of fs.readdirSync(dir)) {
@@ -80,6 +101,25 @@ function problems(text, label) {
 
 describe('public price and claim ban', () => {
   const files = walkPublic(path.join(__dirname, 'public'), []);
+
+  it('keeps the shelf-price line out of public HTML and JS and shows the store-week line once', () => {
+    const found = [];
+    for (const file of files) {
+      const text = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(__dirname, file);
+      if (/check the shelf price at the store\./i.test(text) || /shelf price/i.test(text)) {
+        found.push(`${rel} still says shelf price`);
+      }
+    }
+    const share = fs.readFileSync(path.join(__dirname, 'lib', 'coach-share.js'), 'utf8');
+    if (/shelf price/i.test(share)) found.push('lib/coach-share.js still says shelf price');
+    for (const rel of PRICE_LINE_PAGES) {
+      const text = fs.readFileSync(path.join(__dirname, rel), 'utf8');
+      const count = text.split(PRICE_LINE).length - 1;
+      if (count !== 1) found.push(`${rel} has the price line ${count} times`);
+    }
+    expect(found).toEqual([]);
+  });
 
   it('keeps supermarket dollars, catalogue dates, and banned claims out of public HTML and JS', () => {
     const found = [];

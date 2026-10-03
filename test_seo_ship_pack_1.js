@@ -68,7 +68,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(h1(res.text)).toBe('Budget meal planner Australia: high-protein weeks from the receipt');
     expect(metaDescription(res.text)).toBe('Plan a high-protein week from staples you already buy, then score the haul from your receipt. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/budget-meal-planner');
-    expect(res.text).toContain('Check the shelf price at the store.');
+    expect(res.text).toContain('Prices vary by store and week.');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/haul-teardown"');
     expect(res.text).toContain('href="/shopper"');
@@ -78,7 +78,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     const res = await request(app).get('/shopper').expect(200);
     expect(title(res.text)).toBe('Commit the Week, Take the Trolley | Woolies Coles Aldi Shopper | FitMunch');
     expect(h1(res.text)).toBe('Commit the week. Take the trolley.');
-    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a Woolies, Coles or Aldi list. You check the shelf price at the store. Premium $19.99 after 14-day trial.');
+    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a Woolies, Coles or Aldi list. Premium $19.99 after 14-day trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/shopper');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/budget-meal-planner"');

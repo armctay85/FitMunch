@@ -73,7 +73,7 @@
     if (!draftMount) return;
     draftMount.innerHTML = `
       <div class="sp-ticket" id="draft-trolley">
-        <p class="sp-verdict">${escapeHtml((draft.recommendation && draft.recommendation.reason) || 'Check the shelf price at the store.')}</p>
+        <p class="sp-verdict">${escapeHtml(((draft.recommendation && draft.recommendation.storeNames) || []).join(', ') || 'Draft list.')}</p>
         <div class="sp-lines">
           ${(draft.lines || []).map((line) => `
             <div class="sp-line">
@@ -87,7 +87,7 @@
         </div>
         <div class="sp-approve">
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-approve>Approve this trolley</button>
-          <p class="sp-status">One tap locks the draft. Checkout is a list you take. FitMunch does not pay the supermarket. Check the shelf price at the store.</p>
+          <p class="sp-status">One tap locks the draft. Checkout is a list you take. FitMunch does not pay the supermarket.</p>
         </div>
       </div>
     `;
@@ -119,7 +119,7 @@
           <button type="button" class="fm-btn fm-btn-leaf" data-sp-copy>Copy the take list</button>
           <button type="button" class="fm-btn fm-btn-ink" data-sp-print>Print</button>
         </div>
-        <p class="sp-note">Ingredient list, not a live trolley. Check the shelf price at the store. 14-day trial, then $19.99 a month. Card on file.</p>
+        <p class="sp-note">Ingredient list, not a live trolley. 14-day trial, then $19.99 a month. Card on file.</p>
       </div>
     `;
     const copyBtn = checkoutMount.querySelector('[data-sp-copy]');
@@ -127,7 +127,7 @@
     if (copyBtn) {
       copyBtn.addEventListener('click', async () => {
         try {
-          await navigator.clipboard.writeText(checkout.copyAll);
+          await navigator.clipboard.writeText(takeList(checkout));
           copyBtn.textContent = 'Copied';
         } catch (_) {
           copyBtn.textContent = 'Copy failed. Select the list instead.';
@@ -136,6 +136,13 @@
     }
     if (printBtn) printBtn.addEventListener('click', () => window.print());
     checkoutMount.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function takeList(checkout) {
+    return (checkout.baskets || []).map((basket) => {
+      const lines = (basket.lines || []).map((line) => `${line.packs} × ${line.name}`);
+      return [`${basket.storeName} take list`, ...lines, 'Pay at the store. FitMunch does not charge this shop.'].join('\n');
+    }).join('\n\n');
   }
 
   function escapeHtml(value) {

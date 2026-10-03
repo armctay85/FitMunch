@@ -71,7 +71,7 @@ describe('FitMunch Coach landers', () => {
       expect(html).toContain('14-day');
       expect(html).toContain('card required');
       expect(html).toContain('Clients should see a dietitian for medical nutrition');
-      expect(html).toContain('Check the shelf price at the store.');
+      expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/does not order or pay/i);
       expect(html).toContain('The FitMunch team');
       expect(html).not.toContain('$19.99');

@@ -1126,7 +1126,7 @@ async function checkProductPrice() {
     return;
   }
 
-  resultsContainer.textContent = 'Check the shelf price at the store.';
+  resultsContainer.textContent = 'Prices vary by store and week.';
 }
 
 // Handle Enter key press for price check input
