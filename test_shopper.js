@@ -86,7 +86,8 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).not.toContain('we already pay Woolies');
     expect(page.text).not.toContain('we pay Woolworths');
     expect(page.text).toContain('We do not pay Woolies');
-    expect(page.text).toContain('Stripe Link is not used for this shop');
+    expect(page.text).toContain('You pay at the supermarket.');
+    expect(page.text).not.toContain('Stripe Link');
     expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices are public catalogue specials, not a live trolley scrape.');
     expect(page.text).not.toContain('No Apple Watch. No HealthKit.');
 
@@ -191,6 +192,27 @@ describe('Fitness Butler shopper honesty lock', () => {
       }
     }
     roots.forEach(walk);
+    expect(hits).toEqual([]);
+  });
+
+  it('bans false and internal copy in public', () => {
+    const pattern = /We buy the food|Link agents|Stripe Link|Most popular|Secondary lane|check the butler|Native is the next surface|\$59 to \$99|this week's public specials/;
+    const hits = [];
+    function walk(rel) {
+      const abs = path.join(__dirname, rel);
+      for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+        const child = path.join(rel, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules') continue;
+          walk(child);
+          continue;
+        }
+        if (!/\.(html|js|mjs|cjs|md|json)$/.test(entry.name)) continue;
+        const text = read(child);
+        if (pattern.test(text)) hits.push(child);
+      }
+    }
+    walk('public');
     expect(hits).toEqual([]);
   });
 
