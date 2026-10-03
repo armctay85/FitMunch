@@ -284,6 +284,23 @@ describe('Coach plan HTTP', () => {
       .send({ clientId: 'someone-new', kcal: 2000, protein: 140, carbs: 180, fat: 60 })
       .expect(403);
     expect(stranger.body.error).toBe('not_your_client');
+    expect(stranger.body.gate).toBeUndefined();
+    expect(JSON.stringify(stranger.body)).not.toContain('coach.clientCountGate');
+  });
+
+  it('returns a generic message when the client is not on the trainer roster', async () => {
+    const token = await session();
+    store.setClientLimit(store.PREVIEW_PT.id, 8);
+    const stranger = await request(app)
+      .post('/api/coach/plans')
+      .set(auth(token))
+      .send({ clientId: 'someone-new', kcal: 2000, protein: 140, carbs: 180, fat: 60 })
+      .expect(403);
+    expect(stranger.body.success).toBe(false);
+    expect(stranger.body.error).toBe('not_your_client');
+    expect(stranger.body.message).toBe('You cannot open a plan for that client.');
+    expect(stranger.body.gate).toBeUndefined();
+    expect(JSON.stringify(stranger.body)).not.toContain('coach.clientCountGate');
   });
 
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
@@ -293,6 +310,10 @@ describe('Coach plan HTTP', () => {
     expect(page.text).not.toContain('Estimated from public catalogue specials');
     expect(read('public/js/fm-coach.js').split('Prices vary by store and week.').length - 1).toBe(1);
     expect(page.text).not.toContain('Client count gate: open.');
+    expect(page.text).toContain('href="/favicon.ico"');
+    expect(page.text).toContain('href="/assets/logo.svg"');
+    const icon = await request(app).get('/favicon.ico').expect(200);
+    expect(icon.headers['content-type']).toMatch(/icon|image/);
     expect(page.text).toContain('See a dietitian for medical nutrition.');
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');

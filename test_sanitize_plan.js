@@ -5,7 +5,7 @@ const app = require('./server.js');
 const store = require('./lib/coach-store');
 const fs = require('fs');
 const path = require('path');
-const { sanitizePlan, stripFragments, roundAmount } = require('./lib/sanitize-plan');
+const { sanitizePlan, stripFragments, roundAmount, lineText, qtyText, groupShopping } = require('./lib/sanitize-plan');
 const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogue');
 
 const CURRENT_NOTE = 'Prices vary by store and week.';
@@ -140,6 +140,13 @@ function forbidden(text) {
     '$',
     '36.80',
     '18.40',
+    'cheap',
+    'estimated',
+    'Pty Ltd',
+    'GST',
+    'Grok',
+    'OpenClaw',
+    'MRR',
   ]) {
     expect(text).not.toContain(needle);
   }
@@ -218,12 +225,39 @@ describe('sanitizePlan', () => {
       'Specialty cheese': 'Specialty cheese',
       'Special K': 'Special K',
       'Special fried rice': 'Special fried rice',
+      'Yoghurt 3 dollars': 'Yoghurt',
+      'Yoghurt BOGO': 'Yoghurt',
+      'Bread buy one get one': 'Bread',
+      'Bread buy one get one free': 'Bread',
+      'Week w36': 'Week',
+      'Week w40': 'Week',
+      'Milk ＄4.50': 'Milk',
+      'Milk ﹩3': 'Milk',
+      'Week of Aug 25': 'Week of',
+      'Week of August 25': 'Week of',
+      'Bread half-price': 'Bread',
+      'Milk was 9.50': 'Milk',
+      'Milk AUD 4.50': 'Milk',
+      'Milk $3.00ea': 'Milk',
       '$12 off': 'Item',
       'was $9.50': 'Item',
       '2 for $5': 'Item',
       'half price': 'Item',
       'save 30%': 'Item',
       '25 Aug': 'Item',
+      '3 dollars': 'Item',
+      'BOGO': 'Item',
+      'buy one get one': 'Item',
+      'w36': 'Item',
+      'w40': 'Item',
+      '＄4.50': 'Item',
+      '﹩3': 'Item',
+      'Aug 25': 'Item',
+      'August 25': 'Item',
+      'half-price': 'Item',
+      'was 9.50': 'Item',
+      'AUD 4.50': 'Item',
+      '$3.00ea': 'Item',
     };
     for (const [raw, expected] of Object.entries(names)) {
       const clean = sanitizePlan({
@@ -285,6 +319,86 @@ describe('sanitizePlan', () => {
     expect(JSON.stringify(clean)).not.toContain('2026-08-25');
   });
 
+  it('keeps a decimal in a name and does not space a full stop before a digit', () => {
+    expect(stripFragments('Light milk 1.5L')).toBe('Light milk 1.5L');
+    expect(stripFragments('Light milk 1.5L was 9.50')).toBe('Light milk 1.5L');
+    const clean = sanitizePlan({
+      shopping: {
+        lines: [{ name: 'Light milk 1.5L', aisle: 'Dairy', packs: 1, amount: 1, unit: 'L' }],
+      },
+    });
+    expect(clean.shopping.lines[0].name).toBe('Light milk 1.5L');
+  });
+
+  it('drops price, promo and catalogue-week keys', () => {
+    const clean = sanitizePlan({
+      shopping: {
+        wasAud: 9.5,
+        priceCents: 950,
+        savingAud: 2,
+        discount: 1,
+        promo: 'BOGO',
+        dealEnds: 'Aug 25',
+        catalogueWeek: 'w40',
+        lines: [{
+          name: 'Oats',
+          aisle: 'Pantry',
+          packs: 1,
+          amount: 1,
+          unit: 'g',
+          wasAud: 1,
+          priceCents: 2,
+          savingAud: 3,
+          discount: 4,
+          promo: 'BOGO',
+          dealEnds: 'Aug 25',
+          catalogueWeek: 'w36',
+        }],
+      },
+    });
+    for (const key of ['wasAud', 'priceCents', 'savingAud', 'discount', 'promo', 'dealEnds', 'catalogueWeek']) {
+      expect(clean.shopping[key]).toBeUndefined();
+      expect(clean.shopping.lines[0][key]).toBeUndefined();
+    }
+    expect(JSON.stringify(clean)).not.toMatch(/wasAud|priceCents|savingAud|catalogueWeek|BOGO|w40|w36/);
+  });
+
+  it('does not round kilograms or litres down to zero', () => {
+    expect(roundAmount(1.26, 'kg')).toBe(1.3);
+    expect(roundAmount(1.5, 'L')).toBe(1.5);
+    expect(roundAmount(0.4, 'kg')).toBe(400);
+    expect(roundAmount(0.45, 'L')).toBe(450);
+    expect(roundAmount(0.04, 'kg')).toBe(40);
+    expect(roundAmount(0.4, 'kg')).not.toBe(0);
+    expect(roundAmount(0.45, 'L')).not.toBe(0);
+    const clean = sanitizePlan({
+      shopping: {
+        lines: [
+          { name: 'Oats', aisle: 'Pantry', packs: 1, amount: 0.4, unit: 'kg' },
+          { name: 'Rice', aisle: 'Pantry', packs: 1, amount: 1.26, unit: 'kg' },
+          { name: 'Oil', aisle: 'Pantry', packs: 1, amount: 0.45, unit: 'L' },
+          { name: 'Milk', aisle: 'Dairy', packs: 1, amount: 1.5, unit: 'L' },
+        ],
+      },
+    });
+    expect(clean.shopping.lines[0]).toMatchObject({ amount: 400, unit: 'g' });
+    expect(clean.shopping.lines[1]).toMatchObject({ amount: 1.3, unit: 'kg' });
+    expect(clean.shopping.lines[2]).toMatchObject({ amount: 450, unit: 'ml' });
+    expect(clean.shopping.lines[3]).toMatchObject({ amount: 1.5, unit: 'L' });
+  });
+
+  it('splits a shopping line into a name, a quantity, and an aisle group', () => {
+    const line = { packs: 6, name: 'Cottage cheese 250g', aisle: 'Dairy', amount: 1260, unit: 'g' };
+    expect(lineText(line)).toBe('6 x Cottage cheese 250g');
+    expect(qtyText(line)).toBe('1.26 kg');
+    expect(lineText(line)).not.toContain('Dairy');
+    expect(groupShopping([
+      line,
+      { name: 'Bananas 1kg', aisle: 'Produce', packs: 1, amount: 1000, unit: 'g' },
+      { name: 'Mystery', aisle: 'Deli', packs: 1, amount: 1, unit: 'each' },
+    ]).map((group) => group.label)).toEqual(['Produce', 'Dairy', 'Other']);
+  });
+
   it('rounds grams, millilitres and each', () => {
     expect(roundAmount(1747.495, 'g')).toBe(1750);
     expect(roundAmount(1747.495, 'ml')).toBe(1750);
@@ -325,16 +439,28 @@ describe('saved coach plans on the share page and PDF', () => {
     const pdf = await request(app).get(`/c/${sent.token}/pdf`).expect(200);
     const pdfText = pdf.body.toString('latin1');
 
-    expect(share.text).toContain('Chicken breast 1kg');
-    expect(share.text).toContain('Meat');
-    expect(share.text).toContain('1000');
+    expect(share.text).toContain('2 x Chicken breast 1kg');
+    expect(share.text).toContain('1 kg');
+    expect(share.text).toContain('<h3 class="aisle">Meat</h3>');
+    expect(share.text).not.toContain('Chicken breast 1kg Meat');
+    expect(share.text).not.toContain('1000');
+    expect(share.text).toContain('grid-template-columns: 1fr 1fr');
+    expect(share.text).toContain('overflow-x: hidden');
+    expect(share.text).toContain('/css/fm-coach-fonts.css');
+    expect(share.text).toContain('/css/fm-tokens.css');
+    expect(share.text).toContain('href="/favicon.ico"');
+    expect(share.text).toContain('href="/assets/logo.svg"');
+    expect(share.text).toContain('<meta name="robots" content="noindex"/>');
     expect(share.text).toContain('Old client');
+    expect(share.text).toContain('id="share-summary"');
+    expect(share.text).toContain('role="tablist"');
     forbidden(share.text);
 
     expect(pdfText.slice(0, 5)).toBe('%PDF-');
-    expect(pdfText).toContain('Chicken breast 1kg');
+    expect(pdfText).toContain('2 x Chicken breast 1kg');
+    expect(pdfText).toContain('1 kg');
     expect(pdfText).toContain('Meat');
-    expect(pdfText).toContain('1000');
+    expect(pdfText).not.toContain('1000');
     forbidden(pdfText);
 
     const stored = await store.getPlan(sent.id, sent.ptId);
@@ -350,10 +476,14 @@ describe('saved coach plans on the share page and PDF', () => {
     const pdfText = pdf.body.toString('latin1');
 
     expect(share.text).toContain('120 g Brown rice 1kg');
+    expect(share.text).toContain('1 x Brown rice 1kg');
+    expect(share.text).toContain('<h3 class="aisle">Pantry</h3>');
+    expect(share.text).not.toContain('Pantry 1.5 kg');
     for (const text of [share.text, pdfText]) {
       expect(text).toContain('Brown rice 1kg');
       expect(text).toContain('Pantry');
-      expect(text).toContain('1500');
+      expect(text).toContain('1.5 kg');
+      expect(text).not.toContain('1500');
       expect(count(text, CURRENT_NOTE)).toBe(1);
       expect(text).not.toContain('$');
     }
@@ -379,8 +509,11 @@ describe('saved coach plans on the share page and PDF', () => {
     const share = await request(app).get(`/c/${sent.token}`).expect(200);
     const pdf = await request(app).get(`/c/${sent.token}/pdf`).expect(200);
     const pdfText = pdf.body.toString('latin1');
+    expect(share.text).toContain('1750 g');
+    expect(share.text).toContain('1.75 kg');
+    expect(pdfText).toContain('1.75 kg');
+    expect(pdfText).not.toContain('1750 g');
     for (const text of [share.text, pdfText]) {
-      expect(text).toContain('1750 g');
       expect(text).toContain('1 each');
       expect(text).toContain('Special fried rice');
       expect(text).toContain('Specialty cheese');
