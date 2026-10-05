@@ -286,6 +286,9 @@ function finishWebhook(res, err, event) {
       .catch((releaseErr) => {
         console.error('Webhook handler error:', ...webhookErrorFields(releaseErr));
       })
+      // Count WEBHOOK_RETRY per event; repeated retries log and alert once.
+      .then(() => require('./lib/webhook-retry-alert').noteWebhookRetry(event, err))
+      .catch(() => {})
       .then(() => res.status(500).send('Handler error'));
   }
   return stripeEvents.markStripeEventProcessed(event && event.id)
@@ -862,34 +865,54 @@ app.post('/api/stripe/claim-guest', async (req, res) => {
 
 // Public "Email me a new link" for an expired or lost guest claim link.
 // Same reply for every input; the link only goes to the Stripe customer email.
-const claimResendLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: rateLimitKey,
-  handler: (req, res) => {
+//
+// Timing: every request replies at one fixed time (CLAIM_RESEND_WINDOW_MS
+// after it starts), whether or not an email matches. The rate check and Stripe
+// lookup are capped at 60% of the window and the send at 93%, so the work
+// always settles before the reply and a match can't be told from a miss by
+// response time. A send that hits its cap is logged as CLAIM_RESEND_TIMEOUT.
+const CLAIM_RESEND_IP_MAX = 5;
+const CLAIM_RESEND_IP_WINDOW_MS = 15 * 60 * 1000;
+const CLAIM_RESEND_WINDOW_MS = 3000;
+function claimResendWindowMs() {
+  const raw = process.env.CLAIM_RESEND_WINDOW_MS;
+  if (raw != null && raw !== '' && Number.isFinite(Number(raw))) return Math.max(0, Number(raw));
+  return process.env.NODE_ENV === 'test' ? 0 : CLAIM_RESEND_WINDOW_MS;
+}
+// Per-IP limit, shared across instances through Postgres (memory when there
+// is no database). See lib/shared-counters.js.
+async function claimResendLimiter(req, res, next) {
+  let hits = 0;
+  try {
+    const { hitRateCounter } = require('./lib/shared-counters');
+    hits = await hitRateCounter('claim-resend-ip', rateLimitKey(req), { windowMs: CLAIM_RESEND_IP_WINDOW_MS });
+  } catch (err) {
+    console.error('[claim-resend] rate check failed', ...webhookErrorFields(err));
+  }
+  if (hits > CLAIM_RESEND_IP_MAX) {
     res.set('Cache-Control', 'no-store');
-    res.status(429).json({ success: false, error: 'Too many requests. Try again in 15 minutes.' });
-  },
-});
-const CLAIM_RESEND_MIN_MS = 600;
+    res.set('Retry-After', String(Math.ceil(CLAIM_RESEND_IP_WINDOW_MS / 1000)));
+    return res.status(429).json({ success: false, error: 'Too many requests. Try again in 15 minutes.' });
+  }
+  return next();
+}
 app.post('/api/stripe/claim-resend', claimResendLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const started = Date.now();
+  const windowMs = claimResendWindowMs();
   const { resendGuestClaimLink, RESEND_GENERIC_REPLY } = require('./lib/guest-claim');
-  let message = RESEND_GENERIC_REPLY;
   try {
     const email = req.body && typeof req.body === 'object' ? req.body.email : '';
-    const result = await resendGuestClaimLink(email, stripe);
-    message = result.message || RESEND_GENERIC_REPLY;
+    await resendGuestClaimLink(email, stripe, windowMs ? {
+      lookupDeadlineAt: started + Math.floor(windowMs * 0.6),
+      sendDeadlineAt: started + Math.floor(windowMs * 0.93),
+    } : {});
   } catch (err) {
     console.error('[claim-resend] failed', ...webhookErrorFields(err));
   }
-  // Even out timing so a match and a miss look the same.
-  const wait = CLAIM_RESEND_MIN_MS - (Date.now() - started);
-  if (wait > 0 && process.env.NODE_ENV !== 'test') await new Promise((resolve) => setTimeout(resolve, wait));
-  return res.status(200).json({ success: true, message });
+  const wait = windowMs - (Date.now() - started);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  return res.status(200).json({ success: true, message: RESEND_GENERIC_REPLY });
 });
 
 // ── SUBSCRIPTION SYNC (webhook-independent) ───────────────────────────────────

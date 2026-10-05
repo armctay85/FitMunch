@@ -207,7 +207,8 @@ describe('Email me a new link', () => {
   }
   const guestSession = (extra = {}) => ({
     id: 'cs_guest_1', customer: 'cus_guest', status: 'complete', payment_status: 'no_payment_required',
-    created: 1000, metadata: { app: 'fitmunch', plan: 'premium' }, ...extra,
+    created: 1000, metadata: { app: 'fitmunch', plan: 'premium' },
+    customer_details: { email: 'guest.payer@example.com' }, ...extra,
   });
 
   async function ask(email) {
@@ -226,9 +227,9 @@ describe('Email me a new link', () => {
       ],
       sessions: [
         guestSession(),
-        guestSession({ id: 'cs_logged', customer: 'cus_logged', client_reference_id: 'u-member' }),
-        guestSession({ id: 'cs_wipper', customer: 'cus_wipper', metadata: { app: 'wipper', plan: 'growth' } }),
-        guestSession({ id: 'cs_open', customer: 'cus_open', status: 'open', payment_status: 'unpaid' }),
+        guestSession({ id: 'cs_logged', customer: 'cus_logged', client_reference_id: 'u-member', customer_details: { email: 'member@example.com' } }),
+        guestSession({ id: 'cs_wipper', customer: 'cus_wipper', metadata: { app: 'wipper', plan: 'growth' }, customer_details: { email: 'other@example.com' } }),
+        guestSession({ id: 'cs_open', customer: 'cus_open', status: 'open', payment_status: 'unpaid', customer_details: { email: 'open@example.com' } }),
       ],
     });
     app._private.setStripeForTests(stripe);
