@@ -203,12 +203,11 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Rate limiting for API endpoints
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
-// Behind Railway / Vercel proxy — prefer X-Forwarded-For; normalize IPv6 for express-rate-limit v8+
-const rateLimitKey = (req) => {
-  const raw =
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
-  return ipKeyGenerator(raw);
-};
+// Every limiter keys on req.ip, never on a hand-parsed X-Forwarded-For.
+// trust proxy is 1 only behind a known proxy (configureCustomDomain), so
+// req.ip is the right-most hop that proxy appended; run directly it is the
+// socket address. ipKeyGenerator normalises IPv6 for express-rate-limit v8+.
+const rateLimitKey = (req) => ipKeyGenerator(req.ip || 'unknown');
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1227,6 +1226,7 @@ function setStripeForTests(next) {
 
 module.exports = app;
 module.exports._private = {
+  rateLimitKey,
   subscriptionTierUpdateFromStripe,
   setStripeForTests,
   PRICE_IDS,

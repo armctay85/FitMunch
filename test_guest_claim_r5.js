@@ -104,6 +104,13 @@ async function timed(email) {
   return { res, ms: Date.now() - t0 };
 }
 
+// These tests rotate X-Forwarded-For to get a fresh rate-limit bucket per
+// request, so simulate one trusted proxy (as on Vercel): req.ip is then the
+// right-most hop. test_rate_limit_ip.js covers the untrusted case.
+const trustProxyBefore = app.get('trust proxy');
+beforeAll(() => app.set('trust proxy', 1));
+afterAll(() => app.set('trust proxy', trustProxyBefore));
+
 beforeEach(() => {
   stripeEvents.resetStripeEventsForTests();
   guestClaim.resetGuestClaimsForTests();
