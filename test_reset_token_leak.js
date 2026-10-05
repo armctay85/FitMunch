@@ -658,6 +658,34 @@ describe('reset token follow-up', () => {
     expect(dumped).toContain('[redacted]');
   });
 
+  it('redacts guest claim tokens in URLs, JSON and analytics payloads', () => {
+    const secret = 'CLAIMTOKENVALUE123';
+    for (const line of [
+      `GET /login.html?claim=${secret} HTTP/1.1`,
+      `GET /login.html#claim=${secret}`,
+      `GET /success.html?session_id=cs_x&claim=${secret}`,
+      `GET /login.html?cl%61im=${secret}`,
+      `{"claim":"${secret}"}`,
+      `payload {"claim": "${secret}", "ok": true}`,
+    ]) {
+      const redacted = redactLogString(line);
+      expect(redacted).not.toContain(secret);
+      expect(redacted).toContain('[redacted]');
+    }
+    expect(redactLogString(`GET /login.html?claim=${secret} HTTP/1.1`)).toBe('GET /login.html?claim=[redacted] HTTP/1.1');
+    expect(redactLogString(`{"claim":"${secret}"}`)).toBe('{"claim":"[redacted]"}');
+    const dumped = JSON.stringify(redactLogArg({ claim: secret, nested: { claim: secret } }));
+    expect(dumped).not.toContain(secret);
+    const tracked = sanitizeAnalyticsPayload({
+      claim: secret,
+      path: `/login.html?claim=${secret}&utm_source=welcome`,
+      label: `claim=${secret}`,
+    });
+    expect(JSON.stringify(tracked)).not.toContain(secret);
+    expect(tracked.claim).toBeUndefined();
+    expect(tracked.path).toBe('/login.html');
+  });
+
   it('preserves ordinary question marks and hashes and leaves share links alone', () => {
     expect(sanitizeAnalyticsPayload({
       title: 'What is FitMunch?',

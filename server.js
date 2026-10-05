@@ -8,6 +8,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { sendWelcomeEmail } = require('./server/email.js');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
+const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
   // Basic configuration for Replit environment
@@ -57,20 +58,7 @@ const allowedOrigins = parseAllowedOrigins();
 
 // Security: Enhanced Helmet configuration with Replit preview support
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://checkout.stripe.com"],
-      formAction: ["'self'", "https://checkout.stripe.com"],
-      frameAncestors: ["'self'"], // Allow Replit preview
-      scriptSrcAttr: ["'unsafe-inline'"], // Allow onclick="" handlers (app uses inline event handlers throughout)
-    },
-  },
+  contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
   frameguard: false, // Disable X-Frame-Options to allow Replit preview iframe
   hsts: {
@@ -134,6 +122,13 @@ function analyticsKeyMatches(req) {
   return require('crypto').timingSafeEqual(a, b);
 }
 
+// CSP and Permissions-Policy go on every response, including the /funnel 401s.
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+  next();
+});
+
 // Private analytics UI is not a public page. The file lives outside public/
 // so the CDN cannot serve it. Both paths use the same key gate.
 const FUNNEL_PAGE = path.join(__dirname, 'private/funnel.html');
@@ -148,12 +143,6 @@ app.use((req, res, next) => {
   return res.sendFile(FUNNEL_PAGE);
 });
 
-const PERMISSIONS_POLICY = 'camera=(self), microphone=(), geolocation=(), payment=(self "https://checkout.stripe.com")';
-app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
-  next();
-});
-
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   index: 'index.html',
@@ -163,7 +152,10 @@ app.use(express.static(PUBLIC_DIR, {
     } else {
       res.setHeader('Cache-Control', 'public, max-age=86400');
     }
-    if (filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html')) {
+    if (
+      filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html') ||
+      filePath.endsWith(`${path.sep}success.html`) || filePath.endsWith('/success.html')
+    ) {
       res.setHeader('Referrer-Policy', 'no-referrer');
     }
   }
@@ -449,7 +441,11 @@ app.get('/pricing', (req, res) => res.sendFile('pricing.html', { root: 'public' 
 app.get('/coach/upgrade', (req, res) => res.sendFile('coach-upgrade.html', { root: 'public' }));
 app.get('/contact', (req, res) => res.sendFile('contact.html', { root: 'public' }));
 app.get('/privacy', (req, res) => res.sendFile('privacy.html', { root: 'public' }));
-app.get('/checkout/success', (req, res) => res.sendFile('success.html', { root: 'public' }));
+app.get('/checkout/success', (req, res) => {
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('Cache-Control', 'no-store');
+  res.sendFile('success.html', { root: 'public' });
+});
 
 
 const { ok: apiOk } = require('./lib/api-json');
