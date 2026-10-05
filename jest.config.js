@@ -29,6 +29,7 @@ module.exports = {
     '**/test_server_ai.js',
     '**/test_reset_token_leak.js',
     '**/test_public_copy_hotfix.js',
+    '**/test_ship_safety.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

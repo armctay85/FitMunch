@@ -138,9 +138,8 @@ describe('reset token leak', () => {
     const src = fs.readFileSync(path.join(__dirname, 'public/js/fm-track.js'), 'utf8');
     expect(src).not.toContain('location.search.slice');
     expect(src).not.toContain('location.href');
-    const enhanced = fs.readFileSync(path.join(__dirname, 'public/enhanced_analytics.js'), 'utf8');
-    expect(enhanced).not.toContain('window.location.href');
-    expect(enhanced).toContain('window.location.pathname');
+    const enhancedPath = path.join(__dirname, 'public/enhanced_analytics.js');
+    expect(fs.existsSync(enhancedPath)).toBe(false);
   });
 
   it('server strips reset and token params before insert and before logging', async () => {
