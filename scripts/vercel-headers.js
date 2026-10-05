@@ -38,8 +38,23 @@ const HELMET_DEFAULTS = [
 ];
 
 // The CDN adds Access-Control-Allow-Origin: * to static files by default.
-// Every static HTML page gets the site origin instead (path-to-regexp source).
-const STATIC_HTML_SOURCE = '/(.*)\\.html';
+// Every static HTML page in public/ gets the site origin instead. Sources are
+// literal paths (no patterns) so #51's ship-safety check can evaluate them.
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+function staticHtmlPaths(dir = PUBLIC_DIR, prefix = '/') {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      out.push(...staticHtmlPaths(path.join(dir, entry.name), `${prefix}${entry.name}/`));
+    } else if (entry.name.endsWith('.html')) {
+      out.push(prefix + entry.name);
+      if (entry.name === 'index.html' && prefix !== '/') out.push(prefix);
+    }
+  }
+  return out;
+}
+
 // Static pages Express never sees; test_server_api.js checks each one.
 const STATIC_PAGES = ['/login.html', '/app.html', '/success.html'];
 
@@ -61,12 +76,17 @@ function buildHeaderRules() {
       ],
     },
   ];
-  rules.push({
-    source: STATIC_HTML_SOURCE,
-    headers: [{ key: 'Access-Control-Allow-Origin', value: SITE_ORIGIN }],
-  });
-  for (const source of NO_REFERRER_PATHS) {
-    rules.push({ source, headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] });
+  const htmlPaths = staticHtmlPaths();
+  const sources = [...new Set([...htmlPaths, ...NO_REFERRER_PATHS])].sort();
+  for (const source of sources) {
+    const headers = [];
+    if (htmlPaths.includes(source)) {
+      headers.push({ key: 'Access-Control-Allow-Origin', value: SITE_ORIGIN });
+    }
+    if (NO_REFERRER_PATHS.includes(source)) {
+      headers.push({ key: 'Referrer-Policy', value: 'no-referrer' });
+    }
+    rules.push({ source, headers });
   }
   return rules;
 }
@@ -100,8 +120,8 @@ if (require.main === module) {
 module.exports = {
   SITE_ORIGIN,
   HELMET_DEFAULTS,
-  STATIC_HTML_SOURCE,
   STATIC_PAGES,
+  staticHtmlPaths,
   NO_REFERRER_PATHS,
   buildHeaderRules,
   expectedVercelJson,

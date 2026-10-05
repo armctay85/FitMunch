@@ -174,7 +174,7 @@ describe('Server API shell', () => {
 
   it('login, app, and success pages send the same security headers as the rest of the site', async () => {
     const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
-    const { SITE_ORIGIN, STATIC_HTML_SOURCE, buildHeaderRules, expectedVercelJson } = require('./scripts/vercel-headers');
+    const { SITE_ORIGIN, staticHtmlPaths, buildHeaderRules, expectedVercelJson } = require('./scripts/vercel-headers');
     const headerNames = [
       'content-security-policy',
       'cross-origin-opener-policy',
@@ -232,18 +232,18 @@ describe('Server API shell', () => {
     const mergedFor = (page) => {
       const merged = {};
       for (const rule of vercel.headers) {
-        const matches = rule.source === '/(.*)' || rule.source === page ||
-          (rule.source === STATIC_HTML_SOURCE && page.endsWith('.html'));
-        if (!matches) continue;
+        if (rule.source !== '/(.*)' && rule.source !== page) continue;
         for (const header of rule.headers) merged[header.key.toLowerCase()] = header.value;
       }
       return merged;
     };
-    expect(STATIC_HTML_SOURCE).toBe('/(.*)\\.html');
+    // Literal sources only (the catch-all aside).
+    for (const source of sources) {
+      if (source !== '/(.*)') expect([source, /[()*:?+]/.test(source)]).toEqual([source, false]);
+    }
     const noReferrer = ['/login', '/login.html', '/success.html', '/checkout/success'];
-    const staticPages = fs.readdirSync(path.join(__dirname, 'public'))
-      .filter((name) => name.endsWith('.html'))
-      .map((name) => '/' + name);
+    const staticPages = staticHtmlPaths();
+    expect(staticPages).toContain('/brand/index.html');
     expect(staticPages).toEqual(expect.arrayContaining(['/login.html', '/app.html', '/success.html']));
     for (const page of staticPages) {
       expect([page, mergedFor(page)['access-control-allow-origin']]).toEqual([page, SITE_ORIGIN]);
