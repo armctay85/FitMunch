@@ -302,7 +302,7 @@ describe('public price and claim ban', () => {
     expect(found).toEqual([]);
   });
 
-  it('uses exactly 'No GST is charged.' on /terms and does not name a person or a sole trader', async () => {
+  it('uses exactly the No GST line on /terms and does not name a person or a sole trader', async () => {
     const page = await request(app).get('/terms').expect(200);
     expect(page.text).toContain('No GST is charged.');
     expect(page.text).not.toContain('not registered for GST');
