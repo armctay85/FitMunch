@@ -78,12 +78,42 @@ async function probeUrl(url, redirect) {
   return { res, headerText, body };
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+// The apex host is a Vercel domain redirect to www, which carries no app headers.
+// A redirect is fine only when it lands on another probed host at the same path and
+// query; the headers are then checked on that canonical response instead.
+async function probeHeaders(url) {
+  const first = await probeUrl(url, 'manual');
+  if (!REDIRECT_STATUSES.has(first.res.status)) return { ...first, finalUrl: url };
+  const location = first.res.headers.get('location') || '';
+  let target;
+  try {
+    target = new URL(location, url);
+  } catch {
+    throw new Error(`redirected to an unreadable Location "${location}"`);
+  }
+  const source = new URL(url);
+  // Same-host redirects (for example /login to /login.html) must carry the headers themselves.
+  if (target.origin === source.origin) return { ...first, finalUrl: url };
+  const probedOrigins = config.probeHosts.map((host) => new URL(host).origin);
+  if (
+    !probedOrigins.includes(target.origin)
+    || target.pathname !== source.pathname
+    || target.search !== source.search
+  ) {
+    throw new Error(`redirected ${first.res.status} to ${target.href}, expected a redirect to another probed host at the same path and query`);
+  }
+  const second = await probeUrl(target.href, 'manual');
+  return { ...second, finalUrl: target.href };
+}
+
 for (const host of config.probeHosts) {
   for (const probePath of LOGIN_HEADER_PATHS) {
     const url = `${host}${probePath}`;
     let probed;
     try {
-      probed = await probeUrl(url, 'manual');
+      probed = await probeHeaders(url);
     } catch (err) {
       failures.push(`${url} request failed: ${err.message}`);
       continue;
@@ -98,14 +128,14 @@ for (const host of config.probeHosts) {
       failures.push(`${url} Referrer-Policy is ${referrer || 'unset'}, expected no-referrer`);
       continue;
     }
-    console.log(`PASS ${url} referrer-policy no-referrer`);
+    console.log(`PASS ${url} referrer-policy no-referrer${probed.finalUrl !== url ? ` (via ${probed.finalUrl})` : ''}`);
   }
 
   for (const probePath of PERMISSIONS_POLICY_PATHS) {
     const url = `${host}${probePath}`;
     let probed;
     try {
-      probed = await probeUrl(url, 'manual');
+      probed = await probeHeaders(url);
     } catch (err) {
       failures.push(`${url} request failed: ${err.message}`);
       continue;
@@ -120,7 +150,7 @@ for (const host of config.probeHosts) {
       failures.push(`${url} Permissions-Policy is ${policy || 'unset'}`);
       continue;
     }
-    console.log(`PASS ${url} permissions-policy`);
+    console.log(`PASS ${url} permissions-policy${probed.finalUrl !== url ? ` (via ${probed.finalUrl})` : ''}`);
   }
 }
 
