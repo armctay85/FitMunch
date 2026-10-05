@@ -35,7 +35,7 @@ const body = {
         {
           content: `Method: compare price per ~25g protein, then build meals from what you already bought.
 
-Worked AU example: https://www.fitmunch.com.au/haul-teardown?utm_source=reddit&utm_medium=organic&utm_campaign=mrr_sprint&utm_content=mealprep_followup
+Worked AU example: https://www.fitmunch.com.au/haul-teardown?utm_source=reddit&utm_medium=organic&utm_campaign=haul_teardown&utm_content=mealprep_followup
 
 Happy to answer AU grocery/macro questions either way.`,
           image: [],

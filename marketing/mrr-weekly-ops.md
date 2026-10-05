@@ -17,7 +17,7 @@ Landing (UTM) → register → first receipt scan → Premium trial checkout
 - PT Facebook groups: pause until consumer Premium converting
 
 ## CTAs
-Default paid CTA: `/login.html?plan=premium&utm_source=...&utm_campaign=mrr_sprint#register`
+Default paid CTA: `/login.html?plan=premium&utm_source=...&utm_campaign=premium_trial#register`
 Free is secondary proof, not the hero ask on money pages.
 
 ## Do not
