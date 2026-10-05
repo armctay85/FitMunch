@@ -279,7 +279,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 
 function finishWebhook(res, err, event) {
-  console.error('Webhook handler error:', ...webhookErrorFields(err));
+  console.error('Webhook handler error:', webhookHandlerErrorLabel(err));
   if (isTransientWebhookError(err)) {
     return stripeEvents.releaseStripeEvent(event && event.id)
       .catch((releaseErr) => {

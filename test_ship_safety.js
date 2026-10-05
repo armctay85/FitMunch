@@ -223,7 +223,8 @@ describe('webhook handler error log', () => {
                 id: 'sub_LogLeak012',
                 status: 'incomplete',
                 customer: 'cus_LogLeak123',
-                items: { data: [{ price: { id: 'price_not_live' } }] },
+                metadata: { app: 'fitmunch', product: 'fitmunch', plan: 'premium' },
+                items: { data: [{ price: { id: require('./lib/fitmunch-checkout').PRICE_IDS.premium } }] },
               },
             },
           };
@@ -237,7 +238,7 @@ describe('webhook handler error log', () => {
         .set('Content-Type', 'application/json')
         .set('stripe-signature', 't=1,v1=test')
         .send('{"id":"evt_LogLeak678"}');
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(200);
       const logged = loggedText(spy);
       expect(logged).toContain('Webhook handler error:');
       expect(logged).toContain('42703');
