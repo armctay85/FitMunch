@@ -97,15 +97,14 @@ const firstScanLimiter = rateLimit({
   max: process.env.NODE_ENV === 'test' ? 200 : 6,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const raw = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
-    return ipKeyGenerator(raw);
-  },
+  // req.ip, not a hand-parsed X-Forwarded-For: trust proxy decides which hop
+  // counts (server.js configureCustomDomain).
+  keyGenerator: (req) => ipKeyGenerator(req.ip || 'unknown'),
   message: { success: false, error: 'Too many scans from this connection. Try again later, or start the Premium trial.' },
 });
 
 function guestIp(req) {
-  return (req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'anon').slice(0, 80);
+  return String(req.ip || 'anon').slice(0, 80);
 }
 
 function extractImage(req) {

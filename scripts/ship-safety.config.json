@@ -389,6 +389,7 @@
     "index.html",
     "js/chart.umd.min.js",
     "js/fm-api.js",
+    "js/fm-claim.js",
     "js/fm-coach.js",
     "js/fm-first-scan.js",
     "js/fm-identity.js",

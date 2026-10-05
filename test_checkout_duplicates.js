@@ -330,7 +330,7 @@ describe('checkout duplicate harness', () => {
   test('G webhook retries (same event delivered 3x) cause no Stripe writes', async () => {
     const before = fake.S.writes.length;
     const evs = [
-      { id: 'evt_1', type: 'checkout.session.completed', data: { object: { customer_details: {}, metadata: { plan: 'premium' } } } },
+      { id: 'evt_1', type: 'checkout.session.completed', data: { object: { customer_details: {}, metadata: { plan: 'premium', app: 'fitmunch' } } } },
       { id: 'evt_2', type: 'customer.subscription.created', data: { object: { customer: 'cus_existing', status: 'trialing', items: { data: [{ price: { id: PRICE_IDS.premium } }] } } } },
     ];
     for (const ev of evs) {
@@ -393,9 +393,9 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     ]);
     expect(fake.S.refunds).toEqual([{ charge: 'ch_dup', reason: 'duplicate' }]);
     const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
-    expect(logged).toMatch(/kept oldest sub_old/);
-    expect(logged).toMatch(/cancelled newer sub_new/);
-    expect(logged).toMatch(/cus_existing/);
+    expect(logged).toMatch(/kept the oldest and cancelled the newer one/);
+    expect(logged).toMatch(/refunded the duplicate charge/);
+    expect(logged).not.toMatch(/sub_old|sub_new|cus_existing|ch_dup/);
     warn.mockRestore();
   });
 
@@ -404,7 +404,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     await postEvent({
       id: 'evt_cs',
       type: 'checkout.session.completed',
-      data: { object: { customer: 'cus_existing', metadata: { plan: 'premium' }, customer_details: {} } },
+      data: { object: { customer: 'cus_existing', metadata: { plan: 'premium', app: 'fitmunch' }, customer_details: {} } },
     }).expect(200);
     expect(fake.S.subs.find((s) => s.id === 'sub_old').status).toBe('trialing');
     expect(fake.S.subs.find((s) => s.id === 'sub_new').status).toBe('canceled');
@@ -432,7 +432,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     await postEvent({
       id: 'evt_del',
       type: 'customer.subscription.deleted',
-      data: { object: { id: 'sub_new', customer: 'cus_existing', status: 'canceled' } },
+      data: { object: { id: 'sub_new', customer: 'cus_existing', status: 'canceled', items: { data: [{ price: { id: PRICE_IDS.premium } }] } } },
     }).expect(200);
     expect(storage.updateUserSubscription).not.toHaveBeenCalled();
 
@@ -440,7 +440,7 @@ describe('webhook keeps the oldest FitMunch subscription', () => {
     await postEvent({
       id: 'evt_del_last',
       type: 'customer.subscription.deleted',
-      data: { object: { id: 'sub_old', customer: 'cus_existing', status: 'canceled' } },
+      data: { object: { id: 'sub_old', customer: 'cus_existing', status: 'canceled', items: { data: [{ price: { id: PRICE_IDS.premium } }] } } },
     }).expect(200);
     expect(storage.updateUserSubscription).toHaveBeenCalledWith('u1', 'free', null);
   });
@@ -860,7 +860,7 @@ describe('guest subscriptions across customers', () => {
     };
   }
 
-  test('two guest checkouts, same email, different nonces, both completed: one trialing sub remains', async () => {
+  test('two guest checkouts, same email, different nonces: both stay trialing and neither is cancelled', async () => {
     const send = (nonce) => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', nonce)
       .send({ email: 'guest@example.com', plan: 'premium' });
@@ -879,17 +879,17 @@ describe('guest subscriptions across customers', () => {
         object: {
           customer: newer.customer,
           customer_details: { email: 'guest@example.com' },
-          metadata: { plan: 'premium', email: 'guest@example.com' },
+          metadata: { plan: 'premium', app: 'fitmunch', email: 'guest@example.com' },
         },
       },
     }).expect(200);
 
     const live = fake.S.subs.filter((sub) => sub.status === 'trialing');
-    expect(live).toHaveLength(1);
-    expect(live[0].id).toBe(older.id);
-    expect(fake.S.subs.find((sub) => sub.id === newer.id).status).toBe('canceled');
-    expect(fake.S.cancels.map((row) => row.id)).toContain(newer.id);
-    expect(fake.S.cancels.map((row) => row.id)).not.toContain(older.id);
+    expect(live).toHaveLength(2);
+    expect(fake.S.subs.find((sub) => sub.id === older.id).status).toBe('trialing');
+    expect(fake.S.subs.find((sub) => sub.id === newer.id).status).toBe('trialing');
+    expect(fake.S.cancels).toHaveLength(0);
+    expect(fake.S.refunds).toHaveLength(0);
   });
 
   test('a guest customer with the same email never cancels the linked user sub', async () => {
@@ -945,20 +945,20 @@ describe('guest subscriptions across customers', () => {
         object: {
           customer: 'cus_g2',
           customer_details: { email: 'shared@example.com' },
-          metadata: { plan: 'premium' },
+          metadata: { plan: 'premium', app: 'fitmunch' },
         },
       },
     }).expect(200);
 
     expect(fake.S.subs.find((sub) => sub.id === 'sub_g1').status).toBe('trialing');
-    expect(fake.S.subs.find((sub) => sub.id === 'sub_g2').status).toBe('canceled');
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_g2').status).toBe('trialing');
     expect(fake.S.subs.find((sub) => sub.id === 'sub_wipper').status).toBe('active');
-    expect(fake.S.cancels.map((row) => row.id)).toEqual(['sub_g2']);
+    expect(fake.S.cancels).toHaveLength(0);
     const listedCustomers = fake.subscriptions.list.mock.calls.map((call) => call[0] && call[0].customer);
     expect(listedCustomers).not.toContain('cus_wipper');
   });
 
-  test('a sub updated from incomplete to active triggers the dedupe', async () => {
+  test('a guest sub that becomes active does not cancel another guest customer', async () => {
     fake.S.customers.push(
       fitmunchGuest('cus_old_guest', 'retry@example.com'),
       fitmunchGuest('cus_new_guest', 'retry@example.com')
@@ -975,7 +975,70 @@ describe('guest subscriptions across customers', () => {
     }).expect(200);
 
     expect(fake.S.subs.find((sub) => sub.id === 'sub_kept').status).toBe('trialing');
-    expect(fake.S.subs.find((sub) => sub.id === 'sub_paid').status).toBe('canceled');
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_paid').status).toBe('active');
+    expect(fake.S.cancels).toHaveLength(0);
+  });
+
+  test('a stranger checking out first with the victim email does not cancel the victim guest sub', async () => {
+    fake.S.customers.push(
+      fitmunchGuest('cus_stranger', 'victim@example.com'),
+      fitmunchGuest('cus_victim', 'victim@example.com')
+    );
+    const stranger = liveSub('sub_stranger', 'cus_stranger', 1);
+    const victim = liveSub('sub_victim', 'cus_victim', 80, 'active');
+    victim.latest_invoice = { id: 'in_victim', amount_paid: 1999, charge: 'ch_victim' };
+    fake.S.subs.push(stranger, victim);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await postEvent({
+        id: 'evt_stranger_email',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            customer: 'cus_victim',
+            customer_details: { email: 'victim@example.com' },
+            metadata: { plan: 'premium', app: 'fitmunch', priceId: PRICE_IDS.premium },
+          },
+        },
+      }).expect(200);
+      expect(fake.S.subs.find((sub) => sub.id === 'sub_stranger').status).toBe('trialing');
+      expect(fake.S.subs.find((sub) => sub.id === 'sub_victim').status).toBe('active');
+      expect(fake.S.cancels).toHaveLength(0);
+      expect(fake.S.refunds).toHaveLength(0);
+      const text = warn.mock.calls.map((args) => args.map(String).join(' ')).join('\n');
+      expect(text).toContain('[checkout] guest duplicate flagged');
+      expect(text).not.toMatch(/victim@example.com|cus_victim|cus_stranger|sub_victim|sub_stranger/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test('two customers tied to the same user still cancel the newer subscription', async () => {
+    fake.S.customers.push(
+      {
+        id: 'cus_owner_old',
+        email: 'owner@example.com',
+        metadata: { brand: 'fitmunch', product: 'fitmunch', userId: 'user-1' },
+      },
+      {
+        id: 'cus_owner_new',
+        email: 'owner@example.com',
+        metadata: { brand: 'fitmunch', product: 'fitmunch', userId: 'user-1' },
+      }
+    );
+    fake.S.subs.push(
+      liveSub('sub_owner_old', 'cus_owner_old', 10),
+      liveSub('sub_owner_new', 'cus_owner_new', 90, 'active')
+    );
+    await postEvent({
+      id: 'evt_same_user',
+      type: 'customer.subscription.created',
+      data: { object: fake.S.subs.find((sub) => sub.id === 'sub_owner_new') },
+    }).expect(200);
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_owner_old').status).toBe('trialing');
+    expect(fake.S.subs.find((sub) => sub.id === 'sub_owner_new').status).toBe('canceled');
+    expect(fake.S.cancels.map((row) => row.id)).toContain('sub_owner_new');
+    expect(fake.S.cancels.map((row) => row.id)).not.toContain('sub_owner_old');
   });
 
   test('a nonce replay with a different email returns a different session', async () => {
