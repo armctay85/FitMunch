@@ -1487,7 +1487,8 @@ describe('claim token transport', () => {
     expect(kept).not.toContain('query-token');
     const login = fs.readFileSync(path.join(__dirname, 'public/login.html'), 'utf8');
     const success = fs.readFileSync(path.join(__dirname, 'public/success.html'), 'utf8');
-    const webhook = fs.readFileSync(path.join(__dirname, 'lib/stripe-webhook.js'), 'utf8');
+    const webhook = fs.readFileSync(path.join(__dirname, 'lib/stripe-webhook.js'), 'utf8') +
+      fs.readFileSync(path.join(__dirname, 'lib/guest-claim.js'), 'utf8');
     const vercel = fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8');
     const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
     expect(login.indexOf('/js/fm-claim.js')).toBeGreaterThan(-1);
@@ -1522,7 +1523,8 @@ describe('claim token transport', () => {
     const prevClaim = process.env.GUEST_CLAIM_SECRET;
     process.env.NODE_ENV = 'production';
     delete process.env.GUEST_CLAIM_SECRET;
-    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    require('./lib/guest-claim').resetGuestClaimsForTests();
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const { mintGuestClaimToken, readGuestClaimToken, warnMissingGuestClaimSecret } = require('./lib/guest-claim');
       warnMissingGuestClaimSecret();

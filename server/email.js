@@ -47,6 +47,12 @@ async function sendEmail(opts) {
   }
 }
 
+// Resend click and open tracking are set per sending domain, not per email
+// (the send API has no tracking field). Claim links must never be rewritten
+// through a tracking redirect, so keep tracking off for the FitMunch domain.
+// Claim emails carry no tracking pixel or redirect of our own.
+const CLAIM_LINK_WINDOW_COPY = 'This link works once, within 7 days.';
+
 /**
  * Post-checkout welcome (Premium consumer or PT).
  */
@@ -73,7 +79,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
       </ol>`;
 
   const attachHtml = claimUrl
-    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Paid before you had an account? Attach this subscription to the FitMunch account you choose. The link works once and expires soon.</p>
+    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Paid before you had an account? Attach this subscription to the FitMunch account you choose. ${CLAIM_LINK_WINDOW_COPY}</p>
     <p style="margin:20px 0">
       <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Attach this subscription</a>
     </p>`
@@ -111,7 +117,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
 </html>`.trim();
 
   const attachText = claimUrl
-    ? `\nAttach this subscription to your account (works once, expires soon):\n${claimUrl}\n`
+    ? `\nAttach this subscription to your account. ${CLAIM_LINK_WINDOW_COPY}\n${claimUrl}\n`
     : '';
 
   const bodyText = `Hi ${name},
@@ -131,4 +137,42 @@ Support: https://www.fitmunch.com.au/support
   return sendEmail({ to: customerEmail, subject, bodyHtml, bodyText });
 }
 
-module.exports = { sendEmail, sendWelcomeEmail };
+/**
+ * A fresh guest claim link, sent only to the Stripe customer email.
+ */
+async function sendClaimLinkEmail(customerEmail, claimUrl) {
+  const subject = 'Your new FitMunch link';
+  const bodyHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:Georgia,serif;background:#eef2ee;padding:0;margin:0">
+<div style="max-width:560px;margin:40px auto;background:#fff;border:1px solid #cfd9d2;overflow:hidden">
+  <div style="background:#07130d;padding:28px">
+    <div style="font-family:system-ui,sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.03em">Fit<span style="color:#1f9d4a">Munch</span></div>
+  </div>
+  <div style="padding:28px">
+    <p style="font-size:16px;color:#0c1210;line-height:1.6">Here is a new link to attach your FitMunch subscription to the account you choose. ${CLAIM_LINK_WINDOW_COPY}</p>
+    <p style="margin:20px 0">
+      <a href="${claimUrl}" style="display:inline-block;background:#16803c;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Attach this subscription</a>
+    </p>
+    <p style="font-size:14px;color:#5c6d64;line-height:1.6">Did not ask for this? You can ignore this email. Nothing changes unless someone signs in and confirms.</p>
+    <p style="font-size:13px;color:#8a9a91;border-top:1px solid #cfd9d2;padding-top:16px;margin-top:24px">
+      Questions? <a href="https://www.fitmunch.com.au/support" style="color:#16803c">fitmunch.com.au/support</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>`.trim();
+  const bodyText = `Here is a new link to attach your FitMunch subscription to the account you choose. ${CLAIM_LINK_WINDOW_COPY}
+
+${claimUrl}
+
+Did not ask for this? You can ignore this email. Nothing changes unless someone signs in and confirms.
+
+Support: https://www.fitmunch.com.au/support
+`;
+  return sendEmail({ to: customerEmail, subject, bodyHtml, bodyText });
+}
+
+module.exports = { sendEmail, sendWelcomeEmail, sendClaimLinkEmail, CLAIM_LINK_WINDOW_COPY };

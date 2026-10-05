@@ -419,6 +419,12 @@ app.get("/api/db-test", (req, res) => {
   })();
 });
 app.get('/api/health', (req, res) => {
+  // Deployed builds without a usable GUEST_CLAIM_SECRET fail the health check
+  // loudly. The reason is generic; the value is never read out.
+  if (require('./lib/guest-claim').guestClaimSecretProblem()) {
+    console.error('[health] CONFIG ERROR: guest claim secret');
+    return res.status(503).json({ status: 'misconfigured', service: 'fitmunch' });
+  }
   apiOk(res, {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -854,6 +860,38 @@ app.post('/api/stripe/claim-guest', async (req, res) => {
   }
 });
 
+// Public "Email me a new link" for an expired or lost guest claim link.
+// Same reply for every input; the link only goes to the Stripe customer email.
+const claimResendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  handler: (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.status(429).json({ success: false, error: 'Too many requests. Try again in 15 minutes.' });
+  },
+});
+const CLAIM_RESEND_MIN_MS = 600;
+app.post('/api/stripe/claim-resend', claimResendLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const started = Date.now();
+  const { resendGuestClaimLink, RESEND_GENERIC_REPLY } = require('./lib/guest-claim');
+  let message = RESEND_GENERIC_REPLY;
+  try {
+    const email = req.body && typeof req.body === 'object' ? req.body.email : '';
+    const result = await resendGuestClaimLink(email, stripe);
+    message = result.message || RESEND_GENERIC_REPLY;
+  } catch (err) {
+    console.error('[claim-resend] failed', ...webhookErrorFields(err));
+  }
+  // Even out timing so a match and a miss look the same.
+  const wait = CLAIM_RESEND_MIN_MS - (Date.now() - started);
+  if (wait > 0 && process.env.NODE_ENV !== 'test') await new Promise((resolve) => setTimeout(resolve, wait));
+  return res.status(200).json({ success: true, message });
+});
+
 // ── SUBSCRIPTION SYNC (webhook-independent) ───────────────────────────────────
 // Called by the app when returning from Stripe checkout (?subscribed=1) and
 // available any time from Billing. Reads the customer's subscriptions straight
@@ -1028,10 +1066,14 @@ app.get('/api/checkout/session', async (req, res) => {
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // Same brand filter as the webhook: other products on the shared Stripe
+    // account are not ours to describe.
+    if (!session || !checkoutSessionIsFitMunch(session)) {
+      return res.status(404).json({ error: 'Session not found.' });
+    }
     const { sessionLoggedInUserId } = require('./lib/guest-claim');
     const guestCheckout = Boolean(
       session.status === 'complete' &&
-      checkoutSessionIsFitMunch(session) &&
       !sessionLoggedInUserId(session)
     );
     res.json({

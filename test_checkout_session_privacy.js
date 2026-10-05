@@ -11,16 +11,26 @@ const app = require('./server.js');
 const session = {
   id: 'cs_test_privacy',
   payment_status: 'paid',
-  metadata: { plan: 'premium' },
+  metadata: { plan: 'premium', app: 'fitmunch' },
   customer: 'cus_victim123',
   customer_email: 'victim@example.com',
   customer_details: { email: 'victim@example.com', name: 'Victim' },
+};
+
+// Another product on the shared Stripe account.
+const otherBrandSession = {
+  id: 'cs_test_other_brand',
+  status: 'complete',
+  payment_status: 'paid',
+  metadata: { plan: 'growth', app: 'wipper' },
+  customer: 'cus_other123',
 };
 
 let fakeStripe;
 beforeAll(() => {
   fakeStripe = ({
     checkout: { sessions: { retrieve: jest.fn(async (id) => {
+      if (id === otherBrandSession.id) return otherBrandSession;
       if (id !== session.id) { const e = new Error('No such checkout.session: cs_secret_internal sk_test_leak'); e.statusCode = 404; throw e; }
       return session;
     }) } },
@@ -49,6 +59,14 @@ describe('GET /api/checkout/session privacy', () => {
     expect(res.headers['cache-control']).toMatch(/no-store/);
     const raw = JSON.stringify(res.body);
     expect(raw).not.toMatch(/cs_secret_internal|sk_test_leak|No such checkout/);
+  });
+
+  test('a session for another product on the shared Stripe account is 404', async () => {
+    const res = await request(app).get('/api/checkout/session').query({ session_id: otherBrandSession.id });
+    expect(res.status).toBe(404);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body).toEqual({ error: 'Session not found.' });
+    expect(JSON.stringify(res.body)).not.toMatch(/growth|paid|cus_|guestCheckout/);
   });
 
   test('missing session_id is 400 with no-store', async () => {

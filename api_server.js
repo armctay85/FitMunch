@@ -466,8 +466,12 @@ router.post('/auth/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { email, password } = body;
+    // A malformed body (non-string or oversized fields) is a client error.
+    if (typeof email !== 'string' || typeof password !== 'string' || email.length > 320 || password.length > 1024)
+      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+    const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail || !password)
       return res.status(400).json({ success: false, error: 'Email and password are required.' });
 

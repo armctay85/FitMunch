@@ -136,6 +136,16 @@
  .btn-quiet {
  background: transparent; color: var(--text); border: 1px solid var(--border);
  }
+ .claim-resend { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(31,157,74,.25); }
+ .claim-resend summary { cursor: pointer; font-size: .85rem; color: var(--text); }
+ .claim-resend form { display: grid; gap: 8px; margin-top: 10px; }
+ .claim-resend label { font-size: .78rem; color: var(--sub); }
+ .claim-resend input {
+ width: 100%; padding: 10px 12px; font: inherit; color: var(--text);
+ background: #0a1610; border: 1px solid var(--border); border-radius: 4px;
+ }
+ .claim-resend .btn { margin-top: 0; }
+ .claim-resend-status { font-size: .82rem; color: var(--sub); line-height: 1.45; min-height: 1em; }
  </style>
 </head>
 <body>
@@ -157,6 +167,15 @@
  <div id="claim-intent" class="claim-card" style="display:none">
  <div class="claim-kicker" style="color:var(--green)">Attach a purchase</div>
  <p class="claim-copy" style="color:var(--sub)">Sign in or create an account, then confirm which account should keep the subscription you already paid for. This does not start a new checkout.</p>
+ <details class="claim-resend" id="claim-resend-intent">
+ <summary>Link expired or used? Email me a new link</summary>
+ <form onsubmit="return requestClaimLink(event, this)" novalidate>
+ <label for="claim-resend-email-intent">Email you paid with</label>
+ <input id="claim-resend-email-intent" name="email" type="email" autocomplete="email" maxlength="254" required/>
+ <button class="btn" type="submit">Email me a new link</button>
+ <p class="claim-resend-status" role="status" aria-live="polite"></p>
+ </form>
+ </details>
  </div>
  <div id="claim-card" class="claim-card" style="display:none">
  <h2 class="claim-kicker" style="color:var(--green)">Confirm attachment</h2>
@@ -172,6 +191,15 @@
  <div class="claim-actions">
  <a class="btn" id="claim-continue" href="/app.html">Continue</a>
  </div>
+ <details class="claim-resend" id="claim-resend-result" style="display:none" open>
+ <summary>Link expired or used? Email me a new link</summary>
+ <form onsubmit="return requestClaimLink(event, this)" novalidate>
+ <label for="claim-resend-email-result">Email you paid with</label>
+ <input id="claim-resend-email-result" name="email" type="email" autocomplete="email" maxlength="254" required/>
+ <button class="btn" type="submit">Email me a new link</button>
+ <p class="claim-resend-status" role="status" aria-live="polite"></p>
+ </form>
+ </details>
  </div>
 
  <div class="tabs">
@@ -311,9 +339,13 @@
   const regBtn = document.getElementById('register-btn');
   if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
   if (regBtn && coachPlan) regBtn.textContent = 'Start Coach trial';
- } else if (pendingClaim) {
+ } else if (pendingClaim || window.location.hash === '#new-link') {
   const claimBanner = document.getElementById('claim-intent');
   if (claimBanner) claimBanner.style.display = 'block';
+  if (!pendingClaim) {
+   const resendIntent = document.getElementById('claim-resend-intent');
+   if (resendIntent) resendIntent.open = true;
+  }
   registerLabel = 'Create account';
   const regBtn = document.getElementById('register-btn');
   if (regBtn) regBtn.textContent = registerLabel;
@@ -386,11 +418,15 @@
   if (card) card.style.display = 'none';
   hideAuthPanels();
   if (text) text.textContent = message;
+  const failed = !/already attached|attached to your account/i.test(message);
   if (title) {
    if (/already attached/i.test(message)) title.textContent = 'Already attached';
    else if (/attached to your account/i.test(message)) title.textContent = 'Attached';
    else title.textContent = 'Could not attach';
   }
+  // An expired, used or invalid link can be replaced from here.
+  const resend = document.getElementById('claim-resend-result');
+  if (resend) resend.style.display = failed && /invalid|expired|already been used/i.test(message) ? 'block' : 'none';
   if (result) result.style.display = 'block';
  }
 
@@ -449,6 +485,34 @@
   } finally {
    if (btn) btn.disabled = false;
   }
+ }
+
+ async function requestClaimLink(event, form) {
+  if (event) event.preventDefault();
+  const input = form.querySelector('input[name="email"]');
+  const status = form.querySelector('.claim-resend-status');
+  const btn = form.querySelector('button[type="submit"]');
+  const email = input ? String(input.value || '').trim() : '';
+  if (!email || email.indexOf('@') < 1) {
+   if (status) status.textContent = 'Enter the email you paid with.';
+   return false;
+  }
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Sending...';
+  try {
+   const resp = await fetch('/api/stripe/claim-resend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+   });
+   const body = await resp.json().catch(() => ({}));
+   if (status) status.textContent = body.message || body.error || 'Try again in a few minutes.';
+  } catch (_) {
+   if (status) status.textContent = 'Could not send right now. Try again in a few minutes.';
+  } finally {
+   if (btn) btn.disabled = false;
+  }
+  return false;
  }
 
  function dismissClaim() {
