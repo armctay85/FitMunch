@@ -67,42 +67,34 @@
       ]
     },
     {
-      "source": "/login.html",
+      "source": "/(.*)\\.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
           "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "no-referrer"
-        }
-      ]
-    },
-    {
-      "source": "/app.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/success.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "no-referrer"
         }
       ]
     },
     {
       "source": "/login",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/login.html",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/success.html",
       "headers": [
         {
           "key": "Referrer-Policy",

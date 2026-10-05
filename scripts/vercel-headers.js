@@ -37,8 +37,10 @@ const HELMET_DEFAULTS = [
   { key: 'X-XSS-Protection', value: '0' },
 ];
 
-// Static pages the CDN serves. The CDN adds Access-Control-Allow-Origin: *
-// to static files by default; these pages get the site origin instead.
+// The CDN adds Access-Control-Allow-Origin: * to static files by default.
+// Every static HTML page gets the site origin instead (path-to-regexp source).
+const STATIC_HTML_SOURCE = '/(.*)\\.html';
+// Static pages Express never sees; test_server_api.js checks each one.
 const STATIC_PAGES = ['/login.html', '/app.html', '/success.html'];
 
 // Paths that carry a secret in the URL (reset link, guest claim, checkout
@@ -59,16 +61,12 @@ function buildHeaderRules() {
       ],
     },
   ];
-  const sources = [...new Set([...STATIC_PAGES, ...NO_REFERRER_PATHS])];
-  for (const source of sources) {
-    const headers = [];
-    if (STATIC_PAGES.includes(source)) {
-      headers.push({ key: 'Access-Control-Allow-Origin', value: SITE_ORIGIN });
-    }
-    if (NO_REFERRER_PATHS.includes(source)) {
-      headers.push({ key: 'Referrer-Policy', value: 'no-referrer' });
-    }
-    rules.push({ source, headers });
+  rules.push({
+    source: STATIC_HTML_SOURCE,
+    headers: [{ key: 'Access-Control-Allow-Origin', value: SITE_ORIGIN }],
+  });
+  for (const source of NO_REFERRER_PATHS) {
+    rules.push({ source, headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] });
   }
   return rules;
 }
@@ -102,6 +100,7 @@ if (require.main === module) {
 module.exports = {
   SITE_ORIGIN,
   HELMET_DEFAULTS,
+  STATIC_HTML_SOURCE,
   STATIC_PAGES,
   NO_REFERRER_PATHS,
   buildHeaderRules,
