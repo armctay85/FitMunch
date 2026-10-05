@@ -178,7 +178,7 @@
  <div class="foot"><a href="#" onclick="showTab('login'); return false;">← Back to sign in</a></div>
  </div>
 
- <!-- RESET PASSWORD PANEL (via emailed link ?reset=TOKEN) -->
+ <!-- RESET PASSWORD PANEL (via emailed link #reset=TOKEN, legacy ?reset= still accepted) -->
  <div class="panel" id="panel-reset">
  <div class="error-msg" id="reset-error"></div>
  <div class="success-msg" id="reset-success"></div>
@@ -221,16 +221,36 @@
 </div>
 
 <script>
- const urlParams = new URLSearchParams(window.location.search);
- const resetToken = urlParams.get('reset');
- if (resetToken) {
-  try {
-   const cleaned = new URLSearchParams(urlParams);
-   cleaned.delete('reset');
-   const qs = cleaned.toString();
-   window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
-  } catch (e) {}
+ function readParam(params, name) {
+  let found = '';
+  params.forEach((value, key) => {
+   if (key.toLowerCase() === name && value && !found) found = value;
+  });
+  return found;
  }
+ function readResetToken() {
+  const search = new URLSearchParams(window.location.search);
+  const rawHash = window.location.hash || '';
+  let hashParams;
+  try { hashParams = new URLSearchParams(rawHash.replace(/^#/, '')); }
+  catch (e) { hashParams = new URLSearchParams(); }
+  const fromHash = readParam(hashParams, 'reset');
+  const fromQuery = readParam(search, 'reset');
+  const token = fromHash || fromQuery;
+  if (fromHash || fromQuery) {
+   try {
+    const keys = [];
+    search.forEach((value, key) => { if (key.toLowerCase() === 'reset') keys.push(key); });
+    keys.forEach((key) => search.delete(key));
+    const qs = search.toString();
+    const nextHash = fromHash ? '' : rawHash;
+    window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + nextHash);
+   } catch (e) {}
+  }
+  return token;
+ }
+ const resetToken = readResetToken();
+ const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
@@ -415,9 +435,6 @@
  finally { btn.disabled = false; btn.textContent = 'Set new password'; }
  }
 
- // Deep links: ?reset=TOKEN opens the reset panel. The token is already off the address bar.
- if (resetToken) showReset();
-
  function setLoading(btnId, loading) {
  const btn = document.getElementById(btnId);
  btn.disabled = loading;
@@ -510,6 +527,8 @@
  });
  if (window.location.hash === '#register') showTab('register');
  if (plan === 'premium' && window.location.hash !== '#login') showTab('register');
+ // Fragment #reset=TOKEN is the email link. Legacy ?reset= is stripped above.
+ if (resetToken) showReset();
 
  // Enter key support
  document.addEventListener('keydown', e => {

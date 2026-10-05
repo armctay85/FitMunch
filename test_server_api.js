@@ -1,6 +1,8 @@
 /**
  * HTTP-level checks for server.js (health, JSON 404 for unknown /api routes).
  */
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 
@@ -16,8 +18,13 @@ describe('Server API shell', () => {
   });
 
   it('GET /funnel and /funnel.html require an analytics key', async () => {
-    await request(app).get('/funnel').expect(401);
-    await request(app).get('/funnel.html').expect(401);
+    const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+    for (const p of ['/funnel', '/funnel.html']) {
+      const res = await request(app).get(p).expect(401);
+      // CSP and Permissions-Policy run before the key gate, so the 401 has them.
+      expect(res.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
+      expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
+    }
   });
 
   it('GET /api/stripe-test is not a public probe', async () => {
@@ -163,6 +170,100 @@ describe('Server API shell', () => {
     await request(app).get('/register').expect(301).expect('Location', '/login.html#register');
     await request(app).get('/auth').expect(301).expect('Location', '/login.html#register');
     await request(app).get('/register?plan=premium').expect(301).expect('Location', '/login.html?plan=premium#register');
+  });
+
+  it('login, app, and success pages send the same security headers as the rest of the site', async () => {
+    const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+    const { SITE_ORIGIN, staticHtmlPaths, buildHeaderRules, expectedVercelJson } = require('./scripts/vercel-headers');
+    const headerNames = [
+      'content-security-policy',
+      'cross-origin-opener-policy',
+      'cross-origin-resource-policy',
+      'origin-agent-cluster',
+      'permissions-policy',
+      'referrer-policy',
+      'strict-transport-security',
+      'x-content-type-options',
+      'x-dns-prefetch-control',
+      'x-download-options',
+      'x-permitted-cross-domain-policies',
+      'x-xss-protection',
+    ];
+    const home = await request(app).get('/').expect(200);
+    // One policy source: Express sends lib/security-headers.js as written.
+    expect(home.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
+    expect(home.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
+    const pages = [
+      { path: '/login', status: 301, referrer: 'no-referrer' },
+      { path: '/login.html', status: 200, referrer: 'no-referrer' },
+      { path: '/app', status: 302, referrer: home.headers['referrer-policy'] },
+      { path: '/app.html', status: 200, referrer: home.headers['referrer-policy'] },
+      { path: '/success.html', status: 200, referrer: 'no-referrer' },
+      { path: '/checkout/success', status: 200, referrer: 'no-referrer' },
+      { path: '/checkout/success?session_id=cs_test_abc', status: 200, referrer: 'no-referrer' },
+    ];
+    for (const page of pages) {
+      const res = await request(app).get(page.path).expect(page.status);
+      for (const name of headerNames) {
+        const expected = name === 'referrer-policy' ? page.referrer : home.headers[name];
+        expect([page.path, name, res.headers[name]]).toEqual([page.path, name, expected]);
+      }
+      expect(res.headers['access-control-allow-origin']).not.toBe('*');
+    }
+
+    // public/*.html is served by the Vercel CDN before the rewrite, so Express
+    // never runs. vercel.json is generated from lib/security-headers.js by
+    // scripts/vercel-headers.js; any hand edit or policy drift fails here.
+    const vercelText = fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8');
+    expect(vercelText).toBe(expectedVercelJson());
+    const vercel = JSON.parse(vercelText);
+    expect(vercel.headers).toEqual(buildHeaderRules());
+    const sources = vercel.headers.map((rule) => rule.source);
+    expect(new Set(sources).size).toBe(sources.length);
+    const cspValues = [];
+    for (const rule of vercel.headers) {
+      for (const header of rule.headers) {
+        if (header.key.toLowerCase() === 'content-security-policy') cspValues.push(header.value);
+      }
+    }
+    expect(cspValues).toEqual([CONTENT_SECURITY_POLICY]);
+
+    // Vercel applies every matching rule in order; the last value wins.
+    const mergedFor = (page) => {
+      const merged = {};
+      for (const rule of vercel.headers) {
+        if (rule.source !== '/(.*)' && rule.source !== page) continue;
+        for (const header of rule.headers) merged[header.key.toLowerCase()] = header.value;
+      }
+      return merged;
+    };
+    // Literal sources only (the catch-all aside).
+    for (const source of sources) {
+      if (source !== '/(.*)') expect([source, /[()*:?+]/.test(source)]).toEqual([source, false]);
+    }
+    const noReferrer = ['/login', '/login.html', '/success.html', '/checkout/success'];
+    const staticPages = staticHtmlPaths();
+    expect(staticPages).toContain('/brand/index.html');
+    expect(staticPages).toEqual(expect.arrayContaining(['/login.html', '/app.html', '/success.html']));
+    for (const page of staticPages) {
+      expect([page, mergedFor(page)['access-control-allow-origin']]).toEqual([page, SITE_ORIGIN]);
+    }
+    for (const page of ['/login.html', '/app.html', '/success.html']) {
+      const merged = mergedFor(page);
+      for (const name of headerNames) {
+        const expected = name === 'referrer-policy' && noReferrer.includes(page)
+          ? 'no-referrer'
+          : home.headers[name];
+        expect([page, name, merged[name]]).toEqual([page, name, expected]);
+      }
+      // The CDN adds Access-Control-Allow-Origin: * to static files unless a
+      // rule replaces it.
+      expect(merged['access-control-allow-origin']).toBe(SITE_ORIGIN);
+      expect(merged['access-control-allow-origin']).not.toBe('*');
+    }
+    for (const page of noReferrer) {
+      expect([page, mergedFor(page)['referrer-policy']]).toEqual([page, 'no-referrer']);
+    }
   });
 });
 

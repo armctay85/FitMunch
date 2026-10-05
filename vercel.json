@@ -1,17 +1,387 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci --omit=dev",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "private/funnel.html"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src 'self' https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
           "key": "Permissions-Policy",
           "value": "camera=(self), microphone=(), geolocation=(), payment=(self \"https://checkout.stripe.com\")"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "cross-origin"
+        },
+        {
+          "key": "Origin-Agent-Cluster",
+          "value": "?1"
+        },
+        {
+          "key": "X-DNS-Prefetch-Control",
+          "value": "off"
+        },
+        {
+          "key": "X-Download-Options",
+          "value": "noopen"
+        },
+        {
+          "key": "X-Permitted-Cross-Domain-Policies",
+          "value": "none"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "source": "/404.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/ai-meal-planner-australia.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/app.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/brand/",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/brand/index.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/budget-meal-planner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/checkout/success",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/coach-upgrade.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/coach.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/coles-meal-planner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/contact.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/demo.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/family-meal-plan.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/fitmunch-coach-vs-spreadsheets.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/for-pts.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/google3b5c73dd27c81eaf.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/haul-teardown.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/login",
+      "headers": [
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/login.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/macro-meal-planner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/meal-plan-for-one.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/meal-plan-software-personal-trainers.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/meal-prep-shopping-list.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/pricing.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/privacy.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/pt-client-meal-plans-woolworths.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/receipt-nutrition-scanner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/refund.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/shopper.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/success.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/support.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/terms.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/woolworths-meal-planner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
         }
       ]
     }
   ],
-  "regions": ["syd1"]
+  "regions": [
+    "syd1"
+  ]
 }

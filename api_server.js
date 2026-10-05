@@ -31,7 +31,7 @@ const { eq, and, desc, gte } = require('drizzle-orm');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
-const { consumePasswordReset, resetExpiresAt } = require('./lib/password-reset');
+const { consumePasswordReset, resetExpiresAt, passwordResetUrl } = require('./lib/password-reset');
 const {
   isCoachPlan,
   evaluateCoachClientGate,
@@ -516,7 +516,7 @@ router.post('/auth/forgot-password', async (req, res) => {
       [user.id, tokenHash, expires]
     );
 
-    const resetUrl = `https://www.fitmunch.com.au/login.html?reset=${token}`;
+    const resetUrl = passwordResetUrl(token);
     const { sendEmail } = require('./server/email.js');
     const r = await sendEmail({
       to: email,

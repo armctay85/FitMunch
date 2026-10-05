@@ -75,6 +75,12 @@ describe('Trust bar 3: funnel is not a public analytics UI', () => {
     expect(res.text).toContain('Conversion funnel');
     expect(res.text).not.toContain('FM_ANALYTICS_KEY');
     expect(res.headers['x-robots-tag']).toMatch(/noindex/i);
+    const html = await request(app).get('/funnel.html?key=trust-bar-funnel-key').expect(200);
+    expect(html.text).toContain('Conversion funnel');
+    expect(fs.existsSync(path.join(__dirname, 'public/funnel.html'))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, 'private/funnel.html'))).toBe(true);
+    const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
+    expect(vercel.functions['api/index.js'].includeFiles).toBe('private/funnel.html');
   });
 
   it('GET /api/analytics/funnel stays unauthorized without the key', async () => {
