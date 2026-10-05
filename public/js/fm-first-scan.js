@@ -5,7 +5,7 @@
 (function () {
   if (window.FMFirstScan) return;
 
-  var PREMIUM_HREF = '/login.html?plan=premium&utm_source=homepage&utm_medium=first_scan&utm_campaign=value_first#register';
+  var PREMIUM_HREF = '/login.html?plan=premium&utm_source=homepage&utm_medium=first_scan&utm_campaign=receipt_demo#register';
 
   function $(id) { return document.getElementById(id); }
 

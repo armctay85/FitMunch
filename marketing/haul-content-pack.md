@@ -1,6 +1,6 @@
 # Haul-format content pack (reuse weekly)
 
-UTM base: `utm_source=CHANNEL&utm_medium=social&utm_campaign=mrr_sprint`
+UTM base: `utm_source=CHANNEL&utm_medium=social&utm_campaign=free_signup`
 Always link: `https://www.fitmunch.com.au/haul-teardown?...` or Premium trial.
 
 ## Instagram carousel (5 slides)
@@ -8,7 +8,7 @@ Always link: `https://www.fitmunch.com.au/haul-teardown?...` or Premium trial.
 2. Protein lines table (chicken, yoghurt, eggs, milk)
 3. Four meals from the shop
 4. Next shop gaps
-5. CTA: "Run it on your receipt. Premium trial $19.99 AUD/mo" → login `?plan=premium&utm_source=instagram&utm_medium=carousel&utm_campaign=mrr_sprint`
+5. CTA: "Run it on your receipt. Premium trial $19.99 AUD/mo" → login `?plan=premium&utm_source=instagram&utm_medium=carousel&utm_campaign=premium_trial`
 
 Caption:
 ```
@@ -31,7 +31,7 @@ Ignore sticker price. Divide price by (protein grams / 25).
 Eggs, Greek yoghurt, chicken, tuna, lentils usually win at Woolies/Coles depending on the week.
 
 I logged a sample haul here (score + next shop list):
-https://www.fitmunch.com.au/haul-teardown?utm_source=reddit&utm_medium=organic&utm_campaign=mrr_sprint
+https://www.fitmunch.com.au/haul-teardown?utm_source=reddit&utm_medium=organic&utm_campaign=free_signup
 
 Happy to answer AU grocery/macro questions either way.
 ```
