@@ -11,7 +11,9 @@ const jwt = require('jsonwebtoken');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const aiUsage = require('./lib/ai-usage');
 const core = require('./lib/receipt-scan-core');
+const crypto = require('crypto');
 const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
+const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
 
 let visionOverride = null;
 function getVision() {
@@ -39,7 +41,56 @@ function requireAuth(req, res, next) {
 }
 
 const router = express.Router();
+router.use(attachApiJsonSanitizer);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// In-memory store, one window per server instance. A second isolate does not share the count.
+// Key on req.ip. trust proxy is 1, so this is the hop the proxy appended,
+// not a client-supplied X-Forwarded-For or X-Real-IP.
+function sampleClientKey(req) {
+  const raw = req.ip || '';
+  if (!raw) return 'missing-ip';
+  try {
+    return ipKeyGenerator(raw);
+  } catch (_) {
+    return `ip:${raw}`;
+  }
+}
+
+const sampleLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: sampleClientKey,
+  handler(req, res, _next, options) {
+    const info = req.rateLimit;
+    const resetMs = info && info.resetTime ? new Date(info.resetTime).getTime() - Date.now() : options.windowMs;
+    res.set('Retry-After', String(Math.max(1, Math.ceil(resetMs / 1000))));
+    res.status(429).json({ success: false, error: 'Too many requests' });
+  },
+});
+
+function sampleIsHidden() {
+  if (process.env.VERCEL_ENV === 'production') return true;
+  if (process.env.NODE_ENV === 'production' && !process.env.RECEIPT_SAMPLE_KEY) return true;
+  return false;
+}
+
+function sampleKeyOk(req) {
+  const expected = String(process.env.RECEIPT_SAMPLE_KEY || '');
+  const provided = String(req.headers['x-receipt-sample-key'] || '');
+  if (!expected || !provided) return false;
+  const a = crypto.createHash('sha256').update(expected).digest();
+  const b = crypto.createHash('sha256').update(provided).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function sampleGate(req, res, next) {
+  if (sampleIsHidden()) return res.status(404).json({ success: false, error: 'Not found' });
+  if (!sampleKeyOk(req)) return res.status(401).json({ success: false, error: 'Unauthorised' });
+  return next();
+}
 
 const firstScanLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -93,7 +144,7 @@ router.get('/', (_req, res) => res.json({
     'POST /api/receipt/scan': 'Upload receipt image (multipart or base64 JSON) — requires auth',
     'POST /api/receipt/first-scan': 'Stranger first haul. No account. Never returns a sample shop as yours.',
     'GET /api/receipt/scan': 'Returns method info',
-    'GET /api/receipt/sample': 'Smoke-test Gemini Vision receipt scanning (no auth, uses sample data)',
+    'GET /api/receipt/sample': 'Smoke test for receipt scanning. Hidden in production. Preview and dev require a key.',
   },
 }));
 
@@ -229,57 +280,45 @@ router.get('/first-scan', (_req, res) => res.json({
   accepts: 'multipart/form-data (field: receipt) OR JSON {image: base64DataUrl, mimeType}',
 }));
 
-// ── SAMPLE / SMOKE TEST ENDPOINT (no auth) ────────────────────────────────
-router.get('/sample', async (_req, res) => {
+// Preview and dev only. Production 404s. Key required. Five calls per 10 minutes per IP.
+router.get('/sample', sampleLimiter, sampleGate, async (_req, res) => {
+  const configured = Boolean(process.env.GEMINI_API_KEY);
   const result = {
+    success: configured,
     endpoint: '/api/receipt/sample',
-    description: 'Smoke test for Gemini Vision receipt scanning',
-    aiClient: {
-      hasProvider: require('./lib/ai-client').hasProvider(),
-      providerName: require('./lib/ai-client').providerName(),
-    },
+    description: 'Smoke test for receipt scanning',
+    configured,
   };
 
-  if (!process.env.GEMINI_API_KEY) {
-    result.geminiConfigured = false;
-    result.error = 'GEMINI_API_KEY not set in environment';
-    result.setup = 'Add GEMINI_API_KEY to Vercel → fit-munch project → Environment Variables';
+  if (!configured) {
+    result.error = 'Receipt scanning is not configured';
     return res.json(result);
   }
 
-  result.geminiConfigured = true;
-
   try {
-    const { vision: geminiVisionFn } = require('./lib/ai-client');
-
-    const visionResult = await geminiVisionFn({
+    const ai = require('./lib/ai-client');
+    const visionResult = await ai.vision({
       imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
       mimeType: 'image/png',
       prompt: 'This is a test. Respond with exactly: OK',
     });
-
-    result.visionTest = {
+    console.info('[receipt-scan] sample', {
       ok: visionResult.ok,
       provider: visionResult.provider,
       model: visionResult.model,
-      responsePreview: (visionResult.text || '').slice(0, 100),
-    };
-
+    });
+    result.visionOk = Boolean(visionResult.ok);
     if (!visionResult.ok) {
-      result.visionTest.error = visionResult.error;
+      result.success = false;
+      result.error = 'Receipt scanning is unavailable';
     }
-
-    result.receiptCapability = {
-      note: 'Gemini Vision is reachable. POST /api/receipt/scan (with auth + receipt image) to test full extraction.',
-      geminiVisionModel: require('./lib/ai-client').geminiVisionModel(),
-      geminiChatModel: require('./lib/ai-client').geminiModel(),
-    };
   } catch (err) {
-    console.error('[receipt-scan] sample vision', err);
-    result.visionTest = { ok: false, error: GENERIC_API_ERROR };
+    console.error('[receipt-scan] sample vision', err && (err.code || err.name || 'Error'));
+    result.success = false;
+    result.error = 'Receipt scanning is unavailable';
   }
 
-  res.json(result);
+  return res.json(result);
 });
 
 router._setVisionForTests = (fn) => { visionOverride = fn; };

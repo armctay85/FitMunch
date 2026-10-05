@@ -1,0 +1,35 @@
+name: Post-deploy probe
+
+on:
+  deployment_status:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    # Preview deploys do not change fitmunch.com.au. Probe those hosts after a
+    # Production deployment succeeds, on the 6 hour schedule, and on dispatch.
+    if: >-
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || (
+        github.event_name == 'deployment_status'
+        && github.event.deployment_status.state == 'success'
+        && contains(github.event.deployment.environment, 'Production')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Probe fitmunch.com.au and www
+        run: node scripts/post-deploy-probe.mjs
