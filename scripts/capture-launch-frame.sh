@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wait until the app under test holds its launch screen, then photograph it.
+# Photograph the system launch screen while the app holds it.
 # Usage: capture-launch-frame.sh <simulator-udid> <output-directory>
 set -u
 
@@ -9,7 +9,7 @@ mkdir -p "$OUT"
 DEVICE="${HOME}/Library/Developer/CoreSimulator/Devices/${UDID}"
 
 xcrun simctl spawn "$UDID" log stream --level info --style compact \
-  --predicate 'eventMessage CONTAINS "LAUNCH_FRAME_HOLD" OR composedMessage CONTAINS "LAUNCH_FRAME_HOLD"' \
+  --predicate 'composedMessage CONTAINS "LAUNCH_FRAME_HOLD"' \
   > "$OUT/log.txt" 2>&1 &
 LOGPID=$!
 cleanup() {
@@ -17,56 +17,58 @@ cleanup() {
 }
 trap cleanup EXIT
 
-fast_flag() {
+shot() {
+  local name="$1"
+  xcrun simctl io "$UDID" screenshot "$OUT/$name" >/dev/null 2>&1 || true
+}
+
+app_running() {
+  pgrep -f "Devices/${UDID}/.*FitMunch\\.app/FitMunch" >/dev/null 2>&1
+}
+
+flag_ready() {
   local path
   for path in \
+    "$HOME/fitmunch-launch-holding" \
     "$DEVICE/data/tmp/fitmunch-launch-holding" \
     "$DEVICE/data/private/tmp/fitmunch-launch-holding" \
     "$DEVICE/data/Library/Shared/fitmunch-launch-holding"
   do
     if [[ -f "$path" ]]; then
-      echo "flag=${path}"
+      echo "flag=${path}" >> "$OUT/log.txt"
       return 0
     fi
   done
   return 1
 }
 
-hit=0
+burst() {
+  echo "bursting launch screenshots" >> "$OUT/log.txt"
+  local n=0
+  local deadline=$((SECONDS + 16))
+  while (( SECONDS < deadline )); do
+    shot "$(printf 'frame-%03d.png' "$n")"
+    n=$((n + 1))
+    sleep 0.3
+  done
+  echo "burst count=$n" >> "$OUT/log.txt"
+}
+
+slow=0
 for i in $(seq 1 2400); do
-  if grep -q LAUNCH_FRAME_HOLD "$OUT/log.txt" 2>/dev/null; then
-    echo "saw LAUNCH_FRAME_HOLD in the device log at poll ${i}" >> "$OUT/log.txt"
-    hit=1
-    break
+  if (( i % 8 == 0 )); then
+    shot "$(printf 'slow-%03d.png' "$slow")"
+    slow=$((slow + 1))
   fi
-  if flag_path="$(fast_flag)"; then
-    echo "${flag_path} at poll ${i}" >> "$OUT/log.txt"
-    hit=1
+  if app_running || flag_ready || grep -q LAUNCH_FRAME_HOLD "$OUT/log.txt" 2>/dev/null; then
+    echo "launch detected at poll ${i}" >> "$OUT/log.txt"
+    burst
     break
-  fi
-  if (( i % 3 == 0 )); then
-    found="$(find \
-      "$DEVICE/data/Containers/Data/Application" \
-      "$DEVICE/data/tmp" \
-      "$DEVICE/data/private/tmp" \
-      "$DEVICE/data/Library" \
-      -maxdepth 5 \
-      -name fitmunch-launch-holding -print -quit 2>/dev/null || true)"
-    if [[ -n "$found" ]]; then
-      echo "flag=${found}" >> "$OUT/log.txt"
-      hit=1
-      break
-    fi
   fi
   sleep 0.5
 done
 
-if [[ "$hit" == "1" ]]; then
-  sleep 0.35
-  xcrun simctl io "$UDID" screenshot "$OUT/launch.png" || echo "screenshot failed" >> "$OUT/log.txt"
-  sleep 0.45
-  xcrun simctl io "$UDID" screenshot "$OUT/launch-b.png" || true
-else
+if ! ls "$OUT"/frame-*.png >/dev/null 2>&1 && ! ls "$OUT"/slow-*.png >/dev/null 2>&1; then
   echo "LAUNCH_FRAME_HOLD was not seen" >> "$OUT/log.txt"
 fi
 

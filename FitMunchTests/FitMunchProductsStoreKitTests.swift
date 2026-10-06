@@ -8,9 +8,17 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
     private var session: SKTestSession!
 
     override func setUp() async throws {
-        session = try SKTestSession(configurationFileNamed: "FitMunchProducts")
-        session.disableDialogs = true
-        session.resetToDefaultState()
+        // StoreKitBootstrap.m installs the session before the host app launches.
+        // A second session throws; the first one stays active.
+        if session != nil { return }
+        do {
+            let created = try SKTestSession(configurationFileNamed: "FitMunchProducts")
+            created.disableDialogs = true
+            created.resetToDefaultState()
+            session = created
+        } catch {
+            NSLog("SKTestSession already active: \(error.localizedDescription)")
+        }
     }
 
     func testBothProductsMatchTheStoreKitFile() async throws {

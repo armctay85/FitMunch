@@ -14,13 +14,15 @@ enum LaunchFrameCapture {
             URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name),
             URL(fileURLWithPath: "/tmp").appendingPathComponent(name),
         ]
-        if let shared = ProcessInfo.processInfo.environment["SIMULATOR_SHARED_RESOURCES_DIRECTORY"], !shared.isEmpty {
-            urls.append(URL(fileURLWithPath: shared).appendingPathComponent(name))
+        for key in ["SIMULATOR_SHARED_RESOURCES_DIRECTORY", "SIMULATOR_HOST_HOME"] {
+            if let shared = ProcessInfo.processInfo.environment[key], !shared.isEmpty {
+                urls.append(URL(fileURLWithPath: shared).appendingPathComponent(name))
+            }
         }
         for url in urls {
             try? Data("hold".utf8).write(to: url)
         }
-        Thread.sleep(forTimeInterval: 10)
+        Thread.sleep(forTimeInterval: 14)
         #endif
     }
 }

@@ -97,7 +97,8 @@ def score(path: Path):
     dark_bottom_ratio = dark_bottom / max(bottom_samples, 1)
     dark_top_ratio = dark_top / max(top_samples, 1)
     value = white_ratio * 3 + green_ratio * 6 - dark_bottom_ratio * 5 - dark_top_ratio * 3
-    ok = white_ratio > 0.72 and green_ratio > 0.01 and dark_bottom_ratio < 0.04 and dark_top_ratio < 0.08
+    # The system launch screen is almost entirely white. Today and the paywall are not.
+    ok = white_ratio > 0.85 and green_ratio > 0.008 and dark_bottom_ratio < 0.08 and dark_top_ratio < 0.12
     print(
         f"{path.name} {width}x{height} white={white_ratio:.3f} green={green_ratio:.3f} "
         f"dark_bottom={dark_bottom_ratio:.3f} dark_top={dark_top_ratio:.3f} "
@@ -109,13 +110,22 @@ def score(path: Path):
 def main() -> None:
     source = Path(sys.argv[1])
     dest = Path(sys.argv[2])
-    candidates = [source / name for name in ("launch.png", "launch-b.png") if (source / name).is_file()]
+    candidates = sorted(path for path in source.glob("*.png") if path.is_file())
     if not candidates:
         log = source / "log.txt"
         if log.is_file():
             print(log.read_text()[-2000:])
         sys.exit(f"no launch screenshot in {source}")
-    ranked = [score(path) for path in candidates]
+    ranked = []
+    for path in candidates:
+        try:
+            ranked.append(score(path))
+        except SystemExit as error:
+            print(f"skip {path.name}: {error}")
+        except Exception as error:
+            print(f"skip {path.name}: {error}")
+    if not ranked:
+        sys.exit(f"no readable launch screenshot in {source}")
     ranked.sort(key=lambda item: item[1], reverse=True)
     ok, _value, path = ranked[0]
     if not ok:
