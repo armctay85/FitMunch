@@ -71,6 +71,19 @@ enum PaywallLaunchArgument {
     static let forceEmpty = "-PaywallForceEmpty"
     static let localStoreKit = "-UseLocalStoreKit"
     static let sandboxProbe = "-SandboxProductProbe"
+
+    /// Launch arguments are test hooks. Release builds ignore them.
+    static var isForceEmpty: Bool { flag(forceEmpty) }
+    static var isLocalStoreKit: Bool { flag(localStoreKit) }
+    static var isSandboxProbe: Bool { flag(sandboxProbe) }
+
+    private static func flag(_ name: String) -> Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains(name)
+        #else
+        return false
+        #endif
+    }
 }
 
 enum PaywallPeriodUnit: String, Equatable {
@@ -93,7 +106,6 @@ enum PaywallPricing {
 
     struct TrialTimeline: Equatable {
         var today: String
-        var remind: String
         var billed: String
     }
 
@@ -141,6 +153,25 @@ enum PaywallPricing {
         }
     }
 
+    /// "{displayPrice}/year" from StoreKit's displayPrice and period. No typed amount.
+    static func priceWithPeriod(displayPrice: String, periodUnit: PaywallPeriodUnit) -> String {
+        "\(displayPrice)/\(billingPeriodWord(periodUnit))"
+    }
+
+    /// One-line auto-renew disclosure. The price and period come from the loaded product.
+    static func renewalTerms(
+        displayPrice: String,
+        periodUnit: PaywallPeriodUnit,
+        intro: PaywallIntroOffer?,
+        eligible: Bool
+    ) -> String {
+        let price = priceWithPeriod(displayPrice: displayPrice, periodUnit: periodUnit)
+        if let intro, intro.isFreeTrial, eligible {
+            return "\(introLengthLabel(intro)) free trial, then \(price). Renews automatically. Cancel anytime in Settings."
+        }
+        return "\(price). Renews automatically. Cancel anytime in Settings."
+    }
+
     static func introLengthLabel(_ intro: PaywallIntroOffer) -> String {
         "\(intro.periodValue)-\(billingPeriodWord(intro.periodUnit))"
     }
@@ -171,14 +202,14 @@ enum PaywallPricing {
         return CTA(title: "Subscribe for \(displayPrice)/\(period)", subline: nil)
     }
 
-    /// Day 12 / Day 14 when the intro is 14 days. Hidden unless that offer exists.
+    /// Trial timeline only when StoreKit has a free intro and the account is eligible.
+    /// No reminder row: nothing on this screen schedules a local notification.
     static func trialTimeline(intro: PaywallIntroOffer?, eligible: Bool) -> TrialTimeline? {
         guard eligible, let intro, intro.isFreeTrial else { return nil }
         let days = introDays(intro)
-        guard days >= 2 else { return nil }
+        guard days >= 1 else { return nil }
         return TrialTimeline(
             today: "Today full access",
-            remind: "Day \(days - 2) we remind you",
             billed: "Day \(days) billed"
         )
     }

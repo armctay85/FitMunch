@@ -39,7 +39,7 @@ class PremiumManager: ObservableObject {
         }
         // A configured RevenueCat key otherwise returns the live storefront
         // (CI saw US $99.99 / $12.99) and hides the StoreKit configuration file.
-        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit) {
+        if PaywallLaunchArgument.isLocalStoreKit {
             print("RevenueCat skipped: -UseLocalStoreKit")
             return
         }
@@ -61,7 +61,9 @@ class PremiumManager: ObservableObject {
         }
         guard !Purchases.isConfigured else { return }
 
+        #if DEBUG
         Purchases.logLevel = .debug
+        #endif
         Purchases.configure(withAPIKey: Constants.revenueCatApiKey)
 
         Task {
@@ -137,7 +139,7 @@ class PremiumManager: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if canUsePurchases && !localOnly {
             let restored = await withTimeout(seconds: 8) {
                 await self.restoreFromRevenueCat()
@@ -205,7 +207,7 @@ class PremiumManager: ObservableObject {
         fetchToken = token
         planHandles = [:]
 
-        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.forceEmpty) {
+        if PaywallLaunchArgument.isForceEmpty {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard fetchToken == token else { return [] }
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
@@ -214,7 +216,7 @@ class PremiumManager: ObservableObject {
         }
 
         var loaded = LoadedPlans()
-        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        let localOnly = PaywallLaunchArgument.isLocalStoreKit
 
         if !localOnly && canUsePurchases {
             loaded = await withTimeout(seconds: 4) {
@@ -231,11 +233,6 @@ class PremiumManager: ObservableObject {
                 await self.plansFromStoreKit()
             } ?? LoadedPlans()
         }
-        // CI simulators often ignore the .storekit file and return another storefront.
-        // The audit launch argument keeps the local catalog prices on screen.
-        if localOnly && !Self.matchesLocalCatalog(loaded.plans) {
-            loaded = Self.localCatalogPlans()
-        }
 
         guard fetchToken == token else { return [] }
         planHandles = loaded.handles
@@ -247,50 +244,6 @@ class PremiumManager: ObservableObject {
         noteFetch(loaded.plans)
         print("FitMunch plans fetched: \(lastPlanFetchSummary)")
         return loaded.plans
-    }
-
-    private static func matchesLocalCatalog(_ plans: [PaywallPlan]) -> Bool {
-        let monthly = plans.first { $0.id == Constants.ProductIDs.monthly }
-        let annual = plans.first { $0.id == Constants.ProductIDs.annual }
-        guard let monthly, let annual else { return false }
-        return monthly.priceString.contains("19.99") && annual.priceString.contains("149.99")
-    }
-
-    /// Same prices and 14-day free intro as FitMunchProducts.storekit.
-    /// Used only for `-UseLocalStoreKit` when the simulator storefront does not match.
-    /// These plans have no StoreKit product handle, so purchase stays on the paywall.
-    private static func localCatalogPlans() -> LoadedPlans {
-        let monthly = Decimal(string: "19.99") ?? 0
-        let annual = Decimal(string: "149.99") ?? 0
-        let intro = PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true)
-        var loaded = LoadedPlans()
-        loaded.plans = [
-            PaywallPlan(
-                id: Constants.ProductIDs.monthly,
-                title: "Monthly Premium",
-                description: "Billed every month",
-                priceString: PaywallPricing.format(amount: monthly, currencyCode: "AUD"),
-                amount: monthly,
-                currencyCode: "AUD",
-                periodUnit: .month,
-                periodValue: 1,
-                intro: intro,
-                eligibleForIntro: true
-            ),
-            PaywallPlan(
-                id: Constants.ProductIDs.annual,
-                title: "Annual Premium",
-                description: "Billed once a year",
-                priceString: PaywallPricing.format(amount: annual, currencyCode: "AUD"),
-                amount: annual,
-                currencyCode: "AUD",
-                periodUnit: .year,
-                periodValue: 1,
-                intro: intro,
-                eligibleForIntro: true
-            ),
-        ]
-        return loaded
     }
 
     private func noteFetch(_ plans: [PaywallPlan]) {
@@ -499,7 +452,7 @@ class PremiumManager: ObservableObject {
     }
 
     private func restoreFromStoreKit() async -> Bool {
-        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if !localOnly {
             _ = await withTimeout(seconds: 8) {
                 do {

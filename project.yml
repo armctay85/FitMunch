@@ -96,6 +96,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunchTests
+      - path: FitMunchUITests/FitMunchProducts.storekit
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.tests
@@ -105,6 +107,8 @@ targets:
         TEST_TARGET_NAME: FitMunch
     dependencies:
       - target: FitMunch
+      - sdk: StoreKit.framework
+      - sdk: StoreKitTest.framework
 
   FitMunchUITests:
     type: bundle.ui-testing

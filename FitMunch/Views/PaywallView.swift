@@ -31,7 +31,7 @@ struct PaywallView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 28) {
+                VStack(spacing: 16) {
                     headerSection
                     if plansLoadFailed {
                         emptyPlansSection
@@ -41,12 +41,12 @@ struct PaywallView: View {
                         trialTimelineSection(timeline)
                     }
                     pricingSection
-                    purchaseSection
-                    footnoteSection
-                    sandboxProbeSection
                 }
-                .padding(.vertical)
+                .padding(.horizontal)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
             }
+            .contentMargins(.top, 0, for: .scrollContent)
             .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -64,6 +64,9 @@ struct PaywallView: View {
             }
             .refreshable {
                 await loadPlansWithRetry()
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomBar
             }
             .overlay {
                 if isLoadingPlans && plans.isEmpty {
@@ -103,12 +106,11 @@ struct PaywallView: View {
     // MARK: - Sections
 
     private var headerSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 8) {
             Text("Eat to your goals with every shop")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+                .font(.title.weight(.bold))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("paywall-headline")
 
             if isLoadingPlans {
@@ -117,30 +119,26 @@ struct PaywallView: View {
                     .accessibilityIdentifier("paywall-load-phase")
             }
         }
-        .padding(.top)
     }
 
     private var benefitsSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             ForEach(PaywallBenefits.rows, id: \.title) { row in
                 BenefitRow(icon: row.icon, title: row.title, tint: Theme.green)
             }
         }
-        .padding(.horizontal)
     }
 
     @ViewBuilder
     private func trialTimelineSection(_ timeline: PaywallPricing.TrialTimeline) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             timelineRow("1", timeline.today)
-            timelineRow("2", timeline.remind)
-            timelineRow("3", timeline.billed)
+            timelineRow("2", timeline.billed)
         }
-        .padding()
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.gray.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("paywall-trial-timeline")
     }
@@ -151,7 +149,7 @@ struct PaywallView: View {
                 .font(.caption.weight(.bold))
                 .foregroundColor(.white)
                 .frame(width: 22, height: 22)
-                .background(Theme.green)
+                .background(Theme.buttonGreen)
                 .clipShape(Circle())
             Text(text)
                 .font(.subheadline)
@@ -161,7 +159,7 @@ struct PaywallView: View {
     @ViewBuilder
     private var pricingSection: some View {
         if !plans.isEmpty {
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 ForEach(displayPlans) { plan in
                     PackageCard(
                         plan: plan,
@@ -172,7 +170,6 @@ struct PaywallView: View {
                     )
                 }
             }
-            .padding(.horizontal)
             .accessibilityIdentifier("paywall-plans")
         }
     }
@@ -188,72 +185,44 @@ struct PaywallView: View {
             }
             .buttonStyle(.bordered)
             .accessibilityIdentifier("paywall-retry")
-            Button("Restore") {
+            Button("Restore Purchases") {
                 Task { await restore() }
             }
             .buttonStyle(.bordered)
             .accessibilityIdentifier("paywall-restore-inline")
         }
-        .padding(.horizontal)
         .accessibilityIdentifier("paywall-error-state")
     }
 
     @ViewBuilder
     private var sandboxProbeSection: some View {
-        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.sandboxProbe) {
+        #if DEBUG
+        if PaywallLaunchArgument.isSandboxProbe {
             Text(premiumManager.lastPlanFetchSummary.isEmpty ? "probe:pending" : "probe:\(premiumManager.lastPlanFetchSummary)")
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.secondaryText)
                 .accessibilityIdentifier("sandbox-probe-summary")
         }
+        #endif
     }
 
-    @ViewBuilder
-    private var purchaseSection: some View {
-        if let plan = selectedPlan, !plans.isEmpty {
-            let cta = PaywallPricing.cta(
-                displayPrice: plan.priceString,
-                periodUnit: plan.periodUnit,
-                intro: plan.intro,
-                eligible: plan.eligibleForIntro
-            )
-            Button {
-                Task { await purchase(plan) }
-            } label: {
-                if premiumManager.isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                } else {
-                    VStack(spacing: 2) {
-                        Text(cta.title)
-                            .font(.system(size: 17, weight: .semibold))
-                        if let subline = cta.subline {
-                            Text(subline)
-                                .font(.footnote)
-                        }
-                    }
-                    .foregroundColor(.white)
+    private var bottomBar: some View {
+        VStack(spacing: 8) {
+            sandboxProbeSection
+            if let plan = selectedPlan, !plans.isEmpty {
+                Text(renewalLine(plan))
+                    .font(.caption)
+                    .foregroundStyle(Theme.secondaryText)
                     .multilineTextAlignment(.center)
-                }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("paywall-renewal")
+                subscribeButton(plan)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Theme.green)
-            .cornerRadius(12)
-            .padding(.horizontal)
-            .disabled(premiumManager.isLoading)
-            .accessibilityIdentifier("paywall-subscribe")
-            .accessibilityLabel(purchaseAccessibilityLabel(cta))
-        }
-    }
-
-    private var footnoteSection: some View {
-        VStack(spacing: 10) {
-            Button("Restore") {
+            Button("Restore Purchases") {
                 Task { await restore() }
             }
-            .font(.footnote)
-            .foregroundColor(.secondary)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
             .accessibilityIdentifier("paywall-restore")
 
             HStack(spacing: 6) {
@@ -265,15 +234,61 @@ struct PaywallView: View {
                     open("https://fitmunch.com.au/privacy")
                 }
             }
-            .font(.footnote)
-            .foregroundColor(.secondary)
-
-            Text("Payment will be charged to your Apple ID account at the confirmation of purchase. Subscription automatically renews unless it is canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions by going to your account settings on the App Store after purchase.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity)
+        .background(.background)
+    }
+
+    private func subscribeButton(_ plan: PaywallPlan) -> some View {
+        let cta = PaywallPricing.cta(
+            displayPrice: plan.priceString,
+            periodUnit: plan.periodUnit,
+            intro: plan.intro,
+            eligible: plan.eligibleForIntro
+        )
+        return Button {
+            Task { await purchase(plan) }
+        } label: {
+            if premiumManager.isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            } else {
+                VStack(spacing: 2) {
+                    Text(cta.title)
+                        .font(.system(size: 17, weight: .semibold))
+                    if let subline = cta.subline {
+                        Text(subline)
+                            .font(.footnote)
+                    }
+                }
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+            }
+        }
+        .background(Theme.buttonGreen)
+        .cornerRadius(12)
+        .disabled(premiumManager.isLoading)
+        .accessibilityIdentifier("paywall-subscribe")
+        .accessibilityLabel(purchaseAccessibilityLabel(cta))
+    }
+
+    private func renewalLine(_ plan: PaywallPlan) -> String {
+        PaywallPricing.renewalTerms(
+            displayPrice: plan.priceString,
+            periodUnit: plan.periodUnit,
+            intro: plan.intro,
+            eligible: plan.eligibleForIntro
+        )
     }
 
     private var trialTimeline: PaywallPricing.TrialTimeline? {
@@ -288,7 +303,6 @@ struct PaywallView: View {
         }
         if let timeline = trialTimeline {
             parts.append(timeline.today)
-            parts.append(timeline.remind)
             parts.append(timeline.billed)
         }
         return parts.joined(separator: ". ")
@@ -297,7 +311,7 @@ struct PaywallView: View {
     // MARK: - Methods
 
     /// Shows loading immediately. Retries once with backoff before the error state.
-    /// The error is the only empty state. The screen keeps the headline, Retry, and Restore.
+    /// The error is the only empty state. The screen keeps the headline, Retry, and Restore Purchases.
     private func loadPlansWithRetry() async {
         await premiumManager.loadPaywallPlans()
         if let current = selectedPlan, plans.contains(where: { plan in plan.id == current.id }) {
@@ -357,6 +371,10 @@ private struct PackageCard: View {
 
     private var isAnnual: Bool { plan.id == Constants.ProductIDs.annual }
 
+    private var priceLine: String {
+        PaywallPricing.priceWithPeriod(displayPrice: plan.priceString, periodUnit: plan.periodUnit)
+    }
+
     private var perWeek: String? {
         guard isAnnual else { return nil }
         return PaywallPricing.perWeekLabel(annual: plan.amount, currencyCode: plan.currencyCode)
@@ -369,7 +387,7 @@ private struct PackageCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(plan.title)
                         .font(.headline)
@@ -381,7 +399,7 @@ private struct PackageCard: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(brandGreen.opacity(0.15))
-                            .foregroundColor(brandGreen)
+                            .foregroundColor(Theme.buttonGreen)
                             .clipShape(Capsule())
                     }
                     if isSelected {
@@ -389,23 +407,23 @@ private struct PackageCard: View {
                             .foregroundColor(brandGreen)
                     }
                 }
-                Text(plan.priceString)
-                    .font(.title2.weight(.bold))
+                Text(priceLine)
+                    .font(.title3.weight(.bold))
                     .accessibilityIdentifier("paywall-price-\(plan.id)")
                 if let perWeek {
                     Text(perWeek)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(Theme.secondaryText)
                         .accessibilityIdentifier("paywall-per-week-\(plan.id)")
                 }
                 if let savingsPercent {
                     Text("Save \(savingsPercent)%")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(brandGreen)
+                        .foregroundColor(Theme.buttonGreen)
                         .accessibilityIdentifier("paywall-save-\(plan.id)")
                 }
             }
-            .padding()
+            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isSelected ? brandGreen.opacity(0.08) : Color.gray.opacity(0.08))
             .cornerRadius(12)
@@ -420,7 +438,7 @@ private struct PackageCard: View {
     }
 
     private var voiceOverLabel: String {
-        var parts = [plan.title, plan.priceString]
+        var parts = [plan.title, priceLine]
         if let perWeek {
             parts.append(perWeek)
         }
@@ -443,7 +461,6 @@ private struct PackageCard: View {
             }
             if let timeline = PaywallPricing.trialTimeline(intro: plan.intro, eligible: plan.eligibleForIntro) {
                 parts.append(timeline.today)
-                parts.append(timeline.remind)
                 parts.append(timeline.billed)
             }
         }

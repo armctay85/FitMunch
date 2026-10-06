@@ -11,7 +11,7 @@ final class FullScreenWindowTests: XCTestCase {
         let slug = deviceSlug()
         let tag = shotTag()
         let app = XCUIApplication()
-        app.launchArguments = [ReviewLaunchArgument.flag, "-UseLocalStoreKit"]
+        app.launchArguments = [ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-CaptureLaunch"]
         app.launch()
 
         let today = app.navigationBars["Today"].waitForExistence(timeout: 25)
@@ -29,12 +29,23 @@ final class FullScreenWindowTests: XCTestCase {
             app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 8),
             "Paywall headline missing. The shot would not be the paywall."
         )
-        // Plans sit under the benefit rows, so they are omitted from the tree until scrolled in.
-        _ = scrollUntilHittable([
-            app.otherElements["paywall-plans"],
+        let annual = scrollUntilHittable([
             app.buttons["paywall-plan-fitmunch_annual"],
-            app.buttons["paywall-retry"],
+            app.staticTexts["paywall-price-fitmunch_annual"],
         ], in: app)
+        XCTAssertNotNil(annual, "Annual StoreKit plan missing. The paywall must not use a fake catalog.")
+        let annualPrice = app.staticTexts["paywall-price-fitmunch_annual"]
+        let annualLabel = annualPrice.exists ? annualPrice.label : (annual?.label ?? "")
+        XCTAssertTrue(annualLabel.contains("149.99"), "Annual price \(annualLabel)")
+        let monthly = scrollUntilHittable([
+            app.staticTexts["paywall-price-fitmunch_monthly"],
+            app.buttons["paywall-plan-fitmunch_monthly"],
+        ], in: app)
+        let monthlyPrice = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let monthlyLabel = monthlyPrice.exists ? monthlyPrice.label : (monthly?.label ?? "")
+        XCTAssertTrue(monthlyLabel.contains("19.99"), "Monthly price \(monthlyLabel)")
+        XCTAssertFalse(app.buttons["paywall-retry"].exists, "Retry state means StoreKit products did not load")
+        XCTAssertFalse(app.staticTexts["Day 12 we remind you"].exists)
         XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
         XCTAssertFalse(app.buttons["Continue on the web"].exists)
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)

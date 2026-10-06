@@ -58,7 +58,9 @@ jobs:
         xattr -cr RevenueCat.xcframework || true
 
     - name: Generate Xcode project
-      run: xcodegen generate
+      run: |
+        xcodegen generate
+        python3 scripts/ensure-storekit-scheme.py
 
     - name: Resolve packages
       run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch

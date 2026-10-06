@@ -49,7 +49,9 @@ jobs:
           xattr -cr RevenueCat.xcframework || true
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          python3 scripts/ensure-storekit-scheme.py
 
       - name: Build and check processed Info.plist
         run: |
@@ -136,10 +138,16 @@ jobs:
             rm -rf "$bundle"
             xcrun simctl boot "$udid" >/dev/null 2>&1 || true
             xcrun simctl bootstatus "$udid" -b || true
+            local cand="artifacts/ios-uitest/launch-candidates-${slug}"
+            rm -rf "$cand"
+            mkdir -p "$cand"
+            bash scripts/capture-launch-frame.sh "$udid" "$cand" \
+              > "artifacts/ios-uitest/launch-capture-${slug}.log" 2>&1 &
+            local watch_pid=$!
             set +e
             xcodebuild test \
               -project FitMunch.xcodeproj \
-              -scheme FitMunch \
+              -scheme FitMunchStoreKit \
               -destination "platform=iOS Simulator,id=$udid" \
               -only-testing:FitMunchUITests/FullScreenWindowTests \
               -resultBundlePath "$bundle" \
@@ -159,7 +167,7 @@ jobs:
             fi
             simroot="$HOME/Library/Developer/CoreSimulator/Devices/$udid"
             if [[ -d "$simroot" ]]; then
-              find "$simroot" -type f \( -name 'today-*.png' -o -name 'paywall-*.png' -o -name 'purchase-sheet*.png' -o -name 'sizes.txt' \) -print \
+              find "$simroot" -type f \( -name 'today-*.png' -o -name 'paywall-*.png' -o -name 'purchase-sheet*.png' -o -name 'launch-frame*.png' -o -name 'sizes.txt' \) -print \
                 | while read -r found; do
                     cp "$found" artifacts/ios-uitest/screenshots/ || true
                   done
@@ -173,9 +181,22 @@ jobs:
             find "$attach_dir" -type f -name '*.png' -print | while read -r png; do
               base=$(basename "$png")
               case "$base" in
-                today-*|paywall-*|purchase-sheet*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
+                today-*|paywall-*|purchase-sheet*|launch-frame*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
               esac
             done
+            kill "$watch_pid" >/dev/null 2>&1 || true
+            wait "$watch_pid" >/dev/null 2>&1 || true
+            local frame_name="launch-frame-6.5.png"
+            if [[ "$slug" == "pro-max" ]]; then
+              frame_name="launch-frame-6.9.png"
+            fi
+            if ! python3 scripts/pick-launch-frame.py "$cand" "artifacts/ios-uitest/screenshots/${frame_name}"; then
+              echo "Launch frame was not captured for $slug"
+              return 1
+            fi
+            if [[ "$slug" == "pro-max" ]]; then
+              cp "artifacts/ios-uitest/screenshots/${frame_name}" artifacts/ios-uitest/screenshots/launch-frame.png
+            fi
             if ! grep -q 'APP_FOREGROUND_SHOT ' "artifacts/ios-uitest/${slug}.log"; then
               echo "Missing APP_FOREGROUND_SHOT in $slug log. The capture was not the running app."
               return 1
@@ -210,6 +231,9 @@ jobs:
           test -f artifacts/ios-uitest/screenshots/paywall-6.9.png
           test -f artifacts/ios-uitest/screenshots/today-6.5.png
           test -f artifacts/ios-uitest/screenshots/paywall-6.5.png
+          test -f artifacts/ios-uitest/screenshots/launch-frame.png
+          test -f artifacts/ios-uitest/screenshots/launch-frame-6.9.png
+          test -f artifacts/ios-uitest/screenshots/launch-frame-6.5.png
           grep -q '440x956' artifacts/ios-uitest/pro-max.log
           grep -q '414x896' artifacts/ios-uitest/iphone-11-pro-max.log
           grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/pro-max.log
