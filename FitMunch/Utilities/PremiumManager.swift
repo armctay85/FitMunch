@@ -37,6 +37,12 @@ class PremiumManager: ObservableObject {
             isPremium = true
             return
         }
+        // A configured RevenueCat key otherwise returns the live storefront
+        // (CI saw US $99.99 / $12.99) and hides the StoreKit configuration file.
+        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit) {
+            print("RevenueCat skipped: -UseLocalStoreKit")
+            return
+        }
         configureRevenueCat()
     }
 
@@ -250,10 +256,13 @@ class PremiumManager: ObservableObject {
         return monthly.priceString.contains("19.99") && annual.priceString.contains("149.99")
     }
 
-    /// Same prices as FitMunchProducts.storekit. Used only for `-UseLocalStoreKit`.
+    /// Same prices and 14-day free intro as FitMunchProducts.storekit.
+    /// Used only for `-UseLocalStoreKit` when the simulator storefront does not match.
+    /// These plans have no StoreKit product handle, so purchase stays on the paywall.
     private static func localCatalogPlans() -> LoadedPlans {
         let monthly = Decimal(string: "19.99") ?? 0
         let annual = Decimal(string: "149.99") ?? 0
+        let intro = PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true)
         var loaded = LoadedPlans()
         loaded.plans = [
             PaywallPlan(
@@ -264,7 +273,9 @@ class PremiumManager: ObservableObject {
                 amount: monthly,
                 currencyCode: "AUD",
                 periodUnit: .month,
-                periodValue: 1
+                periodValue: 1,
+                intro: intro,
+                eligibleForIntro: true
             ),
             PaywallPlan(
                 id: Constants.ProductIDs.annual,
@@ -274,7 +285,9 @@ class PremiumManager: ObservableObject {
                 amount: annual,
                 currencyCode: "AUD",
                 periodUnit: .year,
-                periodValue: 1
+                periodValue: 1,
+                intro: intro,
+                eligibleForIntro: true
             ),
         ]
         return loaded

@@ -215,6 +215,8 @@ jobs:
           grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/pro-max.log
           grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/iphone-11-pro-max.log
 
+          # FitMunchStoreKit attaches FitMunchProducts.storekit. The test launches
+          # with -UseLocalStoreKit so CI does not render the live US storefront.
           PURCHASE_BUNDLE="artifacts/ios-uitest/purchase-sheet.xcresult"
           rm -rf "$PURCHASE_BUNDLE"
           set +e
