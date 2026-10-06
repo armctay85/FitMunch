@@ -48,7 +48,7 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
         XCTAssertEqual(intro.period.value, 14, "\(product.id) intro length")
         XCTAssertEqual(NSDecimalNumber(decimal: intro.price).doubleValue, 0, accuracy: 0.001)
 
-        let eligible = try await subscription.isEligibleForIntroOffer
+        let eligible = await subscription.isEligibleForIntroOffer
         XCTAssertTrue(eligible, "\(product.id) intro eligibility")
     }
 }

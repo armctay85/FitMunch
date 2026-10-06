@@ -12,7 +12,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 SCHEME = ROOT / "FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme"
 CLEAN = ROOT / "FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunch.xcscheme"
-IDENTIFIER = "container:FitMunchUITests/FitMunchProducts.storekit"
+# Relative to the .xcodeproj bundle. Xcode ignores a container: id here, and
+# XcodeGen's default ../../ prefix points inside the xcodeproj, so Product.products
+# falls through to the live US store ($12.99 / $99.99).
+IDENTIFIER = "../FitMunchUITests/FitMunchProducts.storekit"
 REFERENCE = f"""      <StoreKitConfigurationFileReference
          identifier = "{IDENTIFIER}">
       </StoreKitConfigurationFileReference>

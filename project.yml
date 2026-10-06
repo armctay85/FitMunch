@@ -3,6 +3,9 @@ options:
   bundleIdPrefix: com.fitmunch
   deploymentTarget:
     iOS: "17.0"
+  # Scheme file references are relative to the .xcodeproj bundle. The default
+  # ../../ prefix does not reach FitMunchProducts.storekit.
+  schemePathPrefix: "../"
 
 schemes:
   FitMunch:

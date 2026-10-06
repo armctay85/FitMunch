@@ -20,7 +20,7 @@ enum LaunchFrameCapture {
         for url in urls {
             try? Data("hold".utf8).write(to: url)
         }
-        Thread.sleep(forTimeInterval: 6)
+        Thread.sleep(forTimeInterval: 10)
         #endif
     }
 }
