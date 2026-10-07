@@ -75,6 +75,26 @@ jobs:
           -destination 'generic/platform=iOS Simulator' \
           CODE_SIGNING_ALLOWED=NO
 
+    - name: StoreKit session proof
+      run: |
+        set -euo pipefail
+        UDID=$(xcrun simctl list devices available \
+          | grep -E 'iPhone' \
+          | head -1 \
+          | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
+          | head -1)
+        test -n "$UDID"
+        echo "proof destination $UDID"
+        xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
+        xcodebuild test \
+          -project FitMunch.xcodeproj \
+          -scheme FitMunch \
+          -destination "platform=iOS Simulator,id=$UDID" \
+          -only-testing:FitMunchTests/FitMunchProductsStoreKitTests \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGN_IDENTITY=-
+
     - name: Pre-ASC unit + UI tests A–G (macos Simulator)
       run: bash scripts/run-pre-asc-ci-tests.sh
 

@@ -8,7 +8,13 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
     private var session: SKTestSession!
 
     override func setUp() async throws {
-        let created = try SKTestSession(configurationFileNamed: "FitMunchProducts")
+        let url = try XCTUnwrap(
+            Bundle(for: FitMunchProductsStoreKitTests.self)
+                .url(forResource: "FitMunchProducts", withExtension: "storekit"),
+            "FitMunchProducts.storekit is not in the test bundle"
+        )
+        print("STOREKIT_PROOF file=\(url.path)")
+        let created = try SKTestSession(contentsOf: url)
         created.disableDialogs = true
         created.resetToDefaultState()
         session = created
@@ -16,6 +22,12 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
 
     func testBothProductsMatchTheStoreKitFile() async throws {
         let products = try await Product.products(for: ["fitmunch_monthly", "fitmunch_annual"])
+        for product in products.sorted(by: { $0.id < $1.id }) {
+            let intro = product.subscription?.introductoryOffer
+            print(
+                "STOREKIT_PROOF id=\(product.id) display=\(product.displayPrice) currency=\(product.priceFormatStyle.currencyCode) introMode=\(String(describing: intro?.paymentMode)) introValue=\(String(describing: intro?.period.value)) introUnit=\(String(describing: intro?.period.unit))"
+            )
+        }
         XCTAssertEqual(Set(products.map(\.id)), Set(["fitmunch_monthly", "fitmunch_annual"]))
 
         let monthly = try XCTUnwrap(products.first { $0.id == "fitmunch_monthly" })
@@ -37,7 +49,7 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
             "\(product.id) price"
         )
         XCTAssertEqual(product.priceFormatStyle.currencyCode, "AUD", "\(product.id) currency")
-        XCTAssertTrue(product.displayPrice.contains(price), "\(product.id) displayPrice \(product.displayPrice)")
+        XCTAssertEqual(product.displayPrice, "A$\(price)", "\(product.id) displayPrice \(product.displayPrice)")
 
         let subscription = try XCTUnwrap(product.subscription, "\(product.id) is not a subscription")
         XCTAssertEqual(subscription.subscriptionPeriod.unit, unit, "\(product.id) period")
