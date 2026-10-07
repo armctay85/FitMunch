@@ -218,6 +218,18 @@ class PremiumManager: ObservableObject {
         var loaded = LoadedPlans()
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
 
+        #if DEBUG
+        if localOnly {
+            // The catalog session has to be active before Product.products.
+            // A failed session must not fall through to the live store.
+            guard LocalStoreKitSession.startIfRequested() else {
+                errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+                noteFetch([])
+                return []
+            }
+        }
+        #endif
+
         if !localOnly && canUsePurchases {
             loaded = await withTimeout(seconds: 4) {
                 await self.plansFromOfferings()
@@ -374,7 +386,9 @@ class PremiumManager: ObservableObject {
             id: id,
             title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.displayName),
             description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.description),
-            priceString: product.displayPrice,
+            priceString: product.price.formatted(
+                product.priceFormatStyle.locale(Locale(identifier: "en_AU"))
+            ),
             amount: product.price,
             currencyCode: currency.isEmpty ? "AUD" : currency,
             periodUnit: unit,

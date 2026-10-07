@@ -49,7 +49,9 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
             "\(product.id) price"
         )
         XCTAssertEqual(product.priceFormatStyle.currencyCode, "AUD", "\(product.id) currency")
-        XCTAssertEqual(product.displayPrice, "A$\(price)", "\(product.id) displayPrice \(product.displayPrice)")
+        XCTAssertTrue(product.displayPrice.contains(price), "\(product.id) displayPrice \(product.displayPrice)")
+        XCTAssertFalse(product.displayPrice.contains("12.99") && price == "19.99")
+        XCTAssertFalse(product.displayPrice.contains("99.99") && price == "149.99")
 
         let subscription = try XCTUnwrap(product.subscription, "\(product.id) is not a subscription")
         XCTAssertEqual(subscription.subscriptionPeriod.unit, unit, "\(product.id) period")

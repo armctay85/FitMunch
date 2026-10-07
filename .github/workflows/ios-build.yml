@@ -95,6 +95,26 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY=-
 
+    - name: Release binary does not link StoreKitTest
+      run: |
+        set -euo pipefail
+        xcodebuild build \
+          -project FitMunch.xcodeproj \
+          -scheme FitMunch \
+          -configuration Release \
+          -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath "$RUNNER_TEMP/ReleaseDD" \
+          CODE_SIGNING_ALLOWED=NO
+        BIN=$(find "$RUNNER_TEMP/ReleaseDD/Build/Products" -path '*/FitMunch.app/FitMunch' -type f -print -quit)
+        test -n "$BIN"
+        echo "Release binary: $BIN"
+        otool -L "$BIN"
+        if otool -L "$BIN" | grep -q StoreKitTest; then
+          echo "StoreKitTest is linked into the Release binary"
+          exit 1
+        fi
+        echo "Release link check: StoreKitTest is absent"
+
     - name: Pre-ASC unit + UI tests A–G (macos Simulator)
       run: bash scripts/run-pre-asc-ci-tests.sh
 

@@ -1,8 +1,7 @@
 import XCTest
 
-/// StoreKit confirmation sheet. The FitMunchStoreKit scheme attaches
-/// FitMunchProducts.storekit on both Run and Test. `-UseLocalStoreKit` only
-/// skips RevenueCat so the live US storefront cannot replace those products.
+/// StoreKit confirmation sheet. `-UseLocalStoreKit` starts SKTestSession in the
+/// app and skips RevenueCat, so the live US storefront cannot replace the catalog.
 final class PaywallPurchaseSheetTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
