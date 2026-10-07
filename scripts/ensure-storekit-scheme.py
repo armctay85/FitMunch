@@ -4,8 +4,8 @@
 xcodebuild test on Xcode 26.6 does not apply StoreKitConfigurationFileReference.
 With that reference present, SKTestSession fails to save the catalog
 (SKInternalErrorDomain Code=3) and Product.products stays on the live US store.
-Without it, SKTestSession(contentsOf:) loads FitMunchProducts.storekit.
-The paywall installs that session only for -UseLocalStoreKit.
+Without it, SKTestSession(contentsOf:) in the test process loads FitMunchProducts.storekit.
+The app does not start that session. Checks that need it beside the app are skipped.
 """
 
 from pathlib import Path

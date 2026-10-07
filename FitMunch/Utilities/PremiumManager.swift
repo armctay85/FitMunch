@@ -37,8 +37,8 @@ class PremiumManager: ObservableObject {
             isPremium = true
             return
         }
-        // A configured RevenueCat key otherwise returns the live storefront
-        // (CI saw US $99.99 / $12.99) and hides the StoreKit configuration file.
+        // -UseLocalStoreKit skips RevenueCat so the paywall reads StoreKit
+        // product prices directly. The app does not start an SKTestSession.
         if PaywallLaunchArgument.isLocalStoreKit {
             print("RevenueCat skipped: -UseLocalStoreKit")
             return
@@ -218,21 +218,6 @@ class PremiumManager: ObservableObject {
         var loaded = LoadedPlans()
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
 
-        #if DEBUG
-        if localOnly {
-            // After launch, before Product.products. Off the main thread so
-            // session setup cannot stall the UI run loop.
-            let started = await Task.detached(priority: .userInitiated) {
-                LocalStoreKitSession.startIfRequested()
-            }.value
-            guard started else {
-                errorMessage = PaywallLoadPolicy.userFacingLoadFailure
-                noteFetch([])
-                return []
-            }
-        }
-        #endif
-
         if !localOnly && canUsePurchases {
             loaded = await withTimeout(seconds: 4) {
                 await self.plansFromOfferings()
@@ -257,6 +242,8 @@ class PremiumManager: ObservableObject {
             errorMessage = nil
         }
         noteFetch(loaded.plans)
+        let country = await Storefront.current?.countryCode ?? "nil"
+        print("STOREFRONT country=\(country)")
         print("FitMunch plans fetched: \(lastPlanFetchSummary)")
         return loaded.plans
     }
@@ -266,7 +253,7 @@ class PremiumManager: ObservableObject {
         if plans.isEmpty {
             lastPlanFetchSummary = "loaded=none"
         } else {
-            lastPlanFetchSummary = "loaded=" + plans.map { "\($0.id)@\($0.priceString)" }.joined(separator: ",")
+            lastPlanFetchSummary = "loaded=" + plans.map { "\($0.id)@\($0.priceString) \($0.currencyCode)" }.joined(separator: ",")
             paywallPhase = .ready
         }
     }
@@ -358,7 +345,7 @@ class PremiumManager: ObservableObject {
             description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
             priceString: priceString,
             amount: product.price,
-            currencyCode: product.currencyCode ?? "AUD",
+            currencyCode: product.currencyCode ?? "",
             periodUnit: unit,
             periodValue: max(value, 1),
             intro: intro,
@@ -389,11 +376,9 @@ class PremiumManager: ObservableObject {
             id: id,
             title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.displayName),
             description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.description),
-            priceString: product.price.formatted(
-                product.priceFormatStyle.locale(Locale(identifier: "en_AU"))
-            ),
+            priceString: product.displayPrice,
             amount: product.price,
-            currencyCode: currency.isEmpty ? "AUD" : currency,
+            currencyCode: currency,
             periodUnit: unit,
             periodValue: max(value, 1),
             intro: intro,

@@ -66,8 +66,17 @@ create_udid() {
 
 prepare_sim() {
   local udid="$1"
-  xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "$udid" -b
+  local attempt
+  for attempt in 1 2; do
+    xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+    xcrun simctl bootstatus "$udid" -b || true
+    if xcrun simctl list devices | grep -F "$udid" | grep -q Booted; then
+      break
+    fi
+    echo "Boot did not stick for $udid (attempt $attempt)"
+    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    sleep 2
+  done
   xcrun simctl status_bar "$udid" override \
     --time "9:41" \
     --dataNetwork wifi \
@@ -87,14 +96,14 @@ verify_pngs() {
     png="$folder/$required.png"
     if [[ ! -f "$png" ]]; then
       echo "Missing $png"
-      exit 1
+      return 1
     fi
     w="$(sips -g pixelWidth "$png" | awk '/pixelWidth/ {print $2}')"
     h="$(sips -g pixelHeight "$png" | awk '/pixelHeight/ {print $2}')"
     echo "$required.png ${w}x${h}"
     if [[ "$w" != "$expected_w" || "$h" != "$expected_h" ]]; then
       echo "Expected ${expected_w}x${expected_h}, got ${w}x${h}"
-      exit 1
+      return 1
     fi
   done
 }
@@ -110,22 +119,47 @@ run_capture() {
   echo "Capturing on $udid -> $folder (${expected_w}x${expected_h})"
   rm -rf /tmp/fitmunch-appstore-screenshots
   mkdir -p /tmp/fitmunch-appstore-screenshots
-  xcodebuild test \
-    -project FitMunch.xcodeproj \
-    -scheme FitMunch \
-    -destination "platform=iOS Simulator,id=$udid" \
-    -only-testing:FitMunchUITests/AppStoreScreenshotTests \
-    -resultBundlePath "$folder/Test.xcresult" \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO \
-    CODE_SIGN_IDENTITY=- \
-    TEST_RUNNER_SCREENSHOT_DIR="$folder"
+  local attempt rc=1
+  local log="$folder/xcodebuild.log"
+  for attempt in 1 2 3; do
+    rm -rf "$folder/Test.xcresult"
+    set +e
+    xcodebuild test \
+      -project FitMunch.xcodeproj \
+      -scheme FitMunch \
+      -destination "platform=iOS Simulator,id=$udid" \
+      -only-testing:FitMunchUITests/AppStoreScreenshotTests \
+      -resultBundlePath "$folder/Test.xcresult" \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGN_IDENTITY=- \
+      TEST_RUNNER_SCREENSHOT_DIR="$folder" \
+      | tee "$log"
+    rc=${PIPESTATUS[0]}
+    set -e
+    if [[ "$rc" -eq 0 ]]; then
+      break
+    fi
+    if ! grep -q "Unable to find a device matching" "$log"; then
+      echo "xcodebuild failed for $udid (exit $rc)"
+      return "$rc"
+    fi
+    echo "Simulator destination was not visible (attempt $attempt). Booting again."
+    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+    sleep 3
+    xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+    xcrun simctl bootstatus "$udid" -b || true
+    sleep 5
+  done
+  if [[ "$rc" -ne 0 ]]; then
+    return "$rc"
+  fi
   if [[ ! -f "$folder/home.png" && -f /tmp/fitmunch-appstore-screenshots/home.png ]]; then
     echo "Copying PNGs from /tmp/fitmunch-appstore-screenshots"
     cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
   fi
 
-  verify_pngs "$folder" "$expected_w" "$expected_h"
+  verify_pngs "$folder" "$expected_w" "$expected_h" || return 1
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
 }
 
@@ -156,7 +190,15 @@ if [[ -n "${UDID_69:-}" ]]; then
 fi
 
 if [[ -n "${UDID_67:-}" ]]; then
-  run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796
+  if ! run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796; then
+    echo "6.7-inch simulator capture failed. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
+    if [[ ! -d "$OUT/iphone-69" ]]; then
+      echo "No 6.9-inch shots to scale."
+      exit 1
+    fi
+    rm -rf "$OUT/iphone-67"
+    scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
+  fi
 elif [[ -d "$OUT/iphone-69" ]]; then
   echo "No 6.7-inch simulator on this runner. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
   scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796

@@ -11,7 +11,9 @@ final class FullScreenWindowTests: XCTestCase {
         let slug = deviceSlug()
         let tag = shotTag()
         let app = XCUIApplication()
-        app.launchArguments = [ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-CaptureLaunch"]
+        // Sandbox storefront, not a local StoreKit configuration.
+        // -CaptureLaunch holds the launch screen so CI can grab that frame.
+        app.launchArguments = [ReviewLaunchArgument.flag, "-CaptureLaunch"]
         app.launch()
 
         let today = app.navigationBars["Today"].waitForExistence(timeout: 25)
@@ -29,39 +31,47 @@ final class FullScreenWindowTests: XCTestCase {
             app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 8),
             "Paywall headline missing. The shot would not be the paywall."
         )
-        let annual = scrollUntilHittable([
-            app.buttons["paywall-plan-fitmunch_annual"],
-            app.staticTexts["paywall-price-fitmunch_annual"],
-        ], in: app)
-        XCTAssertNotNil(annual, "Annual StoreKit plan missing. The paywall must not use a fake catalog.")
-        let annualPrice = app.staticTexts["paywall-price-fitmunch_annual"]
-        let annualLabel = annualPrice.exists ? annualPrice.label : (annual?.label ?? "")
+        let annualLabel = waitForPriceLabel(app, id: "fitmunch_annual", timeout: 50)
+        let monthlyLabel = waitForPriceLabel(app, id: "fitmunch_monthly", timeout: 8)
+        XCTAssertFalse(annualLabel.isEmpty, "Annual sandbox plan missing. The paywall must not use a fake catalog.")
         XCTAssertTrue(annualLabel.contains("149.99"), "Annual price \(annualLabel)")
-        let monthly = scrollUntilHittable([
-            app.staticTexts["paywall-price-fitmunch_monthly"],
-            app.buttons["paywall-plan-fitmunch_monthly"],
-        ], in: app)
-        let monthlyPrice = app.staticTexts["paywall-price-fitmunch_monthly"]
-        let monthlyLabel = monthlyPrice.exists ? monthlyPrice.label : (monthly?.label ?? "")
+        XCTAssertTrue(annualLabel.contains("/year"), "Annual price is missing the period. \(annualLabel)")
+        XCTAssertFalse(annualLabel.contains("99.99"), "Annual price was the live US storefront. \(annualLabel)")
         XCTAssertTrue(monthlyLabel.contains("19.99"), "Monthly price \(monthlyLabel)")
+        XCTAssertTrue(monthlyLabel.contains("/month"), "Monthly price is missing the period. \(monthlyLabel)")
+        XCTAssertFalse(monthlyLabel.contains("12.99"), "Monthly price was the live US storefront. \(monthlyLabel)")
+        _ = scrollUntilHittable([
+            app.staticTexts["paywall-price-fitmunch_annual"],
+            app.staticTexts["paywall-price-fitmunch_monthly"],
+        ], in: app)
         XCTAssertFalse(app.buttons["paywall-retry"].exists, "Retry state means StoreKit products did not load")
         XCTAssertFalse(app.staticTexts["Day 12 we remind you"].exists)
         XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
         XCTAssertFalse(app.buttons["Continue on the web"].exists)
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
-        XCTAssertNotNil(
-            scrollUntilHittable([
-                app.buttons["paywall-restore"],
-                app.buttons["paywall-restore-inline"],
-            ], in: app),
-            "Restore missing on the paywall"
-        )
-        for _ in 0..<4 where !app.staticTexts["Eat to your goals with every shop"].isHittable {
-            app.swipeDown()
-        }
+        let renewal = app.staticTexts["paywall-renewal"]
+        XCTAssertTrue(renewal.waitForExistence(timeout: 8), "Renewal term missing from the bottom bar")
+        XCTAssertTrue(renewal.label.contains("Renews automatically"), renewal.label)
+        XCTAssertTrue(renewal.label.contains("149.99"), renewal.label)
+        XCTAssertTrue(app.buttons["paywall-restore"].exists, "Restore Purchases missing from the bottom bar")
+        XCTAssertTrue(app.buttons["Terms"].exists, "Terms missing from the bottom bar")
+        XCTAssertTrue(app.buttons["Privacy"].exists, "Privacy missing from the bottom bar")
         XCTAssertEqual(app.state, .runningForeground)
         let paywallShot = try assertFullScreen(app, slug: slug, phase: "paywall")
         saveShot(paywallShot, name: "paywall-\(tag)")
+    }
+
+    /// Product.displayPrice plus /month or /year. No swipe while the fetch is in flight.
+    private func waitForPriceLabel(_ app: XCUIApplication, id: String, timeout: TimeInterval) -> String {
+        let price = app.staticTexts["paywall-price-\(id)"]
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if price.exists, !price.label.isEmpty {
+                return price.label
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        return price.exists ? price.label : ""
     }
 
     /// App frame and the app screenshot. 6.9-inch Pro Max is 440x956. 6.5-inch 11 Pro Max is 414x896.

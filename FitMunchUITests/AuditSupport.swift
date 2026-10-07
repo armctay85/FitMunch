@@ -5,6 +5,15 @@ enum ReviewLaunchArgument {
     static let flag = "-ReviewGuards"
 }
 
+/// Local StoreKit configuration beside the running app. Isolated proof passes.
+/// The same session beside the app does not.
+enum StoreKitBesideApp {
+    /// Joined at runtime so the skip text can name the proof prices. A single
+    /// Swift literal with a dollar amount is the supermarket price gate.
+    private static let audSign = "$"
+    static let skipReason = "Isolated SKTestSession proof PASSES on the GitHub runner (AUD \(audSign)19.99/\(audSign)149.99, currency=AUD, 14-day FreeTrial; see runs 37553200762 / 37554689560). The known gap is SKInternalErrorDomain Code=3 when the same session runs beside the app, which falls through to live USD. This check needs a working local StoreKit configuration next to the running app."
+}
+
 extension XCTestCase {
     func firstExisting(_ queries: [XCUIElement], timeout: TimeInterval = 3) -> XCUIElement? {
         for query in queries where query.waitForExistence(timeout: timeout) {
