@@ -220,9 +220,12 @@ class PremiumManager: ObservableObject {
 
         #if DEBUG
         if localOnly {
-            // The catalog session has to be active before Product.products.
-            // A failed session must not fall through to the live store.
-            guard LocalStoreKitSession.startIfRequested() else {
+            // After launch, before Product.products. Off the main thread so
+            // session setup cannot stall the UI run loop.
+            let started = await Task.detached(priority: .userInitiated) {
+                LocalStoreKitSession.startIfRequested()
+            }.value
+            guard started else {
                 errorMessage = PaywallLoadPolicy.userFacingLoadFailure
                 noteFetch([])
                 return []

@@ -22,6 +22,7 @@ enum LocalStoreKitSession {
             return false
         }
         do {
+            NSLog("STOREKIT_SESSION starting \(url.path)")
             let created = try SKTestSession(contentsOf: url)
             created.disableDialogs = false
             created.resetToDefaultState()

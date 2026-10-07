@@ -53,11 +53,6 @@ struct FitMunchApp: App {
             .onAppear {
                 configureAppearance()
             }
-            .task {
-                #if DEBUG
-                _ = LocalStoreKitSession.startIfRequested()
-                #endif
-            }
         }
     }
     
