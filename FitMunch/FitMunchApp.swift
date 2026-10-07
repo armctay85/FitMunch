@@ -11,7 +11,6 @@ struct FitMunchApp: App {
     init() {
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
-        LocalStoreKitSession.startIfRequested()
         #endif
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
         _auth = StateObject(wrappedValue: AuthManager.shared)

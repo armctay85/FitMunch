@@ -6,8 +6,9 @@ set -u
 UDID="${1:?udid}"
 OUT="${2:?output directory}"
 mkdir -p "$OUT"
-DEVICE="${HOME}/Library/Developer/CoreSimulator/Devices/${UDID}"
 
+# The predicate text itself contains LAUNCH_FRAME_HOLD, so the filter banner
+# is not a signal that the app is holding.
 xcrun simctl spawn "$UDID" log stream --level info --style compact \
   --predicate 'composedMessage CONTAINS "LAUNCH_FRAME_HOLD"' \
   > "$OUT/log.txt" 2>&1 &
@@ -26,49 +27,27 @@ app_running() {
   pgrep -f "Devices/${UDID}/.*FitMunch\\.app/FitMunch" >/dev/null 2>&1
 }
 
-flag_ready() {
-  local path
-  for path in \
-    "$HOME/fitmunch-launch-holding" \
-    "$DEVICE/data/tmp/fitmunch-launch-holding" \
-    "$DEVICE/data/private/tmp/fitmunch-launch-holding" \
-    "$DEVICE/data/Library/Shared/fitmunch-launch-holding"
-  do
-    if [[ -f "$path" ]]; then
-      echo "flag=${path}" >> "$OUT/log.txt"
-      return 0
-    fi
-  done
-  return 1
+hold_logged() {
+  grep -v Filtering "$OUT/log.txt" 2>/dev/null | grep -q LAUNCH_FRAME_HOLD
 }
 
-burst() {
-  echo "bursting launch screenshots" >> "$OUT/log.txt"
-  local n=0
-  local deadline=$((SECONDS + 16))
-  while (( SECONDS < deadline )); do
-    shot "$(printf 'frame-%03d.png' "$n")"
-    n=$((n + 1))
-    sleep 0.3
-  done
-  echo "burst count=$n" >> "$OUT/log.txt"
-}
-
-slow=0
 for i in $(seq 1 2400); do
-  if (( i % 8 == 0 )); then
-    shot "$(printf 'slow-%03d.png' "$slow")"
-    slow=$((slow + 1))
-  fi
-  if app_running || flag_ready || grep -q LAUNCH_FRAME_HOLD "$OUT/log.txt" 2>/dev/null; then
+  if app_running || hold_logged; then
     echo "launch detected at poll ${i}" >> "$OUT/log.txt"
-    burst
+    echo "bursting launch screenshots" >> "$OUT/log.txt"
+    n=0
+    while (( n < 24 )); do
+      shot "$(printf 'frame-%03d.png' "$n")"
+      n=$((n + 1))
+      sleep 0.35
+    done
+    echo "burst count=$n" >> "$OUT/log.txt"
     break
   fi
   sleep 0.5
 done
 
-if ! ls "$OUT"/frame-*.png >/dev/null 2>&1 && ! ls "$OUT"/slow-*.png >/dev/null 2>&1; then
+if ! ls "$OUT"/frame-*.png >/dev/null 2>&1; then
   echo "LAUNCH_FRAME_HOLD was not seen" >> "$OUT/log.txt"
 fi
 

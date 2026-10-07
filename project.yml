@@ -49,8 +49,6 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunch
-      - path: FitMunchUITests/FitMunchProducts.storekit
-        buildPhase: resources
     info:
       path: FitMunch/Resources/Info.plist
       properties:
@@ -94,10 +92,6 @@ targets:
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
-      # Debug paywall tests start an SKTestSession in the app process.
-      # Weak so Release does not require the framework on device.
-      - sdk: StoreKitTest.framework
-        weak: true
 
   FitMunchTests:
     type: bundle.unit-test
