@@ -69,7 +69,7 @@ Tabs. Today, Plan, Scan, Coach, and Me are on the tab bar. There is no More tab.
 Today: the plus button logs a meal on the device. A free account can log 3 meals for the day you are viewing. The next tap shows Free limit reached and opens the paywall.
 Coach: send a question. The reply comes from the FitMunch account service. If it asks the account to upgrade, the paywall opens.
 Scan: you do not need a camera. Tap Choose from library and pick a grocery receipt photo. The app sends it for a haul score when the service responds. Take a photo with no camera, or with camera access off, shows an alert titled Camera not available, with Choose from library. The camera takes a still photo only. This build does not use the microphone and does not ask for microphone permission.
-Plan, Meals: goal labels are General, Cut, Build, and Maintain. Tap Generate 7-day plan. If the service asks for an upgrade, the paywall opens.
+Plan, Meals: tap Generate 7-day plan. If the service asks for an upgrade, the paywall opens.
 Plan, Training: the weekly plan is generated on the device. Log an exercise on the device. This build has no daily steps counter, does not call HealthKit, and has no Apple Watch app.
 Progress: open Me, then Progress. A free account shows an alert, Upgrade to premium to access full history.
 
