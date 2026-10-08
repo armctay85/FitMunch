@@ -46,6 +46,7 @@ struct ReceiptScanView: View {
                         .background(Theme.surface)
                 }
             }
+            .floatingTabBarInset()
             .background(Theme.surface)
             .sensoryFeedback(.success, trigger: scanCompletions)
             .navigationTitle("Scan")

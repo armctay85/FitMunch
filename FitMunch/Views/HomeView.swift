@@ -77,6 +77,7 @@ struct HomeView: View {
             .refreshable {
                 viewModel.loadMealsForSelectedDate()
             }
+            .floatingTabBarInset()
         }
     }
 

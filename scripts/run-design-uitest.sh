@@ -79,6 +79,7 @@ xcodebuild test \
   -derivedDataPath "$DERIVED" \
   -only-testing:FitMunchUITests/DesignFeelUITests/testTabScreenshotsLightAndDark \
   -only-testing:FitMunchUITests/DesignFeelUITests/testPaywallShot \
+  -only-testing:FitMunchUITests/TabBarClearanceUITests \
   -resultBundlePath "$OUT/screenshots/Test.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
@@ -155,6 +156,34 @@ fi
 if [[ "$FLOW_STATUS" -ne 0 ]]; then
   echo "Design flow UI test failed ($FLOW_STATUS)"
   exit "$FLOW_STATUS"
+fi
+
+# 6.5-inch (iPhone 11 Pro Max, 414x896). The 6.9 run above already executed
+# TabBarClearanceUITests. This pass is the second size only.
+UDID_65="$(find_udid "iPhone 11 Pro Max" "iPhone XS Max" || create_udid "iPhone 11 Pro Max" "iPhone XS Max" || true)"
+if [[ -z "${UDID_65:-}" ]]; then
+  echo "No 6.5-inch simulator (iPhone 11 Pro Max or iPhone XS Max)."
+  exit 1
+fi
+echo "Using 6.5 simulator $UDID_65"
+xcrun simctl boot "$UDID_65" >/dev/null 2>&1 || true
+xcrun simctl bootstatus "$UDID_65" -b
+set +e
+xcodebuild test \
+  -project FitMunch.xcodeproj \
+  -scheme FitMunch \
+  -destination "platform=iOS Simulator,id=$UDID_65" \
+  -derivedDataPath "$DERIVED" \
+  -only-testing:FitMunchUITests/TabBarClearanceUITests \
+  -resultBundlePath "$OUT/screenshots/TabBarClearance-6.5.xcresult" \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY=-
+CLEAR_65=$?
+set -e
+if [[ "$CLEAR_65" -ne 0 ]]; then
+  echo "6.5 tab bar clearance UI test failed ($CLEAR_65)"
+  exit "$CLEAR_65"
 fi
 
 for required in today plan scan coach me; do

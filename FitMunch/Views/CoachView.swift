@@ -104,6 +104,7 @@ struct CoachView: View {
                 .background(Theme.surface)
             }
             .background(Theme.surface)
+            .floatingTabBarInset()
             .navigationTitle("Coach")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

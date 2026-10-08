@@ -248,6 +248,7 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.surface)
             .scrollClearsTabBar()
+            .floatingTabBarInset()
             .onAppear {
                 viewModel.loadPreferences()
             }

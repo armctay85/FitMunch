@@ -38,6 +38,7 @@ struct PlanView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Theme.surface)
+            .floatingTabBarInset()
             .navigationTitle("Plan")
         }
     }

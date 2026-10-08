@@ -119,12 +119,10 @@ struct MacroNumber: View {
 }
 
 extension View {
-    /// Opaque inset so primary controls clear a floating tab bar.
-    /// A clear inset leaves the black window showing as a letterbox band.
+    /// Same shared inset as `floatingTabBarInset()`. Kept so older call sites
+    /// do not bring back a fixed spacer behind the tab bar.
     func aboveTabBar() -> some View {
-        safeAreaInset(edge: .bottom, spacing: 0) {
-            Theme.surface.frame(height: Theme.Spacing.tabClearance)
-        }
+        floatingTabBarInset()
     }
 
     /// Bottom margin inside scroll views so the last row can rest above the tab bar.

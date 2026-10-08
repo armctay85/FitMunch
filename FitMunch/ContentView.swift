@@ -43,27 +43,22 @@ struct ContentView: View {
             Tab("Today", systemImage: "sun.max.fill", value: AppTab.today) {
                 HomeView(modelContext: modelContext)
                     .accessibilityIdentifier("tab-today")
-                    .aboveTabBar()
             }
             Tab("Plan", systemImage: "calendar", value: AppTab.plan) {
                 PlanView()
                     .accessibilityIdentifier("tab-plan")
-                    .aboveTabBar()
             }
             Tab("Scan", systemImage: "viewfinder", value: AppTab.scan) {
                 ReceiptScanView()
                     .accessibilityIdentifier("tab-scan")
-                    .aboveTabBar()
             }
             Tab("Coach", systemImage: "sparkles", value: AppTab.coach) {
                 CoachView()
                     .accessibilityIdentifier("tab-coach")
-                    .aboveTabBar()
             }
             Tab("Me", systemImage: "person.crop.circle.fill", value: AppTab.me) {
                 SettingsView()
                     .accessibilityIdentifier("tab-me")
-                    .aboveTabBar()
             }
         }
     }
@@ -74,31 +69,26 @@ struct ContentView: View {
             HomeView(modelContext: modelContext)
                 .tabItem { Label("Today", systemImage: "sun.max.fill") }
                 .accessibilityIdentifier("tab-today")
-                .aboveTabBar()
                 .tag(AppTab.today)
 
             PlanView()
                 .tabItem { Label("Plan", systemImage: "calendar") }
                 .accessibilityIdentifier("tab-plan")
-                .aboveTabBar()
                 .tag(AppTab.plan)
 
             ReceiptScanView()
                 .tabItem { Label("Scan", systemImage: "viewfinder") }
                 .accessibilityIdentifier("tab-scan")
-                .aboveTabBar()
                 .tag(AppTab.scan)
 
             CoachView()
                 .tabItem { Label("Coach", systemImage: "sparkles") }
                 .accessibilityIdentifier("tab-coach")
-                .aboveTabBar()
                 .tag(AppTab.coach)
 
             SettingsView()
                 .tabItem { Label("Me", systemImage: "person.crop.circle.fill") }
                 .accessibilityIdentifier("tab-me")
-                .aboveTabBar()
                 .tag(AppTab.me)
         }
     }
