@@ -81,13 +81,30 @@ struct APIUser: Decodable {
     let email: String
     let subscriptionTier: String?
     let role: String?
+    /// Account AI choice. Nil means the account has not answered.
+    let aiDataConsent: Bool?
 
-    init(id: String, name: String, email: String, subscriptionTier: String?, role: String?) {
+    init(id: String, name: String, email: String, subscriptionTier: String?, role: String?, aiDataConsent: Bool? = nil) {
         self.id = id
         self.name = name
         self.email = email
         self.subscriptionTier = subscriptionTier
         self.role = role
+        self.aiDataConsent = aiDataConsent
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, email, subscriptionTier, role, aiDataConsent
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        subscriptionTier = try container.decodeIfPresent(String.self, forKey: .subscriptionTier)
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        aiDataConsent = try container.decodeIfPresent(Bool.self, forKey: .aiDataConsent)
     }
 }
 
@@ -199,6 +216,8 @@ struct ReceiptScanResponse: Decodable {
     }
     let success: Bool
     let error: String?
+    /// `fallback` means the server substituted a built-in sample list.
+    let scannerProvider: String?
     let items: [Item]?
     let weeklyTotals: Totals?
     let grade: String?

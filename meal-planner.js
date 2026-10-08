@@ -153,6 +153,18 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
+    const { isBlocked } = require('./lib/ai-data-consent');
+    const { getUserById } = require('./server/storage.js');
+    try {
+      const account = await getUserById(req.user.userId);
+      if (isBlocked(account && account.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
+    } catch (_) {}
+
     // Free-tier gating — plan generation is a heavyweight AI call.
     const tier = await userTier(req.user.userId);
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });

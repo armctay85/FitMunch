@@ -65,6 +65,7 @@ enum ReviewLaunch {
         UserDefaults.standard.set("Reviewer", forKey: "userDisplayName")
         UserDefaults.standard.set("review@fitmunch.com.au", forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+        AIDataConsent.shared.grantLaunch(userId: "review-user")
     }
 }
 
@@ -89,6 +90,7 @@ enum ScreenshotLaunch {
         // Match SettingsViewModel's initial toggle so loadPreferences does not
         // flip Notifications and present the system permission alert.
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+        AIDataConsent.shared.grantLaunch(userId: "screenshot-user")
         UIView.setAnimationsEnabled(false)
     }
 

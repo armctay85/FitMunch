@@ -39,6 +39,7 @@ describe('iOS privacy manifest matches account-linked collection', () => {
       'NSPrivacyCollectedDataTypeEmailAddress',
       'NSPrivacyCollectedDataTypeHealth',
       'NSPrivacyCollectedDataTypeName',
+      'NSPrivacyCollectedDataTypeOtherDataTypes',
       'NSPrivacyCollectedDataTypeOtherUserContent',
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeProductInteraction',
@@ -52,6 +53,7 @@ describe('iOS privacy manifest matches account-linked collection', () => {
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeProductInteraction',
       'NSPrivacyCollectedDataTypeOtherUserContent',
+      'NSPrivacyCollectedDataTypeOtherDataTypes',
     ]) {
       expect(byType[type].linked).toBe(true);
       expect(byType[type].tracking).toBe(false);

@@ -18,7 +18,16 @@ struct ReceiptScanView: View {
     @State private var cameraFallbackMessage = ""
     @State private var photoBounce = 0
     @State private var scanCompletions = 0
+    @State private var showConsent = false
+    @State private var pendingScan: ScanStart?
+    @EnvironmentObject private var auth: AuthManager
+    @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum ScanStart {
+        case camera
+        case library
+    }
 
     private let brandGreen = Theme.brandGreen
 
@@ -75,6 +84,23 @@ struct ReceiptScanView: View {
                 .ignoresSafeArea()
             }
             .photosPicker(isPresented: $showLibraryPicker, selection: $pickedItem, matching: .images)
+            .sheet(isPresented: $showConsent) {
+                AIDataConsentSheet(
+                    onAllow: {
+                        showConsent = false
+                        consent.allow(userId: auth.user?.id)
+                        let next = pendingScan
+                        pendingScan = nil
+                        runScan(next)
+                    },
+                    onNotNow: {
+                        showConsent = false
+                        pendingScan = nil
+                        consent.deny(userId: auth.user?.id)
+                        errorMessage = AIConsentCopy.scanBlocked
+                    }
+                )
+            }
             .alert("Camera not available", isPresented: $showCameraFallback) {
                 Button("Choose from library") { showLibraryPicker = true }
                 Button("OK", role: .cancel) { }
@@ -97,7 +123,7 @@ struct ReceiptScanView: View {
     private var scanActions: some View {
         VStack(spacing: 10) {
             Button {
-                Task { await openCameraSafely() }
+                beginScan(.camera)
             } label: {
                 Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
                     .symbolRenderingMode(.hierarchical)
@@ -106,7 +132,9 @@ struct ReceiptScanView: View {
             .disabled(isRequestingCamera)
             .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
             .accessibilityIdentifier("scan-take-photo")
-            PhotosPicker(selection: $pickedItem, matching: .images) {
+            Button {
+                beginScan(.library)
+            } label: {
                 Label("Choose from library", systemImage: "photo.on.rectangle")
                     .symbolRenderingMode(.hierarchical)
             }
@@ -260,6 +288,31 @@ struct ReceiptScanView: View {
         loggedCount = nil
     }
 
+    private func beginScan(_ start: ScanStart) {
+        errorMessage = nil
+        if consent.needsPrompt(auth.user?.id) {
+            pendingScan = start
+            showConsent = true
+            return
+        }
+        if consent.isDenied(auth.user?.id) {
+            errorMessage = AIConsentCopy.scanBlocked
+            return
+        }
+        runScan(start)
+    }
+
+    private func runScan(_ start: ScanStart?) {
+        switch start {
+        case .camera:
+            Task { await openCameraSafely() }
+        case .library:
+            showLibraryPicker = true
+        case nil:
+            break
+        }
+    }
+
     /// Never present a camera cover unless hardware exists and video is authorized.
     @MainActor
     private func openCameraSafely() async {
@@ -319,7 +372,9 @@ struct ReceiptScanView: View {
                     body: ["image": jpeg.base64EncodedString(), "mimeType": "image/jpeg"],
                     as: ReceiptScanResponse.self
                 )
-                if res.success {
+                if res.success && res.scannerProvider == "fallback" {
+                    errorMessage = "Couldn't read that receipt. FitMunch will not show a sample list as your shop."
+                } else if res.success {
                     scan = res
                     scanCompletions += 1
                 } else {
@@ -359,4 +414,5 @@ struct ReceiptScanView: View {
 
 #Preview {
     ReceiptScanView()
+        .environmentObject(AuthManager.shared)
 }

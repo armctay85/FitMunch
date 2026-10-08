@@ -13,6 +13,9 @@ struct MealPlanView: View {
     @State private var showPaywall = false
     @State private var plansGenerated = 0
     @State private var freeLimitHits = 0
+    @State private var showConsent = false
+    @EnvironmentObject private var auth: AuthManager
+    @ObservedObject private var consent = AIDataConsent.shared
 
     private let goals: [(id: String, label: String)] = [
         ("general_fitness", "General"),
@@ -100,6 +103,20 @@ struct MealPlanView: View {
         .sensoryFeedback(.warning, trigger: freeLimitHits)
         .fullScreenCover(isPresented: $showPaywall) {
             PaywallView()
+        }
+        .sheet(isPresented: $showConsent) {
+            AIDataConsentSheet(
+                onAllow: {
+                    showConsent = false
+                    consent.allow(userId: auth.user?.id)
+                    Task { await generate() }
+                },
+                onNotNow: {
+                    showConsent = false
+                    consent.deny(userId: auth.user?.id)
+                    errorMessage = AIConsentCopy.planBlocked
+                }
+            )
         }
         .onAppear {
             if ScreenshotLaunch.isActive && plan == nil {
@@ -225,6 +242,14 @@ struct MealPlanView: View {
 
     private func generate() async {
         errorMessage = nil
+        if consent.needsPrompt(auth.user?.id) {
+            showConsent = true
+            return
+        }
+        if consent.isDenied(auth.user?.id) {
+            errorMessage = AIConsentCopy.planBlocked
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         do {
@@ -258,4 +283,5 @@ struct MealPlanView: View {
 
 #Preview {
     MealPlanView()
+        .environmentObject(AuthManager.shared)
 }

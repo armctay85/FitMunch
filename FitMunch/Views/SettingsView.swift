@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
     @ObservedObject private var premium = PremiumManager.shared
+    @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
 
     /// Signed-in name and email. Blank accounts and the old placeholder stay empty.
@@ -128,6 +129,24 @@ struct SettingsView: View {
                         .onChange(of: viewModel.useMetricUnits) { _, newValue in
                             viewModel.toggleMetricUnits()
                         }
+                }
+
+                Section {
+                    Toggle("AI features", isOn: Binding(
+                        get: { consent.allows(auth.user?.id) },
+                        set: { turnedOn in
+                            if turnedOn {
+                                consent.allow(userId: auth.user?.id)
+                            } else {
+                                consent.deny(userId: auth.user?.id)
+                            }
+                        }
+                    ))
+                    .accessibilityIdentifier("me-ai-consent")
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    Text("Off blocks Coach, receipt scan, and meal plans. Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are Google (Gemini), then xAI (Grok), then OpenAI, then Anthropic. A receipt photo goes to Google (Gemini) only. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
                 }
                 
                 // Subscription section

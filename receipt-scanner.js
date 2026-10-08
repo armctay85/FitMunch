@@ -154,6 +154,18 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       return res.json({ success: false, error: 'No image. Send multipart file (field: receipt) or JSON {image: base64dataUrl}' });
     }
 
+    const { isBlocked } = require('./lib/ai-data-consent');
+    const { getUserById } = require('./server/storage.js');
+    try {
+      const account = await getUserById(req.user.userId);
+      if (isBlocked(account && account.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
+    } catch (_) {}
+
     if (!process.env.GEMINI_API_KEY) {
       return res.status(503).json({
         success: false,

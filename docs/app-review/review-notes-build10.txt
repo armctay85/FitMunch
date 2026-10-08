@@ -48,7 +48,9 @@ User ID: linked to the user, not used for tracking, App Functionality and Analyt
 Purchase History: linked to the user, not used for tracking, App Functionality and Analytics.
 Product Interaction: linked to the user, not used for tracking, App Functionality. Feature counts for the free AI cap are stored on the account.
 Other User Content: linked to the user, not used for tracking, App Functionality. Coach messages are the user's free text, posted to the account service and forwarded to the model provider.
-Do not select Fitness. Workout logs stay on the device. Do not select Payment Info, Device ID, Crash Data, Performance Data, or advertising data.
+Other Data Types: linked to the user, not used for tracking, App Functionality. This is age on the account, sent with Coach. Weight and height stay under Health.
+Do not select Fitness. Workout logs stay on the device. The iOS app does not call /workouts/log. Do not select Payment Info, Device ID, Crash Data, Performance Data, or advertising data.
+AI consent (Guideline 5.1.2(i)): one choice, stored on the account. The first Coach send, the first receipt scan, and the first meal-plan generate show the same sheet. Buttons are Allow and Not now. Not now leaves those three off and the rest of the app usable. Me, Privacy can turn it off later. Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are Google (Gemini), then xAI (Grok), then OpenAI, then Anthropic. A receipt photo goes to Google (Gemini) only. A failed read can return a built-in sample list, which the app does not show as the shop. A meal plan sends the goal as a label, calories, protein, and the number of days on that same chain.
 
 Account removal the reviewer can use
 [ ] Me, Delete Account, Delete Everything calls DELETE /auth/account and removes the server account.
@@ -68,7 +70,7 @@ Onboarding. Tap Next. Enter a name and email (the goal can stay on Maintenance).
 Tabs. Today, Plan, Scan, Coach, and Me are on the tab bar. There is no More tab. Plan switches between Meals and Training. Progress is the first row on Me. On iPad this is the iPhone app in compatibility mode.
 
 Today: the plus button logs a meal on the device. A free account can log 3 meals for the day you are viewing. The next tap shows Free limit reached and opens the paywall.
-Coach: send a question. The reply comes from the FitMunch account service. If it asks the account to upgrade, the paywall opens.
+Coach: one sheet before the first send, scan, or meal plan. Buttons are Allow and Not now. Not now leaves those three off and the rest of the app usable. Me, Privacy can turn it off later. An upgrade opens the paywall.
 Scan: you do not need a camera. Tap Choose from library and pick a grocery receipt photo. The app sends it for a haul score when the service responds. Take a photo with no camera, or with camera access off, shows an alert titled Camera not available, with Choose from library. The camera takes a still photo only. This build does not use the microphone and does not ask for microphone permission.
 Plan, Meals: tap Generate 7-day plan. If the service asks for an upgrade, the paywall opens.
 Plan, Training: the weekly plan is generated on the device. Log an exercise on the device. This build has no daily steps counter, does not call HealthKit, and has no Apple Watch app.
@@ -80,7 +82,7 @@ Annual: fitmunch_annual (fallback title Annual Premium). Annual is preselected a
 The paywall shows the App Store price for the reviewer's storefront. The FitMunchStoreKit scheme uses FitMunchProducts.storekit: 19.99 per month and 149.99 per year, each with a 14-day free introductory offer. App Review uses the products in App Store Connect. The button reads Start {length} free trial, then {price}/{period}, cancel anytime, when that product has a free intro and the Sandbox account is eligible. Otherwise it reads Subscribe for {price}/{period}.
 Open the paywall from Me, Upgrade, or Me, Upgrade to Premium. It also opens from Today after the third meal, from Coach or Plan when an upgrade is required, and from the onboarding Premium card. Select a plan and tap the green button with a Sandbox Apple ID.
 
-Loading plans. The paywall shows Loading plans while it fetches fitmunch_monthly and fitmunch_annual. It tries once more on its own. If both tries are empty it stays on the paywall and shows: Plans couldn't load. Check your connection and try again. Tap Retry. Pull to refresh does the same. The screen is not left blank.
+Loading plans. The paywall shows Loading plans while it fetches fitmunch_monthly and fitmunch_annual. It tries once more on its own. If both tries are empty it stays on the paywall and shows: Plans couldn't load. Check your connection and try again. Tap Retry.
 
 Restore. On the paywall footnote. The same action sits next to Retry if plans fail to load. It is also on Me, under Subscription, Restore Purchases. Restore looks for fitmunch_monthly and fitmunch_annual and then shows an alert.
 

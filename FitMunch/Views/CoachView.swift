@@ -11,6 +11,9 @@ struct CoachView: View {
     @State private var remaining: Int?
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
+    @State private var showConsent = false
+    @State private var consentNote: String?
+    @ObservedObject private var consent = AIDataConsent.shared
 
     private let intents: [(id: String, label: String)] = [
         ("general", "General"),
@@ -80,6 +83,15 @@ struct CoachView: View {
                     }
                 }
 
+                if let consentNote {
+                    Text(consentNote)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .accessibilityIdentifier("coach-consent-blocked")
+                }
+
                 HStack(spacing: 10) {
                     TextField("Ask your coach anything…", text: $input, axis: .vertical)
                         .lineLimit(1...4)
@@ -119,6 +131,20 @@ struct CoachView: View {
             .sensoryFeedback(.warning, trigger: freeLimitHits)
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
+            }
+            .sheet(isPresented: $showConsent) {
+                AIDataConsentSheet(
+                    onAllow: {
+                        showConsent = false
+                        consent.allow(userId: auth.user?.id)
+                        send()
+                    },
+                    onNotNow: {
+                        showConsent = false
+                        consent.deny(userId: auth.user?.id)
+                        consentNote = AIConsentCopy.coachBlocked
+                    }
+                )
             }
             .onAppear {
                 if ScreenshotLaunch.isActive && messages.isEmpty {
@@ -189,6 +215,15 @@ struct CoachView: View {
     private func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
+        if consent.needsPrompt(auth.user?.id) {
+            showConsent = true
+            return
+        }
+        if consent.isDenied(auth.user?.id) {
+            consentNote = AIConsentCopy.coachBlocked
+            return
+        }
+        consentNote = nil
         input = ""
         messages.append(ChatMessage(role: "user", content: text))
         let typingIndex = messages.count

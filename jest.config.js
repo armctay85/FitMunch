@@ -29,6 +29,7 @@ module.exports = {
     '**/test_infoplist_launch.js',
     '**/test_ios_supermarket_prices.js',
     '**/test_ios_privacy_manifest.js',
+    '**/test_ai_data_consent.js',
     '**/test_ai_client.js',
     '**/test_server_ai.js',
     '**/test_reset_token_leak.js',

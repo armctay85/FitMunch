@@ -11,6 +11,7 @@ const {
   getUserByEmail,
   getUserById,
   updateUserSubscription,
+  setAIDataConsent,
   effectiveTier,
   createOrUpdateProfile,
   getProfile,
@@ -28,6 +29,7 @@ const {
   schema,
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
+const { isBlocked, choiceFromSettings } = require('./lib/ai-data-consent');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -692,9 +694,35 @@ router.get('/auth/me', async (req, res) => {
     const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
     const role = roleRow.rows[0]?.role || 'client';
     const ptId = roleRow.rows[0]?.pt_id;
-    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: effectiveTier(user), role, ptId } });
+    const consent = choiceFromSettings(user.settings);
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        subscriptionTier: effectiveTier(user),
+        role,
+        ptId,
+        aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
+      },
+    });
   } catch (err) {
     res.status(401).json({ success: false, error: 'Invalid or expired token.' });
+  }
+});
+
+// POST /api/auth/ai-consent — one account choice for Coach, receipt scan, and meal plans.
+router.post('/auth/ai-consent', authMiddleware, async (req, res) => {
+  try {
+    if (typeof req.body?.allowed !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'allowed must be true or false.' });
+    }
+    const stored = await setAIDataConsent(req.user.userId, req.body.allowed);
+    if (stored === null) return res.status(404).json({ success: false, error: 'User not found.' });
+    res.json({ success: true, aiDataConsent: stored });
+  } catch (err) {
+    sendApiError(res, err);
   }
 });
 
@@ -1216,6 +1244,12 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {}
