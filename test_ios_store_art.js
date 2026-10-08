@@ -83,6 +83,8 @@ describe('Real-app screenshot path', () => {
     expect(capture).toContain('Refusing to scale');
     expect(capture).toContain('xcrun simctl io');
     expect(capture).toContain('scripts/reject-letterbox.swift');
+    expect(capture).toContain('python3 -m venv');
+    expect(capture).not.toContain('pip install --user pillow');
     expect(uiTest).toContain('/tmp/fitmunch-shot-ready');
     expect(capture).not.toContain('1290 2796');
     expect(capture).not.toContain('scale_real_shots');

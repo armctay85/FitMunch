@@ -218,10 +218,17 @@ frame_slot() {
   local dest="$2"
   local w="$3"
   local h="$4"
+  local py="python3"
   if ! python3 -c "import PIL" >/dev/null 2>&1; then
-    python3 -m pip install --user pillow
+    local venv="/tmp/fitmunch-pillow-venv"
+    if python3 -m venv "$venv" >/dev/null 2>&1 && [[ -x "$venv/bin/python" ]]; then
+      "$venv/bin/python" -m pip install --disable-pip-version-check pillow
+      py="$venv/bin/python"
+    else
+      python3 -m pip install --user --break-system-packages pillow
+    fi
   fi
-  python3 "$ROOT/scripts/frame-appstore-screenshots.py" "$raw" "$dest" \
+  "$py" "$ROOT/scripts/frame-appstore-screenshots.py" "$raw" "$dest" \
     --width "$w" --height "$h" \
     --contact-sheet "$dest/contact-sheet.png"
 }
