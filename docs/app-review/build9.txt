@@ -1,14 +1,15 @@
 FitMunch App Review packet
-iOS version 1.0, build 9, bundle ID com.fitmunch.app
+iOS version 1.0, build 10, bundle ID com.fitmunch.app
 
-This file is notes for the person submitting build 9. It does not submit the app.
+This file is notes for the person submitting build 10. It does not submit the app.
+The current paste block is also in review-notes-build10.txt. Do not submit from this file.
 Paste only the block marked PASTE INTO APP REVIEW NOTES into App Store Connect.
 Every statement below is taken from the current source (project.yml, FitMunch Swift, FitMunchUITests/FitMunchProducts.storekit, and the account API the app calls).
 
 READINESS CHECKLIST
 
 Identity
-[ ] The uploaded binary is marketing version 1.0 and build 9 (project.yml MARKETING_VERSION "1.0", CURRENT_PROJECT_VERSION "9").
+[ ] The uploaded binary is marketing version 1.0 and build 10 (project.yml MARKETING_VERSION "1.0", CURRENT_PROJECT_VERSION "10").
 [ ] The bundle ID is com.fitmunch.app.
 [ ] The app is iPhone-only (TARGETED_DEVICE_FAMILY 1). On iPad it runs in compatibility mode.
 
@@ -17,8 +18,8 @@ Subscriptions
 [ ] fitmunch_weekly is not in FitMunch Swift sources or the StoreKit file.
 [ ] FitMunchProducts.storekit lists those two subscriptions only. Monthly display price in that file is 19.99, period P1M. Annual display price is 149.99, period P1Y. introductoryOffer is null on both.
 [ ] The paywall loads prices from the App Store for the reviewer's storefront. Do not tell the reviewer a single hard-coded charge. The in-repo catalog prices above are the reference prices in the StoreKit file.
-[ ] The create-account screen shows: Free to start · 14-day Premium trial, no card needed. That sentence is account-screen copy. It is not an introductory offer on the two subscriptions. The StoreKit file does not attach an introductory offer.
-[ ] The last onboarding step shows a Premium card labeled $9.99 per month. Tapping it only opens the paywall. It is not the App Store price and it does not purchase. The prices to review are the ones on the paywall.
+[ ] The create-account screen shows: Free to start. Premium trial available in-app. That sentence is account-screen copy. The StoreKit file lists a 14-day introductory offer. The account-screen line is not itself the offer.
+[ ] The last onboarding step shows a Premium card. The price is the monthly product displayPrice from StoreKit when it loads, otherwise the card says See plans. Tapping it only opens the paywall. It does not purchase.
 [ ] A Sandbox Apple ID can buy the selected plan with Subscribe Now, or the paywall shows the load-failure copy and Retry. The screen must not be blank.
 
 Where the reviewer goes
@@ -31,9 +32,9 @@ Where the reviewer goes
 [ ] The app does not use the microphone. Info.plist and project.yml have no NSMicrophoneUsageDescription. The camera session takes a still photo and sets automaticallyConfiguresApplicationAudioSession to false.
 
 Do not claim these are live
-[ ] HealthKit is not used. Info.plist contains NSHealthShareUsageDescription and NSHealthUpdateUsageDescription, but no Swift file imports or calls HealthKit. Workout steps are an in-app counter (+1,000). They are not Apple Health.
+[ ] This build does not read or write Apple Health. Info.plist has no NSHealthShareUsageDescription and no NSHealthUpdateUsageDescription. Training has no daily steps counter.
 [ ] There is no Apple Watch target and no Watch code.
-[ ] There is no Link payment in the app. Continue on the web opens https://www.fitmunch.com.au in Safari. That website checkout is separate from the two App Store subscriptions. Review purchases with Subscribe Now and a Sandbox Apple ID.
+[ ] Purchases are the two auto-renewable subscriptions on the paywall. There is no website checkout button in the iOS target.
 [ ] The archive workflow uploads a build. It does not submit for review. Do not treat a green CI run as App Review approval.
 
 Account removal the reviewer can use
@@ -45,11 +46,11 @@ Account removal the reviewer can use
 PASTE INTO APP REVIEW NOTES
 (App Store Connect review notes for this version. Stay under 4000 characters. No demo password is built into the app.)
 
-FitMunch 1.0 (9), bundle ID com.fitmunch.app. No existing account is required.
+FitMunch 1.0 (10), bundle ID com.fitmunch.app. No existing account is required.
 
-Create an account. The first screen opens on Create Account. Enter a name, email, and a password of at least 8 characters, then tap Create Free Account. This calls the same register service as fitmunch.com.au. A network connection is required. No card is requested. The line under the button reads: Free to start · 14-day Premium trial, no card needed. That line is account-screen copy. It is not an introductory offer on the subscriptions.
+Create an account. The first screen opens on Create Account. Enter a name, email, and a password of at least 8 characters, then tap Create Free Account. This calls the same register service as fitmunch.com.au. A network connection is required. No card is requested. The line under the button reads: Free to start. Premium trial available in-app. That line is account-screen copy. The project StoreKit file lists a 14-day free introductory offer on the two subscriptions.
 
-Onboarding. Tap Next. Enter a name and email (the goal can stay on Maintenance). Tap Next, then Get Started. The Premium card labeled $9.99 per month only opens the paywall. It does not purchase, and $9.99 is not the App Store price.
+Onboarding. Tap Next. Enter a name and email (the goal can stay on Maintenance). Tap Next, then Get Started. The Premium card opens the paywall. It does not purchase. Its price is the App Store monthly price when StoreKit returns one, otherwise See plans.
 
 Tabs. Today, Plan, Scan, Coach, and Me are on the tab bar. There is no More tab. Plan switches between Meals and Training. Progress is the first row on Me. On iPad this is the iPhone app in compatibility mode.
 
@@ -57,12 +58,12 @@ Today: the plus button logs a meal on the device. A free account can log 3 meals
 Coach: send a question. The reply comes from the FitMunch account service. If it asks the account to upgrade, the paywall opens.
 Scan: you do not need a camera. Tap Choose from library and pick a grocery receipt photo. The app sends it for a haul score when the service responds. Take a photo with no camera, or with camera access off, shows an alert titled Camera not available, with Choose from library. The camera takes a still photo only. This build does not use the microphone and does not ask for microphone permission.
 Plan, Meals: goal labels are General, Cut, Build, and Maintain. Tap Generate 7-day plan. If the service asks for an upgrade, the paywall opens.
-Plan, Training: the weekly plan is generated on the device. Daily steps are an in-app counter (tap +1,000). They are not Apple Health. Log an exercise on the device. This build does not call HealthKit and has no Apple Watch app. Info.plist contains Health usage strings, but no HealthKit API is used.
+Plan, Training: the weekly plan is generated on the device. Log an exercise on the device. This build has no daily steps counter, does not call HealthKit, and has no Apple Watch app.
 Progress: open Me, then Progress. A free account shows an alert, Upgrade to premium to access full history.
 
 Subscriptions. Two auto-renewable products. No weekly plan.
 Monthly: fitmunch_monthly (fallback title Monthly Premium).
-Annual: fitmunch_annual (fallback title Annual Premium). The annual card can show a Save 20% label. The charge is the App Store price on the card.
+Annual: fitmunch_annual (fallback title Annual Premium). Annual can show Best value, a per-week price, and a savings percent. Both numbers are computed from the App Store prices (annual divided by 52, and the percent saved versus 12 times monthly).
 The paywall shows the App Store price for the reviewer's storefront. The project StoreKit file lists reference prices of 19.99 per month and 149.99 per year, and introductoryOffer is null on both products.
 Open the paywall from Me, Upgrade, or Me, Upgrade to Premium. It also opens from Today after the third meal, from Coach or Plan when an upgrade is required, and from the onboarding Premium card. Select a plan and tap Subscribe Now with a Sandbox Apple ID.
 
@@ -70,7 +71,7 @@ Loading plans. The paywall shows Loading plans while it fetches fitmunch_monthly
 
 Restore Purchases. On the paywall, under the plans. The same button sits next to Retry if plans fail to load. It is also on Me, under Subscription, Restore Purchases. Restore looks for fitmunch_monthly and fitmunch_annual and then shows an alert.
 
-Not in this build: Apple Watch, HealthKit, microphone, and Link pay. Continue on the web opens the FitMunch website in Safari. That is separate from these subscriptions. Please review purchases with Subscribe Now and a Sandbox Apple ID.
+Not in this build: Apple Watch, HealthKit, microphone, and a website checkout button. Please review purchases with the green subscribe button and a Sandbox Apple ID.
 
 Account. Me, Log Out keeps on-device meals. Me, Delete Account, Delete Everything deletes the server account.
 Privacy: https://fitmunch.com.au/privacy

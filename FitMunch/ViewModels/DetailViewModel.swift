@@ -30,7 +30,7 @@ class DetailViewModel: ObservableObject {
         self.isEditing = true
     }
     
-    /// No food catalogue is connected. Search stays empty instead of filtering
+    /// No food search source is connected. Search stays empty instead of filtering
     /// a shrinking copy of itself, which could never restore earlier matches.
     func searchFoods() {
         searchResults = []

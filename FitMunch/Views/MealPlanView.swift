@@ -125,9 +125,6 @@ struct MealPlanView: View {
                     metric("Avg protein", "\(protein)g")
                 }
             }
-            Text("Prices vary by store and week.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
 
         ForEach(plan.days ?? [], id: \.day) { day in

@@ -13,8 +13,16 @@ enum Theme {
     /// Paywall CTA fill from main (#167A36). White on this green is 5.42:1.
     static let buttonGreen = Color(red: 22.0 / 255.0, green: 122.0 / 255.0, blue: 54.0 / 255.0)
 
-    /// Secondary copy. #595959 stays at least 4.5:1 on white and on the selected plan wash.
-    static let secondaryText = Color(red: 89.0 / 255.0, green: 89.0 / 255.0, blue: 89.0 / 255.0)
+    /// Secondary copy. Light #595959 is 7.0:1 on white and 6.3:1 on the selected plan wash.
+    /// Dark #B8B8B8 stays above 4.5:1 on the dark paywall. #595959 on that background is about 2.4:1.
+    static let secondaryText: Color = {
+        let light = UIColor(red: 89.0 / 255.0, green: 89.0 / 255.0, blue: 89.0 / 255.0, alpha: 1)
+        let dark = UIColor(red: 184.0 / 255.0, green: 184.0 / 255.0, blue: 184.0 / 255.0, alpha: 1)
+        let dynamic = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        }
+        return Color(uiColor: dynamic)
+    }()
 
     /// Filled buttons stay on the light BrandGreen (#15803D) in both appearances.
     /// White 17pt type on that green is 5.0:1. The dark asset (#22C55E) is for icons and tints.

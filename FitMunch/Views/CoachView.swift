@@ -19,12 +19,6 @@ struct CoachView: View {
         ("progress", "Progress"),
     ]
 
-    private let suggestions = [
-        "What should I eat tonight to hit my protein target?",
-        "Build me a high-protein week for my macros",
-        "I keep snacking at 9pm. How do I stop?",
-    ]
-
     struct ChatMessage: Identifiable, Equatable {
         let id = UUID()
         let role: String
@@ -147,12 +141,16 @@ struct CoachView: View {
             Text("It knows your goals and your logs. Try one of these:")
         } actions: {
             VStack(spacing: Theme.Spacing.two) {
-                ForEach(suggestions, id: \.self) { text in
-                    suggestionChip(text)
-                }
+                starter("What should I eat tonight to hit my protein target?")
+                starter("Build me a high-protein week for my macros")
+                starter("I keep snacking at 9pm. How do I stop?")
             }
         }
         .padding(.top, Theme.Spacing.four)
+    }
+
+    private func starter(_ text: String) -> some View {
+        suggestionChip(text)
     }
 
     private func suggestionChip(_ text: String) -> some View {

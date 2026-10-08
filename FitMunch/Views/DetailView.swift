@@ -30,7 +30,7 @@ struct DetailView: View {
                         .accessibilityIdentifier("meal-name")
                 }
                 
-                // No nutrition catalogue is connected. Do not show invented foods.
+                // No nutrition search source is connected. Do not show invented foods.
                 Section("Add Food") {
                     VStack(alignment: .leading, spacing: Theme.Spacing.two) {
                         Label("Search coming soon", systemImage: "magnifyingglass")
