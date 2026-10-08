@@ -47,7 +47,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Breakfast"].waitForExistence(timeout: 4))
             XCTAssertFalse(app.staticTexts["Free limit reached"].exists)
         case "coach":
-            XCTAssertTrue(app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Build me a high-protein week for my macros"].waitForExistence(timeout: 4))
         case "scan":
             XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
         case "plan":
@@ -112,6 +112,25 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
+    /// Ask the capture script to take a simctl framebuffer shot, which is the full
+    /// screen. XCUIScreen.screenshot letterboxes this app.
+    private func waitForFramebufferShot(named name: String) -> Bool {
+        let readyRoot = "/tmp/fitmunch-shot-ready"
+        let ack = "/tmp/fitmunch-shot-ack/\(name)"
+        do {
+            try FileManager.default.createDirectory(atPath: readyRoot, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(atPath: "/tmp/fitmunch-shot-ack", withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: "\(readyRoot)/\(name)", contents: Data())
+        } catch {
+            return false
+        }
+        let start = Date()
+        while !FileManager.default.fileExists(atPath: ack), Date().timeIntervalSince(start) < 20 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return FileManager.default.fileExists(atPath: ack)
+    }
+
     private func savePNG(named name: String) {
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
@@ -119,7 +138,13 @@ final class AppStoreScreenshotTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Always write a known path. TEST_RUNNER_* env does not always reach XCTest on GHA.
+        // The shell waiter writes the real framebuffer PNG when it acks.
+        // Fall back to XCUIScreen only if that waiter is not running.
+        if waitForFramebufferShot(named: name) {
+            print("Framebuffer shot acked for \(name)")
+            return
+        }
+
         let dirs = [
             "/tmp/fitmunch-appstore-screenshots",
             ProcessInfo.processInfo.environment["SCREENSHOT_DIR"],

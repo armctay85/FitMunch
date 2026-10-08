@@ -25,6 +25,7 @@ module.exports = {
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',
     '**/test_ios_store_art.js',
+    '**/test_asc_metadata.js',
     '**/test_pre_asc_gate.js',
     '**/test_infoplist_launch.js',
     '**/test_ios_supermarket_prices.js',
