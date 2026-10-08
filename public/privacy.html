@@ -66,7 +66,7 @@
 <li>OpenAI</li>
 <li>Anthropic</li>
 </ol>
-<p>If a provider is not set up or fails, the same request goes to the next one in the list. Receipt photos go to Google (Gemini) only. If Google is not available, the scan does not run, and the photo is never sent to xAI, OpenAI or Anthropic.</p>
+<p>If a provider is not set up or fails, the same request goes to the next one in the list. Receipt photos go to Google (Gemini) only. If Google is not set up, the scan does not run. If Google cannot read the photo, the photo has still been sent to Google, but it is never passed on to xAI, OpenAI or Anthropic. In that case FitMunch may show example items instead of your receipt's items. Those example items are not from your receipt.</p>
 <p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. You can read how each one handles data:</p>
 <ul>
 <li>Google: <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a></li>
