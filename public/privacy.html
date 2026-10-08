@@ -5,12 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Privacy Policy | FitMunch</title>
 <meta name="description" content="FitMunch privacy policy for receipt images, nutrition data, AI processing, personal trainer sharing, account deletion, and support requests.">
-<link rel="canonical" href="https://fitmunch.com.au/privacy">
+<link rel="canonical" href="https://www.fitmunch.com.au/privacy">
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+.fm-doc h3{font-size:1rem;font-weight:700;letter-spacing:-.01em;margin:22px 0 8px}
+.fm-doc a{color:#127035}
+.fm-doc .fm-table-wrap{margin:12px 0 18px}
+.fm-doc .fm-table td{color:var(--mute);line-height:1.55}
+.fm-doc .fm-table td:last-child,.fm-doc .fm-table th:last-child{font-family:inherit}
+.fm-doc .fm-table td:last-child{font-weight:400;color:var(--mute)}
+.fm-doc .fm-table td:first-child{font-weight:700;color:var(--ink)}
+.fm-doc .fm-table th,.fm-doc .fm-table th:last-child,.fm-doc .fm-table td::before{color:var(--mute)}
+</style>
 </head>
 <body class="fm-body">
 
@@ -39,41 +49,45 @@
 <h2>2. How we use your data</h2>
 <ul>
 <li>To provide the FitMunch service: receipt scanning, meal planning, nutrition tracking, shopping lists, pantry management.</li>
-<li>To improve our AI extraction and food matching accuracy.</li>
+<li>To improve how FitMunch matches scanned items to foods in its nutrition data.</li>
 <li>To communicate service updates, billing, and support responses.</li>
 <li>To personalise your experience: meal suggestions, nutrition insights, and food recommendations.</li>
 </ul>
 <p>We do not sell your personal data to third parties.</p>
 
 <h2 id="ai">3. AI features and who processes your data</h2>
-<p>Some FitMunch features use AI models run by other companies. When you use one of these features, FitMunch sends the data listed below from our servers to an AI provider, which processes it and returns the answer. These requests do not include your name or email address.</p>
+<p>Some FitMunch features send data to AI providers based in the United States: Google, xAI, OpenAI and Anthropic. The tables below show what each feature sends and who receives it.</p>
+<p>When you use one of these features, FitMunch sends the data listed below from our servers to an AI provider, which processes it and returns the answer. These requests do not include your name or email address.</p>
 
 <h3>Which features use AI and what each one sends</h3>
-<ul>
-<li><strong>Coach chat (app and web):</strong> your messages and the coach's recent replies in that conversation, plus the age, weight, height, goal and dietary preferences saved in your profile. On the website, the chat also sends your daily calorie and protein targets, what you have logged today, and your logging streak.</li>
-<li><strong>Meal plan generation (app and web):</strong> your goal, daily calorie target, daily protein target and the number of days. On the website, it also sends any dietary requirements and the weekly grocery budget you enter.</li>
-<li><strong>Receipt scanning (app and web):</strong> the photo of your receipt, so the AI can list the food items on it.</li>
-<li><strong>Daily coaching tip (web):</strong> your goal, your daily calorie and protein targets, what you have logged today, and your logging streak.</li>
-<li><strong>Weekly review (web):</strong> a summary of your last 7 days: days with meals logged, calorie and protein totals and averages, the number and type of workouts, up to three recent weigh-ins, your goal, and your calorie and protein targets.</li>
-<li><strong>Workout plan (web):</strong> your goal, experience level, training days per week, equipment, session length, and any focus or limits you type in.</li>
-</ul>
+<div class="fm-table-wrap"><table class="fm-table">
+<thead><tr><th scope="col">Feature</th><th scope="col">Data sent</th><th scope="col">Sent to</th></tr></thead>
+<tbody>
+<tr><td data-label="Feature">Coach chat (app and web)</td><td data-label="Data sent">Your messages and the coach's recent replies in that conversation. Anything you type in the chat is sent. Also the age, weight, height, goal and dietary preferences saved in your profile. On the website, the chat also sends your daily calorie and protein targets, what you have logged today, and your logging streak.</td><td data-label="Sent to">Google, xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Meal plan generation (app and web)</td><td data-label="Data sent">Your goal, daily calorie target, daily protein target and the number of days. On the website, it also sends any dietary requirements and the weekly grocery budget you enter.</td><td data-label="Sent to">Google, xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Receipt scanning (app and web)</td><td data-label="Data sent">The photo of your receipt, so the AI can list the food items on it.</td><td data-label="Sent to">Google (Gemini) only</td></tr>
+<tr><td data-label="Feature">Daily coaching tip (web)</td><td data-label="Data sent">Your goal, your daily calorie and protein targets, what you have logged today, and your logging streak.</td><td data-label="Sent to">Google, xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Weekly review (web)</td><td data-label="Data sent">A summary of your last 7 days: days with meals logged, calorie and protein totals and averages, the number and type of workouts, up to three recent weigh-ins, your goal, and your calorie and protein targets.</td><td data-label="Sent to">Google, xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Workout plan (web)</td><td data-label="Data sent">Your goal, experience level, training days per week, equipment, session length, and any focus or limits you type in.</td><td data-label="Sent to">Google, xAI, OpenAI or Anthropic (first available)</td></tr>
+</tbody>
+</table></div>
 
 <h3>Who processes it</h3>
-<p>Coach chat, meal plans, coaching tips, weekly reviews and workout plans go to one of these providers. FitMunch tries them in this order and uses the first one that is set up and answers:</p>
-<ol>
-<li>Google (Gemini)</li>
-<li>xAI</li>
-<li>OpenAI</li>
-<li>Anthropic</li>
-</ol>
-<p>If a provider is not set up or fails, the same request goes to the next one in the list. Receipt photos go to Google (Gemini) only. If Google is not set up, the scan does not run. If Google cannot read the photo, the photo has still been sent to Google, but it is never passed on to xAI, OpenAI or Anthropic. In that case FitMunch may show example items instead of your receipt's items. Those example items are not from your receipt.</p>
-<p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. You can read how each one handles data:</p>
-<ul>
-<li>Google: <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a></li>
-<li>xAI: <a href="https://x.ai/legal/privacy-policy">Privacy Policy</a> and <a href="https://x.ai/legal/terms-of-service-enterprise">enterprise terms</a></li>
-<li>OpenAI: <a href="https://openai.com/policies/privacy-policy/">Privacy Policy</a> and <a href="https://openai.com/policies/services-agreement/">Services Agreement</a></li>
-<li>Anthropic: <a href="https://www.anthropic.com/legal/privacy">Privacy Policy</a> and <a href="https://www.anthropic.com/legal/commercial-terms">Commercial Terms</a></li>
-</ul>
+<p>Coach chat, meal plans, coaching tips, weekly reviews and workout plans go to one of these providers. FitMunch tries them in the order below and uses the first one that is available. If a provider is not available or fails, the same request goes to the next one in the list.</p>
+<div class="fm-table-wrap"><table class="fm-table">
+<thead><tr><th scope="col">Provider</th><th scope="col">Used for</th><th scope="col">Where</th><th scope="col">Privacy and terms</th></tr></thead>
+<tbody>
+<tr><td data-label="Provider">1. Google (Gemini)</td><td data-label="Used for">Receipt scanning, and first choice for all other AI features</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><a href="https://policies.google.com/privacy">Privacy Policy</a>, <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a></td></tr>
+<tr><td data-label="Provider">2. xAI</td><td data-label="Used for">Coach chat, meal plans, tips, reviews and workout plans, if Google is not available</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><a href="https://x.ai/legal/privacy-policy">Privacy Policy</a>, <a href="https://x.ai/legal/terms-of-service-enterprise">enterprise terms</a></td></tr>
+<tr><td data-label="Provider">3. OpenAI</td><td data-label="Used for">The same features, if Google and xAI are not available</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><a href="https://openai.com/policies/privacy-policy/">Privacy Policy</a>, <a href="https://openai.com/policies/services-agreement/">Services Agreement</a></td></tr>
+<tr><td data-label="Provider">4. Anthropic</td><td data-label="Used for">The same features, if no provider above is available</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><a href="https://www.anthropic.com/legal/privacy">Privacy Policy</a>, <a href="https://www.anthropic.com/legal/commercial-terms">Commercial Terms</a></td></tr>
+</tbody>
+</table></div>
+<p>Receipt photos go to Google (Gemini) only. If Google is not set up, the scan does not run. If Google cannot read the photo, the photo has still been sent to Google, but it is never passed on to xAI, OpenAI or Anthropic. A photo Google cannot read is not shown as your receipt and is not logged.</p>
+<p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. Google may use what FitMunch sends to Gemini, including receipt photos and your requests, to improve its products, and a reviewer at Google may read it. For how each provider handles data, see the links above.</p>
+
+<h3>Where your data goes</h3>
+<p>Google, xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
 
 <h3>Your choice</h3>
 <p>In the FitMunch app, before the first of these features sends anything, we ask you once for your account, with Allow and Not now. We only send your data to an AI provider after you tap Allow. If you tap Not now, the AI features stay off and the rest of the app keeps working. You can change your choice and turn AI features off at any time under Me &gt; Privacy.</p>
@@ -87,7 +101,16 @@
 <p>We share data only:</p>
 <ul>
 <li>With your personal trainer, if you've connected your account and opted into sharing.</li>
-<li>With our service providers (hosting, AI processing as described in <a href="#ai">section 3</a>, payment processing via Stripe) under data processing agreements.</li>
+<li>With our service providers, which process data to run FitMunch:
+<ul>
+<li>Hosting: Vercel. FitMunch's server functions run in Vercel's Sydney region.</li>
+<li>Database: Neon (PostgreSQL).</li>
+<li>Payments: Stripe.</li>
+<li>Email: Resend, which sends account and billing emails.</li>
+<li>Fonts: Google Fonts. When you load a FitMunch web page, your browser requests font files from Google.</li>
+<li>AI processing: the providers listed in <a href="#ai">section 3</a>.</li>
+</ul>
+</li>
 <li>When required by law or to protect our rights.</li>
 </ul>
 
@@ -105,7 +128,7 @@
 <p>We use essential cookies for authentication and session management. We do not use advertising or tracking cookies.</p>
 
 <h2>8. Children</h2>
-<p>FitMunch is not intended for users under 13. We do not knowingly collect data from children.</p>
+<p>You must be 18+ or have parental consent.</p>
 
 <h2>9. Changes</h2>
 <p>We'll notify you of material changes to this policy via email or in-app notice before they take effect.</p>
