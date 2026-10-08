@@ -63,11 +63,11 @@ PASTE INTO APP REVIEW NOTES
 
 FitMunch 1.0 (10), bundle ID com.fitmunch.app. No existing account is required.
 
-Create an account. The first screen opens on Create Account. Enter a name, email, and a password of at least 8 characters, then tap Create Free Account. This calls the same register service as fitmunch.com.au. A network connection is required. No card is requested. The line under the button reads: Free to start. Premium trial available in-app. That line is account-screen copy. The project StoreKit file does not attach an introductory offer.
+Create an account. The first screen opens on Create Account. Enter a name, email, and a password of at least 8 characters, then tap Create Free Account. A network connection is required. No card is requested. The line under the button reads: Free to start. Premium trial available in-app. That line is account-screen copy.
 
 Onboarding. Tap Next. Enter a name and email (the goal can stay on Maintenance). Tap Next, then Get Started. The Premium card opens the paywall. It does not purchase. Its price is the App Store monthly price when StoreKit returns one.
 
-Tabs. Today, Plan, Scan, Coach, and Me are on the tab bar. There is no More tab. Plan switches between Meals and Training. Progress is the first row on Me. On iPad this is the iPhone app in compatibility mode.
+Tabs. Today, Plan, Scan, Coach, and Me are on the tab bar. There is no More tab. Plan switches between Meals and Training. Progress is the first row on Me.
 
 Today: the plus button logs a meal on the device. A free account can log 3 meals for the day you are viewing. The next tap shows Free limit reached and opens the paywall.
 Coach: one sheet before the first send, scan, or meal plan. Buttons are Allow and Not now. Not now leaves those three off and the rest of the app usable. Me, Privacy can turn it off later. An upgrade opens the paywall.
