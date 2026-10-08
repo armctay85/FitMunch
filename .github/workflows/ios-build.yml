@@ -58,7 +58,9 @@ jobs:
         xattr -cr RevenueCat.xcframework || true
 
     - name: Generate Xcode project
-      run: xcodegen generate
+      run: |
+        xcodegen generate
+        python3 scripts/ensure-storekit-scheme.py
 
     - name: Resolve packages
       run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
@@ -72,6 +74,46 @@ jobs:
           -scheme FitMunch \
           -destination 'generic/platform=iOS Simulator' \
           CODE_SIGNING_ALLOWED=NO
+
+    - name: StoreKit session proof
+      run: |
+        set -euo pipefail
+        UDID=$(xcrun simctl list devices available \
+          | grep -E 'iPhone' \
+          | head -1 \
+          | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
+          | head -1)
+        test -n "$UDID"
+        echo "proof destination $UDID"
+        xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
+        xcodebuild test \
+          -project FitMunch.xcodeproj \
+          -scheme FitMunch \
+          -destination "platform=iOS Simulator,id=$UDID" \
+          -only-testing:FitMunchTests/FitMunchProductsStoreKitTests \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGN_IDENTITY=-
+
+    - name: Release binary does not link StoreKitTest
+      run: |
+        set -euo pipefail
+        xcodebuild build \
+          -project FitMunch.xcodeproj \
+          -scheme FitMunch \
+          -configuration Release \
+          -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath "$RUNNER_TEMP/ReleaseDD" \
+          CODE_SIGNING_ALLOWED=NO
+        BIN=$(find "$RUNNER_TEMP/ReleaseDD/Build/Products" -path '*/FitMunch.app/FitMunch' -type f -print -quit)
+        test -n "$BIN"
+        echo "Release binary: $BIN"
+        otool -L "$BIN"
+        if otool -L "$BIN" | grep -q StoreKitTest; then
+          echo "StoreKitTest is linked into the Release binary"
+          exit 1
+        fi
+        echo "Release link check: StoreKitTest is absent"
 
     - name: Pre-ASC unit + UI tests A–G (macos Simulator)
       run: bash scripts/run-pre-asc-ci-tests.sh

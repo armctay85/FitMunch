@@ -5,8 +5,16 @@ import RevenueCat
 /// Main app entry point
 @main
 struct FitMunchApp: App {
-    @StateObject private var premiumManager = PremiumManager.shared
-    @StateObject private var auth = AuthManager.shared
+    @StateObject private var premiumManager: PremiumManager
+    @StateObject private var auth: AuthManager
+
+    init() {
+        #if DEBUG
+        LaunchFrameCapture.holdIfRequested()
+        #endif
+        _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
+        _auth = StateObject(wrappedValue: AuthManager.shared)
+    }
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([

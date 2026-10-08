@@ -11,7 +11,11 @@ enum ReviewLaunch {
     static let argument = "-ReviewGuards"
 
     static var isActive: Bool {
-        ProcessInfo.processInfo.arguments.contains(argument)
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains(argument)
+        #else
+        return false
+        #endif
     }
 
     static func prepareSession() {
@@ -27,7 +31,11 @@ enum ScreenshotLaunch {
     static let argument = "-AppStoreScreenshots"
 
     static var isActive: Bool {
-        ProcessInfo.processInfo.arguments.contains(argument)
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains(argument)
+        #else
+        return false
+        #endif
     }
 
     /// Prepare UserDefaults and disable animations before the first frame.

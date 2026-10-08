@@ -37,6 +37,12 @@ class PremiumManager: ObservableObject {
             isPremium = true
             return
         }
+        // -UseLocalStoreKit skips RevenueCat so the paywall reads StoreKit
+        // product prices directly. The app does not start an SKTestSession.
+        if PaywallLaunchArgument.isLocalStoreKit {
+            print("RevenueCat skipped: -UseLocalStoreKit")
+            return
+        }
         configureRevenueCat()
     }
 
@@ -46,16 +52,18 @@ class PremiumManager: ObservableObject {
         Constants.isRevenueCatConfigured && Purchases.isConfigured
     }
 
-    /// Configure RevenueCat with API key
+    /// Configure RevenueCat with API key. A missing key stays on StoreKit 2.
+    /// Nothing user-facing is shown for that case.
     private func configureRevenueCat() {
         guard Constants.isRevenueCatConfigured else {
-            errorMessage = "In-app plans are not configured. You can retry, or continue on fitmunch.com.au."
-            print("RevenueCat not configured: missing REVENUECAT_API_KEY")
+            print("RevenueCat not configured: missing REVENUECAT_API_KEY. Falling back to StoreKit 2.")
             return
         }
         guard !Purchases.isConfigured else { return }
 
+        #if DEBUG
         Purchases.logLevel = .debug
+        #endif
         Purchases.configure(withAPIKey: Constants.revenueCatApiKey)
 
         Task {
@@ -94,7 +102,7 @@ class PremiumManager: ObservableObject {
         }
 
         guard canUsePurchases else {
-            errorMessage = "In-app purchase is not available. Retry, or continue on fitmunch.com.au to start Premium."
+            errorMessage = "In-app purchase is not available right now. Try again."
             return false
         }
 
@@ -131,7 +139,7 @@ class PremiumManager: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if canUsePurchases && !localOnly {
             let restored = await withTimeout(seconds: 8) {
                 await self.restoreFromRevenueCat()
@@ -148,9 +156,7 @@ class PremiumManager: ObservableObject {
         }
 
         if errorMessage == nil {
-            errorMessage = canUsePurchases
-                ? "No purchases to restore or restore failed"
-                : "In-app purchase is not available. Continue on fitmunch.com.au to start Premium."
+            errorMessage = "No purchases to restore or restore failed"
         }
         return false
     }
@@ -201,7 +207,7 @@ class PremiumManager: ObservableObject {
         fetchToken = token
         planHandles = [:]
 
-        if ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.forceEmpty) {
+        if PaywallLaunchArgument.isForceEmpty {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard fetchToken == token else { return [] }
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
@@ -210,7 +216,7 @@ class PremiumManager: ObservableObject {
         }
 
         var loaded = LoadedPlans()
-        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        let localOnly = PaywallLaunchArgument.isLocalStoreKit
 
         if !localOnly && canUsePurchases {
             loaded = await withTimeout(seconds: 4) {
@@ -227,12 +233,6 @@ class PremiumManager: ObservableObject {
                 await self.plansFromStoreKit()
             } ?? LoadedPlans()
         }
-        // CI simulators often ignore the .storekit file and return the live storefront
-        // (US $12.99 on one device, AU $19.99 on another). The audit launch argument
-        // keeps monthly 19.99 and annual 149.99 on screen.
-        if localOnly && !Self.matchesLocalCatalog(loaded.plans) {
-            loaded = Self.localCatalogPlans()
-        }
 
         guard fetchToken == token else { return [] }
         planHandles = loaded.handles
@@ -242,35 +242,10 @@ class PremiumManager: ObservableObject {
             errorMessage = nil
         }
         noteFetch(loaded.plans)
+        let country = await Storefront.current?.countryCode ?? "nil"
+        print("STOREFRONT country=\(country)")
         print("FitMunch plans fetched: \(lastPlanFetchSummary)")
         return loaded.plans
-    }
-
-    private static func matchesLocalCatalog(_ plans: [PaywallPlan]) -> Bool {
-        let monthly = plans.first { $0.id == Constants.ProductIDs.monthly }
-        let annual = plans.first { $0.id == Constants.ProductIDs.annual }
-        guard let monthly, let annual else { return false }
-        return monthly.priceString.contains("19.99") && annual.priceString.contains("149.99")
-    }
-
-    /// Same prices as FitMunchProducts.storekit. Used only for `-UseLocalStoreKit`.
-    private static func localCatalogPlans() -> LoadedPlans {
-        var loaded = LoadedPlans()
-        loaded.plans = [
-            PaywallPlan(
-                id: Constants.ProductIDs.monthly,
-                title: "Monthly Premium",
-                description: "Billed every month",
-                priceString: "$19.99"
-            ),
-            PaywallPlan(
-                id: Constants.ProductIDs.annual,
-                title: "Annual Premium",
-                description: "Billed once a year",
-                priceString: "$149.99"
-            ),
-        ]
-        return loaded
     }
 
     private func noteFetch(_ plans: [PaywallPlan]) {
@@ -278,7 +253,7 @@ class PremiumManager: ObservableObject {
         if plans.isEmpty {
             lastPlanFetchSummary = "loaded=none"
         } else {
-            lastPlanFetchSummary = "loaded=" + plans.map { "\($0.id)@\($0.priceString)" }.joined(separator: ",")
+            lastPlanFetchSummary = "loaded=" + plans.map { "\($0.id)@\($0.priceString) \($0.currencyCode)" }.joined(separator: ",")
             paywallPhase = .ready
         }
     }
@@ -297,13 +272,7 @@ class PremiumManager: ObservableObject {
             var loaded = LoadedPlans()
             for id in ids {
                 guard let package = packages.first(where: { $0.storeProduct.productIdentifier == id }) else { continue }
-                let product = package.storeProduct
-                let plan = PaywallPlan(
-                    id: id,
-                    title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.localizedTitle),
-                    description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
-                    priceString: package.localizedPriceString
-                )
+                let plan = await planFromRevenueCat(package.storeProduct, id: id, priceString: package.localizedPriceString)
                 loaded.handles[id] = .package(package)
                 loaded.plans.append(plan)
             }
@@ -321,12 +290,7 @@ class PremiumManager: ObservableObject {
         var loaded = LoadedPlans()
         for id in ids {
             guard let product = products.first(where: { $0.productIdentifier == id }) else { continue }
-            let plan = PaywallPlan(
-                id: id,
-                title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.localizedTitle),
-                description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
-                priceString: product.localizedPriceString
-            )
+            let plan = await planFromRevenueCat(product, id: id, priceString: product.localizedPriceString)
             loaded.handles[id] = .product(product)
             loaded.plans.append(plan)
         }
@@ -342,12 +306,7 @@ class PremiumManager: ObservableObject {
             var loaded = LoadedPlans()
             for id in ids {
                 guard let product = products.first(where: { $0.id == id }) else { continue }
-                let plan = PaywallPlan(
-                    id: id,
-                    title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.displayName),
-                    description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.description),
-                    priceString: product.displayPrice
-                )
+                let plan = await planFromStoreKit(product, id: id)
                 loaded.handles[id] = .storeKit(product)
                 loaded.plans.append(plan)
             }
@@ -355,6 +314,100 @@ class PremiumManager: ObservableObject {
         } catch {
             print("StoreKit products error: \(error)")
             return LoadedPlans()
+        }
+    }
+
+    private func planFromRevenueCat(_ product: StoreProduct, id: String, priceString: String) async -> PaywallPlan {
+        if let sk2 = product.sk2Product {
+            return await planFromStoreKit(sk2, id: id)
+        }
+
+        let fallback = fallbackPeriod(productId: id)
+        let period = product.subscriptionPeriod
+        let unit = period.map { mapRevenueCatUnit($0.unit) } ?? fallback.0
+        let value = period?.value ?? fallback.1
+        let discount = product.introductoryDiscount
+        var eligible = false
+        if discount != nil, canUsePurchases {
+            let status = await Purchases.shared.checkTrialOrIntroDiscountEligibility(product: product)
+            eligible = status == .eligible
+        }
+        let intro = discount.map { offer in
+            PaywallIntroOffer(
+                periodUnit: mapRevenueCatUnit(offer.subscriptionPeriod.unit),
+                periodValue: offer.subscriptionPeriod.value,
+                isFreeTrial: offer.paymentMode == .freeTrial
+            )
+        }
+        return PaywallPlan(
+            id: id,
+            title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.localizedTitle),
+            description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.localizedDescription),
+            priceString: priceString,
+            amount: product.price,
+            currencyCode: product.currencyCode ?? "",
+            periodUnit: unit,
+            periodValue: max(value, 1),
+            intro: intro,
+            eligibleForIntro: eligible
+        )
+    }
+
+    /// StoreKit 2 product, including `introductoryOffer` and intro eligibility.
+    private func planFromStoreKit(_ product: Product, id: String) async -> PaywallPlan {
+        let subscription = product.subscription
+        let offer = subscription?.introductoryOffer
+        var eligible = false
+        if offer != nil, let subscription {
+            eligible = (try? await subscription.isEligibleForIntroOffer) ?? false
+        }
+        let fallback = fallbackPeriod(productId: id)
+        let unit = subscription.map { mapStoreKitUnit($0.subscriptionPeriod.unit) } ?? fallback.0
+        let value = subscription?.subscriptionPeriod.value ?? fallback.1
+        let intro = offer.map { offer in
+            PaywallIntroOffer(
+                periodUnit: mapStoreKitUnit(offer.period.unit),
+                periodValue: offer.period.value,
+                isFreeTrial: offer.paymentMode == .freeTrial
+            )
+        }
+        let currency = product.priceFormatStyle.currencyCode
+        return PaywallPlan(
+            id: id,
+            title: PaywallCatalog.displayTitle(productId: id, storeTitle: product.displayName),
+            description: PaywallCatalog.displayDescription(productId: id, storeDescription: product.description),
+            priceString: product.displayPrice,
+            amount: product.price,
+            currencyCode: currency,
+            periodUnit: unit,
+            periodValue: max(value, 1),
+            intro: intro,
+            eligibleForIntro: eligible
+        )
+    }
+
+    private func fallbackPeriod(productId: String) -> (PaywallPeriodUnit, Int) {
+        if productId == Constants.ProductIDs.annual { return (.year, 1) }
+        return (.month, 1)
+    }
+
+    private func mapStoreKitUnit(_ unit: Product.SubscriptionPeriod.Unit) -> PaywallPeriodUnit {
+        switch unit {
+        case .day: return .day
+        case .week: return .week
+        case .month: return .month
+        case .year: return .year
+        @unknown default: return .month
+        }
+    }
+
+    private func mapRevenueCatUnit(_ unit: RevenueCat.SubscriptionPeriod.Unit) -> PaywallPeriodUnit {
+        switch unit {
+        case .day: return .day
+        case .week: return .week
+        case .month: return .month
+        case .year: return .year
+        @unknown default: return .month
         }
     }
 
@@ -401,7 +454,7 @@ class PremiumManager: ObservableObject {
     }
 
     private func restoreFromStoreKit() async -> Bool {
-        let localOnly = ProcessInfo.processInfo.arguments.contains(PaywallLaunchArgument.localStoreKit)
+        let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if !localOnly {
             _ = await withTimeout(seconds: 8) {
                 do {

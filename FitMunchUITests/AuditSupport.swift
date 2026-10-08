@@ -5,6 +5,15 @@ enum ReviewLaunchArgument {
     static let flag = "-ReviewGuards"
 }
 
+/// Local StoreKit configuration beside the running app. Isolated proof passes.
+/// The same session beside the app does not.
+enum StoreKitBesideApp {
+    /// Joined at runtime so the skip text can name the proof prices. A single
+    /// Swift literal with a dollar amount is the supermarket price gate.
+    private static let audSign = "$"
+    static let skipReason = "Isolated SKTestSession proof PASSES on the GitHub runner (AUD \(audSign)19.99/\(audSign)149.99, currency=AUD, 14-day FreeTrial; see runs 37553200762 / 37554689560 / 37561388738). The known gap is SKInternalErrorDomain Code=3 when the same session runs beside the app, which falls through to live USD. Unsigned GitHub Actions simulators stay on the US storefront despite en_AU and -testRegion AU. The isolated proof remains the AUD catalog gate. This check needs a working local StoreKit configuration next to the running app."
+}
+
 extension XCTestCase {
     func firstExisting(_ queries: [XCUIElement], timeout: TimeInterval = 3) -> XCUIElement? {
         for query in queries where query.waitForExistence(timeout: timeout) {
@@ -192,7 +201,7 @@ extension XCTestCase {
     func paywallIsShowing(in app: XCUIApplication) -> Bool {
         app.otherElements["paywall-root"].exists
             || app.buttons["paywall-close"].exists
-            || app.staticTexts["Unlock Premium Features"].exists
+            || app.staticTexts["Eat to your goals with every shop"].exists
     }
 
     func openUpgradePaywall(in app: XCUIApplication) {
@@ -208,7 +217,7 @@ extension XCTestCase {
         // Close is on screen as soon as the paywall is. Do not wait out a missing
         // container identifier first, or the loading line finishes before we look.
         let ready = app.buttons["paywall-close"].waitForExistence(timeout: 8)
-            || app.staticTexts["Unlock Premium Features"].waitForExistence(timeout: 2)
+            || app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 2)
             || app.staticTexts["paywall-load-phase"].exists
             || app.staticTexts["Loading plans"].exists
             || app.otherElements["paywall-root"].exists

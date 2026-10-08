@@ -4,7 +4,6 @@ import SwiftUI
 struct MealPlanView: View {
     @State private var calories = "2000"
     @State private var protein = "150"
-    @State private var budget = "120"
     @State private var goal = "general_fitness"
     @State private var plan: MealPlanPayload?
     @State private var isLoading = false
@@ -22,7 +21,7 @@ struct MealPlanView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Build a Woolies/Coles week from your targets.")
+                    Text("Build a week from your calorie and protein targets.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
@@ -37,7 +36,6 @@ struct MealPlanView: View {
                         HStack {
                             labeledField("Calories", text: $calories)
                             labeledField("Protein g", text: $protein)
-                            labeledField(ScreenshotLaunch.isActive ? "Shop budget" : "Budget $", text: $budget)
                         }
 
                         Button {
@@ -76,10 +74,10 @@ struct MealPlanView: View {
                             HStack(spacing: 16) {
                                 if let c = plan.avgDailyCalories { metric("Avg kcal", "\(c)") }
                                 if let p = plan.avgDailyProtein { metric("Avg protein", "\(p)g") }
-                                if let b = plan.weeklyBudgetEst, !ScreenshotLaunch.isActive {
-                                    metric("Est. shop", "$\(b)")
-                                }
                             }
+                            Text("Prices vary by store and week.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
 
                         ForEach(plan.days ?? [], id: \.day) { day in
@@ -139,7 +137,7 @@ struct MealPlanView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(label): \(meal.name ?? "Meal")")
                     .font(.subheadline.weight(.semibold))
-                Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein · \(meal.prepMins ?? 0) min")
+                Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -158,7 +156,6 @@ struct MealPlanView: View {
                     "goal": goal,
                     "calories": Int(calories) ?? 2000,
                     "protein": Int(protein) ?? 150,
-                    "budget": Int(budget) ?? 120,
                     "days": 7,
                 ],
                 as: MealPlanGenerateResponse.self

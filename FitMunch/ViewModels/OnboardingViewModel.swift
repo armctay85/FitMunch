@@ -1,4 +1,5 @@
 import Foundation
+import StoreKit
 import SwiftUI
 
 /// ViewModel for the onboarding/paywall screen
@@ -10,12 +11,26 @@ class OnboardingViewModel: ObservableObject {
     @Published var selectedGoal: Constants.FitnessGoals = .maintenance
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    
-    private let premiumManager = PremiumManager.shared
-    
+    /// StoreKit `displayPrice` for the monthly product. No hard-coded charge.
+    @Published var premiumPriceText: String = "See plans"
+    @Published var premiumPeriodText: String = "in the app"
+
     /// Total number of onboarding steps
     let totalSteps = 3
     
+    /// Binds the Premium card to the App Store price when StoreKit returns it.
+    func loadPremiumPrice() async {
+        do {
+            let products = try await Product.products(for: [Constants.ProductIDs.monthly])
+            if let product = products.first {
+                premiumPriceText = product.displayPrice
+                premiumPeriodText = "per month"
+            }
+        } catch {
+            print("Onboarding monthly price failed: \(error)")
+        }
+    }
+
     /// Move to the next onboarding step
     func nextStep() {
         if currentStep < totalSteps - 1 {

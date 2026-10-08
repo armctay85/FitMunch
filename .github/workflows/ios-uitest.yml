@@ -1,0 +1,298 @@
+name: iOS full-screen UITest
+
+# Build 10: prove the launch screen fills the phone and the built Info.plist
+# still has UILaunchScreen plus the RevenueCat key after XcodeGen.
+
+on:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchTests/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-uitest.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "FitMunch/**"
+      - "FitMunchTests/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-uitest.yml"
+  workflow_dispatch:
+
+jobs:
+  uitest:
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/ensure-storekit-scheme.py
+
+      - name: Build and check processed Info.plist
+        run: |
+          set -euo pipefail
+          xcodebuild clean build \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunch \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO
+          PLIST=$(find "$RUNNER_TEMP/DerivedData/Build/Products" -path '*/FitMunch.app/Info.plist' -print -quit)
+          test -n "$PLIST"
+          echo "Built Info.plist: $PLIST"
+          /usr/libexec/PlistBuddy -c 'Print :UILaunchScreen' "$PLIST"
+          COLOR=$(/usr/libexec/PlistBuddy -c 'Print :UILaunchScreen:UIColorName' "$PLIST")
+          IMAGE=$(/usr/libexec/PlistBuddy -c 'Print :UILaunchScreen:UIImageName' "$PLIST")
+          test "$COLOR" = "LaunchBackground"
+          test "$IMAGE" = "LaunchLogo"
+          KEY=$(/usr/libexec/PlistBuddy -c 'Print :REVENUECAT_API_KEY' "$PLIST")
+          test -n "$KEY"
+          test "$KEY" != "appl_xxx"
+          echo "$KEY" | grep -q '^appl_'
+          if /usr/libexec/PlistBuddy -c 'Print :NSHealthShareUsageDescription' "$PLIST" >/dev/null 2>&1; then
+            echo "NSHealthShareUsageDescription is in the built plist"
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy -c 'Print :NSHealthUpdateUsageDescription' "$PLIST" >/dev/null 2>&1; then
+            echo "NSHealthUpdateUsageDescription is in the built plist"
+            exit 1
+          fi
+          echo "PlistBuddy OK UILaunchScreen=$COLOR/$IMAGE REVENUECAT_API_KEY present"
+
+      - name: Full-screen window on Pro Max and iPhone 11 Pro Max
+        run: |
+          set -euo pipefail
+          echo "=== StoreKit scheme references ==="
+          grep -n "StoreKitConfigurationFileReference" \
+            FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme \
+            || echo "no StoreKitConfigurationFileReference"
+          mkdir -p artifacts/ios-uitest
+          xcrun simctl list devices available | tee artifacts/ios-uitest/simulators.txt
+          xcrun simctl list devicetypes | grep -E 'iPhone (17|16|11) Pro Max' | tee artifacts/ios-uitest/devicetypes.txt || true
+
+          udid_for() {
+            xcrun simctl list devices available \
+              | grep -F "$1 (" \
+              | head -1 \
+              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
+              | head -1
+          }
+
+          latest_runtime() {
+            xcrun simctl list runtimes available \
+              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
+              | tail -1
+          }
+
+          ensure_device() {
+            local name="$1"
+            local type="$2"
+            local udid
+            udid="$(udid_for "$name" || true)"
+            if [[ -z "$udid" ]]; then
+              local runtime
+              runtime="$(latest_runtime)"
+              test -n "$runtime"
+              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
+            fi
+            echo "$udid"
+          }
+
+          PRO_NAME="iPhone 17 Pro Max"
+          PRO_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
+          if [[ -z "${PRO_UDID:-}" ]]; then
+            PRO_NAME="iPhone 16 Pro Max"
+            PRO_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
+          fi
+          ELEVEN_UDID="$(ensure_device "iPhone 11 Pro Max" "iPhone 11 Pro Max")"
+          echo "pro=$PRO_NAME $PRO_UDID" | tee artifacts/ios-uitest/destinations.txt
+          echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID" | tee -a artifacts/ios-uitest/destinations.txt
+
+          run_one() {
+            local name="$1"
+            local udid="$2"
+            local slug="$3"
+            local bundle="artifacts/ios-uitest/${slug}.xcresult"
+            local rc=0
+            rm -rf "$bundle"
+            bash scripts/set-simulator-region-au.sh "$udid"
+            local cand="artifacts/ios-uitest/launch-candidates-${slug}"
+            rm -rf "$cand"
+            mkdir -p "$cand"
+            bash scripts/capture-launch-frame.sh "$udid" "$cand" \
+              > "artifacts/ios-uitest/launch-capture-${slug}.log" 2>&1 &
+            local watch_pid=$!
+            local attempt
+            for attempt in 1 2 3; do
+              rm -rf "$bundle"
+              set +e
+              xcodebuild test \
+                -project FitMunch.xcodeproj \
+                -scheme FitMunchStoreKit \
+                -destination "platform=iOS Simulator,id=$udid" \
+                -only-testing:FitMunchUITests/FullScreenWindowTests \
+                -testLanguage en \
+                -testRegion AU \
+                -resultBundlePath "$bundle" \
+                CODE_SIGNING_ALLOWED=NO \
+                CODE_SIGNING_REQUIRED=NO \
+                CODE_SIGN_IDENTITY=- \
+                | tee "artifacts/ios-uitest/${slug}.log"
+              rc=${PIPESTATUS[0]}
+              set -e
+              if [[ "$rc" -eq 0 ]]; then
+                break
+              fi
+              if ! grep -q "Unable to find a device matching" "artifacts/ios-uitest/${slug}.log"; then
+                break
+              fi
+              echo "destination miss for $slug attempt $attempt"
+              xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+              xcrun simctl bootstatus "$udid" -b || true
+              sleep 5
+            done
+            echo "$name exit=$rc" | tee -a artifacts/ios-uitest/destinations.txt
+            mkdir -p "artifacts/ios-uitest/screenshots"
+            if [[ -d /tmp/fitmunch-b10-screenshots ]]; then
+              cp -R /tmp/fitmunch-b10-screenshots/. artifacts/ios-uitest/screenshots/ || true
+            fi
+            if [[ -d "$HOME/fitmunch-b10-screenshots" ]]; then
+              cp -R "$HOME/fitmunch-b10-screenshots/." artifacts/ios-uitest/screenshots/ || true
+            fi
+            simroot="$HOME/Library/Developer/CoreSimulator/Devices/$udid"
+            if [[ -d "$simroot" ]]; then
+              find "$simroot" -type f \( -name 'today-*.png' -o -name 'paywall-*.png' -o -name 'purchase-sheet*.png' -o -name 'launch-frame*.png' -o -name 'sizes.txt' \) -print \
+                | while read -r found; do
+                    cp "$found" artifacts/ios-uitest/screenshots/ || true
+                  done
+            fi
+            attach_dir="artifacts/ios-uitest/attachments-${slug}"
+            rm -rf "$attach_dir"
+            mkdir -p "$attach_dir"
+            xcrun xcresulttool export attachments --path "$bundle" --output-path "$attach_dir" \
+              || xcrun xcresulttool export --type attachments --path "$bundle" --output-path "$attach_dir" \
+              || true
+            find "$attach_dir" -type f -name '*.png' -print | while read -r png; do
+              base=$(basename "$png")
+              case "$base" in
+                today-*|paywall-*|purchase-sheet*|launch-frame*) cp "$png" "artifacts/ios-uitest/screenshots/${base}" ;;
+              esac
+            done
+            kill "$watch_pid" >/dev/null 2>&1 || true
+            wait "$watch_pid" >/dev/null 2>&1 || true
+            local frame_name="launch-frame-6.5.png"
+            if [[ "$slug" == "pro-max" ]]; then
+              frame_name="launch-frame-6.9.png"
+            fi
+            if ! python3 scripts/pick-launch-frame.py "$cand" "artifacts/ios-uitest/screenshots/${frame_name}"; then
+              echo "Launch frame was not captured for $slug"
+              echo "=== launch capture log ==="
+              tail -n 60 "artifacts/ios-uitest/launch-capture-${slug}.log" || true
+              echo "=== watcher log ==="
+              tail -n 40 "$cand/log.txt" || true
+              echo "=== candidate files ==="
+              find "$cand" -type f -print || true
+              return 1
+            fi
+            if [[ "$slug" == "pro-max" ]]; then
+              cp "artifacts/ios-uitest/screenshots/${frame_name}" artifacts/ios-uitest/screenshots/launch-frame.png
+            fi
+            if ! grep -q 'APP_FOREGROUND_SHOT ' "artifacts/ios-uitest/${slug}.log"; then
+              echo "Missing APP_FOREGROUND_SHOT in $slug log. The capture was not the running app."
+              return 1
+            fi
+            if ! grep -q 'FULLSCREEN_SIZE ' "artifacts/ios-uitest/${slug}.log"; then
+              echo "Missing FULLSCREEN_SIZE in $slug log"
+              return 1
+            fi
+            if grep -q '320x480' "artifacts/ios-uitest/${slug}.log"; then
+              echo "Letterboxed 320x480 in $slug log"
+              return 1
+            fi
+            return "$rc"
+          }
+
+          set +e
+          run_one "$PRO_NAME" "$PRO_UDID" "pro-max"
+          PRO_RC=$?
+          run_one "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-11-pro-max"
+          ELEVEN_RC=$?
+          set -e
+          echo "pro_exit=$PRO_RC eleven_exit=$ELEVEN_RC" | tee -a artifacts/ios-uitest/destinations.txt
+          test "$PRO_RC" = "0"
+          test "$ELEVEN_RC" = "0"
+
+          echo "=== FULLSCREEN_SIZE lines ==="
+          grep 'FULLSCREEN_SIZE ' artifacts/ios-uitest/*.log
+          echo "=== screenshot files ==="
+          find artifacts/ios-uitest/screenshots -type f -print | sort
+          # today-6.9.png and paywall-6.9.png are the running app, not the simulator home screen.
+          test -f artifacts/ios-uitest/screenshots/today-6.9.png
+          test -f artifacts/ios-uitest/screenshots/paywall-6.9.png
+          test -f artifacts/ios-uitest/screenshots/today-6.5.png
+          test -f artifacts/ios-uitest/screenshots/paywall-6.5.png
+          test -f artifacts/ios-uitest/screenshots/launch-frame.png
+          test -f artifacts/ios-uitest/screenshots/launch-frame-6.9.png
+          test -f artifacts/ios-uitest/screenshots/launch-frame-6.5.png
+          grep -q '440x956' artifacts/ios-uitest/pro-max.log
+          grep -q '414x896' artifacts/ios-uitest/iphone-11-pro-max.log
+          grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/pro-max.log
+          grep -q 'APP_FOREGROUND_SHOT ' artifacts/ios-uitest/iphone-11-pro-max.log
+
+          # The confirmation sheet needs a local StoreKit config beside the app.
+          # That session fails with SKInternalErrorDomain Code=3. The test is
+          # XCTSkipped. Do not require a purchase-sheet.png and do not fake one.
+          PURCHASE_BUNDLE="artifacts/ios-uitest/purchase-sheet.xcresult"
+          rm -rf "$PURCHASE_BUNDLE"
+          set +e
+          xcodebuild test \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunchStoreKit \
+            -destination "platform=iOS Simulator,id=$PRO_UDID" \
+            -only-testing:FitMunchUITests/PaywallPurchaseSheetTests \
+            -resultBundlePath "$PURCHASE_BUNDLE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
+            | tee artifacts/ios-uitest/purchase-sheet.log
+          PURCHASE_RC=${PIPESTATUS[0]}
+          set -e
+          echo "purchase_sheet_exit=$PURCHASE_RC" | tee -a artifacts/ios-uitest/destinations.txt
+          test "$PURCHASE_RC" = "0"
+          grep -q '37553200762' artifacts/ios-uitest/purchase-sheet.log
+          grep -q 'SKInternalErrorDomain Code=3' artifacts/ios-uitest/purchase-sheet.log
+          echo "purchase-sheet.png was not captured. The real StoreKit confirmation sheet needs a local StoreKit configuration beside the running app. That session fails with SKInternalErrorDomain Code=3 and the paywall falls through to live USD. The isolated SKTestSession proof passed on runs 37553200762 and 37554689560 (AUD \$19.99/\$149.99, currency=AUD, 14-day FreeTrial). Not faking the sheet."
+
+      - name: Upload simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-uitest-screenshots-build-10
+          path: artifacts/ios-uitest/screenshots/
+          if-no-files-found: warn
+          retention-days: 14
