@@ -47,7 +47,8 @@ Photos or Videos: linked to the user, not used for tracking, App Functionality. 
 User ID: linked to the user, not used for tracking, App Functionality and Analytics. The account id is sent to RevenueCat with logIn.
 Purchase History: linked to the user, not used for tracking, App Functionality and Analytics.
 Product Interaction: linked to the user, not used for tracking, App Functionality. Feature counts for the free AI cap are stored on the account.
-Do not select Fitness. Workout logs stay on the device. Do not select Payment Info, Device ID, or advertising data.
+Other User Content: linked to the user, not used for tracking, App Functionality. Coach messages are the user's free text, posted to the account service and forwarded to the model provider.
+Do not select Fitness. Workout logs stay on the device. Do not select Payment Info, Device ID, Crash Data, Performance Data, or advertising data.
 
 Account removal the reviewer can use
 [ ] Me, Delete Account, Delete Everything calls DELETE /auth/account and removes the server account.

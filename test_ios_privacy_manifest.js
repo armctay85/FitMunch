@@ -34,12 +34,12 @@ describe('iOS privacy manifest matches account-linked collection', () => {
     'NSPrivacyCollectedDataTypePurposeProductPersonalization',
   ];
 
-  it('links name, email, health, photos, user id, purchases, and product interaction', () => {
+  it('links name, email, health, photos, user id, purchases, product interaction, and other user content', () => {
     expect(Object.keys(byType).sort()).toEqual([
       'NSPrivacyCollectedDataTypeEmailAddress',
-      'NSPrivacyCollectedDataTypeFitness',
       'NSPrivacyCollectedDataTypeHealth',
       'NSPrivacyCollectedDataTypeName',
+      'NSPrivacyCollectedDataTypeOtherUserContent',
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeProductInteraction',
       'NSPrivacyCollectedDataTypePurchaseHistory',
@@ -51,6 +51,7 @@ describe('iOS privacy manifest matches account-linked collection', () => {
       'NSPrivacyCollectedDataTypeEmailAddress',
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeProductInteraction',
+      'NSPrivacyCollectedDataTypeOtherUserContent',
     ]) {
       expect(byType[type].linked).toBe(true);
       expect(byType[type].tracking).toBe(false);
@@ -60,10 +61,6 @@ describe('iOS privacy manifest matches account-linked collection', () => {
     expect(byType.NSPrivacyCollectedDataTypeHealth.linked).toBe(true);
     expect(byType.NSPrivacyCollectedDataTypeHealth.tracking).toBe(false);
     expect(byType.NSPrivacyCollectedDataTypeHealth.purposes).toEqual(healthPurposes);
-
-    expect(byType.NSPrivacyCollectedDataTypeFitness.linked).toBe(false);
-    expect(byType.NSPrivacyCollectedDataTypeFitness.tracking).toBe(false);
-    expect(byType.NSPrivacyCollectedDataTypeFitness.purposes).toEqual(appFunction);
 
     for (const type of ['NSPrivacyCollectedDataTypeUserID', 'NSPrivacyCollectedDataTypePurchaseHistory']) {
       expect(byType[type].linked).toBe(true);
@@ -75,6 +72,9 @@ describe('iOS privacy manifest matches account-linked collection', () => {
   it('does not declare tracking or card payment data', () => {
     expect(xml).toMatch(/<key>NSPrivacyTracking<\/key>\s*<false\s*\/>/);
     expect(xml).not.toContain('NSPrivacyCollectedDataTypePaymentInfo');
+    expect(xml).not.toContain('NSPrivacyCollectedDataTypeFitness');
+    expect(xml).not.toContain('NSPrivacyCollectedDataTypeCrashData');
+    expect(xml).not.toContain('NSPrivacyCollectedDataTypePerformanceData');
     expect(xml).not.toContain('NSPrivacyCollectedDataTypeDeviceID');
     expect(xml).not.toContain('NSPrivacyTrackingDomains</key>\n    <array>\n        <string>');
   });
