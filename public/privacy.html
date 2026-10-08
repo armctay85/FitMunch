@@ -27,11 +27,11 @@
 <main class="fm-doc">
 <a class="fm-back" href="/">&larr; FitMunch</a>
 <h1>Privacy Policy</h1>
-<p><em>Last updated: May 2026</em></p>
+<p><em>Last updated: 9 October 2026</em></p>
 
 <h2>1. What we collect</h2>
 <p><strong>Account data:</strong> email address, name (if provided), and account preferences when you sign up.</p>
-<p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to an AI processor to extract item names, quantities, and prices. FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
+<p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to Google (Gemini) to extract item names, quantities, and prices (see section 3). FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
 <p><strong>Food and nutrition data:</strong> meals you log, foods you add to your pantry, shopping lists you create, meal plans you build, and nutrition preferences you set.</p>
 <p><strong>Usage data:</strong> pages visited, features used, and anonymised interaction data to improve FitMunch.</p>
 <p><strong>PT/client relationship data:</strong> if you connect with a personal trainer through FitMunch, your trainer may view shared nutrition and meal plan data you've opted into sharing.</p>
@@ -45,8 +45,40 @@
 </ul>
 <p>We do not sell your personal data to third parties.</p>
 
-<h2>3. AI and automated processing</h2>
-<p>FitMunch uses AI to extract items from receipt images and match them to nutrition data. The photo is sent to our AI provider for that scan, then discarded on FitMunch servers. Extracted text and macros may be stored if you save them to your account.</p>
+<h2 id="ai">3. AI features and who processes your data</h2>
+<p>Some FitMunch features use AI models run by other companies. When you use one of these features, FitMunch sends the data listed below from our servers to an AI provider, which processes it and returns the answer. These requests do not include your name or email address.</p>
+
+<h3>Which features use AI and what each one sends</h3>
+<ul>
+<li><strong>Coach chat (app and web):</strong> your messages and the coach's recent replies in that conversation, plus the age, weight, height, goal and dietary preferences saved in your profile. On the website, the chat also sends your daily calorie and protein targets, what you have logged today, and your logging streak.</li>
+<li><strong>Meal plan generation (app and web):</strong> your goal, daily calorie target, daily protein target and the number of days. On the website, it also sends any dietary requirements and the weekly grocery budget you enter.</li>
+<li><strong>Receipt scanning (app and web):</strong> the photo of your receipt, so the AI can list the food items on it.</li>
+<li><strong>Daily coaching tip (web):</strong> your goal, your daily calorie and protein targets, what you have logged today, and your logging streak.</li>
+<li><strong>Weekly review (web):</strong> a summary of your last 7 days: days with meals logged, calorie and protein totals and averages, the number and type of workouts, up to three recent weigh-ins, your goal, and your calorie and protein targets.</li>
+<li><strong>Workout plan (web):</strong> your goal, experience level, training days per week, equipment, session length, and any focus or limits you type in.</li>
+</ul>
+
+<h3>Who processes it</h3>
+<p>Coach chat, meal plans, coaching tips, weekly reviews and workout plans go to one of these providers. FitMunch tries them in this order and uses the first one that is set up and answers:</p>
+<ol>
+<li>Google (Gemini)</li>
+<li>xAI</li>
+<li>OpenAI</li>
+<li>Anthropic</li>
+</ol>
+<p>If a provider is not set up or fails, the same request goes to the next one in the list. Receipt photos go to Google (Gemini) only. If Google is not available, the scan does not run, and the photo is never sent to xAI, OpenAI or Anthropic.</p>
+<p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. You can read how each one handles data:</p>
+<ul>
+<li>Google: <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://ai.google.dev/gemini-api/terms">Gemini API terms</a></li>
+<li>xAI: <a href="https://x.ai/legal/privacy-policy">Privacy Policy</a> and <a href="https://x.ai/legal/terms-of-service-enterprise">enterprise terms</a></li>
+<li>OpenAI: <a href="https://openai.com/policies/privacy-policy/">Privacy Policy</a> and <a href="https://openai.com/policies/services-agreement/">Services Agreement</a></li>
+<li>Anthropic: <a href="https://www.anthropic.com/legal/privacy">Privacy Policy</a> and <a href="https://www.anthropic.com/legal/commercial-terms">Commercial Terms</a></li>
+</ul>
+
+<h3>Your choice</h3>
+<p>In the FitMunch app, before the first of these features sends anything, we ask you once for your account, with Allow and Not now. We only send your data to an AI provider after you tap Allow. If you tap Not now, the AI features stay off and the rest of the app keeps working. You can change your choice and turn AI features off at any time under Me &gt; Privacy.</p>
+<p>On the website, the daily coaching tip is requested when your dashboard loads. The other AI features send their data only when you use them, for example when you send a coach chat message or ask for a plan or review.</p>
+<p>The receipt photo is sent to Google for that scan, then discarded on FitMunch servers. Extracted text and macros may be stored if you save them to your account.</p>
 
 <h2>4. Data storage and security</h2>
 <p>Your data is stored on secure cloud infrastructure with encryption at rest and in transit. We use industry-standard security practices and regularly review our systems.</p>
@@ -55,7 +87,7 @@
 <p>We share data only:</p>
 <ul>
 <li>With your personal trainer, if you've connected your account and opted into sharing.</li>
-<li>With our service providers (hosting, AI processing, payment processing via Stripe) under data processing agreements.</li>
+<li>With our service providers (hosting, AI processing as described in <a href="#ai">section 3</a>, payment processing via Stripe) under data processing agreements.</li>
 <li>When required by law or to protect our rights.</li>
 </ul>
 
@@ -64,7 +96,7 @@
 <ul>
 <li>Access your data by emailing <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</li>
 <li>Request deletion of your account and all associated data.</li>
-<li>Opt out of AI-based receipt processing at any time.</li>
+<li>Turn AI features off at any time under Me &gt; Privacy in the app. The rest of FitMunch keeps working.</li>
 <li>Export your meal plans, food logs, and pantry data.</li>
 <li>Withdraw PT sharing at any time from your account settings.</li>
 </ul>
