@@ -81,9 +81,13 @@ final class DesignFeelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["today-log-meal"].waitForExistence(timeout: 8), "Meal sheet did not close")
 
         openTab("Scan", in: app)
+        dismissConsentIfNeeded(in: app)
+        dismissSystemAlerts(in: app)
         let photo = app.buttons["scan-take-photo"]
         assertClearsTabBar(photo, named: "Take a photo", in: app)
         tapControl(photo)
+        dismissCameraPermission()
+        dismissConsentIfNeeded(in: app)
         if app.alerts["Camera not available"].waitForExistence(timeout: 8) {
             let alert = app.alerts["Camera not available"]
             if alert.buttons["OK"].exists {
@@ -155,6 +159,8 @@ final class DesignFeelUITests: XCTestCase {
             }
             if tab == "Scan" {
                 XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
+                dismissConsentIfNeeded(in: app)
+                dismissSystemAlerts(in: app)
                 assertClearsTabBar(app.buttons["scan-take-photo"], named: "Take a photo", in: app)
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.6))
@@ -183,6 +189,30 @@ final class DesignFeelUITests: XCTestCase {
         XCTAssertFalse(bar.buttons["Workout"].exists)
         XCTAssertFalse(bar.buttons["History"].exists)
         XCTAssertFalse(bar.buttons["Meals"].exists)
+    }
+
+    /// Screenshot launch pre-grants consent. If the sheet is still up, Allow it so Scan stays reachable.
+    private func dismissConsentIfNeeded(in app: XCUIApplication) {
+        let sheet = app.descendants(matching: .any)["ai-consent-sheet"]
+        guard sheet.waitForExistence(timeout: 1.5) else { return }
+        let allow = app.buttons["ai-consent-allow"]
+        if allow.waitForExistence(timeout: 2) {
+            allow.tap()
+        }
+    }
+
+    /// The system camera prompt is owned by SpringBoard, not the app alert.
+    private func dismissCameraPermission() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let alert = springboard.alerts.firstMatch
+        guard alert.waitForExistence(timeout: 2) else { return }
+        for title in ["Don’t Allow", "Don't Allow", "OK"] {
+            let button = alert.buttons[title]
+            if button.exists {
+                button.tap()
+                return
+            }
+        }
     }
 
     /// The tab bar container's minY sits below the floating glass. Use the tab buttons.

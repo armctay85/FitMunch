@@ -68,10 +68,43 @@ private final class TabBarOverlapProbe: UIView {
             guard let tabBar = Self.findTabBar(in: window) else { return }
             let frame = tabBar.convert(tabBar.bounds, to: window)
             guard frame.height > 20, frame.minY > 1 else { return }
+            // UITabBar.bounds sits under the floating glass. Clear the glass,
+            // which is the top of the tab buttons, or pinned controls stay out
+            // of the accessibility tree.
+            let chromeTop = Self.chromeTop(of: tabBar, in: window, containerTop: frame.minY)
             let safeBottom = window.bounds.maxY - window.safeAreaInsets.bottom
-            let overlap = min(160, max(0, safeBottom - frame.minY))
+            let overlap = min(160, max(0, safeBottom - chromeTop))
             self.onOverlap?(overlap.rounded())
         }
+    }
+
+    /// Highest edge of the tab bar or its glass, limited to the bottom band so
+    /// page content cannot inflate the inset.
+    private static func chromeTop(of tabBar: UIView, in window: UIView, containerTop: CGFloat) -> CGFloat {
+        var top = containerTop
+        let floor = window.bounds.maxY - 220
+        func consider(_ view: UIView) {
+            let frame = view.convert(view.bounds, to: window)
+            guard frame.width > 36, frame.height > 16 else { return }
+            guard frame.minY >= floor, frame.maxY <= window.bounds.maxY + 2 else { return }
+            top = min(top, frame.minY)
+        }
+        func walk(_ view: UIView) {
+            consider(view)
+            for subview in view.subviews {
+                walk(subview)
+            }
+        }
+        walk(tabBar)
+        if let parent = tabBar.superview {
+            for sibling in parent.subviews {
+                let name = NSStringFromClass(type(of: sibling))
+                if sibling === tabBar || name.contains("Tab") {
+                    walk(sibling)
+                }
+            }
+        }
+        return top
     }
 
     /// Prefer UITabBar. A floating bar that is not that class still has TabBar in its name.
