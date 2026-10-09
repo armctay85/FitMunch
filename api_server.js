@@ -1167,7 +1167,12 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
         });
       }
       tier = effectiveTier(user);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
     const fallback = heuristicInsight(facts);
@@ -1258,7 +1263,12 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       }
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
     if (!gate.allowed) {
@@ -1347,7 +1357,6 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       month: aiUsage.monthKey(),
       provider: aiClient.providerName(),
       model: {
-        gemini: aiClient.geminiModel,
         grok: aiClient.grokModel,
         openai: aiClient.openaiModel,
         anthropic: aiClient.anthropicModel,
@@ -1383,7 +1392,12 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
         });
       }
       tier = effectiveTier(user);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed) {
       return res.status(429).json({
@@ -1454,7 +1468,12 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       }
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed) {

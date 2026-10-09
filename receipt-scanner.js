@@ -178,7 +178,12 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
           error: 'AI features are off for this account. Turn them on in Me, Privacy.',
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     const tier = await userTier(req.user.userId);
     if (!tier || tier === 'free') {

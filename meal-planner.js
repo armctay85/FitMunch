@@ -91,8 +91,7 @@ function lookupPrice(name) {
   return { price: 2.50, unit: 'item', per: '1', aisle: 'Other' }; // default estimate
 }
 
-// AI calls go through lib/ai-client (Gemini-first, falls back through Grok →
-// OpenAI → Anthropic), so a single provider outage can't break plan generation.
+// AI calls go through lib/ai-client: xAI, then OpenAI, then Anthropic.
 
 // ── GENERATE MEAL PLAN ────────────────────────────────────────────────────────
 router.post('/generate', requireAuth, async (req, res) => {
@@ -163,7 +162,12 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
           error: 'AI features are off for this account. Turn them on in Me, Privacy.',
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     // Free-tier gating — plan generation is a heavyweight AI call.
     const tier = await userTier(req.user.userId);

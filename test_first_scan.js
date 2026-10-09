@@ -202,6 +202,30 @@ describe('POST /api/receipt/scan read failure', () => {
     expect(consume).toHaveBeenCalled();
   });
 
+  it('returns 503 and does not scan when the account lookup throws', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    process.env.XAI_API_KEY = 'xai-test';
+    let visionCalls = 0;
+    receiptRouter._setVisionForTests(async () => {
+      visionCalls += 1;
+      return { ok: true, text: JSON.stringify(REAL_HAUL) };
+    });
+    jest.spyOn(storage, 'getUserById').mockRejectedValue(new Error('account lookup failed'));
+    const consume = jest.spyOn(aiUsage, 'checkAndConsume');
+    const res = await request(app)
+      .post('/api/receipt/scan')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
+      .expect(503);
+    expect(res.body).toEqual({
+      success: false,
+      error: "We couldn't check your AI settings. Please try again.",
+    });
+    expect(res.body.items).toBeUndefined();
+    expect(visionCalls).toBe(0);
+    expect(consume).not.toHaveBeenCalled();
+  });
+
   it('returns the unavailable 422 when no vision provider can be called', async () => {
     const previous = {
       GEMINI_API_KEY: process.env.GEMINI_API_KEY,

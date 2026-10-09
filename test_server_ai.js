@@ -7,7 +7,6 @@ jest.mock('./lib/ai-client', () => {
   return {
     hasProvider: jest.fn(() => true),
     providerName: jest.fn(() => 'openai'),
-    geminiModel: jest.fn(() => 'gemini-2.5-flash'),
     grokModel: jest.fn(() => 'grok-4.3'),
     openaiModel: jest.fn(() => 'gpt-4o-mini'),
     anthropicModel: jest.fn(() => 'claude-haiku-4-5'),
@@ -258,6 +257,75 @@ describe('AI routes', () => {
       .send({ todayCalories: 1200, todayProtein: 60, streak: 3, goal: 'muscle_gain', targetCalories: 2500, targetProtein: 180 });
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
+  });
+
+  const settingsRetry = "We couldn't check your AI settings. Please try again.";
+
+  async function expectLookupFailure(send) {
+    const storage = require('./server/storage.js');
+    const aiClient = require('./lib/ai-client');
+    const aiUsage = require('./lib/ai-usage');
+    storage.getUserById.mockRejectedValue(new Error('account lookup failed'));
+    aiClient.chat.mockClear();
+    aiClient.chatJson.mockClear();
+    aiUsage.checkAndConsume.mockClear();
+    try {
+      const r = await send();
+      expect(r.status).toBe(503);
+      expect(r.body).toEqual({ success: false, error: settingsRetry });
+      expect(r.body.insight).toBeUndefined();
+      expect(r.body.items).toBeUndefined();
+      expect(aiClient.chat).not.toHaveBeenCalled();
+      expect(aiClient.chatJson).not.toHaveBeenCalled();
+      expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+      return r;
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test',
+        name: 'Tester',
+        email: 't@example.com',
+        subscriptionTier: 'free',
+      });
+    }
+  }
+
+  it('POST /api/ai/chat returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ messages: [{ role: 'user', content: 'hello' }] }));
+  });
+
+  it('POST /api/ai/insight returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .post('/api/ai/insight')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ todayCalories: 100, todayProtein: 20, streak: 2 }));
+  });
+
+  it('POST /api/ai/workout-plan returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .post('/api/ai/workout-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ goal: 'muscle_gain' }));
+  });
+
+  it('GET /api/ai/weekly-review returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .get('/api/ai/weekly-review')
+      .set('Authorization', `Bearer ${token}`));
+  });
+
+  it('POST /api/meal-plan/generate returns 503 when the account lookup throws', async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    const planToken = jwt.sign({ userId: 'u-test' }, process.env.JWT_SECRET);
+    const planApp = express();
+    planApp.use(express.json());
+    planApp.use('/api/meal-plan', require('./meal-planner'));
+    await expectLookupFailure(() => request(planApp)
+      .post('/api/meal-plan/generate')
+      .set('Authorization', `Bearer ${planToken}`)
+      .send({ goal: 'maintain', calories: 2000, protein: 150 }));
   });
 
   it('AI endpoints return 429 with upgrade flag when free cap is hit', async () => {
