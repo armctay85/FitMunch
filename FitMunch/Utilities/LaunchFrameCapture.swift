@@ -22,7 +22,10 @@ enum LaunchFrameCapture {
         for url in urls {
             try? Data("hold".utf8).write(to: url)
         }
-        Thread.sleep(forTimeInterval: 10)
+        // 10s loses the frame on iPhone 11 Pro Max. simctl screenshot there
+        // takes about 20s, and the first shot is still the black pre-render,
+        // so the launch screen is gone before the next shot starts.
+        Thread.sleep(forTimeInterval: 25)
         #endif
     }
 }
