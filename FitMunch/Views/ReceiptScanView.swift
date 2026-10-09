@@ -129,18 +129,24 @@ struct ReceiptScanView: View {
             Button {
                 beginScan(.camera)
             } label: {
-                Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
-                    .symbolRenderingMode(.hierarchical)
+                HStack(spacing: 8) {
+                    Image(systemName: "camera.fill")
+                    Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
+                }
+                .symbolRenderingMode(.hierarchical)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(isRequestingCamera)
-            .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
             .accessibilityIdentifier("scan-take-photo")
+            .accessibilityLabel("Take a photo")
             Button {
                 beginScan(.library)
             } label: {
-                Label("Choose from library", systemImage: "photo.on.rectangle")
-                    .symbolRenderingMode(.hierarchical)
+                HStack(spacing: 8) {
+                    Image(systemName: "photo.on.rectangle")
+                    Text("Choose from library")
+                }
+                .symbolRenderingMode(.hierarchical)
             }
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("scan-choose-library")
