@@ -16,7 +16,9 @@
 .fm-doc a{color:#127035}
 .fm-doc .fm-table-wrap{margin:12px 0 18px}
 .fm-doc .fm-table td{color:var(--mute);line-height:1.55}
-.fm-doc .fm-table td:last-child,.fm-doc .fm-table th:last-child{font-family:inherit}
+.fm-doc .fm-table td:last-child{font-family:inherit}.fm-doc .fm-table th:last-child{font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.fm-doc .fm-table td a{white-space:nowrap}
+@media(max-width:359px){.fm-doc .fm-table td{grid-template-columns:1fr;gap:2px}}
 .fm-doc .fm-table td:last-child{font-weight:400;color:var(--mute)}
 .fm-doc .fm-table td:first-child{font-weight:700;color:var(--ink)}
 .fm-doc .fm-table th,.fm-doc .fm-table th:last-child,.fm-doc .fm-table td::before{color:var(--mute)}
@@ -87,11 +89,11 @@
 <p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. Google may use what FitMunch sends to Gemini, including receipt photos and your requests, to improve its products, and a reviewer at Google may read it. For how each provider handles data, see the links above.</p>
 
 <h3>Where your data goes</h3>
-<p>Google, xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
+<p>Google, xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. Your account and food data are stored in FitMunch's database, which Neon hosts in the United States (US East). Stripe (payments), Resend (email) and RevenueCat (in-app subscriptions) may also process your data in the United States. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
 
 <h3>Your choice</h3>
 <p>In the FitMunch app, before the first of these features sends anything, we ask you once for your account, with Allow and Not now. We only send your data to an AI provider after you tap Allow. If you tap Not now, the AI features stay off and the rest of the app keeps working. You can change your choice and turn AI features off at any time under Me &gt; Privacy.</p>
-<p>On the website, the daily coaching tip is requested when your dashboard loads. The other AI features send their data only when you use them, for example when you send a coach chat message or ask for a plan or review.</p>
+<p>On the website, the daily coaching tip is requested when your dashboard loads. It does not run when AI features are turned off for your account. The other AI features send their data only when you use them, for example when you send a coach chat message or ask for a plan or review.</p>
 <p>The receipt photo is sent to Google for that scan, then discarded on FitMunch servers. Extracted text and macros may be stored if you save them to your account.</p>
 
 <h2>4. Data storage and security</h2>
@@ -104,8 +106,10 @@
 <li>With our service providers, which process data to run FitMunch:
 <ul>
 <li>Hosting: Vercel. FitMunch's server functions run in Vercel's Sydney region.</li>
-<li>Database: Neon (PostgreSQL).</li>
+<li>Database: Neon (PostgreSQL), hosted in the United States (US East).</li>
 <li>Payments: Stripe.</li>
+<li>In-app subscriptions: RevenueCat, which keeps track of subscriptions bought in the iOS app.</li>
+<li>In-app purchases: Apple. If you subscribe in the iOS app, Apple takes the payment through the App Store. Apple and RevenueCat receive your account ID and purchase history only, not your health data, coach messages or receipt photos.</li>
 <li>Email: Resend, which sends account and billing emails.</li>
 <li>Fonts: Google Fonts. When you load a FitMunch web page, your browser requests font files from Google.</li>
 <li>AI processing: the providers listed in <a href="#ai">section 3</a>.</li>
