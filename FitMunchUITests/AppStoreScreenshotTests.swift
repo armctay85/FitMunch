@@ -37,8 +37,76 @@ final class AppStoreScreenshotTests: XCTestCase {
             )
             assertScreenLooksInUse(screen.file)
             assertNoRejectedCopy(on: screen.file)
+            assertStoreSafe(on: screen.file)
+            waitForSettledFrame(screen.file)
             savePNG(named: screen.file)
         }
+    }
+
+    /// Consent is pre-granted by ScreenshotLaunch. The sheet, and any Grok or Google line, must not be in the shot.
+    private func assertStoreSafe(on screen: String) {
+        XCTAssertFalse(
+            app.descendants(matching: .any)["ai-consent-sheet"].exists,
+            "\(screen) is showing the AI consent sheet"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "grok")).firstMatch.exists,
+            "\(screen) shows Grok"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "google")).firstMatch.exists,
+            "\(screen) shows Google"
+        )
+    }
+
+    /// The shared tab-bar inset is measured after the first layout. Wait until pinned controls clear it.
+    private func waitForSettledFrame(_ screen: String) {
+        switch screen {
+        case "scan":
+            assertClearsTabBar(app.buttons["scan-take-photo"], named: "Take a photo")
+        case "plan":
+            assertClearsTabBar(app.buttons["plan-generate"], named: "Generate 7-day plan")
+        case "coach":
+            let input = app.textFields["coach-input"].exists
+                ? app.textFields["coach-input"]
+                : app.descendants(matching: .any)["coach-input"]
+            assertClearsTabBar(input, named: "Coach composer")
+        default:
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        }
+    }
+
+    private func assertClearsTabBar(_ element: XCUIElement, named name: String) {
+        XCTAssertTrue(element.waitForExistence(timeout: 8), "\(name) missing before the shot")
+        let deadline = Date().addingTimeInterval(8)
+        var barTop = tabButtonTop()
+        while Date() < deadline {
+            barTop = tabButtonTop()
+            if element.exists,
+               element.isHittable,
+               element.frame.height > 1,
+               element.frame.maxY <= barTop - 4 {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertLessThanOrEqual(
+            element.frame.maxY,
+            barTop - 4,
+            "\(name) sits under the tab bar (control \(element.frame), tab buttons top \(barTop))"
+        )
+    }
+
+    private func tabButtonTop() -> CGFloat {
+        let bar = app.tabBars.firstMatch
+        var top = bar.frame.minY
+        for name in ["Today", "Plan", "Scan", "Coach", "Me"] {
+            let button = bar.buttons[name]
+            if button.exists, button.frame.height > 1 {
+                top = min(top, button.frame.minY)
+            }
+        }
+        return top
     }
 
     private func assertScreenLooksInUse(_ screen: String) {
