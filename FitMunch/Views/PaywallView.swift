@@ -49,6 +49,9 @@ struct PaywallView: View {
             .contentMargins(.top, 0, for: .scrollContent)
             .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
+            .background(Theme.surface.ignoresSafeArea())
+            .toolbarBackground(Theme.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {

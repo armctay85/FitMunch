@@ -129,27 +129,34 @@ struct ReceiptScanView: View {
             Button {
                 beginScan(.camera)
             } label: {
+                // A symbol in the label drops the control out of the accessibility
+                // tree on iOS 26. Keep the glyph visual, and expose a plain text button.
                 HStack(spacing: 8) {
                     Image(systemName: "camera.fill")
+                        .accessibilityHidden(true)
                     Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
                 }
-                .symbolRenderingMode(.hierarchical)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(isRequestingCamera)
+            .accessibilityElement(children: .combine)
             .accessibilityIdentifier("scan-take-photo")
             .accessibilityLabel("Take a photo")
+            .accessibilityAddTraits(.isButton)
             Button {
                 beginScan(.library)
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "photo.on.rectangle")
+                        .accessibilityHidden(true)
                     Text("Choose from library")
                 }
-                .symbolRenderingMode(.hierarchical)
             }
             .buttonStyle(SecondaryButtonStyle())
+            .accessibilityElement(children: .combine)
             .accessibilityIdentifier("scan-choose-library")
+            .accessibilityLabel("Choose from library")
+            .accessibilityAddTraits(.isButton)
         }
     }
 
