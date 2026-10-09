@@ -16,7 +16,6 @@ struct ReceiptScanView: View {
     @State private var showLibraryPicker = false
     @State private var showCameraFallback = false
     @State private var cameraFallbackMessage = ""
-    @State private var photoBounce = 0
     @State private var scanCompletions = 0
     @State private var showConsent = false
     @State private var pendingScan: ScanStart?
@@ -26,7 +25,6 @@ struct ReceiptScanView: View {
     private static let unavailableCopy = "Scanning is unavailable right now."
     @EnvironmentObject private var auth: AuthManager
     @ObservedObject private var consent = AIDataConsent.shared
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum ScanStart {
         case camera
@@ -129,34 +127,18 @@ struct ReceiptScanView: View {
             Button {
                 beginScan(.camera)
             } label: {
-                // A symbol in the label drops the control out of the accessibility
-                // tree on iOS 26. Keep the glyph visual, and expose a plain text button.
-                HStack(spacing: 8) {
-                    Image(systemName: "camera.fill")
-                        .accessibilityHidden(true)
-                    Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
-                }
+                Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(isRequestingCamera)
-            .accessibilityElement(children: .combine)
             .accessibilityIdentifier("scan-take-photo")
-            .accessibilityLabel("Take a photo")
-            .accessibilityAddTraits(.isButton)
             Button {
                 beginScan(.library)
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "photo.on.rectangle")
-                        .accessibilityHidden(true)
-                    Text("Choose from library")
-                }
+                Text("Choose from library")
             }
             .buttonStyle(SecondaryButtonStyle())
-            .accessibilityElement(children: .combine)
             .accessibilityIdentifier("scan-choose-library")
-            .accessibilityLabel("Choose from library")
-            .accessibilityAddTraits(.isButton)
         }
     }
 
@@ -168,7 +150,6 @@ struct ReceiptScanView: View {
                 .font(.system(size: 52))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(Theme.brandGreen)
-                .symbolEffect(.bounce, value: reduceMotion ? 0 : photoBounce)
                 .padding(.top, 56)
                 .accessibilityLabel("Scan a receipt")
             Text("Scan your shop")
@@ -408,7 +389,6 @@ struct ReceiptScanView: View {
     }
 
     private func startScan(_ image: UIImage) {
-        photoBounce += 1
         guard let jpeg = image.jpegData(compressionQuality: 0.7) else {
             errorMessage = "Couldn't read that image. Try another photo."
             return

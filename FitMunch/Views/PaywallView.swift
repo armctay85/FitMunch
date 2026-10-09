@@ -244,7 +244,7 @@ struct PaywallView: View {
         .padding(.top, 10)
         .padding(.bottom, 6)
         .frame(maxWidth: .infinity)
-        .background(.background)
+        .background(Theme.surface.ignoresSafeArea(edges: .bottom))
     }
 
     private func subscribeButton(_ plan: PaywallPlan) -> some View {
