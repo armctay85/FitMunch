@@ -59,6 +59,7 @@ enum ReviewLaunch {
         #endif
     }
 
+    @MainActor
     static func prepareSession() {
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
@@ -81,6 +82,7 @@ enum ScreenshotLaunch {
     }
 
     /// Prepare UserDefaults and disable animations before the first frame.
+    @MainActor
     static func prepareSession() {
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
