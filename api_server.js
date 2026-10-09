@@ -1157,14 +1157,6 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       targetProtein = 150,
     } = req.body || {};
 
-    const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
-    const fallback = heuristicInsight(facts);
-
-    if (!aiClient.hasProvider()) {
-      return res.json({ success: true, insight: fallback, provider: null });
-    }
-
-    // Enforce free-tier monthly cap, paid tiers skip the cap.
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
@@ -1176,6 +1168,13 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       }
       tier = effectiveTier(user);
     } catch (_) {}
+
+    const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
+    const fallback = heuristicInsight(facts);
+
+    if (!aiClient.hasProvider()) {
+      return res.json({ success: true, insight: fallback, provider: null });
+    }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed) {
       return res.json({ success: true, insight: fallback, provider: 'rate_limited', upgrade: true, limit: gate.limit, used: gate.used });

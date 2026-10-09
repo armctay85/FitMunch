@@ -213,6 +213,36 @@ describe('AI routes', () => {
     }
   });
 
+  it('a denied account gets 403 from insight before the no-provider tip', async () => {
+    const storage = require('./server/storage.js');
+    const aiClient = require('./lib/ai-client');
+    storage.getUserById.mockResolvedValue({
+      id: 'u-test',
+      name: 'Tester',
+      email: 't@example.com',
+      subscriptionTier: 'free',
+      settings: { aiDataConsent: false },
+    });
+    aiClient.hasProvider.mockReturnValueOnce(false);
+    try {
+      const r = await request(app)
+        .post('/api/ai/insight')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ todayCalories: 1200, todayProtein: 60, streak: 3 });
+      expect(r.status).toBe(403);
+      expect(r.body.insight).toBeUndefined();
+      expect(r.body.success).toBe(false);
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test',
+        name: 'Tester',
+        email: 't@example.com',
+        subscriptionTier: 'free',
+      });
+      aiClient.hasProvider.mockReturnValue(true);
+    }
+  });
+
   it('an account that has not answered can still call insight', async () => {
     const storage = require('./server/storage.js');
     storage.getUserById.mockResolvedValue({

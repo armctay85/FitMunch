@@ -299,7 +299,7 @@ router.get('/', (_req, res) => res.json({
 router.get('/generate', (_req, res) => res.json({
   ok: true,
   method: 'POST /api/meal-plan/generate',
-  description: 'Generate a 7-day AI meal plan using Claude/Gemini',
+  description: 'Generate a 7-day AI meal plan using xAI, OpenAI, or Anthropic',
   auth: 'Bearer JWT required',
   body: {
     goal: 'lose_weight | muscle_gain | maintain | general_fitness',
