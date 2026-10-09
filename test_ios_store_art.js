@@ -66,13 +66,34 @@ describe('Real-app screenshot path', () => {
     expect(capture).not.toMatch(/ASC_PASSWORD|AuthKey_|\.p8/);
   });
 
-  it('captures Home, Coach, Scan, Plan, Settings at 1290x2796', () => {
+  it('captures the five tabs at 1320x2868 and a true 6.5-inch size', () => {
     for (const name of ['home', 'coach', 'scan', 'plan', 'settings']) {
       expect(uiTest).toContain(`"${name}"`);
       expect(capture).toContain(`${name}.png`);
     }
-    expect(capture).toContain('1290 2796');
+    for (const tab of ['Today', 'Plan', 'Scan', 'Coach', 'Me']) {
+      expect(uiTest).toContain(`"${tab}"`);
+    }
+    expect(uiTest).toContain('More tab is showing');
+    expect(uiTest).toContain('Build me a high-protein week for my macros');
+    expect(launch).toContain('Build me a high-protein week for my macros');
     expect(capture).toContain('1320 2868');
+    expect(capture).toContain('1284 2778');
+    expect(capture).toContain('1242 2688');
+    expect(capture).toContain('Refusing to scale');
+    expect(capture).toContain('xcrun simctl io');
+    expect(capture).toContain('scripts/reject-letterbox.swift');
+    expect(capture).toContain('python3 -m venv');
+    expect(capture).not.toContain('pip install --user pillow');
+    expect(uiTest).toContain('/tmp/fitmunch-shot-ready');
+    expect(capture).not.toContain('1290 2796');
+    expect(capture).not.toContain('scale_real_shots');
+    expect(capture).not.toContain('workout.png');
+    expect(capture).not.toContain('history.png');
+    const letterbox = read('scripts/reject-letterbox.swift');
+    expect(letterbox).toContain('home.png');
+    expect(letterbox).not.toContain('workout.png');
+    expect(letterbox).not.toContain('history.png');
     expect(project).toContain('FitMunchUITests');
     expect(launch).toContain('-AppStoreScreenshots');
     expect(uiTest).toContain('-AppStoreScreenshots');

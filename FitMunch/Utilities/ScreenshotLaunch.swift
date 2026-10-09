@@ -147,7 +147,7 @@ enum ScreenshotLaunch {
     /// Coach thread that reads as the real chat UI, with no price or trial copy.
     static func coachMessages() -> [CoachView.ChatMessage] {
         [
-            CoachView.ChatMessage(role: "user", content: "What should I eat after training?"),
+            CoachView.ChatMessage(role: "user", content: "Build me a high-protein week for my macros"),
             CoachView.ChatMessage(
                 role: "assistant",
                 content: "Go for grilled chicken, rice, and broccoli. That lands you near 40g protein and keeps the rest of the day on target."

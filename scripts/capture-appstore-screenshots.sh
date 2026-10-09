@@ -108,6 +108,53 @@ verify_pngs() {
   done
 }
 
+# XCUIScreen.screenshot letterboxes this app. The UI test writes a ready file
+# per screen; this loop takes a simctl framebuffer shot and acks it.
+start_framebuffer_waiter() {
+  local udid="$1"
+  local folder="$2"
+  stop_framebuffer_waiter
+  rm -rf /tmp/fitmunch-shot-ready /tmp/fitmunch-shot-ack /tmp/fitmunch-shot-waiter-stop
+  mkdir -p /tmp/fitmunch-shot-ready /tmp/fitmunch-shot-ack "$folder"
+  (
+    set +e
+    while [[ ! -f /tmp/fitmunch-shot-waiter-stop ]]; do
+      for name in home coach scan plan settings; do
+        if [[ -f "/tmp/fitmunch-shot-ready/$name" && ! -f "/tmp/fitmunch-shot-ack/$name" ]]; then
+          sleep 0.35
+          if xcrun simctl io "$udid" screenshot "$folder/$name.png"; then
+            touch "/tmp/fitmunch-shot-ack/$name"
+            echo "Framebuffer wrote $folder/$name.png"
+          else
+            echo "simctl screenshot failed for $name" >&2
+          fi
+        fi
+      done
+      sleep 0.05
+    done
+  ) &
+  echo $! > /tmp/fitmunch-shot-waiter.pid
+}
+
+stop_framebuffer_waiter() {
+  touch /tmp/fitmunch-shot-waiter-stop
+  if [[ -f /tmp/fitmunch-shot-waiter.pid ]]; then
+    local pid
+    pid="$(cat /tmp/fitmunch-shot-waiter.pid)"
+    local tick
+    for tick in 1 2 3 4 5 6 7 8 9 10; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    rm -f /tmp/fitmunch-shot-waiter.pid
+  fi
+  rm -f /tmp/fitmunch-shot-waiter-stop
+}
+
 run_capture() {
   local udid="$1"
   local folder="$2"
@@ -123,6 +170,7 @@ run_capture() {
   local log="$folder/xcodebuild.log"
   for attempt in 1 2 3; do
     rm -rf "$folder/Test.xcresult"
+    start_framebuffer_waiter "$udid" "$folder"
     set +e
     xcodebuild test \
       -project FitMunch.xcodeproj \
@@ -137,6 +185,7 @@ run_capture() {
       | tee "$log"
     rc=${PIPESTATUS[0]}
     set -e
+    stop_framebuffer_waiter
     if [[ "$rc" -eq 0 ]]; then
       break
     fi
@@ -160,53 +209,51 @@ run_capture() {
   fi
 
   verify_pngs "$folder" "$expected_w" "$expected_h" || return 1
+  swift "$ROOT/scripts/reject-letterbox.swift" "$folder"
   swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
 }
 
-scale_real_shots() {
-  local src="$1"
+frame_slot() {
+  local raw="$1"
   local dest="$2"
   local w="$3"
   local h="$4"
-  mkdir -p "$dest"
-  local name
-  for name in home coach scan plan settings; do
-    sips -z "$h" "$w" "$src/$name.png" --out "$dest/$name.png" >/dev/null
-  done
-  verify_pngs "$dest" "$w" "$h"
-  swift "$ROOT/scripts/ocr-store-screenshots.swift" "$dest"
+  local py="python3"
+  if ! python3 -c "import PIL" >/dev/null 2>&1; then
+    local venv="/tmp/fitmunch-pillow-venv"
+    if python3 -m venv "$venv" >/dev/null 2>&1 && [[ -x "$venv/bin/python" ]]; then
+      "$venv/bin/python" -m pip install --disable-pip-version-check pillow
+      py="$venv/bin/python"
+    else
+      python3 -m pip install --user --break-system-packages pillow
+    fi
+  fi
+  "$py" "$ROOT/scripts/frame-appstore-screenshots.py" "$raw" "$dest" \
+    --width "$w" --height "$h" \
+    --contact-sheet "$dest/contact-sheet.png"
 }
 
+# iPhone slots are captured at the simulator's real pixels. Refusing to scale.
 UDID_69="$(find_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || create_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || true)"
-UDID_67="$(find_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || create_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || true)"
-
-if [[ -z "${UDID_69:-}" && -z "${UDID_67:-}" ]]; then
-  echo "No large iPhone simulator could be found or created."
+if [[ -z "${UDID_69:-}" ]]; then
+  echo "No 6.9-inch simulator (iPhone 17 Pro Max or iPhone 16 Pro Max). Refusing to scale."
   exit 1
 fi
+run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
+frame_slot "$OUT/iphone-69" "$OUT/iphone-69-framed" 1320 2868
 
-if [[ -n "${UDID_69:-}" ]]; then
-  run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
-fi
-
-if [[ -n "${UDID_67:-}" ]]; then
-  if ! run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796; then
-    echo "6.7-inch simulator capture failed. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
-    if [[ ! -d "$OUT/iphone-69" ]]; then
-      echo "No 6.9-inch shots to scale."
-      exit 1
-    fi
-    rm -rf "$OUT/iphone-67"
-    scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
+UDID_65="$(find_udid "iPhone 14 Plus" "iPhone 13 Pro Max" "iPhone 12 Pro Max" || create_udid "iPhone 14 Plus" "iPhone 13 Pro Max" "iPhone 12 Pro Max" || true)"
+if [[ -n "${UDID_65:-}" ]]; then
+  run_capture "$UDID_65" "$OUT/iphone-65" 1284 2778
+  frame_slot "$OUT/iphone-65" "$OUT/iphone-65-framed" 1284 2778
+else
+  UDID_65="$(find_udid "iPhone 11 Pro Max" "iPhone XS Max" || create_udid "iPhone 11 Pro Max" "iPhone XS Max" || true)"
+  if [[ -z "${UDID_65:-}" ]]; then
+    echo "No 6.5-inch simulator for 1284x2778 or 1242x2688. Refusing to scale."
+    exit 1
   fi
-elif [[ -d "$OUT/iphone-69" ]]; then
-  echo "No 6.7-inch simulator on this runner. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
-  scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
-fi
-
-if [[ ! -d "$OUT/iphone-67" ]]; then
-  echo "6.7-inch 1290x2796 capture is required."
-  exit 1
+  run_capture "$UDID_65" "$OUT/iphone-65" 1242 2688
+  frame_slot "$OUT/iphone-65" "$OUT/iphone-65-framed" 1242 2688
 fi
 
 echo "Real-app screenshots written to $OUT"

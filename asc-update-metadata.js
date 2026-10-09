@@ -6,56 +6,71 @@ const fs = require('fs');
 const ISSUER_ID = '5e0496e7-e4ec-4467-a06a-210c64365371';
 const KEY_ID = '548GZGCWZ9';
 const KEY_PATH = 'C:\\Users\\Drew\\.openclaw\\media\\inbound\\AuthKey_548GZGCWZ9---83cc6f87-2a9e-4428-8c60-5c875f005a9a';
-const privateKey = fs.readFileSync(KEY_PATH, 'utf8');
+
+function getPrivateKey() {
+  return fs.readFileSync(KEY_PATH, 'utf8');
+}
 
 // FitMunch App Details
 const APP_ID = '6760215679';
 
-// Metadata from appstore-metadata.md
+// Bracketed prefix stays unused. The subscription block below states the trial.
+// const TRIAL_LINE = '[Start with a free trial, then]';
+
+// Build 9 has no shopping-list screen, so there is no shopping-list screenshot.
+// The listing says FitMunch builds your list split by store.
+// Grocery price wording is only "Prices vary by store and week."
+// No supermarket prices, totals, savings, or catalogue dates.
+// The description discloses FitMunch Premium as A$19.99/month or A$149.99/year,
+// with a 14-day free trial for new subscribers, plus auto-renew terms.
+// "shopping" stays in keywords.
 const METADATA = {
-  name: 'FitMunch: Meal & Nutrition Tracker',
-  subtitle: 'Track meals, hit macros, reach goals',
-  description: `Take control of your nutrition with FitMunch — the simple, powerful meal tracker that helps you hit your macros and reach your goals.
+  name: 'FitMunch: Macro Meal Planner',
+  subtitle: 'Scan your shop, hit protein',
+  promotionalText: 'Scan your Woolies, Coles, Aldi or IGA receipt for macros and a haul score. FitMunch builds your list split by store. Prices vary by store and week.',
+  keywords: 'calorie,counter,tracker,diet,food,log,receipt,grocery,shopping,list,woolworths,coles,aldi,coach,ai',
+  whatsNew: 'Welcome to FitMunch. Scan your shop, hit your protein and get a week of meals sorted.',
+  supportUrl: 'https://www.fitmunch.com.au/support',
+  marketingUrl: 'https://www.fitmunch.com.au',
+  privacyPolicyUrl: 'https://www.fitmunch.com.au/privacy',
+  description: `Turn your weekly shop into a plan you'll actually stick to.
 
-WHY FITMUNCH?
+FitMunch reads your Woolies, Coles, Aldi or IGA receipt, shows the protein and macros in what you bought, and builds a high-protein week around it. FitMunch builds your list split by store. Prices vary by store and week.
 
-→ TRACK MEALS IN SECONDS
-Log food with our extensive database or scan barcodes. No more guessing — know exactly what you're eating.
+SCAN YOUR SHOP
+• Snap your receipt or pick a photo
+• See protein, carbs, fat and calories across your haul
+• Get a haul score with simple swaps that lift your protein
 
-→ HIT YOUR MACROS DAILY
-Set protein, carbs, and fat targets. See real-time progress and get nudged when you're off track.
+HIT YOUR MACROS EVERY DAY
+• Set calorie and protein targets for your goal
+• Log meals in a few taps and watch your rings fill
+• Track progress over time
 
-→ PERSONALIZED FOR YOU
-Whether you're cutting, bulking, or maintaining, FitMunch adapts to your goals and lifestyle.
+A WEEK OF MEALS, SORTED
+• 7-day high-protein meal plans from your targets
+• FitMunch builds your list split by store
+• Prices vary by store and week.
 
-→ NO SUBSCRIPTION REQUIRED
-Free tier includes full meal logging, macro tracking, and progress charts. Upgrade for advanced features.
+YOUR AI COACH
+• "Build me a high-protein week for my macros"
+• Answers that know your goals and your last shop
 
-FREE FEATURES:
-• Log unlimited meals & snacks
-• Track protein, carbs, fat, calories
-• Set daily macro targets
-• View progress charts & trends
-• Barcode scanner for packaged foods
-• 100,000+ food database
+TRAIN WITH A PLAN
+• Weekly gym or home workout plan
+• Log sets and exercises
 
-PREMIUM FEATURES:
-• Meal plans & recipes
-• Restaurant nutrition lookup
-• Custom food creation
-• Macro cycling (different targets by day)
-• Data export (CSV/PDF)
-• Priority support
+FREE TO START
+Log up to 3 meals a day, scan receipts and try the coach for free.
 
-PRIVACY FIRST
-Your food diary is personal. FitMunch stores everything on your device — no cloud, no tracking, no ads. Your nutrition data belongs to you.
+FITMUNCH PREMIUM
+Unlimited meal logging, full history, unlimited coach and meal plans.
+FitMunch Premium is A$19.99/month or A$149.99/year, with a 14-day free trial for new subscribers. It renews unless cancelled at least 24 hours before the period ends, and you manage or cancel it in your Apple ID settings.
 
-Whether you're an athlete dialing in your diet or just want to eat better, FitMunch makes nutrition tracking simple, accurate, and sustainable.`,
-  keywords: 'meal tracker,nutrition,macros,calorie counter,food diary,diet,weight loss,fitness,health',
-  promotionalText: 'Track meals, hit macros, reach goals. Free to use — upgrade for meal plans & restaurant lookup.',
-  supportUrl: 'https://armctay85.github.io/fitmunch-site/support.html',
-  marketingUrl: 'https://armctay85.github.io/fitmunch-site',
-  privacyPolicyUrl: 'https://armctay85.github.io/fitmunch-site/privacy.html'
+Made in Australia by Develoop.
+Terms: https://www.fitmunch.com.au/terms
+Privacy: https://www.fitmunch.com.au/privacy
+Support: support@fitmunch.com.au`
 };
 
 function makeJWT() {
@@ -65,7 +80,7 @@ function makeJWT() {
   const data = header + '.' + payload;
   const sign = crypto.createSign('SHA256');
   sign.update(data);
-  return data + '.' + sign.sign({ key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  return data + '.' + sign.sign({ key: getPrivateKey(), dsaEncoding: 'ieee-p1363' }).toString('base64url');
 }
 
 function api(method, path, body) {
@@ -137,6 +152,7 @@ async function updateAppStoreVersionLocalization() {
         description: METADATA.description,
         keywords: METADATA.keywords,
         promotionalText: METADATA.promotionalText,
+        whatsNew: METADATA.whatsNew,
         supportUrl: METADATA.supportUrl,
         marketingUrl: METADATA.marketingUrl
       }
@@ -216,4 +232,8 @@ async function updateAppStoreVersionLocalization() {
   console.log('   • Screenshots (create from screenshot-specs.md)');
 }
 
-updateAppStoreVersionLocalization().catch(console.error);
+if (require.main === module) {
+  updateAppStoreVersionLocalization().catch(console.error);
+}
+
+module.exports = { METADATA };

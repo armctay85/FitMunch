@@ -37,8 +37,79 @@ final class AppStoreScreenshotTests: XCTestCase {
             )
             assertScreenLooksInUse(screen.file)
             assertNoRejectedCopy(on: screen.file)
+            assertStoreSafe(on: screen.file)
+            waitForSettledFrame(screen.file)
             savePNG(named: screen.file)
         }
+    }
+
+    /// Consent is pre-granted by ScreenshotLaunch. The sheet, and any Grok or Google line, must not be in the shot.
+    private func assertStoreSafe(on screen: String) {
+        XCTAssertFalse(
+            app.descendants(matching: .any)["ai-consent-sheet"].exists,
+            "\(screen) is showing the AI consent sheet"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "grok")).firstMatch.exists,
+            "\(screen) shows Grok"
+        )
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "google")).firstMatch.exists,
+            "\(screen) shows Google"
+        )
+    }
+
+    /// The shared tab-bar inset is measured after the first layout. Wait until pinned controls clear it.
+    private func waitForSettledFrame(_ screen: String) {
+        switch screen {
+        case "scan":
+            let photo = app.buttons.matching(
+                NSPredicate(format: "identifier == 'scan-take-photo' OR label == 'Take a photo'")
+            ).firstMatch
+            assertClearsTabBar(photo, named: "Take a photo")
+        case "plan":
+            assertClearsTabBar(app.buttons["plan-generate"], named: "Generate 7-day plan")
+        case "coach":
+            let input = app.textFields["coach-input"].exists
+                ? app.textFields["coach-input"]
+                : app.descendants(matching: .any)["coach-input"]
+            assertClearsTabBar(input, named: "Coach composer")
+        default:
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        }
+    }
+
+    private func assertClearsTabBar(_ element: XCUIElement, named name: String) {
+        XCTAssertTrue(element.waitForExistence(timeout: 8), "\(name) missing before the shot")
+        let deadline = Date().addingTimeInterval(8)
+        var barTop = tabButtonTop()
+        while Date() < deadline {
+            barTop = tabButtonTop()
+            if element.exists,
+               element.isHittable,
+               element.frame.height > 1,
+               element.frame.maxY <= barTop - 4 {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertLessThanOrEqual(
+            element.frame.maxY,
+            barTop - 4,
+            "\(name) sits under the tab bar (control \(element.frame), tab buttons top \(barTop))"
+        )
+    }
+
+    private func tabButtonTop() -> CGFloat {
+        let bar = app.tabBars.firstMatch
+        var top = bar.frame.minY
+        for name in ["Today", "Plan", "Scan", "Coach", "Me"] {
+            let button = bar.buttons[name]
+            if button.exists, button.frame.height > 1 {
+                top = min(top, button.frame.minY)
+            }
+        }
+        return top
     }
 
     private func assertScreenLooksInUse(_ screen: String) {
@@ -47,7 +118,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Breakfast"].waitForExistence(timeout: 4))
             XCTAssertFalse(app.staticTexts["Free limit reached"].exists)
         case "coach":
-            XCTAssertTrue(app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 4))
+            XCTAssertTrue(app.staticTexts["Build me a high-protein week for my macros"].waitForExistence(timeout: 4))
         case "scan":
             XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
         case "plan":
@@ -112,6 +183,25 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
+    /// Ask the capture script to take a simctl framebuffer shot, which is the full
+    /// screen. XCUIScreen.screenshot letterboxes this app.
+    private func waitForFramebufferShot(named name: String) -> Bool {
+        let readyRoot = "/tmp/fitmunch-shot-ready"
+        let ack = "/tmp/fitmunch-shot-ack/\(name)"
+        do {
+            try FileManager.default.createDirectory(atPath: readyRoot, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(atPath: "/tmp/fitmunch-shot-ack", withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: "\(readyRoot)/\(name)", contents: Data())
+        } catch {
+            return false
+        }
+        let start = Date()
+        while !FileManager.default.fileExists(atPath: ack), Date().timeIntervalSince(start) < 20 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        return FileManager.default.fileExists(atPath: ack)
+    }
+
     private func savePNG(named name: String) {
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
@@ -119,7 +209,13 @@ final class AppStoreScreenshotTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Always write a known path. TEST_RUNNER_* env does not always reach XCTest on GHA.
+        // The shell waiter writes the real framebuffer PNG when it acks.
+        // Fall back to XCUIScreen only if that waiter is not running.
+        if waitForFramebufferShot(named: name) {
+            print("Framebuffer shot acked for \(name)")
+            return
+        }
+
         let dirs = [
             "/tmp/fitmunch-appstore-screenshots",
             ProcessInfo.processInfo.environment["SCREENSHOT_DIR"],
