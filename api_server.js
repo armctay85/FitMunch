@@ -1355,12 +1355,6 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       remaining: isPaid ? null : Math.max(0, limit - used),
       tier,
       month: aiUsage.monthKey(),
-      provider: aiClient.providerName(),
-      model: {
-        xai: aiClient.grokModel,
-        openai: aiClient.openaiModel,
-        anthropic: aiClient.anthropicModel,
-      }[aiClient.providerName()]?.() || null,
     });
   } catch (err) {
     sendApiError(res, err);

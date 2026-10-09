@@ -136,20 +136,20 @@ describe('AI routes', () => {
     expect(r.body.insight.length).toBeGreaterThan(10);
   });
 
-  it('GET /api/ai/usage reports limit and remaining', async () => {
+  it('GET /api/ai/usage reports limit and remaining without a provider or model name', async () => {
     const aiClient = require('./lib/ai-client');
-    aiClient.providerName.mockReturnValue('xai');
-    aiClient.grokModel.mockClear();
-    const r = await request(app)
-      .get('/api/ai/usage')
-      .set('Authorization', `Bearer ${token}`);
-    expect(r.status).toBe(200);
-    expect(r.body.success).toBe(true);
-    expect(r.body.limit).toBe(10);
-    expect(r.body.grok).toBeUndefined();
-    expect(r.body.gemini).toBeUndefined();
-    expect(aiClient.grokModel).toHaveBeenCalled();
-    expect(JSON.stringify(r.body)).not.toMatch(/gemini|grok/i);
+    const forbidden = /gemini|grok|xai|openai|anthropic/i;
+    for (const name of ['xai', 'openai']) {
+      aiClient.providerName.mockReturnValue(name);
+      const r = await request(app)
+        .get('/api/ai/usage')
+        .set('Authorization', `Bearer ${token}`);
+      expect(r.status).toBe(200);
+      expect(r.body.success).toBe(true);
+      expect(r.body.limit).toBe(10);
+      expect(r.body.provider).toBeUndefined();
+      expect(JSON.stringify(r.body)).not.toMatch(forbidden);
+    }
     aiClient.providerName.mockReturnValue('openai');
   });
 

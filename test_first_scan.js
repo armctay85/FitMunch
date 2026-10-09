@@ -13,6 +13,8 @@ const TINY_PNG = Buffer.from(
   'base64'
 );
 
+const SCAN_PROVIDER_NAME = /gemini|grok|xai|openai|anthropic|google/i;
+
 const REAL_HAUL = [
   { name: 'Chicken breast 1kg', quantity: 1, unit: 'kg', price: 12.5, category: 'meat' },
   { name: 'Brown rice 1kg', quantity: 1, unit: 'kg', price: 2.8, category: 'grains' },
@@ -39,6 +41,14 @@ describe('tonightDinner is assembled only from read items', () => {
     ]);
     expect(dinner.meal.toLowerCase()).toContain('bananas');
     expect(dinner.meal.toLowerCase()).not.toContain('chicken');
+  });
+});
+
+describe('buildScanPayload provider label', () => {
+  it('defaults scannerProvider to vision and does not name a provider', () => {
+    const payload = core.buildScanPayload(REAL_HAUL);
+    expect(payload.scannerProvider).toBe('vision');
+    expect(JSON.stringify(payload)).not.toMatch(SCAN_PROVIDER_NAME);
   });
 });
 
@@ -78,6 +88,7 @@ describe('POST /api/receipt/first-scan', () => {
     expect(res.body.scannerProvider).toBeUndefined();
     expect(res.body.scannerWarning).toBeUndefined();
     expect(JSON.stringify(res.body)).not.toMatch(/GEMINI_API_KEY|setup|vercel/i);
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
   });
 
   it('fails closed when the photo is unreadable instead of returning the sample fallback haul', async () => {
@@ -94,6 +105,7 @@ describe('POST /api/receipt/first-scan', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.error).toBe("We couldn't read this receipt. Try again with a flat, well-lit photo.");
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY/);
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
     expect(res.body.items).toBeUndefined();
   });
 });
@@ -173,6 +185,7 @@ describe('POST /api/receipt/scan read failure', () => {
     expect(res.body.items).toBeUndefined();
     expect(res.body.shareText).toBeUndefined();
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY|Just scanned my weekly shop/);
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
     expect(consume).not.toHaveBeenCalled();
   });
 
@@ -199,6 +212,7 @@ describe('POST /api/receipt/scan read failure', () => {
       'Broccoli 500g',
     ]);
     expect(res.body.shareText).toMatch(/Just scanned my weekly shop/);
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
     expect(consume).toHaveBeenCalled();
   });
 
@@ -246,6 +260,7 @@ describe('POST /api/receipt/scan read failure', () => {
       expect(res.body).toEqual({ success: false, error: 'Scanning is unavailable right now.' });
       expect(res.body.items).toBeUndefined();
       expect(JSON.stringify(res.body)).not.toMatch(/API_KEY|GEMINI|sample-fallback/);
+      expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
       expect(consume).not.toHaveBeenCalled();
     } finally {
       for (const [key, value] of Object.entries(previous)) {
