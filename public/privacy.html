@@ -45,7 +45,7 @@
 <p><strong>Account data:</strong> email address, name (if provided), and account preferences when you sign up.</p>
 <p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to xAI or OpenAI to extract item names, quantities, and prices (see section 3). FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
 <p><strong>Food and nutrition data:</strong> meals you log, foods you add to your pantry, shopping lists you create, meal plans you build, and nutrition preferences you set.</p>
-<p><strong>Usage data:</strong> pages visited, features used, and anonymised interaction data to improve FitMunch.</p>
+<p><strong>Usage data:</strong> pages visited and features used, to improve FitMunch, and a count of your coach chat, meal plan, receipt scan, daily tip, weekly review and workout plan uses, stored with your account to apply plan limits.</p>
 <p><strong>PT/client relationship data:</strong> if you connect with a personal trainer through FitMunch, your trainer may view shared nutrition and meal plan data you've opted into sharing.</p>
 
 <h2>2. How we use your data</h2>
@@ -75,20 +75,20 @@
 </table></div>
 
 <h3>Who processes it</h3>
-<p>Coach chat, meal plans, coaching tips, weekly reviews and workout plans go to one of these providers. FitMunch tries them in the order below and uses the first one that is available. If a provider is not available or fails, the same request goes to the next one in the list.</p>
+<p>Coach chat, meal plans, coaching tips, weekly reviews and workout plans go to one of these providers. FitMunch tries them in the order below and uses the first one that is available. If a provider is not set up for FitMunch, or does not accept FitMunch's account, the same request goes to the next one in the list. If a provider has any other error, the request stops there and is not sent to another provider.</p>
 <div class="fm-table-wrap"><table class="fm-table">
 <thead><tr><th scope="col">Provider</th><th scope="col">Used for</th><th scope="col">Where</th><th scope="col">Privacy and terms</th></tr></thead>
 <tbody>
-<tr><td data-label="Provider">1. xAI</td><td data-label="Used for">First choice for coach chat, meal plans, tips, reviews and workout plans. Also receipt scanning.</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://x.ai/legal/privacy-policy">Privacy Policy</a>, <a href="https://x.ai/legal/terms-of-service-enterprise">enterprise terms</a></span></td></tr>
-<tr><td data-label="Provider">2. OpenAI</td><td data-label="Used for">Coach chat, meal plans, tips, reviews and workout plans, if xAI is not available. Also receipt scanning.</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://openai.com/policies/privacy-policy/">Privacy Policy</a>, <a href="https://openai.com/policies/services-agreement/">Services Agreement</a></span></td></tr>
-<tr><td data-label="Provider">3. Anthropic</td><td data-label="Used for">The same features except receipt scanning, if xAI and OpenAI are not available</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://www.anthropic.com/legal/privacy">Privacy Policy</a>, <a href="https://www.anthropic.com/legal/commercial-terms">Commercial Terms</a></span></td></tr>
+<tr><td data-label="Provider">1.&nbsp;xAI</td><td data-label="Used for">First choice for coach chat, meal plans, tips, reviews and workout plans. Also receipt scanning.</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://x.ai/legal/privacy-policy">Privacy Policy</a>, <a href="https://x.ai/legal/terms-of-service-enterprise">enterprise terms</a></span></td></tr>
+<tr><td data-label="Provider">2.&nbsp;OpenAI</td><td data-label="Used for">Coach chat, meal plans, tips, reviews and workout plans, if xAI is not available. Also receipt scanning.</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://openai.com/policies/privacy-policy/">Privacy Policy</a>, <a href="https://openai.com/policies/services-agreement/">Services Agreement</a></span></td></tr>
+<tr><td data-label="Provider">3.&nbsp;Anthropic</td><td data-label="Used for">The same features except receipt scanning, if xAI and OpenAI are not available</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://www.anthropic.com/legal/privacy">Privacy Policy</a>, <a href="https://www.anthropic.com/legal/commercial-terms">Commercial Terms</a></span></td></tr>
 </tbody>
 </table></div>
 <p>Receipt photos go to xAI or OpenAI only. A receipt photo is never sent to Anthropic. If the photo cannot be read, FitMunch shows an error and asks you to retake it. Nothing from that photo is shown as your shop or added to your food log.</p>
 <p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. For how each provider handles data, see the links above.</p>
 
 <h3>Where your data goes</h3>
-<p>xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. Your account and food data are stored in FitMunch's database, which Neon hosts in the United States (US East). Stripe (payments), Resend (email) and RevenueCat (in-app subscriptions) may also process your data in the United States. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
+<p>xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. Your account and food data are stored in FitMunch's database, which Neon hosts in the United States (US East). Stripe (payments), Resend (email), RevenueCat (in-app subscriptions), Apple (App Store purchases) and Google (web fonts) may also process your data in the United States. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
 
 <h3>Your choice</h3>
 <p>In the FitMunch app, before the first of these features sends anything, we ask you once for your account, with Allow and Not now. We only send your data to an AI provider after you tap Allow. If you tap Not now, the AI features stay off and the rest of the app keeps working. You can change your choice and turn AI features off at any time under Me &gt; Privacy.</p>
@@ -108,7 +108,7 @@
 <li>Database: Neon (PostgreSQL), hosted in the United States (US East).</li>
 <li>Payments: Stripe.</li>
 <li>In-app subscriptions: RevenueCat, which keeps track of subscriptions bought in the iOS app.</li>
-<li>In-app purchases: Apple. If you subscribe in the iOS app, Apple handles the payment and RevenueCat receives your FitMunch account ID and purchase history only, not your health data, coach messages or receipt photos.</li>
+<li>In-app purchases: Apple. If you subscribe in the iOS app, Apple handles the payment and RevenueCat receives your FitMunch account ID, your purchase history and basic device details such as app version, not your health data, coach messages or receipt photos.</li>
 <li>Email: Resend, which sends account and billing emails.</li>
 <li>Fonts: Google Fonts. When you load a FitMunch web page, your browser requests font files from Google.</li>
 <li>AI processing: the providers listed in <a href="#ai">section 3</a>.</li>
