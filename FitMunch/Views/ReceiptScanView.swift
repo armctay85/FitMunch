@@ -23,6 +23,7 @@ struct ReceiptScanView: View {
     @State private var showRetake = false
 
     private static let unreadableCopy = "We couldn't read this receipt. Try again with a flat, well-lit photo."
+    private static let unavailableCopy = "Scanning is unavailable right now."
     @EnvironmentObject private var auth: AuthManager
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -303,18 +304,26 @@ struct ReceiptScanView: View {
         showRetake = false
     }
 
-    private func presentReadFailure() {
+    private func isScanFailure(_ message: String) -> Bool {
+        message == Self.unreadableCopy || message == Self.unavailableCopy
+    }
+
+    private func presentReadFailure(_ message: String) {
         scan = nil
         loggedCount = nil
-        errorMessage = Self.unreadableCopy
+        errorMessage = isScanFailure(message) ? message : Self.unavailableCopy
         showRetake = true
     }
 
     private func customerError(_ message: String?) -> String {
         let text = message ?? Self.unreadableCopy
-        if text.localizedCaseInsensitiveContains("GEMINI_API_KEY") {
-            return Self.unreadableCopy
-        }
+        if isScanFailure(text) { return text }
+        let leaked = text.range(of: "API_KEY", options: .caseInsensitive) != nil
+            || text.range(of: "GEMINI", options: .caseInsensitive) != nil
+            || text.range(of: "XAI_API", options: .caseInsensitive) != nil
+            || text.range(of: "OPENAI_API", options: .caseInsensitive) != nil
+            || text.range(of: "ANTHROPIC_API", options: .caseInsensitive) != nil
+        if leaked { return Self.unavailableCopy }
         return text
     }
 
@@ -402,8 +411,8 @@ struct ReceiptScanView: View {
                     body: ["image": jpeg.base64EncodedString(), "mimeType": "image/jpeg"],
                     as: ReceiptScanResponse.self
                 )
-                if res.scannerProvider == "fallback" || res.error == Self.unreadableCopy {
-                    presentReadFailure()
+                if res.scannerProvider == "fallback" || (res.error != nil && isScanFailure(res.error ?? "")) {
+                    presentReadFailure(res.error ?? Self.unreadableCopy)
                 } else if res.success {
                     showRetake = false
                     scan = res
@@ -414,8 +423,8 @@ struct ReceiptScanView: View {
                 }
             } catch {
                 let message = (error as? APIError)?.errorDescription ?? error.localizedDescription
-                if message == Self.unreadableCopy || message.localizedCaseInsensitiveContains("GEMINI_API_KEY") {
-                    presentReadFailure()
+                if isScanFailure(message) || customerError(message) == Self.unavailableCopy && message != Self.unavailableCopy {
+                    presentReadFailure(isScanFailure(message) ? message : Self.unavailableCopy)
                 } else {
                     showRetake = false
                     errorMessage = customerError(message)

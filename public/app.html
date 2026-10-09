@@ -3091,12 +3091,14 @@ async function scanReceipt() {
  throw new Error('Scanner returned an invalid response (' + r.status + ')');
  }
  const readFail = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
+ const scanUnavailable = "Scanning is unavailable right now.";
  const sampleHaul = data.scannerProvider === 'fallback' || (data.items || []).some(function (item) {
  return item && item.confidence === 'sample-fallback';
  });
- if (r.status === 422 || sampleHaul) throw new Error(readFail);
  const serverError = data.error || '';
- if (/GEMINI_API_KEY/i.test(serverError)) throw new Error(readFail);
+ if (/API_KEY|GEMINI|XAI_API|OPENAI_API|ANTHROPIC_API/i.test(serverError)) throw new Error(scanUnavailable);
+ if (r.status === 422) throw new Error(serverError === readFail || serverError === scanUnavailable ? serverError : scanUnavailable);
+ if (sampleHaul) throw new Error(readFail);
  if (!r.ok || !data.success) throw new Error(serverError || ('Scan failed (HTTP ' + r.status + ')'));
  if (!data.itemCount && !(data.items && data.items.length)) {
  throw new Error(data.scannerWarning || 'No grocery items found - try a clearer, flatter receipt photo.');

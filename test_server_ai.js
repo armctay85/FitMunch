@@ -176,6 +176,60 @@ describe('AI routes', () => {
     expect(typeof r.body.stats.daysLogged).toBe('number');
   });
 
+  it('deny blocks insight, workout plans, and the weekly review without spending a credit', async () => {
+    const storage = require('./server/storage.js');
+    const aiUsage = require('./lib/ai-usage');
+    storage.getUserById.mockResolvedValue({
+      id: 'u-test',
+      name: 'Tester',
+      email: 't@example.com',
+      subscriptionTier: 'free',
+      settings: { aiDataConsent: false },
+    });
+    aiUsage.checkAndConsume.mockClear();
+    try {
+      const insight = await request(app)
+        .post('/api/ai/insight')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ todayCalories: 1, todayProtein: 1 });
+      const plan = await request(app)
+        .post('/api/ai/workout-plan')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ goal: 'muscle_gain' });
+      const review = await request(app)
+        .get('/api/ai/weekly-review')
+        .set('Authorization', `Bearer ${token}`);
+      expect(insight.status).toBe(403);
+      expect(plan.status).toBe(403);
+      expect(review.status).toBe(403);
+      expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test',
+        name: 'Tester',
+        email: 't@example.com',
+        subscriptionTier: 'free',
+      });
+    }
+  });
+
+  it('an account that has not answered can still call insight', async () => {
+    const storage = require('./server/storage.js');
+    storage.getUserById.mockResolvedValue({
+      id: 'u-test',
+      name: 'Tester',
+      email: 't@example.com',
+      subscriptionTier: 'free',
+      settings: {},
+    });
+    const r = await request(app)
+      .post('/api/ai/insight')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ todayCalories: 1200, todayProtein: 60, streak: 3, goal: 'muscle_gain', targetCalories: 2500, targetProtein: 180 });
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+  });
+
   it('AI endpoints return 429 with upgrade flag when free cap is hit', async () => {
     const aiUsage = require('./lib/ai-usage');
     aiUsage.checkAndConsume.mockResolvedValueOnce({ allowed: false, limit: 10, used: 10, upgrade: true });

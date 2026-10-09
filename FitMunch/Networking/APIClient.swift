@@ -54,7 +54,13 @@ enum APIClient {
             throw APIError.unauthorised
         }
         if let http = response as? HTTPURLResponse, http.statusCode == 422 {
-            throw APIError.server("We couldn't read this receipt. Try again with a flat, well-lit photo.")
+            let unreadable = "We couldn't read this receipt. Try again with a flat, well-lit photo."
+            let unavailable = "Scanning is unavailable right now."
+            let message = (try? JSONDecoder().decode(GenericResponse.self, from: data))?.error
+            if message == unreadable || message == unavailable {
+                throw APIError.server(message ?? unreadable)
+            }
+            throw APIError.server(unavailable)
         }
 
         do {

@@ -146,7 +146,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Privacy")
                 } footer: {
-                    Text("Off blocks Coach, receipt scan, and meal plans. Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are Google (Gemini), then xAI (Grok), then OpenAI, then Anthropic. A receipt photo goes to Google (Gemini) only. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
+                    Text("Off blocks Coach, receipt scan, meal plans, insights, workout plans, and the weekly review. Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
                 }
                 
                 // Subscription section

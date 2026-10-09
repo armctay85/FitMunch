@@ -1168,6 +1168,12 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
     } catch (_) {}
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
@@ -1195,6 +1201,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 160,
       temperature: 0.7,
+      route: '/ai/insight',
     });
 
     if (!r.ok || !r.text.trim()) {
@@ -1300,6 +1307,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       messages: safeMessages,
       maxTokens: 500,
       temperature: 0.7,
+      route: '/ai/chat',
     });
 
     if (!r.ok) {
@@ -1369,6 +1377,12 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
     } catch (_) {}
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
@@ -1407,6 +1421,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 4000,
       temperature: 0.6,
+      route: '/ai/workout-plan',
     });
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
@@ -1432,6 +1447,12 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {}
@@ -1485,6 +1506,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1500,
       temperature: 0.7,
+      route: '/ai/weekly-review',
     });
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });

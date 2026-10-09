@@ -179,6 +179,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
       temperature: 0.6,
+      route: '/meal-plan/generate',
     });
     if (!r.ok) throw new Error(r.error || 'AI generation failed');
     const plan = r.data;

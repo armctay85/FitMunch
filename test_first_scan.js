@@ -92,7 +92,7 @@ describe('POST /api/receipt/first-scan', () => {
       .expect(422);
 
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe(core.GUEST_READ_FAIL);
+    expect(res.body.error).toBe("We couldn't read this receipt. Try again with a flat, well-lit photo.");
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY/);
     expect(res.body.items).toBeUndefined();
   });
@@ -192,7 +192,7 @@ describe('POST /api/receipt/scan read failure', () => {
       .expect(200);
 
     expect(res.body.success).toBe(true);
-    expect(res.body.scannerProvider).toBeUndefined();
+    expect(res.body.scannerProvider).toBe('vision');
     expect(res.body.items.map((item) => item.name)).toEqual([
       'Chicken breast 1kg',
       'Brown rice 1kg',
@@ -202,21 +202,32 @@ describe('POST /api/receipt/scan read failure', () => {
     expect(consume).toHaveBeenCalled();
   });
 
-  it('does not name GEMINI_API_KEY when the scanner is not configured', async () => {
-    const previous = process.env.GEMINI_API_KEY;
+  it('returns the unavailable 422 when no vision provider can be called', async () => {
+    const previous = {
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      XAI_API_KEY: process.env.XAI_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    };
     delete process.env.GEMINI_API_KEY;
+    delete process.env.XAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: {} });
+    const consume = jest.spyOn(aiUsage, 'checkAndConsume');
     try {
       const res = await request(app)
         .post('/api/receipt/scan')
         .set('Authorization', `Bearer ${authToken()}`)
         .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
-        .expect(503);
-      expect(JSON.stringify(res.body)).not.toMatch(/GEMINI_API_KEY/);
+        .expect(422);
+      expect(res.body).toEqual({ success: false, error: 'Scanning is unavailable right now.' });
       expect(res.body.items).toBeUndefined();
+      expect(JSON.stringify(res.body)).not.toMatch(/API_KEY|GEMINI|sample-fallback/);
+      expect(consume).not.toHaveBeenCalled();
     } finally {
-      if (previous == null) delete process.env.GEMINI_API_KEY;
-      else process.env.GEMINI_API_KEY = previous;
+      for (const [key, value] of Object.entries(previous)) {
+        if (value == null) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
   });
 });
