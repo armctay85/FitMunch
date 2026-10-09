@@ -123,6 +123,7 @@ struct ReceiptScanView: View {
             .buttonStyle(PrimaryButtonStyle())
             .disabled(isRequestingCamera)
             .accessibilityIdentifier("scan-take-photo")
+            .accessibilityLabel("Take a photo")
             Button {
                 beginScan(.library)
             } label: {

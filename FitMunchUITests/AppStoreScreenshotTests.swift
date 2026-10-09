@@ -63,7 +63,10 @@ final class AppStoreScreenshotTests: XCTestCase {
     private func waitForSettledFrame(_ screen: String) {
         switch screen {
         case "scan":
-            assertClearsTabBar(app.buttons["scan-take-photo"], named: "Take a photo")
+            let photo = app.buttons.matching(
+                NSPredicate(format: "identifier == 'scan-take-photo' OR label == 'Take a photo'")
+            ).firstMatch
+            assertClearsTabBar(photo, named: "Take a photo")
         case "plan":
             assertClearsTabBar(app.buttons["plan-generate"], named: "Generate 7-day plan")
         case "coach":
