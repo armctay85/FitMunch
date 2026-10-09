@@ -3,8 +3,49 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// Forces light or dark for screenshot runs. `XCUIDevice.appearance` alone
+/// does not restyle a SwiftUI app that is already on screen.
+enum AppearanceLaunch {
+    static let darkArgument = "-ForceDarkMode"
+    static let lightArgument = "-ForceLightMode"
+
+    static var userInterfaceStyle: UIUserInterfaceStyle? {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains(darkArgument) { return .dark }
+        if args.contains(lightArgument) { return .light }
+        return nil
+    }
+
+    static var colorScheme: ColorScheme? {
+        switch userInterfaceStyle {
+        case .dark:
+            return .dark
+        case .light:
+            return .light
+        default:
+            return nil
+        }
+    }
+
+    static func prepare() {
+        guard let style = userInterfaceStyle else { return }
+        UserDefaults.standard.set(style == .dark, forKey: "isDarkMode")
+    }
+
+    static func applyWindows() {
+        guard let style = userInterfaceStyle else { return }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows {
+                window.overrideUserInterfaceStyle = style
+                window.backgroundColor = UIColor(named: "Surface")
+            }
+        }
+    }
+}
+
 /// App Store screenshot capture only. Launch the UI test with `-AppStoreScreenshots`.
-/// Seeds real SwiftUI screens (Home, Coach, Scan, Plan, Settings) with no prices,
+/// Seeds real SwiftUI screens (Today, Plan, Scan, Coach, Me) with no prices,
 /// no Free / trial copy, and no paywall. Never used for production sessions.
 /// App Review / UITest path: logged-in free user so Upgrade and Scan are tappable.
 enum ReviewLaunch {
@@ -18,12 +59,14 @@ enum ReviewLaunch {
         #endif
     }
 
+    @MainActor
     static func prepareSession() {
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
         UserDefaults.standard.set("Reviewer", forKey: "userDisplayName")
         UserDefaults.standard.set("review@fitmunch.com.au", forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+        AIDataConsent.shared.grantLaunch(userId: "review-user")
     }
 }
 
@@ -39,15 +82,17 @@ enum ScreenshotLaunch {
     }
 
     /// Prepare UserDefaults and disable animations before the first frame.
+    @MainActor
     static func prepareSession() {
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
-        UserDefaults.standard.set("Alex Chen", forKey: "userDisplayName")
-        UserDefaults.standard.set("alex@fitmunch.com.au", forKey: "userEmail")
+        UserDefaults.standard.removeObject(forKey: "userDisplayName")
+        UserDefaults.standard.removeObject(forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "useMetricUnits")
         // Match SettingsViewModel's initial toggle so loadPreferences does not
         // flip Notifications and present the system permission alert.
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+        AIDataConsent.shared.grantLaunch(userId: "screenshot-user")
         UIView.setAnimationsEnabled(false)
     }
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sign in / create account — same accounts as fitmunch.com.au.
+/// Sign in / create account. Same accounts as fitmunch.com.au.
 struct AuthView: View {
     @EnvironmentObject private var auth: AuthManager
     @State private var mode: Mode = .register
@@ -12,37 +12,41 @@ struct AuthView: View {
     enum Mode { case login, register }
     enum Field { case name, email, password }
 
-    private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290) // #16a34a
-
     var body: some View {
         ZStack {
-            Color(red: 0.04, green: 0.07, blue: 0.04).ignoresSafeArea()
+            Theme.surface.ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 22) {
-                    // Wordmark
                     VStack(spacing: 10) {
                         Image(systemName: "leaf.circle.fill")
                             .font(.system(size: 56))
-                            .foregroundStyle(.white, brandGreen)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(Theme.brandGreen)
                         HStack(spacing: 0) {
-                            Text("Fit").foregroundColor(.white)
-                            Text("Munch").foregroundColor(brandGreen)
+                            Text("Fit").foregroundStyle(.primary)
+                            Text("Munch").foregroundStyle(Theme.brandGreen)
                         }
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         Text("Your AI health partner")
                             .font(.footnote)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.top, 48)
 
-                    // Mode toggle
-                    Picker("", selection: $mode) {
-                        Text("Sign In").tag(Mode.login)
-                        Text("Create Account").tag(Mode.register)
+                    Picker("Account", selection: $mode) {
+                        Text("Sign In")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .tag(Mode.login)
+                        Text("Create Account")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .tag(Mode.register)
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal, 28)
+                    .sensoryFeedback(.selection, trigger: mode)
 
                     VStack(spacing: 12) {
                         if mode == .register {
@@ -61,7 +65,7 @@ struct AuthView: View {
                     if let error = auth.errorMessage {
                         Text(error)
                             .font(.footnote)
-                            .foregroundColor(.red)
+                            .foregroundStyle(.red)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 28)
                     }
@@ -70,31 +74,27 @@ struct AuthView: View {
                         HStack {
                             if auth.isLoading { ProgressView().tint(.white) }
                             Text(mode == .login ? "Sign In" : "Create Free Account")
-                                .fontWeight(.bold)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                        .background(brandGreen)
-                        .foregroundColor(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(auth.isLoading || !formValid)
-                    .opacity(formValid ? 1 : 0.6)
                     .padding(.horizontal, 28)
+                    .accessibilityIdentifier(mode == .login ? "auth-sign-in" : "auth-create-account")
 
                     if mode == .login {
                         Link("Forgot your password?",
                              destination: URL(string: "https://www.fitmunch.com.au/")!)
                             .font(.footnote)
-                            .foregroundColor(.white.opacity(0.65))
+                            .foregroundStyle(Theme.brandGreen)
                     }
 
                     Text("Free to start. Premium trial available in-app.")
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.45))
+                        .foregroundStyle(.secondary)
                         .padding(.bottom, 32)
                 }
             }
+            .scrollClearsTabBar()
         }
         .onChange(of: mode) { _, _ in auth.errorMessage = nil }
     }
@@ -120,24 +120,24 @@ struct AuthView: View {
     }
 
     private func field(_ placeholder: String, text: Binding<String>, focus: Field) -> some View {
-        TextField("", text: text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.35)))
+        TextField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
             .focused($focused, equals: focus)
             .padding(14)
-            .background(Color.white.opacity(0.07))
-            .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.12)))
+            .background(Color(.secondarySystemBackground))
+            .foregroundStyle(.primary)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color(.separator)))
     }
 
     private func secureField(_ placeholder: String, text: Binding<String>) -> some View {
-        SecureField("", text: text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.35)))
+        SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
             .focused($focused, equals: .password)
             .textContentType(mode == .login ? .password : .newPassword)
             .padding(14)
-            .background(Color.white.opacity(0.07))
-            .foregroundColor(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.12)))
+            .background(Color(.secondarySystemBackground))
+            .foregroundStyle(.primary)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color(.separator)))
     }
 }
 

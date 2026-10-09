@@ -17,14 +17,14 @@ final class ReviewCrashGuardTests: XCTestCase {
     }
 
     func testUpgradeOpensPaywallWithoutCrashing() throws {
-        openTab("Settings")
+        openTab("Me")
         let upgrade = firstExisting([
             app.buttons["settings-upgrade"],
             app.buttons["Upgrade"],
             app.buttons["settings-upgrade-premium"],
             app.buttons["Upgrade to Premium"],
         ])
-        XCTAssertNotNil(upgrade, "Upgrade control missing on Settings")
+        XCTAssertNotNil(upgrade, "Upgrade control missing on Me")
         upgrade?.tap()
 
         let paywallReady = app.otherElements["paywall-root"].waitForExistence(timeout: 8)

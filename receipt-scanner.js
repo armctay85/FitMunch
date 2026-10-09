@@ -124,19 +124,33 @@ function extractImage(req) {
 
 const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items. Parse quantity from name. Raw JSON only.';
 
-async function readReceiptItems(imageBase64, mimeType) {
+async function readReceiptItems(imageBase64, mimeType, route) {
   const visionResult = await getVision()({
     imageBase64,
     mimeType: mimeType || 'image/jpeg',
     prompt: VISION_PROMPT,
+    route,
   });
-  if (!visionResult.ok) throw new Error(visionResult.error || 'vision_failed');
+  if (!visionResult || !visionResult.ok) {
+    const failed = new Error(visionResult && visionResult.code === 'unavailable' ? 'scan_unavailable' : 'scan_unreadable');
+    failed.code = failed.message;
+    throw failed;
+  }
   return core.parseVisionItems(visionResult.text);
 }
 
 // ── ROUTES ────────────────────────────────────────────────────────────────────
 
-router.get('/', (_req, res) => res.json({
+const READ_FAIL = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
+const SCAN_UNAVAILABLE = 'Scanning is unavailable right now.';
+
+function visionFailureCode(err) {
+  const code = err && (err.code || err.message);
+  if (code === 'scan_unavailable' || code === 'unavailable' || code === 'no_vision_provider') return 'unavailable';
+  return 'unreadable';
+}
+
+router.get('/', requireAuth, (_req, res) => res.json({
   service: 'fitmunch-receipt-scanner',
   version: '1.0.0',
   endpoints: {
@@ -154,15 +168,53 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       return res.json({ success: false, error: 'No image. Send multipart file (field: receipt) or JSON {image: base64dataUrl}' });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    const { isBlocked } = require('./lib/ai-data-consent');
+    const { getUserById } = require('./server/storage.js');
+    try {
+      const account = await getUserById(req.user.userId);
+      if (isBlocked(account && account.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
+    } catch (_) {
       return res.status(503).json({
         success: false,
-        error: 'Receipt scanner not configured — GEMINI_API_KEY missing in Vercel environment variables.',
-        setup: 'Add GEMINI_API_KEY to Vercel → FitMunch project → Environment Variables'
+        error: "We couldn't check your AI settings. Please try again.",
       });
     }
 
     const tier = await userTier(req.user.userId);
+    if (!tier || tier === 'free') {
+      const limit = aiUsage.freeMonthlyLimit();
+      const used = await aiUsage.getUsed(String(req.user.userId));
+      if (limit === 0 || used >= limit) {
+        return res.status(429).json({
+          success: false,
+          upgrade: true,
+          limit,
+          used,
+          error: `You've used all ${limit} free AI actions this month. Upgrade for unlimited scans.`,
+        });
+      }
+    }
+
+    let rawItems;
+    try {
+      rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
+    } catch (visionErr) {
+      const unavailable = visionFailureCode(visionErr) === 'unavailable';
+      console.info('[receipt-scan]', JSON.stringify({
+        event: unavailable ? 'scan_unavailable' : 'scan_unreadable',
+        userId: req.user?.userId || null,
+      }));
+      return res.status(422).json({
+        success: false,
+        error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
+      });
+    }
+
     const gate = await aiUsage.checkAndConsume({
       userId: String(req.user.userId),
       tier,
@@ -178,28 +230,15 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       });
     }
 
-    let rawItems;
-    let scannerProvider = 'gemini';
-    let scannerWarning = null;
-      try {
-        rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
-      } catch (visionErr) {
-        scannerProvider = 'fallback';
-        scannerWarning = visionErr.message;
-        rawItems = core.fallbackReceiptItems();
-      }
-
     const payload = core.buildScanPayload(rawItems, {
       guest: false,
-      scannerProvider,
-      scannerWarning,
+      scannerProvider: 'vision',
     });
     console.info('[receipt-scan]', JSON.stringify({
-      event: scannerProvider === 'fallback' ? 'scan_fallback' : 'scan_success',
-      provider: scannerProvider,
+      event: 'scan_success',
+      provider: 'vision',
       itemCount: payload.itemCount,
       userId: req.user?.userId || null,
-      warning: scannerWarning ? String(scannerWarning).slice(0, 160) : null,
     }));
     res.json(payload);
 
@@ -230,12 +269,37 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
     }
 
     const ai = require('./lib/ai-client');
-    if (!ai.hasProvider() && !visionOverride) {
-      return res.status(503).json({ success: false, error: core.publicGuestError('unavailable') });
+    if (!visionOverride && ai.visionProviders && ai.visionProviders().length === 0) {
+      return res.status(422).json({ success: false, error: SCAN_UNAVAILABLE });
+    }
+
+    const guestId = `guest:${guestIp(req)}`;
+    const limit = aiUsage.freeMonthlyLimit();
+    const used = await aiUsage.getUsed(guestId);
+    if (limit === 0 || used >= limit) {
+      return res.status(429).json({
+        success: false,
+        upgrade: true,
+        error: 'Free first scans from this connection are used up this month. Start the Premium trial for unlimited scans.',
+      });
+    }
+
+    let rawItems;
+    try {
+      rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/first-scan');
+    } catch (visionErr) {
+      const unavailable = visionFailureCode(visionErr) === 'unavailable';
+      console.info('[receipt-scan]', JSON.stringify({
+        event: unavailable ? 'first_scan_unavailable' : 'first_scan_unreadable',
+      }));
+      return res.status(422).json({
+        success: false,
+        error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
+      });
     }
 
     const gate = await aiUsage.checkAndConsume({
-      userId: `guest:${guestIp(req)}`,
+      userId: guestId,
       tier: 'free',
       feature: 'receipt_scan',
     });
@@ -247,18 +311,7 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
       });
     }
 
-    let rawItems;
-    try {
-      rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
-    } catch (visionErr) {
-      console.info('[receipt-scan]', JSON.stringify({
-        event: 'first_scan_unreadable',
-        warning: String(visionErr.message || '').replace(/GEMINI[^\s]*/ig, 'provider').slice(0, 160),
-      }));
-      return res.status(422).json({ success: false, error: core.publicGuestError('unreadable') });
-    }
-
-    const payload = core.buildScanPayload(rawItems, { guest: true, scannerProvider: 'gemini' });
+    const payload = core.buildScanPayload(rawItems, { guest: true, scannerProvider: 'vision' });
     console.info('[receipt-scan]', JSON.stringify({
       event: 'first_scan_success',
       itemCount: payload.itemCount,

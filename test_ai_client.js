@@ -24,7 +24,7 @@ describe('lib/ai-client provider routing', () => {
     expect(ai.providerName()).toBe(null);
   });
 
-  it('prefers gemini when GEMINI_API_KEY is set', () => {
+  it('ignores Gemini and prefers xAI when both keys are set', () => {
     clearProviderKeys();
     process.env.GEMINI_API_KEY = 'gem-test';
     process.env.XAI_API_KEY = 'xai-test';
@@ -33,10 +33,12 @@ describe('lib/ai-client provider routing', () => {
     jest.resetModules();
     const ai = require('./lib/ai-client');
     expect(ai.hasProvider()).toBe(true);
-    expect(ai.providerName()).toBe('gemini');
+    expect(ai.providerName()).toBe('xai');
+    expect(ai.availableProviders()).toEqual(['xai', 'openai', 'anthropic']);
+    expect(ai.visionProviders()).toEqual(['xai', 'openai']);
   });
 
-  it('prefers grok over openai when XAI_API_KEY is set', () => {
+  it('prefers xAI over openai when XAI_API_KEY is set', () => {
     clearProviderKeys();
     process.env.XAI_API_KEY = 'xai-test';
     process.env.OPENAI_API_KEY = 'sk-test-123';
@@ -44,7 +46,7 @@ describe('lib/ai-client provider routing', () => {
     jest.resetModules();
     const ai = require('./lib/ai-client');
     expect(ai.hasProvider()).toBe(true);
-    expect(ai.providerName()).toBe('grok');
+    expect(ai.providerName()).toBe('xai');
   });
 
   it('prefers openai when only OPENAI_API_KEY is set', () => {
@@ -74,6 +76,24 @@ describe('lib/ai-client provider routing', () => {
     process.env.OPENAI_CHAT_MODEL = 'gpt-5.4';
     jest.resetModules();
     expect(require('./lib/ai-client').openaiModel()).toBe('gpt-5.4');
+  });
+
+  it('tries the next provider only on a 401 or a missing key', () => {
+    const ai = require('./lib/ai-client');
+    expect(ai.tryNext({ status: 401, error: 'unauthorized' })).toBe(true);
+    expect(ai.tryNext({ error: 'missing_key', status: 401 })).toBe(true);
+    expect(ai.tryNext({ status: 500, error: 'provider_error' })).toBe(false);
+    expect(ai.tryNext({ ok: true, status: 200, text: '[]' })).toBe(false);
+  });
+
+  it('vision reports unavailable when xAI and OpenAI keys are missing', async () => {
+    clearProviderKeys();
+    process.env.GEMINI_API_KEY = 'gem-test';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    const result = await ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe('unavailable');
   });
 
   it('chat() returns { ok:false, error:no_provider } with no keys', async () => {
