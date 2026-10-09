@@ -137,14 +137,20 @@ describe('AI routes', () => {
   });
 
   it('GET /api/ai/usage reports limit and remaining', async () => {
+    const aiClient = require('./lib/ai-client');
+    aiClient.providerName.mockReturnValue('xai');
+    aiClient.grokModel.mockClear();
     const r = await request(app)
       .get('/api/ai/usage')
       .set('Authorization', `Bearer ${token}`);
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
     expect(r.body.limit).toBe(10);
-    expect(r.body.provider).toBeUndefined();
-    expect(JSON.stringify(r.body)).not.toMatch(/gemini|openai|grok|anthropic/i);
+    expect(r.body.grok).toBeUndefined();
+    expect(r.body.gemini).toBeUndefined();
+    expect(aiClient.grokModel).toHaveBeenCalled();
+    expect(JSON.stringify(r.body)).not.toMatch(/gemini|grok/i);
+    aiClient.providerName.mockReturnValue('openai');
   });
 
   it('POST /api/ai/workout-plan generates a structured program', async () => {

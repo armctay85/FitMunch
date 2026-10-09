@@ -3096,8 +3096,9 @@ async function scanReceipt() {
  return item && item.confidence === 'sample-fallback';
  });
  const serverError = data.error || '';
- if (/API_KEY|GEMINI|XAI_API|OPENAI_API|ANTHROPIC_API/i.test(serverError)) throw new Error(scanUnavailable);
- if (r.status === 422) throw new Error(serverError === readFail || serverError === scanUnavailable ? serverError : scanUnavailable);
+ if (r.status === 422 || r.status === 503 || serverError === 'unauthorized' || serverError === 'provider_error' || serverError === 'missing_key' || serverError === 'no_vision_provider' || serverError === 'no_provider') {
+ throw new Error(serverError === readFail ? readFail : scanUnavailable);
+ }
  if (sampleHaul) throw new Error(readFail);
  if (!r.ok || !data.success) throw new Error(serverError || ('Scan failed (HTTP ' + r.status + ')'));
  if (!data.itemCount && !(data.items && data.items.length)) {

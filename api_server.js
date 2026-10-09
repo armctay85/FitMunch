@@ -1357,7 +1357,7 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       month: aiUsage.monthKey(),
       provider: aiClient.providerName(),
       model: {
-        grok: aiClient.grokModel,
+        xai: aiClient.grokModel,
         openai: aiClient.openaiModel,
         anthropic: aiClient.anthropicModel,
       }[aiClient.providerName()]?.() || null,
