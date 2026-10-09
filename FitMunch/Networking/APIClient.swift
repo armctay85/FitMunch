@@ -53,6 +53,9 @@ enum APIClient {
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
             throw APIError.unauthorised
         }
+        if let http = response as? HTTPURLResponse, http.statusCode == 422 {
+            throw APIError.server("We couldn't read this receipt. Try again with a flat, well-lit photo.")
+        }
 
         do {
             return try JSONDecoder().decode(T.self, from: data)
@@ -216,7 +219,7 @@ struct ReceiptScanResponse: Decodable {
     }
     let success: Bool
     let error: String?
-    /// `fallback` means the server substituted a built-in sample list.
+    /// A `fallback` value is a failed read. The app must not show those items.
     let scannerProvider: String?
     let items: [Item]?
     let weeklyTotals: Totals?

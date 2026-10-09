@@ -136,7 +136,9 @@ async function readReceiptItems(imageBase64, mimeType) {
 
 // ── ROUTES ────────────────────────────────────────────────────────────────────
 
-router.get('/', (_req, res) => res.json({
+const READ_FAIL = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
+
+router.get('/', requireAuth, (_req, res) => res.json({
   service: 'fitmunch-receipt-scanner',
   version: '1.0.0',
   endpoints: {
@@ -169,12 +171,37 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     if (!process.env.GEMINI_API_KEY) {
       return res.status(503).json({
         success: false,
-        error: 'Receipt scanner not configured — GEMINI_API_KEY missing in Vercel environment variables.',
-        setup: 'Add GEMINI_API_KEY to Vercel → FitMunch project → Environment Variables'
+        error: 'Receipt scan is temporarily unavailable. Try again in a few minutes.',
       });
     }
 
     const tier = await userTier(req.user.userId);
+    if (!tier || tier === 'free') {
+      const limit = aiUsage.freeMonthlyLimit();
+      const used = await aiUsage.getUsed(String(req.user.userId));
+      if (limit === 0 || used >= limit) {
+        return res.status(429).json({
+          success: false,
+          upgrade: true,
+          limit,
+          used,
+          error: `You've used all ${limit} free AI actions this month. Upgrade for unlimited scans.`,
+        });
+      }
+    }
+
+    let rawItems;
+    try {
+      rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
+    } catch (visionErr) {
+      console.info('[receipt-scan]', JSON.stringify({
+        event: 'scan_unreadable',
+        userId: req.user?.userId || null,
+        warning: String(visionErr && visionErr.message || '').replace(/GEMINI[^\s]*/ig, 'provider').slice(0, 160),
+      }));
+      return res.status(422).json({ success: false, error: READ_FAIL });
+    }
+
     const gate = await aiUsage.checkAndConsume({
       userId: String(req.user.userId),
       tier,
@@ -190,28 +217,15 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       });
     }
 
-    let rawItems;
-    let scannerProvider = 'gemini';
-    let scannerWarning = null;
-      try {
-        rawItems = await readReceiptItems(image.imageBase64, image.mimeType);
-      } catch (visionErr) {
-        scannerProvider = 'fallback';
-        scannerWarning = visionErr.message;
-        rawItems = core.fallbackReceiptItems();
-      }
-
     const payload = core.buildScanPayload(rawItems, {
       guest: false,
-      scannerProvider,
-      scannerWarning,
+      scannerProvider: 'gemini',
     });
     console.info('[receipt-scan]', JSON.stringify({
-      event: scannerProvider === 'fallback' ? 'scan_fallback' : 'scan_success',
-      provider: scannerProvider,
+      event: 'scan_success',
+      provider: 'gemini',
       itemCount: payload.itemCount,
       userId: req.user?.userId || null,
-      warning: scannerWarning ? String(scannerWarning).slice(0, 160) : null,
     }));
     res.json(payload);
 

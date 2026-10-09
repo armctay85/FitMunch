@@ -3090,28 +3090,20 @@ async function scanReceipt() {
  }
  throw new Error('Scanner returned an invalid response (' + r.status + ')');
  }
- if (!r.ok || !data.success) throw new Error(data.error || ('Scan failed (HTTP ' + r.status + ')'));
+ const readFail = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
+ const sampleHaul = data.scannerProvider === 'fallback' || (data.items || []).some(function (item) {
+ return item && item.confidence === 'sample-fallback';
+ });
+ if (r.status === 422 || sampleHaul) throw new Error(readFail);
+ const serverError = data.error || '';
+ if (/GEMINI_API_KEY/i.test(serverError)) throw new Error(readFail);
+ if (!r.ok || !data.success) throw new Error(serverError || ('Scan failed (HTTP ' + r.status + ')'));
  if (!data.itemCount && !(data.items && data.items.length)) {
  throw new Error(data.scannerWarning || 'No grocery items found - try a clearer, flatter receipt photo.');
  }
  renderScanResults(data);
- if (data.scannerProvider === 'fallback') {
- toast('Demo items shown - AI could not fully read that photo. Retake in better light.', 'warn');
- // Persistent banner above results so users never mistake sample data for their shop
- let banner = document.getElementById('scan-fallback-banner');
- if (!banner) {
- banner = document.createElement('div');
- banner.id = 'scan-fallback-banner';
- banner.style.cssText = 'margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;font-size:.8rem;font-weight:600';
- const results = document.getElementById('scan-results');
- if (results && results.parentNode) results.parentNode.insertBefore(banner, results);
- }
- banner.style.display = '';
- banner.textContent = 'Sample fallback - this is not your receipt. Retake a flatter, brighter photo.';
- } else {
  const banner = document.getElementById('scan-fallback-banner');
  if (banner) banner.style.display = 'none';
- }
  } catch(err) {
  document.getElementById('scan-empty').style.display = '';
  document.getElementById('scan-empty').innerHTML = `<div style="font-size:28px">⚠️</div><div style="font-size:.85rem;font-weight:600;color:var(--red);margin-top:8px">${(err && err.message) || 'Scan failed'}</div><div style="font-size:.75rem;color:var(--text3);margin-top:8px">Tip: full receipt in frame, good light, no glare.</div>`;

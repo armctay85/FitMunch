@@ -14,7 +14,7 @@ struct AIDataConsentSheet: View {
                     Text("Coach sends up to 12 recent messages, including the coach's replies. The server keeps at most 20. Age, weight, height, goal, and diet are added from your account profile. They are not typed into the chat. FitMunch tries Google (Gemini), then xAI (Grok), then OpenAI, then Anthropic, whichever keys are set.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text("A receipt photo goes to Google (Gemini) only. If that read fails, the server can return a built-in sample list. FitMunch does not show that sample as your shop.")
+                    Text("A receipt photo goes to Google (Gemini) only.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text("A meal plan sends the goal as a label, calories, protein, and the number of days. It uses that same provider order.")

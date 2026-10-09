@@ -20,6 +20,9 @@ struct ReceiptScanView: View {
     @State private var scanCompletions = 0
     @State private var showConsent = false
     @State private var pendingScan: ScanStart?
+    @State private var showRetake = false
+
+    private static let unreadableCopy = "We couldn't read this receipt. Try again with a flat, well-lit photo."
     @EnvironmentObject private var auth: AuthManager
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,7 +39,7 @@ struct ReceiptScanView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     OfflineNotice()
-                    if let scan = scan {
+                    if let scan = scan, scan.scannerProvider != "fallback" {
                         resultsView(scan)
                     } else {
                         introView
@@ -178,6 +181,17 @@ struct ReceiptScanView: View {
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
             }
+            if showRetake {
+                Button("Retake") {
+                    showRetake = false
+                    errorMessage = nil
+                    receiptImage = nil
+                    pickedItem = nil
+                    beginScan(.camera)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("scan-retake")
+            }
         }
     }
 
@@ -241,7 +255,7 @@ struct ReceiptScanView: View {
                 Label("\(loggedCount) items logged to today's meals", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(brandGreen)
-            } else {
+            } else if scan.scannerProvider != "fallback" {
                 Button {
                     logAll(scan)
                 } label: {
@@ -254,7 +268,7 @@ struct ReceiptScanView: View {
                 .disabled(isLogging)
             }
 
-            if let shareText = scan.shareText {
+            if scan.scannerProvider != "fallback", let shareText = scan.shareText {
                 ShareLink(item: shareText) {
                     Label("Share my haul score", systemImage: "square.and.arrow.up")
                         .fontWeight(.semibold)
@@ -286,6 +300,22 @@ struct ReceiptScanView: View {
         pickedItem = nil
         errorMessage = nil
         loggedCount = nil
+        showRetake = false
+    }
+
+    private func presentReadFailure() {
+        scan = nil
+        loggedCount = nil
+        errorMessage = Self.unreadableCopy
+        showRetake = true
+    }
+
+    private func customerError(_ message: String?) -> String {
+        let text = message ?? Self.unreadableCopy
+        if text.localizedCaseInsensitiveContains("GEMINI_API_KEY") {
+            return Self.unreadableCopy
+        }
+        return text
     }
 
     private func beginScan(_ start: ScanStart) {
@@ -372,21 +402,30 @@ struct ReceiptScanView: View {
                     body: ["image": jpeg.base64EncodedString(), "mimeType": "image/jpeg"],
                     as: ReceiptScanResponse.self
                 )
-                if res.success && res.scannerProvider == "fallback" {
-                    errorMessage = "Couldn't read that receipt. FitMunch will not show a sample list as your shop."
+                if res.scannerProvider == "fallback" || res.error == Self.unreadableCopy {
+                    presentReadFailure()
                 } else if res.success {
+                    showRetake = false
                     scan = res
                     scanCompletions += 1
                 } else {
-                    errorMessage = res.error ?? "Couldn't read that receipt. Try a clearer photo."
+                    showRetake = false
+                    errorMessage = customerError(res.error)
                 }
             } catch {
-                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                if message == Self.unreadableCopy || message.localizedCaseInsensitiveContains("GEMINI_API_KEY") {
+                    presentReadFailure()
+                } else {
+                    showRetake = false
+                    errorMessage = customerError(message)
+                }
             }
         }
     }
 
     private func logAll(_ scan: ReceiptScanResponse) {
+        guard scan.scannerProvider != "fallback" else { return }
         let items = scan.items ?? []
         guard !items.isEmpty else { return }
         isLogging = true
