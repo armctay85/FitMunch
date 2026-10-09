@@ -48,15 +48,6 @@ struct ReceiptScanView: View {
             }
             .defaultScrollAnchor(.top)
             .scrollClearsTabBar()
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if scan == nil && !isScanning {
-                    scanActions
-                        .padding(.horizontal, Theme.Spacing.four)
-                        .padding(.top, Theme.Spacing.two)
-                        .padding(.bottom, Theme.Spacing.three)
-                        .background(Theme.surface)
-                }
-            }
             .floatingTabBarInset()
             .background(Theme.surface)
             .sensoryFeedback(.success, trigger: scanCompletions)
@@ -159,6 +150,11 @@ struct ReceiptScanView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+
+            if !isScanning {
+                scanActions
+                    .padding(.top, Theme.Spacing.two)
+            }
 
             if isScanning {
                 VStack(spacing: 10) {
