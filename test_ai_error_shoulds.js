@@ -124,3 +124,32 @@ describe('S3 whitespace-only keys count as missing', () => {
     expect(sent).toBe(0);
   });
 });
+
+describe('S2 exception: billing and quota 4xx log the message', () => {
+  const run = async (status, body) => {
+    const ai = load({ ANTHROPIC_API_KEY: 'ant-test' });
+    next = { status, body };
+    await ai.chat({ messages: [{ role: 'user', content: 'hi' }], route: '/ai/chat' });
+    return errOf(logs[0]);
+  };
+  it('logs Anthropic low-credit 400 message', async () => {
+    const msg = 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.';
+    expect(await run(400, { type: 'error', error: { type: 'invalid_request_error', message: msg } })).toBe(msg);
+  });
+  it('logs the message when type is billing_error', async () => {
+    expect(await run(402, { type: 'error', error: { type: 'billing_error', message: 'Account suspended pending payment.' } }))
+      .toBe('Account suspended pending payment.');
+  });
+  it('non-billing 400 still logs type and code only', async () => {
+    const e = await run(400, { error: { type: 'invalid_request_error', code: 'bad_input', message: 'messages: field required for Jane' } });
+    expect(e).toBe('invalid_request_error bad_input');
+  });
+  it('billing message with a key-like string is still redacted and capped', async () => {
+    const key = 'sk-ant-api03-' + 'A'.repeat(40);
+    const e = await run(400, { error: { type: 'invalid_request_error', message: `Your credit balance is too low for key ${key}. ` + 'x'.repeat(300) } });
+    expect(e).toMatch(/credit balance is too low/);
+    expect(e).not.toContain(key);
+    expect(e).not.toMatch(/AAAAAAAAAAAAAAAAAAAA/);
+    expect(e.length).toBeLessThanOrEqual(200);
+  });
+});
