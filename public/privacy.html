@@ -5,12 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Privacy Policy | FitMunch</title>
 <meta name="description" content="FitMunch privacy policy for receipt images, nutrition data, AI processing, personal trainer sharing, account deletion, and support requests.">
-<link rel="canonical" href="https://fitmunch.com.au/privacy">
+<link rel="canonical" href="https://www.fitmunch.com.au/privacy">
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <link rel="stylesheet" href="/css/fm-shell.css"/>
+<style>
+.fm-doc h3{font-size:1rem;font-weight:700;letter-spacing:-.01em;margin:22px 0 8px}
+.fm-doc a{color:#127035}
+.fm-doc .fm-table-wrap{margin:12px 0 18px}
+.fm-doc .fm-table td{color:var(--mute);line-height:1.55}
+.fm-doc .fm-table td:last-child{font-family:inherit}.fm-doc .fm-table th:last-child{font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.fm-doc .fm-table td a{white-space:nowrap}
+@media(max-width:359px){.fm-doc .fm-table td,.fm-doc .fm-table tr:last-child td{grid-template-columns:1fr;gap:2px}}
+.fm-doc .fm-table td:last-child{font-weight:400;color:var(--mute)}
+.fm-doc .fm-table td:first-child{font-weight:700;color:var(--ink)}
+.fm-doc .fm-table th,.fm-doc .fm-table th:last-child,.fm-doc .fm-table td::before{color:var(--mute)}
+</style>
 </head>
 <body class="fm-body">
 
@@ -27,26 +39,61 @@
 <main class="fm-doc">
 <a class="fm-back" href="/">&larr; FitMunch</a>
 <h1>Privacy Policy</h1>
-<p><em>Last updated: May 2026</em></p>
+<p><em>Last updated: 9 October 2026</em></p>
 
 <h2>1. What we collect</h2>
 <p><strong>Account data:</strong> email address, name (if provided), and account preferences when you sign up.</p>
-<p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to an AI processor to extract item names, quantities, and prices. FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
+<p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to xAI or OpenAI to extract item names, quantities, and prices (see section 3). FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
 <p><strong>Food and nutrition data:</strong> meals you log, foods you add to your pantry, shopping lists you create, meal plans you build, and nutrition preferences you set.</p>
-<p><strong>Usage data:</strong> pages visited, features used, and anonymised interaction data to improve FitMunch.</p>
+<p><strong>Usage data:</strong> pages visited and features used, to improve FitMunch, and a count of your coach chat, meal plan, receipt scan, daily tip, weekly review and workout plan uses, stored with your account to apply plan limits.</p>
 <p><strong>PT/client relationship data:</strong> if you connect with a personal trainer through FitMunch, your trainer may view shared nutrition and meal plan data you've opted into sharing.</p>
 
 <h2>2. How we use your data</h2>
 <ul>
 <li>To provide the FitMunch service: receipt scanning, meal planning, nutrition tracking, shopping lists, pantry management.</li>
-<li>To improve our AI extraction and food matching accuracy.</li>
+<li>To improve how FitMunch matches scanned items to foods in its nutrition data.</li>
 <li>To communicate service updates, billing, and support responses.</li>
 <li>To personalise your experience: meal suggestions, nutrition insights, and food recommendations.</li>
 </ul>
 <p>We do not sell your personal data to third parties.</p>
 
-<h2>3. AI and automated processing</h2>
-<p>FitMunch uses AI to extract items from receipt images and match them to nutrition data. The photo is sent to our AI provider for that scan, then discarded on FitMunch servers. Extracted text and macros may be stored if you save them to your account.</p>
+<h2 id="ai">3. AI features and who processes your data</h2>
+<p>Some FitMunch features send data to AI providers based in the United States: xAI, OpenAI and Anthropic. The tables below show what each feature sends and who receives it.</p>
+<p>When you use one of these features, FitMunch sends the data listed below from our servers to an AI provider, which processes it and returns the answer. These requests do not include your name or email address.</p>
+
+<h3>Which features use AI and what each one sends</h3>
+<div class="fm-table-wrap"><table class="fm-table">
+<thead><tr><th scope="col">Feature</th><th scope="col">Data sent</th><th scope="col">Sent to</th></tr></thead>
+<tbody>
+<tr><td data-label="Feature">Coach chat (app and web)</td><td data-label="Data sent">Your messages and the coach's recent replies in that conversation. Anything you type in the chat is sent. Also the age, weight, height, goal and dietary preferences saved in your profile. On the website, the chat also sends your daily calorie and protein targets, what you have logged today, and your logging streak.</td><td data-label="Sent to">xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Meal plan generation (app and web)</td><td data-label="Data sent">Your goal, daily calorie target, daily protein target and the number of days. On the website, it also sends any dietary requirements and the weekly grocery budget you enter.</td><td data-label="Sent to">xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Receipt scanning (app and web)</td><td data-label="Data sent">The photo of your receipt, so the AI can list the food items on it.</td><td data-label="Sent to">xAI or OpenAI only, never Anthropic</td></tr>
+<tr><td data-label="Feature">Daily coaching tip (web)</td><td data-label="Data sent">Your goal, your daily calorie and protein targets, what you have logged today, and your logging streak.</td><td data-label="Sent to">xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Weekly review (web)</td><td data-label="Data sent">A summary of your last 7 days: days with meals logged, calorie and protein totals and averages, the number and type of workouts, up to three recent weigh-ins, your goal, and your calorie and protein targets.</td><td data-label="Sent to">xAI, OpenAI or Anthropic (first available)</td></tr>
+<tr><td data-label="Feature">Workout plan (web)</td><td data-label="Data sent">Your goal, experience level, training days per week, equipment, session length, and any focus or limits you type in.</td><td data-label="Sent to">xAI, OpenAI or Anthropic (first available)</td></tr>
+</tbody>
+</table></div>
+
+<h3>Who processes it</h3>
+<p>Coach chat, meal plans, coaching tips, weekly reviews and workout plans go to one of these providers. FitMunch tries them in the order below and uses the first one that is available. If a provider is not set up for FitMunch, or does not accept FitMunch's account, the same request goes to the next one in the list. If a provider has any other error, the request stops there and is not sent to another provider.</p>
+<div class="fm-table-wrap"><table class="fm-table">
+<thead><tr><th scope="col">Provider</th><th scope="col">Used for</th><th scope="col">Where</th><th scope="col">Privacy and terms</th></tr></thead>
+<tbody>
+<tr><td data-label="Provider">1.&nbsp;xAI</td><td data-label="Used for">First choice for coach chat, meal plans, tips, reviews and workout plans. Also receipt scanning.</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://x.ai/legal/privacy-policy">Privacy Policy</a>, <a href="https://x.ai/legal/terms-of-service-enterprise">enterprise terms</a></span></td></tr>
+<tr><td data-label="Provider">2.&nbsp;OpenAI</td><td data-label="Used for">Coach chat, meal plans, tips, reviews and workout plans, if xAI is not available. Also receipt scanning.</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://openai.com/policies/privacy-policy/">Privacy Policy</a>, <a href="https://openai.com/policies/services-agreement/">Services Agreement</a></span></td></tr>
+<tr><td data-label="Provider">3.&nbsp;Anthropic</td><td data-label="Used for">The same features except receipt scanning, if xAI and OpenAI are not available</td><td data-label="Where">Based in the United States</td><td data-label="Privacy and terms"><span><a href="https://www.anthropic.com/legal/privacy">Privacy Policy</a>, <a href="https://www.anthropic.com/legal/commercial-terms">Commercial Terms</a></span></td></tr>
+</tbody>
+</table></div>
+<p>Receipt photos go to xAI or OpenAI only. A receipt photo is never sent to Anthropic. If the photo cannot be read, FitMunch shows an error and asks you to retake it. Nothing from that photo is shown as your shop or added to your food log.</p>
+<p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. For how each provider handles data, see the links above.</p>
+
+<h3>Where your data goes</h3>
+<p>xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. Your account and food data are stored in FitMunch's database, which Neon hosts in the United States (US East). Stripe (payments), Resend (email), RevenueCat (in-app subscriptions), Apple (App Store purchases) and Google (web fonts) may also process your data in the United States. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
+
+<h3>Your choice</h3>
+<p>In the FitMunch app, before the first of these features sends anything, we ask you once for your account, with Allow and Not now. We only send your data to an AI provider after you tap Allow. If you tap Not now, the AI features stay off and the rest of the app keeps working. You can change your choice and turn AI features off at any time under Me &gt; Privacy.</p>
+<p>On the website, the daily coaching tip is requested when your dashboard loads. It does not run when AI features are turned off for your account. The other AI features send their data only when you use them, for example when you send a coach chat message or ask for a plan or review.</p>
+<p>The receipt photo is sent to xAI or OpenAI for that scan, then discarded on FitMunch servers. Extracted text and macros may be stored if you save them to your account.</p>
 
 <h2>4. Data storage and security</h2>
 <p>Your data is stored on secure cloud infrastructure with encryption at rest and in transit. We use industry-standard security practices and regularly review our systems.</p>
@@ -55,7 +102,18 @@
 <p>We share data only:</p>
 <ul>
 <li>With your personal trainer, if you've connected your account and opted into sharing.</li>
-<li>With our service providers (hosting, AI processing, payment processing via Stripe) under data processing agreements.</li>
+<li>With our service providers, which process data to run FitMunch:
+<ul>
+<li>Hosting: Vercel. FitMunch's server functions run in Vercel's Sydney region.</li>
+<li>Database: Neon (PostgreSQL), hosted in the United States (US East).</li>
+<li>Payments: Stripe.</li>
+<li>In-app subscriptions: RevenueCat, which keeps track of subscriptions bought in the iOS app.</li>
+<li>In-app purchases: Apple. If you subscribe in the iOS app, Apple handles the payment and RevenueCat receives your FitMunch account ID, your purchase history and basic device details such as app version, not your health data, coach messages or receipt photos.</li>
+<li>Email: Resend, which sends account and billing emails.</li>
+<li>Fonts: Google Fonts. When you load a FitMunch web page, your browser requests font files from Google.</li>
+<li>AI processing: the providers listed in <a href="#ai">section 3</a>.</li>
+</ul>
+</li>
 <li>When required by law or to protect our rights.</li>
 </ul>
 
@@ -64,7 +122,7 @@
 <ul>
 <li>Access your data by emailing <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</li>
 <li>Request deletion of your account and all associated data.</li>
-<li>Opt out of AI-based receipt processing at any time.</li>
+<li>Turn AI features off at any time under Me &gt; Privacy in the app. The rest of FitMunch keeps working.</li>
 <li>Export your meal plans, food logs, and pantry data.</li>
 <li>Withdraw PT sharing at any time from your account settings.</li>
 </ul>
@@ -73,7 +131,7 @@
 <p>We use essential cookies for authentication and session management. We do not use advertising or tracking cookies.</p>
 
 <h2>8. Children</h2>
-<p>FitMunch is not intended for users under 13. We do not knowingly collect data from children.</p>
+<p>FitMunch is for people 18 and over.</p>
 
 <h2>9. Changes</h2>
 <p>We'll notify you of material changes to this policy via email or in-app notice before they take effect.</p>
