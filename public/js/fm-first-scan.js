@@ -105,11 +105,19 @@
     }
   }
 
+  var SCAN_UNAVAILABLE = 'Scanning is unavailable right now.';
+  var SCAN_UNREADABLE = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
+
   function setError(root, msg) {
     var err = root.querySelector('[data-fs-error]');
     if (!err) return;
     err.hidden = !msg;
     err.textContent = msg || '';
+    var retake = root.querySelector('[data-fs-retake]');
+    if (!retake) return;
+    var showRetake = msg === SCAN_UNAVAILABLE || msg === SCAN_UNREADABLE;
+    retake.hidden = !showRetake;
+    retake.style.display = showRetake ? '' : 'none';
   }
 
   function bind(root) {
@@ -182,6 +190,14 @@
 
     if (camera) camera.addEventListener('change', onFile);
     if (library) library.addEventListener('change', onFile);
+
+    var retakeBtn = root.querySelector('[data-fs-retake]');
+    if (retakeBtn) {
+      retakeBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        openInput(camera);
+      });
+    }
 
     if (clearBtn) {
       clearBtn.addEventListener('click', function (e) {

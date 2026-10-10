@@ -9,7 +9,8 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "private/funnel.html"
+      "includeFiles": "private/funnel.html",
+      "maxDuration": 90
     }
   },
   "headers": [

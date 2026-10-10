@@ -1,0 +1,80 @@
+name: Production smoke
+
+on:
+  deployment_status:
+  schedule:
+    # Every 3 hours. Post-deploy runs only after a successful Production deployment.
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: >-
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || (
+        github.event_name == 'deployment_status'
+        && github.event.deployment_status.state == 'success'
+        && contains(github.event.deployment.environment, 'Production')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Coach and receipt smoke
+        env:
+          FM_SMOKE_EMAIL: ${{ secrets.FM_SMOKE_EMAIL }}
+          FM_SMOKE_PASSWORD: ${{ secrets.FM_SMOKE_PASSWORD }}
+          SMOKE_BASE_URL: https://www.fitmunch.com.au
+          PROD_SMOKE_RESULT: /tmp/prod-smoke-result.json
+        run: node scripts/prod-smoke.mjs
+
+      - name: Save smoke result
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-smoke-result
+          path: /tmp/prod-smoke-result.json
+          if-no-files-found: ignore
+
+  prod-smoke-issue:
+    needs: smoke
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Load smoke result
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: prod-smoke-result
+          path: /tmp
+
+      - name: Create or update prod-smoke issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PROD_SMOKE_RESULT: /tmp/prod-smoke-result.json
+          SMOKE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/prod-smoke-issue.mjs
