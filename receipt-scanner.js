@@ -157,6 +157,24 @@ function visionFailureCode(err) {
   return 'unreadable';
 }
 
+function hashUserId(userId) {
+  if (userId == null || userId === '') return null;
+  return crypto.createHash('sha256').update(String(userId)).digest('hex');
+}
+
+function sendVisionFailure(res, err, event, userId) {
+  const unavailable = visionFailureCode(err) === 'unavailable';
+  console.info('[receipt-scan]', JSON.stringify({
+    event,
+    userId: hashUserId(userId),
+  }));
+  if (unavailable) res.set('Retry-After', '60');
+  return res.status(unavailable ? 503 : 422).json({
+    success: false,
+    error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
+  });
+}
+
 router.get('/', requireAuth, (_req, res) => res.json({
   service: 'fitmunch-receipt-scanner',
   version: '1.0.0',
@@ -212,14 +230,12 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
     } catch (visionErr) {
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
-      console.info('[receipt-scan]', JSON.stringify({
-        event: unavailable ? 'scan_unavailable' : 'scan_unreadable',
-        userId: req.user?.userId || null,
-      }));
-      return res.status(422).json({
-        success: false,
-        error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
-      });
+      return sendVisionFailure(
+        res,
+        visionErr,
+        unavailable ? 'scan_unavailable' : 'scan_unreadable',
+        req.user?.userId || null
+      );
     }
 
     const gate = await aiUsage.checkAndConsume({
@@ -245,7 +261,7 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       event: 'scan_success',
       provider: 'vision',
       itemCount: payload.itemCount,
-      userId: req.user?.userId || null,
+      userId: hashUserId(req.user?.userId || null),
     }));
     res.json(payload);
 
@@ -277,7 +293,8 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
 
     const ai = require('./lib/ai-client');
     if (!visionOverride && ai.visionProviders && ai.visionProviders().length === 0) {
-      return res.status(422).json({ success: false, error: SCAN_UNAVAILABLE });
+      res.set('Retry-After', '60');
+      return res.status(503).json({ success: false, error: SCAN_UNAVAILABLE });
     }
 
     const guestId = `guest:${guestIp(req)}`;
@@ -296,13 +313,12 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/first-scan');
     } catch (visionErr) {
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
-      console.info('[receipt-scan]', JSON.stringify({
-        event: unavailable ? 'first_scan_unavailable' : 'first_scan_unreadable',
-      }));
-      return res.status(422).json({
-        success: false,
-        error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
-      });
+      return sendVisionFailure(
+        res,
+        visionErr,
+        unavailable ? 'first_scan_unavailable' : 'first_scan_unreadable',
+        null
+      );
     }
 
     const gate = await aiUsage.checkAndConsume({

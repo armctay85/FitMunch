@@ -44,22 +44,27 @@ describe('production smoke classification', () => {
     expect(verdict).toMatchObject({ ok: true, kind: 'parsed', itemCount: 2 });
   });
 
-  it('accepts a clean 422 unavailable and nothing else', () => {
-    expect(classifyScan(422, { success: false, error: 'Scanning is unavailable right now.' })).toMatchObject({
-      ok: true,
-      kind: 'unavailable',
+  it('fails a 422 or 503 unavailable scan and only passes real parsed items', () => {
+    expect(classifyScan(422, { success: false, error: 'Scanning is unavailable right now.' })).toEqual({
+      ok: false,
+      status: 422,
+      reason: 'scan unavailable',
+    });
+    expect(classifyScan(503, { success: false, error: 'Scanning is unavailable right now.' })).toEqual({
+      ok: false,
+      status: 503,
+      reason: 'scan unavailable',
     });
     expect(classifyScan(422, {
       success: false,
       error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
     }).ok).toBe(false);
-    expect(classifyScan(422, {
-      success: false,
-      error: 'Scanning is unavailable right now.',
-      items: [{ name: 'Tofu firm 450g' }],
-    }).ok).toBe(false);
     expect(classifyScan(500, { success: false }).ok).toBe(false);
     expect(classifyScan(200, { success: true, items: [] }).ok).toBe(false);
+    expect(classifyScan(200, {
+      success: true,
+      items: [{ name: 'Tofu firm 450g', confidence: 'ai-extracted' }],
+    }).ok).toBe(true);
   });
 
   it('rejects canned sample items and sample-fallback confidence', () => {

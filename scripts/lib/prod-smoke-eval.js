@@ -24,15 +24,12 @@ function classifyCoach(status, body) {
 function classifyScan(status, body) {
   const payload = body && typeof body === 'object' ? body : null;
   if (
-    status === 422
+    (status === 422 || status === 503)
     && payload
     && payload.success === false
     && payload.error === SCAN_UNAVAILABLE
-    && payload.items == null
-    && payload.shareText == null
-    && payload.scannerProvider == null
   ) {
-    return { ok: true, status, kind: 'unavailable' };
+    return { ok: false, status, reason: 'scan unavailable' };
   }
   if (status === 200 && payload && payload.success === true && Array.isArray(payload.items) && payload.items.length > 0) {
     if (payload.scannerProvider === 'fallback') return { ok: false, status, reason: 'fallback provider' };

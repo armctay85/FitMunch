@@ -9,8 +9,8 @@ const mockOpenaiCreate = jest.fn(async () => ({
 }));
 
 jest.mock('openai', () => {
-  return jest.fn().mockImplementation(() => ({
-    chat: { completions: { create: (...args) => mockOpenaiCreate(...args) } },
+  return jest.fn().mockImplementation((opts) => ({
+    chat: { completions: { create: (...args) => mockOpenaiCreate(opts, ...args) } },
   }));
 });
 
@@ -172,6 +172,31 @@ describe('lib/ai-client provider routing', () => {
     await expect(pending).rejects.toMatchObject({ code: 'ETIMEDOUT' });
     expect(req.destroyed).toBe(true);
     expect(ai.tryNext({ ok: false, error: 'provider_error' })).toBe(true);
+  });
+
+  it('httpsPost destroys the request from a 20s deadline even if the socket never times out', async () => {
+    jest.useFakeTimers();
+    try {
+      const https = require('https');
+      const ai = require('./lib/ai-client');
+      const req = {
+        on() { return req; },
+        write() {},
+        end() {},
+        destroy(err) { req.destroyed = err; },
+        setTimeout() {},
+      };
+      jest.spyOn(https, 'request').mockImplementation(() => req);
+      const pending = ai.httpsPost('api.x.ai', '/v1/chat/completions', {}, '{}');
+      await jest.advanceTimersByTimeAsync(19999);
+      expect(req.destroyed).toBeUndefined();
+      const assertion = expect(pending).rejects.toMatchObject({ code: 'ETIMEDOUT' });
+      await jest.advanceTimersByTimeAsync(1);
+      expect(req.destroyed.code).toBe('ETIMEDOUT');
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('vision reports unavailable when xAI and OpenAI keys are missing', async () => {
@@ -339,6 +364,70 @@ describe('lib/ai-client provider routing', () => {
     expect(result.status).toBe(200);
     expect(result.text).toContain('Tofu firm 450g');
   });
+
+  it('maps a 400 or a content refusal on a photo to unreadable', async () => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-test';
+    process.env.OPENAI_API_KEY = 'sk-test-123';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    const { hosts } = installHttps(() => ({
+      status: 400,
+      body: { error: { message: 'bad image', type: 'invalid_request_error' } },
+    }));
+    const bad = await ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(bad).toMatchObject({ ok: false, code: 'unreadable', status: 400, provider: 'xai' });
+    expect(hosts).toEqual(['api.x.ai']);
+
+    jest.resetModules();
+    const ai2 = require('./lib/ai-client');
+    installHttps(() => ({
+      status: 200,
+      body: { choices: [{ finish_reason: 'content_filter', message: { content: '' } }] },
+    }));
+    const refused = await ai2.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(refused).toMatchObject({ ok: false, code: 'unreadable', error: 'content_refusal', status: 200 });
+  });
+
+  it('a hung OpenAI call falls through to Anthropic within 20s', async () => {
+    clearProviderKeys();
+    process.env.OPENAI_API_KEY = 'sk-test-123';
+    process.env.ANTHROPIC_API_KEY = 'ant-test';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    const OpenAI = require('openai');
+    const previous = mockOpenaiCreate.getMockImplementation();
+    mockOpenaiCreate.mockImplementation((opts) => new Promise((_, reject) => {
+      setTimeout(() => {
+        const err = new Error('Request timed out.');
+        err.name = 'APIConnectionTimeoutError';
+        reject(err);
+      }, opts.timeout);
+    }));
+    installHttps(() => ({
+      status: 200,
+      body: { content: [{ text: 'Drink water with the meal.' }], usage: { input_tokens: 1, output_tokens: 2 } },
+    }));
+    const started = Date.now();
+    try {
+      OpenAI.mockClear();
+      const pending = ai.chat({ messages: [{ role: 'user', content: 'hi' }], route: '/ai/chat' });
+      expect(OpenAI).toHaveBeenCalledWith({
+        apiKey: 'sk-test-123',
+        timeout: 20000,
+        maxRetries: 0,
+      });
+      const result = await pending;
+      const elapsed = Date.now() - started;
+      expect(result.ok).toBe(true);
+      expect(result.provider).toBe('anthropic');
+      expect(result.text).toContain('Drink water');
+      expect(elapsed).toBeGreaterThanOrEqual(19000);
+      expect(elapsed).toBeLessThan(25000);
+    } finally {
+      mockOpenaiCreate.mockImplementation(previous);
+    }
+  }, 30000);
 });
 
 describe('lib/ai-usage limit calc', () => {

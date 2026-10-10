@@ -3097,7 +3097,7 @@ async function scanReceipt() {
  });
  const serverError = data.error || '';
  if (r.status === 422 || r.status === 503 || serverError === 'unauthorized' || serverError === 'provider_error' || serverError === 'missing_key' || serverError === 'no_vision_provider' || serverError === 'no_provider') {
- throw new Error(serverError === readFail ? readFail : scanUnavailable);
+ throw new Error(serverError || scanUnavailable);
  }
  if (sampleHaul) throw new Error(readFail);
  if (!r.ok || !data.success) throw new Error(serverError || ('Scan failed (HTTP ' + r.status + ')'));

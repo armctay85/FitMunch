@@ -2,8 +2,8 @@
 /**
  * Production smoke: one Coach message and one receipt scan.
  * Skips with a warning when FM_SMOKE_EMAIL or FM_SMOKE_PASSWORD is unset.
- * Writes a result file and exits 1 on any result other than a Coach 200
- * and a scan of real items or a clean 422 unavailable.
+ * Writes a result file and exits 1 unless Coach returns 200 and the scan
+ * returns real parsed items. An unavailable scan fails the job.
  */
 import fs from 'node:fs';
 import path from 'node:path';
