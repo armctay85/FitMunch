@@ -247,7 +247,7 @@ describe('lib/ai-client provider routing', () => {
     expect(logged).not.toContain('xai-test');
     expect(logged).not.toContain('sk-test-123');
     expect(logged).not.toContain('ant-test');
-    expect(logged).toContain(`status=403 err="${secretBody}"`);
+    expect(logged).toContain(`status=403 tokens_in=- tokens_out=- err="${secretBody}"`);
     expect(errorLog.mock.calls.join('\n')).not.toContain(secretBody);
   });
 
@@ -265,7 +265,7 @@ describe('lib/ai-client provider routing', () => {
     expect(result.ok).toBe(true);
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('status=404');
-    expect(logged).toMatch(/status=404 err="[^"]*model not found/);
+    expect(logged).toMatch(/status=404 tokens_in=- tokens_out=- err="[^"]*model not found/);
     expect(logged).not.toContain('xai-test');
   });
 
@@ -287,7 +287,7 @@ describe('lib/ai-client provider routing', () => {
     expect(hosts).toEqual(['api.x.ai']);
     expect(mockOpenaiCreate).not.toHaveBeenCalled();
     expect(info.mock.calls.join(' ')).toContain('status=400');
-    expect(info.mock.calls.join(' ')).toContain('status=400 err="invalid_request_error"');
+    expect(info.mock.calls.join(' ')).toContain('status=400 tokens_in=- tokens_out=- err="invalid_request_error"');
     expect(info.mock.calls.join(' ')).not.toContain('bad request body');
 
     jest.resetModules();
