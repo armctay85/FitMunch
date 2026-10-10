@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# One deploy can emit many deployment_status events. Serialize smoke so we
+# do not stampede Coach/scan and burn provider quota.
+concurrency:
+  group: fitmunch-production-smoke
+  cancel-in-progress: true
+
 jobs:
   smoke:
     if: >-
