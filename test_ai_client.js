@@ -247,7 +247,7 @@ describe('lib/ai-client provider routing', () => {
     expect(logged).not.toContain('xai-test');
     expect(logged).not.toContain('sk-test-123');
     expect(logged).not.toContain('ant-test');
-    expect(logged).not.toContain(secretBody);
+    expect(logged).toContain(`status=403 err="${secretBody}"`);
     expect(errorLog.mock.calls.join('\n')).not.toContain(secretBody);
   });
 
@@ -265,7 +265,7 @@ describe('lib/ai-client provider routing', () => {
     expect(result.ok).toBe(true);
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('status=404');
-    expect(logged).not.toContain('model not found');
+    expect(logged).toMatch(/status=404 err="[^"]*model not found/);
     expect(logged).not.toContain('xai-test');
   });
 
@@ -287,6 +287,7 @@ describe('lib/ai-client provider routing', () => {
     expect(hosts).toEqual(['api.x.ai']);
     expect(mockOpenaiCreate).not.toHaveBeenCalled();
     expect(info.mock.calls.join(' ')).toContain('status=400');
+    expect(info.mock.calls.join(' ')).toContain('status=400 err="invalid_request_error"');
     expect(info.mock.calls.join(' ')).not.toContain('bad request body');
 
     jest.resetModules();
@@ -337,7 +338,7 @@ describe('lib/ai-client provider routing', () => {
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('ai_provider=xai route=/receipt/scan ok=false status=403');
     expect(logged).toContain('ai_provider=openai route=/receipt/scan ok=false status=503');
-    expect(logged).not.toContain(secretBody);
+    expect(logged).toContain(`err="${secretBody}"`);
     expect(logged).not.toContain('xai-test');
     expect(logged).not.toContain('sk-test-123');
   });
