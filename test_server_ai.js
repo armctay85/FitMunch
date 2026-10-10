@@ -7,7 +7,6 @@ jest.mock('./lib/ai-client', () => {
   return {
     hasProvider: jest.fn(() => true),
     providerName: jest.fn(() => 'openai'),
-    geminiModel: jest.fn(() => 'gemini-2.5-flash'),
     grokModel: jest.fn(() => 'grok-4.3'),
     openaiModel: jest.fn(() => 'gpt-4o-mini'),
     anthropicModel: jest.fn(() => 'claude-haiku-4-5'),
@@ -137,15 +136,21 @@ describe('AI routes', () => {
     expect(r.body.insight.length).toBeGreaterThan(10);
   });
 
-  it('GET /api/ai/usage reports limit and remaining', async () => {
-    const r = await request(app)
-      .get('/api/ai/usage')
-      .set('Authorization', `Bearer ${token}`);
-    expect(r.status).toBe(200);
-    expect(r.body.success).toBe(true);
-    expect(r.body.limit).toBe(10);
-    expect(r.body.provider).toBeUndefined();
-    expect(JSON.stringify(r.body)).not.toMatch(/gemini|openai|grok|anthropic/i);
+  it('GET /api/ai/usage reports limit and remaining without a provider or model name', async () => {
+    const aiClient = require('./lib/ai-client');
+    const forbidden = /gemini|grok|xai|openai|anthropic/i;
+    for (const name of ['xai', 'openai']) {
+      aiClient.providerName.mockReturnValue(name);
+      const r = await request(app)
+        .get('/api/ai/usage')
+        .set('Authorization', `Bearer ${token}`);
+      expect(r.status).toBe(200);
+      expect(r.body.success).toBe(true);
+      expect(r.body.limit).toBe(10);
+      expect(r.body.provider).toBeUndefined();
+      expect(JSON.stringify(r.body)).not.toMatch(forbidden);
+    }
+    aiClient.providerName.mockReturnValue('openai');
   });
 
   it('POST /api/ai/workout-plan generates a structured program', async () => {
@@ -174,6 +179,159 @@ describe('AI routes', () => {
     expect(r.body.review).toBeDefined();
     expect(r.body.stats).toBeDefined();
     expect(typeof r.body.stats.daysLogged).toBe('number');
+  });
+
+  it('deny blocks insight, workout plans, and the weekly review without spending a credit', async () => {
+    const storage = require('./server/storage.js');
+    const aiUsage = require('./lib/ai-usage');
+    storage.getUserById.mockResolvedValue({
+      id: 'u-test',
+      name: 'Tester',
+      email: 't@example.com',
+      subscriptionTier: 'free',
+      settings: { aiDataConsent: false },
+    });
+    aiUsage.checkAndConsume.mockClear();
+    try {
+      const insight = await request(app)
+        .post('/api/ai/insight')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ todayCalories: 1, todayProtein: 1 });
+      const plan = await request(app)
+        .post('/api/ai/workout-plan')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ goal: 'muscle_gain' });
+      const review = await request(app)
+        .get('/api/ai/weekly-review')
+        .set('Authorization', `Bearer ${token}`);
+      expect(insight.status).toBe(403);
+      expect(plan.status).toBe(403);
+      expect(review.status).toBe(403);
+      expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test',
+        name: 'Tester',
+        email: 't@example.com',
+        subscriptionTier: 'free',
+      });
+    }
+  });
+
+  it('a denied account gets 403 from insight before the no-provider tip', async () => {
+    const storage = require('./server/storage.js');
+    const aiClient = require('./lib/ai-client');
+    storage.getUserById.mockResolvedValue({
+      id: 'u-test',
+      name: 'Tester',
+      email: 't@example.com',
+      subscriptionTier: 'free',
+      settings: { aiDataConsent: false },
+    });
+    aiClient.hasProvider.mockReturnValueOnce(false);
+    try {
+      const r = await request(app)
+        .post('/api/ai/insight')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ todayCalories: 1200, todayProtein: 60, streak: 3 });
+      expect(r.status).toBe(403);
+      expect(r.body.insight).toBeUndefined();
+      expect(r.body.success).toBe(false);
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test',
+        name: 'Tester',
+        email: 't@example.com',
+        subscriptionTier: 'free',
+      });
+      aiClient.hasProvider.mockReturnValue(true);
+    }
+  });
+
+  it('an account that has not answered can still call insight', async () => {
+    const storage = require('./server/storage.js');
+    storage.getUserById.mockResolvedValue({
+      id: 'u-test',
+      name: 'Tester',
+      email: 't@example.com',
+      subscriptionTier: 'free',
+      settings: {},
+    });
+    const r = await request(app)
+      .post('/api/ai/insight')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ todayCalories: 1200, todayProtein: 60, streak: 3, goal: 'muscle_gain', targetCalories: 2500, targetProtein: 180 });
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+  });
+
+  const settingsRetry = "We couldn't check your AI settings. Please try again.";
+
+  async function expectLookupFailure(send) {
+    const storage = require('./server/storage.js');
+    const aiClient = require('./lib/ai-client');
+    const aiUsage = require('./lib/ai-usage');
+    storage.getUserById.mockRejectedValue(new Error('account lookup failed'));
+    aiClient.chat.mockClear();
+    aiClient.chatJson.mockClear();
+    aiUsage.checkAndConsume.mockClear();
+    try {
+      const r = await send();
+      expect(r.status).toBe(503);
+      expect(r.body).toEqual({ success: false, error: settingsRetry });
+      expect(r.body.insight).toBeUndefined();
+      expect(r.body.items).toBeUndefined();
+      expect(aiClient.chat).not.toHaveBeenCalled();
+      expect(aiClient.chatJson).not.toHaveBeenCalled();
+      expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+      return r;
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test',
+        name: 'Tester',
+        email: 't@example.com',
+        subscriptionTier: 'free',
+      });
+    }
+  }
+
+  it('POST /api/ai/chat returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ messages: [{ role: 'user', content: 'hello' }] }));
+  });
+
+  it('POST /api/ai/insight returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .post('/api/ai/insight')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ todayCalories: 100, todayProtein: 20, streak: 2 }));
+  });
+
+  it('POST /api/ai/workout-plan returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .post('/api/ai/workout-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ goal: 'muscle_gain' }));
+  });
+
+  it('GET /api/ai/weekly-review returns 503 when the account lookup throws', async () => {
+    await expectLookupFailure(() => request(app)
+      .get('/api/ai/weekly-review')
+      .set('Authorization', `Bearer ${token}`));
+  });
+
+  it('POST /api/meal-plan/generate returns 503 when the account lookup throws', async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    const planToken = jwt.sign({ userId: 'u-test' }, process.env.JWT_SECRET);
+    const planApp = express();
+    planApp.use(express.json());
+    planApp.use('/api/meal-plan', require('./meal-planner'));
+    await expectLookupFailure(() => request(planApp)
+      .post('/api/meal-plan/generate')
+      .set('Authorization', `Bearer ${planToken}`)
+      .send({ goal: 'maintain', calories: 2000, protein: 150 }));
   });
 
   it('AI endpoints return 429 with upgrade flag when free cap is hit', async () => {

@@ -23,8 +23,8 @@ final class AuthManager: ObservableObject {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
                 id: "screenshot-user",
-                name: "Alex Chen",
-                email: "alex@fitmunch.com.au",
+                name: "Sample",
+                email: "sample.account@fitmunch.com.au",
                 subscriptionTier: "premium",
                 role: "client"
             )
@@ -58,6 +58,7 @@ final class AuthManager: ObservableObject {
             if me.success, let user = me.user {
                 self.user = user
                 self.isAuthenticated = true
+                AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)
                 identifyRevenueCat(userId: user.id)
             } else {
                 KeychainStore.token = nil
@@ -92,6 +93,7 @@ final class AuthManager: ObservableObject {
             KeychainStore.token = token
             self.user = user
             self.isAuthenticated = true
+            AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)
             identifyRevenueCat(userId: user.id)
             return true
         } catch {
@@ -105,6 +107,9 @@ final class AuthManager: ObservableObject {
         guard KeychainStore.token != nil else { return }
         if let me = try? await APIClient.request("/auth/me", as: MeResponse.self), me.success {
             self.user = me.user
+            if let user = me.user {
+                AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)
+            }
         }
     }
 

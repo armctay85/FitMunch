@@ -11,7 +11,7 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .badURL: return "Invalid request."
-        case .unauthorised: return "Session expired — please sign in again."
+        case .unauthorised: return "Session expired. Please sign in again."
         case .server(let message): return message
         case .network(let message): return "Network problem: \(message)"
         case .decoding: return "Unexpected server response."
@@ -53,6 +53,15 @@ enum APIClient {
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
             throw APIError.unauthorised
         }
+        if let http = response as? HTTPURLResponse, http.statusCode == 422 {
+            let unreadable = "We couldn't read this receipt. Try again with a flat, well-lit photo."
+            let unavailable = "Scanning is unavailable right now."
+            let message = (try? JSONDecoder().decode(GenericResponse.self, from: data))?.error
+            if message == unreadable || message == unavailable {
+                throw APIError.server(message ?? unreadable)
+            }
+            throw APIError.server(unavailable)
+        }
 
         do {
             return try JSONDecoder().decode(T.self, from: data)
@@ -81,13 +90,30 @@ struct APIUser: Decodable {
     let email: String
     let subscriptionTier: String?
     let role: String?
+    /// Account AI choice. Nil means the account has not answered.
+    let aiDataConsent: Bool?
 
-    init(id: String, name: String, email: String, subscriptionTier: String?, role: String?) {
+    init(id: String, name: String, email: String, subscriptionTier: String?, role: String?, aiDataConsent: Bool? = nil) {
         self.id = id
         self.name = name
         self.email = email
         self.subscriptionTier = subscriptionTier
         self.role = role
+        self.aiDataConsent = aiDataConsent
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, email, subscriptionTier, role, aiDataConsent
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        subscriptionTier = try container.decodeIfPresent(String.self, forKey: .subscriptionTier)
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        aiDataConsent = try container.decodeIfPresent(Bool.self, forKey: .aiDataConsent)
     }
 }
 
@@ -199,6 +225,8 @@ struct ReceiptScanResponse: Decodable {
     }
     let success: Bool
     let error: String?
+    /// A `fallback` value is a failed read. The app must not show those items.
+    let scannerProvider: String?
     let items: [Item]?
     let weeklyTotals: Totals?
     let grade: String?

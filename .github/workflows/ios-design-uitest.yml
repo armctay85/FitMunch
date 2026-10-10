@@ -1,0 +1,82 @@
+name: iOS design UI tests
+
+# Five-tab light and dark screenshots, plus a short simulator recording.
+# This file is separate from ios-archive.yml. Do not merge the jobs.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-design-uitest.yml"
+      - "scripts/run-design-uitest.sh"
+  push:
+    branches: [main, master]
+    paths:
+      - "FitMunch/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-design-uitest.yml"
+      - "scripts/run-design-uitest.sh"
+
+jobs:
+  design-uitest:
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Design screenshots and flow recording
+        run: bash scripts/run-design-uitest.sh
+
+      - name: Upload light tab screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-uitest-screenshots-light
+          path: artifacts/design-uitest/screenshots/light/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload dark tab screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-uitest-screenshots-dark
+          path: artifacts/design-uitest/screenshots/dark/*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload screen recording
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-uitest-screen-recording
+          path: artifacts/design-uitest/recording/*.mp4
+          if-no-files-found: warn
+          retention-days: 14

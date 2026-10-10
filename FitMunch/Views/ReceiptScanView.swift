@@ -16,14 +16,29 @@ struct ReceiptScanView: View {
     @State private var showLibraryPicker = false
     @State private var showCameraFallback = false
     @State private var cameraFallbackMessage = ""
+    @State private var scanCompletions = 0
+    @State private var showConsent = false
+    @State private var pendingScan: ScanStart?
+    @State private var showRetake = false
 
-    private let brandGreen = Color(red: 0.086, green: 0.639, blue: 0.290)
+    private static let unreadableCopy = "We couldn't read this receipt. Try again with a flat, well-lit photo."
+    private static let unavailableCopy = "Scanning is unavailable right now."
+    @EnvironmentObject private var auth: AuthManager
+    @ObservedObject private var consent = AIDataConsent.shared
+
+    private enum ScanStart {
+        case camera
+        case library
+    }
+
+    private let brandGreen = Theme.brandGreen
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if let scan = scan {
+                    OfflineNotice()
+                    if let scan = scan, scan.scannerProvider != "fallback" {
                         resultsView(scan)
                     } else {
                         introView
@@ -31,9 +46,16 @@ struct ReceiptScanView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Receipt Scanner")
+            .defaultScrollAnchor(.top)
+            .scrollClearsTabBar()
+            .floatingTabBarInset()
+            .background(Theme.surface)
+            .sensoryFeedback(.success, trigger: scanCompletions)
+            .navigationTitle("Scan")
             .accessibilityIdentifier("scan-screen")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Theme.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 if scan != nil {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -55,6 +77,23 @@ struct ReceiptScanView: View {
                 .ignoresSafeArea()
             }
             .photosPicker(isPresented: $showLibraryPicker, selection: $pickedItem, matching: .images)
+            .sheet(isPresented: $showConsent) {
+                AIDataConsentSheet(
+                    onAllow: {
+                        showConsent = false
+                        consent.allow(userId: auth.user?.id)
+                        let next = pendingScan
+                        pendingScan = nil
+                        runScan(next)
+                    },
+                    onNotNow: {
+                        showConsent = false
+                        pendingScan = nil
+                        consent.deny(userId: auth.user?.id)
+                        errorMessage = AIConsentCopy.scanBlocked
+                    }
+                )
+            }
             .alert("Camera not available", isPresented: $showCameraFallback) {
                 Button("Choose from library") { showLibraryPicker = true }
                 Button("OK", role: .cancel) { }
@@ -74,11 +113,36 @@ struct ReceiptScanView: View {
         }
     }
 
+    private var scanActions: some View {
+        VStack(spacing: 10) {
+            Button {
+                beginScan(.camera)
+            } label: {
+                Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(isRequestingCamera)
+            .accessibilityIdentifier("scan-take-photo")
+            Button {
+                beginScan(.library)
+            } label: {
+                Text("Choose from library")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("scan-choose-library")
+        }
+    }
+
     // MARK: - Intro
 
     private var introView: some View {
         VStack(spacing: 18) {
-            Text("📸").font(.system(size: 52)).padding(.top, 28)
+            Image(systemName: "doc.viewfinder")
+                .font(.system(size: 52))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Theme.brandGreen)
+                .padding(.top, 56)
+                .accessibilityLabel("Scan a receipt")
             Text("Scan your shop")
                 .font(.title2.weight(.heavy))
             Text("Snap a supermarket receipt. Get every item's macros, a haul score, and meal ideas in seconds.")
@@ -86,6 +150,11 @@ struct ReceiptScanView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+
+            if !isScanning {
+                scanActions
+                    .padding(.top, Theme.Spacing.two)
+            }
 
             if isScanning {
                 VStack(spacing: 10) {
@@ -95,33 +164,6 @@ struct ReceiptScanView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.top, 20)
-            } else {
-                VStack(spacing: 10) {
-                    Button {
-                        Task { await openCameraSafely() }
-                    } label: {
-                        Label(isRequestingCamera ? "Opening camera…" : "Take a photo", systemImage: "camera.fill")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(brandGreen)
-                            .foregroundColor(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .disabled(isRequestingCamera)
-                    .accessibilityIdentifier("scan-take-photo")
-                    PhotosPicker(selection: $pickedItem, matching: .images) {
-                        Label("Choose from library", systemImage: "photo.on.rectangle")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color(.secondarySystemBackground))
-                            .foregroundColor(.primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .accessibilityIdentifier("scan-choose-library")
-                }
-                .padding(.top, 8)
             }
 
             if let errorMessage = errorMessage {
@@ -129,6 +171,17 @@ struct ReceiptScanView: View {
                     .font(.footnote)
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
+            }
+            if showRetake {
+                Button("Retake") {
+                    showRetake = false
+                    errorMessage = nil
+                    receiptImage = nil
+                    pickedItem = nil
+                    beginScan(.camera)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("scan-retake")
             }
         }
     }
@@ -146,7 +199,7 @@ struct ReceiptScanView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.secondary)
                 HStack(spacing: 22) {
-                    totalStat(Int(scan.weeklyTotals?.protein?.value ?? 0), "g protein", .blue)
+                    totalStat(Int(scan.weeklyTotals?.protein?.value ?? 0), "g protein", Theme.brandGreen)
                     totalStat(Int(scan.weeklyTotals?.calories?.value ?? 0), "calories", .orange)
                     totalStat(scan.items?.count ?? 0, "items", brandGreen)
                 }
@@ -156,7 +209,12 @@ struct ReceiptScanView: View {
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
-            // Items
+            Text("Prices vary by store and week.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Items. Aisle (category) and protein per item. Never a shelf price.
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array((scan.items ?? []).enumerated()), id: \.offset) { _, item in
                     HStack {
@@ -169,7 +227,8 @@ struct ReceiptScanView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("\(Int(item.nutrition?.protein?.value ?? 0))g protein")
-                                .font(.caption.weight(.bold)).foregroundColor(.blue)
+                                .font(.caption.monospacedDigit().weight(.bold))
+                                .foregroundStyle(Theme.brandGreen)
                             Text("\(Int(item.nutrition?.calories?.value ?? 0)) cal")
                                 .font(.caption2).foregroundColor(.secondary)
                         }
@@ -187,25 +246,20 @@ struct ReceiptScanView: View {
                 Label("\(loggedCount) items logged to today's meals", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(brandGreen)
-            } else {
+            } else if scan.scannerProvider != "fallback" {
                 Button {
                     logAll(scan)
                 } label: {
                     HStack {
                         if isLogging { ProgressView().tint(.white) }
                         Text("Log haul to today's meals")
-                            .fontWeight(.bold)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(brandGreen)
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(isLogging)
             }
 
-            if let shareText = scan.shareText {
+            if scan.scannerProvider != "fallback", let shareText = scan.shareText {
                 ShareLink(item: shareText) {
                     Label("Share my haul score", systemImage: "square.and.arrow.up")
                         .fontWeight(.semibold)
@@ -221,9 +275,12 @@ struct ReceiptScanView: View {
 
     private func totalStat(_ value: Int, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 2) {
-            Text("\(value)").font(.headline.weight(.heavy)).foregroundColor(color)
-            Text(label).font(.caption2).foregroundColor(.secondary)
+            MacroNumber(value: value, style: .headline)
+                .foregroundStyle(color)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     // MARK: - Actions
@@ -234,6 +291,55 @@ struct ReceiptScanView: View {
         pickedItem = nil
         errorMessage = nil
         loggedCount = nil
+        showRetake = false
+    }
+
+    private func isScanFailure(_ message: String) -> Bool {
+        message == Self.unreadableCopy || message == Self.unavailableCopy
+    }
+
+    private func presentReadFailure(_ message: String) {
+        scan = nil
+        loggedCount = nil
+        errorMessage = isScanFailure(message) ? message : Self.unavailableCopy
+        showRetake = true
+    }
+
+    private func customerError(_ message: String?) -> String {
+        let text = message ?? Self.unreadableCopy
+        if isScanFailure(text) { return text }
+        let leaked = text.range(of: "API_KEY", options: .caseInsensitive) != nil
+            || text.range(of: "GEMINI", options: .caseInsensitive) != nil
+            || text.range(of: "XAI_API", options: .caseInsensitive) != nil
+            || text.range(of: "OPENAI_API", options: .caseInsensitive) != nil
+            || text.range(of: "ANTHROPIC_API", options: .caseInsensitive) != nil
+        if leaked { return Self.unavailableCopy }
+        return text
+    }
+
+    private func beginScan(_ start: ScanStart) {
+        errorMessage = nil
+        if consent.needsPrompt(auth.user?.id) {
+            pendingScan = start
+            showConsent = true
+            return
+        }
+        if consent.isDenied(auth.user?.id) {
+            errorMessage = AIConsentCopy.scanBlocked
+            return
+        }
+        runScan(start)
+    }
+
+    private func runScan(_ start: ScanStart?) {
+        switch start {
+        case .camera:
+            Task { await openCameraSafely() }
+        case .library:
+            showLibraryPicker = true
+        case nil:
+            break
+        }
     }
 
     /// Never present a camera cover unless hardware exists and video is authorized.
@@ -294,18 +400,30 @@ struct ReceiptScanView: View {
                     body: ["image": jpeg.base64EncodedString(), "mimeType": "image/jpeg"],
                     as: ReceiptScanResponse.self
                 )
-                if res.success {
+                if res.scannerProvider == "fallback" || (res.error != nil && isScanFailure(res.error ?? "")) {
+                    presentReadFailure(res.error ?? Self.unreadableCopy)
+                } else if res.success {
+                    showRetake = false
                     scan = res
+                    scanCompletions += 1
                 } else {
-                    errorMessage = res.error ?? "Couldn't read that receipt. Try a clearer photo."
+                    showRetake = false
+                    errorMessage = customerError(res.error)
                 }
             } catch {
-                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                if isScanFailure(message) || customerError(message) == Self.unavailableCopy && message != Self.unavailableCopy {
+                    presentReadFailure(isScanFailure(message) ? message : Self.unavailableCopy)
+                } else {
+                    showRetake = false
+                    errorMessage = customerError(message)
+                }
             }
         }
     }
 
     private func logAll(_ scan: ReceiptScanResponse) {
+        guard scan.scannerProvider != "fallback" else { return }
         let items = scan.items ?? []
         guard !items.isEmpty else { return }
         isLogging = true
@@ -333,4 +451,5 @@ struct ReceiptScanView: View {
 
 #Preview {
     ReceiptScanView()
+        .environmentObject(AuthManager.shared)
 }

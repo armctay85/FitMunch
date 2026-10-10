@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import RevenueCat
 
 /// Main app entry point
@@ -12,6 +13,7 @@ struct FitMunchApp: App {
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
         #endif
+        AppearanceLaunch.prepare()
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
         _auth = StateObject(wrappedValue: AuthManager.shared)
     }
@@ -50,28 +52,30 @@ struct FitMunchApp: App {
             .modelContainer(sharedModelContainer)
             .environmentObject(premiumManager)
             .environmentObject(auth)
+            .tint(Theme.brandGreen)
+            .preferredColorScheme(AppearanceLaunch.colorScheme)
+            .background(Theme.surface)
             .onAppear {
-                configureAppearance()
+                AppearanceLaunch.applyWindows()
+                ScreenFill.apply()
             }
         }
     }
-    
-    /// Configure global app appearance
-    private func configureAppearance() {
-        // Configure navigation bar appearance
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .systemBackground
-        
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        
-        // Configure tab bar appearance
-        let tabBarAppearance = UITabBarAppearance()
-        tabBarAppearance.configureWithOpaqueBackground()
-        tabBarAppearance.backgroundColor = .systemBackground
-        
-        UITabBar.appearance().standardAppearance = tabBarAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
+}
+
+/// A missing launch screen used to leave the app in a short window with black bars.
+private enum ScreenFill {
+    static func apply() {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            let bounds = scene.screen.bounds
+            for window in scene.windows {
+                window.backgroundColor = UIColor(named: "Surface")
+                let size = window.bounds.size
+                if abs(size.width - bounds.width) > 1 || abs(size.height - bounds.height) > 1 {
+                    window.frame = bounds
+                }
+            }
+        }
     }
 }

@@ -34,11 +34,13 @@ describe('iOS privacy manifest matches account-linked collection', () => {
     'NSPrivacyCollectedDataTypePurposeProductPersonalization',
   ];
 
-  it('links name, email, health, photos, user id, purchases, and product interaction', () => {
+  it('links name, email, health, photos, user id, purchases, product interaction, and other user content', () => {
     expect(Object.keys(byType).sort()).toEqual([
       'NSPrivacyCollectedDataTypeEmailAddress',
       'NSPrivacyCollectedDataTypeHealth',
       'NSPrivacyCollectedDataTypeName',
+      'NSPrivacyCollectedDataTypeOtherDataTypes',
+      'NSPrivacyCollectedDataTypeOtherUserContent',
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeProductInteraction',
       'NSPrivacyCollectedDataTypePurchaseHistory',
@@ -50,6 +52,8 @@ describe('iOS privacy manifest matches account-linked collection', () => {
       'NSPrivacyCollectedDataTypeEmailAddress',
       'NSPrivacyCollectedDataTypePhotosorVideos',
       'NSPrivacyCollectedDataTypeProductInteraction',
+      'NSPrivacyCollectedDataTypeOtherUserContent',
+      'NSPrivacyCollectedDataTypeOtherDataTypes',
     ]) {
       expect(byType[type].linked).toBe(true);
       expect(byType[type].tracking).toBe(false);
@@ -67,10 +71,12 @@ describe('iOS privacy manifest matches account-linked collection', () => {
     }
   });
 
-  it('does not declare tracking, fitness, or card payment data', () => {
+  it('does not declare tracking or card payment data', () => {
     expect(xml).toMatch(/<key>NSPrivacyTracking<\/key>\s*<false\s*\/>/);
-    expect(xml).not.toContain('NSPrivacyCollectedDataTypeFitness');
     expect(xml).not.toContain('NSPrivacyCollectedDataTypePaymentInfo');
+    expect(xml).not.toContain('NSPrivacyCollectedDataTypeFitness');
+    expect(xml).not.toContain('NSPrivacyCollectedDataTypeCrashData');
+    expect(xml).not.toContain('NSPrivacyCollectedDataTypePerformanceData');
     expect(xml).not.toContain('NSPrivacyCollectedDataTypeDeviceID');
     expect(xml).not.toContain('NSPrivacyTrackingDomains</key>\n    <array>\n        <string>');
   });

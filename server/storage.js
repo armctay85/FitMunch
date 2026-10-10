@@ -60,6 +60,20 @@ async function getUserById(id) {
   return user;
 }
 
+async function setAIDataConsent(userId, allowed) {
+  const { mergeChoice } = require('../lib/ai-data-consent');
+  const user = await getUserById(userId);
+  if (!user) return null;
+  const settings = mergeChoice(user.settings, allowed);
+  await db.update(schema.users)
+    .set({
+      settings,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.users.id, userId));
+  return settings.aiDataConsent === true;
+}
+
 async function updateUserSubscription(userId, tier, expiresAt) {
   await db.update(schema.users)
     .set({ 
@@ -341,6 +355,7 @@ module.exports = {
   getUserByEmail,
   getUserById,
   updateUserSubscription,
+  setAIDataConsent,
   updateUserCoachBilling,
   effectiveTier,
   withStripeCustomerLock,

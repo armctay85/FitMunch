@@ -38,7 +38,6 @@ const ALLOW = new Set([
   'RESEND_API_KEY',
   'RESEND_FROM',
   'RESEND_REPLY_TO',
-  'GEMINI_API_KEY',
   'FM_ANALYTICS_KEY',
 ]);
 

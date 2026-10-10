@@ -91,8 +91,7 @@ function lookupPrice(name) {
   return { price: 2.50, unit: 'item', per: '1', aisle: 'Other' }; // default estimate
 }
 
-// AI calls go through lib/ai-client (Gemini-first, falls back through Grok →
-// OpenAI → Anthropic), so a single provider outage can't break plan generation.
+// AI calls go through lib/ai-client: xAI, then OpenAI, then Anthropic.
 
 // ── GENERATE MEAL PLAN ────────────────────────────────────────────────────────
 router.post('/generate', requireAuth, async (req, res) => {
@@ -153,6 +152,23 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
+    const { isBlocked } = require('./lib/ai-data-consent');
+    const { getUserById } = require('./server/storage.js');
+    try {
+      const account = await getUserById(req.user.userId);
+      if (isBlocked(account && account.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
+
     // Free-tier gating — plan generation is a heavyweight AI call.
     const tier = await userTier(req.user.userId);
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
@@ -167,6 +183,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
       temperature: 0.6,
+      route: '/meal-plan/generate',
     });
     if (!r.ok) throw new Error(r.error || 'AI generation failed');
     const plan = r.data;
@@ -286,7 +303,7 @@ router.get('/', (_req, res) => res.json({
 router.get('/generate', (_req, res) => res.json({
   ok: true,
   method: 'POST /api/meal-plan/generate',
-  description: 'Generate a 7-day AI meal plan using Claude/Gemini',
+  description: 'Generate a 7-day AI meal plan using xAI, OpenAI, or Anthropic',
   auth: 'Bearer JWT required',
   body: {
     goal: 'lose_weight | muscle_gain | maintain | general_fitness',

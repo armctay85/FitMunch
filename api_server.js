@@ -11,6 +11,7 @@ const {
   getUserByEmail,
   getUserById,
   updateUserSubscription,
+  setAIDataConsent,
   effectiveTier,
   createOrUpdateProfile,
   getProfile,
@@ -28,6 +29,7 @@ const {
   schema,
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
+const { isBlocked, choiceFromSettings } = require('./lib/ai-data-consent');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -692,9 +694,35 @@ router.get('/auth/me', async (req, res) => {
     const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
     const role = roleRow.rows[0]?.role || 'client';
     const ptId = roleRow.rows[0]?.pt_id;
-    res.json({ success: true, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: effectiveTier(user), role, ptId } });
+    const consent = choiceFromSettings(user.settings);
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        subscriptionTier: effectiveTier(user),
+        role,
+        ptId,
+        aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
+      },
+    });
   } catch (err) {
     res.status(401).json({ success: false, error: 'Invalid or expired token.' });
+  }
+});
+
+// POST /api/auth/ai-consent — one account choice for Coach, receipt scan, and meal plans.
+router.post('/auth/ai-consent', authMiddleware, async (req, res) => {
+  try {
+    if (typeof req.body?.allowed !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'allowed must be true or false.' });
+    }
+    const stored = await setAIDataConsent(req.user.userId, req.body.allowed);
+    if (stored === null) return res.status(404).json({ success: false, error: 'User not found.' });
+    res.json({ success: true, aiDataConsent: stored });
+  } catch (err) {
+    sendApiError(res, err);
   }
 });
 
@@ -1129,19 +1157,29 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       targetProtein = 150,
     } = req.body || {};
 
+    let tier = 'free';
+    try {
+      const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
+      tier = effectiveTier(user);
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
+
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
     const fallback = heuristicInsight(facts);
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
     }
-
-    // Enforce free-tier monthly cap, paid tiers skip the cap.
-    let tier = 'free';
-    try {
-      const user = await getUserById(req.user.userId);
-      tier = effectiveTier(user);
-    } catch (_) {}
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed) {
       return res.json({ success: true, insight: fallback, provider: 'rate_limited', upgrade: true, limit: gate.limit, used: gate.used });
@@ -1167,6 +1205,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 160,
       temperature: 0.7,
+      route: '/ai/insight',
     });
 
     if (!r.ok || !r.text.trim()) {
@@ -1216,9 +1255,20 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
     if (!gate.allowed) {
@@ -1266,6 +1316,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       messages: safeMessages,
       maxTokens: 500,
       temperature: 0.7,
+      route: '/ai/chat',
     });
 
     if (!r.ok) {
@@ -1304,13 +1355,6 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       remaining: isPaid ? null : Math.max(0, limit - used),
       tier,
       month: aiUsage.monthKey(),
-      provider: aiClient.providerName(),
-      model: {
-        gemini: aiClient.geminiModel,
-        grok: aiClient.grokModel,
-        openai: aiClient.openaiModel,
-        anthropic: aiClient.anthropicModel,
-      }[aiClient.providerName()]?.() || null,
     });
   } catch (err) {
     sendApiError(res, err);
@@ -1335,8 +1379,19 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed) {
       return res.status(429).json({
@@ -1373,6 +1428,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 4000,
       temperature: 0.6,
+      route: '/ai/workout-plan',
     });
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
@@ -1398,9 +1454,20 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
+      if (isBlocked(user && user.settings)) {
+        return res.status(403).json({
+          success: false,
+          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
+        });
+      }
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({
+        success: false,
+        error: "We couldn't check your AI settings. Please try again.",
+      });
+    }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed) {
@@ -1451,6 +1518,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1500,
       temperature: 0.7,
+      route: '/ai/weekly-review',
     });
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });

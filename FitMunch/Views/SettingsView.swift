@@ -10,37 +10,91 @@ struct SettingsView: View {
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
     @ObservedObject private var premium = PremiumManager.shared
-    
+    @ObservedObject private var consent = AIDataConsent.shared
+    @Environment(\.modelContext) private var modelContext
+
+    /// Signed-in name and email. Blank accounts and the old placeholder stay empty.
+    /// Screenshot capture uses a marked sample, never a fake person.
+    private var signedInProfile: (name: String, email: String)? {
+        if ScreenshotLaunch.isActive {
+            return ("Sample", "sample.account@fitmunch.com.au")
+        }
+        guard let user = auth.user else { return nil }
+        let name = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.isEmpty && email.isEmpty { return nil }
+        if name == "Alex Chen" || email == "alex@fitmunch.com.au" { return nil }
+        let title = name.isEmpty ? email : name
+        return (title, name.isEmpty ? "" : email)
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                // Profile section
                 Section {
-                    HStack {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 50))
-                            .foregroundColor(.blue)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(viewModel.userDisplayName)
-                                .font(.headline)
-                            Text(viewModel.userEmail)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Text(premium.isPremium ? "Premium Subscriber" : "Free Tier")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background((premium.isPremium ? Color.green : Color.orange).opacity(0.2))
-                            .foregroundColor(premium.isPremium ? .green : .orange)
-                            .cornerRadius(4)
+                    NavigationLink {
+                        HistoryView(modelContext: modelContext, embedded: true)
+                    } label: {
+                        Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
                     }
-                    .padding(.vertical, 8)
+                    .accessibilityIdentifier("me-progress")
+                }
+
+                // Profile section. Name and email come from the signed-in account only.
+                Section {
+                    if let profile = signedInProfile {
+                        HStack(alignment: .center, spacing: Theme.Spacing.three) {
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 50))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(Theme.brandGreen)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(profile.name)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                if ScreenshotLaunch.isActive {
+                                    Text("Sample profile")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Theme.brandGreen)
+                                }
+                                if !profile.email.isEmpty {
+                                    Text(profile.email)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                            }
+                            Spacer(minLength: Theme.Spacing.two)
+                            if premium.isPremium {
+                                Text("Premium")
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Theme.brandGreenSoft)
+                                    .foregroundStyle(Theme.brandGreen)
+                                    .clipShape(Capsule())
+                                    .accessibilityIdentifier("me-premium-badge")
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .contain)
+                    } else {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
+                            Label("No profile yet", systemImage: "person.crop.circle.badge.plus")
+                                .font(.headline)
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(Theme.brandGreen)
+                            Text("Sign in and your name and email show up here.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("me-profile-empty")
+                    }
 
                     // Dedicated full-width List row. Nested buttons inside the profile HStack were untappable on iPad.
                     if !premium.isPremium {
@@ -61,8 +115,9 @@ struct SettingsView: View {
                 // Preferences section
                 Section("Preferences") {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
+                        .accessibilityIdentifier("me-dark-mode")
                         .onChange(of: viewModel.isDarkMode) { _, newValue in
-                            viewModel.toggleDarkMode()
+                            viewModel.applyDarkMode(newValue)
                         }
                     
                     Toggle("Notifications", isOn: $viewModel.notificationsEnabled)
@@ -74,6 +129,24 @@ struct SettingsView: View {
                         .onChange(of: viewModel.useMetricUnits) { _, newValue in
                             viewModel.toggleMetricUnits()
                         }
+                }
+
+                Section {
+                    Toggle("AI features", isOn: Binding(
+                        get: { consent.allows(auth.user?.id) },
+                        set: { turnedOn in
+                            if turnedOn {
+                                consent.allow(userId: auth.user?.id)
+                            } else {
+                                consent.deny(userId: auth.user?.id)
+                            }
+                        }
+                    ))
+                    .accessibilityIdentifier("me-ai-consent")
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    Text("Off blocks Coach, receipt scan, meal plans, insights, workout plans, and the weekly review. Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
                 }
                 
                 // Subscription section
@@ -92,7 +165,7 @@ struct SettingsView: View {
                                 UIApplication.shared.open(url)
                             }
                         }
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Theme.brandGreen)
                     } else {
                         Button {
                             showPaywall = true
@@ -102,7 +175,7 @@ struct SettingsView: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
-                        .foregroundColor(.blue)
+                        .foregroundStyle(Theme.brandGreen)
                         .accessibilityIdentifier("settings-upgrade-premium")
                     }
                     
@@ -111,7 +184,7 @@ struct SettingsView: View {
                             await viewModel.restorePurchases()
                         }
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     .disabled(viewModel.isLoading)
                 }
                 
@@ -120,24 +193,24 @@ struct SettingsView: View {
                     Button("Contact Support") {
                         viewModel.contactSupport()
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     
                     Button("Privacy Policy") {
                         viewModel.viewPrivacyPolicy()
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     
                     Button("Terms of Service") {
                         viewModel.viewTermsOfService()
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     
                     Button("Rate the App") {
                         if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                 }
                 
                 // Data section
@@ -145,7 +218,7 @@ struct SettingsView: View {
                     Button("Export Data") {
                         // Premium history export lives on History tab for now.
                     }
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Theme.brandGreen)
                     .disabled(!premium.isPremium)
                     
                     Button("Reset Data", role: .destructive) {
@@ -179,6 +252,7 @@ struct SettingsView: View {
                             Text(user.email)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
+                                .truncationMode(.middle)
                         }
                     }
                     Button("Log Out", role: .destructive) {
@@ -189,7 +263,11 @@ struct SettingsView: View {
                     }
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle("Me")
+            .scrollContentBackground(.hidden)
+            .background(Theme.surface)
+            .scrollClearsTabBar()
+            .floatingTabBarInset()
             .onAppear {
                 viewModel.loadPreferences()
             }

@@ -49,6 +49,9 @@ struct PaywallView: View {
             .contentMargins(.top, 0, for: .scrollContent)
             .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
+            .background(Theme.surface.ignoresSafeArea())
+            .toolbarBackground(Theme.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -241,7 +244,7 @@ struct PaywallView: View {
         .padding(.top, 10)
         .padding(.bottom, 6)
         .frame(maxWidth: .infinity)
-        .background(.background)
+        .background(Theme.surface.ignoresSafeArea(edges: .bottom))
     }
 
     private func subscribeButton(_ plan: PaywallPlan) -> some View {

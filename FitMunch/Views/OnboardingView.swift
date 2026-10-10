@@ -13,7 +13,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<viewModel.totalSteps, id: \.self) { step in
                         Rectangle()
-                            .fill(step <= viewModel.currentStep ? .blue : .gray.opacity(0.3))
+                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : .gray.opacity(0.3))
                             .frame(height: 4)
                             .cornerRadius(2)
                     }
@@ -27,7 +27,7 @@ struct OnboardingView: View {
                         VStack(spacing: 16) {
                             Image(systemName: "fork.knife.circle.fill")
                                 .font(.system(size: 80))
-                                .foregroundColor(.blue)
+                                .foregroundColor(Theme.brandGreen)
                             
                             Text(viewModel.currentStepTitle)
                                 .font(.largeTitle)
@@ -49,6 +49,7 @@ struct OnboardingView: View {
                     }
                     .padding()
                 }
+                .scrollClearsTabBar()
                 
                 // Navigation buttons
                 HStack {
@@ -66,6 +67,7 @@ struct OnboardingView: View {
                             viewModel.nextStep()
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(Theme.buttonFill)
                     } else {
                         Button("Get Started") {
                             Task {
@@ -75,6 +77,7 @@ struct OnboardingView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(Theme.buttonFill)
                         .disabled(viewModel.isLoading)
                     }
                 }
@@ -174,7 +177,7 @@ struct OnboardingView: View {
                             Spacer()
                             if viewModel.selectedGoal == goal {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(Theme.brandGreen)
                             }
                         }
                         .padding()
@@ -183,6 +186,7 @@ struct OnboardingView: View {
                     }
                 }
             }
+            .sensoryFeedback(.selection, trigger: viewModel.selectedGoal)
         }
     }
     
@@ -237,7 +241,7 @@ private struct FeatureRow: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundColor(Theme.brandGreen)
                 .frame(width: 40)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -275,7 +279,7 @@ private struct PlanCard: View {
                     Spacer()
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(Theme.brandGreen)
                             .font(.title2)
                     }
                 }
@@ -302,11 +306,11 @@ private struct PlanCard: View {
                 }
             }
             .padding()
-            .background(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
+            .background(isSelected ? Theme.brandGreen.opacity(0.1) : Color.gray.opacity(0.1))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? Theme.brandGreen : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)
