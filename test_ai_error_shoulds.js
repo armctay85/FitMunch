@@ -132,17 +132,35 @@ describe('S2 exception: billing and quota 4xx log the message', () => {
     await ai.chat({ messages: [{ role: 'user', content: 'hi' }], route: '/ai/chat' });
     return errOf(logs[0]);
   };
-  it('logs Anthropic low-credit 400 message', async () => {
-    const msg = 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.';
-    expect(await run(400, { type: 'error', error: { type: 'invalid_request_error', message: msg } })).toBe(msg);
+  it.each([
+    'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+    'You have no credits remaining. Add credits to continue using the API.',
+    'You exceeded your current quota, please check your plan and billing details.',
+    'Your team f24645b4-4437-42f5-83e8-92c9d493510a has either used all available credits or reached its monthly spending limit.',
+  ])('logs provider billing message: %s', async (msg) => {
+    // The S1 redactions replace the xAI team UUID; the rest of the text is kept.
+    const want = msg.replace('f24645b4-4437-42f5-83e8-92c9d493510a', '[redacted]');
+    expect(await run(400, { type: 'error', error: { type: 'invalid_request_error', message: msg } })).toBe(want);
+  });
+  it('xAI team message with only spending limit is logged', async () => {
+    const msg = 'Your team abc has reached its monthly spending limit.';
+    expect(await run(400, { error: { type: 'invalid_request_error', message: msg } })).toBe(msg);
+  });
+  it('leading whitespace before a provider phrase is allowed', async () => {
+    const e = await run(400, { error: { type: 'invalid_request_error', message: '  You have no credits remaining.' } });
+    expect(e).toContain('You have no credits remaining.');
+  });
+  it.each([
+    ['echoed user text mentioning credit', 'Invalid input: my credit card is 4111 and my quota and billing are wrong'],
+    ['phrase mid-string', 'Invalid prompt: Your credit balance is too low to access the Anthropic API.'],
+    ['xAI team prefix without keyword', 'Your team abc sent a malformed request body.'],
+    ['lowercase phrase (case-sensitive match)', 'your credit balance is too low to access the Anthropic API.'],
+  ])('%s logs type and code only', async (_label, msg) => {
+    expect(await run(400, { error: { type: 'invalid_request_error', code: 'bad_input', message: msg } })).toBe('invalid_request_error bad_input');
   });
   it('logs the message when type is billing_error', async () => {
     expect(await run(402, { type: 'error', error: { type: 'billing_error', message: 'Account suspended pending payment.' } }))
       .toBe('Account suspended pending payment.');
-  });
-  it('non-billing 400 still logs type and code only', async () => {
-    const e = await run(400, { error: { type: 'invalid_request_error', code: 'bad_input', message: 'messages: field required for Jane' } });
-    expect(e).toBe('invalid_request_error bad_input');
   });
   it('billing message with a key-like string is still redacted and capped', async () => {
     const key = 'sk-ant-api03-' + 'A'.repeat(40);
