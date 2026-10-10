@@ -287,7 +287,8 @@ describe('lib/ai-client provider routing', () => {
     expect(hosts).toEqual(['api.x.ai']);
     expect(mockOpenaiCreate).not.toHaveBeenCalled();
     expect(info.mock.calls.join(' ')).toContain('status=400');
-    expect(info.mock.calls.join(' ')).toMatch(/status=400 err="[^"]*bad request body/);
+    expect(info.mock.calls.join(' ')).toContain('status=400 err="invalid_request_error"');
+    expect(info.mock.calls.join(' ')).not.toContain('bad request body');
 
     jest.resetModules();
     const ai2 = require('./lib/ai-client');
