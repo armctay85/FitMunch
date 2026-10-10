@@ -1180,7 +1180,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
     }
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'insight' });
     if (!gate.allowed) {
       return res.json({ success: true, insight: fallback, provider: 'rate_limited', upgrade: true, limit: gate.limit, used: gate.used });
     }
@@ -1270,7 +1270,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'chat' });
     if (!gate.allowed) {
       return res.status(429).json({
         success: false,
@@ -1392,7 +1392,7 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'workout_plan' });
     if (!gate.allowed) {
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,
@@ -1469,7 +1469,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       });
     }
 
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'weekly_review' });
     if (!gate.allowed) {
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,

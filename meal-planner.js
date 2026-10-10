@@ -171,7 +171,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
 
     // Free-tier gating — plan generation is a heavyweight AI call.
     const tier = await userTier(req.user.userId);
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'meal_plan' });
     if (!gate.allowed) {
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,

@@ -63,7 +63,7 @@ describe('ai_provider= failure line', () => {
     next = { status: 429, body: { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low. key sk-ant-api03-SECRET123' } } };
     await ai.chat({ system: 'SYSTEM-MARKER', messages: [{ role: 'user', content: PROMPT }], route: '/ai/chat' });
     expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatch(/^ai_provider=anthropic route=\/ai\/chat ok=false status=429 err="/);
+    expect(logs[0]).toMatch(/^ai_provider=anthropic route=\/ai\/chat ok=false status=429 tokens_in=- tokens_out=- err="/);
     expect(errOf(logs[0])).toBe('Your credit balance is too low. key [redacted-key]');
     expect(logs[0]).not.toMatch(/PROMPT-MARKER|SYSTEM-MARKER|82kg|drew@example\.com|SECRET123/);
   });
@@ -72,12 +72,12 @@ describe('ai_provider= failure line', () => {
     const e = new Error('getaddrinfo ENOTFOUND api.anthropic.com'); e.code = 'ENOTFOUND';
     next = { throwErr: e };
     await ai.chat({ messages: [{ role: 'user', content: PROMPT }], route: '/ai/chat' });
-    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=false status=- err="ENOTFOUND getaddrinfo ENOTFOUND api.anthropic.com"');
+    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=false status=- tokens_in=- tokens_out=- err="ENOTFOUND getaddrinfo ENOTFOUND api.anthropic.com"');
   });
   it('leaves the success line unchanged', async () => {
     const ai = load();
     next = { status: 200, body: { content: [{ text: 'hi' }] } };
     await ai.chat({ messages: [{ role: 'user', content: PROMPT }], route: '/ai/chat' });
-    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=true status=200');
+    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=true status=200 tokens_in=- tokens_out=- tokens_day=-');
   });
 });
