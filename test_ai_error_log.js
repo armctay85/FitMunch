@@ -60,10 +60,10 @@ describe('errorSnippet', () => {
 describe('ai_provider= failure line', () => {
   it('adds err= from the provider body message, never the prompt', async () => {
     const ai = load();
-    next = { status: 400, body: { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low. key sk-ant-api03-SECRET123' } } };
+    next = { status: 429, body: { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low. key sk-ant-api03-SECRET123' } } };
     await ai.chat({ system: 'SYSTEM-MARKER', messages: [{ role: 'user', content: PROMPT }], route: '/ai/chat' });
     expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatch(/^ai_provider=anthropic route=\/ai\/chat ok=false status=400 err="/);
+    expect(logs[0]).toMatch(/^ai_provider=anthropic route=\/ai\/chat ok=false status=429 err="/);
     expect(errOf(logs[0])).toBe('Your credit balance is too low. key [redacted-key]');
     expect(logs[0]).not.toMatch(/PROMPT-MARKER|SYSTEM-MARKER|82kg|drew@example\.com|SECRET123/);
   });
