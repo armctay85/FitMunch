@@ -32,6 +32,7 @@ module.exports = {
     '**/test_ai_data_consent.js',
     '**/test_ai_client.js',
     '**/test_ai_error_log.js',
+    '**/test_ai_anthropic_history.js',
     '**/test_ai_key_trim.js',
     '**/test_ai_error_shoulds.js',
     '**/test_prod_smoke.js',
