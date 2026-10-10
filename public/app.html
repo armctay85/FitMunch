@@ -3064,6 +3064,8 @@ async function scanReceipt() {
  document.getElementById('scan-empty').style.display = 'none';
  document.getElementById('scan-results').style.display = 'none';
  document.getElementById('scan-btn').disabled = true;
+ const readFail = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
+ const scanUnavailable = "Scanning is unavailable right now.";
  try {
  // Multipart stays under Vercel body limits; JSON base64 of phone photos often hits 413.
  let r;
@@ -3090,8 +3092,6 @@ async function scanReceipt() {
  }
  throw new Error('Scanner returned an invalid response (' + r.status + ')');
  }
- const readFail = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
- const scanUnavailable = "Scanning is unavailable right now.";
  const sampleHaul = data.scannerProvider === 'fallback' || (data.items || []).some(function (item) {
  return item && item.confidence === 'sample-fallback';
  });
@@ -3108,8 +3108,31 @@ async function scanReceipt() {
  const banner = document.getElementById('scan-fallback-banner');
  if (banner) banner.style.display = 'none';
  } catch(err) {
- document.getElementById('scan-empty').style.display = '';
- document.getElementById('scan-empty').innerHTML = `<div style="font-size:28px">⚠️</div><div style="font-size:.85rem;font-weight:600;color:var(--red);margin-top:8px">${(err && err.message) || 'Scan failed'}</div><div style="font-size:.75rem;color:var(--text3);margin-top:8px">Tip: full receipt in frame, good light, no glare.</div>`;
+ const empty = document.getElementById('scan-empty');
+ const message = (err && err.message) || 'Scan failed';
+ empty.style.display = '';
+ empty.textContent = '';
+ const icon = document.createElement('div');
+ icon.style.fontSize = '28px';
+ icon.textContent = '⚠️';
+ const msg = document.createElement('div');
+ msg.style.cssText = 'font-size:.85rem;font-weight:600;color:var(--red);margin-top:8px';
+ msg.textContent = message;
+ const tip = document.createElement('div');
+ tip.style.cssText = 'font-size:.75rem;color:var(--text3);margin-top:8px';
+ tip.textContent = 'Tip: full receipt in frame, good light, no glare.';
+ empty.appendChild(icon);
+ empty.appendChild(msg);
+ empty.appendChild(tip);
+ if (message === scanUnavailable || message === readFail) {
+ const retake = document.createElement('button');
+ retake.type = 'button';
+ retake.className = 'btn btn-green btn-sm';
+ retake.style.marginTop = '12px';
+ retake.textContent = 'Retake';
+ retake.addEventListener('click', openReceiptCamera);
+ empty.appendChild(retake);
+ }
  } finally {
  document.getElementById('scan-loading').style.display = 'none';
  document.getElementById('scan-btn').disabled = false;

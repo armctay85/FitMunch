@@ -91,10 +91,11 @@ describe('POST /api/receipt/first-scan', () => {
     expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
   });
 
-  it('fails closed when the photo is unreadable instead of returning the sample fallback haul', async () => {
+  it('fails closed when every provider errors instead of returning the sample fallback haul', async () => {
     receiptRouter._setVisionForTests(async () => ({
       ok: false,
       error: 'vision_failed GEMINI_API_KEY credit balance is too low',
+      code: 'unavailable',
     }));
 
     const res = await request(app)
@@ -103,9 +104,27 @@ describe('POST /api/receipt/first-scan', () => {
       .expect(422);
 
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe("We couldn't read this receipt. Try again with a flat, well-lit photo.");
+    expect(res.body.error).toBe('Scanning is unavailable right now.');
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY/);
     expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
+    expect(res.body.items).toBeUndefined();
+  });
+
+  it('keeps unreadable for a provider answer that is not a receipt', async () => {
+    receiptRouter._setVisionForTests(async () => ({
+      ok: true,
+      text: 'I could not find grocery lines in that photo.',
+    }));
+
+    const res = await request(app)
+      .post('/api/receipt/first-scan')
+      .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
+      .expect(422);
+
+    expect(res.body).toEqual({
+      success: false,
+      error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
+    });
     expect(res.body.items).toBeUndefined();
   });
 });
@@ -167,7 +186,34 @@ describe('POST /api/receipt/scan read failure', () => {
     process.env.GEMINI_API_KEY = 'test-key';
     receiptRouter._setVisionForTests(async () => ({
       ok: false,
+      code: 'unavailable',
       error: 'vision_failed GEMINI_API_KEY credit balance is too low',
+    }));
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: {} });
+    const consume = jest.spyOn(aiUsage, 'checkAndConsume');
+
+    const res = await request(app)
+      .post('/api/receipt/scan')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
+      .expect(422);
+
+    expect(res.body).toEqual({
+      success: false,
+      error: 'Scanning is unavailable right now.',
+    });
+    expect(res.body.items).toBeUndefined();
+    expect(res.body.shareText).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY|Just scanned my weekly shop/);
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
+    expect(consume).not.toHaveBeenCalled();
+  });
+
+  it('returns the unreadable 422 when the provider answers but the text is not a receipt', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    receiptRouter._setVisionForTests(async () => ({
+      ok: true,
+      text: 'No grocery lines in this photo.',
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: {} });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
@@ -183,9 +229,6 @@ describe('POST /api/receipt/scan read failure', () => {
       error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
     });
     expect(res.body.items).toBeUndefined();
-    expect(res.body.shareText).toBeUndefined();
-    expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY|Just scanned my weekly shop/);
-    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
     expect(consume).not.toHaveBeenCalled();
   });
 

@@ -132,11 +132,18 @@ async function readReceiptItems(imageBase64, mimeType, route) {
     route,
   });
   if (!visionResult || !visionResult.ok) {
-    const failed = new Error(visionResult && visionResult.code === 'unavailable' ? 'scan_unavailable' : 'scan_unreadable');
+    const unreadable = visionResult && visionResult.code === 'unreadable';
+    const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
     failed.code = failed.message;
     throw failed;
   }
-  return core.parseVisionItems(visionResult.text);
+  try {
+    return core.parseVisionItems(visionResult.text);
+  } catch (_) {
+    const failed = new Error('scan_unreadable');
+    failed.code = 'scan_unreadable';
+    throw failed;
+  }
 }
 
 // ── ROUTES ────────────────────────────────────────────────────────────────────
