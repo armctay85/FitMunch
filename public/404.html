@@ -47,7 +47,8 @@ body.fm-body{
     <a href="/login.html" data-fm-auth="login">Sign in</a> &middot; <a href="/contact">Contact us</a>
   </div>
 </div>
-<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
+window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

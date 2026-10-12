@@ -211,7 +211,9 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     }
 
     const tier = await userTier(req.user.userId);
-    if (!tier || tier === 'free') {
+    // Smoke accounts skip the monthly pre-check; checkAndConsume applies their daily cap.
+    const smoke = aiUsage.isSmokeAccount({ userId: req.user.userId });
+    if (!smoke && (!tier || tier === 'free')) {
       const limit = aiUsage.freeMonthlyLimit();
       const used = await aiUsage.getUsed(String(req.user.userId));
       if (limit === 0 || used >= limit) {
@@ -244,6 +246,12 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       tier,
       feature: 'receipt_scan',
     });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false,
