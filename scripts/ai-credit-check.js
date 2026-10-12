@@ -2,18 +2,21 @@
 /**
  * Daily xAI prepaid credit check.
  *
- * Reads the team's prepaid balance and change history from the documented xAI
- * Management API (GET https://management-api.x.ai/v1/billing/teams/{team_id}/prepaid/balance,
- * https://docs.x.ai/developers/rest-api-reference/management/billing), estimates
- * days of credit left from recent SPEND changes, and opens or updates ONE issue
- * labelled ai-credit-low when days left drop under the threshold.
+ * Balance: GET  https://management-api.x.ai/v1/billing/teams/{team_id}/prepaid/balance
+ * Spend:   POST https://management-api.x.ai/v1/billing/teams/{team_id}/usage (TIME_UNIT_DAY, usd SUM),
+ *          falling back to SPEND entries in the balance change history.
+ * Docs: https://docs.x.ai/developers/rest-api-reference/management/billing
+ *
+ * The repo is public: Actions output and issues never contain balance or spend
+ * figures, only LOW / ok / unknown.
  *
  * Env:
- *   XAI_MANAGEMENT_KEY  secret, management key (billing read). Never logged.
- *   XAI_TEAM_ID         repo variable, xAI team id.
- *   AI_CREDIT_WARN_DAYS optional, default 7.
- *   AI_CREDIT_WINDOW_DAYS optional spend window, default 7.
- *   GH_TOKEN, GITHUB_REPOSITORY  for the issue.
+ *   XAI_MANAGEMENT_KEY     secret, management key (billing read). Never logged.
+ *   XAI_TEAM_ID            repo variable, xAI team id.
+ *   AI_CREDIT_WARN_DAYS    optional, default 7.
+ *   AI_CREDIT_WINDOW_DAYS  optional spend window, default 7, max 30.
+ *   AI_CREDIT_FLOOR_USD    optional, default 10. With no recent spend, low when balance < floor.
+ *   GH_TOKEN, GITHUB_REPOSITORY, RUN_URL  for the issue.
  */
 
 const API = 'https://management-api.x.ai';
@@ -29,24 +32,27 @@ function cents(amount) {
   return n;
 }
 
-// The ledger is inverted: purchases are negative, spend is positive.
-// Remaining balance in USD is -total / 100.
+// Inverted ledger: purchases are negative, spend is positive. Remaining USD is -total / 100.
 function balanceUsd(resp) {
   if (!resp || typeof resp !== 'object') throw new Error('empty balance response');
   return -cents(resp.total) / 100;
 }
 
-// Average USD spent per day over the window, from SPEND changes. If history is
-// shorter than the window (e.g. a fresh top-up), divide by the elapsed days,
-// at least one day.
-function dailySpendUsd(resp, now, windowDays) {
+function posNum(v, dflt, max) {
+  const n = Number(v);
+  const x = Number.isFinite(n) && n > 0 ? n : dflt;
+  return max ? Math.min(x, max) : x;
+}
+
+/** Average USD per day from SPEND changes (createTime or createTs). */
+function dailySpendFromChanges(resp, now, windowDays) {
   const changes = Array.isArray(resp && resp.changes) ? resp.changes : [];
   const start = now - windowDays * DAY_MS;
   let spent = 0;
   let earliest = null;
   for (const c of changes) {
     if (!c || c.changeOrigin !== 'SPEND') continue;
-    const t = Date.parse(c.createTime);
+    const t = Date.parse(c.createTime || c.createTs);
     if (!Number.isFinite(t) || t < start || t > now) continue;
     spent += Math.abs(cents(c.amount)) / 100;
     if (earliest === null || t < earliest) earliest = t;
@@ -56,34 +62,43 @@ function dailySpendUsd(resp, now, windowDays) {
   return spent / days;
 }
 
+/** Average USD per day from the usage endpoint: sum of every series point / window days. */
+function dailySpendFromUsage(resp, windowDays) {
+  if (!resp || !Array.isArray(resp.timeSeries)) throw new Error('usage response missing timeSeries');
+  let total = 0;
+  for (const s of resp.timeSeries) {
+    for (const p of (s && Array.isArray(s.dataPoints) ? s.dataPoints : [])) {
+      const v = Number(p && Array.isArray(p.values) ? p.values[0] : NaN);
+      if (Number.isFinite(v) && v > 0) total += v;
+    }
+  }
+  return total / windowDays;
+}
+
 function daysLeft(balance, perDay) {
   if (balance <= 0) return 0;
   if (!(perDay > 0)) return Infinity;
   return balance / perDay;
 }
 
-function summarise(resp, now, opts = {}) {
-  const warnDays = Number(opts.warnDays) > 0 ? Number(opts.warnDays) : 7;
-  const windowDays = Number(opts.windowDays) > 0 ? Number(opts.windowDays) : 7;
-  const balance = balanceUsd(resp);
-  const perDay = dailySpendUsd(resp, now, windowDays);
+function assess(balance, perDay, opts = {}) {
+  const warnDays = posNum(opts.warnDays, 7);
+  const floor = posNum(opts.floorUsd, 10);
   const left = daysLeft(balance, perDay);
-  return { balance, perDay, daysLeft: left, low: left < warnDays, warnDays, windowDays };
+  const low = left < warnDays || (!(perDay > 0) && balance < floor);
+  return { daysLeft: left, low, warnDays };
 }
 
-function fmtDays(d) { return Number.isFinite(d) ? d.toFixed(1) : 'no recent spend'; }
-
 function issueBody(s, runUrl) {
-  return [
-    `xAI prepaid credit is estimated to run out in **${fmtDays(s.daysLeft)} days** (warning under ${s.warnDays}).`,
-    '',
-    `- Balance: US$${s.balance.toFixed(2)}`,
-    `- Average spend: US$${s.perDay.toFixed(2)} per day over the last ${s.windowDays} days`,
-    `- Checked: ${new Date().toISOString()}`,
-    runUrl ? `- Run: ${runUrl}` : '',
-    '',
-    'Top up in the xAI Console (Billing). Coach chat and receipt scan fail when xAI and the fallback providers are all out of credit.',
-  ].filter((l) => l !== '').join('\n');
+  const lines = s.unknown
+    ? ['The daily xAI credit check could not read the balance. Status unknown, check manually in xAI Console > Billing.']
+    : [`xAI prepaid credit is estimated to last under ${s.warnDays} days. Check xAI Console > Billing.`];
+  if (runUrl) lines.push('', `Run: ${runUrl}`);
+  return lines.join('\n');
+}
+
+function issueTitle(s) {
+  return s.unknown ? 'xAI credit check: unknown, check manually' : 'xAI credit low';
 }
 
 async function gh(path, opts = {}, deps = {}) {
@@ -101,7 +116,7 @@ async function gh(path, opts = {}, deps = {}) {
   return r.status === 204 ? null : r.json();
 }
 
-// Opens one issue, or comments on the existing open one. Never a duplicate.
+/** Opens one issue, or comments on the existing open one. Never a duplicate. */
 async function upsertIssue(repo, s, runUrl, deps = {}) {
   const open = await gh(`/repos/${repo}/issues?state=open&labels=${LABEL}&per_page=10`, {}, deps);
   const existing = (open || []).find((i) => !i.pull_request);
@@ -112,19 +127,22 @@ async function upsertIssue(repo, s, runUrl, deps = {}) {
   }
   const created = await gh(`/repos/${repo}/issues`, {
     method: 'POST',
-    body: JSON.stringify({ title: `xAI credit low: about ${fmtDays(s.daysLeft)} days left`, body, labels: [LABEL] }),
+    body: JSON.stringify({ title: issueTitle(s), body, labels: [LABEL] }),
   }, deps);
   return { action: 'opened', number: created.number };
 }
 
-async function fetchBalance(teamId, key, deps = {}) {
+async function xai(path, key, deps, init = {}) {
   const f = deps.fetch || fetch;
-  const r = await f(`${API}/v1/billing/teams/${encodeURIComponent(teamId)}/prepaid/balance`, {
-    headers: { Authorization: `Bearer ${key}` },
+  const r = await f(`${API}${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
   });
-  if (!r.ok) throw new Error(`xAI balance request failed: ${r.status}`);
+  if (!r.ok) throw new Error(`xAI request failed: ${r.status}`);
   return r.json();
 }
+
+function fmt(d) { return new Date(d).toISOString().slice(0, 19).replace('T', ' '); }
 
 async function main(env = process.env, deps = {}) {
   const log = deps.log || console.log;
@@ -134,21 +152,58 @@ async function main(env = process.env, deps = {}) {
     log('XAI_MANAGEMENT_KEY or XAI_TEAM_ID not set. Skipping credit check.');
     return { skipped: true };
   }
-  const resp = await fetchBalance(team, key, deps);
-  const s = summarise(resp, (deps.now || Date.now)(), { warnDays: env.AI_CREDIT_WARN_DAYS, windowDays: env.AI_CREDIT_WINDOW_DAYS });
-  log(`xAI balance US$${s.balance.toFixed(2)}, spend US$${s.perDay.toFixed(2)}/day, days left ${fmtDays(s.daysLeft)}`);
+  const now = (deps.now || Date.now)();
+  const windowDays = posNum(env.AI_CREDIT_WINDOW_DAYS, 7, 30);
+  const base = `/v1/billing/teams/${encodeURIComponent(team)}`;
+  const balResp = await xai(`${base}/prepaid/balance`, key, deps);
+  const balance = balanceUsd(balResp);
+  let perDay;
+  try {
+    const usage = await xai(`${base}/usage`, key, deps, {
+      method: 'POST',
+      body: JSON.stringify({
+        analyticsRequest: {
+          timeRange: { startTime: fmt(now - windowDays * DAY_MS), endTime: fmt(now), timezone: 'Etc/GMT' },
+          timeUnit: 'TIME_UNIT_DAY',
+          values: [{ name: 'usd', aggregation: 'AGGREGATION_SUM' }],
+          groupBy: [],
+          filters: [],
+        },
+      }),
+    });
+    perDay = dailySpendFromUsage(usage, windowDays);
+  } catch (_) {
+    perDay = dailySpendFromChanges(balResp, now, windowDays);
+  }
+  const s = assess(balance, perDay, { warnDays: env.AI_CREDIT_WARN_DAYS, floorUsd: env.AI_CREDIT_FLOOR_USD });
+  log(`xAI credit check: ${s.low ? 'LOW' : 'ok'}`);
   if (!s.low) return { ...s, issue: null };
   const issue = await upsertIssue(env.GITHUB_REPOSITORY, s, env.RUN_URL, deps);
   log(`ai-credit-low issue #${issue.number} ${issue.action}`);
   return { ...s, issue };
 }
 
-module.exports = { balanceUsd, dailySpendUsd, daysLeft, summarise, issueBody, upsertIssue, fetchBalance, main, LABEL };
+/** On any failure: one 'unknown' issue (best effort), then exit 1. */
+async function run(env = process.env, deps = {}) {
+  const log = deps.log || console.log;
+  const err = deps.error || console.error;
+  try {
+    await main(env, deps);
+    return 0;
+  } catch (e) {
+    err(`xAI credit check: unknown (${String(e && e.message ? e.message : e).slice(0, 120)})`);
+    try {
+      const issue = await upsertIssue(env.GITHUB_REPOSITORY, { unknown: true, warnDays: posNum(env.AI_CREDIT_WARN_DAYS, 7) }, env.RUN_URL, deps);
+      log(`ai-credit-low issue #${issue.number} ${issue.action}`);
+    } catch (_) { /* best effort */ }
+    return 1;
+  }
+}
+
+module.exports = {
+  balanceUsd, dailySpendFromChanges, dailySpendFromUsage, daysLeft, assess, issueBody, issueTitle, upsertIssue, main, run, LABEL,
+};
 
 if (require.main === module) {
-  main().catch((e) => {
-    // Messages above never include the key or response bodies.
-    console.error(String(e && e.message ? e.message : e));
-    process.exit(1);
-  });
+  run().then((code) => process.exit(code));
 }

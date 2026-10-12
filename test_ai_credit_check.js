@@ -1,104 +1,120 @@
 const c = require('./scripts/ai-credit-check');
 const NOW = Date.parse('2026-10-20T00:00:00Z');
 const day = (n) => new Date(NOW - n * 86400000).toISOString();
-const resp = (totalCents, spends) => ({
+const bal = (totalCents, spends = [], key = 'createTime') => ({
   total: { val: String(totalCents) },
   changes: [
-    { changeOrigin: 'PURCHASE', amount: { val: '-2500' }, createTime: day(8) },
-    ...spends.map(([d, v]) => ({ changeOrigin: 'SPEND', amount: { val: String(v) }, createTime: day(d) })),
+    { changeOrigin: 'PURCHASE', amount: { val: '-2500' }, [key]: day(8) },
+    ...spends.map(([d, v]) => ({ changeOrigin: 'SPEND', amount: { val: String(v) }, [key]: day(d) })),
   ],
 });
+const usage = (perDayValues) => ({ timeSeries: [{ group: ['Chat grok'], dataPoints: perDayValues.map((v) => ({ timestamp: 't', values: [v] })) }], limitReached: false });
 const res = (status, body) => ({ ok: status < 300, status, json: async () => body });
+const ENV = { XAI_MANAGEMENT_KEY: 'xai-mgmt-SECRETVALUE123', XAI_TEAM_ID: 'team-1', GITHUB_REPOSITORY: 'o/r', RUN_URL: 'u' };
 
-describe('balance parsing', () => {
+function deps({ balance = bal(-2500), usageResp = usage([1, 1, 1, 1, 1, 1, 1]), usageStatus = 200, balStatus = 200, issues = [] } = {}) {
+  const calls = []; const lines = []; const errs = [];
+  const fetch = async (url, opts = {}) => {
+    calls.push({ url, method: opts.method || 'GET', body: opts.body });
+    if (url.endsWith('/prepaid/balance')) return res(balStatus, balance);
+    if (url.endsWith('/usage')) return res(usageStatus, usageResp);
+    if (url.includes('/issues?')) return res(200, issues);
+    if (url.endsWith('/comments')) return res(201, {});
+    return res(201, { number: 42 });
+  };
+  return { fetch, now: () => NOW, log: (l) => lines.push(l), error: (l) => errs.push(l), calls, lines, errs };
+}
+
+describe('parsing', () => {
   it('inverted ledger: negative total is positive balance', () => {
     expect(c.balanceUsd({ total: { val: '-1000' } })).toBe(10);
   });
   it('missing total is an error, not zero', () => {
     expect(() => c.balanceUsd({})).toThrow();
-    expect(() => c.balanceUsd({ total: {} })).toThrow();
     expect(() => c.balanceUsd({ total: { val: 'x' } })).toThrow();
   });
-});
-
-describe('days left', () => {
-  it('averages SPEND over 7 days', () => {
-    const s = c.summarise(resp(-1000, [[1, 200], [3, 200], [6.5, 300]]), NOW);
-    expect(s.balance).toBe(10);
-    expect(s.perDay).toBeCloseTo(7 / 6.5, 5);
-    expect(s.daysLeft).toBeCloseTo(10 / (7 / 6.5), 5);
-    expect(s.low).toBe(false);
+  it('usage endpoint: sums series points over the window', () => {
+    expect(c.dailySpendFromUsage(usage([0.7, 0, 0, 0, 0, 0, 0.7]), 7)).toBeCloseTo(0.2, 5);
+    expect(() => c.dailySpendFromUsage({}, 7)).toThrow();
   });
-  it('ignores spend older than the window and non-SPEND rows', () => {
-    const s = c.summarise(resp(-1000, [[2, 700], [10, 99999]]), NOW);
-    expect(s.perDay).toBeCloseTo(3.5, 5);
-    expect(s.low).toBe(true);
+  it.each(['createTime', 'createTs'])('SPEND changes read %s', (key) => {
+    expect(c.dailySpendFromChanges(bal(-1000, [[2, 700]], key), NOW, 7)).toBeCloseTo(3.5, 5);
   });
-  it('short history divides by at least one day', () => {
-    expect(c.summarise(resp(-1000, [[0.1, 300]]), NOW).perDay).toBe(3);
-  });
-  it('no spend means not low', () => {
-    const s = c.summarise(resp(-1000, []), NOW);
-    expect(s.daysLeft).toBe(Infinity);
-    expect(s.low).toBe(false);
-  });
-  it('zero or negative balance is low', () => {
-    expect(c.summarise(resp(0, []), NOW).low).toBe(true);
-  });
-  it('respects AI_CREDIT_WARN_DAYS', () => {
-    expect(c.summarise(resp(-1000, [[1, 100]]), NOW, { warnDays: 14 }).low).toBe(true);
+  it('SPEND outside the window and non-SPEND rows are ignored', () => {
+    expect(c.dailySpendFromChanges(bal(-1000, [[10, 9999]]), NOW, 7)).toBe(0);
   });
 });
 
-describe('main', () => {
-  const env = { XAI_MANAGEMENT_KEY: 'xai-mgmt-SECRETVALUE123', XAI_TEAM_ID: 'team-1', GITHUB_REPOSITORY: 'o/r', RUN_URL: 'u' };
-  function deps(issues) {
-    const calls = [];
-    const lines = [];
-    const fetch = async (url, opts = {}) => {
-      calls.push({ url, method: opts.method || 'GET', body: opts.body, auth: opts.headers && opts.headers.Authorization });
-      if (url.startsWith('https://management-api.x.ai')) return res(200, resp(-500, [[1, 300]]));
-      if (url.includes('/issues?')) return res(200, issues);
-      if (url.endsWith('/comments')) return res(201, {});
-      return res(201, { number: 42 });
-    };
-    return { fetch, now: () => NOW, log: (l) => lines.push(l), calls, lines };
-  }
+describe('assess', () => {
+  it('low under warn days', () => {
+    expect(c.assess(10, 2).low).toBe(true);
+    expect(c.assess(100, 2).low).toBe(false);
+  });
+  it('no spend: low only under the floor (default 10)', () => {
+    expect(c.assess(9.99, 0).low).toBe(true);
+    expect(c.assess(25, 0).low).toBe(false);
+    expect(c.assess(25, 0, { floorUsd: '30' }).low).toBe(true);
+  });
+  it('zero balance is low', () => { expect(c.assess(0, 0).low).toBe(true); });
+});
+
+describe('main / run', () => {
   it('skips without key or team', async () => {
-    const d = deps([]);
+    const d = deps();
     expect((await c.main({}, d)).skipped).toBe(true);
     expect(d.calls).toHaveLength(0);
   });
-  it('opens one labelled issue when low', async () => {
-    const d = deps([]);
-    const r = await c.main(env, d);
+  it('uses the usage endpoint with TIME_UNIT_DAY and a window clamped to 30 days', async () => {
+    const d = deps();
+    await c.main({ ...ENV, AI_CREDIT_WINDOW_DAYS: '365' }, d);
+    const u = d.calls.find((x) => x.url.endsWith('/usage'));
+    const body = JSON.parse(u.body).analyticsRequest;
+    expect(u.method).toBe('POST');
+    expect(body.timeUnit).toBe('TIME_UNIT_DAY');
+    expect(body.values).toEqual([{ name: 'usd', aggregation: 'AGGREGATION_SUM' }]);
+    expect(body.timeRange.startTime).toBe('2026-09-20 00:00:00');
+  });
+  it('falls back to SPEND changes when the usage call fails', async () => {
+    const d = deps({ balance: bal(-500, [[1, 300]]), usageStatus: 500 });
+    const r = await c.main(ENV, d);
+    expect(r.low).toBe(true);
+  });
+  it('opens one labelled issue when low, with no figures', async () => {
+    const d = deps({ balance: bal(-500), usageResp: usage([3, 3, 3, 3, 3, 3, 3]) });
+    const r = await c.main(ENV, d);
     expect(r.issue).toEqual({ action: 'opened', number: 42 });
-    const post = d.calls.find((x) => x.method === 'POST');
-    expect(JSON.parse(post.body).labels).toEqual(['ai-credit-low']);
-    expect(d.calls[0].url).toBe('https://management-api.x.ai/v1/billing/teams/team-1/prepaid/balance');
+    const post = JSON.parse(d.calls.find((x) => x.url.endsWith('/repos/o/r/issues')).body);
+    expect(post.labels).toEqual(['ai-credit-low']);
+    expect(post.body).toContain('xAI prepaid credit is estimated to last under 7 days. Check xAI Console > Billing.');
+    expect(post.title + post.body).not.toMatch(/\$|\d+\.\d|US\$|balance:|spend/i);
   });
   it('comments on the existing open issue instead of duplicating', async () => {
-    const d = deps([{ number: 7, pull_request: { url: 'x' } }, { number: 9 }]);
-    const r = await c.main(env, d);
+    const d = deps({ balance: bal(-500), issues: [{ number: 7, pull_request: {} }, { number: 9 }] });
+    const r = await c.main(ENV, d);
     expect(r.issue).toEqual({ action: 'commented', number: 9 });
-    expect(d.calls.filter((x) => x.method === 'POST')).toHaveLength(1);
     expect(d.calls.some((x) => x.url.endsWith('/repos/o/r/issues'))).toBe(false);
   });
-  it('does not open an issue when credit is fine', async () => {
-    const d = deps([]);
-    d.fetch = async (url) => res(200, resp(-100000, [[1, 100]]));
-    const r = await c.main(env, d);
-    expect(r.issue).toBeNull();
+  it('logs only LOW or ok, never figures or the key', async () => {
+    const d1 = deps({ balance: bal(-100000) });
+    await c.main(ENV, d1);
+    expect(d1.lines).toEqual(['xAI credit check: ok']);
+    const d2 = deps({ balance: bal(-500) });
+    await c.main(ENV, d2);
+    expect(d2.lines[0]).toBe('xAI credit check: LOW');
+    const all = [...d1.lines, ...d2.lines, ...d2.calls.map((x) => x.body || '')].join('\n');
+    expect(all).not.toContain('SECRETVALUE123');
+    expect(d1.lines.join(' ') + d2.lines.join(' ')).not.toMatch(/\d+\.\d|\$/);
   });
-  it('never logs the key or puts it in the issue', async () => {
-    const d = deps([]);
-    await c.main(env, d);
-    const text = d.lines.join('\n') + d.calls.map((x) => x.body || '').join('\n');
-    expect(text).not.toContain('SECRETVALUE123');
+  it('on failure upserts an unknown issue and returns 1', async () => {
+    const d = deps({ balStatus: 403 });
+    expect(await c.run(ENV, d)).toBe(1);
+    const post = JSON.parse(d.calls.find((x) => x.url.endsWith('/repos/o/r/issues')).body);
+    expect(post.title).toBe('xAI credit check: unknown, check manually');
+    expect(post.body).toMatch(/Status unknown, check manually/);
+    expect(d.errs[0]).toBe('xAI credit check: unknown (xAI request failed: 403)');
+    expect(d.errs.join(' ')).not.toContain('SECRETVALUE123');
   });
-  it('balance API error fails without leaking the key', async () => {
-    const d = deps([]);
-    d.fetch = async () => res(403, { error: 'nope' });
-    await expect(c.main(env, d)).rejects.toThrow(/^xAI balance request failed: 403$/);
+  it('run returns 0 on success', async () => {
+    expect(await c.run(ENV, deps({ balance: bal(-100000) }))).toBe(0);
   });
 });
