@@ -8,12 +8,12 @@ const app = require('./server.js');
 const PAGES = [
   {
     route: '/family-meal-plan',
-    title: 'Family Meal Plan Australia | 7 Dinners, 1 Draft Trolley | FitMunch',
+    title: 'Family Meal Plan Australia | 7 Dinners | FitMunch',
     h1: 'Family meal plan: 7 dinners, 1 draft trolley',
   },
   {
     route: '/macro-meal-planner',
-    title: 'Macro Meal Planner Australia | Week From Your Targets | FitMunch',
+    title: 'Macro Meal Planner Australia | FitMunch',
     h1: 'Macro meal planner: 7 days written to your targets',
   },
   {

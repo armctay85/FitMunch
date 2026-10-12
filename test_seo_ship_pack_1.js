@@ -48,7 +48,7 @@ describe('SEO ship pack 1: homepage lander links', () => {
 describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
   it('/ai-meal-planner-australia uses prefer title, H1, meta, and answer-ready open', async () => {
     const res = await request(app).get('/ai-meal-planner-australia').expect(200);
-    expect(title(res.text)).toBe('AI Meal Planner Australia | Supermarket, Receipt-First | FitMunch');
+    expect(title(res.text)).toBe('AI Meal Planner Australia | Receipt-First | FitMunch');
     expect(h1(res.text)).toBe('AI meal planner Australia: from your real supermarket shop');
     expect(metaDescription(res.text)).toBe('Plan the week from your body and your supermarket shop. AUD, grams, receipt-ready. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/ai-meal-planner-australia');
@@ -64,7 +64,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
 
   it('/budget-meal-planner keeps the $/25g table and links out', async () => {
     const res = await request(app).get('/budget-meal-planner').expect(200);
-    expect(title(res.text)).toBe('Budget Meal Planner Australia | High-Protein Weeks | FitMunch');
+    expect(title(res.text)).toBe('Budget Meal Planner Australia | High-Protein | FitMunch');
     expect(h1(res.text)).toBe('Budget meal planner Australia: high-protein weeks from the receipt');
     expect(metaDescription(res.text)).toBe('Plan a high-protein week from staples you already buy, then score the haul from your receipt. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/budget-meal-planner');
@@ -76,7 +76,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
 
   it('/shopper keeps the commit H1 and does not collapse to receipt-only', async () => {
     const res = await request(app).get('/shopper').expect(200);
-    expect(title(res.text)).toBe('Commit the Week, Take the Trolley | Supermarket Shopper | FitMunch');
+    expect(title(res.text)).toBe('Commit the Week, Take the Trolley | FitMunch');
     expect(h1(res.text)).toBe('Commit the week. Take the trolley.');
     expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a supermarket list. Premium A$19.99 after 14-day trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/shopper');
@@ -90,7 +90,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
 
   it('/receipt-nutrition-scanner uses www canonical and haul-score positioning', async () => {
     const res = await request(app).get('/receipt-nutrition-scanner').expect(200);
-    expect(title(res.text)).toBe('Receipt Nutrition Scanner Australia | Supermarket Haul Score | FitMunch');
+    expect(title(res.text)).toBe('Receipt Nutrition Scanner Australia | FitMunch');
     expect(h1(res.text)).toBe('Scan your supermarket receipt. Get the haul score.');
     expect(metaDescription(res.text)).toBe('Photograph an Australian supermarket receipt for macros and haul score, then turn it into the next plan. Free to try. Premium A$19.99 after 14-day trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/receipt-nutrition-scanner');

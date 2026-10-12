@@ -356,7 +356,7 @@ for (const [from, to] of [
   ['/coles-meal-planner', '/grocery-meal-planner'],
   ['/pt-client-meal-plans-woolworths', '/pt-client-meal-plans'],
 ]) {
-  app.get([from, `${from}.html`], (req, res) => res.redirect(301, to));
+  app.get([from, `${from}.html`], (req, res) => res.redirect(301, to + (req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '')));
 }
 app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shopping-list.html', { root: 'public' }));
 app.get('/high-protein-shopping-list', (req, res) => res.sendFile('high-protein-shopping-list.html', { root: 'public' }));

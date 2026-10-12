@@ -13,12 +13,12 @@ const PAGES = [
   },
   {
     route: '/grocery-meal-planner',
-    title: 'Grocery Meal Planner | 7 Days, 1 Draft Grocery List | FitMunch',
+    title: 'Grocery Meal Planner | 7 Days, 1 List | FitMunch',
     h1: 'Grocery meal planner: 7 days, 1 draft grocery list',
   },
   {
     route: '/meal-prep-shopping-list',
-    title: 'Weekly Meal Prep Shopping List | Written From Your Week | FitMunch',
+    title: 'Weekly Meal Prep Shopping List | FitMunch',
     h1: 'Weekly meal prep shopping list, written from your week',
   },
 ];
