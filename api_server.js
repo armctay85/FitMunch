@@ -1271,6 +1271,9 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'chat' });
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false,
