@@ -4,6 +4,8 @@ module.exports = {
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
     '**/test_app.js',
+    '**/test_ai_credit_check.js',
+    '**/test_smoke_exempt_routes.js',
     '**/test_fm_storage.js',
     '**/test_fm_identity.js',
     '**/test_server_api.js',
@@ -20,6 +22,7 @@ module.exports = {
     '**/test_public_price_ban.js',
     '**/test_pay_path.js',
     '**/test_funnel_events.js',
+    '**/test_account_created_event.js',
     '**/test_checkout_duplicates.js',
     '**/test_stripe_webhook.js',
     '**/test_coach_billing.js',

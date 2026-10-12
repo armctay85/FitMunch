@@ -21,6 +21,14 @@ function fakeStore() {
   const rows = new Map();
   const q = async (sql, params) => {
     if (/CREATE TABLE/.test(sql)) return { rows: [] };
+    if (/WHERE ai_usage_monthly.count < \$4/.test(sql)) {
+      const [user, period, feature, cap] = params;
+      const k = `${user}|${period}|${feature}`;
+      const v = rows.get(k) || 0;
+      if (v >= cap) return { rows: [] };
+      rows.set(k, v + 1);
+      return { rows: [{ count: v + 1 }] };
+    }
     if (/INSERT INTO ai_usage_monthly/.test(sql)) {
       const [user, period, feature] = params;
       const amount = params.length > 3 ? Number(params[3]) : 1;
@@ -46,7 +54,7 @@ const ORIG = { ...process.env };
 let logs; let store;
 function load(env = {}) {
   jest.resetModules();
-  for (const k of ['XAI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'SMOKE_ACCOUNT_EMAILS', 'SMOKE_DAILY_AI_CAP', 'AI_FREE_MONTHLY_LIMIT']) delete process.env[k];
+  for (const k of ['XAI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'SMOKE_ACCOUNT_EMAILS', 'SMOKE_ACCOUNT_IDS', 'SMOKE_DAILY_AI_CAP', 'AI_FREE_MONTHLY_LIMIT']) delete process.env[k];
   Object.assign(process.env, env);
   store = fakeStore();
   const usage = require('./lib/ai-usage');
@@ -63,19 +71,25 @@ describe('token parsing per provider', () => {
     const { ai } = load({ XAI_API_KEY: 'x' });
     next = [{ status: 200, body: { choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 120, completion_tokens: 30 } } }];
     await ai.chat({ messages: MSG, route: '/ai/chat' });
-    expect(logs[0]).toBe('ai_provider=xai route=/ai/chat ok=true status=200 tokens_in=120 tokens_out=30 tokens_day=150');
+    await new Promise((r) => setImmediate(r));
+    expect(logs[0]).toBe('ai_provider=xai route=/ai/chat ok=true status=200 tokens_in=120 tokens_out=30');
+    expect(logs[1]).toBe('ai_tokens provider=xai tokens_day=150');
   });
   it('OpenAI vision uses usage.prompt_tokens and completion_tokens', async () => {
     const { ai } = load({ OPENAI_API_KEY: 'o' });
     next = [{ status: 200, body: { choices: [{ message: { content: '[]' } }], usage: { prompt_tokens: 900, completion_tokens: 40 } } }];
     await ai.vision({ imageBase64: 'AAAA', prompt: 'p', route: '/receipt/scan' });
-    expect(logs[0]).toBe('ai_provider=openai route=/receipt/scan ok=true status=200 tokens_in=900 tokens_out=40 tokens_day=940');
+    await new Promise((r) => setImmediate(r));
+    expect(logs[0]).toBe('ai_provider=openai route=/receipt/scan ok=true status=200 tokens_in=900 tokens_out=40');
+    expect(logs[1]).toBe('ai_tokens provider=openai tokens_day=940');
   });
   it('Anthropic uses usage.input_tokens and output_tokens', async () => {
     const { ai } = load({ ANTHROPIC_API_KEY: 'a' });
     next = [{ status: 200, body: { content: [{ text: 'ok' }], usage: { input_tokens: 50, output_tokens: 7 } } }];
     await ai.chat({ messages: MSG, route: '/ai/chat' });
-    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=true status=200 tokens_in=50 tokens_out=7 tokens_day=57');
+    await new Promise((r) => setImmediate(r));
+    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=true status=200 tokens_in=50 tokens_out=7');
+    expect(logs[1]).toBe('ai_tokens provider=anthropic tokens_day=57');
   });
   it('usageFrom reads each shape and leaves others undefined', () => {
     const { ai } = load();
@@ -123,25 +137,35 @@ describe('daily totals', () => {
 });
 
 describe('smoke account cap', () => {
-  it('a smoke account skips the monthly cap and is held to the daily cap', async () => {
-    const { usage } = load({ SMOKE_ACCOUNT_EMAILS: ' Smoke+1@FitMunch.com.au , other-id ', SMOKE_DAILY_AI_CAP: '3', AI_FREE_MONTHLY_LIMIT: '1' });
-    const ctx = { userId: 'u-smoke', email: 'smoke+1@fitmunch.com.au', tier: 'free', feature: 'chat' };
+  it('a smoke id skips the monthly cap and is held to the daily cap', async () => {
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: ' u-smoke , other-id ', SMOKE_DAILY_AI_CAP: '3', AI_FREE_MONTHLY_LIMIT: '1' });
+    const ctx = { userId: 'u-smoke', tier: 'free', feature: 'chat' };
     const results = [];
     for (let i = 0; i < 4; i += 1) results.push(await usage.checkAndConsume(ctx));
     expect(results.slice(0, 3).every((r) => r.allowed)).toBe(true);
+    expect(results.map((r) => r.remaining).slice(0, 3)).toEqual([2, 1, 0]);
     expect(results[3]).toMatchObject({ allowed: false, limit: 3, used: 3, smoke: true });
     expect(await usage.getUsed('u-smoke')).toBe(0);
   });
-  it('matches by user id too, and defaults to 10 a day', async () => {
-    const { usage } = load({ SMOKE_ACCOUNT_EMAILS: 'u-123' });
+  it('defaults to 10 a day', async () => {
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-123' });
     expect(usage.smokeDailyCap()).toBe(10);
     let last;
     for (let i = 0; i < 11; i += 1) last = await usage.checkAndConsume({ userId: 'u-123', tier: 'free', feature: 'receipt_scan' });
     expect(last).toMatchObject({ allowed: false, limit: 10 });
   });
+  it('concurrent calls never exceed the cap (atomic)', async () => {
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-c', SMOKE_DAILY_AI_CAP: '5' });
+    const rs = await Promise.all(Array.from({ length: 20 }, () => usage.checkAndConsume({ userId: 'u-c', tier: 'free', feature: 'chat' })));
+    expect(rs.filter((r) => r.allowed)).toHaveLength(5);
+  });
+  it('emails are never matched', () => {
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'smoke@fitmunch.com.au' });
+    expect(usage.isSmokeAccount({ userId: 'u', email: 'smoke@fitmunch.com.au' })).toBe(false);
+  });
   it('customers still hit the normal monthly cap', async () => {
-    const { usage } = load({ SMOKE_ACCOUNT_EMAILS: 'smoke@fitmunch.com.au', AI_FREE_MONTHLY_LIMIT: '2' });
-    const ctx = { userId: 'cust-1', email: 'jane@example.com', tier: 'free', feature: 'chat' };
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-smoke', AI_FREE_MONTHLY_LIMIT: '2' });
+    const ctx = { userId: 'cust-1', tier: 'free', feature: 'chat' };
     const a = await usage.checkAndConsume(ctx);
     const b = await usage.checkAndConsume(ctx);
     const c = await usage.checkAndConsume(ctx);
@@ -151,6 +175,44 @@ describe('smoke account cap', () => {
   });
   it('with no allowlist nobody is a smoke account', () => {
     const { usage } = load();
-    expect(usage.isSmokeAccount({ userId: 'u', email: 'smoke@fitmunch.com.au' })).toBe(false);
+    expect(usage.isSmokeAccount({ userId: 'u' })).toBe(false);
+  });
+  it.each([['99999999999', 100], ['1e3', 10], ['-1', 10], ['abc', 10], ['0', 0], [' 7 ', 7], ['100', 100], ['101', 100]])(
+    'SMOKE_DAILY_AI_CAP=%s gives %i', (raw, want) => {
+      const { usage } = load({ SMOKE_DAILY_AI_CAP: raw });
+      expect(usage.smokeDailyCap()).toBe(want);
+    });
+  it('fails closed when the store errors', async () => {
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-f' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    usage._setQueryForTests(async (sql) => { if (/CREATE/.test(sql)) return { rows: [] }; throw new Error('down'); });
+    expect(await usage.checkAndConsume({ userId: 'u-f', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, smoke: true, unavailable: true });
+  });
+  it('fails closed with no store at all', async () => {
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-f' });
+    usage._setQueryForTests(null);
+    delete process.env.DATABASE_URL;
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await usage.checkAndConsume({ userId: 'u-f', tier: 'free', feature: 'chat' })).allowed).toBe(false);
+  });
+  it('prunes day: rows older than 90 days once per day', async () => {
+    const { usage } = load();
+    const sqls = [];
+    usage._setQueryForTests(async (sql) => { sqls.push(sql); return { rows: [] }; });
+    await usage.pruneDailyRows(new Date('2026-10-12T01:00:00Z'));
+    await usage.pruneDailyRows(new Date('2026-10-12T02:00:00Z'));
+    const del = sqls.filter((q) => /DELETE FROM ai_usage_monthly WHERE month LIKE 'day:%' AND updated_at < now\(\) - interval '90 days'/.test(q));
+    expect(del).toHaveLength(1);
+  });
+});
+
+describe('token recording is off the response path', () => {
+  it('chat returns before a hung store resolves', async () => {
+    const { ai, usage } = load({ XAI_API_KEY: 'x' });
+    usage._setQueryForTests(() => new Promise(() => {}));
+    next = [{ status: 200, body: { choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } } }];
+    const r = await ai.chat({ messages: MSG, route: '/ai/chat' });
+    expect(r.ok).toBe(true);
+    expect(logs[0]).toBe('ai_provider=xai route=/ai/chat ok=true status=200 tokens_in=1 tokens_out=1');
   });
 });

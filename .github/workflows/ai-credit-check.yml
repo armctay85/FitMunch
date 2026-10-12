@@ -1,0 +1,45 @@
+name: AI credit check
+
+on:
+  schedule:
+    # Daily at 22:00 UTC (8am or 9am Sydney).
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fitmunch-ai-credit-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+      - name: Ensure ai-credit-low label
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create ai-credit-low --repo "${{ github.repository }}" --color B60205 --description "xAI prepaid credit low or unknown" --force
+      - name: Check xAI prepaid credit
+        env:
+          XAI_MANAGEMENT_KEY: ${{ secrets.XAI_MANAGEMENT_KEY }}
+          XAI_TEAM_ID: ${{ vars.XAI_TEAM_ID }}
+          AI_CREDIT_WARN_DAYS: ${{ vars.AI_CREDIT_WARN_DAYS }}
+          AI_CREDIT_WINDOW_DAYS: ${{ vars.AI_CREDIT_WINDOW_DAYS }}
+          AI_CREDIT_FLOOR_USD: ${{ vars.AI_CREDIT_FLOOR_USD }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ai-credit-check.js

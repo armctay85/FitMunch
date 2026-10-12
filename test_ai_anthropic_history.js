@@ -48,6 +48,14 @@ describe('normaliseAnthropicMessages', () => {
       { role: 'user', content: 'Thanks' },
     ]);
   });
+  it('pops trailing assistant turns', () => {
+    expect(n([{ role: 'user', content: 'U' }, { role: 'assistant', content: 'A1' }, { role: 'assistant', content: 'A2' }])).toEqual([{ role: 'user', content: 'U' }]);
+  });
+  it('keeps text parts only from array content', () => {
+    expect(n([{ role: 'user', content: [{ type: 'text', text: 'Hi' }, { type: 'image', source: { data: 'AAAA' } }, { type: 'text', text: 'there' }] }]))
+      .toEqual([{ role: 'user', content: 'Hi\nthere' }]);
+    expect(n([{ role: 'user', content: [{ type: 'image', source: {} }] }])).toEqual([]);
+  });
   it('drops system messages and returns [] with no user text', () => {
     expect(n([{ role: 'system', content: 's' }, { role: 'assistant', content: 'a' }, { role: 'user', content: ' ' }])).toEqual([]);
   });
