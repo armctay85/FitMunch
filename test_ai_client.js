@@ -247,7 +247,8 @@ describe('lib/ai-client provider routing', () => {
     expect(logged).not.toContain('xai-test');
     expect(logged).not.toContain('sk-test-123');
     expect(logged).not.toContain('ant-test');
-    expect(logged).toContain(`status=403 tokens_in=- tokens_out=- err="${secretBody}"`);
+    expect(logged).toContain('status=403 tokens_in=- tokens_out=- err="insufficient_quota"');
+    expect(logged).not.toContain(secretBody);
     expect(errorLog.mock.calls.join('\n')).not.toContain(secretBody);
   });
 
@@ -265,7 +266,7 @@ describe('lib/ai-client provider routing', () => {
     expect(result.ok).toBe(true);
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('status=404');
-    expect(logged).toMatch(/status=404 tokens_in=- tokens_out=- err="[^"]*model not found/);
+    expect(logged).toContain('status=404 tokens_in=- tokens_out=- err="model_not_found"');
     expect(logged).not.toContain('xai-test');
   });
 

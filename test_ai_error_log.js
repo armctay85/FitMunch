@@ -58,13 +58,13 @@ describe('errorSnippet', () => {
 });
 
 describe('ai_provider= failure line', () => {
-  it('adds err= from the provider body message, never the prompt', async () => {
+  it('4xx logs type and code, never the message or the prompt', async () => {
     const ai = load();
     next = { status: 429, body: { type: 'error', error: { type: 'invalid_request_error', message: 'Rate limited. key sk-ant-api03-SECRET123' } } };
     await ai.chat({ system: 'SYSTEM-MARKER', messages: [{ role: 'user', content: PROMPT }], route: '/ai/chat' });
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatch(/^ai_provider=anthropic route=\/ai\/chat ok=false status=429 tokens_in=- tokens_out=- err="/);
-    expect(errOf(logs[0])).toBe('Rate limited. key [redacted-key]');
+    expect(errOf(logs[0])).toBe('invalid_request_error');
     expect(logs[0]).not.toMatch(/PROMPT-MARKER|SYSTEM-MARKER|82kg|drew@example\.com|SECRET123/);
   });
   it('uses the exception code and message when there is no status', async () => {

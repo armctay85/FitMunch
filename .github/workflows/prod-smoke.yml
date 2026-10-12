@@ -12,20 +12,33 @@ permissions:
 
 jobs:
   smoke:
+    # Exactly one smoke per production deploy. Every deploy emits
+    # deployment_status for four environments (Production – fit-munch,
+    # Production – fitmunch, lucky-ambition / production, FitMunch / production)
+    # and for queued / in_progress / success. GitHub's contains() is
+    # case-insensitive, so contains(environment, 'Production') matched all four.
+    # Only the fit-munch Vercel production success counts; everything else is
+    # skipped before a runner starts. NOTE: this depends on the exact Vercel
+    # environment name; renaming the Vercel project silently stops deploy
+    # smokes (the 3-hourly run still covers prod). See docs/prod-smoke.md.
     if: >-
       github.event_name == 'schedule'
       || github.event_name == 'workflow_dispatch'
       || (
         github.event_name == 'deployment_status'
         && github.event.deployment_status.state == 'success'
-        && contains(github.event.deployment.environment, 'Production')
+        && (
+          github.event.deployment.environment == 'Production – fit-munch'
+          || github.event.deployment.environment == 'Production - fit-munch'
+        )
       )
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # One deploy can emit many deployment_status events. Serialize smoke so we
-    # do not stampede Coach/scan and burn provider quota.
+    # Two groups: deploy smokes share one, schedule and dispatch share another,
+    # so a periodic run never cancels a deploy smoke. Within each group a newer
+    # run cancels the older one in flight, so only the latest runs.
     concurrency:
-      group: fitmunch-production-smoke
+      group: fitmunch-production-smoke-${{ github.event_name == 'deployment_status' && 'deploy' || 'periodic' }}
       cancel-in-progress: true
     permissions:
       contents: read
