@@ -1080,3 +1080,31 @@ describe('idempotency key bucket', () => {
     expect(a.length).toBeLessThanOrEqual(255);
   });
 });
+
+describe('checkout plan allowlist (prototype keys never reach Stripe)', () => {
+  const { priceIdForPlan } = require('./lib/fitmunch-checkout');
+  const BAD = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'starter-x'];
+  const NON_STRINGS = [123, true, ['premium'], { plan: 'premium' }];
+  const stripeCalls = () => Object.values(fake).filter((v) => v && typeof v === 'object')
+    .flatMap((ns) => Object.values(ns).filter((f) => f && f.mock))
+    .reduce((n, f) => n + f.mock.calls.length, 0);
+
+  test.each([...BAD, ...NON_STRINGS])('quick-checkout plan %p => 400, zero Stripe calls', async (plan) => {
+    const r = await request(app).post('/api/quick-checkout').send({ email: 'x@example.com', plan });
+    expect(r.status).toBe(400);
+    expect(stripeCalls()).toBe(0);
+    expect(fake.S.customers).toHaveLength(0);
+  });
+  test.each([...BAD, ...NON_STRINGS])('checkout plan %p => 400, zero Stripe calls', async (plan) => {
+    const r = await request(app).post('/api/checkout').set('Authorization', `Bearer ${tokenFor('u1')}`)
+      .set('Origin', 'https://www.fitmunch.com.au').send({ plan });
+    expect(r.status).toBe(400);
+    expect(stripeCalls()).toBe(0);
+  });
+  test('PRICE_IDS has no prototype and is frozen; helper only maps allowed plans', () => {
+    expect(Object.getPrototypeOf(PRICE_IDS)).toBeNull();
+    expect(Object.isFrozen(PRICE_IDS)).toBe(true);
+    for (const p of [...BAD, ...NON_STRINGS, undefined, null]) expect(priceIdForPlan(p)).toBeNull();
+    expect(priceIdForPlan('premium')).toBe(PRICE_IDS.premium);
+  });
+});
