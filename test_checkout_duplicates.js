@@ -12,6 +12,9 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_fake';
+// The per-IP and per-email limits have their own tests below.
+process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '100000';
+process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '100000';
 
 const app = require('./server.js');
 const { jwtSecret, PRICE_IDS, stripeIdempotencyKey, IDEMPOTENCY_BUCKET_MS } = require('./lib/fitmunch-checkout');
@@ -319,7 +322,7 @@ describe('checkout duplicate harness', () => {
     const second = await q().expect(200);
     fake.S.sessions.forEach((cs) => fake.complete(cs.id));
     const o = report('F quick-checkout x2', fake);
-    expect(second.body.url).toBe(first.body.url);
+    expect(second.body).toEqual(first.body);
     expect(o.customers_created).toBe(1);
     expect(o.subscriptions_live).toBe(1);
     expect(o.subscriptions_live_customers).toBe(1);
@@ -603,6 +606,16 @@ function publicCheckoutShape(res) {
 }
 
 describe('unauthenticated checkout privacy', () => {
+  function seedVictimCustomerOnly() {
+    fake.S.customers.push({
+      id: 'cus_victim',
+      email: 'victim@example.com',
+      created: 1,
+      metadata: { brand: 'wipper', product: 'wipper' },
+      invoice_settings: { default_payment_method: 'pm_saved_card' },
+    });
+  }
+
   function seedVictim() {
     fake.S.customers.push({
       id: 'cus_victim',
@@ -621,49 +634,54 @@ describe('unauthenticated checkout privacy', () => {
     });
   }
 
-  test('a stranger using an existing customer email gets a new FitMunch customer and no saved cards', async () => {
+  test('a stranger using a live subscriber email gets no checkout; the subscriber is emailed a sign-in link', async () => {
     seedVictim();
+    const emailApi = require('./server/email.js');
+    const signIn = jest.spyOn(emailApi, 'sendSignInToManageEmail').mockResolvedValue({ success: true });
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' })
       .expect(200);
-
-    expect(fake.customers.list).not.toHaveBeenCalled();
-    expect(fake.customers.search).not.toHaveBeenCalled();
-    expect(fake.customers.create).toHaveBeenCalledTimes(1);
-    const created = fake.customers.create.mock.calls[0][0];
-    expect(created.email).toBe('victim@example.com');
-    expect(created.metadata.brand).toBe('fitmunch');
-    expect(created.metadata.product).toBe('fitmunch');
-    expect(fake.S.customers.find((c) => c.id === 'cus_victim')).toBeTruthy();
-    expect(res.body.success).toBe(true);
-    expect(res.body.alreadySubscribed).toBeUndefined();
-    expect(fake.S.sessions).toHaveLength(1);
-    expect(fake.S.sessions[0].customer).not.toBe('cus_victim');
-    expect(fake.S.sessions[0].customer).toBe(fake.S.customers.find((c) => c.id !== 'cus_victim').id);
-    expect(fake.S.sessions[0].params.saved_payment_method_options).toBeUndefined();
-    expect(fake.S.sessions[0].params.allow_redisplay).toBeUndefined();
-    expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/allow_redisplay|saved_payment_method|pm_saved_card|cus_victim/);
-    expect(fake.S.sessions[0].params.line_items[0].price).toBe('price_1ToYrXGMuYRuJYDrwHtvWD1c');
-    expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
+    expect(res.body).toEqual({ success: true, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' });
+    expect(signIn).toHaveBeenCalledWith('victim@example.com');
+    expect(fake.customers.create).not.toHaveBeenCalled();
+    expect(fake.S.sessions).toHaveLength(0);
+    expect(JSON.stringify(res.body)).not.toMatch(/cus_victim|pm_saved_card|checkout\.stripe/);
     expect(fake.S.subs.find((s) => s.id === 'sub_victim').status).toBe('active');
+    signIn.mockRestore();
   });
 
-  test('known and unknown emails get the same response shape and status', async () => {
+  test('a new email goes straight to Checkout on a fresh FitMunch customer with no saved cards', async () => {
+    seedVictimCustomerOnly();
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'victim@example.com', plan: 'premium' })
+      .expect(200);
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    const created = fake.customers.create.mock.calls[0][0];
+    expect(created.metadata.brand).toBe('fitmunch');
+    expect(created.metadata.fm_canonical_email).toBe('victim@example.com');
+    expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.S.sessions[0].customer).not.toBe('cus_victim');
+    expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/allow_redisplay|saved_payment_method|pm_saved_card|cus_victim/);
+    expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
+    expect(res.body).toEqual({ success: true, url: fake.S.sessions[0].url, id: fake.S.sessions[0].id, trial: true });
+  });
+
+  test('a subscriber gets the sign-in reply, a new email gets Checkout, and neither leaks Stripe ids', async () => {
     seedVictim();
     const known = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' });
     const unknown = await request(app).post('/api/quick-checkout')
       .send({ email: 'nobody@example.com', plan: 'premium' });
 
-    expect(publicCheckoutShape(known)).toEqual(publicCheckoutShape(unknown));
     expect(known.status).toBe(200);
-    expect(known.body.id).not.toBe(unknown.body.id);
-    expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
-    expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
-    expect(fake.customers.list).not.toHaveBeenCalled();
-    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(unknown.status).toBe(200);
+    expect(known.body).toEqual({ success: true, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' });
+    expect(unknown.body.url).toBe(fake.S.sessions[0].url);
+    expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|sub_victim|alreadySubscribed/i);
+    expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|sub_victim|alreadySubscribed/i);
+    // The live subscriber gets a sign-in email; only the unknown email gets a customer.
     const createdEmails = fake.customers.create.mock.calls.map((call) => call[0].email).sort();
-    expect(createdEmails).toEqual(['nobody@example.com', 'victim@example.com']);
+    expect(createdEmails).toEqual(['nobody@example.com']);
     expect(fake.S.sessions.every((session) => session.customer !== 'cus_victim')).toBe(true);
   });
 
@@ -674,25 +692,22 @@ describe('unauthenticated checkout privacy', () => {
     const [first, second] = await Promise.all([send(), send()]);
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
-    expect(second.body.url).toBe(first.body.url);
-    expect(second.body.id).toBe(first.body.id);
+    expect(second.body).toEqual(first.body);
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
     expect(fake.S.sessions).toHaveLength(1);
-    expect(fake.customers.list).not.toHaveBeenCalled();
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('double@example.com'));
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).not.toEqual(expect.stringContaining('cus_'));
   });
 
-  test('a client nonce dedupes a double submit without looking up customers by email', async () => {
+  test('a client nonce dedupes a double submit and never reuses a customer found by email', async () => {
     const send = () => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', 'browser-attempt-42')
       .set('User-Agent', 'FitMunchPrivacyTest/1.0')
       .send({ email: 'nonce@example.com', plan: 'premium' });
     const [first, second] = await Promise.all([send(), send()]);
-    expect(second.body.url).toBe(first.body.url);
+    expect(second.body).toEqual(first.body);
     expect(fake.S.sessions).toHaveLength(1);
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
-    expect(fake.customers.list).not.toHaveBeenCalled();
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('browser-attempt-42'));
   });
 
@@ -864,10 +879,10 @@ describe('guest subscriptions across customers', () => {
     const send = (nonce) => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', nonce)
       .send({ email: 'guest@example.com', plan: 'premium' });
-    const first = await send('nonce-tab-a').expect(200);
-    const second = await send('nonce-tab-b').expect(200);
-    expect(first.body.id).not.toBe(second.body.id);
+    await send('nonce-tab-a').expect(200);
+    await send('nonce-tab-b').expect(200);
     expect(fake.S.sessions).toHaveLength(2);
+    expect(fake.S.sessions[0].id).not.toBe(fake.S.sessions[1].id);
     const older = fake.complete(fake.S.sessions[0].id);
     const newer = fake.complete(fake.S.sessions[1].id);
     expect(older.created).toBeLessThan(newer.created);
@@ -1045,10 +1060,10 @@ describe('guest subscriptions across customers', () => {
     const send = (email) => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', 'replayed-nonce')
       .send({ email, plan: 'premium' });
-    const first = await send('one@example.com').expect(200);
-    const second = await send('two@example.com').expect(200);
-    expect(second.body.id).not.toBe(first.body.id);
+    await send('one@example.com').expect(200);
+    await send('two@example.com').expect(200);
     expect(fake.S.sessions).toHaveLength(2);
+    expect(fake.S.sessions[0].id).not.toBe(fake.S.sessions[1].id);
     expect(fake.customers.create.mock.calls.map((call) => call[0].email).sort())
       .toEqual(['one@example.com', 'two@example.com']);
   });
@@ -1079,6 +1094,273 @@ describe('idempotency key bucket', () => {
     expect(a).toContain(PRICE_IDS.premium);
     expect(a.length).toBeLessThanOrEqual(255);
   });
+});
+
+describe('email-first trial and yearly Premium', () => {
+  const ANNUAL = 'price_testAnnual14999';
+  const {
+    tierForPriceId,
+    planForPriceId,
+    subscriptionTierUpdateFromStripe,
+    normalizeCheckoutPlan,
+  } = require('./lib/fitmunch-checkout');
+
+  function seedSubscriber() {
+    fake.S.customers.push({ id: 'cus_victim', email: 'victim@example.com', created: 1, metadata: { brand: 'fitmunch', product: 'fitmunch' } });
+  }
+
+  afterEach(() => {
+    delete process.env.STRIPE_PRICE_PREMIUM_ANNUAL;
+  });
+
+  test('guest Premium checkout returns to the success page, and cancel goes back to the email step', async () => {
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'first@example.com', plan: 'premium', nonce: 'ef-1' })
+      .expect(200);
+    expect(res.body.url).toBe(fake.S.sessions[0].url);
+    expect(res.body.trial).toBe(true);
+    const params = fake.S.sessions[0].params;
+    expect(params.success_url).toBe('https://www.fitmunch.com.au/success.html?session_id={CHECKOUT_SESSION_ID}');
+    expect(params.cancel_url).toBe('https://www.fitmunch.com.au/login.html?plan=premium&cancelled=1#register');
+    expect(params.line_items[0].price).toBe(PRICE_IDS.premium);
+    expect(params.payment_method_collection).toBe('always');
+    expect(params.subscription_data.trial_period_days).toBe(14);
+  });
+
+  test('a double submit makes one customer and one session, never on an existing customer', async () => {
+    seedSubscriber();
+    const send = () => request(app).post('/api/quick-checkout')
+      .send({ email: 'someone@example.com', plan: 'premium', nonce: 'ef-double' });
+    const [a, b] = await Promise.all([send(), send()]);
+    expect(a.body).toEqual(b.body);
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    expect(fake.S.sessions).toHaveLength(1);
+    expect(fake.S.sessions[0].params.customer).not.toBe('cus_victim');
+  });
+
+
+  test('yearly plan is refused while STRIPE_PRICE_PREMIUM_ANNUAL is unset', async () => {
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'yr@example.com', plan: 'premium-annual', nonce: 'yr-0' });
+    expect(res.status).toBe(400);
+    expect(fake.S.sessions).toHaveLength(0);
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAnnual).toBe(false);
+  });
+
+  test('a malformed annual env value is treated as unset', async () => {
+    process.env.STRIPE_PRICE_PREMIUM_ANNUAL = 'not-a-price';
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAnnual).toBe(false);
+    expect(require('./lib/fitmunch-checkout').priceIdForPlan('premium-annual')).toBeNull();
+  });
+
+  test('yearly plan uses the env price, a 14-day trial, and maps to the premium tier', async () => {
+    process.env.STRIPE_PRICE_PREMIUM_ANNUAL = ` ${ANNUAL} `;
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAnnual).toBe(true);
+    await request(app).post('/api/quick-checkout')
+      .send({ email: 'yr@example.com', plan: 'premium-annual', nonce: 'yr-1' })
+      .expect(200);
+    const params = fake.S.sessions[0].params;
+    expect(params.line_items[0].price).toBe(ANNUAL);
+    expect(params.metadata.plan).toBe('premium-annual');
+    expect(params.subscription_data.trial_period_days).toBe(14);
+    expect(params.cancel_url).toContain('billing=annual');
+    expect(planForPriceId(ANNUAL)).toBe('premium-annual');
+    expect(tierForPriceId(ANNUAL)).toBe('premium');
+    expect(tierForPriceId(PRICE_IDS.premium)).toBe('premium');
+    expect(subscriptionTierUpdateFromStripe({ status: 'trialing', items: { data: [{ price: { id: ANNUAL } }] } }).tier).toBe('premium');
+    expect(normalizeCheckoutPlan('premium-annual', 'consumer')).toBe('premium-annual');
+  });
+
+  test('signed-in yearly checkout still blocks a second live subscription (PR 21)', async () => {
+    process.env.STRIPE_PRICE_PREMIUM_ANNUAL = ANNUAL;
+    const token = jwt.sign({ userId: 'u1', email: 'steph@example.com', role: 'consumer' }, jwtSecret());
+    await request(app).post('/api/checkout').set('Authorization', `Bearer ${token}`).send({ plan: 'premium' }).expect(200);
+    fake.S.sessions.forEach((cs) => fake.complete(cs.id));
+    const second = await request(app).post('/api/checkout').set('Authorization', `Bearer ${token}`).send({ plan: 'premium-annual' }).expect(200);
+    expect(second.body.alreadySubscribed).toBe(true);
+    expect(second.body.url).toBeNull();
+  });
+});
+
+describe('trial guard (Elite QA PR 78 M1)', () => {
+  const emailApi = require('./server/email.js');
+  const { canonicalTrialEmail } = require('./lib/trial-guard');
+  const { endReusedCardTrial } = require('./lib/stripe-webhook');
+  let signIn;
+
+  beforeEach(() => {
+    signIn = jest.spyOn(emailApi, 'sendSignInToManageEmail').mockResolvedValue({ success: true });
+  });
+  afterEach(() => {
+    signIn.mockRestore();
+  });
+
+  function priorCustomer(id, email, sub) {
+    fake.S.customers.push({ id, email, created: 1, metadata: { brand: 'fitmunch', product: 'fitmunch' } });
+    if (sub) {
+      fake.S.subs.push({
+        id: `sub_${id}`,
+        customer: id,
+        created: 2,
+        items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+        metadata: { product: 'fitmunch', plan: 'premium' },
+        ...sub,
+      });
+    }
+  }
+
+  const start = (email) => request(app).post('/api/quick-checkout').send({ email, plan: 'premium', nonce: `n-${email}` });
+
+  test('canonical email: lower-case, no +tag, no gmail dots', () => {
+    expect(canonicalTrialEmail('Jo.Bloggs+fit@GMail.com')).toBe('jobloggs@gmail.com');
+    expect(canonicalTrialEmail('jo.bloggs@googlemail.com')).toBe('jobloggs@gmail.com');
+    expect(canonicalTrialEmail('Jo.Bloggs+x@Example.com')).toBe('jo.bloggs@example.com');
+  });
+
+  for (const status of ['active', 'trialing', 'past_due', 'unpaid']) {
+    test(`a signed-out ${status} subscriber gets a sign-in email and no second subscription`, async () => {
+      priorCustomer('cus_live', 'live@example.com', { status, trial_start: 1 });
+      const res = await start('live@example.com').expect(200);
+      expect(res.body).toEqual({ success: true, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' });
+      expect(signIn).toHaveBeenCalledWith('live@example.com');
+      expect(fake.S.sessions).toHaveLength(0);
+      expect(fake.customers.create).not.toHaveBeenCalled();
+    });
+  }
+
+  const variants = [
+    ['the same email', 'used@gmail.com'],
+    ['upper-case', 'USED@GMAIL.COM'],
+    ['a plus-address', 'used+again@gmail.com'],
+    ['gmail dots', 'u.s.e.d@gmail.com'],
+  ];
+  for (const [label, email] of variants) {
+    test(`${label} after an ended trial gets no second trial`, async () => {
+      priorCustomer('cus_used', 'used@gmail.com', { status: 'canceled', trial_start: 1, trial_end: 2 });
+      const res = await start(email).expect(200);
+      expect(fake.S.sessions).toHaveLength(1);
+      expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBeUndefined();
+      expect(fake.S.sessions[0].params.metadata.trial).toBe('0');
+      // The page shows this before it sends the browser to Stripe.
+      expect(res.body).toEqual({
+        success: true,
+        url: fake.S.sessions[0].url,
+        id: fake.S.sessions[0].id,
+        trial: false,
+        notice: 'Your trial was used; Premium starts today at A$19.99 a month.',
+      });
+    });
+  }
+
+  test('trial-used email copy is exact', () => {
+    expect(emailApi.TRIAL_USED_COPY.premium).toBe('Your trial was used; Premium starts today at A$19.99 a month.');
+  });
+
+  test('another brand on the shared Stripe account does not block a FitMunch trial', async () => {
+    fake.S.customers.push({ id: 'cus_w', email: 'w@example.com', created: 1, metadata: { brand: 'wipper', product: 'wipper' } });
+    fake.S.subs.push({ id: 'sub_w', customer: 'cus_w', status: 'active', trial_start: 1, items: { data: [{ price: { id: 'price_wipper' } }] }, metadata: { product: 'wipper' } });
+    await start('w@example.com').expect(200);
+    expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
+  });
+
+  test('a Stripe failure is a generic error with no account detail', async () => {
+    fake.customers.list.mockRejectedValueOnce(new Error('boom'));
+    const res = await start('err@example.com');
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(JSON.stringify(res.body)).not.toMatch(/boom|cus_|sub_/);
+    expect(fake.S.sessions).toHaveLength(0);
+  });
+
+  test('the same card on a new customer ends the trial now', async () => {
+    fake.S.customers.push({ id: 'cus_first', email: 'a@example.com', metadata: { brand: 'fitmunch', fm_trial_card: 'fpSAME' } });
+    fake.S.customers.push({ id: 'cus_second', email: 'b@example.com', metadata: { brand: 'fitmunch' } });
+    const sub = {
+      id: 'sub_second', customer: 'cus_second', status: 'trialing',
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] }, metadata: { product: 'fitmunch' },
+      default_payment_method: { id: 'pm_2', card: { fingerprint: 'fpSAME' } },
+    };
+    fake.customers.search = jest.fn(async ({ query }) => {
+      const m = /metadata\['fm_trial_card'\]:'([^']+)'/.exec(query);
+      return { data: fake.S.customers.filter((c) => m && c.metadata && c.metadata.fm_trial_card === m[1]) };
+    });
+    fake.customers.update = jest.fn(async (id, p) => ({ id, ...p }));
+    fake.subscriptions.retrieve = jest.fn(async () => sub);
+    fake.subscriptions.update = jest.fn(async (id, p) => ({ id, ...p }));
+    const ended = await endReusedCardTrial(fake, { subscription: 'sub_second', metadata: { plan: 'premium' } }, 'premium');
+    expect(ended).toBe(true);
+    expect(fake.subscriptions.update).toHaveBeenCalledWith('sub_second', { trial_end: 'now', proration_behavior: 'none' });
+    expect(fake.customers.update).toHaveBeenCalledWith('cus_second', { metadata: { fm_trial_card: 'fpSAME', fm_trial_used: '1' } });
+  });
+
+  test('a new card keeps its trial and is recorded', async () => {
+    const sub = {
+      id: 'sub_n', customer: 'cus_n', status: 'trialing',
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] }, metadata: { product: 'fitmunch' },
+      default_payment_method: { id: 'pm_n', card: { fingerprint: 'fpNEW' } },
+    };
+    fake.customers.search = jest.fn(async () => ({ data: [] }));
+    fake.customers.update = jest.fn(async (id, p) => ({ id, ...p }));
+    fake.subscriptions.retrieve = jest.fn(async () => sub);
+    fake.subscriptions.update = jest.fn();
+    expect(await endReusedCardTrial(fake, { subscription: 'sub_n' }, 'premium')).toBe(false);
+    expect(fake.subscriptions.update).not.toHaveBeenCalled();
+    expect(fake.customers.update).toHaveBeenCalledWith('cus_n', { metadata: { fm_trial_card: 'fpNEW', fm_trial_used: '1' } });
+  });
+
+  test('Coach checkouts are not touched by the card check', async () => {
+    fake.subscriptions.retrieve = jest.fn();
+    expect(await endReusedCardTrial(fake, { subscription: 'sub_c' }, 'coach-39')).toBe(false);
+    expect(fake.subscriptions.retrieve).not.toHaveBeenCalled();
+  });
+});
+
+describe('welcome email after a no-trial checkout (Maximus, PR 78)', () => {
+  const emailApi = require('./server/email.js');
+  const { buildSubscriptionCheckoutParams } = require('./lib/fitmunch-checkout');
+
+  async function sentText(args) {
+    process.env.RESEND_API_KEY = 'test-key';
+    const calls = [];
+    const prev = global.fetch;
+    global.fetch = jest.fn(async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ id: 'e1' }) }; });
+    try {
+      await emailApi.sendWelcomeEmail(...args);
+    } finally {
+      global.fetch = prev;
+      delete process.env.RESEND_API_KEY;
+    }
+    return `${calls[0].html}\n${calls[0].text}`;
+  }
+
+  test('trial-used payer is told Premium started and the first charge is today', async () => {
+    const out = await sentText(['a@example.com', '', 'Premium', 'https://www.fitmunch.com.au/login.html#claim=x', { trial: false }]);
+    expect(out).toContain('Premium has started.');
+    expect(out).toContain('Your first charge is today.');
+    expect(out).not.toMatch(/Your trial has started|trial is live|No charge until the trial ends/);
+  });
+
+  test('a normal trial keeps the trial copy', async () => {
+    const out = await sentText(['a@example.com', '', 'Premium', 'https://www.fitmunch.com.au/login.html#claim=x']);
+    expect(out).toContain('Your trial has started.');
+    expect(out).toContain('No charge until the trial ends.');
+  });
+
+  test('a no-trial Checkout carries metadata trial=0 for the webhook', () => {
+    const p = buildSubscriptionCheckoutParams({ customerId: 'cus_x', priceId: PRICE_IDS.premium, plan: 'premium', trial: false });
+    expect(p.metadata.trial).toBe('0');
+    expect(p.subscription_data.trial_period_days).toBeUndefined();
+    const t = buildSubscriptionCheckoutParams({ customerId: 'cus_x', priceId: PRICE_IDS.premium, plan: 'premium' });
+    expect(t.metadata.trial).toBeUndefined();
+  });
+
+  test('the webhook skips trial_started when no trial applies', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'lib', 'stripe-webhook.js'), 'utf8');
+    expect(src).toContain("!ended && session.metadata?.trial !== '0'");
+  });
+
 });
 
 describe('checkout plan allowlist (prototype keys never reach Stripe)', () => {
@@ -1115,5 +1397,93 @@ describe('checkout plan allowlist (prototype keys never reach Stripe)', () => {
     expect(Object.isFrozen(PRICE_IDS)).toBe(true);
     for (const p of [...BAD, ...NON_STRINGS, undefined, null]) expect(priceIdForPlan(p)).toBeNull();
     expect(priceIdForPlan('premium')).toBe(PRICE_IDS.premium);
+  });
+});
+
+describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2)', () => {
+  afterEach(() => {
+    process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '100000';
+    process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '100000';
+  });
+
+  test('per-IP limit: the next request after the cap is a generic 429', async () => {
+    process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '1';
+    const ip = '203.0.113.77';
+    const go = (n) => request(app).post('/api/quick-checkout').set('X-Forwarded-For', ip)
+      .send({ email: `ip${n}@example.com`, plan: 'premium', nonce: `ip-${n}` });
+    const statuses = [];
+    for (let i = 0; i < 4; i++) statuses.push((await go(i)).status);
+    expect(statuses).toContain(429);
+    const limited = await go(9);
+    if (limited.status === 429) expect(JSON.stringify(limited.body)).not.toMatch(/cus_|sub_|subscrib/i);
+  });
+
+  test('per-email limit: one normalised email cannot be looked up in bulk', async () => {
+    process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '2';
+    const spellings = ['Bulk.Look@gmail.com', 'bulklook+a@gmail.com', 'b.u.l.k.look@googlemail.com', 'BULKLOOK@gmail.com'];
+    const res = [];
+    for (const [i, email] of spellings.entries()) {
+      res.push(await request(app).post('/api/quick-checkout').send({ email, plan: 'premium', nonce: `bl-${i}` }));
+    }
+    expect(res.slice(0, 2).map((r) => r.status)).toEqual([200, 200]);
+    expect(res[2].status).toBe(429);
+    expect(res[2].body).toEqual({ success: false, error: 'Too many checkout attempts. Please try again later.' });
+    expect(fake.customers.list.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  test('createFitMunchCustomer stores fm_canonical_email on every path (QA r2 S2)', async () => {
+    const { createFitMunchCustomer } = require('./lib/fitmunch-checkout');
+    await createFitMunchCustomer(fake, { userId: 'u9', email: 'Jo.Smith+x@GMail.com' });
+    const created = fake.customers.create.mock.calls.at(-1)[0];
+    expect(created.metadata.fm_canonical_email).toBe('josmith@gmail.com');
+    expect(created.metadata.brand).toBe('fitmunch');
+  });
+
+  test('trial history reads every page of customers and subscriptions (QA r2 S5)', async () => {
+    const { trialHistoryForEmail, allPages } = require('./lib/trial-guard');
+    const pages = [
+      { data: [{ id: 'a' }], has_more: true },
+      { data: [{ id: 'b' }], has_more: false },
+    ];
+    const seen = [];
+    const out = await allPages(async (q) => { seen.push(q); return pages[seen.length - 1]; }, { limit: 1 });
+    expect(out.map((x) => x.id)).toEqual(['a', 'b']);
+    expect(seen[1].starting_after).toBe('a');
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    let n = 0;
+    const capped = await allPages(async () => ({ data: [{ id: `p${n++}` }], has_more: true }), { limit: 1 });
+    expect(capped).toHaveLength(10);
+    expect(warn).toHaveBeenCalledWith('[trial-guard] pagination cap hit', { pages: 10, records: 10 });
+    warn.mockRestore();
+
+    const stripe = {
+      customers: {
+        list: jest.fn(async () => ({ data: [{ id: 'cus_p', email: 'page@example.com', metadata: { brand: 'fitmunch' } }], has_more: false })),
+      },
+      subscriptions: {
+        list: jest.fn(async (q) => (q.starting_after
+          ? { data: [{ id: 'sub_old', status: 'canceled', trial_start: 1, metadata: { product: 'fitmunch' }, items: { data: [{ price: { id: PRICE_IDS.premium } }] } }], has_more: false }
+          : { data: [{ id: 'sub_x', status: 'canceled', metadata: { product: 'other' }, items: { data: [] } }], has_more: true })),
+      },
+    };
+    const history = await trialHistoryForEmail(stripe, 'page@example.com');
+    expect(history.trialUsed).toBe(true);
+    expect(stripe.subscriptions.list).toHaveBeenCalledTimes(2);
+  });
+
+  test('backfill script refuses live keys and only plans FitMunch customers (test mode only)', async () => {
+    const backfill = require('./scripts/backfill-canonical-email');
+    for (const key of ['sk_live_x', 'rk_live_x', '', undefined, 'pk_test_x']) {
+      expect(() => backfill.assertTestKey(key)).toThrow(/test-mode key/);
+    }
+    expect(() => backfill.assertTestKey('sk_test_x')).not.toThrow();
+    await expect(backfill.run({ stripe: {}, key: 'sk_live_x' })).rejects.toThrow(/test-mode key/);
+    const plan = backfill.plannedUpdates([
+      { id: 'c1', email: 'Jo.Smith@gmail.com', metadata: { brand: 'fitmunch' } },
+      { id: 'c2', email: 'done@example.com', metadata: { brand: 'fitmunch', fm_canonical_email: 'done@example.com' } },
+      { id: 'c3', email: 'w@example.com', metadata: { brand: 'wipper', product: 'wipper' } },
+    ]);
+    expect(plan).toEqual([{ id: 'c1', fm_canonical_email: 'josmith@gmail.com' }]);
   });
 });

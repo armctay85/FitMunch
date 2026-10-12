@@ -70,7 +70,7 @@
  transition: border-color 0.2s;
  }
  input:focus { border-color: var(--green); }
- input::placeholder { color: var(--muted); }
+ input::placeholder { color: var(--sub); opacity: 1; }
 
  .btn {
  width: 100%; background: var(--green2); color: white;
@@ -165,8 +165,8 @@
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
  </div>
  <div id="claim-intent" class="claim-card" style="display:none">
- <div class="claim-kicker" style="color:var(--green)">Attach a purchase</div>
- <p class="claim-copy" style="color:var(--sub)">Sign in or create an account, then confirm which account should keep the subscription you already paid for. This does not start a new checkout.</p>
+ <div class="claim-kicker" style="color:var(--green)">Finish your account</div>
+ <p class="claim-copy" style="color:var(--sub)">Set a password to open FitMunch. Already have an account? Sign in instead.</p>
  <details class="claim-resend" id="claim-resend-intent">
  <summary>Link expired or used? Email me a new link</summary>
  <form onsubmit="return requestClaimLink(event, this)" novalidate>
@@ -260,7 +260,7 @@
  <div class="error-msg" id="register-error"></div>
  <div class="success-msg" id="register-success"></div>
 
- <div class="form-group">
+ <div class="form-group" id="reg-name-group">
  <label for="reg-name">Your Name</label>
  <input type="text" id="reg-name" placeholder="Alex Smith" autocomplete="name" />
  </div>
@@ -268,7 +268,7 @@
  <label for="reg-email">Email</label>
  <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" />
  </div>
- <div class="form-group">
+ <div class="form-group" id="reg-password-group">
  <label for="reg-password">Password</label>
  <input type="password" id="reg-password" placeholder="Min. 8 characters" autocomplete="new-password"
  oninput="checkStrength(this.value)" />
@@ -277,6 +277,7 @@
  </div>
 
  <button class="btn" id="register-btn" onclick="doRegister()">Create Free Account</button>
+ <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">Stripe Checkout opens next. You set your password after checkout from the link we email you.</p>
 
  <div class="foot">
  Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
@@ -316,9 +317,20 @@
  const resetToken = readResetToken();
  const urlParams = new URLSearchParams(window.location.search);
  const plan = urlParams.get('plan') || null; // 'premium' | 'starter' | 'pro' | null
+ // ?billing=annual picks the yearly Premium price. The server refuses it
+ // unless STRIPE_PRICE_PREMIUM_ANNUAL is set, so a stale link fails safe.
+ const annualBilling = plan === 'premium' && urlParams.get('billing') === 'annual';
+ const premiumCheckoutPlan = annualBilling ? 'premium-annual' : 'premium';
+ // Email-first trial: a signed-out Premium visitor gives only an email, pays
+ // Stripe Checkout straight away, then sets a password from the emailed link.
+ let emailFirst = false;
+ try { emailFirst = plan === 'premium' && !localStorage.getItem('fm_token'); } catch (e) { emailFirst = plan === 'premium'; }
+ let trialNonce = '';
+ try { trialNonce = (crypto.randomUUID && crypto.randomUUID()) || ''; } catch (e) {}
+ if (!trialNonce) trialNonce = 't_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
- let registerLabel = plan === 'premium' ? 'Start Premium trial' : 'Create Free Account';
+ let registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial') : 'Create Free Account';
  let pendingClaim = '';
  try {
   pendingClaim = String(window.__fmClaimToken || '');
@@ -338,6 +350,23 @@
   }
   const regBtn = document.getElementById('register-btn');
   if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
+  if (banner && plan === 'premium') {
+    const priceLine = annualBilling ? 'A$149.99 a year' : 'A$19.99 a month';
+    const firstCharge = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+      .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    banner.querySelector('div').textContent = '14-day free trial';
+    banner.querySelectorAll('div')[1].textContent = (emailFirst
+      ? 'Enter your email and secure Stripe Checkout opens next. '
+      : 'Create your account, then Stripe opens. ') + '14-day free trial, then ' + priceLine + ' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: ' + firstCharge + '.';
+  }
+  if (emailFirst) {
+    ['reg-name-group', 'reg-password-group'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const note = document.getElementById('email-first-note');
+    if (note) note.style.display = 'block';
+  }
   if (regBtn && coachPlan) regBtn.textContent = 'Start Coach trial';
  } else if (pendingClaim || window.location.hash === '#new-link') {
   const claimBanner = document.getElementById('claim-intent');
@@ -346,7 +375,9 @@
    const resendIntent = document.getElementById('claim-resend-intent');
    if (resendIntent) resendIntent.open = true;
   }
-  registerLabel = 'Create account';
+  registerLabel = 'Set password and open FitMunch';
+  const nameGroup = document.getElementById('reg-name-group');
+  if (nameGroup && pendingClaim) nameGroup.style.display = 'none';
   const regBtn = document.getElementById('register-btn');
   if (regBtn) regBtn.textContent = registerLabel;
  } else {
@@ -537,7 +568,7 @@
   // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
   // Server normalizeCheckoutPlan owns PT vs consumer mapping.
   // Never force pt-* aliases here. That 403s consumer Premium/starter/pro funnels.
-  const checkoutPlan = plan;
+  const checkoutPlan = plan === 'premium' ? premiumCheckoutPlan : plan;
   const r = (plan === 'coach-39' || plan === 'coach-79')
     ? await fetch('/api/coach/checkout', {
       method: 'POST',
@@ -696,10 +727,75 @@
  }
  }
 
+ async function doEmailFirstTrial() {
+  hideMsg('register');
+  const email = document.getElementById('reg-email').value.trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+   showError('register-error', 'Enter the email you want on the account.');
+   return;
+  }
+  authInFlight = true;
+  setLoading('register-btn', true);
+  let leaving = false;
+  try {
+   const r = await fetch('/api/quick-checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, plan: premiumCheckoutPlan, nonce: trialNonce })
+   });
+   const d = await parseApiJson(r);
+   if (!d.success) throw new Error(d.error || 'Something went wrong. Please try again.');
+   try { if (window.FMTrack) window.FMTrack.send('trial_email_submit', { plan: premiumCheckoutPlan }); } catch (e) {}
+   const btn = document.getElementById('register-btn');
+   if (d.signIn) {
+    // Already a member: no second subscription. The sign-in link is in the inbox.
+    leaving = true;
+    ['reg-email', 'register-btn'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
+    if (btn) btn.textContent = 'Check your email';
+    const signInNote = document.getElementById('email-first-note');
+    if (signInNote) signInNote.style.display = 'none';
+    showSuccess('register-success', d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.');
+    return;
+   }
+   if (!d.url || !/^https:\/\//.test(d.url)) throw new Error('Could not open Stripe checkout.');
+   leaving = true;
+   if (d.notice) {
+    // Returning trial user: say so before Stripe, and let them choose to go on.
+    showSuccess('register-success', d.notice);
+    // Elite QA r3 M2: no trial applies, so the banner and note must not promise one.
+    const intent = document.getElementById('premium-intent');
+    if (intent) {
+     intent.querySelector('div').textContent = 'PREMIUM';
+     intent.querySelectorAll('div')[1].textContent = d.notice + ' Card required. Cancel anytime from Billing.';
+    }
+    const paidNote = document.getElementById('email-first-note');
+    if (paidNote) paidNote.textContent = 'Secure Stripe Checkout opens next. Your first charge is today.';
+    if (btn) {
+     setLoading('register-btn', false);
+     btn.textContent = 'Continue to secure checkout';
+     btn.onclick = (ev) => { ev.preventDefault(); window.location.href = d.url; };
+    }
+    return;
+   }
+   if (btn) btn.textContent = 'Opening Stripe...';
+   window.location.href = d.url;
+  } catch (error) {
+   showError('register-error', error.message || 'Could not open Stripe checkout.');
+  } finally {
+   authInFlight = false;
+   if (!leaving) setLoading('register-btn', false);
+  }
+ }
+
  async function doRegister() {
  if (authInFlight || checkoutInFlight) return;
+ if (emailFirst && !pendingClaim) return doEmailFirstTrial();
  hideMsg('register');
- const name = document.getElementById('reg-name').value.trim();
+ let name = document.getElementById('reg-name').value.trim();
+ const nameGroupEl = document.getElementById('reg-name-group');
+ if (!name && nameGroupEl && nameGroupEl.style.display === 'none') {
+   name = (document.getElementById('reg-email').value.trim().split('@')[0] || 'FitMunch member').slice(0, 60);
+ }
  const email = document.getElementById('reg-email').value.trim().toLowerCase();
  const password = document.getElementById('reg-password').value;
  if (!name || !email || !password) { showError('register-error', 'All fields are required.'); return; }
@@ -727,9 +823,12 @@
  // Hash-based tab switching (#register activates register panel)
  window.addEventListener('hashchange', () => {
  if (window.location.hash === '#register') showTab('register');
+ // Arriving from the emailed trial link: most people are new, so open Create account.
+ if (pendingClaim && window.location.hash !== '#login') showTab('register');
  else if (window.location.hash === '#login') showTab('login');
  });
  if (window.location.hash === '#register') showTab('register');
+ else if (pendingClaim) showTab('register');
  if (plan === 'premium' && window.location.hash !== '#login') showTab('register');
  // Fragment #reset=TOKEN is the email link. Legacy ?reset= is stripped above.
  if (resetToken) showReset();

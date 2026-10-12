@@ -515,6 +515,8 @@ const {
   PRICE_IDS,
   priceIdForPlan,
   PRICE_TO_TIER,
+  tierForPriceId,
+  premiumAnnualAvailable,
   jwtSecret,
   checkoutOrigin,
   normalizeCheckoutPlan,
@@ -603,6 +605,68 @@ function checkoutJson(result) {
   return { url: result.url, id: result.id };
 }
 
+function quickCheckoutCancelPath(plan) {
+  if (plan === 'premium-annual') return '/login.html?plan=premium&billing=annual&cancelled=1#register';
+  if (plan === 'premium') return '/login.html?plan=premium&cancelled=1#register';
+  return '/pricing?cancelled=1';
+}
+
+// Public pricing switches. Annual shows only when its Stripe price is set.
+app.get('/api/pricing/config', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ success: true, premiumAnnual: premiumAnnualAvailable() });
+});
+
+// Signed-out checkout (Wilson's ruling, PR 78 r2): go straight to Stripe.
+//   live subscriber (active, trialing, past_due, unpaid) -> sign-in email, no Checkout
+//   returning trial user -> Checkout with no trial, and the page says so first
+//   new -> Checkout with the 14-day trial
+// Per-IP and per-normalised-email limits stop bulk email lookups.
+const QUICK_CHECKOUT_SIGNIN_REPLY = Object.freeze({
+  success: true,
+  signIn: true,
+  message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.',
+});
+function envLimit(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+const quickCheckoutEmailMax = () => envLimit('QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR', 5);
+const QUICK_CHECKOUT_LIMITED = 'Too many checkout attempts. Please try again later.';
+const quickCheckoutLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('QUICK_CHECKOUT_IP_MAX_PER_HOUR', 10),
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: QUICK_CHECKOUT_LIMITED },
+});
+app.use('/api/quick-checkout', quickCheckoutLimiter);
+
+/** Sends work past the response on Vercel (waitUntil); off Vercel it just runs. */
+function runInBackground(promise) {
+  const safe = Promise.resolve(promise).catch((err) => {
+    console.error('[quick-checkout] background send failed', ...webhookErrorFields(err));
+  });
+  try {
+    const { waitUntil } = require('@vercel/functions');
+    waitUntil(safe);
+  } catch (_) {
+    /* not on Vercel */
+  }
+  return safe;
+}
+
+async function quickCheckoutEmailLimited(canonical) {
+  try {
+    const { hitRateCounter } = require('./lib/shared-counters');
+    const hits = await hitRateCounter('quick-checkout-email', canonical, { windowMs: 60 * 60 * 1000 });
+    return hits > quickCheckoutEmailMax();
+  } catch (_) {
+    return false;
+  }
+}
+
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
 app.post('/api/quick-checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
@@ -613,29 +677,58 @@ app.post('/api/quick-checkout', async (req, res) => {
     if (!email || !plan) {
       return res.status(400).json({ success: false, error: 'Email and plan are required.' });
     }
+    if (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Enter a valid email.' });
+    }
 
     // Validate before any Stripe call.
     const priceId = priceIdForPlan(plan);
     if (!priceId) {
-      return res.status(400).json({ success: false, error: 'Unknown plan. Use premium, pt-starter, or pt-pro.' });
+      return res.status(400).json({ success: false, error: 'Unknown plan. Use premium, premium-annual, pt-starter, or pt-pro.' });
     }
 
-    // Same response whether or not this email already has a Stripe customer
-    // or a subscription. Do not look the email up.
+    const { canonicalTrialEmail, trialHistoryForEmail } = require('./lib/trial-guard');
+    const canonical = canonicalTrialEmail(email);
+    res.set('Cache-Control', 'no-store');
+    if (await quickCheckoutEmailLimited(canonical)) {
+      return res.status(429).json({ success: false, error: QUICK_CHECKOUT_LIMITED });
+    }
+
+    const history = await trialHistoryForEmail(stripe, email);
+    if (history.live) {
+      // Never a second subscription. The sign-in link goes to the inbox.
+      const emailApi = require('./server/email.js');
+      runInBackground(emailApi.sendSignInToManageEmail(email));
+      return res.json(QUICK_CHECKOUT_SIGNIN_REPLY);
+    }
+
+    // A Checkout created here is never reused for another email, and no
+    // existing customer is attached to it (PR 21/23).
     const storage = require('./server/storage.js');
     const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
     const fingerprint = guestCheckoutFingerprint({ nonce, email, plan, ip, userAgent });
+    const trial = !history.trialUsed;
     const result = await storage.withStripeCustomerLock(`guest:${fingerprint}`, () =>
       openUnauthenticatedCheckout(stripe, {
         fingerprint,
         email,
         priceId,
         plan,
+        trial,
+        canonicalEmail: canonical,
         origin: checkoutOrigin(req),
+        successPath: '/success.html?session_id={CHECKOUT_SESSION_ID}',
+        cancelPath: quickCheckoutCancelPath(plan),
       })
     );
-
-    return res.json({ success: true, url: result.url, id: result.id });
+    const { TRIAL_USED_COPY } = require('./server/email.js');
+    return res.json({
+      success: true,
+      url: result.url,
+      id: result.id,
+      trial,
+      ...(trial ? {} : { notice: TRIAL_USED_COPY[plan] || TRIAL_USED_COPY.premium }),
+    });
   } catch (error) {
     return sendApiError(res, error, 'Quick checkout error');
   }
@@ -964,7 +1057,7 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     let expiresAt = null;
     if (live) {
       const priceId = live.items?.data[0]?.price?.id;
-      tier = PRICE_TO_TIER[priceId] || 'starter';
+      tier = tierForPriceId(priceId) || 'starter';
       const periodEnd = live.current_period_end || live.items?.data[0]?.current_period_end;
       expiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
     } else if (!liveCoach) {
@@ -1117,6 +1210,7 @@ app.get('/api/checkout/session', async (req, res) => {
       planLabel: session.metadata?.plan || null,
       paymentStatus: session.payment_status,
       guestCheckout,
+      trial: session.metadata?.trial !== '0',
     });
   } catch (e) {
     res.status(404).json({ error: 'Session not found.' });
