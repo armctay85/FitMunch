@@ -14,7 +14,7 @@ The 14-day trial is applied in code (`subscription_data.trial_period_days = 14`)
 
 The visitor types an email. The email is normalised (lower-case, +tag stripped, gmail/googlemail dots stripped) and every FitMunch customer and subscription for it is read from Stripe (all pages).
 
-- Live FitMunch subscriber (active, trialing, past_due, unpaid): `{ success, signIn: true, message: 'Check your email to sign in.' }`. A sign-in link is emailed (sent after the response with `waitUntil`). No customer, no Checkout.
+- Live FitMunch subscriber (active, trialing, past_due, unpaid): `{ success, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' }`. A sign-in link is emailed (sent after the response with `waitUntil`). No customer, no Checkout.
 - Already had a FitMunch trial: Checkout with no trial. The reply carries `notice: 'Your trial was used; Premium starts today at A$19.99 a month.'` (A$149.99 a year for yearly). The page shows it, and the visitor taps "Continue to secure checkout" to go to Stripe.
 - Otherwise: Checkout with the 14-day trial; the page redirects to Stripe at once.
 
@@ -27,7 +27,7 @@ The password is set after payment from the emailed claim link or the success pag
 
 ### Repeat cards
 
-The webhook ends a trial now (`trial_end: 'now'`) when the card fingerprint already backed a FitMunch trial on another customer (`metadata.fm_trial_card`). The welcome email then says: "This card already had a FitMunch trial, so Premium started today at A$19.99 a month (A$149.99 a year for yearly). Cancel anytime from Billing." No `trial_started` funnel event is logged.
+The webhook ends a trial now (`trial_end: 'now'`) when the card fingerprint already backed a FitMunch trial on another customer (`metadata.fm_trial_card`). The welcome email then says: "This card already had a FitMunch trial, so Premium started today at A$19.99 a month. Cancel anytime from Billing." No `trial_started` funnel event is logged.
 
 ### Normalised email on every customer
 

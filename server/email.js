@@ -56,10 +56,14 @@ const CLAIM_LINK_WINDOW_COPY = 'This link works once, within 7 days.';
 /**
  * Post-checkout welcome (Premium consumer or PT).
  */
-const REUSED_CARD_COPY = 'This card already had a FitMunch trial, so Premium started today at A$19.99 a month (A$149.99 a year for yearly). Cancel anytime from Billing.';
+const REUSED_CARD_COPY = {
+  premium: 'This card already had a FitMunch trial, so Premium started today at A$19.99 a month. Cancel anytime from Billing.',
+  'premium-annual': 'This card already had a FitMunch trial, so Premium started today at A$149.99 a year. Cancel anytime from Billing.',
+};
 
 async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl, { trial = true, trialEnded = false } = {}) {
   if (trialEnded) trial = false;
+  const reusedCopy = /year/i.test(String(planLabel || '')) ? REUSED_CARD_COPY['premium-annual'] : REUSED_CARD_COPY.premium;
   const name = customerName || 'there';
   const dashboardUrl = 'https://www.fitmunch.com.au/app.html';
   const isPt = /starter|pro/i.test(String(planLabel || '')) && !/premium/i.test(String(planLabel || ''));
@@ -101,7 +105,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
   </div>
   <div style="padding:28px">
     <p style="font-size:16px;color:#0c1210">Hi ${name},</p>
-    ${trialEnded ? `<p style="font-size:16px;color:#0c1210;line-height:1.6;font-weight:700">${REUSED_CARD_COPY}</p>` : ''}
+    ${trialEnded ? `<p style="font-size:16px;color:#0c1210;line-height:1.6;font-weight:700">${reusedCopy}</p>` : ''}
     <p style="font-size:16px;color:#5c6d64;line-height:1.6">Thanks for starting FitMunch ${label}. The loop is simple: receipt to macros to meals to the next shop.</p>
     ${attachHtml}
     <div style="background:rgba(31,157,74,0.08);border:1px solid rgba(31,157,74,0.28);padding:16px;margin:20px 0">
@@ -126,7 +130,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
 
   const bodyText = `Hi ${name},
 
-${trialEnded ? REUSED_CARD_COPY + '\n\n' : ''}Thanks for starting FitMunch ${label}. ${trial ? 'Your trial is live.' : 'Your subscription has started and your first charge is today.'}
+${trialEnded ? reusedCopy + '\n\n' : ''}Thanks for starting FitMunch ${label}. ${trial ? 'Your trial is live.' : 'Your subscription has started and your first charge is today.'}
 ${attachText}
 
 Open dashboard: ${dashboardUrl}

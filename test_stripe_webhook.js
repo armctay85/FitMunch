@@ -359,8 +359,26 @@ describe('webhook brand filter and idempotency', () => {
       delete process.env.RESEND_API_KEY;
     }
     const out = `${bodies[0].html}\n${bodies[0].text}`;
-    expect(out).toContain('This card already had a FitMunch trial, so Premium started today at A$19.99 a month (A$149.99 a year for yearly). Cancel anytime from Billing.');
+    expect(out).toContain('This card already had a FitMunch trial, so Premium started today at A$19.99 a month. Cancel anytime from Billing.');
     expect(out).not.toMatch(/Your trial has started|trial is live|No charge until the trial ends|Your trial is live/);
+  });
+
+  test('the repeat-card copy names only the plan price (QA r3 L2)', async () => {
+    process.env.RESEND_API_KEY = 'test-key';
+    const prev = global.fetch;
+    const bodies = [];
+    global.fetch = jest.fn(async (_url, opts) => { bodies.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ id: 'e1' }) }; });
+    try {
+      await emailApi.sendWelcomeEmail('m@example.com', 'M', 'Premium', undefined, { trialEnded: true });
+      await emailApi.sendWelcomeEmail('y@example.com', 'Y', 'Premium (yearly)', undefined, { trialEnded: true });
+    } finally {
+      global.fetch = prev;
+      delete process.env.RESEND_API_KEY;
+    }
+    expect(bodies[0].text).toContain('so Premium started today at A$19.99 a month. Cancel anytime from Billing.');
+    expect(bodies[0].text).not.toContain('A$149.99');
+    expect(bodies[1].text).toContain('so Premium started today at A$149.99 a year. Cancel anytime from Billing.');
+    expect(bodies[1].text).not.toContain('A$19.99');
   });
 
   test('a duplicate-sub event delivered twice cancels and refunds at most once', async () => {

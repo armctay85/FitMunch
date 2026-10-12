@@ -43,11 +43,17 @@ describe('Public Premium CTA', () => {
     expect(login.text).toContain("' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: '");
     // Wilson r2: straight to Stripe. Subscribers see the sign-in message;
     // a used trial is shown before the browser leaves for Stripe.
-    expect(login.text).toContain("d.message || 'Check your email to sign in.'");
+    expect(login.text).toContain("d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.'");
     expect(login.text).toContain("showSuccess('register-success', d.notice);");
     expect(login.text).toContain("btn.textContent = 'Continue to secure checkout';");
     expect(login.text.indexOf("showSuccess('register-success', d.notice);")).toBeLessThan(login.text.lastIndexOf('window.location.href = d.url;'));
     expect(login.text).not.toContain('We sent a secure link to');
+    // QA r3 M2: the trial-used branch drops the trial banner and date.
+    expect(login.text).toContain("intent.querySelector('div').textContent = 'PREMIUM';");
+    expect(login.text).toContain("intent.querySelectorAll('div')[1].textContent = d.notice + ' Card required. Cancel anytime from Billing.';");
+    expect(login.text).toContain("paidNote.textContent = 'Secure Stripe Checkout opens next. Your first charge is today.';");
+    // QA r3 L1: the subscriber state hides the Checkout note.
+    expect(login.text).toContain("if (signInNote) signInNote.style.display = 'none';");
     expect(login.text).toContain("'14-day free trial, then ' + priceLine");
     expect(login.text).toContain("annualBilling ? 'A$149.99 a year' : 'A$19.99 a month'");
     expect(login.text).toContain('Stripe opens');
@@ -454,6 +460,11 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
     expect(html).toContain("['successActions', 'nextSteps', 'welcomeNote']");
     expect(html).toContain('Premium has started. Your first charge is today. Set your password from the link we sent to finish your account.');
     expect(html).toContain('<a href="/login.html#new-link" style="color:#127035;font-weight:700">ask for a new link</a>');
+    // QA r3 M1: the trial block flips for a no-trial payer, with the plan's own price.
+    expect(html).toContain('<div class="info-block" id="trialBlock">');
+    expect(html).toContain("block.querySelector('h3').textContent = 'Premium has started';");
+    expect(html).toContain("const price = data.plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';");
+    expect(html).toContain("['Full access starts now', 'Your first charge (' + price + ') is today', 'Cancel anytime from Billing']");
     expect(html).toContain('Your trial has started.');
     expect(html).not.toContain('Your trial is started');
     expect(html).toContain('A$149.99 a year');

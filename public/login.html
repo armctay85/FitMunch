@@ -752,7 +752,9 @@
     leaving = true;
     ['reg-email', 'register-btn'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
     if (btn) btn.textContent = 'Check your email';
-    showSuccess('register-success', d.message || 'Check your email to sign in.');
+    const signInNote = document.getElementById('email-first-note');
+    if (signInNote) signInNote.style.display = 'none';
+    showSuccess('register-success', d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.');
     return;
    }
    if (!d.url || !/^https:\/\//.test(d.url)) throw new Error('Could not open Stripe checkout.');
@@ -760,6 +762,14 @@
    if (d.notice) {
     // Returning trial user: say so before Stripe, and let them choose to go on.
     showSuccess('register-success', d.notice);
+    // Elite QA r3 M2: no trial applies, so the banner and note must not promise one.
+    const intent = document.getElementById('premium-intent');
+    if (intent) {
+     intent.querySelector('div').textContent = 'PREMIUM';
+     intent.querySelectorAll('div')[1].textContent = d.notice + ' Card required. Cancel anytime from Billing.';
+    }
+    const paidNote = document.getElementById('email-first-note');
+    if (paidNote) paidNote.textContent = 'Secure Stripe Checkout opens next. Your first charge is today.';
     if (btn) {
      setLoading('register-btn', false);
      btn.textContent = 'Continue to secure checkout';

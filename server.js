@@ -614,7 +614,7 @@ app.get('/api/pricing/config', (_req, res) => {
 const QUICK_CHECKOUT_SIGNIN_REPLY = Object.freeze({
   success: true,
   signIn: true,
-  message: 'Check your email to sign in.',
+  message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.',
 });
 function envLimit(name, fallback) {
   const n = Number(process.env[name]);

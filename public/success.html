@@ -93,7 +93,7 @@ body.fm-body{
       </div>
       <div id="content" style="display:none">
         <div class="plan-badge" id="planName">FitMunch</div>
-        <div class="info-block">
+        <div class="info-block" id="trialBlock">
           <h3>14-day trial</h3>
           <ul>
             <li>Full access with no charge until the trial ends</li>
@@ -211,6 +211,19 @@ async function openBillingPortal(e) {
         document.getElementById('successSub').textContent = data.trial === false
           ? 'Premium has started. Your first charge is today. Set your password from the link we sent to finish your account.'
           : 'Your 14-day trial has started. Set your password from the link we sent to finish your account.';
+        if (data.trial === false) {
+          // Elite QA r3 M1: no trial applied, so the trial block must not promise one.
+          const price = data.plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';
+          const block = document.getElementById('trialBlock');
+          block.querySelector('h3').textContent = 'Premium has started';
+          const list = block.querySelector('ul');
+          list.textContent = '';
+          ['Full access starts now', 'Your first charge (' + price + ') is today', 'Cancel anytime from Billing'].forEach((t) => {
+            const li = document.createElement('li');
+            li.textContent = t;
+            list.appendChild(li);
+          });
+        }
         if (data.trial === false) document.getElementById('claimText').firstChild.textContent = document.getElementById('claimText').firstChild.textContent.replace('Your trial has started.', 'Premium has started.');
         // One "Check your email" (the hero) for guests, not two.
         ['successActions', 'nextSteps', 'welcomeNote'].forEach((id) => {

@@ -641,7 +641,7 @@ describe('unauthenticated checkout privacy', () => {
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' })
       .expect(200);
-    expect(res.body).toEqual({ success: true, signIn: true, message: 'Check your email to sign in.' });
+    expect(res.body).toEqual({ success: true, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' });
     expect(signIn).toHaveBeenCalledWith('victim@example.com');
     expect(fake.customers.create).not.toHaveBeenCalled();
     expect(fake.S.sessions).toHaveLength(0);
@@ -675,7 +675,7 @@ describe('unauthenticated checkout privacy', () => {
 
     expect(known.status).toBe(200);
     expect(unknown.status).toBe(200);
-    expect(known.body).toEqual({ success: true, signIn: true, message: 'Check your email to sign in.' });
+    expect(known.body).toEqual({ success: true, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' });
     expect(unknown.body.url).toBe(fake.S.sessions[0].url);
     expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|sub_victim|alreadySubscribed/i);
     expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|sub_victim|alreadySubscribed/i);
@@ -1224,7 +1224,7 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
     test(`a signed-out ${status} subscriber gets a sign-in email and no second subscription`, async () => {
       priorCustomer('cus_live', 'live@example.com', { status, trial_start: 1 });
       const res = await start('live@example.com').expect(200);
-      expect(res.body).toEqual({ success: true, signIn: true, message: 'Check your email to sign in.' });
+      expect(res.body).toEqual({ success: true, signIn: true, message: 'You already have FitMunch Premium on this email. We sent you a sign-in link.' });
       expect(signIn).toHaveBeenCalledWith('live@example.com');
       expect(fake.S.sessions).toHaveLength(0);
       expect(fake.customers.create).not.toHaveBeenCalled();
@@ -1449,6 +1449,13 @@ describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2
     const out = await allPages(async (q) => { seen.push(q); return pages[seen.length - 1]; }, { limit: 1 });
     expect(out.map((x) => x.id)).toEqual(['a', 'b']);
     expect(seen[1].starting_after).toBe('a');
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    let n = 0;
+    const capped = await allPages(async () => ({ data: [{ id: `p${n++}` }], has_more: true }), { limit: 1 });
+    expect(capped).toHaveLength(10);
+    expect(warn).toHaveBeenCalledWith('[trial-guard] pagination cap hit', { pages: 10, records: 10 });
+    warn.mockRestore();
 
     const stripe = {
       customers: {
