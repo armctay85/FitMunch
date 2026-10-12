@@ -49,15 +49,15 @@ const PRICE_LINE_PAGES = [
   'public/shopper.html',
   'public/budget-meal-planner.html',
   'public/for-pts.html',
-  'public/woolworths-meal-planner.html',
-  'public/coles-meal-planner.html',
+  'public/supermarket-meal-planner.html',
+  'public/grocery-meal-planner.html',
   'public/family-meal-plan.html',
   'public/macro-meal-planner.html',
   'public/meal-plan-for-one.html',
   'public/meal-prep-shopping-list.html',
   'public/fitmunch-coach-vs-spreadsheets.html',
   'public/meal-plan-software-personal-trainers.html',
-  'public/pt-client-meal-plans-woolworths.html',
+  'public/pt-client-meal-plans.html',
 ];
 
 const HEAD_WORDS = [

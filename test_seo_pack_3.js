@@ -8,12 +8,12 @@ const app = require('./server.js');
 const PAGES = [
   {
     route: '/family-meal-plan',
-    title: 'Family Meal Plan Australia | 7 Dinners, 1 Draft Trolley | FitMunch',
+    title: 'Family Meal Plan Australia | 7 Dinners | FitMunch',
     h1: 'Family meal plan: 7 dinners, 1 draft trolley',
   },
   {
     route: '/macro-meal-planner',
-    title: 'Macro Meal Planner Australia | Week From Your Targets | FitMunch',
+    title: 'Macro Meal Planner Australia | FitMunch',
     h1: 'Macro meal planner: 7 days written to your targets',
   },
   {
@@ -75,8 +75,8 @@ describe('SEO pack 3: new search landers', () => {
   });
 
   it('does not retarget pack 1 or pack 2 routes', async () => {
-    const woolies = await request(app).get('/woolworths-meal-planner').expect(200);
-    expect(woolies.text).toContain('Woolworths meal planner: a week drafted into a trolley');
+    const woolies = await request(app).get('/supermarket-meal-planner').expect(200);
+    expect(woolies.text).toContain('Supermarket meal planner: a week drafted into a trolley');
     const home = await request(app).get('/').expect(200);
     expect(home.text).not.toContain('href="/family-meal-plan"');
     expect(home.text).not.toContain('href="/macro-meal-planner"');

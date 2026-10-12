@@ -1,6 +1,6 @@
 /**
  * Stranger first haul: photograph YOUR receipt, get YOUR score and tonight's dinner.
- * Never paints a sample Woolies shop as the visitor's trolley.
+ * Never paints a sample supermarket shop as the visitor's trolley.
  */
 (function () {
   if (window.FMFirstScan) return;
