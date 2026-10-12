@@ -84,8 +84,8 @@ body.fm-body{
   <div class="success-card">
     <div class="success-head">
       <div class="brand">Fit<span>Munch</span></div>
-      <h1>You're all set.</h1>
-      <p>Your subscription is live. Time to run the grocery loop.</p>
+      <h1 id="successTitle">You're all set.</h1>
+      <p id="successSub">Your subscription is live. Time to run the grocery loop.</p>
     </div>
     <div class="success-body">
       <div id="loading" class="loading">
@@ -107,10 +107,10 @@ body.fm-body{
         </div>
         <div class="info-block" id="claimBlock" style="display:none">
           <h3>Set your password</h3>
-          <p id="claimText">Your trial is started. Check your email: we sent a link to set your password and open FitMunch. It works once, within 7 days. No email after a few minutes? Check spam, or <a href="/login.html#new-link">ask for a new link</a>.</p>
+          <p id="claimText">Your trial has started. Check your email: we sent a link to set your password and open FitMunch. It works once, within 7 days. No email after a few minutes? Check spam, or <a href="/login.html#new-link">ask for a new link</a>.</p>
           <p><a id="claimLink" class="fm-btn fm-btn-leaf" href="/login.html#login">Already have an account? Sign in</a></p>
         </div>
-        <div class="info-block">
+        <div class="info-block" id="nextSteps">
           <h3>Next steps</h3>
           <ul>
             <li>Open your dashboard</li>
@@ -118,7 +118,7 @@ body.fm-body{
             <li>Ask the AI coach grounded in your logs</li>
           </ul>
         </div>
-        <div class="actions">
+ <div class="actions" id="successActions">
           <a href="/app.html" class="fm-btn fm-btn-leaf">Go to dashboard</a>
           <a href="#" id="manageBtn" class="fm-btn fm-btn-ink" onclick="openBillingPortal(event)">Manage subscription</a>
         </div>
@@ -198,13 +198,21 @@ async function openBillingPortal(e) {
         const labels = {
           'pt-starter': 'FitMunch PT Starter · $59/mo AUD',
           'pt-pro': 'FitMunch PT Pro · $99/mo AUD',
-          'premium': 'FitMunch Premium · A$19.99/mo AUD',
-          'premium-annual': 'FitMunch Premium · A$149.99/yr AUD',
+          'premium': 'FitMunch Premium · A$19.99 a month',
+          'premium-annual': 'FitMunch Premium · A$149.99 a year',
         };
         planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
       }
       if (data.guestCheckout) {
         document.getElementById('claimBlock').style.display = 'block';
+        // A guest has no session in this browser: no dashboard or billing
+        // buttons, which would only bounce to sign-in.
+        document.getElementById('successTitle').textContent = 'Check your email';
+        document.getElementById('successSub').textContent = 'Your 14-day trial has started. Set your password from the link we sent to finish your account.';
+        ['successActions', 'nextSteps'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
       }
     }
   } catch (err) {

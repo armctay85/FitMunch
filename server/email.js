@@ -79,7 +79,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
       </ol>`;
 
   const attachHtml = claimUrl
-    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Your trial is started. Set a password to finish your FitMunch account, or sign in if you already have one. ${CLAIM_LINK_WINDOW_COPY}</p>
+    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Your trial has started. Set a password to finish your FitMunch account, or sign in if you already have one. ${CLAIM_LINK_WINDOW_COPY}</p>
     <p style="margin:20px 0">
       <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Set your password</a>
     </p>`
@@ -175,4 +175,75 @@ Support: https://www.fitmunch.com.au/support
   return sendEmail({ to: customerEmail, subject, bodyHtml, bodyText });
 }
 
-module.exports = { sendEmail, sendWelcomeEmail, sendClaimLinkEmail, CLAIM_LINK_WINDOW_COPY };
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function simpleEmail({ lead, buttonUrl, buttonLabel, footer }) {
+  const bodyHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:Georgia,serif;background:#eef2ee;padding:0;margin:0">
+<div style="max-width:560px;margin:40px auto;background:#fff;border:1px solid #cfd9d2;overflow:hidden">
+  <div style="background:#07130d;padding:28px">
+    <div style="font-family:system-ui,sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.03em">Fit<span style="color:#1f9d4a">Munch</span></div>
+  </div>
+  <div style="padding:28px">
+    ${lead.map((line) => `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escapeHtml(line)}</p>`).join('\n    ')}
+    <p style="margin:20px 0">
+      <a href="${escapeHtml(buttonUrl)}" style="display:inline-block;background:#16803c;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">${escapeHtml(buttonLabel)}</a>
+    </p>
+    <p style="font-size:14px;color:#5c6d64;line-height:1.6">${escapeHtml(footer)}</p>
+    <p style="font-size:13px;color:#8a9a91;border-top:1px solid #cfd9d2;padding-top:16px;margin-top:24px">
+      Questions? <a href="https://www.fitmunch.com.au/support" style="color:#16803c">fitmunch.com.au/support</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>`.trim();
+  const bodyText = `${lead.join('\n\n')}\n\n${buttonLabel}: ${buttonUrl}\n\n${footer}\n\nSupport: https://www.fitmunch.com.au/support\n`;
+  return { bodyHtml, bodyText };
+}
+
+const TRIAL_USED_COPY = {
+  premium: 'Your trial was used; Premium starts today at A$19.99 a month.',
+  'premium-annual': 'Your trial was used; Premium starts today at A$149.99 a year.',
+};
+
+/** Email-first trial: the Stripe Checkout link goes to the typed address only. */
+async function sendTrialCheckoutEmail(customerEmail, checkoutUrl, { plan = 'premium', trialUsed = false } = {}) {
+  const price = plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';
+  const lead = trialUsed
+    ? [TRIAL_USED_COPY[plan] || TRIAL_USED_COPY.premium, 'Open the secure Stripe page below to start Premium. After checkout we email you a link to set your password.']
+    : [`Your 14-day free trial is one step away. After the trial, Premium is ${price} from day 15. Card required. Cancel anytime before then and you pay nothing.`, 'Open the secure Stripe page below to start. After checkout we email you a link to set your password.'];
+  const { bodyHtml, bodyText } = simpleEmail({
+    lead,
+    buttonUrl: checkoutUrl,
+    buttonLabel: trialUsed ? 'Start Premium' : 'Start your 14-day free trial',
+    footer: 'This link works for 24 hours. Did not ask for this? Ignore this email and nothing happens.',
+  });
+  const subject = trialUsed ? 'Your FitMunch Premium link' : 'Start your FitMunch trial';
+  return sendEmail({ to: customerEmail, subject, bodyHtml, bodyText });
+}
+
+/** A live subscriber typed their email on the signed-out trial page. */
+async function sendSignInToManageEmail(customerEmail) {
+  const { bodyHtml, bodyText } = simpleEmail({
+    lead: ['You already have FitMunch Premium on this email, so we did not start a second subscription or trial.', 'Sign in to use FitMunch or manage your subscription from Billing.'],
+    buttonUrl: 'https://www.fitmunch.com.au/login.html#login',
+    buttonLabel: 'Sign in to manage',
+    footer: 'Forgot your password? Use "Forgot password" on the sign-in page. Did not ask for this? You can ignore this email.',
+  });
+  return sendEmail({ to: customerEmail, subject: 'Sign in to FitMunch', bodyHtml, bodyText });
+}
+
+module.exports = {
+  sendEmail,
+  sendWelcomeEmail,
+  sendClaimLinkEmail,
+  sendTrialCheckoutEmail,
+  sendSignInToManageEmail,
+  CLAIM_LINK_WINDOW_COPY,
+  TRIAL_USED_COPY,
+};

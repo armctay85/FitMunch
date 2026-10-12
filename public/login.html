@@ -70,7 +70,7 @@
  transition: border-color 0.2s;
  }
  input:focus { border-color: var(--green); }
- input::placeholder { color: var(--muted); }
+ input::placeholder { color: var(--sub); opacity: 1; }
 
  .btn {
  width: 100%; background: var(--green2); color: white;
@@ -165,8 +165,8 @@
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
  </div>
  <div id="claim-intent" class="claim-card" style="display:none">
- <div class="claim-kicker" style="color:var(--green)">Attach a purchase</div>
- <p class="claim-copy" style="color:var(--sub)">New to FitMunch? Create your account and set a password. Already have one? Sign in. Then confirm which account keeps the trial you already started. This does not start a new checkout.</p>
+ <div class="claim-kicker" style="color:var(--green)">Finish your account</div>
+ <p class="claim-copy" style="color:var(--sub)">Set a password to open FitMunch. Already have an account? Sign in instead.</p>
  <details class="claim-resend" id="claim-resend-intent">
  <summary>Link expired or used? Email me a new link</summary>
  <form onsubmit="return requestClaimLink(event, this)" novalidate>
@@ -330,7 +330,7 @@
  if (!trialNonce) trialNonce = 't_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
- let registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial') : 'Create Free Account';
+ let registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial') : 'Create Free Account';
  let pendingClaim = '';
  try {
   pendingClaim = String(window.__fmClaimToken || '');
@@ -352,9 +352,12 @@
   if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
   if (banner && plan === 'premium') {
     const priceLine = annualBilling ? 'A$149.99 a year' : 'A$19.99 a month';
+    const firstCharge = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+      .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    banner.querySelector('div').textContent = '14-day free trial';
     banner.querySelectorAll('div')[1].textContent = (emailFirst
-      ? 'Enter your email, then Stripe opens. '
-      : 'Create your account, then Stripe opens. ') + '14-day trial, then ' + priceLine + '. Card on file. Cancel before the trial ends and you are not charged.';
+      ? 'Enter your email and we send you a secure Stripe link. '
+      : 'Create your account, then Stripe opens. ') + '14-day free trial, then ' + priceLine + ' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: ' + firstCharge + '.';
   }
   if (emailFirst) {
     ['reg-name-group', 'reg-password-group'].forEach((id) => {
@@ -372,7 +375,9 @@
    const resendIntent = document.getElementById('claim-resend-intent');
    if (resendIntent) resendIntent.open = true;
   }
-  registerLabel = 'Create account';
+  registerLabel = 'Set password and open FitMunch';
+  const nameGroup = document.getElementById('reg-name-group');
+  if (nameGroup && pendingClaim) nameGroup.style.display = 'none';
   const regBtn = document.getElementById('register-btn');
   if (regBtn) regBtn.textContent = registerLabel;
  } else {
@@ -739,10 +744,14 @@
     body: JSON.stringify({ email, plan: premiumCheckoutPlan, nonce: trialNonce })
    });
    const d = await parseApiJson(r);
-   if (!d.url) throw new Error('Checkout did not open. Please try again.');
+   if (!d.success) throw new Error('Something went wrong. Please try again.');
    try { if (window.FMTrack) window.FMTrack.send('trial_email_submit', { plan: premiumCheckoutPlan }); } catch (e) {}
+   // Same answer for every email: the next step is in the inbox.
    leaving = true;
-   window.location.href = d.url;
+   ['reg-email', 'register-btn'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
+   const btn = document.getElementById('register-btn');
+   if (btn) btn.textContent = 'Check your email';
+   showSuccess('register-success', 'Check your email. We sent a secure link to ' + email + ' to continue. No email in a few minutes? Check spam.');
   } catch (error) {
    showError('register-error', error.message || 'Could not open Stripe checkout.');
   } finally {
@@ -755,7 +764,11 @@
  if (authInFlight || checkoutInFlight) return;
  if (emailFirst && !pendingClaim) return doEmailFirstTrial();
  hideMsg('register');
- const name = document.getElementById('reg-name').value.trim();
+ let name = document.getElementById('reg-name').value.trim();
+ const nameGroupEl = document.getElementById('reg-name-group');
+ if (!name && nameGroupEl && nameGroupEl.style.display === 'none') {
+   name = (document.getElementById('reg-email').value.trim().split('@')[0] || 'FitMunch member').slice(0, 60);
+ }
  const email = document.getElementById('reg-email').value.trim().toLowerCase();
  const password = document.getElementById('reg-password').value;
  if (!name || !email || !password) { showError('register-error', 'All fields are required.'); return; }

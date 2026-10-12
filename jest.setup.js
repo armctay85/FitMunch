@@ -92,4 +92,4 @@ if (!global.console) {
     error: jest.fn(),
     warn: jest.fn()
   };
-}
+}process.env.QUICK_CHECKOUT_MIN_MS = process.env.QUICK_CHECKOUT_MIN_MS || '0';

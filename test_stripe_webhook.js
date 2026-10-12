@@ -621,7 +621,8 @@ describe('guest checkout links on signup', () => {
       .post('/api/quick-checkout')
       .send({ email: 'guest.premium@example.com', plan: 'premium' });
     expect(checkout.status).toBe(200);
-    const sub = stripe.complete(checkout.body.id);
+    const sessionId = stripe.S.sessions[stripe.S.sessions.length - 1].id;
+    const sub = stripe.complete(sessionId);
     const users = installAccounts();
     const createdBefore = stripe.customers.create.mock.calls.length;
 
@@ -636,7 +637,7 @@ describe('guest checkout links on signup', () => {
     expect(user.subscriptionTier).toBe('free');
     expect(stripe.customers.create.mock.calls.length).toBe(createdBefore);
 
-    const claim = claimTokenFor(stripe, checkout.body.id);
+    const claim = claimTokenFor(stripe, sessionId);
     const claimed = await request(app)
       .post('/api/stripe/claim-guest')
       .set('Authorization', 'Bearer ' + res.body.token)

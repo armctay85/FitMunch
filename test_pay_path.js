@@ -39,11 +39,14 @@ describe('Public Premium CTA', () => {
   it('login?plan=premium is email-first when signed out, and opens checkout straight after sign-in', async () => {
     const login = await request(app).get('/login.html?plan=premium').expect(200);
     expect(login.text).toContain('Start Premium trial');
-    expect(login.text).toContain('Start the 14-day trial');
-    expect(login.text).toContain("'14-day trial, then ' + priceLine");
+    expect(login.text).toContain('Start your 14-day free trial');
+    expect(login.text).toContain("' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: '");
+    expect(login.text).toContain('Check your email. We sent a secure link to');
+    expect(login.text).not.toMatch(/window\.location\.href = d\.url;\s*\} catch \(error\) \{\s*showError\('register-error', error\.message \|\| 'Could not open Stripe checkout\.'\);\s*\} finally \{\s*authInFlight = false;\s*if \(!leaving\)/);
+    expect(login.text).toContain("'14-day free trial, then ' + priceLine");
     expect(login.text).toContain("annualBilling ? 'A$149.99 a year' : 'A$19.99 a month'");
     expect(login.text).toContain('Stripe opens');
-    expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial')");
+    expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial')");
     expect(login.text).toMatch(/await fetch\('\/api\/quick-checkout'/);
     expect(login.text).toContain('if (emailFirst && !pendingClaim) return doEmailFirstTrial();');
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);
@@ -404,5 +407,24 @@ describe('PaywallCatalog sellable filter', () => {
   it('returns an empty list instead of throwing when nothing sellable loaded', () => {
     expect(selectSellableIds(['fitmunch_weekly'])).toEqual([]);
     expect(selectSellableIds([])).toEqual([]);
+  });
+});
+
+describe('Email-first trial pages (PR 78 Shoulds)', () => {
+  it('claim link opens a Finish your account register tab', async () => {
+    const html = (await request(app).get('/login.html').expect(200)).text;
+    expect(html).toContain('Finish your account');
+    expect(html).toContain('Set a password to open FitMunch. Already have an account? Sign in instead.');
+    expect(html).toContain("if (pendingClaim && window.location.hash !== '#login') showTab('register');");
+  });
+
+  it('guest success page says Check your email and hides dashboard, billing and next steps', async () => {
+    const html = (await request(app).get('/success.html').expect(200)).text;
+    expect(html).toContain("document.getElementById('successTitle').textContent = 'Check your email';");
+    expect(html).toContain('Your 14-day trial has started. Set your password from the link we sent to finish your account.');
+    expect(html).toContain("['successActions', 'nextSteps']");
+    expect(html).toContain('Your trial has started.');
+    expect(html).not.toContain('Your trial is started');
+    expect(html).toContain('A$149.99 a year');
   });
 });

@@ -319,7 +319,7 @@ describe('checkout duplicate harness', () => {
     const second = await q().expect(200);
     fake.S.sessions.forEach((cs) => fake.complete(cs.id));
     const o = report('F quick-checkout x2', fake);
-    expect(second.body.url).toBe(first.body.url);
+    expect(second.body).toEqual(first.body);
     expect(o.customers_created).toBe(1);
     expect(o.subscriptions_live).toBe(1);
     expect(o.subscriptions_live_customers).toBe(1);
@@ -603,6 +603,16 @@ function publicCheckoutShape(res) {
 }
 
 describe('unauthenticated checkout privacy', () => {
+  function seedVictimCustomerOnly() {
+    fake.S.customers.push({
+      id: 'cus_victim',
+      email: 'victim@example.com',
+      created: 1,
+      metadata: { brand: 'wipper', product: 'wipper' },
+      invoice_settings: { default_payment_method: 'pm_saved_card' },
+    });
+  }
+
   function seedVictim() {
     fake.S.customers.push({
       id: 'cus_victim',
@@ -621,31 +631,44 @@ describe('unauthenticated checkout privacy', () => {
     });
   }
 
-  test('a stranger using an existing customer email gets a new FitMunch customer and no saved cards', async () => {
+  test('a stranger using a live subscriber email gets no checkout; the subscriber is emailed a sign-in link', async () => {
     seedVictim();
+    const emailApi = require('./server/email.js');
+    const signIn = jest.spyOn(emailApi, 'sendSignInToManageEmail').mockResolvedValue({ success: true });
+    const trialMail = jest.spyOn(emailApi, 'sendTrialCheckoutEmail').mockResolvedValue({ success: true });
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' })
       .expect(200);
+    expect(res.body).toEqual({ success: true, emailSent: true, message: 'Check your email. We sent you a secure link to continue.' });
+    expect(signIn).toHaveBeenCalledWith('victim@example.com');
+    expect(trialMail).not.toHaveBeenCalled();
+    expect(fake.customers.create).not.toHaveBeenCalled();
+    expect(fake.S.sessions).toHaveLength(0);
+    expect(JSON.stringify(res.body)).not.toMatch(/cus_victim|pm_saved_card|checkout\.stripe/);
+    expect(fake.S.subs.find((s) => s.id === 'sub_victim').status).toBe('active');
+    signIn.mockRestore();
+    trialMail.mockRestore();
+  });
 
-    expect(fake.customers.list).not.toHaveBeenCalled();
-    expect(fake.customers.search).not.toHaveBeenCalled();
+  test('a new email gets a fresh FitMunch customer, no saved cards, and the checkout link by email only', async () => {
+    seedVictimCustomerOnly();
+    const emailApi = require('./server/email.js');
+    const trialMail = jest.spyOn(emailApi, 'sendTrialCheckoutEmail').mockResolvedValue({ success: true });
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'victim@example.com', plan: 'premium' })
+      .expect(200);
+    expect(res.body.url).toBeUndefined();
+    expect(res.body.id).toBeUndefined();
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
     const created = fake.customers.create.mock.calls[0][0];
-    expect(created.email).toBe('victim@example.com');
     expect(created.metadata.brand).toBe('fitmunch');
-    expect(created.metadata.product).toBe('fitmunch');
-    expect(fake.S.customers.find((c) => c.id === 'cus_victim')).toBeTruthy();
-    expect(res.body.success).toBe(true);
-    expect(res.body.alreadySubscribed).toBeUndefined();
+    expect(created.metadata.fm_canonical_email).toBe('victim@example.com');
     expect(fake.S.sessions).toHaveLength(1);
     expect(fake.S.sessions[0].customer).not.toBe('cus_victim');
-    expect(fake.S.sessions[0].customer).toBe(fake.S.customers.find((c) => c.id !== 'cus_victim').id);
-    expect(fake.S.sessions[0].params.saved_payment_method_options).toBeUndefined();
-    expect(fake.S.sessions[0].params.allow_redisplay).toBeUndefined();
     expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/allow_redisplay|saved_payment_method|pm_saved_card|cus_victim/);
-    expect(fake.S.sessions[0].params.line_items[0].price).toBe('price_1ToYrXGMuYRuJYDrwHtvWD1c');
     expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
-    expect(fake.S.subs.find((s) => s.id === 'sub_victim').status).toBe('active');
+    expect(trialMail).toHaveBeenCalledWith('victim@example.com', fake.S.sessions[0].url, { plan: 'premium', trialUsed: false });
+    trialMail.mockRestore();
   });
 
   test('known and unknown emails get the same response shape and status', async () => {
@@ -657,13 +680,12 @@ describe('unauthenticated checkout privacy', () => {
 
     expect(publicCheckoutShape(known)).toEqual(publicCheckoutShape(unknown));
     expect(known.status).toBe(200);
-    expect(known.body.id).not.toBe(unknown.body.id);
+    expect(known.body).toEqual(unknown.body);
     expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
     expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
-    expect(fake.customers.list).not.toHaveBeenCalled();
-    expect(fake.customers.search).not.toHaveBeenCalled();
+    // The live subscriber gets a sign-in email; only the unknown email gets a customer.
     const createdEmails = fake.customers.create.mock.calls.map((call) => call[0].email).sort();
-    expect(createdEmails).toEqual(['nobody@example.com', 'victim@example.com']);
+    expect(createdEmails).toEqual(['nobody@example.com']);
     expect(fake.S.sessions.every((session) => session.customer !== 'cus_victim')).toBe(true);
   });
 
@@ -674,25 +696,22 @@ describe('unauthenticated checkout privacy', () => {
     const [first, second] = await Promise.all([send(), send()]);
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
-    expect(second.body.url).toBe(first.body.url);
-    expect(second.body.id).toBe(first.body.id);
+    expect(second.body).toEqual(first.body);
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
     expect(fake.S.sessions).toHaveLength(1);
-    expect(fake.customers.list).not.toHaveBeenCalled();
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('double@example.com'));
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).not.toEqual(expect.stringContaining('cus_'));
   });
 
-  test('a client nonce dedupes a double submit without looking up customers by email', async () => {
+  test('a client nonce dedupes a double submit and never reuses a customer found by email', async () => {
     const send = () => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', 'browser-attempt-42')
       .set('User-Agent', 'FitMunchPrivacyTest/1.0')
       .send({ email: 'nonce@example.com', plan: 'premium' });
     const [first, second] = await Promise.all([send(), send()]);
-    expect(second.body.url).toBe(first.body.url);
+    expect(second.body).toEqual(first.body);
     expect(fake.S.sessions).toHaveLength(1);
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
-    expect(fake.customers.list).not.toHaveBeenCalled();
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('browser-attempt-42'));
   });
 
@@ -864,10 +883,10 @@ describe('guest subscriptions across customers', () => {
     const send = (nonce) => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', nonce)
       .send({ email: 'guest@example.com', plan: 'premium' });
-    const first = await send('nonce-tab-a').expect(200);
-    const second = await send('nonce-tab-b').expect(200);
-    expect(first.body.id).not.toBe(second.body.id);
+    await send('nonce-tab-a').expect(200);
+    await send('nonce-tab-b').expect(200);
     expect(fake.S.sessions).toHaveLength(2);
+    expect(fake.S.sessions[0].id).not.toBe(fake.S.sessions[1].id);
     const older = fake.complete(fake.S.sessions[0].id);
     const newer = fake.complete(fake.S.sessions[1].id);
     expect(older.created).toBeLessThan(newer.created);
@@ -1045,10 +1064,10 @@ describe('guest subscriptions across customers', () => {
     const send = (email) => request(app).post('/api/quick-checkout')
       .set('Idempotency-Key', 'replayed-nonce')
       .send({ email, plan: 'premium' });
-    const first = await send('one@example.com').expect(200);
-    const second = await send('two@example.com').expect(200);
-    expect(second.body.id).not.toBe(first.body.id);
+    await send('one@example.com').expect(200);
+    await send('two@example.com').expect(200);
     expect(fake.S.sessions).toHaveLength(2);
+    expect(fake.S.sessions[0].id).not.toBe(fake.S.sessions[1].id);
     expect(fake.customers.create.mock.calls.map((call) => call[0].email).sort())
       .toEqual(['one@example.com', 'two@example.com']);
   });
@@ -1102,7 +1121,7 @@ describe('email-first trial and yearly Premium', () => {
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'first@example.com', plan: 'premium', nonce: 'ef-1' })
       .expect(200);
-    expect(res.body.url).toBeTruthy();
+    expect(res.body.emailSent).toBe(true);
     const params = fake.S.sessions[0].params;
     expect(params.success_url).toBe('https://www.fitmunch.com.au/success.html?session_id={CHECKOUT_SESSION_ID}');
     expect(params.cancel_url).toBe('https://www.fitmunch.com.au/login.html?plan=premium&cancelled=1#register');
@@ -1111,15 +1130,14 @@ describe('email-first trial and yearly Premium', () => {
     expect(params.subscription_data.trial_period_days).toBe(14);
   });
 
-  test('email-first keeps PR 23: no customer lookup by email, one customer per double submit', async () => {
+  test('a double submit makes one customer and one session, never on an existing customer', async () => {
     seedSubscriber();
     const send = () => request(app).post('/api/quick-checkout')
-      .send({ email: 'victim@example.com', plan: 'premium', nonce: 'ef-double' });
+      .send({ email: 'someone@example.com', plan: 'premium', nonce: 'ef-double' });
     const [a, b] = await Promise.all([send(), send()]);
-    expect(a.body.url).toBe(b.body.url);
-    expect(fake.customers.list).not.toHaveBeenCalled();
-    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(a.body).toEqual(b.body);
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    expect(fake.S.sessions).toHaveLength(1);
     expect(fake.S.sessions[0].params.customer).not.toBe('cus_victim');
   });
 
@@ -1175,5 +1193,150 @@ describe('email-first trial and yearly Premium', () => {
     const second = await request(app).post('/api/checkout').set('Authorization', `Bearer ${token}`).send({ plan: 'premium-annual' }).expect(200);
     expect(second.body.alreadySubscribed).toBe(true);
     expect(second.body.url).toBeNull();
+  });
+});
+
+describe('trial guard (Elite QA PR 78 M1)', () => {
+  const emailApi = require('./server/email.js');
+  const { canonicalTrialEmail } = require('./lib/trial-guard');
+  const { endReusedCardTrial } = require('./lib/stripe-webhook');
+  let signIn;
+  let trialMail;
+
+  beforeEach(() => {
+    signIn = jest.spyOn(emailApi, 'sendSignInToManageEmail').mockResolvedValue({ success: true });
+    trialMail = jest.spyOn(emailApi, 'sendTrialCheckoutEmail').mockResolvedValue({ success: true });
+  });
+  afterEach(() => {
+    signIn.mockRestore();
+    trialMail.mockRestore();
+    delete process.env.QUICK_CHECKOUT_MIN_MS;
+    process.env.QUICK_CHECKOUT_MIN_MS = '0';
+  });
+
+  function priorCustomer(id, email, sub) {
+    fake.S.customers.push({ id, email, created: 1, metadata: { brand: 'fitmunch', product: 'fitmunch' } });
+    if (sub) {
+      fake.S.subs.push({
+        id: `sub_${id}`,
+        customer: id,
+        created: 2,
+        items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+        metadata: { product: 'fitmunch', plan: 'premium' },
+        ...sub,
+      });
+    }
+  }
+
+  const start = (email) => request(app).post('/api/quick-checkout').send({ email, plan: 'premium', nonce: `n-${email}` });
+
+  test('canonical email: lower-case, no +tag, no gmail dots', () => {
+    expect(canonicalTrialEmail('Jo.Bloggs+fit@GMail.com')).toBe('jobloggs@gmail.com');
+    expect(canonicalTrialEmail('jo.bloggs@googlemail.com')).toBe('jobloggs@gmail.com');
+    expect(canonicalTrialEmail('Jo.Bloggs+x@Example.com')).toBe('jo.bloggs@example.com');
+  });
+
+  for (const status of ['active', 'trialing', 'past_due']) {
+    test(`a signed-out ${status} subscriber gets a sign-in email and no second subscription`, async () => {
+      priorCustomer('cus_live', 'live@example.com', { status, trial_start: 1 });
+      const res = await start('live@example.com').expect(200);
+      expect(res.body.emailSent).toBe(true);
+      expect(signIn).toHaveBeenCalledWith('live@example.com');
+      expect(fake.S.sessions).toHaveLength(0);
+      expect(fake.customers.create).not.toHaveBeenCalled();
+    });
+  }
+
+  const variants = [
+    ['the same email', 'used@gmail.com'],
+    ['upper-case', 'USED@GMAIL.COM'],
+    ['a plus-address', 'used+again@gmail.com'],
+    ['gmail dots', 'u.s.e.d@gmail.com'],
+  ];
+  for (const [label, email] of variants) {
+    test(`${label} after an ended trial gets no second trial`, async () => {
+      priorCustomer('cus_used', 'used@gmail.com', { status: 'canceled', trial_start: 1, trial_end: 2 });
+      await start(email).expect(200);
+      expect(fake.S.sessions).toHaveLength(1);
+      expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBeUndefined();
+      expect(trialMail).toHaveBeenCalledWith(email.trim().toLowerCase(), fake.S.sessions[0].url, { plan: 'premium', trialUsed: true });
+    });
+  }
+
+  test('trial-used email copy is exact', () => {
+    expect(emailApi.TRIAL_USED_COPY.premium).toBe('Your trial was used; Premium starts today at A$19.99 a month.');
+  });
+
+  test('another brand on the shared Stripe account does not block a FitMunch trial', async () => {
+    fake.S.customers.push({ id: 'cus_w', email: 'w@example.com', created: 1, metadata: { brand: 'wipper', product: 'wipper' } });
+    fake.S.subs.push({ id: 'sub_w', customer: 'cus_w', status: 'active', trial_start: 1, items: { data: [{ price: { id: 'price_wipper' } }] }, metadata: { product: 'wipper' } });
+    await start('w@example.com').expect(200);
+    expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
+  });
+
+  test('subscriber, used-trial and new emails get identical bodies after the same minimum time', async () => {
+    process.env.QUICK_CHECKOUT_MIN_MS = '300';
+    priorCustomer('cus_live', 'live@example.com', { status: 'active' });
+    priorCustomer('cus_used', 'used@example.com', { status: 'canceled', trial_start: 1 });
+    const timed = async (email) => {
+      const t = Date.now();
+      const res = await start(email);
+      return { res, ms: Date.now() - t };
+    };
+    const a = await timed('live@example.com');
+    const b = await timed('used@example.com');
+    const c = await timed('new@example.com');
+    expect(a.res.body).toEqual(b.res.body);
+    expect(b.res.body).toEqual(c.res.body);
+    expect([a.res.status, b.res.status, c.res.status]).toEqual([200, 200, 200]);
+    for (const t of [a, b, c]) expect(t.ms).toBeGreaterThanOrEqual(290);
+  });
+
+  test('a Stripe failure returns the same body', async () => {
+    fake.customers.list.mockRejectedValueOnce(new Error('boom'));
+    const res = await start('err@example.com').expect(200);
+    expect(res.body.emailSent).toBe(true);
+  });
+
+  test('the same card on a new customer ends the trial now', async () => {
+    fake.S.customers.push({ id: 'cus_first', email: 'a@example.com', metadata: { brand: 'fitmunch', fm_trial_card: 'fpSAME' } });
+    fake.S.customers.push({ id: 'cus_second', email: 'b@example.com', metadata: { brand: 'fitmunch' } });
+    const sub = {
+      id: 'sub_second', customer: 'cus_second', status: 'trialing',
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] }, metadata: { product: 'fitmunch' },
+      default_payment_method: { id: 'pm_2', card: { fingerprint: 'fpSAME' } },
+    };
+    fake.customers.search = jest.fn(async ({ query }) => {
+      const m = /metadata\['fm_trial_card'\]:'([^']+)'/.exec(query);
+      return { data: fake.S.customers.filter((c) => m && c.metadata && c.metadata.fm_trial_card === m[1]) };
+    });
+    fake.customers.update = jest.fn(async (id, p) => ({ id, ...p }));
+    fake.subscriptions.retrieve = jest.fn(async () => sub);
+    fake.subscriptions.update = jest.fn(async (id, p) => ({ id, ...p }));
+    const ended = await endReusedCardTrial(fake, { subscription: 'sub_second', metadata: { plan: 'premium' } }, 'premium');
+    expect(ended).toBe(true);
+    expect(fake.subscriptions.update).toHaveBeenCalledWith('sub_second', { trial_end: 'now', proration_behavior: 'none' });
+    expect(fake.customers.update).toHaveBeenCalledWith('cus_second', { metadata: { fm_trial_card: 'fpSAME', fm_trial_used: '1' } });
+  });
+
+  test('a new card keeps its trial and is recorded', async () => {
+    const sub = {
+      id: 'sub_n', customer: 'cus_n', status: 'trialing',
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] }, metadata: { product: 'fitmunch' },
+      default_payment_method: { id: 'pm_n', card: { fingerprint: 'fpNEW' } },
+    };
+    fake.customers.search = jest.fn(async () => ({ data: [] }));
+    fake.customers.update = jest.fn(async (id, p) => ({ id, ...p }));
+    fake.subscriptions.retrieve = jest.fn(async () => sub);
+    fake.subscriptions.update = jest.fn();
+    expect(await endReusedCardTrial(fake, { subscription: 'sub_n' }, 'premium')).toBe(false);
+    expect(fake.subscriptions.update).not.toHaveBeenCalled();
+    expect(fake.customers.update).toHaveBeenCalledWith('cus_n', { metadata: { fm_trial_card: 'fpNEW', fm_trial_used: '1' } });
+  });
+
+  test('Coach checkouts are not touched by the card check', async () => {
+    fake.subscriptions.retrieve = jest.fn();
+    expect(await endReusedCardTrial(fake, { subscription: 'sub_c' }, 'coach-39')).toBe(false);
+    expect(fake.subscriptions.retrieve).not.toHaveBeenCalled();
   });
 });
