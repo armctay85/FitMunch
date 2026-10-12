@@ -457,6 +457,16 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
+    try {
+      const funnel = require('./lib/funnel-events');
+      funnel.scheduleFunnelEvent(
+        funnel.accountCreatedEvent({ role, attribution: req.body.attribution }),
+        `account:${user.id}`
+      );
+    } catch (_) {
+      /* analytics must not affect sign-up */
+    }
+
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
