@@ -1255,6 +1255,42 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
     });
   }
 
+  describe('quick-checkout trial matrix: Stripe Checkout create args', () => {
+    const YEARLY = 'price_testAnnualMatrix14999';
+    const prevAnnual = process.env.STRIPE_PRICE_PREMIUM_ANNUAL;
+    beforeEach(() => { process.env.STRIPE_PRICE_PREMIUM_ANNUAL = YEARLY; });
+    afterAll(() => {
+      if (prevAnnual === undefined) delete process.env.STRIPE_PRICE_PREMIUM_ANNUAL;
+      else process.env.STRIPE_PRICE_PREMIUM_ANNUAL = prevAnnual;
+    });
+
+    const cases = [
+      ['new email', 'premium', false],
+      ['new email', 'premium-annual', false],
+      ['trial-used email', 'premium', true],
+      ['trial-used email', 'premium-annual', true],
+    ];
+    for (const [who, plan, used] of cases) {
+      test(`${who} on ${plan}: price matches plan, trial_period_days ${used ? 'absent' : '14'}`, async () => {
+        const email = `${used ? 'used' : 'fresh'}-${plan}@example.com`;
+        if (used) priorCustomer(`cus_${plan}`, email, { status: 'canceled', trial_start: 1, trial_end: 2 });
+        const res = await request(app).post('/api/quick-checkout').send({ email, plan, nonce: `m-${email}` }).expect(200);
+        expect(fake.S.sessions).toHaveLength(1);
+        const params = fake.S.sessions[0].params;
+        expect(params.mode).toBe('subscription');
+        expect(params.line_items).toHaveLength(1);
+        expect(params.line_items[0].price).toBe(plan === 'premium' ? PRICE_IDS.premium : YEARLY);
+        if (used) {
+          expect(Object.prototype.hasOwnProperty.call(params.subscription_data, 'trial_period_days')).toBe(false);
+          expect(params.metadata.trial).toBe('0');
+          expect(res.body.trial).toBe(false);
+        } else {
+          expect(params.subscription_data.trial_period_days).toBe(14);
+        }
+      });
+    }
+  });
+
   test('trial-used email copy is exact', () => {
     expect(emailApi.TRIAL_USED_COPY.premium).toBe('Your trial was used; Premium starts today at A$19.99 a month.');
   });
