@@ -125,49 +125,64 @@ describe('S3 whitespace-only keys count as missing', () => {
   });
 });
 
-describe('S2 exception: billing and quota 4xx log the message', () => {
+describe('S2 exception: billing and quota 4xx log only the fixed phrase', () => {
   const run = async (status, body) => {
     const ai = load({ ANTHROPIC_API_KEY: 'ant-test' });
     next = { status, body };
     await ai.chat({ messages: [{ role: 'user', content: 'hi' }], route: '/ai/chat' });
     return errOf(logs[0]);
   };
+  const XAI = 'Your team has used all available credits';
   it.each([
-    'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
-    'You have no credits remaining. Add credits to continue using the API.',
-    'You exceeded your current quota, please check your plan and billing details.',
-    'Your team f24645b4-4437-42f5-83e8-92c9d493510a has either used all available credits or reached its monthly spending limit.',
-  ])('logs provider billing message: %s', async (msg) => {
-    // The S1 redactions replace the xAI team UUID; the rest of the text is kept.
-    const want = msg.replace('f24645b4-4437-42f5-83e8-92c9d493510a', '[redacted]');
+    ['Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.', 'Your credit balance is too low'],
+    ['You have no credits remaining. Add credits to continue using the API.', 'You have no credits remaining'],
+    ['You exceeded your current quota, please check your plan and billing details.', 'You exceeded your current quota'],
+    ['Your team f24645b4-4437-42f5-83e8-92c9d493510a has either used all available credits or reached its monthly spending limit.', XAI],
+    ['Your team abc reached its monthly spending limit.', XAI],
+    ['Your team abc used all available credits.', XAI],
+  ])('400 %s logs only the phrase', async (msg, want) => {
     expect(await run(400, { type: 'error', error: { type: 'invalid_request_error', message: msg } })).toBe(want);
   });
-  it('xAI team message with only spending limit is logged', async () => {
-    const msg = 'Your team abc has reached its monthly spending limit.';
-    expect(await run(400, { error: { type: 'invalid_request_error', message: msg } })).toBe(msg);
+  it.each([401, 403, 404, 408, 429])('%i billing message logs only the phrase', async (status) => {
+    const msg = 'Your team f24645b4-4437-42f5-83e8-92c9d493510a has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit.';
+    expect(await run(status, { error: { message: msg } })).toBe(XAI);
+  });
+  it('403 non-billing message is still logged as before', async () => {
+    expect(await run(403, { error: { message: 'Forbidden: key lacks model access' } })).toBe('Forbidden: key lacks model access');
   });
   it('leading whitespace before a provider phrase is allowed', async () => {
-    const e = await run(400, { error: { type: 'invalid_request_error', message: '  You have no credits remaining.' } });
-    expect(e).toContain('You have no credits remaining.');
+    expect(await run(400, { error: { type: 'invalid_request_error', message: '  You have no credits remaining.' } })).toBe('You have no credits remaining');
   });
   it.each([
     ['echoed user text mentioning credit', 'Invalid input: my credit card is 4111 and my quota and billing are wrong'],
     ['phrase mid-string', 'Invalid prompt: Your credit balance is too low to access the Anthropic API.'],
     ['xAI team prefix without keyword', 'Your team abc sent a malformed request body.'],
+    ['xAI keyword not at start', 'Prompt said: Your team abc has either used all available credits'],
+    ['xAI "has reached" is not the anchored form', 'Your team abc has reached its monthly spending limit.'],
+    ['spending limit phrase not after Your team', 'I reached its monthly spending limit yesterday'],
     ['lowercase phrase (case-sensitive match)', 'your credit balance is too low to access the Anthropic API.'],
   ])('%s logs type and code only', async (_label, msg) => {
     expect(await run(400, { error: { type: 'invalid_request_error', code: 'bad_input', message: msg } })).toBe('invalid_request_error bad_input');
   });
-  it('logs the message when type is billing_error', async () => {
-    expect(await run(402, { type: 'error', error: { type: 'billing_error', message: 'Account suspended pending payment.' } }))
-      .toBe('Account suspended pending payment.');
+  it('billing_error type logs only billing_error', async () => {
+    expect(await run(402, { type: 'error', error: { type: 'billing_error', message: 'Account suspended for Jane Citizen, card 4111.' } })).toBe('billing_error');
   });
-  it('billing message with a key-like string is still redacted and capped', async () => {
+  describe('provider message that echoes the prompt', () => {
+    const PROMPT = "I am 54kg, pregnant, type 2 diabetic, my name is Jane Citizen";
+    it.each([
+      [400, `Your credit balance is too low. Your request: '${PROMPT}'`, 'Your credit balance is too low'],
+      [429, `You exceeded your current quota for prompt '${PROMPT}'`, 'You exceeded your current quota'],
+      [403, `Your team abc has either used all available credits. Prompt: ${PROMPT}`, XAI],
+    ])('%i logs nothing beyond the fixed phrase', async (status, msg, want) => {
+      const e = await run(status, { error: { type: 'invalid_request_error', message: msg } });
+      expect(e).toBe(want);
+      expect(logs.join('\n')).not.toMatch(/54kg|pregnant|Jane Citizen|Your request|Prompt:/);
+    });
+  });
+  it('a key after the phrase never reaches the log', async () => {
     const key = 'sk-ant-api03-' + 'A'.repeat(40);
     const e = await run(400, { error: { type: 'invalid_request_error', message: `Your credit balance is too low for key ${key}. ` + 'x'.repeat(300) } });
-    expect(e).toMatch(/credit balance is too low/);
-    expect(e).not.toContain(key);
-    expect(e).not.toMatch(/AAAAAAAAAAAAAAAAAAAA/);
-    expect(e.length).toBeLessThanOrEqual(200);
+    expect(e).toBe('Your credit balance is too low');
+    expect(logs.join('\n')).not.toContain('sk-ant');
   });
 });
