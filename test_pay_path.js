@@ -44,9 +44,9 @@ describe('Public Premium CTA', () => {
     // Wilson r2: straight to Stripe. Subscribers see the sign-in message;
     // a used trial is shown before the browser leaves for Stripe.
     expect(login.text).toContain("d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.'");
-    expect(login.text).toContain("showSuccess('register-success', d.notice);");
+    expect(login.text).not.toContain("showSuccess('register-success', d.notice);");
     expect(login.text).toContain("btn.textContent = 'Continue to secure checkout';");
-    expect(login.text.indexOf("showSuccess('register-success', d.notice);")).toBeLessThan(login.text.lastIndexOf('window.location.href = d.url;'));
+    expect(login.text.indexOf("d.notice + ' Card required.")).toBeLessThan(login.text.lastIndexOf('window.location.href = d.url;'));
     expect(login.text).not.toContain('We sent a secure link to');
     // QA r3 M2: the trial-used branch drops the trial banner and date.
     expect(login.text).toContain("intent.querySelector('div').textContent = 'PREMIUM';");

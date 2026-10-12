@@ -490,6 +490,9 @@ footer{
   .hero-ctas{display:flex;max-width:none}
 }
 @media(max-width:860px){
+  /* The fold is 100svh tall; bottom-aligning the hero left an empty dark band above the H1 on phones. */
+  .fold{min-height:auto}
+  .hero{align-items:flex-start;padding-top:24px}
   .nav-links a:not(.nav-cta):not([data-fm-auth="login"]){display:none}
   .beats{grid-template-columns:1fr}
   .beat{border-right:0;border-bottom:1px solid var(--line);padding:22px 0}

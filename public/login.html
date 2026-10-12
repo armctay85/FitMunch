@@ -754,6 +754,9 @@
     if (btn) btn.textContent = 'Check your email';
     const signInNote = document.getElementById('email-first-note');
     if (signInNote) signInNote.style.display = 'none';
+    // The trial banner does not apply to a member who already has Premium.
+    const signInIntent = document.getElementById('premium-intent');
+    if (signInIntent) signInIntent.style.display = 'none';
     showSuccess('register-success', d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.');
     return;
    }
@@ -761,7 +764,6 @@
    leaving = true;
    if (d.notice) {
     // Returning trial user: say so before Stripe, and let them choose to go on.
-    showSuccess('register-success', d.notice);
     // Elite QA r3 M2: no trial applies, so the banner and note must not promise one.
     const intent = document.getElementById('premium-intent');
     if (intent) {
