@@ -54,7 +54,7 @@ const ORIG = { ...process.env };
 let logs; let store;
 function load(env = {}) {
   jest.resetModules();
-  for (const k of ['XAI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'SMOKE_ACCOUNT_EMAILS', 'SMOKE_ACCOUNT_IDS', 'SMOKE_DAILY_AI_CAP', 'AI_FREE_MONTHLY_LIMIT']) delete process.env[k];
+  for (const k of ['XAI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'SMOKE_ACCOUNT_IDS', 'SMOKE_DAILY_AI_CAP', 'AI_FREE_MONTHLY_LIMIT']) delete process.env[k];
   Object.assign(process.env, env);
   store = fakeStore();
   const usage = require('./lib/ai-usage');
@@ -232,5 +232,17 @@ describe('token recording is off the response path', () => {
     const r = await ai.chat({ messages: MSG, route: '/ai/chat' });
     expect(r.ok).toBe(true);
     expect(logs[0]).toBe('ai_provider=xai route=/ai/chat ok=true status=200 tokens_in=1 tokens_out=1');
+  });
+});
+
+describe('token recording survives the response (waitUntil)', () => {
+  it('hands the recordTokens promise to @vercel/functions waitUntil', async () => {
+    const waitUntil = jest.fn();
+    jest.doMock('@vercel/functions', () => ({ waitUntil }));
+    const { ai } = load({ XAI_API_KEY: 'k' });
+    await ai._logAiCallForTests('xai', '/ai/chat', true, 200, null, { promptTokens: 3, completionTokens: 4 });
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(waitUntil.mock.calls[0][0]).toBeInstanceOf(Promise);
+    jest.dontMock('@vercel/functions');
   });
 });
