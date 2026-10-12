@@ -46,6 +46,7 @@
 <p><strong>Receipt data:</strong> when you scan a receipt, the photo is sent to xAI or OpenAI to extract item names, quantities, and prices (see section 3). FitMunch does not keep the original receipt photo on our servers after the scan response. Extracted item and nutrition data may stay with your account if you save a meal, plan, or log.</p>
 <p><strong>Food and nutrition data:</strong> meals you log, foods you add to your pantry, shopping lists you create, meal plans you build, and nutrition preferences you set.</p>
 <p><strong>Usage data:</strong> pages visited and features used, to improve FitMunch, and a count of your coach chat, meal plan, receipt scan, daily tip, weekly review and workout plan uses, stored with your account to apply plan limits.</p>
+<p><strong>Website analytics:</strong> Vercel Web Analytics counts page views without cookies and without identifying you. Vercel is based in the United States.</p>
 <p><strong>PT/client relationship data:</strong> if you connect with a personal trainer through FitMunch, your trainer may view shared nutrition and meal plan data you've opted into sharing.</p>
 
 <h2>2. How we use your data</h2>
@@ -88,7 +89,7 @@
 <p>These providers process the data to return the answer to FitMunch, under the terms that cover their developer services. For how each provider handles data, see the links above.</p>
 
 <h3>Where your data goes</h3>
-<p>xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. Your account and food data are stored in FitMunch's database, which Neon hosts in the United States (US East). Stripe (payments), Resend (email), RevenueCat (in-app subscriptions), Apple (App Store purchases) and Google (web fonts) may also process your data in the United States. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
+<p>xAI, OpenAI and Anthropic are based in the United States. Your requests may be processed in the United States and in other countries where these providers or their service providers operate. Your account and food data are stored in FitMunch's database, which Neon hosts in the United States (US East). Stripe (payments), Resend (email), RevenueCat (in-app subscriptions), Apple (App Store purchases), Google (web fonts) and Vercel (website analytics) may also process your data in the United States. FitMunch's own server functions run in Vercel's Sydney region in Australia.</p>
 
 <h3>Your choice</h3>
 <p>In the FitMunch app, before the first of these features sends anything, we ask you once for your account, with Allow and Not now. We only send your data to an AI provider after you tap Allow. If you tap Not now, the AI features stay off and the rest of the app keeps working. You can change your choice and turn AI features off at any time under Me &gt; Privacy.</p>
@@ -161,5 +162,8 @@
   </div>
 </footer>
 
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
+window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
