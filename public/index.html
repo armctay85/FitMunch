@@ -48,7 +48,7 @@ body{
 h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve,.lander-card a{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
 }
-.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list b,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
 /* FIRST FOLD: studio product sheet. Price only in this thin bar. */
 .fold{
@@ -160,15 +160,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   font-size:.86rem;line-height:1.45;color:#1c2420;
 }
 .phone-list{list-style:none;border-top:1px solid #e4dccf}
-.phone-list li{
-  display:grid;grid-template-columns:4.6rem 1fr auto;gap:10px;align-items:center;
-  padding:12px 16px;border-bottom:1px solid #ece6db;
-}
-.phone-list b{
-  display:inline-block;
-  font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:#136b31;background:#e4efe6;padding:4px 6px;border-radius:2px;text-align:center;
-}
+.phone-list li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #ece6db}
 .phone-list strong{
   display:block;font-size:.95rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
 }
@@ -573,17 +565,14 @@ footer{
         <p class="sheet-body">From the meals you lock. You take this list.</p>
         <ol class="phone-list">
           <li>
-            <b>Woolies</b>
             <strong>Chicken 1kg</strong>
             <span class="src">list</span>
           </li>
           <li>
-            <b>Coles</b>
             <strong>Eggs x12</strong>
             <span class="src">last shop</span>
           </li>
           <li>
-            <b>Aldi</b>
             <strong>Oats</strong>
             <span class="src">body</span>
           </li>
@@ -626,9 +615,9 @@ footer{
       <h3>Commit to the week. We write the trolley; you check out.</h3>
       <p>You approve the plan. FitMunch writes the list. You check out at the supermarket.</p>
       <div class="trolley-draft" aria-label="Draft trolley, sample week">
-        <div class="row"><span>Woolies · chicken 1kg</span><span class="row-val">list</span></div>
-        <div class="row"><span>Coles · eggs x12</span><span class="row-val">last shop</span></div>
-        <div class="row"><span>Aldi · oats</span><span class="row-val">body need</span></div>
+        <div class="row"><span>Chicken 1kg</span><span class="row-val">list</span></div>
+        <div class="row"><span>Eggs x12</span><span class="row-val">last shop</span></div>
+        <div class="row"><span>Oats</span><span class="row-val">body need</span></div>
       </div>
       <p class="butler-note">Approve is the plan, not a supermarket checkout. FitMunch is a web app today.</p>
     </aside>
@@ -644,7 +633,7 @@ footer{
     <div class="lander-grid">
       <article class="lander-card">
         <a href="/ai-meal-planner-australia">AI meal planner Australia</a>
-        <p>Receipt-first week plans from Woolies, Coles or Aldi, in AUD and grams.</p>
+        <p>Receipt-first week plans from the supermarket, in AUD and grams.</p>
       </article>
       <article class="lander-card">
         <a href="/budget-meal-planner">Budget high-protein weeks</a>
@@ -659,14 +648,14 @@ footer{
         <p>Photograph the receipt. Get macros and the next plan.</p>
       </article>
     </div>
-    <p class="landers-proof">Worked Woolies example: <a href="/haul-teardown">haul teardown</a>.</p>
+    <p class="landers-proof">Worked supermarket example: <a href="/haul-teardown">haul teardown</a>.</p>
   </div>
 </section>
 
 <section class="trust" aria-label="Product proof">
   <div class="trust-inner">
-    <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph Woolworths, Coles, Aldi or IGA paper. The score is from that trolley.</div>
-    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a labelled Woolies example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
+    <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph any supermarket receipt. The score is from that trolley.</div>
+    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a labelled supermarket example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
     <div class="trust-item"><strong>Premium trial</strong>14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
     <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
   </div>
@@ -676,7 +665,7 @@ footer{
   <div class="first-scan-inner">
     <div class="first-scan-head">
       <h2>After the shop.</h2>
-      <p>A receipt closes what you actually bought. It is not the first screen. Photograph Woolies, Coles, Aldi or IGA paper. FitMunch scores that haul from the lines it found. The Woolies card further down is a worked example, not a demo shop.</p>
+      <p>A receipt closes what you actually bought. It is not the first screen. Photograph any supermarket receipt. FitMunch scores that haul from the lines it found. The sample card further down is a worked example, not a demo shop.</p>
     </div>
     <div class="fs-grid">
       <div class="fs-card">
@@ -703,7 +692,7 @@ footer{
       <div class="fs-card">
         <div data-fs-loading hidden class="fs-empty" style="display:none">Reading your receipt…</div>
         <div data-fs-empty class="fs-empty">
-          Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled from the sample Woolies shop.
+          Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled from the sample supermarket shop.
         </div>
         <div data-fs-results hidden style="display:none">
           <div class="fs-result-head">
@@ -734,12 +723,12 @@ footer{
   <div class="proof-inner">
     <div class="proof-copy">
       <h2>One haul. Clear numbers.</h2>
-      <p>Worked example, not a live scan of your trolley. A sample Woolies shop scored 92 with 987g protein.</p>
+      <p>Worked example, not a live scan of your trolley. A sample supermarket shop scored 92 with 987g protein.</p>
       <a class="btn btn-leaf" href="#first-scan" data-fm-track="proof_scan_mine">Score your own shop</a>
     </div>
-    <div class="receipt" id="proof-device" aria-label="Example haul score from Woolworths">
+    <div class="receipt" id="proof-device" aria-label="Example haul score from the supermarket">
       <div class="device-top">
-        <span class="device-store">WOOLWORTHS</span>
+        <span class="device-store">SUPERMARKET</span>
         <span>22 items</span>
       </div>
       <div class="haul">
@@ -791,7 +780,7 @@ footer{
         <a class="btn btn-ink" href="/login.html?utm_source=homepage&utm_medium=pricing&utm_campaign=free_signup#register" data-fm-auth="register">Start free</a>
       </article>
     </div>
-    <p style="margin-top:18px;font-size:.9rem;color:var(--mute)">See a worked Woolies example: <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">haul teardown</a>.</p>
+    <p style="margin-top:18px;font-size:.9rem;color:var(--mute)">See a worked supermarket example: <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">haul teardown</a>.</p>
   </div>
 </section>
 

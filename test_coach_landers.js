@@ -8,17 +8,17 @@ const app = require('./server.js');
 const PAGES = [
   {
     route: '/meal-plan-software-personal-trainers',
-    title: 'Meal Plan Software for Personal Trainers | 7-Day Client Plans | FitMunch Coach',
+    title: 'Meal Plan Software for Personal Trainers | FitMunch',
     h1: 'Meal plan software for personal trainers: one client, one week, one draft list',
   },
   {
-    route: '/pt-client-meal-plans-woolworths',
-    title: 'PT Client Meal Plans for Woolworths | 7-Day Client Plans | FitMunch Coach',
-    h1: 'PT client meal plans for Woolworths: 7 days, then a draft list',
+    route: '/pt-client-meal-plans',
+    title: 'PT Client Meal Plans for Supermarket Shopping | FitMunch',
+    h1: 'PT client meal plans for supermarket shopping: 7 days, then a draft list',
   },
   {
     route: '/fitmunch-coach-vs-spreadsheets',
-    title: 'FitMunch Coach vs Spreadsheets | Client Meal Plans Without the Grid',
+    title: 'FitMunch Coach vs Spreadsheets | Client Meal Plans',
     h1: 'FitMunch Coach vs spreadsheets: the week, the list, and the share link',
   },
 ];

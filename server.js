@@ -348,12 +348,23 @@ app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
 app.get('/try', (req, res) => res.redirect(301, '/demo'));
 // SEO pack 2 landers (new routes only)
-app.get('/woolworths-meal-planner', (req, res) => res.sendFile('woolworths-meal-planner.html', { root: 'public' }));
-app.get('/coles-meal-planner', (req, res) => res.sendFile('coles-meal-planner.html', { root: 'public' }));
+// Store names are out of marketing slugs (Wilson, PR 76). Old URLs 301 here and in vercel.json.
+app.get('/supermarket-meal-planner', (req, res) => res.sendFile('supermarket-meal-planner.html', { root: 'public' }));
+app.get('/grocery-meal-planner', (req, res) => res.sendFile('grocery-meal-planner.html', { root: 'public' }));
+for (const [from, to] of [
+  ['/woolworths-meal-planner', '/supermarket-meal-planner'],
+  ['/coles-meal-planner', '/grocery-meal-planner'],
+  ['/pt-client-meal-plans-woolworths', '/pt-client-meal-plans'],
+]) {
+  app.get([from, `${from}.html`], (req, res) => res.redirect(301, to + (req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '')));
+}
 app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shopping-list.html', { root: 'public' }));
+app.get('/high-protein-shopping-list', (req, res) => res.sendFile('high-protein-shopping-list.html', { root: 'public' }));
+app.get('/budget-meal-plan', (req, res) => res.sendFile('budget-meal-plan.html', { root: 'public' }));
+app.get('/ai-meal-plan-shopping-list', (req, res) => res.sendFile('ai-meal-plan-shopping-list.html', { root: 'public' }));
 // FitMunch Coach landers. Trial CTA is /for-pts#coach until Coach checkout exists.
 app.get('/meal-plan-software-personal-trainers', (req, res) => res.sendFile('meal-plan-software-personal-trainers.html', { root: 'public' }));
-app.get('/pt-client-meal-plans-woolworths', (req, res) => res.sendFile('pt-client-meal-plans-woolworths.html', { root: 'public' }));
+app.get('/pt-client-meal-plans', (req, res) => res.sendFile('pt-client-meal-plans.html', { root: 'public' }));
 app.get('/fitmunch-coach-vs-spreadsheets', (req, res) => res.sendFile('fitmunch-coach-vs-spreadsheets.html', { root: 'public' }));
 // SEO pack 3 landers (new routes only; do not retarget pack 1 or pack 2)
 app.get('/family-meal-plan', (req, res) => res.sendFile('family-meal-plan.html', { root: 'public' }));

@@ -15,9 +15,12 @@
     '/shopper': 'shopper',
     '/receipt-nutrition-scanner': 'receipt-nutrition-scanner',
     '/haul-teardown': 'haul-teardown',
-    '/woolworths-meal-planner': 'woolworths-meal-planner',
-    '/coles-meal-planner': 'coles-meal-planner',
-    '/meal-prep-shopping-list': 'meal-prep-shopping-list'
+    '/supermarket-meal-planner': 'supermarket-meal-planner',
+    '/grocery-meal-planner': 'grocery-meal-planner',
+    '/meal-prep-shopping-list': 'meal-prep-shopping-list',
+    '/high-protein-shopping-list': 'high-protein-shopping-list',
+    '/budget-meal-plan': 'budget-meal-plan',
+    '/ai-meal-plan-shopping-list': 'ai-meal-plan-shopping-list'
   };
 
   function sid() {

@@ -120,17 +120,17 @@
       "count": 1
     },
     {
-      "file": "public/coles-meal-planner.html",
+      "file": "public/grocery-meal-planner.html",
       "id": "specials",
       "count": 17
     },
     {
-      "file": "public/coles-meal-planner.html",
+      "file": "public/grocery-meal-planner.html",
       "id": "catalogue",
       "count": 15
     },
     {
-      "file": "public/coles-meal-planner.html",
+      "file": "public/grocery-meal-planner.html",
       "id": "shelf-price",
       "count": 1
     },
@@ -280,17 +280,17 @@
       "count": 1
     },
     {
-      "file": "public/pt-client-meal-plans-woolworths.html",
+      "file": "public/pt-client-meal-plans.html",
       "id": "specials",
       "count": 18
     },
     {
-      "file": "public/pt-client-meal-plans-woolworths.html",
+      "file": "public/pt-client-meal-plans.html",
       "id": "catalogue",
       "count": 15
     },
     {
-      "file": "public/pt-client-meal-plans-woolworths.html",
+      "file": "public/pt-client-meal-plans.html",
       "id": "shelf-price",
       "count": 4
     },
@@ -320,22 +320,22 @@
       "count": 6
     },
     {
-      "file": "public/woolworths-meal-planner.html",
+      "file": "public/supermarket-meal-planner.html",
       "id": "specials",
       "count": 12
     },
     {
-      "file": "public/woolworths-meal-planner.html",
+      "file": "public/supermarket-meal-planner.html",
       "id": "catalogue",
       "count": 17
     },
     {
-      "file": "public/woolworths-meal-planner.html",
+      "file": "public/supermarket-meal-planner.html",
       "id": "cheap",
       "count": 12
     },
     {
-      "file": "public/woolworths-meal-planner.html",
+      "file": "public/supermarket-meal-planner.html",
       "id": "shelf-price",
       "count": 3
     }
@@ -363,7 +363,7 @@
     "budget-meal-planner.html",
     "coach-upgrade.html",
     "coach.html",
-    "coles-meal-planner.html",
+    "grocery-meal-planner.html",
     "contact.html",
     "css/fm-coach-fonts.css",
     "css/fm-coach-shell.css",
@@ -403,7 +403,7 @@
     "meal-prep-shopping-list.html",
     "pricing.html",
     "privacy.html",
-    "pt-client-meal-plans-woolworths.html",
+    "pt-client-meal-plans.html",
     "receipt-nutrition-scanner.html",
     "refund.html",
     "robots.txt",
@@ -413,7 +413,10 @@
     "success.html",
     "support.html",
     "terms.html",
-    "woolworths-meal-planner.html"
+    "supermarket-meal-planner.html",
+    "high-protein-shopping-list.html",
+    "budget-meal-plan.html",
+    "ai-meal-plan-shopping-list.html"
   ],
   "denyNames": [
     "(^|/)deploy\\.js$",
