@@ -460,7 +460,8 @@ router.post('/auth/register', async (req, res) => {
     try {
       const funnel = require('./lib/funnel-events');
       funnel.scheduleFunnelEvent(
-        funnel.accountCreatedEvent({ role, attribution: req.body.attribution }),
+        // Register stores consumers as role 'client'; only a PT-invited client has a ptId.
+        funnel.accountCreatedEvent({ role: role === 'client' && !ptId ? 'consumer' : role, attribution: req.body.attribution }),
         `account:${user.id}`
       );
     } catch (_) {

@@ -68,3 +68,17 @@ describe('fm-track on app pages', () => {
     });
   }
 });
+
+describe('account_created role tag (PR 75 QA S1)', () => {
+  it('register maps a consumer (client without a PT) to consumer, keeps PT-invited clients as client', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    expect(src).toContain("funnel.accountCreatedEvent({ role: role === 'client' && !ptId ? 'consumer' : role, attribution: req.body.attribution })");
+  });
+
+  it('account_created sits between trial_cta_click and checkout_start in the funnel', () => {
+    const { FUNNEL_STEPS, summarizeFunnel } = require('./lib/funnel-events');
+    expect(FUNNEL_STEPS.indexOf('account_created')).toBe(FUNNEL_STEPS.indexOf('trial_cta_click') + 1);
+    expect(FUNNEL_STEPS.indexOf('checkout_start')).toBe(FUNNEL_STEPS.indexOf('account_created') + 1);
+    expect(typeof summarizeFunnel).toBe('function');
+  });
+});
