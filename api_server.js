@@ -1270,7 +1270,29 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'chat' });
+    const textOf = (c) => (Array.isArray(c)
+      ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
+      : String(c ?? '')).trim();
+    const safeMessages = (Array.isArray(messages) ? messages : [])
+      .slice(-20)
+      .map((m) => ({
+        role: m && m.role === 'assistant' ? 'assistant' : 'user',
+        content: textOf(m && m.content).slice(0, 4000),
+      }))
+      .filter((m) => m.content.length);
+
+    // Validate before any credit is charged: there must be a user message.
+    if (!safeMessages.some((m) => m.role === 'user')) {
+      return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
+
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false,
@@ -1281,17 +1303,6 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    const safeMessages = (Array.isArray(messages) ? messages : [])
-      .slice(-20)
-      .map((m) => ({
-        role: m && m.role === 'assistant' ? 'assistant' : 'user',
-        content: String((m && m.content) || '').slice(0, 4000),
-      }))
-      .filter((m) => m.content.length);
-
-    if (safeMessages.length === 0) {
-      return res.status(400).json({ success: false, error: 'At least one message is required.' });
-    }
 
     // Profile + client-supplied context block appended as a system addendum.
     const profileBits = [
@@ -1319,6 +1330,9 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       route: '/ai/chat',
     });
 
+    if (!r.ok && r.error === 'no_user_message') {
+      return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
@@ -1340,7 +1354,21 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 // ── AI USAGE (for the client to render remaining count) ───────────────────────
 router.get('/ai/usage', authMiddleware, async (req, res) => {
   try {
-    const used = await aiUsage.getUsed(String(req.user.userId));
+    const userId = String(req.user.userId);
+    if (aiUsage.isSmokeAccount({ userId })) {
+      const limit = aiUsage.smokeDailyCap();
+      const used = await aiUsage.smokeUsedToday(userId);
+      return res.json({
+        success: true,
+        used,
+        limit,
+        remaining: used === null ? null : Math.max(0, limit - used),
+        tier: 'smoke',
+        period: 'day',
+        day: aiUsage.sydneyDay(),
+      });
+    }
+    const used = await aiUsage.getUsed(userId);
     const limit = aiUsage.freeMonthlyLimit();
     let tier = 'free';
     try {
