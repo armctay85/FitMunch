@@ -23,3 +23,12 @@ describe('trial-used and subscriber screens, homepage fold (post PR 78)', () => 
     expect(mobile).toMatch(/^@media\(max-width:860px\)\{[\s\S]*?\.fold\{min-height:auto\}\s*\.hero\{align-items:flex-start;padding-top:24px\}/);
   });
 });
+
+describe('pricing page meta description', () => {
+  it('is exact, and no og/twitter description drifts from it', () => {
+    const html = read('pricing.html');
+    expect(html).toContain('<meta name="description" content="FitMunch pricing: Premium A$19.99 a month with a 14-day trial, free plan, and Coach plans for personal trainers."/>');
+    const og = html.match(/<meta[^>]+(?:og|twitter):description[^>]+content="([^"]*)"/g) || [];
+    for (const tag of og) expect(tag).toContain('FitMunch pricing: Premium A$19.99 a month with a 14-day trial, free plan, and Coach plans for personal trainers.');
+  });
+});
