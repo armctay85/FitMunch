@@ -63,10 +63,11 @@ describe('funnel event helper', () => {
     delete process.env.DATABASE_URL;
   });
 
-  it('names the four drop-off steps in order', () => {
+  it('names the five drop-off steps in order', () => {
     expect(FUNNEL_STEPS).toEqual([
       'landing_page_view',
       'trial_cta_click',
+      'account_created',
       'checkout_start',
       'trial_started',
     ]);
@@ -205,7 +206,7 @@ describe('funnel event helper', () => {
     expect(trialStartedEvent({ plan: 'nope', source: 'webhook', email: 'x@y.z' }).eventData.plan).toBeUndefined();
   });
 
-  it('rolls the four steps up and splits landing views by page', () => {
+  it('rolls the five steps up and splits landing views by page', () => {
     const summary = summarizeFunnel([
       { eventType: 'landing_page_view', sessionId: 's_1', eventData: { page: 'home', step: 'landing_page_view' } },
       { eventType: 'landing_page_view', sessionId: 's_1', eventData: { page: 'shopper', step: 'landing_page_view' } },
@@ -218,6 +219,7 @@ describe('funnel event helper', () => {
     expect(summary.steps).toEqual([
       { step: 'landing_page_view', count: 2, sessions: 1 },
       { step: 'trial_cta_click', count: 1, sessions: 1 },
+      { step: 'account_created', count: 0, sessions: 0 },
       { step: 'checkout_start', count: 1, sessions: 0 },
       { step: 'trial_started', count: 1, sessions: 0 },
     ]);
