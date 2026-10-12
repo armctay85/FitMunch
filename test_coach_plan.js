@@ -9,6 +9,9 @@ const { CATALOGUE, priceEstimateNote } = require('./lib/public-specials-catalogu
 const store = require('./lib/coach-store');
 const { encodeRgbPng } = require('./lib/coach-png');
 const { decodePng } = require('./lib/coach-png');
+const { renderSharePage } = require('./lib/coach-share');
+const { buildCoachPdf } = require('./lib/coach-pdf');
+const { tones, contrastRatio } = require('./public/js/fm-accent');
 
 function read(rel) {
   return fs.readFileSync(path.join(__dirname, rel), 'utf8');
@@ -217,6 +220,8 @@ describe('Coach plan HTTP', () => {
 
     const share = await request(app).get(sent.body.plan.sharePath).expect(200);
     expect(share.text).toContain('Northside training');
+    expect(share.text).toContain('#14532d');
+    expect(share.text).toContain('background: var(--accent)');
     expect(share.text).toContain('id="share-logo"');
     expect(share.text).toContain('Prices vary by store and week.');
     expect(share.text).not.toContain(priceEstimateNote(CATALOGUE));
@@ -284,6 +289,23 @@ describe('Coach plan HTTP', () => {
       .send({ clientId: 'someone-new', kcal: 2000, protein: 140, carbs: 180, fat: 60 })
       .expect(403);
     expect(stranger.body.error).toBe('not_your_client');
+    expect(stranger.body.gate).toBeUndefined();
+    expect(JSON.stringify(stranger.body)).not.toContain('coach.clientCountGate');
+  });
+
+  it('returns a generic message when the client is not on the trainer roster', async () => {
+    const token = await session();
+    store.setClientLimit(store.PREVIEW_PT.id, 8);
+    const stranger = await request(app)
+      .post('/api/coach/plans')
+      .set(auth(token))
+      .send({ clientId: 'someone-new', kcal: 2000, protein: 140, carbs: 180, fat: 60 })
+      .expect(403);
+    expect(stranger.body.success).toBe(false);
+    expect(stranger.body.error).toBe('not_your_client');
+    expect(stranger.body.message).toBe('You cannot open a plan for that client.');
+    expect(stranger.body.gate).toBeUndefined();
+    expect(JSON.stringify(stranger.body)).not.toContain('coach.clientCountGate');
   });
 
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
@@ -293,6 +315,10 @@ describe('Coach plan HTTP', () => {
     expect(page.text).not.toContain('Estimated from public catalogue specials');
     expect(read('public/js/fm-coach.js').split('Prices vary by store and week.').length - 1).toBe(1);
     expect(page.text).not.toContain('Client count gate: open.');
+    expect(page.text).toContain('href="/favicon.ico"');
+    expect(page.text).toContain('href="/assets/logo.svg"');
+    const icon = await request(app).get('/favicon.ico').expect(200);
+    expect(icon.headers['content-type']).toMatch(/icon|image/);
     expect(page.text).toContain('See a dietitian for medical nutrition.');
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');
@@ -303,5 +329,119 @@ describe('Coach plan HTTP', () => {
     expect(home.text).toContain('<h1>Your body wrote the trolley.</h1>');
     const shopper = await request(app).get('/shopper').expect(200);
     expect(shopper.text).toContain('$19.99 a month');
+  });
+});
+
+function printCss(html) {
+  const start = html.indexOf('@media print');
+  if (start < 0) return '';
+  const open = html.indexOf('{', start);
+  let depth = 0;
+  for (let i = open; i < html.length; i += 1) {
+    if (html[i] === '{') depth += 1;
+    else if (html[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return html.slice(start, i + 1);
+    }
+  }
+  return '';
+}
+
+describe('share page contrast, print, and PDF layout', () => {
+  const accents = ['#1f9d4a', '#00b3ff', '#ff6b6b', '#fff3a0'];
+
+  it('picks ink and darkened text that clear 4.5:1', () => {
+    expect(contrastRatio('#1f9d4a', '#ffffff')).toBeCloseTo(3.51, 2);
+    expect(contrastRatio('#ffffff', '#00b3ff')).toBeCloseTo(2.36, 2);
+    expect(contrastRatio('#ffffff', '#ff6b6b')).toBeCloseTo(2.78, 2);
+    for (const hex of accents) {
+      const tone = tones(hex);
+      expect(['#ffffff', '#07130d', '#000000']).toContain(tone.ink);
+      expect(contrastRatio(tone.ink, hex)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(tone.text, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(tones('#1f9d4a').ink).toBe('#07130d');
+    expect(tones('#00b3ff').ink).toBe('#07130d');
+    expect(tones('#ff6b6b').ink).toBe('#07130d');
+    expect(tones('#fff3a0').ink).toBe('#07130d');
+    expect(tones('#14532d').ink).toBe('#ffffff');
+    expect(tones('#14532d').text).toBe('#14532d');
+  });
+
+  function samplePlan() {
+    return {
+      days: [{
+        day: 'Mon',
+        kcal: 1800,
+        meals: [{
+          slot: 'Breakfast',
+          name: 'Yoghurt oats bowl',
+          kcal: 420,
+          protein: 30,
+          carbs: 48,
+          fat: 18,
+          ingredients: [
+            { name: 'Rolled oats', amount: 40, unit: 'g' },
+            { name: 'Milk', amount: 100, unit: 'ml' },
+          ],
+        }],
+      }],
+      targets: { kcal: 2000, protein: 140, carbs: 180, fat: 60 },
+      householdSize: 1,
+      shopping: {
+        storeName: 'Woolworths',
+        lines: [{ name: 'Rolled oats', aisle: 'Pantry', packs: 1, amount: 500, unit: 'g' }],
+      },
+    };
+  }
+
+  it('prints with dark header text, hides tabs and buttons, and shows every day', () => {
+    const html = renderSharePage({
+      planRow: { token: 'tok', clientLabel: 'Sam', plan: samplePlan() },
+      branding: { accent: '#1f9d4a', practiceName: 'Northside' },
+    });
+    const block = printCss(html);
+    expect(block).toContain('@media print');
+    expect(block).toMatch(/\.day-switch[^}]*display:\s*none/);
+    expect(block).toMatch(/\.btn[^}]*display:\s*none/);
+    expect(block).toMatch(/\.day-panel\.is-hidden[^}]*display:\s*block/);
+    expect(block).toMatch(/\.shop-grid[^}]*grid-template-columns:\s*1fr\s+1fr/);
+    expect(block).toMatch(/\.identity[^}]*color:\s*#0c1210/);
+    expect(html.indexOf('id="share-price-note"')).toBeLessThan(html.indexOf('id="share-list"'));
+    expect(html).toContain('position: sticky');
+    expect(html).not.toContain('overflow: auto');
+    expect(html).not.toContain('max-height: calc(100vh');
+    const tone = tones('#1f9d4a');
+    expect(html).toContain(`--accent-ink: ${tone.ink}`);
+    expect(html).toContain(`--accent-text: ${tone.text}`);
+    expect(html.split('Prices vary by store and week.').length - 1).toBe(1);
+  });
+
+  it('draws full-width meals, bullets, tick boxes, and a stat row in the PDF', () => {
+    const pdf = buildCoachPdf({
+      branding: { practiceName: 'North', accent: '#00b3ff' },
+      clientLabel: 'Sam',
+      plan: samplePlan(),
+    }).toString('latin1');
+    expect(pdf.slice(0, 5)).toBe('%PDF-');
+    expect(pdf).toMatch(/\n[0-9. -]+ c\n/);
+    expect(pdf).not.toContain('arc');
+    expect(pdf).toContain(' re S');
+    expect(pdf).not.toContain('(- ');
+    expect(pdf).toContain('(kcal) Tj');
+    expect(pdf).toContain('(protein) Tj');
+    expect(pdf).toContain('(carbs) Tj');
+    expect(pdf).toContain('(fat) Tj');
+    expect(pdf).toContain('(days) Tj');
+    expect(pdf).toContain('40 g Rolled oats');
+    const fatAt = pdf.indexOf('(18 g fat) Tj');
+    expect(fatAt).toBeGreaterThan(0);
+    const tm = pdf.lastIndexOf('Tm', fatAt);
+    const x = Number(pdf.slice(tm - 24, tm).match(/1 ([0-9.]+) [0-9.]+ $/)[1]);
+    expect(x).toBeGreaterThan(350);
+    const practiceAt = pdf.indexOf('(North) Tj');
+    expect(pdf.slice(practiceAt - 180, practiceAt)).toContain('0.027 0.075 0.051 rg');
+    expect(pdf.slice(practiceAt - 80, practiceAt)).not.toContain('1 1 1 rg');
+    expect(pdf.split('Prices vary by store and week.').length - 1).toBe(1);
   });
 });
