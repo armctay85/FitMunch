@@ -35,6 +35,14 @@ describe('no store names on marketing pages', () => {
     expect(fs.readdirSync(PUBLIC).filter((f) => STORE.test(f))).toEqual([]);
   });
 
+  it('coach.html intro copy is generic; its store picker is unchanged (Wilson)', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'coach.html'), 'utf8');
+    expect(html).toContain('<p>Pick a client, set targets, and draft a 7-day plan with a supermarket list.</p>');
+    expect(html).toContain('<option value="woolworths">Woolworths</option>');
+    expect(html).toContain('<option value="coles">Coles</option>');
+    expect(html).toContain('<option value="aldi">Aldi</option>');
+  });
+
   it('app.html keeps its store buttons and badges', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
     expect(html).toMatch(/Woolworths/);
