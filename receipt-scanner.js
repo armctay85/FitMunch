@@ -242,7 +242,6 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
 
     const gate = await aiUsage.checkAndConsume({
       userId: String(req.user.userId),
-      email: req.user.email,
       tier,
       feature: 'receipt_scan',
     });

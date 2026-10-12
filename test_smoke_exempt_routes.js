@@ -1,5 +1,5 @@
 /**
- * SMOKE_ACCOUNT_EMAILS exemption on both AI routes: /api/ai/chat and /api/receipt/scan.
+ * SMOKE_ACCOUNT_IDS exemption on both AI routes: /api/ai/chat and /api/receipt/scan.
  * The user has used all 10 free monthly actions; smoke accounts must still get through
  * (on their daily cap), non-smoke accounts must get the monthly 429.
  */
@@ -9,6 +9,7 @@ jest.mock('./lib/ai-client', () => ({
   grokModel: jest.fn(() => 'grok'), openaiModel: jest.fn(() => 'o'), anthropicModel: jest.fn(() => 'a'),
   chat: jest.fn(async () => ({ ok: true, provider: 'xai', model: 'grok', text: 'Eggs on toast.', usage: { promptTokens: 1, completionTokens: 1 } })),
   vision: jest.fn(async () => ({ ok: true, provider: 'xai', text: '[]' })),
+  chatJson: jest.fn(async () => ({ ok: true, provider: 'xai', model: 'grok', data: {} })),
 }));
 
 jest.mock('./server/storage.js', () => {
@@ -134,5 +135,29 @@ describe('/api/ai/usage', () => {
     process.env.SMOKE_ACCOUNT_IDS = ID;
     const r = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${tokenFor('x@example.com', 'u-other')}`);
     expect(r.body).toMatchObject({ used: 10, limit: 10, remaining: 0 });
+  });
+});
+
+describe('other AI routes fail closed on a smoke usage-store error', () => {
+  const routes = [
+    ['insight', (t) => request(app).post('/api/ai/insight').set('Authorization', `Bearer ${t}`).send({ todayCalories: 1000, targetCalories: 2000 })],
+    ['workout plan', (t) => request(app).post('/api/ai/workout-plan').set('Authorization', `Bearer ${t}`).send({ goal: 'strength' })],
+    ['weekly review', (t) => request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${t}`)],
+    ['meal plan', (t) => request(app).post('/api/meal-plan/generate').set('Authorization', `Bearer ${t}`).send({})],
+  ];
+  it.each(routes)('%s returns 503 when the gate is unavailable', async (_n, call) => {
+    process.env.SMOKE_ACCOUNT_IDS = ID;
+    smokeFail = true;
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await call(tokenFor('x@example.com', ID));
+    expect(r.status).toBe(503);
+    expect(r.body.error).toBe("We couldn't check your AI usage. Please try again.");
+  });
+  it.each(routes)('%s returns the smoke 429 at the daily cap', async (_n, call) => {
+    process.env.SMOKE_ACCOUNT_IDS = ID;
+    smokeUsed = 10;
+    const r = await call(tokenFor('x@example.com', ID));
+    expect(r.status).toBe(429);
+    expect(r.body.error).toBe('Smoke account daily AI cap reached.');
   });
 });
