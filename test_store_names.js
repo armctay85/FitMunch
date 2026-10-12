@@ -104,7 +104,7 @@ describe('PR 76 r2 copy fixes', () => {
     expect(ai).toContain('<h2>Your supermarket, without a trolley scrape</h2>');
     expect(read('index.html')).not.toContain('<b>List</b>');
     const pt = read('pt-client-meal-plans.html');
-    expect(pt).toContain('<dt>Can the same plan work at a different supermarket?</dt><dd>Yes. The draft is an ingredient list, so the client can shop it at any supermarket. FitMunch does not place the order.</dd>');
+    expect(pt).toMatch(/<dt>Can the same plan work at a different supermarket\?<\/dt>\s*<dd>Yes\. The draft is an ingredient list, so the client can shop it at any supermarket\. FitMunch does not place the order\.<\/dd>/);
     expect(pt).toContain('<h2>The list stays a draft</h2>');
     expect(pt).not.toContain('Other stores work too');
     expect(read('shopper.html')).toContain('Nothing is sent to a supermarket as an order.');
