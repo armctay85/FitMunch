@@ -184,6 +184,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     const r = await aiClient.chatJson({
       messages: [{ role: 'user', content: prompt }],

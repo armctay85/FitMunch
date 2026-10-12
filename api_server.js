@@ -1190,6 +1190,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     if (!gate.allowed) {
       return res.json({ success: true, insight: fallback, provider: 'rate_limited', upgrade: true, limit: gate.limit, used: gate.used });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
     const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
@@ -1215,6 +1216,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     });
 
     if (!r.ok || !r.text.trim()) {
+      res.locals.aiFailed = true;
       return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
     }
     return res.json({
@@ -1308,6 +1310,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
         error: `Free plan includes ${gate.limit} AI messages/month. Upgrade for unlimited.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
 
     // Profile + client-supplied context block appended as a system addendum.
@@ -1439,6 +1442,7 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     const days = Math.min(Math.max(parseInt(daysPerWeek, 10) || 3, 1), 7);
     const prompt = `You are an Australian strength and conditioning coach building a weekly program.
@@ -1522,6 +1526,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited reviews.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     // Gather the last 7 days of real data.
     const since = new Date(Date.now() - 7 * 86400000);

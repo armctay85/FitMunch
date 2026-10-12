@@ -148,3 +148,22 @@ describe('production smoke classification', () => {
     expect(outcome).toEqual({ action: 'created', number: 90 });
   });
 });
+
+describe('prod-smoke.yml serialization', () => {
+  const fs = require('fs');
+  const wf = fs.readFileSync(require('path').join(__dirname, '.github/workflows/prod-smoke.yml'), 'utf8');
+  const smokeJob = wf.slice(wf.indexOf('\n  smoke:'), wf.indexOf('\n  prod-smoke-issue:'));
+  it('fires only for the fit-munch production success, by exact environment', () => {
+    expect(smokeJob).toContain("github.event.deployment_status.state == 'success'");
+    expect(smokeJob).toContain("github.event.deployment.environment == 'Production – fit-munch'");
+    expect(smokeJob).not.toMatch(/contains\(github\.event\.deployment\.environment/);
+  });
+  it('one concurrency group for all triggers, cancel-in-progress on the smoke job', () => {
+    expect(smokeJob).toMatch(/concurrency:\n\s+group: fitmunch-production-smoke\n\s+cancel-in-progress: true/);
+    expect(smokeJob).not.toMatch(/group: .*\$\{\{/);
+  });
+  it('issue job is not cancelled by a newer smoke', () => {
+    const issueJob = wf.slice(wf.indexOf('\n  prod-smoke-issue:'));
+    expect(issueJob).toMatch(/group: fitmunch-production-smoke-issue\n\s+cancel-in-progress: false/);
+  });
+});
