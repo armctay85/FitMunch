@@ -17,7 +17,10 @@
     '/haul-teardown': 'haul-teardown',
     '/woolworths-meal-planner': 'woolworths-meal-planner',
     '/coles-meal-planner': 'coles-meal-planner',
-    '/meal-prep-shopping-list': 'meal-prep-shopping-list'
+    '/meal-prep-shopping-list': 'meal-prep-shopping-list',
+    '/woolworths-high-protein-shopping-list': 'woolworths-high-protein-shopping-list',
+    '/coles-budget-meal-plan': 'coles-budget-meal-plan',
+    '/ai-meal-plan-shopping-list': 'ai-meal-plan-shopping-list'
   };
 
   function sid() {

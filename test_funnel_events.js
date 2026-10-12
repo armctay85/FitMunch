@@ -36,6 +36,9 @@ const {
 } = require('./lib/fitmunch-checkout');
 
 const SEARCH_LANDERS = [
+  '/woolworths-high-protein-shopping-list',
+  '/coles-budget-meal-plan',
+  '/ai-meal-plan-shopping-list',
   '/ai-meal-planner-australia',
   '/budget-meal-planner',
   '/shopper',
