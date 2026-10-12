@@ -233,3 +233,23 @@ describe('smoke cap is only charged for answered calls', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe('chat intent is validated against own keys', () => {
+  const aiClient = require('./lib/ai-client');
+  it.each(['constructor', 'toString', '__proto__', 'hasOwnProperty', 123, null, ['workout']])('intent %p falls back to general', async (intent) => {
+    process.env.SMOKE_ACCOUNT_IDS = ID;
+    aiClient.chat.mockClear();
+    await request(app).post('/api/ai/chat').set('Authorization', `Bearer ${tokenFor('x@example.com', ID)}`)
+      .send({ intent, messages: [{ role: 'user', content: 'hi' }] });
+    const sys = aiClient.chat.mock.calls[0][0].system;
+    expect(sys.startsWith('You are FitMunch, an Australian fitness and nutrition coach.')).toBe(true);
+    expect(sys).not.toMatch(/function|native code|\[object/);
+  });
+  it('known intent still selects its prompt', async () => {
+    process.env.SMOKE_ACCOUNT_IDS = ID;
+    aiClient.chat.mockClear();
+    await request(app).post('/api/ai/chat').set('Authorization', `Bearer ${tokenFor('x@example.com', ID)}`)
+      .send({ intent: 'workout', messages: [{ role: 'user', content: 'hi' }] });
+    expect(aiClient.chat.mock.calls[0][0].system).toMatch(/strength and conditioning coach/);
+  });
+});
