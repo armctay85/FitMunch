@@ -122,6 +122,9 @@ async function upsertIssue(repo, s, runUrl, deps = {}) {
   const existing = (open || []).find((i) => !i.pull_request);
   const body = issueBody(s, runUrl);
   if (existing) {
+    if (existing.title !== issueTitle(s)) {
+      await gh(`/repos/${repo}/issues/${existing.number}`, { method: 'PATCH', body: JSON.stringify({ title: issueTitle(s) }) }, deps);
+    }
     await gh(`/repos/${repo}/issues/${existing.number}/comments`, { method: 'POST', body: JSON.stringify({ body }) }, deps);
     return { action: 'commented', number: existing.number };
   }
@@ -132,6 +135,19 @@ async function upsertIssue(repo, s, runUrl, deps = {}) {
   return { action: 'opened', number: created.number };
 }
 
+/** Credit is back to ok: comment and close any open ai-credit-low issue. */
+async function closeOpenIssues(repo, runUrl, deps = {}) {
+  const open = await gh(`/repos/${repo}/issues?state=open&labels=${LABEL}&per_page=10`, {}, deps);
+  const closed = [];
+  for (const i of (open || []).filter((x) => !x.pull_request)) {
+    const body = `xAI credit check is back to ok.${runUrl ? `\n\nRun: ${runUrl}` : ''}`;
+    await gh(`/repos/${repo}/issues/${i.number}/comments`, { method: 'POST', body: JSON.stringify({ body }) }, deps);
+    await gh(`/repos/${repo}/issues/${i.number}`, { method: 'PATCH', body: JSON.stringify({ state: 'closed', state_reason: 'completed' }) }, deps);
+    closed.push(i.number);
+  }
+  return closed;
+}
+
 async function xai(path, key, deps, init = {}) {
   const f = deps.fetch || fetch;
   const r = await f(`${API}${path}`, {
@@ -139,7 +155,11 @@ async function xai(path, key, deps, init = {}) {
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
   });
   if (!r.ok) throw new Error(`xAI request failed: ${r.status}`);
-  return r.json();
+  try {
+    return await r.json();
+  } catch (_) {
+    throw new Error('xAI response was not valid JSON');
+  }
 }
 
 function fmt(d) { return new Date(d).toISOString().slice(0, 19).replace('T', ' '); }
@@ -177,7 +197,11 @@ async function main(env = process.env, deps = {}) {
   }
   const s = assess(balance, perDay, { warnDays: env.AI_CREDIT_WARN_DAYS, floorUsd: env.AI_CREDIT_FLOOR_USD });
   log(`xAI credit check: ${s.low ? 'LOW' : 'ok'}`);
-  if (!s.low) return { ...s, issue: null };
+  if (!s.low) {
+    const closed = await closeOpenIssues(env.GITHUB_REPOSITORY, env.RUN_URL, deps);
+    if (closed.length) log(`ai-credit-low issue ${closed.map((n) => `#${n}`).join(', ')} closed`);
+    return { ...s, issue: null, closed };
+  }
   const issue = await upsertIssue(env.GITHUB_REPOSITORY, s, env.RUN_URL, deps);
   log(`ai-credit-low issue #${issue.number} ${issue.action}`);
   return { ...s, issue };
@@ -201,7 +225,7 @@ async function run(env = process.env, deps = {}) {
 }
 
 module.exports = {
-  balanceUsd, dailySpendFromChanges, dailySpendFromUsage, daysLeft, assess, issueBody, issueTitle, upsertIssue, main, run, LABEL,
+  balanceUsd, dailySpendFromChanges, dailySpendFromUsage, daysLeft, assess, issueBody, issueTitle, upsertIssue, closeOpenIssues, main, run, LABEL,
 };
 
 if (require.main === module) {

@@ -20,6 +20,7 @@ function deps({ balance = bal(-2500), usageResp = usage([1, 1, 1, 1, 1, 1, 1]), 
     if (url.endsWith('/usage')) return res(usageStatus, usageResp);
     if (url.includes('/issues?')) return res(200, issues);
     if (url.endsWith('/comments')) return res(201, {});
+    if (opts.method === 'PATCH') return res(200, {});
     return res(201, { number: 42 });
   };
   return { fetch, now: () => NOW, log: (l) => lines.push(l), error: (l) => errs.push(l), calls, lines, errs };
@@ -116,5 +117,28 @@ describe('main / run', () => {
   });
   it('run returns 0 on success', async () => {
     expect(await c.run(ENV, deps({ balance: bal(-100000) }))).toBe(0);
+  });
+  it('non-JSON xAI response fails with a fixed message, not the body', async () => {
+    const d = deps();
+    const f = d.fetch;
+    d.fetch = async (url, opts) => (url.endsWith('/prepaid/balance')
+      ? { ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token < in <html>SECRET-BODY'); } }
+      : f(url, opts));
+    expect(await c.run(ENV, d)).toBe(1);
+    expect(d.errs[0]).toBe('xAI credit check: unknown (xAI response was not valid JSON)');
+  });
+  it('closes the open issue when credit is back to ok', async () => {
+    const d = deps({ balance: bal(-100000), issues: [{ number: 9, title: 'xAI credit low' }] });
+    const r = await c.main(ENV, d);
+    expect(r.closed).toEqual([9]);
+    const patch = d.calls.find((x) => x.method === 'PATCH');
+    expect(patch.url).toMatch(/\/issues\/9$/);
+    expect(JSON.parse(patch.body).state).toBe('closed');
+  });
+  it('retitles an existing low issue to unknown on failure', async () => {
+    const d = deps({ balStatus: 500, issues: [{ number: 9, title: 'xAI credit low' }] });
+    await c.run(ENV, d);
+    const patch = d.calls.find((x) => x.method === 'PATCH');
+    expect(JSON.parse(patch.body).title).toBe('xAI credit check: unknown, check manually');
   });
 });
