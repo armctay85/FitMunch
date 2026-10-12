@@ -330,7 +330,7 @@ describe('session lookup brand filter', () => {
     const fm = await request(app).get('/api/checkout/session').query({ session_id: 'cs_fm' });
     expect(fm.status).toBe(200);
     expect(fm.headers['cache-control']).toBe('no-store');
-    expect(fm.body).toEqual({ plan: 'premium', planLabel: 'premium', paymentStatus: 'paid', guestCheckout: true });
+    expect(fm.body).toEqual({ plan: 'premium', planLabel: 'premium', paymentStatus: 'paid', guestCheckout: true, trial: true });
     for (const id of ['cs_wipper', 'cs_bare']) {
       const res = await request(app).get('/api/checkout/session').query({ session_id: id });
       expect(res.status).toBe(404);
