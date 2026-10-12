@@ -101,13 +101,13 @@ body.fm-body{
             <li>Your card is on file. The first charge is after 14 days if you stay subscribed</li>
           </ul>
         </div>
-        <div class="info-block">
+        <div class="info-block" id="welcomeNote">
           <h3>Check your email</h3>
           <p>We sent a welcome note with getting-started steps. Check inbox and spam if needed.</p>
         </div>
         <div class="info-block" id="claimBlock" style="display:none">
           <h3>Set your password</h3>
-          <p id="claimText">Your trial has started. Check your email: we sent a link to set your password and open FitMunch. It works once, within 7 days. No email after a few minutes? Check spam, or <a href="/login.html#new-link">ask for a new link</a>.</p>
+          <p id="claimText">Your trial has started. Check your email: we sent a link to set your password and open FitMunch. It works once, within 7 days. No email after a few minutes? Check spam, or <a href="/login.html#new-link" style="color:#127035;font-weight:700">ask for a new link</a>.</p>
           <p><a id="claimLink" class="fm-btn fm-btn-leaf" href="/login.html#login">Already have an account? Sign in</a></p>
         </div>
         <div class="info-block" id="nextSteps">
@@ -208,8 +208,12 @@ async function openBillingPortal(e) {
         // A guest has no session in this browser: no dashboard or billing
         // buttons, which would only bounce to sign-in.
         document.getElementById('successTitle').textContent = 'Check your email';
-        document.getElementById('successSub').textContent = 'Your 14-day trial has started. Set your password from the link we sent to finish your account.';
-        ['successActions', 'nextSteps'].forEach((id) => {
+        document.getElementById('successSub').textContent = data.trial === false
+          ? 'Premium has started. Your first charge is today. Set your password from the link we sent to finish your account.'
+          : 'Your 14-day trial has started. Set your password from the link we sent to finish your account.';
+        if (data.trial === false) document.getElementById('claimText').firstChild.textContent = document.getElementById('claimText').firstChild.textContent.replace('Your trial has started.', 'Premium has started.');
+        // One "Check your email" (the hero) for guests, not two.
+        ['successActions', 'nextSteps', 'welcomeNote'].forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });

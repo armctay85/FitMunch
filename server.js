@@ -606,61 +606,54 @@ app.get('/api/pricing/config', (_req, res) => {
   res.json({ success: true, premiumAnnual: premiumAnnualAvailable() });
 });
 
-const QUICK_CHECKOUT_REPLY = Object.freeze({
+// Signed-out checkout (Wilson's ruling, PR 78 r2): go straight to Stripe.
+//   live subscriber (active, trialing, past_due, unpaid) -> sign-in email, no Checkout
+//   returning trial user -> Checkout with no trial, and the page says so first
+//   new -> Checkout with the 14-day trial
+// Per-IP and per-normalised-email limits stop bulk email lookups.
+const QUICK_CHECKOUT_SIGNIN_REPLY = Object.freeze({
   success: true,
-  emailSent: true,
-  message: 'Check your email. We sent you a secure link to continue.',
+  signIn: true,
+  message: 'Check your email to sign in.',
 });
-const QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = 3;
+function envLimit(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+const quickCheckoutEmailMax = () => envLimit('QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR', 5);
+const QUICK_CHECKOUT_LIMITED = 'Too many checkout attempts. Please try again later.';
+const quickCheckoutLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('QUICK_CHECKOUT_IP_MAX_PER_HOUR', 10),
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: QUICK_CHECKOUT_LIMITED },
+});
+app.use('/api/quick-checkout', quickCheckoutLimiter);
 
-function quickCheckoutMinMs() {
-  const n = Number(process.env.QUICK_CHECKOUT_MIN_MS);
-  return Number.isFinite(n) && n >= 0 ? n : 2500;
+/** Sends work past the response on Vercel (waitUntil); off Vercel it just runs. */
+function runInBackground(promise) {
+  const safe = Promise.resolve(promise).catch((err) => {
+    console.error('[quick-checkout] background send failed', ...webhookErrorFields(err));
+  });
+  try {
+    const { waitUntil } = require('@vercel/functions');
+    waitUntil(safe);
+  } catch (_) {
+    /* not on Vercel */
+  }
+  return safe;
 }
 
-function padToMinimum(startedAt, minMs) {
-  const wait = minMs - (Date.now() - startedAt);
-  return wait > 0 ? new Promise((resolve) => setTimeout(resolve, wait)) : Promise.resolve();
-}
-
-async function sendQuickCheckoutEmail(req, { email, plan, priceId }) {
-  const { canonicalTrialEmail, trialHistoryForEmail } = require('./lib/trial-guard');
-  const emailApi = require('./server/email.js');
-  const canonical = canonicalTrialEmail(email);
-  let hits = 0;
+async function quickCheckoutEmailLimited(canonical) {
   try {
     const { hitRateCounter } = require('./lib/shared-counters');
-    hits = await hitRateCounter('quick-checkout-email', canonical, { windowMs: 60 * 60 * 1000 });
+    const hits = await hitRateCounter('quick-checkout-email', canonical, { windowMs: 60 * 60 * 1000 });
+    return hits > quickCheckoutEmailMax();
   } catch (_) {
-    hits = 0;
+    return false;
   }
-  if (hits > QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR) return 'rate_limited';
-
-  const history = await trialHistoryForEmail(stripe, email);
-  if (history.live) {
-    await emailApi.sendSignInToManageEmail(email);
-    return 'signin';
-  }
-  const storage = require('./server/storage.js');
-  const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
-  const fingerprint = guestCheckoutFingerprint({ nonce, email, plan, ip, userAgent });
-  const trial = !history.trialUsed;
-  const result = await storage.withStripeCustomerLock(`guest:${fingerprint}`, () =>
-    openUnauthenticatedCheckout(stripe, {
-      fingerprint,
-      email,
-      priceId,
-      plan,
-      trial,
-      canonicalEmail: canonical,
-      origin: checkoutOrigin(req),
-      // The guest has no session yet: return to the success page.
-      successPath: '/success.html?session_id={CHECKOUT_SESSION_ID}',
-      cancelPath: quickCheckoutCancelPath(plan),
-    })
-  );
-  await emailApi.sendTrialCheckoutEmail(email, result.url, { plan, trialUsed: !trial });
-  return trial ? 'trial' : 'paid';
 }
 
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
@@ -673,6 +666,9 @@ app.post('/api/quick-checkout', async (req, res) => {
     if (!email || !plan) {
       return res.status(400).json({ success: false, error: 'Email and plan are required.' });
     }
+    if (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Enter a valid email.' });
+    }
 
     // Validate before any Stripe call.
     const priceId = priceIdForPlan(plan);
@@ -680,24 +676,48 @@ app.post('/api/quick-checkout', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Unknown plan. Use premium, premium-annual, pt-starter, or pt-pro.' });
     }
 
-    // Email-first trial (Elite QA PR 78 M1, Wilson's rule). See
-    // lib/trial-guard.js. The browser always gets the same body after the
-    // same minimum time; what happened next goes only to the typed address:
-    //   live subscriber   -> "sign in to manage" email, no Checkout
-    //   trial used before -> Checkout link with no trial
-    //   new               -> Checkout link with the 14-day trial
+    const { canonicalTrialEmail, trialHistoryForEmail } = require('./lib/trial-guard');
+    const canonical = canonicalTrialEmail(email);
+    res.set('Cache-Control', 'no-store');
+    if (await quickCheckoutEmailLimited(canonical)) {
+      return res.status(429).json({ success: false, error: QUICK_CHECKOUT_LIMITED });
+    }
+
+    const history = await trialHistoryForEmail(stripe, email);
+    if (history.live) {
+      // Never a second subscription. The sign-in link goes to the inbox.
+      const emailApi = require('./server/email.js');
+      runInBackground(emailApi.sendSignInToManageEmail(email));
+      return res.json(QUICK_CHECKOUT_SIGNIN_REPLY);
+    }
+
     // A Checkout created here is never reused for another email, and no
     // existing customer is attached to it (PR 21/23).
-    const startedAt = Date.now();
-    try {
-      await sendQuickCheckoutEmail(req, { email, plan, priceId });
-    } catch (err) {
-      // Same answer on failure so errors cannot be used to probe accounts.
-      console.error('[quick-checkout] failed', ...webhookErrorFields(err));
-    }
-    await padToMinimum(startedAt, quickCheckoutMinMs());
-    res.set('Cache-Control', 'no-store');
-    return res.json(QUICK_CHECKOUT_REPLY);
+    const storage = require('./server/storage.js');
+    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
+    const fingerprint = guestCheckoutFingerprint({ nonce, email, plan, ip, userAgent });
+    const trial = !history.trialUsed;
+    const result = await storage.withStripeCustomerLock(`guest:${fingerprint}`, () =>
+      openUnauthenticatedCheckout(stripe, {
+        fingerprint,
+        email,
+        priceId,
+        plan,
+        trial,
+        canonicalEmail: canonical,
+        origin: checkoutOrigin(req),
+        successPath: '/success.html?session_id={CHECKOUT_SESSION_ID}',
+        cancelPath: quickCheckoutCancelPath(plan),
+      })
+    );
+    const { TRIAL_USED_COPY } = require('./server/email.js');
+    return res.json({
+      success: true,
+      url: result.url,
+      id: result.id,
+      trial,
+      ...(trial ? {} : { notice: TRIAL_USED_COPY[plan] || TRIAL_USED_COPY.premium }),
+    });
   } catch (error) {
     return sendApiError(res, error, 'Quick checkout error');
   }
@@ -1179,6 +1199,7 @@ app.get('/api/checkout/session', async (req, res) => {
       planLabel: session.metadata?.plan || null,
       paymentStatus: session.payment_status,
       guestCheckout,
+      trial: session.metadata?.trial !== '0',
     });
   } catch (e) {
     res.status(404).json({ error: 'Session not found.' });

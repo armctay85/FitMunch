@@ -287,11 +287,80 @@ describe('webhook brand filter and idempotency', () => {
       expect(user.subscriptionExpiresAt.getTime()).toBeGreaterThan(Date.now());
       expect(storage.updateUserSubscription).toHaveBeenCalledTimes(1);
       expect(sendWelcomeEmail).toHaveBeenCalledTimes(1);
-      expect(sendWelcomeEmail).toHaveBeenCalledWith('member@example.com', 'Member', 'Premium', undefined, { trial: true });
+      expect(sendWelcomeEmail).toHaveBeenCalledWith('member@example.com', 'Member', 'Premium', undefined, { trial: true, trialEnded: false });
       expect(stripeEvents.stripeEventCountForTests()).toBe(1);
     } finally {
       sendWelcomeEmail.mockRestore();
     }
+  });
+
+  test('a repeat card ends the trial: the welcome email has no trial and trial_started is skipped (QA r2 M1)', async () => {
+    const user = { id: 'u-rc', email: 'rc@example.com', stripeCustomerId: 'cus_rc', subscriptionTier: 'free', settings: {} };
+    storage.db = {
+      select: () => ({ from: () => ({ where: async () => [user] }) }),
+      update: () => ({ set: () => ({ where: async () => {} }) }),
+    };
+    storage.updateUserSubscription = jest.fn(async (_id, tier) => { user.subscriptionTier = tier; });
+    const sendWelcomeEmail = jest.spyOn(emailApi, 'sendWelcomeEmail').mockResolvedValue({ success: true, messageId: 'msg_rc' });
+    const funnel = require('./lib/funnel-events');
+    const scheduled = jest.spyOn(funnel, 'scheduleFunnelEvent').mockImplementation(() => {});
+    const sub = {
+      id: 'sub_rc', customer: 'cus_rc', status: 'trialing',
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] }, metadata: { product: 'fitmunch' },
+      default_payment_method: { id: 'pm_rc', card: { fingerprint: 'fpREUSED' } },
+    };
+    const fake = {
+      subscriptions: {
+        list: jest.fn(async () => ({ data: [] })),
+        retrieve: jest.fn(async () => sub),
+        update: jest.fn(async (id, p) => ({ id, ...p })),
+      },
+      customers: {
+        search: jest.fn(async () => ({ data: [{ id: 'cus_earlier', metadata: { fm_trial_card: 'fpREUSED' } }] })),
+        update: jest.fn(async (id, p) => ({ id, ...p })),
+      },
+      webhooks: { constructEvent },
+    };
+    app._private.setStripeForTests(fake);
+    const event = {
+      id: 'evt_reused_card',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_rc',
+          customer: 'cus_rc',
+          subscription: 'sub_rc',
+          customer_details: { email: 'rc@example.com', name: 'Rc' },
+          metadata: { plan: 'premium', app: 'fitmunch', priceId: PRICE_IDS.premium },
+        },
+      },
+    };
+    try {
+      expect((await postEvent(event)).status).toBe(200);
+      expect(fake.subscriptions.update).toHaveBeenCalledWith('sub_rc', { trial_end: 'now', proration_behavior: 'none' });
+      expect(sendWelcomeEmail).toHaveBeenCalledWith('rc@example.com', 'Rc', 'Premium', undefined, { trial: false, trialEnded: true });
+      const steps = scheduled.mock.calls.map((c) => c[0] && (c[0].eventType || (c[0].eventData && c[0].eventData.step)));
+      expect(steps).not.toContain('trial_started');
+    } finally {
+      sendWelcomeEmail.mockRestore();
+      scheduled.mockRestore();
+    }
+  });
+
+  test('the repeat-card welcome email uses QA copy and no trial wording', async () => {
+    process.env.RESEND_API_KEY = 'test-key';
+    const prev = global.fetch;
+    const bodies = [];
+    global.fetch = jest.fn(async (_url, opts) => { bodies.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ id: 'e1' }) }; });
+    try {
+      await emailApi.sendWelcomeEmail('rc@example.com', 'Rc', 'Premium', 'https://www.fitmunch.com.au/login.html#claim=x', { trialEnded: true });
+    } finally {
+      global.fetch = prev;
+      delete process.env.RESEND_API_KEY;
+    }
+    const out = `${bodies[0].html}\n${bodies[0].text}`;
+    expect(out).toContain('This card already had a FitMunch trial, so Premium started today at A$19.99 a month (A$149.99 a year for yearly). Cancel anytime from Billing.');
+    expect(out).not.toMatch(/Your trial has started|trial is live|No charge until the trial ends|Your trial is live/);
   });
 
   test('a duplicate-sub event delivered twice cancels and refunds at most once', async () => {
@@ -1426,7 +1495,7 @@ describe('webhook access, claims, and retries', () => {
       });
       expect(member.status).toBe(200);
       const memberCall = sendWelcomeEmail.mock.calls.find((call) => call[0] === 'member.mail@example.com');
-      expect(memberCall).toEqual(['member.mail@example.com', 'Member', 'Premium', undefined, { trial: true }]);
+      expect(memberCall).toEqual(['member.mail@example.com', 'Member', 'Premium', undefined, { trial: true, trialEnded: false }]);
     } finally {
       sendWelcomeEmail.mockRestore();
     }

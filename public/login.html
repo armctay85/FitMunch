@@ -277,7 +277,7 @@
  </div>
 
  <button class="btn" id="register-btn" onclick="doRegister()">Create Free Account</button>
- <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">You set your password after checkout. We email you a link to finish your account.</p>
+ <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">Stripe Checkout opens next. You set your password after checkout from the link we email you.</p>
 
  <div class="foot">
  Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
@@ -322,7 +322,7 @@
  const annualBilling = plan === 'premium' && urlParams.get('billing') === 'annual';
  const premiumCheckoutPlan = annualBilling ? 'premium-annual' : 'premium';
  // Email-first trial: a signed-out Premium visitor gives only an email, pays
- // the trial in Stripe Checkout, then sets a password from the emailed link.
+ // Stripe Checkout straight away, then sets a password from the emailed link.
  let emailFirst = false;
  try { emailFirst = plan === 'premium' && !localStorage.getItem('fm_token'); } catch (e) { emailFirst = plan === 'premium'; }
  let trialNonce = '';
@@ -356,7 +356,7 @@
       .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     banner.querySelector('div').textContent = '14-day free trial';
     banner.querySelectorAll('div')[1].textContent = (emailFirst
-      ? 'Enter your email and we send you a secure Stripe link. '
+      ? 'Enter your email and secure Stripe Checkout opens next. '
       : 'Create your account, then Stripe opens. ') + '14-day free trial, then ' + priceLine + ' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: ' + firstCharge + '.';
   }
   if (emailFirst) {
@@ -744,14 +744,31 @@
     body: JSON.stringify({ email, plan: premiumCheckoutPlan, nonce: trialNonce })
    });
    const d = await parseApiJson(r);
-   if (!d.success) throw new Error('Something went wrong. Please try again.');
+   if (!d.success) throw new Error(d.error || 'Something went wrong. Please try again.');
    try { if (window.FMTrack) window.FMTrack.send('trial_email_submit', { plan: premiumCheckoutPlan }); } catch (e) {}
-   // Same answer for every email: the next step is in the inbox.
-   leaving = true;
-   ['reg-email', 'register-btn'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
    const btn = document.getElementById('register-btn');
-   if (btn) btn.textContent = 'Check your email';
-   showSuccess('register-success', 'Check your email. We sent a secure link to ' + email + ' to continue. No email in a few minutes? Check spam.');
+   if (d.signIn) {
+    // Already a member: no second subscription. The sign-in link is in the inbox.
+    leaving = true;
+    ['reg-email', 'register-btn'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
+    if (btn) btn.textContent = 'Check your email';
+    showSuccess('register-success', d.message || 'Check your email to sign in.');
+    return;
+   }
+   if (!d.url || !/^https:\/\//.test(d.url)) throw new Error('Could not open Stripe checkout.');
+   leaving = true;
+   if (d.notice) {
+    // Returning trial user: say so before Stripe, and let them choose to go on.
+    showSuccess('register-success', d.notice);
+    if (btn) {
+     setLoading('register-btn', false);
+     btn.textContent = 'Continue to secure checkout';
+     btn.onclick = (ev) => { ev.preventDefault(); window.location.href = d.url; };
+    }
+    return;
+   }
+   if (btn) btn.textContent = 'Opening Stripe...';
+   window.location.href = d.url;
   } catch (error) {
    showError('register-error', error.message || 'Could not open Stripe checkout.');
   } finally {
@@ -801,6 +818,7 @@
  else if (window.location.hash === '#login') showTab('login');
  });
  if (window.location.hash === '#register') showTab('register');
+ else if (pendingClaim) showTab('register');
  if (plan === 'premium' && window.location.hash !== '#login') showTab('register');
  // Fragment #reset=TOKEN is the email link. Legacy ?reset= is stripped above.
  if (resetToken) showReset();
@@ -812,7 +830,6 @@
  else if (document.getElementById('panel-register').classList.contains('active')) doRegister();
  });
 </script>
-<script src="/js/fm-track.js" defer></script>
 <script src="/js/fm-track.js" defer></script>
 </body>
 </html>

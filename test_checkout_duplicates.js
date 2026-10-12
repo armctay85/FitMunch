@@ -12,6 +12,9 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_fake';
+// The per-IP and per-email limits have their own tests below.
+process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '100000';
+process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '100000';
 
 const app = require('./server.js');
 const { jwtSecret, PRICE_IDS, stripeIdempotencyKey, IDEMPOTENCY_BUCKET_MS } = require('./lib/fitmunch-checkout');
@@ -635,30 +638,23 @@ describe('unauthenticated checkout privacy', () => {
     seedVictim();
     const emailApi = require('./server/email.js');
     const signIn = jest.spyOn(emailApi, 'sendSignInToManageEmail').mockResolvedValue({ success: true });
-    const trialMail = jest.spyOn(emailApi, 'sendTrialCheckoutEmail').mockResolvedValue({ success: true });
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' })
       .expect(200);
-    expect(res.body).toEqual({ success: true, emailSent: true, message: 'Check your email. We sent you a secure link to continue.' });
+    expect(res.body).toEqual({ success: true, signIn: true, message: 'Check your email to sign in.' });
     expect(signIn).toHaveBeenCalledWith('victim@example.com');
-    expect(trialMail).not.toHaveBeenCalled();
     expect(fake.customers.create).not.toHaveBeenCalled();
     expect(fake.S.sessions).toHaveLength(0);
     expect(JSON.stringify(res.body)).not.toMatch(/cus_victim|pm_saved_card|checkout\.stripe/);
     expect(fake.S.subs.find((s) => s.id === 'sub_victim').status).toBe('active');
     signIn.mockRestore();
-    trialMail.mockRestore();
   });
 
-  test('a new email gets a fresh FitMunch customer, no saved cards, and the checkout link by email only', async () => {
+  test('a new email goes straight to Checkout on a fresh FitMunch customer with no saved cards', async () => {
     seedVictimCustomerOnly();
-    const emailApi = require('./server/email.js');
-    const trialMail = jest.spyOn(emailApi, 'sendTrialCheckoutEmail').mockResolvedValue({ success: true });
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' })
       .expect(200);
-    expect(res.body.url).toBeUndefined();
-    expect(res.body.id).toBeUndefined();
     expect(fake.customers.create).toHaveBeenCalledTimes(1);
     const created = fake.customers.create.mock.calls[0][0];
     expect(created.metadata.brand).toBe('fitmunch');
@@ -667,22 +663,22 @@ describe('unauthenticated checkout privacy', () => {
     expect(fake.S.sessions[0].customer).not.toBe('cus_victim');
     expect(JSON.stringify(fake.S.sessions[0].params)).not.toMatch(/allow_redisplay|saved_payment_method|pm_saved_card|cus_victim/);
     expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
-    expect(trialMail).toHaveBeenCalledWith('victim@example.com', fake.S.sessions[0].url, { plan: 'premium', trialUsed: false });
-    trialMail.mockRestore();
+    expect(res.body).toEqual({ success: true, url: fake.S.sessions[0].url, id: fake.S.sessions[0].id, trial: true });
   });
 
-  test('known and unknown emails get the same response shape and status', async () => {
+  test('a subscriber gets the sign-in reply, a new email gets Checkout, and neither leaks Stripe ids', async () => {
     seedVictim();
     const known = await request(app).post('/api/quick-checkout')
       .send({ email: 'victim@example.com', plan: 'premium' });
     const unknown = await request(app).post('/api/quick-checkout')
       .send({ email: 'nobody@example.com', plan: 'premium' });
 
-    expect(publicCheckoutShape(known)).toEqual(publicCheckoutShape(unknown));
     expect(known.status).toBe(200);
-    expect(known.body).toEqual(unknown.body);
-    expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
-    expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|alreadySubscribed|subscribed/i);
+    expect(unknown.status).toBe(200);
+    expect(known.body).toEqual({ success: true, signIn: true, message: 'Check your email to sign in.' });
+    expect(unknown.body.url).toBe(fake.S.sessions[0].url);
+    expect(JSON.stringify(known.body)).not.toMatch(/cus_victim|sub_victim|alreadySubscribed/i);
+    expect(JSON.stringify(unknown.body)).not.toMatch(/cus_victim|sub_victim|alreadySubscribed/i);
     // The live subscriber gets a sign-in email; only the unknown email gets a customer.
     const createdEmails = fake.customers.create.mock.calls.map((call) => call[0].email).sort();
     expect(createdEmails).toEqual(['nobody@example.com']);
@@ -1121,7 +1117,8 @@ describe('email-first trial and yearly Premium', () => {
     const res = await request(app).post('/api/quick-checkout')
       .send({ email: 'first@example.com', plan: 'premium', nonce: 'ef-1' })
       .expect(200);
-    expect(res.body.emailSent).toBe(true);
+    expect(res.body.url).toBe(fake.S.sessions[0].url);
+    expect(res.body.trial).toBe(true);
     const params = fake.S.sessions[0].params;
     expect(params.success_url).toBe('https://www.fitmunch.com.au/success.html?session_id={CHECKOUT_SESSION_ID}');
     expect(params.cancel_url).toBe('https://www.fitmunch.com.au/login.html?plan=premium&cancelled=1#register');
@@ -1141,14 +1138,6 @@ describe('email-first trial and yearly Premium', () => {
     expect(fake.S.sessions[0].params.customer).not.toBe('cus_victim');
   });
 
-  test('response does not reveal whether the email already subscribes', async () => {
-    seedSubscriber();
-    const known = await request(app).post('/api/quick-checkout').send({ email: 'victim@example.com', plan: 'premium', nonce: 'k' });
-    const unknown = await request(app).post('/api/quick-checkout').send({ email: 'nobody@example.com', plan: 'premium', nonce: 'u' });
-    expect(known.status).toBe(unknown.status);
-    expect(Object.keys(known.body).sort()).toEqual(Object.keys(unknown.body).sort());
-    expect(known.body.alreadySubscribed).toBeUndefined();
-  });
 
   test('yearly plan is refused while STRIPE_PRICE_PREMIUM_ANNUAL is unset', async () => {
     const res = await request(app).post('/api/quick-checkout')
@@ -1201,17 +1190,12 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
   const { canonicalTrialEmail } = require('./lib/trial-guard');
   const { endReusedCardTrial } = require('./lib/stripe-webhook');
   let signIn;
-  let trialMail;
 
   beforeEach(() => {
     signIn = jest.spyOn(emailApi, 'sendSignInToManageEmail').mockResolvedValue({ success: true });
-    trialMail = jest.spyOn(emailApi, 'sendTrialCheckoutEmail').mockResolvedValue({ success: true });
   });
   afterEach(() => {
     signIn.mockRestore();
-    trialMail.mockRestore();
-    delete process.env.QUICK_CHECKOUT_MIN_MS;
-    process.env.QUICK_CHECKOUT_MIN_MS = '0';
   });
 
   function priorCustomer(id, email, sub) {
@@ -1236,11 +1220,11 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
     expect(canonicalTrialEmail('Jo.Bloggs+x@Example.com')).toBe('jo.bloggs@example.com');
   });
 
-  for (const status of ['active', 'trialing', 'past_due']) {
+  for (const status of ['active', 'trialing', 'past_due', 'unpaid']) {
     test(`a signed-out ${status} subscriber gets a sign-in email and no second subscription`, async () => {
       priorCustomer('cus_live', 'live@example.com', { status, trial_start: 1 });
       const res = await start('live@example.com').expect(200);
-      expect(res.body.emailSent).toBe(true);
+      expect(res.body).toEqual({ success: true, signIn: true, message: 'Check your email to sign in.' });
       expect(signIn).toHaveBeenCalledWith('live@example.com');
       expect(fake.S.sessions).toHaveLength(0);
       expect(fake.customers.create).not.toHaveBeenCalled();
@@ -1256,10 +1240,18 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
   for (const [label, email] of variants) {
     test(`${label} after an ended trial gets no second trial`, async () => {
       priorCustomer('cus_used', 'used@gmail.com', { status: 'canceled', trial_start: 1, trial_end: 2 });
-      await start(email).expect(200);
+      const res = await start(email).expect(200);
       expect(fake.S.sessions).toHaveLength(1);
       expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBeUndefined();
-      expect(trialMail).toHaveBeenCalledWith(email.trim().toLowerCase(), fake.S.sessions[0].url, { plan: 'premium', trialUsed: true });
+      expect(fake.S.sessions[0].params.metadata.trial).toBe('0');
+      // The page shows this before it sends the browser to Stripe.
+      expect(res.body).toEqual({
+        success: true,
+        url: fake.S.sessions[0].url,
+        id: fake.S.sessions[0].id,
+        trial: false,
+        notice: 'Your trial was used; Premium starts today at A$19.99 a month.',
+      });
     });
   }
 
@@ -1274,28 +1266,12 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
     expect(fake.S.sessions[0].params.subscription_data.trial_period_days).toBe(14);
   });
 
-  test('subscriber, used-trial and new emails get identical bodies after the same minimum time', async () => {
-    process.env.QUICK_CHECKOUT_MIN_MS = '300';
-    priorCustomer('cus_live', 'live@example.com', { status: 'active' });
-    priorCustomer('cus_used', 'used@example.com', { status: 'canceled', trial_start: 1 });
-    const timed = async (email) => {
-      const t = Date.now();
-      const res = await start(email);
-      return { res, ms: Date.now() - t };
-    };
-    const a = await timed('live@example.com');
-    const b = await timed('used@example.com');
-    const c = await timed('new@example.com');
-    expect(a.res.body).toEqual(b.res.body);
-    expect(b.res.body).toEqual(c.res.body);
-    expect([a.res.status, b.res.status, c.res.status]).toEqual([200, 200, 200]);
-    for (const t of [a, b, c]) expect(t.ms).toBeGreaterThanOrEqual(290);
-  });
-
-  test('a Stripe failure returns the same body', async () => {
+  test('a Stripe failure is a generic error with no account detail', async () => {
     fake.customers.list.mockRejectedValueOnce(new Error('boom'));
-    const res = await start('err@example.com').expect(200);
-    expect(res.body.emailSent).toBe(true);
+    const res = await start('err@example.com');
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(JSON.stringify(res.body)).not.toMatch(/boom|cus_|sub_/);
+    expect(fake.S.sessions).toHaveLength(0);
   });
 
   test('the same card on a new customer ends the trial now', async () => {
@@ -1380,11 +1356,11 @@ describe('welcome email after a no-trial checkout (Maximus, PR 78)', () => {
     expect(t.metadata.trial).toBeUndefined();
   });
 
-  test('webhook passes trial:false to the welcome email when metadata.trial is 0', () => {
+  test('the webhook skips trial_started when no trial applies', () => {
     const src = fs.readFileSync(path.join(__dirname, 'lib', 'stripe-webhook.js'), 'utf8');
-    expect(src).toContain("session.metadata.trial === '0'");
-    expect(src).toContain('sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl || undefined, { trial })');
+    expect(src).toContain("!ended && session.metadata?.trial !== '0'");
   });
+
 });
 
 describe('checkout plan allowlist (prototype keys never reach Stripe)', () => {
@@ -1412,5 +1388,86 @@ describe('checkout plan allowlist (prototype keys never reach Stripe)', () => {
     expect(Object.isFrozen(PRICE_IDS)).toBe(true);
     for (const p of [...BAD, ...NON_STRINGS, undefined, null]) expect(priceIdForPlan(p)).toBeNull();
     expect(priceIdForPlan('premium')).toBe(PRICE_IDS.premium);
+  });
+});
+
+describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2)', () => {
+  afterEach(() => {
+    process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '100000';
+    process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '100000';
+  });
+
+  test('per-IP limit: the next request after the cap is a generic 429', async () => {
+    process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '1';
+    const ip = '203.0.113.77';
+    const go = (n) => request(app).post('/api/quick-checkout').set('X-Forwarded-For', ip)
+      .send({ email: `ip${n}@example.com`, plan: 'premium', nonce: `ip-${n}` });
+    const statuses = [];
+    for (let i = 0; i < 4; i++) statuses.push((await go(i)).status);
+    expect(statuses).toContain(429);
+    const limited = await go(9);
+    if (limited.status === 429) expect(JSON.stringify(limited.body)).not.toMatch(/cus_|sub_|subscrib/i);
+  });
+
+  test('per-email limit: one normalised email cannot be looked up in bulk', async () => {
+    process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '2';
+    const spellings = ['Bulk.Look@gmail.com', 'bulklook+a@gmail.com', 'b.u.l.k.look@googlemail.com', 'BULKLOOK@gmail.com'];
+    const res = [];
+    for (const [i, email] of spellings.entries()) {
+      res.push(await request(app).post('/api/quick-checkout').send({ email, plan: 'premium', nonce: `bl-${i}` }));
+    }
+    expect(res.slice(0, 2).map((r) => r.status)).toEqual([200, 200]);
+    expect(res[2].status).toBe(429);
+    expect(res[2].body).toEqual({ success: false, error: 'Too many checkout attempts. Please try again later.' });
+    expect(fake.customers.list.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  test('createFitMunchCustomer stores fm_canonical_email on every path (QA r2 S2)', async () => {
+    const { createFitMunchCustomer } = require('./lib/fitmunch-checkout');
+    await createFitMunchCustomer(fake, { userId: 'u9', email: 'Jo.Smith+x@GMail.com' });
+    const created = fake.customers.create.mock.calls.at(-1)[0];
+    expect(created.metadata.fm_canonical_email).toBe('josmith@gmail.com');
+    expect(created.metadata.brand).toBe('fitmunch');
+  });
+
+  test('trial history reads every page of customers and subscriptions (QA r2 S5)', async () => {
+    const { trialHistoryForEmail, allPages } = require('./lib/trial-guard');
+    const pages = [
+      { data: [{ id: 'a' }], has_more: true },
+      { data: [{ id: 'b' }], has_more: false },
+    ];
+    const seen = [];
+    const out = await allPages(async (q) => { seen.push(q); return pages[seen.length - 1]; }, { limit: 1 });
+    expect(out.map((x) => x.id)).toEqual(['a', 'b']);
+    expect(seen[1].starting_after).toBe('a');
+
+    const stripe = {
+      customers: {
+        list: jest.fn(async () => ({ data: [{ id: 'cus_p', email: 'page@example.com', metadata: { brand: 'fitmunch' } }], has_more: false })),
+      },
+      subscriptions: {
+        list: jest.fn(async (q) => (q.starting_after
+          ? { data: [{ id: 'sub_old', status: 'canceled', trial_start: 1, metadata: { product: 'fitmunch' }, items: { data: [{ price: { id: PRICE_IDS.premium } }] } }], has_more: false }
+          : { data: [{ id: 'sub_x', status: 'canceled', metadata: { product: 'other' }, items: { data: [] } }], has_more: true })),
+      },
+    };
+    const history = await trialHistoryForEmail(stripe, 'page@example.com');
+    expect(history.trialUsed).toBe(true);
+    expect(stripe.subscriptions.list).toHaveBeenCalledTimes(2);
+  });
+
+  test('backfill script refuses live keys and only plans FitMunch customers (test mode only)', async () => {
+    const backfill = require('./scripts/backfill-canonical-email');
+    for (const key of ['sk_live_x', 'rk_live_x', '', undefined, 'pk_test_x']) {
+      expect(() => backfill.assertTestKey(key)).toThrow(/test-mode key/);
+    }
+    expect(() => backfill.assertTestKey('sk_test_x')).not.toThrow();
+    await expect(backfill.run({ stripe: {}, key: 'sk_live_x' })).rejects.toThrow(/test-mode key/);
+    const plan = backfill.plannedUpdates([
+      { id: 'c1', email: 'Jo.Smith@gmail.com', metadata: { brand: 'fitmunch' } },
+      { id: 'c2', email: 'done@example.com', metadata: { brand: 'fitmunch', fm_canonical_email: 'done@example.com' } },
+      { id: 'c3', email: 'w@example.com', metadata: { brand: 'wipper', product: 'wipper' } },
+    ]);
+    expect(plan).toEqual([{ id: 'c1', fm_canonical_email: 'josmith@gmail.com' }]);
   });
 });

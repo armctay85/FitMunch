@@ -41,8 +41,13 @@ describe('Public Premium CTA', () => {
     expect(login.text).toContain('Start Premium trial');
     expect(login.text).toContain('Start your 14-day free trial');
     expect(login.text).toContain("' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: '");
-    expect(login.text).toContain('Check your email. We sent a secure link to');
-    expect(login.text).not.toMatch(/window\.location\.href = d\.url;\s*\} catch \(error\) \{\s*showError\('register-error', error\.message \|\| 'Could not open Stripe checkout\.'\);\s*\} finally \{\s*authInFlight = false;\s*if \(!leaving\)/);
+    // Wilson r2: straight to Stripe. Subscribers see the sign-in message;
+    // a used trial is shown before the browser leaves for Stripe.
+    expect(login.text).toContain("d.message || 'Check your email to sign in.'");
+    expect(login.text).toContain("showSuccess('register-success', d.notice);");
+    expect(login.text).toContain("btn.textContent = 'Continue to secure checkout';");
+    expect(login.text.indexOf("showSuccess('register-success', d.notice);")).toBeLessThan(login.text.lastIndexOf('window.location.href = d.url;'));
+    expect(login.text).not.toContain('We sent a secure link to');
     expect(login.text).toContain("'14-day free trial, then ' + priceLine");
     expect(login.text).toContain("annualBilling ? 'A$149.99 a year' : 'A$19.99 a month'");
     expect(login.text).toContain('Stripe opens');
@@ -418,11 +423,37 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
     expect(html).toContain("if (pendingClaim && window.location.hash !== '#login') showTab('register');");
   });
 
+  it('claim link opens on register at load, outside the hashchange listener (QA r2 S1)', async () => {
+    const html = (await request(app).get('/login.html').expect(200)).text;
+    const listenerEnd = html.indexOf(' });', html.indexOf("window.addEventListener('hashchange'"));
+    const topLevel = html.indexOf(" else if (pendingClaim) showTab('register');");
+    expect(topLevel).toBeGreaterThan(listenerEnd);
+    expect(html.match(/<script src="\/js\/fm-track\.js" defer><\/script>/g)).toHaveLength(1);
+  });
+
+  it('Yearly toggle: unselected button is fm-btn-ink, 4.5:1 or better, with a focus ring (QA r2 M2)', async () => {
+    const html = (await request(app).get('/pricing').expect(200)).text;
+    expect(html).toContain('<button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly</button>');
+    expect(html).toContain("b.className = on ? 'fm-btn fm-btn-leaf' : 'fm-btn fm-btn-ink';");
+    expect(html).not.toMatch(/data-billing="[a-z]+"[^>]*fm-btn-ghost|fm-btn-ghost[^>]*data-billing/);
+    expect(html).toContain('[data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}');
+    const m = /#billing-toggle \.fm-btn-ink\{background:(#[0-9a-f]{6});color:(#[0-9a-f]{6})/.exec(html);
+    const lum = (hex) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const [hi, lo] = [lum(m[1]), lum(m[2])].sort((a, b) => b - a);
+    expect((hi + 0.05) / (lo + 0.05)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('guest success page says Check your email and hides dashboard, billing and next steps', async () => {
     const html = (await request(app).get('/success.html').expect(200)).text;
     expect(html).toContain("document.getElementById('successTitle').textContent = 'Check your email';");
     expect(html).toContain('Your 14-day trial has started. Set your password from the link we sent to finish your account.');
-    expect(html).toContain("['successActions', 'nextSteps']");
+    expect(html).toContain("['successActions', 'nextSteps', 'welcomeNote']");
+    expect(html).toContain('Premium has started. Your first charge is today. Set your password from the link we sent to finish your account.');
+    expect(html).toContain('<a href="/login.html#new-link" style="color:#127035;font-weight:700">ask for a new link</a>');
     expect(html).toContain('Your trial has started.');
     expect(html).not.toContain('Your trial is started');
     expect(html).toContain('A$149.99 a year');

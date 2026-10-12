@@ -77,6 +77,8 @@ html,body{max-width:100%;overflow-x:hidden}
 @media(max-width:520px){
   .trust-strip{grid-template-columns:1fr}
 }
+[data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}
+#billing-toggle .fm-btn-ink{background:#ffffff;color:#0c1210;border-color:#5c6d64}
 </style>
 </head>
 <body class="fm-body">
@@ -111,7 +113,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <div class="fm-section-inner">
     <div id="billing-toggle" role="group" aria-label="Premium billing" hidden style="gap:6px;justify-content:center;margin:0 0 18px">
       <button type="button" class="fm-btn fm-btn-leaf" data-billing="monthly" aria-pressed="true">Monthly</button>
-      <button type="button" class="fm-btn fm-btn-ghost" data-billing="annual" aria-pressed="false">Yearly</button>
+      <button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly</button>
     </div>
     <div class="plans" aria-label="FitMunch pricing plans">
       <article class="plan main">
@@ -127,7 +129,7 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>14-day trial (card on file, cancel anytime)</li>
         </ul>
         <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=plan_card&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
-        <p class="p-note">Enter your email and we send you a secure Stripe link. You set your password after checkout.</p>
+        <p class="p-note">Enter your email and secure Stripe Checkout opens next. You set your password after checkout.</p>
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
@@ -211,7 +213,7 @@ try {
     box.querySelectorAll('button[data-billing]').forEach((b) => {
       const on = b.getAttribute('data-billing') === mode;
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.className = on ? 'fm-btn fm-btn-leaf' : 'fm-btn fm-btn-ghost';
+      b.className = on ? 'fm-btn fm-btn-leaf' : 'fm-btn fm-btn-ink';
     });
     document.querySelectorAll('a[data-fm-plan="premium"]').forEach((a) => {
       try {

@@ -56,7 +56,10 @@ const CLAIM_LINK_WINDOW_COPY = 'This link works once, within 7 days.';
 /**
  * Post-checkout welcome (Premium consumer or PT).
  */
-async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl, { trial = true } = {}) {
+const REUSED_CARD_COPY = 'This card already had a FitMunch trial, so Premium started today at A$19.99 a month (A$149.99 a year for yearly). Cancel anytime from Billing.';
+
+async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl, { trial = true, trialEnded = false } = {}) {
+  if (trialEnded) trial = false;
   const name = customerName || 'there';
   const dashboardUrl = 'https://www.fitmunch.com.au/app.html';
   const isPt = /starter|pro/i.test(String(planLabel || '')) && !/premium/i.test(String(planLabel || ''));
@@ -98,6 +101,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
   </div>
   <div style="padding:28px">
     <p style="font-size:16px;color:#0c1210">Hi ${name},</p>
+    ${trialEnded ? `<p style="font-size:16px;color:#0c1210;line-height:1.6;font-weight:700">${REUSED_CARD_COPY}</p>` : ''}
     <p style="font-size:16px;color:#5c6d64;line-height:1.6">Thanks for starting FitMunch ${label}. The loop is simple: receipt to macros to meals to the next shop.</p>
     ${attachHtml}
     <div style="background:rgba(31,157,74,0.08);border:1px solid rgba(31,157,74,0.28);padding:16px;margin:20px 0">
@@ -122,7 +126,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
 
   const bodyText = `Hi ${name},
 
-Thanks for starting FitMunch ${label}. ${trial ? 'Your trial is live.' : 'Your subscription has started and your first charge is today.'}
+${trialEnded ? REUSED_CARD_COPY + '\n\n' : ''}Thanks for starting FitMunch ${label}. ${trial ? 'Your trial is live.' : 'Your subscription has started and your first charge is today.'}
 ${attachText}
 
 Open dashboard: ${dashboardUrl}
@@ -212,21 +216,6 @@ const TRIAL_USED_COPY = {
 };
 
 /** Email-first trial: the Stripe Checkout link goes to the typed address only. */
-async function sendTrialCheckoutEmail(customerEmail, checkoutUrl, { plan = 'premium', trialUsed = false } = {}) {
-  const price = plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';
-  const lead = trialUsed
-    ? [TRIAL_USED_COPY[plan] || TRIAL_USED_COPY.premium, 'Open the secure Stripe page below to start Premium. After checkout we email you a link to set your password.']
-    : [`Your 14-day free trial is one step away. After the trial, Premium is ${price} from day 15. Card required. Cancel anytime before then and you pay nothing.`, 'Open the secure Stripe page below to start. After checkout we email you a link to set your password.'];
-  const { bodyHtml, bodyText } = simpleEmail({
-    lead,
-    buttonUrl: checkoutUrl,
-    buttonLabel: trialUsed ? 'Start Premium' : 'Start your 14-day free trial',
-    footer: 'This link works for 24 hours. Did not ask for this? Ignore this email and nothing happens.',
-  });
-  const subject = trialUsed ? 'Your FitMunch Premium link' : 'Start your FitMunch trial';
-  return sendEmail({ to: customerEmail, subject, bodyHtml, bodyText });
-}
-
 /** A live subscriber typed their email on the signed-out trial page. */
 async function sendSignInToManageEmail(customerEmail) {
   const { bodyHtml, bodyText } = simpleEmail({
@@ -242,8 +231,8 @@ module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendClaimLinkEmail,
-  sendTrialCheckoutEmail,
   sendSignInToManageEmail,
   CLAIM_LINK_WINDOW_COPY,
   TRIAL_USED_COPY,
+  REUSED_CARD_COPY,
 };
