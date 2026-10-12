@@ -105,7 +105,7 @@ describe.each([['chat', chat], ['scan', scan]])('%s route', (_name, call) => {
   });
   it('smoke account at its daily cap gets a smoke 429, not the upgrade message', async () => {
     process.env.SMOKE_ACCOUNT_IDS = ID;
-    smokeUsed = 10;
+    smokeUsed = 30;
     const r = await call(tokenFor('x@example.com', ID));
     expect(r.status).toBe(429);
     expect(r.body.upgrade).toBe(false);
@@ -134,7 +134,7 @@ describe('/api/ai/usage', () => {
     process.env.SMOKE_ACCOUNT_IDS = ID;
     smokeUsed = 3;
     const r = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${tokenFor('x@example.com', ID)}`);
-    expect(r.body).toMatchObject({ success: true, used: 3, limit: 10, remaining: 7, tier: 'smoke', period: 'day' });
+    expect(r.body).toMatchObject({ success: true, used: 3, limit: 30, remaining: 27, tier: 'smoke', period: 'day' });
   });
   it('shows the monthly cap for others', async () => {
     process.env.SMOKE_ACCOUNT_IDS = ID;
@@ -160,7 +160,7 @@ describe('other AI routes fail closed on a smoke usage-store error', () => {
   });
   it.each(routes)('%s returns the smoke 429 at the daily cap', async (_n, call) => {
     process.env.SMOKE_ACCOUNT_IDS = ID;
-    smokeUsed = 10;
+    smokeUsed = 30;
     const r = await call(tokenFor('x@example.com', ID));
     expect(r.status).toBe(429);
     expect(r.body.error).toBe('Smoke account daily AI cap reached.');

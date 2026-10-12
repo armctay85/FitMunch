@@ -198,6 +198,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
     // Validate structure
     if (!plan.days || !Array.isArray(plan.days)) throw new Error('Invalid plan structure');
 
+    res.locals.aiAnswered = true;
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch(err) {
     sendApiError(res, err, '[meal-planner]');

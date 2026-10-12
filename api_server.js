@@ -1219,6 +1219,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       res.locals.aiFailed = true;
       return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
     }
+    res.locals.aiAnswered = true;
     return res.json({
       success: true,
       insight: r.text.trim(),
@@ -1346,6 +1347,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
 
+    res.locals.aiAnswered = true;
     return res.json({
       success: true,
       reply: r.text.trim(),
@@ -1481,6 +1483,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
     if (!plan.workouts || !Array.isArray(plan.workouts)) {
       return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
     }
+    res.locals.aiAnswered = true;
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
@@ -1574,6 +1577,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
+    res.locals.aiAnswered = true;
     res.json({
       success: true,
       review: r.data,

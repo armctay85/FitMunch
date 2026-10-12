@@ -158,9 +158,13 @@ describe('prod-smoke.yml serialization', () => {
     expect(smokeJob).toContain("github.event.deployment.environment == 'Production – fit-munch'");
     expect(smokeJob).not.toMatch(/contains\(github\.event\.deployment\.environment/);
   });
-  it('one concurrency group for all triggers, cancel-in-progress on the smoke job', () => {
-    expect(smokeJob).toMatch(/concurrency:\n\s+group: fitmunch-production-smoke\n\s+cancel-in-progress: true/);
-    expect(smokeJob).not.toMatch(/group: .*\$\{\{/);
+  it('deploy and periodic smokes use separate groups, each cancel-in-progress', () => {
+    expect(smokeJob).toContain("group: fitmunch-production-smoke-${{ github.event_name == 'deployment_status' && 'deploy' || 'periodic' }}");
+    expect(smokeJob).toMatch(/group: fitmunch-production-smoke-\$\{\{[^\n]+\}\}\n\s+cancel-in-progress: true/);
+  });
+  it('accepts exactly the en dash and hyphen fit-munch production names, nothing else', () => {
+    const names = [...smokeJob.matchAll(/github\.event\.deployment\.environment == '([^']+)'/g)].map((m) => m[1]);
+    expect(names).toEqual(['Production \u2013 fit-munch', 'Production - fit-munch']);
   });
   it('issue job is not cancelled by a newer smoke', () => {
     const issueJob = wf.slice(wf.indexOf('\n  prod-smoke-issue:'));

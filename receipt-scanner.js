@@ -261,6 +261,7 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       });
     }
     aiUsage.refundSmokeOnFailure(gate, res);
+    res.locals.aiAnswered = true;
 
     const payload = core.buildScanPayload(rawItems, {
       guest: false,

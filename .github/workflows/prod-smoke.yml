@@ -18,7 +18,9 @@ jobs:
     # and for queued / in_progress / success. GitHub's contains() is
     # case-insensitive, so contains(environment, 'Production') matched all four.
     # Only the fit-munch Vercel production success counts; everything else is
-    # skipped before a runner starts.
+    # skipped before a runner starts. NOTE: this depends on the exact Vercel
+    # environment name; renaming the Vercel project silently stops deploy
+    # smokes (the 3-hourly run still covers prod). See docs/prod-smoke.md.
     if: >-
       github.event_name == 'schedule'
       || github.event_name == 'workflow_dispatch'
@@ -32,10 +34,11 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # One group for every trigger (deploy, schedule, dispatch): a newer smoke
-    # cancels an older one in flight, so only the latest runs.
+    # Two groups: deploy smokes share one, schedule and dispatch share another,
+    # so a periodic run never cancels a deploy smoke. Within each group a newer
+    # run cancels the older one in flight, so only the latest runs.
     concurrency:
-      group: fitmunch-production-smoke
+      group: fitmunch-production-smoke-${{ github.event_name == 'deployment_status' && 'deploy' || 'periodic' }}
       cancel-in-progress: true
     permissions:
       contents: read

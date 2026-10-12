@@ -147,17 +147,35 @@ describe('smoke account cap', () => {
     expect(results[3]).toMatchObject({ allowed: false, limit: 3, used: 3, smoke: true });
     expect(await usage.getUsed('u-smoke')).toBe(0);
   });
-  it('defaults to 10 a day', async () => {
+  it('defaults to 30 a day when unset', async () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-123' });
-    expect(usage.smokeDailyCap()).toBe(10);
+    expect(usage.smokeDailyCap()).toBe(30);
     let last;
-    for (let i = 0; i < 11; i += 1) last = await usage.checkAndConsume({ userId: 'u-123', tier: 'free', feature: 'receipt_scan' });
-    expect(last).toMatchObject({ allowed: false, limit: 10 });
+    for (let i = 0; i < 31; i += 1) last = await usage.checkAndConsume({ userId: 'u-123', tier: 'free', feature: 'receipt_scan' });
+    expect(last).toMatchObject({ allowed: false, limit: 30 });
   });
   it('concurrent calls never exceed the cap (atomic)', async () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-c', SMOKE_DAILY_AI_CAP: '5' });
     const rs = await Promise.all(Array.from({ length: 20 }, () => usage.checkAndConsume({ userId: 'u-c', tier: 'free', feature: 'chat' })));
     expect(rs.filter((r) => r.allowed)).toHaveLength(5);
+  });
+  it('client abort after an answered call is not refunded; abort before an answer is', async () => {
+    const { EventEmitter } = require('events');
+    const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-ab' });
+    let refunds = 0;
+    usage._setQueryForTests(async (sql) => { if (/count = count - 1/.test(sql)) refunds += 1; return { rows: [{ count: 0 }] }; });
+    const gate = { allowed: true, smoke: true, userId: 'u-ab', day: 'day:2026-10-12' };
+    const answered = Object.assign(new EventEmitter(), { statusCode: 200, writableFinished: false, locals: { aiAnswered: true } });
+    usage.refundSmokeOnFailure(gate, answered);
+    answered.emit('close');
+    const notAnswered = Object.assign(new EventEmitter(), { statusCode: 200, writableFinished: false, locals: {} });
+    usage.refundSmokeOnFailure(gate, notAnswered);
+    notAnswered.emit('close');
+    const answered5xx = Object.assign(new EventEmitter(), { statusCode: 500, writableFinished: true, locals: { aiAnswered: true } });
+    usage.refundSmokeOnFailure(gate, answered5xx);
+    answered5xx.emit('finish');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(refunds).toBe(1);
   });
   it('emails are never matched', () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'smoke@fitmunch.com.au' });
@@ -177,7 +195,7 @@ describe('smoke account cap', () => {
     const { usage } = load();
     expect(usage.isSmokeAccount({ userId: 'u' })).toBe(false);
   });
-  it.each([['99999999999', 100], ['1e3', 10], ['-1', 10], ['abc', 10], ['0', 0], [' 7 ', 7], ['100', 100], ['101', 100]])(
+  it.each([['99999999999', 100], ['1e3', 30], ['-1', 30], ['abc', 30], ['', 30], ['  ', 30], ['500', 100], ['0', 0], [' 7 ', 7], ['100', 100], ['101', 100]])(
     'SMOKE_DAILY_AI_CAP=%s gives %i', (raw, want) => {
       const { usage } = load({ SMOKE_DAILY_AI_CAP: raw });
       expect(usage.smokeDailyCap()).toBe(want);
