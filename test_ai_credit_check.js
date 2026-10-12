@@ -127,6 +127,20 @@ describe('main / run', () => {
     expect(await c.run(ENV, d)).toBe(1);
     expect(d.errs[0]).toBe('xAI credit check: unknown (xAI response was not valid JSON)');
   });
+  it('only closes issues with our own titles', async () => {
+    const d = deps({ balance: bal(-100000), issues: [{ number: 9, title: 'xAI credit low' }, { number: 10, title: 'Someone else labelled this' }, { number: 11, title: 'xAI credit check: unknown, check manually' }] });
+    const r = await c.main(ENV, d);
+    expect(r.closed).toEqual([9, 11]);
+    expect(d.calls.some((x) => /\/issues\/10/.test(x.url))).toBe(false);
+  });
+  it('logs ok (could not close issue) when closing fails, and still succeeds', async () => {
+    const d = deps({ balance: bal(-100000), issues: [{ number: 9, title: 'xAI credit low' }] });
+    const f = d.fetch;
+    d.fetch = (url, opts) => (url.endsWith('/comments') ? Promise.resolve({ ok: false, status: 500, json: async () => ({}) }) : f(url, opts));
+    const r = await c.main(ENV, d);
+    expect(r.closed).toEqual([]);
+    expect(d.lines).toContain('ok (could not close issue)');
+  });
   it('closes the open issue when credit is back to ok', async () => {
     const d = deps({ balance: bal(-100000), issues: [{ number: 9, title: 'xAI credit low' }] });
     const r = await c.main(ENV, d);

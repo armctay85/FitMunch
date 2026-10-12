@@ -23,6 +23,7 @@ module.exports = {
     '**/test_pay_path.js',
     '**/test_funnel_events.js',
     '**/test_account_created_event.js',
+    '**/test_vercel_analytics.js',
     '**/test_checkout_duplicates.js',
     '**/test_app_load.js',
     '**/test_stripe_webhook.js',

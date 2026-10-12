@@ -1367,9 +1367,18 @@ describe('checkout plan allowlist (prototype keys never reach Stripe)', () => {
   const { priceIdForPlan } = require('./lib/fitmunch-checkout');
   const BAD = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'starter-x'];
   const NON_STRINGS = [123, true, ['premium'], { plan: 'premium' }];
-  const stripeCalls = () => Object.values(fake).filter((v) => v && typeof v === 'object')
-    .flatMap((ns) => Object.values(ns).filter((f) => f && f.mock))
-    .reduce((n, f) => n + f.mock.calls.length, 0);
+  // Recursive: counts top-level fns (rawRequest) and nested ones (checkout.sessions.create, subscriptions.*).
+  const count = (o, seen = new Set()) => {
+    if (!o || seen.has(o)) return 0;
+    seen.add(o);
+    return Object.entries(o).reduce((n, [k, v]) => {
+      if (k === 'S') return n;
+      if (typeof v === 'function' && v.mock) return n + v.mock.calls.length;
+      if (v && typeof v === 'object') return n + count(v, seen);
+      return n;
+    }, 0);
+  };
+  const stripeCalls = () => count(fake) + fake.S.sessions.length + fake.S.customers.length;
 
   test.each([...BAD, ...NON_STRINGS])('quick-checkout plan %p => 400, zero Stripe calls', async (plan) => {
     const r = await request(app).post('/api/quick-checkout').send({ email: 'x@example.com', plan });

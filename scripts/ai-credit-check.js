@@ -139,7 +139,8 @@ async function upsertIssue(repo, s, runUrl, deps = {}) {
 async function closeOpenIssues(repo, runUrl, deps = {}) {
   const open = await gh(`/repos/${repo}/issues?state=open&labels=${LABEL}&per_page=10`, {}, deps);
   const closed = [];
-  for (const i of (open || []).filter((x) => !x.pull_request)) {
+  const ours = new Set([issueTitle({ unknown: false }), issueTitle({ unknown: true })]);
+  for (const i of (open || []).filter((x) => !x.pull_request && ours.has(x.title))) {
     const body = `xAI credit check is back to ok.${runUrl ? `\n\nRun: ${runUrl}` : ''}`;
     await gh(`/repos/${repo}/issues/${i.number}/comments`, { method: 'POST', body: JSON.stringify({ body }) }, deps);
     await gh(`/repos/${repo}/issues/${i.number}`, { method: 'PATCH', body: JSON.stringify({ state: 'closed', state_reason: 'completed' }) }, deps);
@@ -198,7 +199,12 @@ async function main(env = process.env, deps = {}) {
   const s = assess(balance, perDay, { warnDays: env.AI_CREDIT_WARN_DAYS, floorUsd: env.AI_CREDIT_FLOOR_USD });
   log(`xAI credit check: ${s.low ? 'LOW' : 'ok'}`);
   if (!s.low) {
-    const closed = await closeOpenIssues(env.GITHUB_REPOSITORY, env.RUN_URL, deps);
+    let closed = [];
+    try {
+      closed = await closeOpenIssues(env.GITHUB_REPOSITORY, env.RUN_URL, deps);
+    } catch (_) {
+      log('ok (could not close issue)');
+    }
     if (closed.length) log(`ai-credit-low issue ${closed.map((n) => `#${n}`).join(', ')} closed`);
     return { ...s, issue: null, closed };
   }
