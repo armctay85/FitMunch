@@ -457,6 +457,16 @@ router.post('/auth/register', async (req, res) => {
       }
     }
 
+    try {
+      const funnel = require('./lib/funnel-events');
+      funnel.scheduleFunnelEvent(
+        funnel.accountCreatedEvent({ role, attribution: req.body.attribution }),
+        `account:${user.id}`
+      );
+    } catch (_) {
+      /* analytics must not affect sign-up */
+    }
+
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
@@ -1180,10 +1190,17 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
     }
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'insight' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.json({ success: true, insight: fallback, provider: 'rate_limited', upgrade: true, limit: gate.limit, used: gate.used });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
     const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
@@ -1209,8 +1226,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     });
 
     if (!r.ok || !r.text.trim()) {
+      res.locals.aiFailed = true;
       return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
     }
+    res.locals.aiAnswered = true;
     return res.json({
       success: true,
       insight: r.text.trim(),
@@ -1270,7 +1289,29 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'chat' });
+    const textOf = (c) => (Array.isArray(c)
+      ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
+      : String(c ?? '')).trim();
+    const safeMessages = (Array.isArray(messages) ? messages : [])
+      .slice(-20)
+      .map((m) => ({
+        role: m && m.role === 'assistant' ? 'assistant' : 'user',
+        content: textOf(m && m.content).slice(0, 4000),
+      }))
+      .filter((m) => m.content.length);
+
+    // Validate before any credit is charged: there must be a user message.
+    if (!safeMessages.some((m) => m.role === 'user')) {
+      return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
+
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false,
@@ -1280,18 +1321,8 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
         error: `Free plan includes ${gate.limit} AI messages/month. Upgrade for unlimited.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
-    const safeMessages = (Array.isArray(messages) ? messages : [])
-      .slice(-20)
-      .map((m) => ({
-        role: m && m.role === 'assistant' ? 'assistant' : 'user',
-        content: String((m && m.content) || '').slice(0, 4000),
-      }))
-      .filter((m) => m.content.length);
-
-    if (safeMessages.length === 0) {
-      return res.status(400).json({ success: false, error: 'At least one message is required.' });
-    }
 
     // Profile + client-supplied context block appended as a system addendum.
     const profileBits = [
@@ -1319,10 +1350,14 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       route: '/ai/chat',
     });
 
+    if (!r.ok && r.error === 'no_user_message') {
+      return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
 
+    res.locals.aiAnswered = true;
     return res.json({
       success: true,
       reply: r.text.trim(),
@@ -1340,7 +1375,21 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 // ── AI USAGE (for the client to render remaining count) ───────────────────────
 router.get('/ai/usage', authMiddleware, async (req, res) => {
   try {
-    const used = await aiUsage.getUsed(String(req.user.userId));
+    const userId = String(req.user.userId);
+    if (aiUsage.isSmokeAccount({ userId })) {
+      const limit = aiUsage.smokeDailyCap();
+      const used = await aiUsage.smokeUsedToday(userId);
+      return res.json({
+        success: true,
+        used,
+        limit,
+        remaining: used === null ? null : Math.max(0, limit - used),
+        tier: 'smoke',
+        period: 'day',
+        day: aiUsage.sydneyDay(),
+      });
+    }
+    const used = await aiUsage.getUsed(userId);
     const limit = aiUsage.freeMonthlyLimit();
     let tier = 'free';
     try {
@@ -1392,13 +1441,20 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'workout_plan' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     const days = Math.min(Math.max(parseInt(daysPerWeek, 10) || 3, 1), 7);
     const prompt = `You are an Australian strength and conditioning coach building a weekly program.
@@ -1437,6 +1493,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
     if (!plan.workouts || !Array.isArray(plan.workouts)) {
       return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
     }
+    res.locals.aiAnswered = true;
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
@@ -1469,13 +1526,20 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       });
     }
 
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'weekly_review' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited reviews.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     // Gather the last 7 days of real data.
     const since = new Date(Date.now() - 7 * 86400000);
@@ -1523,6 +1587,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
+    res.locals.aiAnswered = true;
     res.json({
       success: true,
       review: r.data,

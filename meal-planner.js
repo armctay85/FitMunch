@@ -171,13 +171,20 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
 
     // Free-tier gating — plan generation is a heavyweight AI call.
     const tier = await userTier(req.user.userId);
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), email: req.user.email, tier, feature: 'meal_plan' });
+    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
+    if (!gate.allowed && gate.unavailable) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+    }
     if (!gate.allowed) {
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     const r = await aiClient.chatJson({
       messages: [{ role: 'user', content: prompt }],
@@ -191,6 +198,7 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
     // Validate structure
     if (!plan.days || !Array.isArray(plan.days)) throw new Error('Invalid plan structure');
 
+    res.locals.aiAnswered = true;
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
   } catch(err) {
     sendApiError(res, err, '[meal-planner]');
