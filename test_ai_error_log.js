@@ -78,6 +78,6 @@ describe('ai_provider= failure line', () => {
     const ai = load();
     next = { status: 200, body: { content: [{ text: 'hi' }] } };
     await ai.chat({ messages: [{ role: 'user', content: PROMPT }], route: '/ai/chat' });
-    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=true status=200 tokens_in=- tokens_out=- tokens_day=-');
+    expect(logs[0]).toBe('ai_provider=anthropic route=/ai/chat ok=true status=200 tokens_in=- tokens_out=-');
   });
 });
