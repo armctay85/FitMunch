@@ -56,7 +56,7 @@ const CLAIM_LINK_WINDOW_COPY = 'This link works once, within 7 days.';
 /**
  * Post-checkout welcome (Premium consumer or PT).
  */
-async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl) {
+async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl, { trial = true } = {}) {
   const name = customerName || 'there';
   const dashboardUrl = 'https://www.fitmunch.com.au/app.html';
   const isPt = /starter|pro/i.test(String(planLabel || '')) && !/premium/i.test(String(planLabel || ''));
@@ -79,7 +79,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
       </ol>`;
 
   const attachHtml = claimUrl
-    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Your trial has started. Set a password to finish your FitMunch account, or sign in if you already have one. ${CLAIM_LINK_WINDOW_COPY}</p>
+    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">${trial ? 'Your trial has started.' : 'Premium has started.'} Set a password to finish your FitMunch account, or sign in if you already have one. ${CLAIM_LINK_WINDOW_COPY}</p>
     <p style="margin:20px 0">
       <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Set your password</a>
     </p>`
@@ -94,7 +94,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
   <div style="background:#07130d;padding:32px 28px">
     <div style="font-family:system-ui,sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.03em">Fit<span style="color:#1f9d4a">Munch</span></div>
     <h1 style="font-family:system-ui,sans-serif;color:#fff;margin:16px 0 0;font-size:24px;letter-spacing:-0.03em">You're in.</h1>
-    <p style="color:rgba(238,242,238,0.75);margin:8px 0 0;font-size:15px">Your ${label} trial is live. No charge until the trial ends.</p>
+    <p style="color:rgba(238,242,238,0.75);margin:8px 0 0;font-size:15px">${trial ? `Your ${label} trial is live. No charge until the trial ends.` : `Your ${label} subscription has started. Your first charge is today.`}</p>
   </div>
   <div style="padding:28px">
     <p style="font-size:16px;color:#0c1210">Hi ${name},</p>
@@ -122,7 +122,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
 
   const bodyText = `Hi ${name},
 
-Thanks for starting FitMunch ${label}. Your trial is live.
+Thanks for starting FitMunch ${label}. ${trial ? 'Your trial is live.' : 'Your subscription has started and your first charge is today.'}
 ${attachText}
 
 Open dashboard: ${dashboardUrl}

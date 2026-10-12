@@ -1340,3 +1340,49 @@ describe('trial guard (Elite QA PR 78 M1)', () => {
     expect(fake.subscriptions.retrieve).not.toHaveBeenCalled();
   });
 });
+
+describe('welcome email after a no-trial checkout (Maximus, PR 78)', () => {
+  const emailApi = require('./server/email.js');
+  const { buildSubscriptionCheckoutParams } = require('./lib/fitmunch-checkout');
+
+  async function sentText(args) {
+    process.env.RESEND_API_KEY = 'test-key';
+    const calls = [];
+    const prev = global.fetch;
+    global.fetch = jest.fn(async (url, opts) => { calls.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ id: 'e1' }) }; });
+    try {
+      await emailApi.sendWelcomeEmail(...args);
+    } finally {
+      global.fetch = prev;
+      delete process.env.RESEND_API_KEY;
+    }
+    return `${calls[0].html}\n${calls[0].text}`;
+  }
+
+  test('trial-used payer is told Premium started and the first charge is today', async () => {
+    const out = await sentText(['a@example.com', '', 'Premium', 'https://www.fitmunch.com.au/login.html#claim=x', { trial: false }]);
+    expect(out).toContain('Premium has started.');
+    expect(out).toContain('Your first charge is today.');
+    expect(out).not.toMatch(/Your trial has started|trial is live|No charge until the trial ends/);
+  });
+
+  test('a normal trial keeps the trial copy', async () => {
+    const out = await sentText(['a@example.com', '', 'Premium', 'https://www.fitmunch.com.au/login.html#claim=x']);
+    expect(out).toContain('Your trial has started.');
+    expect(out).toContain('No charge until the trial ends.');
+  });
+
+  test('a no-trial Checkout carries metadata trial=0 for the webhook', () => {
+    const p = buildSubscriptionCheckoutParams({ customerId: 'cus_x', priceId: PRICE_IDS.premium, plan: 'premium', trial: false });
+    expect(p.metadata.trial).toBe('0');
+    expect(p.subscription_data.trial_period_days).toBeUndefined();
+    const t = buildSubscriptionCheckoutParams({ customerId: 'cus_x', priceId: PRICE_IDS.premium, plan: 'premium' });
+    expect(t.metadata.trial).toBeUndefined();
+  });
+
+  test('webhook passes trial:false to the welcome email when metadata.trial is 0', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'lib', 'stripe-webhook.js'), 'utf8');
+    expect(src).toContain("session.metadata.trial === '0'");
+    expect(src).toContain('sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl || undefined, { trial })');
+  });
+});
