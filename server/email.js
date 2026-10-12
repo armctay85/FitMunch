@@ -79,9 +79,9 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
       </ol>`;
 
   const attachHtml = claimUrl
-    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Paid before you had an account? Attach this subscription to the FitMunch account you choose. ${CLAIM_LINK_WINDOW_COPY}</p>
+    ? `<p style="font-size:16px;color:#0c1210;line-height:1.6">Your trial is started. Set a password to finish your FitMunch account, or sign in if you already have one. ${CLAIM_LINK_WINDOW_COPY}</p>
     <p style="margin:20px 0">
-      <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Attach this subscription</a>
+      <a href="${claimUrl}" style="display:inline-block;background:#1f9d4a;color:#ffffff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">Set your password</a>
     </p>`
     : '';
 
@@ -117,7 +117,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
 </html>`.trim();
 
   const attachText = claimUrl
-    ? `\nAttach this subscription to your account. ${CLAIM_LINK_WINDOW_COPY}\n${claimUrl}\n`
+    ? `\nSet a password to finish your FitMunch account. ${CLAIM_LINK_WINDOW_COPY}\n${claimUrl}\n`
     : '';
 
   const bodyText = `Hi ${name},

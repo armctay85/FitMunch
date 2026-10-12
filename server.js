@@ -503,6 +503,8 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
 const {
   PRICE_IDS,
   PRICE_TO_TIER,
+  tierForPriceId,
+  premiumAnnualAvailable,
   jwtSecret,
   checkoutOrigin,
   normalizeCheckoutPlan,
@@ -591,6 +593,18 @@ function checkoutJson(result) {
   return { url: result.url, id: result.id };
 }
 
+function quickCheckoutCancelPath(plan) {
+  if (plan === 'premium-annual') return '/login.html?plan=premium&billing=annual&cancelled=1#register';
+  if (plan === 'premium') return '/login.html?plan=premium&cancelled=1#register';
+  return '/pricing?cancelled=1';
+}
+
+// Public pricing switches. Annual shows only when its Stripe price is set.
+app.get('/api/pricing/config', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ success: true, premiumAnnual: premiumAnnualAvailable() });
+});
+
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
 app.post('/api/quick-checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
@@ -604,7 +618,7 @@ app.post('/api/quick-checkout', async (req, res) => {
 
     const priceId = PRICE_IDS[plan];
     if (!priceId) {
-      return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use premium, pt-starter, or pt-pro.` });
+      return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use premium, premium-annual, pt-starter, or pt-pro.` });
     }
 
     // Same response whether or not this email already has a Stripe customer
@@ -619,6 +633,10 @@ app.post('/api/quick-checkout', async (req, res) => {
         priceId,
         plan,
         origin: checkoutOrigin(req),
+        // Email-first trial: the guest has no session in this browser yet, so
+        // return to the success page (password link) rather than /app.html.
+        successPath: '/success.html?session_id={CHECKOUT_SESSION_ID}',
+        cancelPath: quickCheckoutCancelPath(plan),
       })
     );
 
@@ -950,7 +968,7 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     let expiresAt = null;
     if (live) {
       const priceId = live.items?.data[0]?.price?.id;
-      tier = PRICE_TO_TIER[priceId] || 'starter';
+      tier = tierForPriceId(priceId) || 'starter';
       const periodEnd = live.current_period_end || live.items?.data[0]?.current_period_end;
       expiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
     } else if (!liveCoach) {

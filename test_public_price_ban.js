@@ -39,7 +39,7 @@ const DATE_FIELDS = /\b(pricedAt|validFrom|validTo|priced_at|valid_from|valid_to
 const STALE_DATES = /2026-08-25|2026-08-31|2023-06-30/;
 const STORE = /woolworths|woolies|coles|aldi|\biga\b|catalogue|specials|docket|trolley|supermarket/i;
 const ALLOWED_DOLLARS = new Set([
-  '0', '0.00', '19.99', '39', '39.00', '59', '59.00', '59.99', '79', '79.00', '99', '99.00', '100',
+  '0', '0.00', '19.99', '149.99', '39', '39.00', '59', '59.00', '59.99', '79', '79.00', '99', '99.00', '100',
 ]);
 
 const PRICE_LINE = 'Prices vary by store and week.';

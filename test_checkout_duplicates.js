@@ -1080,3 +1080,100 @@ describe('idempotency key bucket', () => {
     expect(a.length).toBeLessThanOrEqual(255);
   });
 });
+
+describe('email-first trial and yearly Premium', () => {
+  const ANNUAL = 'price_testAnnual14999';
+  const {
+    tierForPriceId,
+    planForPriceId,
+    subscriptionTierUpdateFromStripe,
+    normalizeCheckoutPlan,
+  } = require('./lib/fitmunch-checkout');
+
+  function seedSubscriber() {
+    fake.S.customers.push({ id: 'cus_victim', email: 'victim@example.com', created: 1, metadata: { brand: 'fitmunch', product: 'fitmunch' } });
+  }
+
+  afterEach(() => {
+    delete process.env.STRIPE_PRICE_PREMIUM_ANNUAL;
+  });
+
+  test('guest Premium checkout returns to the success page, and cancel goes back to the email step', async () => {
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'first@example.com', plan: 'premium', nonce: 'ef-1' })
+      .expect(200);
+    expect(res.body.url).toBeTruthy();
+    const params = fake.S.sessions[0].params;
+    expect(params.success_url).toBe('https://www.fitmunch.com.au/success.html?session_id={CHECKOUT_SESSION_ID}');
+    expect(params.cancel_url).toBe('https://www.fitmunch.com.au/login.html?plan=premium&cancelled=1#register');
+    expect(params.line_items[0].price).toBe(PRICE_IDS.premium);
+    expect(params.payment_method_collection).toBe('always');
+    expect(params.subscription_data.trial_period_days).toBe(14);
+  });
+
+  test('email-first keeps PR 23: no customer lookup by email, one customer per double submit', async () => {
+    seedSubscriber();
+    const send = () => request(app).post('/api/quick-checkout')
+      .send({ email: 'victim@example.com', plan: 'premium', nonce: 'ef-double' });
+    const [a, b] = await Promise.all([send(), send()]);
+    expect(a.body.url).toBe(b.body.url);
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(fake.customers.create).toHaveBeenCalledTimes(1);
+    expect(fake.S.sessions[0].params.customer).not.toBe('cus_victim');
+  });
+
+  test('response does not reveal whether the email already subscribes', async () => {
+    seedSubscriber();
+    const known = await request(app).post('/api/quick-checkout').send({ email: 'victim@example.com', plan: 'premium', nonce: 'k' });
+    const unknown = await request(app).post('/api/quick-checkout').send({ email: 'nobody@example.com', plan: 'premium', nonce: 'u' });
+    expect(known.status).toBe(unknown.status);
+    expect(Object.keys(known.body).sort()).toEqual(Object.keys(unknown.body).sort());
+    expect(known.body.alreadySubscribed).toBeUndefined();
+  });
+
+  test('yearly plan is refused while STRIPE_PRICE_PREMIUM_ANNUAL is unset', async () => {
+    const res = await request(app).post('/api/quick-checkout')
+      .send({ email: 'yr@example.com', plan: 'premium-annual', nonce: 'yr-0' });
+    expect(res.status).toBe(400);
+    expect(fake.S.sessions).toHaveLength(0);
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAnnual).toBe(false);
+  });
+
+  test('a malformed annual env value is treated as unset', async () => {
+    process.env.STRIPE_PRICE_PREMIUM_ANNUAL = 'not-a-price';
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAnnual).toBe(false);
+    expect(PRICE_IDS['premium-annual']).toBe('');
+  });
+
+  test('yearly plan uses the env price, a 14-day trial, and maps to the premium tier', async () => {
+    process.env.STRIPE_PRICE_PREMIUM_ANNUAL = ` ${ANNUAL} `;
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAnnual).toBe(true);
+    await request(app).post('/api/quick-checkout')
+      .send({ email: 'yr@example.com', plan: 'premium-annual', nonce: 'yr-1' })
+      .expect(200);
+    const params = fake.S.sessions[0].params;
+    expect(params.line_items[0].price).toBe(ANNUAL);
+    expect(params.metadata.plan).toBe('premium-annual');
+    expect(params.subscription_data.trial_period_days).toBe(14);
+    expect(params.cancel_url).toContain('billing=annual');
+    expect(planForPriceId(ANNUAL)).toBe('premium-annual');
+    expect(tierForPriceId(ANNUAL)).toBe('premium');
+    expect(tierForPriceId(PRICE_IDS.premium)).toBe('premium');
+    expect(subscriptionTierUpdateFromStripe({ status: 'trialing', items: { data: [{ price: { id: ANNUAL } }] } }).tier).toBe('premium');
+    expect(normalizeCheckoutPlan('premium-annual', 'consumer')).toBe('premium-annual');
+  });
+
+  test('signed-in yearly checkout still blocks a second live subscription (PR 21)', async () => {
+    process.env.STRIPE_PRICE_PREMIUM_ANNUAL = ANNUAL;
+    const token = jwt.sign({ userId: 'u1', email: 'steph@example.com', role: 'consumer' }, jwtSecret());
+    await request(app).post('/api/checkout').set('Authorization', `Bearer ${token}`).send({ plan: 'premium' }).expect(200);
+    fake.S.sessions.forEach((cs) => fake.complete(cs.id));
+    const second = await request(app).post('/api/checkout').set('Authorization', `Bearer ${token}`).send({ plan: 'premium-annual' }).expect(200);
+    expect(second.body.alreadySubscribed).toBe(true);
+    expect(second.body.url).toBeNull();
+  });
+});

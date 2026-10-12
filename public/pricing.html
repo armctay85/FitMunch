@@ -109,10 +109,14 @@ html,body{max-width:100%;overflow-x:hidden}
 
 <section class="fm-section" style="padding-top:0">
   <div class="fm-section-inner">
+    <div id="billing-toggle" role="group" aria-label="Premium billing" hidden style="gap:6px;justify-content:center;margin:0 0 18px">
+      <button type="button" class="fm-btn fm-btn-leaf" data-billing="monthly" aria-pressed="true">Monthly</button>
+      <button type="button" class="fm-btn fm-btn-ghost" data-billing="annual" aria-pressed="false">Yearly</button>
+    </div>
     <div class="plans" aria-label="FitMunch pricing plans">
       <article class="plan main">
         <div class="p-name">Premium</div>
-        <div class="p-price">A$19.99 <small>a month</small></div>
+        <div class="p-price" id="premium-price" data-monthly="A$19.99 <small>a month</small>" data-annual="A$149.99 <small>a year</small>">A$19.99 <small>a month</small></div>
         <p class="p-desc">Unlimited AI coach, meal plans, workouts and receipt scans, built for real Woolies and Coles shops.</p>
         <ul>
           <li>Unlimited AI coach chat</li>
@@ -123,7 +127,7 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>14-day trial (card on file, cancel anytime)</li>
         </ul>
         <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=plan_card&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
-        <p class="p-note">Creates your account, then opens Stripe checkout.</p>
+        <p class="p-note">Enter your email, then Stripe checkout opens. You set your password after.</p>
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
@@ -196,6 +200,39 @@ try {
     if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
   }
 } catch {}
+// Monthly / yearly switch. Hidden unless the server has a yearly price.
+(function billingToggle() {
+  const box = document.getElementById('billing-toggle');
+  const price = document.getElementById('premium-price');
+  if (!box || !price || !window.fetch) return;
+  function setBilling(mode) {
+    const annual = mode === 'annual';
+    price.innerHTML = annual ? price.getAttribute('data-annual') : price.getAttribute('data-monthly');
+    box.querySelectorAll('button[data-billing]').forEach((b) => {
+      const on = b.getAttribute('data-billing') === mode;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.className = on ? 'fm-btn fm-btn-leaf' : 'fm-btn fm-btn-ghost';
+    });
+    document.querySelectorAll('a[data-fm-plan="premium"]').forEach((a) => {
+      try {
+        const u = new URL(a.getAttribute('href'), location.origin);
+        if (annual) u.searchParams.set('billing', 'annual'); else u.searchParams.delete('billing');
+        a.href = u.pathname + u.search + u.hash;
+      } catch (e) {}
+    });
+  }
+  fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((cfg) => {
+      if (!cfg || cfg.premiumAnnual !== true) return;
+      box.hidden = false;
+      box.style.display = "flex";
+      box.querySelectorAll('button[data-billing]').forEach((b) => {
+        b.addEventListener('click', () => setBilling(b.getAttribute('data-billing')));
+      });
+    })
+    .catch(() => {});
+})();
 (function preserveAuthUtms() {
   const keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
   const fromUrl = new URLSearchParams(location.search);

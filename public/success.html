@@ -106,9 +106,9 @@ body.fm-body{
           <p>We sent a welcome note with getting-started steps. Check inbox and spam if needed.</p>
         </div>
         <div class="info-block" id="claimBlock" style="display:none">
-          <h3>Attach it to your account</h3>
-          <p id="claimText">Paid before you had an account? Use the attach button in your welcome email. It works once, within 7 days. If it has expired, <a href="/login.html#new-link">ask for a new link</a>.</p>
-          <p><a id="claimLink" class="fm-btn fm-btn-leaf" href="/login.html">Sign in to attach this subscription</a></p>
+          <h3>Set your password</h3>
+          <p id="claimText">Your trial is started. Check your email: we sent a link to set your password and open FitMunch. It works once, within 7 days. No email after a few minutes? Check spam, or <a href="/login.html#new-link">ask for a new link</a>.</p>
+          <p><a id="claimLink" class="fm-btn fm-btn-leaf" href="/login.html#login">Already have an account? Sign in</a></p>
         </div>
         <div class="info-block">
           <h3>Next steps</h3>
@@ -199,6 +199,7 @@ async function openBillingPortal(e) {
           'pt-starter': 'FitMunch PT Starter · $59/mo AUD',
           'pt-pro': 'FitMunch PT Pro · $99/mo AUD',
           'premium': 'FitMunch Premium · A$19.99/mo AUD',
+          'premium-annual': 'FitMunch Premium · A$149.99/yr AUD',
         };
         planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
       }
