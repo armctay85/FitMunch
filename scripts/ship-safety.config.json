@@ -414,8 +414,8 @@
     "support.html",
     "terms.html",
     "woolworths-meal-planner.html",
-    "woolworths-high-protein-shopping-list.html",
-    "coles-budget-meal-plan.html",
+    "high-protein-shopping-list.html",
+    "budget-meal-plan.html",
     "ai-meal-plan-shopping-list.html"
   ],
   "denyNames": [

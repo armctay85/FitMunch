@@ -122,6 +122,15 @@
       ]
     },
     {
+      "source": "/budget-meal-plan.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
       "source": "/budget-meal-planner.html",
       "headers": [
         {
@@ -150,15 +159,6 @@
     },
     {
       "source": "/coach.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/coles-budget-meal-plan.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -231,6 +231,15 @@
     },
     {
       "source": "/haul-teardown.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/high-protein-shopping-list.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -383,15 +392,6 @@
     },
     {
       "source": "/terms.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/woolworths-high-protein-shopping-list.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

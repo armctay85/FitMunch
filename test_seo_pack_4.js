@@ -8,22 +8,19 @@ const { LANDING_PAGES } = require('./lib/funnel-events');
 
 const PAGES = [
   {
-    route: '/woolworths-high-protein-shopping-list',
-    title: 'Woolworths High Protein Shopping List | Sized to You | FitMunch',
-    h1: 'Woolworths high protein shopping list, sized to your target',
-    tm: /not affiliated with, endorsed by or sponsored by Woolworths Group/,
+    route: '/high-protein-shopping-list',
+    title: 'High Protein Shopping List, Sized to You | FitMunch',
+    h1: 'High protein shopping list, sized to your target',
   },
   {
-    route: '/coles-budget-meal-plan',
-    title: 'Coles Budget Meal Plan | A Week Planned to Your Budget | FitMunch',
-    h1: 'Coles budget meal plan: a week planned to your budget',
-    tm: /not affiliated with, endorsed by or sponsored by Coles Group/,
+    route: '/budget-meal-plan',
+    title: 'Budget Meal Plan for Your Week | FitMunch',
+    h1: 'Budget meal plan: a week planned to your budget',
   },
   {
     route: '/ai-meal-plan-shopping-list',
-    title: 'AI Meal Plan With a Shopping List | Australian Supermarkets | FitMunch',
-    h1: 'AI meal plan with a shopping list for your Woolworths or Coles shop',
-    tm: /not affiliated with, endorsed by or sponsored by Woolworths Group or Coles Group/,
+    title: 'AI Meal Plan With Shopping List | FitMunch',
+    h1: 'AI meal plan with a shopping list for your weekly shop',
   },
 ];
 
@@ -32,7 +29,7 @@ function pick(html, re) {
   return m ? m[1] : '';
 }
 
-describe('SEO pack 4: Woolworths, Coles and AI landers', () => {
+describe('SEO pack 4: generic shopping list, budget and AI landers', () => {
   const seenTitles = new Set();
   const seenDescriptions = new Set();
 
@@ -50,7 +47,7 @@ describe('SEO pack 4: Woolworths, Coles and AI landers', () => {
       expect(pick(html, /<meta property="og:title" content="([^"]+)"/)).toBe(title);
       expect(html).toContain('<meta property="og:image"');
       expect(desc.length).toBeGreaterThan(80);
-      expect(desc.length).toBeLessThanOrEqual(160);
+      expect(desc.length).toBeLessThanOrEqual(155);
       expect(seenTitles.has(title)).toBe(false);
       expect(seenDescriptions.has(desc)).toBe(false);
       seenTitles.add(title);
@@ -73,9 +70,12 @@ describe('SEO pack 4: Woolworths, Coles and AI landers', () => {
       expect(html).toContain('Start the 14-day trial');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
       expect(html.split('Prices vary by store and week').length - 1).toBe(1);
-      expect(html).toMatch(page.tm);
-      expect(html).toContain('trade mark');
-      expect(html).not.toMatch(/<img[^>]+(woolworths|coles)/i);
+      expect(html).toContain('FitMunch never places or pays for your supermarket order');
+      // Wilson's rule: no store names in titles, slugs or copy.
+      expect(html).not.toMatch(/woolworths|woolies|coles|aldi|\bIGA\b|costco|harris farm/i);
+      expect(page.title.length).toBeLessThanOrEqual(60);
+      expect(html).not.toMatch(/with totals/i);
+      expect(html).toContain("window.va('beforeSend'");
       expect(html).not.toMatch(/\u2014|\u2013/);
       expect(html).not.toMatch(/Pty Ltd|inc\. GST|Grok|OpenClaw|\bMRR\b/i);
       expect(html).not.toMatch(/Stripe|HealthKit|Apple Watch/i);
@@ -94,6 +94,18 @@ describe('SEO pack 4: Woolworths, Coles and AI landers', () => {
       expect(xml).toContain(`<loc>https://www.fitmunch.com.au${page.route}</loc>`);
     });
   }
+
+  it('old store-named pack 4 slugs are gone', async () => {
+    await request(app).get('/woolworths-high-protein-shopping-list.html').expect(404);
+    await request(app).get('/coles-budget-meal-plan.html').expect(404);
+    const xml = fs.readFileSync(path.join(__dirname, 'public', 'sitemap.xml'), 'utf8');
+    expect(xml).not.toMatch(/woolworths-high-protein|coles-budget/);
+  });
+
+  it('closing CTA paragraph uses the high-contrast colour on every lander', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'public', 'css', 'fm-lander.css'), 'utf8');
+    expect(css).toContain('.ln-section .fm-convert p{color:rgba(238,242,238,.9)}');
+  });
 
   it('does not retarget existing Woolworths, Coles or AI landers', async () => {
     expect((await request(app).get('/coles-meal-planner').expect(200)).text).toContain('Coles weekly meal plan: 7 days, 1 draft trolley');
