@@ -92,11 +92,12 @@ describe('S2 other 4xx log type and code only', () => {
     await ai.chat({ messages: [{ role: 'user', content: 'hi' }], route: '/ai/chat' });
     expect(errOf(logs[0])).toBe('client_error');
   });
-  it.each([401, 403, 404, 408, 429])('%i still logs the redacted message', async (status) => {
+  it.each([401, 403, 404, 408, 429])('%i non-billing logs type and code only', async (status) => {
     const ai = load({ ANTHROPIC_API_KEY: 'ant-test' });
-    next = { status, body: { error: { type: 't', message: 'quota exceeded for this account' } } };
+    next = { status, body: { error: { type: 't', code: 'c', message: "Denied: 'I am 54kg, my name is Jane Citizen'" } } };
     await ai.chat({ messages: [{ role: 'user', content: 'hi' }], route: '/ai/chat' });
-    expect(errOf(logs[0])).toBe('quota exceeded for this account');
+    expect(errOf(logs[0])).toBe('t c');
+    expect(logs[0]).not.toMatch(/54kg|Jane Citizen|Denied/);
   });
 });
 
@@ -138,7 +139,7 @@ describe('S2 exception: billing and quota 4xx log only the fixed phrase', () => 
     ['You have no credits remaining. Add credits to continue using the API.', 'You have no credits remaining'],
     ['You exceeded your current quota, please check your plan and billing details.', 'You exceeded your current quota'],
     ['Your team f24645b4-4437-42f5-83e8-92c9d493510a has either used all available credits or reached its monthly spending limit.', XAI],
-    ['Your team abc reached its monthly spending limit.', XAI],
+    ['Your team abc reached its monthly spending limit.', 'Your team has reached its monthly spending limit'],
     ['Your team abc used all available credits.', XAI],
   ])('400 %s logs only the phrase', async (msg, want) => {
     expect(await run(400, { type: 'error', error: { type: 'invalid_request_error', message: msg } })).toBe(want);
@@ -147,8 +148,8 @@ describe('S2 exception: billing and quota 4xx log only the fixed phrase', () => 
     const msg = 'Your team f24645b4-4437-42f5-83e8-92c9d493510a has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit.';
     expect(await run(status, { error: { message: msg } })).toBe(XAI);
   });
-  it('403 non-billing message is still logged as before', async () => {
-    expect(await run(403, { error: { message: 'Forbidden: key lacks model access' } })).toBe('Forbidden: key lacks model access');
+  it('403 non-billing message logs type and code only', async () => {
+    expect(await run(403, { error: { type: 'permission_error', message: 'Forbidden: key lacks model access' } })).toBe('permission_error');
   });
   it('leading whitespace before a provider phrase is allowed', async () => {
     expect(await run(400, { error: { type: 'invalid_request_error', message: '  You have no credits remaining.' } })).toBe('You have no credits remaining');

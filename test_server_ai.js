@@ -45,6 +45,7 @@ jest.mock('./lib/ai-usage', () => {
     monthKey: () => '2026-04',
     freeMonthlyLimit: () => 10,
     isSmokeAccount: () => false,
+    refundSmokeOnFailure: () => {},
     getUsed: jest.fn(async () => 0),
     increment: jest.fn(async () => {}),
     checkAndConsume: jest.fn(async () => ({ allowed: true, remaining: 9 })),

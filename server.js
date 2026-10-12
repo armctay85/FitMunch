@@ -502,6 +502,7 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
 
 const {
   PRICE_IDS,
+  priceIdForPlan,
   PRICE_TO_TIER,
   tierForPriceId,
   premiumAnnualAvailable,
@@ -673,9 +674,10 @@ app.post('/api/quick-checkout', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email and plan are required.' });
     }
 
-    const priceId = PRICE_IDS[plan];
+    // Validate before any Stripe call.
+    const priceId = priceIdForPlan(plan);
     if (!priceId) {
-      return res.status(400).json({ success: false, error: `Unknown plan: ${plan}. Use premium, premium-annual, pt-starter, or pt-pro.` });
+      return res.status(400).json({ success: false, error: 'Unknown plan. Use premium, premium-annual, pt-starter, or pt-pro.' });
     }
 
     // Email-first trial (Elite QA PR 78 M1, Wilson's rule). See
@@ -718,9 +720,10 @@ app.post('/api/checkout', async (req, res) => {
       });
     }
     const plan = normalizeCheckoutPlan(requestedPlan, decoded.role);
-    const priceId = PRICE_IDS[plan];
+    // Validate before any Stripe call.
+    const priceId = priceIdForPlan(plan);
     if (!priceId) {
-      return res.status(400).json({ error: `Unknown plan: ${requestedPlan}` });
+      return res.status(400).json({ error: 'Unknown plan.' });
     }
 
     const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);

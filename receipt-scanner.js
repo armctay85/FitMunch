@@ -242,7 +242,6 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
 
     const gate = await aiUsage.checkAndConsume({
       userId: String(req.user.userId),
-      email: req.user.email,
       tier,
       feature: 'receipt_scan',
     });
@@ -261,6 +260,8 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited scans.`,
       });
     }
+    aiUsage.refundSmokeOnFailure(gate, res);
+    res.locals.aiAnswered = true;
 
     const payload = core.buildScanPayload(rawItems, {
       guest: false,

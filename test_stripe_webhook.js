@@ -287,7 +287,7 @@ describe('webhook brand filter and idempotency', () => {
       expect(user.subscriptionExpiresAt.getTime()).toBeGreaterThan(Date.now());
       expect(storage.updateUserSubscription).toHaveBeenCalledTimes(1);
       expect(sendWelcomeEmail).toHaveBeenCalledTimes(1);
-      expect(sendWelcomeEmail).toHaveBeenCalledWith('member@example.com', 'Member', 'Premium');
+      expect(sendWelcomeEmail).toHaveBeenCalledWith('member@example.com', 'Member', 'Premium', undefined, { trial: true });
       expect(stripeEvents.stripeEventCountForTests()).toBe(1);
     } finally {
       sendWelcomeEmail.mockRestore();
@@ -1426,7 +1426,7 @@ describe('webhook access, claims, and retries', () => {
       });
       expect(member.status).toBe(200);
       const memberCall = sendWelcomeEmail.mock.calls.find((call) => call[0] === 'member.mail@example.com');
-      expect(memberCall).toEqual(['member.mail@example.com', 'Member', 'Premium']);
+      expect(memberCall).toEqual(['member.mail@example.com', 'Member', 'Premium', undefined, { trial: true }]);
     } finally {
       sendWelcomeEmail.mockRestore();
     }

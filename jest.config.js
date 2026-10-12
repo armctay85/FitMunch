@@ -24,6 +24,7 @@ module.exports = {
     '**/test_funnel_events.js',
     '**/test_account_created_event.js',
     '**/test_checkout_duplicates.js',
+    '**/test_app_load.js',
     '**/test_stripe_webhook.js',
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',
