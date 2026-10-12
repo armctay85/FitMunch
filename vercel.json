@@ -1,6 +1,38 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm ci --omit=dev",
+  "redirects": [
+    {
+      "source": "/woolworths-meal-planner",
+      "destination": "/supermarket-meal-planner",
+      "statusCode": 301
+    },
+    {
+      "source": "/woolworths-meal-planner.html",
+      "destination": "/supermarket-meal-planner",
+      "statusCode": 301
+    },
+    {
+      "source": "/coles-meal-planner",
+      "destination": "/grocery-meal-planner",
+      "statusCode": 301
+    },
+    {
+      "source": "/coles-meal-planner.html",
+      "destination": "/grocery-meal-planner",
+      "statusCode": 301
+    },
+    {
+      "source": "/pt-client-meal-plans-woolworths",
+      "destination": "/pt-client-meal-plans",
+      "statusCode": 301
+    },
+    {
+      "source": "/pt-client-meal-plans-woolworths.html",
+      "destination": "/pt-client-meal-plans",
+      "statusCode": 301
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
@@ -167,15 +199,6 @@
       ]
     },
     {
-      "source": "/coles-meal-planner.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
       "source": "/contact.html",
       "headers": [
         {
@@ -222,6 +245,15 @@
     },
     {
       "source": "/google3b5c73dd27c81eaf.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/grocery-meal-planner.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -333,7 +365,7 @@
       ]
     },
     {
-      "source": "/pt-client-meal-plans-woolworths.html",
+      "source": "/pt-client-meal-plans.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -382,6 +414,15 @@
       ]
     },
     {
+      "source": "/supermarket-meal-planner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
       "source": "/support.html",
       "headers": [
         {
@@ -392,15 +433,6 @@
     },
     {
       "source": "/terms.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/woolworths-meal-planner.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

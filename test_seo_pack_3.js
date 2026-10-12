@@ -75,8 +75,8 @@ describe('SEO pack 3: new search landers', () => {
   });
 
   it('does not retarget pack 1 or pack 2 routes', async () => {
-    const woolies = await request(app).get('/woolworths-meal-planner').expect(200);
-    expect(woolies.text).toContain('Woolworths meal planner: a week drafted into a trolley');
+    const woolies = await request(app).get('/supermarket-meal-planner').expect(200);
+    expect(woolies.text).toContain('Supermarket meal planner: a week drafted into a trolley');
     const home = await request(app).get('/').expect(200);
     expect(home.text).not.toContain('href="/family-meal-plan"');
     expect(home.text).not.toContain('href="/macro-meal-planner"');

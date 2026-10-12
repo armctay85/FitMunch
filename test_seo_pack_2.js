@@ -7,14 +7,14 @@ const app = require('./server.js');
 
 const PAGES = [
   {
-    route: '/woolworths-meal-planner',
-    title: 'Woolworths Meal Planner | Weekly Draft Trolley | FitMunch',
-    h1: 'Woolworths meal planner: a week drafted into a trolley',
+    route: '/supermarket-meal-planner',
+    title: 'Supermarket Meal Planner | Weekly Draft Trolley | FitMunch',
+    h1: 'Supermarket meal planner: a week drafted into a trolley',
   },
   {
-    route: '/coles-meal-planner',
-    title: 'Coles Weekly Meal Plan | 7 Days, 1 Draft Trolley | FitMunch',
-    h1: 'Coles weekly meal plan: 7 days, 1 draft trolley',
+    route: '/grocery-meal-planner',
+    title: 'Grocery Meal Planner | 7 Days, 1 Draft Grocery List | FitMunch',
+    h1: 'Grocery meal planner: 7 days, 1 draft grocery list',
   },
   {
     route: '/meal-prep-shopping-list',

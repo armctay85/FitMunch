@@ -84,10 +84,10 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(page.text).not.toMatch(/HealthKit connected/i);
     expect(page.text).not.toContain('we already pay Woolies');
     expect(page.text).not.toContain('we pay Woolworths');
-    expect(page.text).toContain('We do not pay Woolies');
+    expect(page.text).toContain('We do not pay any supermarket');
     expect(page.text).toContain('You pay at the supermarket.');
     expect(page.text).not.toContain('Stripe Link');
-    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
+    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay any supermarket for you. Prices vary by store and week.');
     expect(page.text).not.toContain('No Apple Watch. No HealthKit.');
 
     const home = await request(app).get('/').expect(200);
@@ -123,8 +123,8 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(html).toContain('14-day trial, then');
     expect(html).toContain('$19.99 a month');
     expect(html).toContain('href="/login.html?plan=premium#register"');
-    expect(html).toContain('We do not pay Woolies');
-    expect(html).toContain('Draft trolley. You check out at the store. We do not pay Woolies. Prices vary by store and week.');
+    expect(html).toContain('We do not pay any supermarket');
+    expect(html).toContain('Draft trolley. You check out at the store. We do not pay any supermarket for you. Prices vary by store and week.');
     expect(html).not.toContain('No Apple Watch. No HealthKit.');
     expect(html).not.toMatch(/fm-groceries/);
     expect(read('public/index.html')).toContain('Your body wrote the trolley.');

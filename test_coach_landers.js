@@ -12,9 +12,9 @@ const PAGES = [
     h1: 'Meal plan software for personal trainers: one client, one week, one draft list',
   },
   {
-    route: '/pt-client-meal-plans-woolworths',
-    title: 'PT Client Meal Plans for Woolworths | 7-Day Client Plans | FitMunch Coach',
-    h1: 'PT client meal plans for Woolworths: 7 days, then a draft list',
+    route: '/pt-client-meal-plans',
+    title: 'PT Client Meal Plans for Supermarket Shopping | 7-Day Client Plans | FitMunch Coach',
+    h1: 'PT client meal plans for supermarket shopping: 7 days, then a draft list',
   },
   {
     route: '/fitmunch-coach-vs-spreadsheets',

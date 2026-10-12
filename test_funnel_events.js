@@ -44,8 +44,8 @@ const SEARCH_LANDERS = [
   '/shopper',
   '/receipt-nutrition-scanner',
   '/haul-teardown',
-  '/woolworths-meal-planner',
-  '/coles-meal-planner',
+  '/supermarket-meal-planner',
+  '/grocery-meal-planner',
   '/meal-prep-shopping-list',
 ];
 
@@ -118,17 +118,17 @@ describe('funnel event helper', () => {
       {
         eventType: 'page_view',
         sessionId: 's_woolies',
-        eventData: { path: '/woolworths-meal-planner', utm_source: 'seo', utm_campaign: 'woolworths-meal-planner' },
+        eventData: { path: '/supermarket-meal-planner', utm_source: 'seo', utm_campaign: 'supermarket-meal-planner' },
       },
       {
         eventType: 'landing_page_view',
         sessionId: 's_woolies',
-        eventData: { path: '/woolworths-meal-planner', page: '<script>', utm_source: 'seo' },
+        eventData: { path: '/supermarket-meal-planner', page: '<script>', utm_source: 'seo' },
       },
     ]);
     const landings = explicit.filter((event) => event.eventType === 'landing_page_view');
     expect(landings).toHaveLength(1);
-    expect(landings[0].eventData.page).toBe('woolworths-meal-planner');
+    expect(landings[0].eventData.page).toBe('supermarket-meal-planner');
     expect(landings[0].eventData.utm_source).toBe('seo');
     expect(JSON.stringify(landings[0])).not.toContain('<script>');
 
@@ -144,10 +144,10 @@ describe('funnel event helper', () => {
         sessionId: 's_cta',
         userId: 'should-not-stick',
         eventData: {
-          path: '/coles-meal-planner',
+          path: '/grocery-meal-planner',
           href: '/login.html?plan=premium#register',
           plan: 'premium',
-          cta: 'coles-meal-planner_trial',
+          cta: 'grocery-meal-planner_trial',
           label: '14-day trial, then A$19.99 a month',
           email: 'buyer@example.com',
         },
@@ -156,9 +156,9 @@ describe('funnel event helper', () => {
         eventType: 'trial_cta_click',
         sessionId: 's_cta',
         eventData: {
-          path: '/coles-meal-planner',
+          path: '/grocery-meal-planner',
           plan: 'premium',
-          cta: 'coles-meal-planner_trial',
+          cta: 'grocery-meal-planner_trial',
         },
       },
     ]);
@@ -167,9 +167,9 @@ describe('funnel event helper', () => {
     expect(trials[0].userId).toBeNull();
     expect(trials[0].eventData).toMatchObject({
       step: 'trial_cta_click',
-      page: 'coles-meal-planner',
+      page: 'grocery-meal-planner',
       plan: 'premium',
-      cta: 'coles-meal-planner_trial',
+      cta: 'grocery-meal-planner_trial',
     });
     expect(JSON.stringify(trials[0])).not.toMatch(/buyer@example.com/);
 

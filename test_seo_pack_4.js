@@ -107,9 +107,9 @@ describe('SEO pack 4: generic shopping list, budget and AI landers', () => {
     expect(css).toContain('.ln-section .fm-convert p{color:rgba(238,242,238,.9)}');
   });
 
-  it('does not retarget existing Woolworths, Coles or AI landers', async () => {
-    expect((await request(app).get('/coles-meal-planner').expect(200)).text).toContain('Coles weekly meal plan: 7 days, 1 draft trolley');
-    expect((await request(app).get('/woolworths-meal-planner').expect(200)).text).toContain('Woolworths meal planner: a week drafted into a trolley');
+  it('keeps the existing supermarket, grocery and AI landers on their own topics', async () => {
+    expect((await request(app).get('/grocery-meal-planner').expect(200)).text).toContain('Grocery meal planner: 7 days, 1 draft grocery list');
+    expect((await request(app).get('/supermarket-meal-planner').expect(200)).text).toContain('Supermarket meal planner: a week drafted into a trolley');
     expect((await request(app).get('/ai-meal-planner-australia').expect(200)).text).toContain('AI meal planner Australia');
   });
 });
