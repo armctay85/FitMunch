@@ -4,6 +4,7 @@ module.exports = {
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
     '**/test_app.js',
+    '**/test_ai_credit_check.js',
     '**/test_fm_storage.js',
     '**/test_fm_identity.js',
     '**/test_server_api.js',
