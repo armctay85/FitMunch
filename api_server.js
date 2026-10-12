@@ -1244,13 +1244,16 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 });
 
 // ── AI CHAT (conversational coach) ────────────────────────────────────────────
-const CHAT_INTENTS = {
+const CHAT_INTENTS = Object.freeze(Object.assign(Object.create(null), {
   nutrition: 'You are FitMunch, an Australian nutrition coach. Help the user plan meals, hit macros, shop at Woolworths/Coles, and troubleshoot cravings or dieting plateaus. Use Australian spelling and products.',
   workout: 'You are FitMunch, an Australian strength and conditioning coach. Help the user plan sessions, pick accessories, manage fatigue, and fix form cues. Keep advice practical for home or gym users.',
   progress: 'You are FitMunch, an Australian progress coach. Read the user\'s recent numbers, explain what they mean, and suggest one concrete change for next week. No medical claims.',
   general: 'You are FitMunch, an Australian fitness and nutrition coach. Answer the user clearly and specifically.',
-};
-const CHAT_GLOBAL_RULES = [
+}));
+/** System prompt for an intent; unknown, inherited or non-string intents get 'general'. */
+function chatIntentPrompt(intent) {
+  return typeof intent === 'string' && Object.hasOwn(CHAT_INTENTS, intent) ? CHAT_INTENTS[intent] : CHAT_INTENTS.general;
+}const CHAT_GLOBAL_RULES = [
   'Always reply in under ~140 words unless the user explicitly asks for a plan or list.',
   'Use plain English with Australian spelling. No medical or prescriptive claims.',
   'Never mention that you are an AI. Never start with a greeting.',
@@ -1265,7 +1268,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 
     const { intent = 'general', messages = [], context = {} } = req.body || {};
     const system = [
-      CHAT_INTENTS[intent] || CHAT_INTENTS.general,
+      chatIntentPrompt(intent),
       CHAT_GLOBAL_RULES,
     ].join('\n\n');
 
