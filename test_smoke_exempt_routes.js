@@ -16,7 +16,7 @@ jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
   return {
     ...actual,
-    getUserById: jest.fn(async () => ({ id: 'u-smoke-1', subscriptionTier: 'free', settings: {} })),
+    getUserById: jest.fn(async () => ({ id: 'u-smoke-1', subscriptionTier: 'free', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(async () => null),
     trackEvent: jest.fn(),
   };

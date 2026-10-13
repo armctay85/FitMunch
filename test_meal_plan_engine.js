@@ -17,7 +17,7 @@ jest.mock('./lib/ai-usage', () => ({
   checkAndConsume: jest.fn(async () => ({ allowed: true, remaining: 9 })),
 }));
 jest.mock('./server/storage.js', () => ({
-  getUserById: jest.fn(async () => ({ id: 'u1', settings: {} })),
+  getUserById: jest.fn(async () => ({ id: 'u1', settings: { aiDataConsent: true } })),
   effectiveTier: () => 'free',
 }));
 
