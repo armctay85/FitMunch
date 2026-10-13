@@ -31,6 +31,21 @@
       "source": "/pt-client-meal-plans-woolworths.html",
       "destination": "/pt-client-meal-plans",
       "statusCode": 301
+    },
+    {
+      "source": "/demo",
+      "destination": "/#proof",
+      "statusCode": 301
+    },
+    {
+      "source": "/demo.html",
+      "destination": "/#proof",
+      "statusCode": 301
+    },
+    {
+      "source": "/try",
+      "destination": "/#proof",
+      "statusCode": 301
     }
   ],
   "rewrites": [
@@ -200,15 +215,6 @@
     },
     {
       "source": "/contact.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/demo.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
