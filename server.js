@@ -131,21 +131,6 @@ app.use(compression({
 // Absolute path so Vercel serverless cwd doesn't matter.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-function providedAnalyticsKey(req) {
-  return req.query.key || req.headers['x-fm-analytics-key'] || '';
-}
-
-function analyticsKeyMatches(req) {
-  const expected = process.env.FM_ANALYTICS_KEY;
-  const provided = String(providedAnalyticsKey(req) || '');
-  if (!expected || !provided) return false;
-  // Compare fixed-length digests so neither timing nor an early length check
-  // reveals anything about the key.
-  const crypto = require('crypto');
-  const a = crypto.createHash('sha256').update(String(expected)).digest();
-  const b = crypto.createHash('sha256').update(provided).digest();
-  return crypto.timingSafeEqual(a, b);
-}
 
 // CSP and Permissions-Policy go on every response, including the /funnel 401s.
 app.use((req, res, next) => {
@@ -155,16 +140,21 @@ app.use((req, res, next) => {
 });
 
 // Private analytics UI is not a public page. The file lives outside public/
-// so the CDN cannot serve it. Both paths use the same key gate.
+// so the CDN cannot serve it. Both paths serve the same no-store, noindex shell.
 const FUNNEL_PAGE = path.join(__dirname, 'private/funnel.html');
+
 app.use((req, res, next) => {
   const pathOnly = (req.path || '').replace(/\/$/, '') || '/';
   if (pathOnly !== '/funnel' && pathOnly !== '/funnel.html') return next();
   res.set('X-Robots-Tag', 'noindex, nofollow');
   res.set('Cache-Control', 'private, no-store');
-  if (!analyticsKeyMatches(req)) {
-    return res.status(401).sendFile(path.join(PUBLIC_DIR, '404.html'));
+  res.set('Referrer-Policy', 'no-referrer');
+  if (req.query && Object.prototype.hasOwnProperty.call(req.query, 'key')) {
+    return res.status(400).type('text/plain').send('Send the analytics key in the x-fm-analytics-key header, not the URL.');
   }
+  // The page is a static shell with no data and checks no key, so it cannot be
+  // used to guess the key. It asks for the key, keeps it in sessionStorage and
+  // sends it as a header to /api/analytics/funnel, which is gated and limited.
   return res.sendFile(FUNNEL_PAGE);
 });
 

@@ -17,11 +17,10 @@ describe('Server API shell', () => {
     expect(JSON.stringify(res.body)).not.toMatch(/jwt|stripeWebhook|gemini|resend/i);
   });
 
-  it('GET /funnel and /funnel.html require an analytics key', async () => {
+  it('GET /funnel and /funnel.html serve the shell with CSP and Permissions-Policy', async () => {
     const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
     for (const p of ['/funnel', '/funnel.html']) {
-      const res = await request(app).get(p).expect(401);
-      // CSP and Permissions-Policy run before the key gate, so the 401 has them.
+      const res = await request(app).get(p).expect(200);
       expect(res.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
       expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
     }
