@@ -1296,7 +1296,7 @@ app.use((req, res, next) => {
     try {
       const jwt = require('jsonwebtoken');
       const token = authHeader.slice(7);
-      const decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] });
+      const decoded = require('./lib/session-token').verifySessionToken(token, jwtSecret());
       req.user = { id: decoded.userId, name: decoded.name };
     } catch (e) {
       req.user = null;

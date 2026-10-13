@@ -227,6 +227,8 @@
         show(results, false);
         scanBtn.disabled = true;
         var fd = new FormData();
+        // The button is the consent: "Allow and scan" sends this one photo to the AI provider.
+        fd.append('aiConsent', 'true');
         fd.append('receipt', blob, 'receipt.jpg');
         fetch('/api/receipt/first-scan', { method: 'POST', body: fd })
           .then(function (r) {

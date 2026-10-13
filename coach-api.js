@@ -59,7 +59,7 @@ function requirePt(req, res, next) {
     return res.status(401).json({ success: false, error: 'Unauthorised' });
   }
   try {
-    const user = jwt.verify(header.slice(7), jwtSecret());
+    const user = require('./lib/session-token').verifySessionToken(header.slice(7), jwtSecret());
     if (user.preview && !store.previewEnabled()) {
       return res.status(401).json({ success: false, error: 'Unauthorised' });
     }
