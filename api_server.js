@@ -39,6 +39,7 @@ const {
   evaluateCoachClientGate,
   readCoachBilling,
   coachGateHttpBody,
+  COACH_39_ACTIVE_CLIENT_LIMIT,
 } = require('./lib/fitmunch-coach-billing');
 const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -270,14 +271,47 @@ router.post('/analytics/events', async (req, res) => {
   }
 });
 
+// Constant-time string compare (hash both sides so lengths always match).
+function safeKeyEqual(provided, expected) {
+  const crypto = require('crypto');
+  const a = crypto.createHash('sha256').update(String(provided)).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+// Read-only funnel key (FM_FUNNEL_READ_KEY, header x-fm-funnel-key). Valid on
+// this GET only and returns step counts only: no events, pages, plans or
+// sessions. Disabled when the env var is unset or empty.
+const FUNNEL_READ_STEPS = {
+  landingViews: 'landing_page_view',
+  trialClicks: 'trial_cta_click',
+  checkoutStarts: 'checkout_start',
+  trialStarts: 'trial_started',
+};
+function funnelReadKeyValid(req) {
+  const expected = process.env.FM_FUNNEL_READ_KEY;
+  const provided = req.headers['x-fm-funnel-key'];
+  if (!expected || typeof provided !== 'string' || !provided) return false;
+  return safeKeyEqual(provided, expected);
+}
+
 router.get('/analytics/funnel', async (req, res) => {
   try {
     const expected = process.env.FM_ANALYTICS_KEY;
     const provided = req.query.key || req.headers['x-fm-analytics-key'];
-    if (!expected || !provided || String(provided) !== String(expected)) {
+    const fullAccess = Boolean(expected && provided && safeKeyEqual(provided, expected));
+    const readOnly = !fullAccess && funnelReadKeyValid(req);
+    if (!fullAccess && !readOnly) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
     const stats = await getFunnelStats(req.query.days);
+    res.set('Cache-Control', 'no-store');
+    if (readOnly) {
+      const byStep = new Map((stats.steps || []).map((s) => [s.step, Number(s.count) || 0]));
+      const counts = {};
+      for (const [name, step] of Object.entries(FUNNEL_READ_STEPS)) counts[name] = byStep.get(step) || 0;
+      return res.json({ success: true, days: stats.days, asOf: stats.asOf, counts });
+    }
     res.json({ success: true, ...stats });
   } catch (error) {
     sendApiError(res, error, 'Error loading funnel stats');
@@ -381,7 +415,7 @@ router.post('/auth/register', async (req, res) => {
     const wantPt =
       req.body.role === 'pt' ||
       req.body.accountType === 'pt' ||
-      ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(req.body.plan) ||
+      ['starter', 'pro'].includes(req.body.plan) ||
       isCoachPlan(req.body.plan);
     if (wantPt) role = 'pt';
     if (req.body.inviteToken) {
@@ -790,6 +824,42 @@ router.post('/revenuecat/webhook', async (req, res) => {
 });
 
 // GET /api/auth/me  — verify token + return user info
+// Coach billing state for the Billing view (trainer accounts only).
+router.get('/coach/billing-status', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+    } catch (_) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    }
+    if (!decoded || !decoded.userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
+    if (decoded.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [decoded.userId]);
+    const coach = readCoachBilling(userRow.rows[0] && userRow.rows[0].settings);
+    const countRow = await _pool.query(
+      `SELECT COUNT(*)::int AS n FROM pt_clients WHERE pt_id=$1 AND COALESCE(status, 'active') = 'active'`,
+      [decoded.userId]
+    );
+    const activeClientCount = countRow.rows[0] ? Number(countRow.rows[0].n) : 0;
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      plan: coach.plan,
+      tier: coach.tier,
+      activeClientCount,
+      limit: coach.plan === 'coach-79' ? null : COACH_39_ACTIVE_CLIENT_LIMIT,
+    });
+  } catch (err) {
+    console.error('[coach-billing-status] failed', err && err.code ? err.code : 'Error');
+    return res.status(500).json({ success: false, error: 'Could not load billing.' });
+  }
+});
+
 router.get('/auth/me', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
