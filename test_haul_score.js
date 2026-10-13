@@ -56,3 +56,67 @@ describe('haul score', () => {
     expect(c.macroMatchScore([])).toBe(0);
   });
 });
+
+describe('haul score QA r1', () => {
+  it('M1: totals/payment lines or nameless lines are unreadable, not a score', () => {
+    for (const raw of [
+      [{ name: 'TOTAL', price: 54.2 }, { name: 'EFTPOS', price: 54.2 }, { name: 'CHANGE' }],
+      [{ name: '' }, {}],
+      [{ name: 'SUBTOTAL', price: 9 }, { name: 'GST', price: 1 }, { name: 'ROUNDING' }],
+    ]) {
+      expect(() => c.parseVisionItems(JSON.stringify(raw))).toThrow('scan_unreadable');
+      expect(() => c.buildScanPayload(raw)).toThrow('scan_unreadable');
+    }
+  });
+  it('M1: drops totals lines before scoring a real receipt', () => {
+    const items = c.parseVisionItems(JSON.stringify([{ name: 'BROCCOLI', price: 3 }, { name: 'TOTAL', price: 3 }, { name: 'Card', price: 3 }]));
+    expect(items.map((i) => i.name)).toEqual(['BROCCOLI']);
+  });
+  it('M2: store and house-brand words never reach displayed names, the gap line or shareText', () => {
+    const p = c.buildScanPayload([
+      { name: 'COLES COKE 1.25L', price: 3 }, { name: 'WOOLWORTHS MACRO CHICKEN BREAST', price: 12 },
+      { name: 'WW BROCCOLI', price: 3 }, { name: 'ALDI HOMEBRAND RICE', price: 3 }, { name: 'IGA ESSENTIALS OATS', price: 3 },
+    ]);
+    const text = JSON.stringify(p);
+    expect(text).not.toMatch(/coles|woolworths|woolies|\bww\b|aldi|\biga\b|homebrand|essentials|macro chicken/i);
+    expect(p.pantryGapReport.find((g) => g.gap === 'Treats and drinks').finding).toMatch(/\(COKE 1\.25L\)/);
+    expect(p.items[1].name).toBe('CHICKEN BREAST');
+  });
+  it.each([
+    ['RICE CAKES', 'staple'], ['FISH CAKES', 'protein'], ['WINE VINEGAR', 'other'], ['PIZZA BASE', 'staple'],
+    ['WHOLEMEAL ENGLISH MUFFIN', 'staple'], ['JELLY BEANS', 'treat'], ['EASTER EGG', 'treat'], ['VEGEMITE', 'other'],
+    ['CORNFLAKES', 'staple'], ['POPCORN', 'other'], ['APPLE JUICE', 'diet-drink'], ['ORANGE JUICE', 'diet-drink'],
+    ['SALAD DRESSING', 'other'], ['CHOC CHIP MUFFIN', 'treat'], ['SPARKLING WINE', 'treat'], ['MIXED VEG', 'produce'],
+  ])('M3: %s is %s', (name, kind) => {
+    expect(c.itemKind({ name })).toBe(kind);
+  });
+  it('S1: without prices the gap line counts items instead of claiming a spend share', () => {
+    const p = c.buildScanPayload([{ name: 'TIM TAM' }, { name: 'BROCCOLI' }, { name: 'CHICKEN BREAST' }, { name: 'RICE' }]);
+    const f = p.pantryGapReport.find((g) => g.gap === 'Treats and drinks').finding;
+    expect(f).toMatch(/^1 of 4 items were treats or soft drinks/);
+    expect(f).not.toMatch(/%/);
+  });
+  const clean = [{ name: 'CHICKEN BREAST', price: 35 }, { name: 'BROCCOLI', price: 25 }, { name: 'RICE', price: 15 }, { name: 'SALMON', price: 15 }];
+  it('S2: 10% treat spend caps at 74, 30% at 49', () => {
+    expect(c.macroMatchScore([...clean, { name: 'TIM TAM', price: 10 }])).toBeLessThanOrEqual(74);
+    expect(c.macroMatchScore([...clean.map((i) => ({ ...i, price: i.price * 0.7 })), { name: 'TIM TAM', price: 30 }])).toBeLessThanOrEqual(49);
+  });
+  it('S2: diet drinks lower a clean basket', () => {
+    expect(c.macroMatchScore([...clean, { name: 'COKE NO SUGAR', price: 10 }])).toBeLessThan(c.macroMatchScore(clean));
+  });
+  it('S2: grade boundaries', () => {
+    expect([79, 80, 89, 90, 69, 70, 59, 60, 44, 45].map(c.gradeForScore)).toEqual(['B+', 'A', 'A', 'A+', 'B', 'B+', 'C', 'B', 'D', 'C']);
+  });
+  it('S3: one mistyped price cannot sink a good basket', () => {
+    const good = c.macroMatchScore(clean);
+    const typo = c.macroMatchScore([...clean, { name: 'TIM TAM', price: 350 }]);
+    expect(typo).toBeGreaterThan(0);
+    expect(typo).toBeGreaterThanOrEqual(30);
+    expect(typo).toBeLessThan(good);
+    const b = c.haulBreakdown([...clean, { name: 'TIM TAM', price: 350 }]);
+    expect(b.spend.treat / b.total).toBeLessThanOrEqual(0.4 + 1e-9);
+  });
+  it('L1: the old grade() is gone', () => {
+    expect(c.grade).toBeUndefined();
+  });
+});

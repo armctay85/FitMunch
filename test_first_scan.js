@@ -338,3 +338,18 @@ describe('GET /api/receipt index', () => {
     expect(res.body.service).toBe('fitmunch-receipt-scanner');
   });
 });
+
+describe('POST /api/receipt/first-scan unreadable receipts', () => {
+  afterEach(() => receiptRouter._setVisionForTests(null));
+  it.each([
+    [[{ name: 'TOTAL', price: 54.2 }, { name: 'EFTPOS', price: 54.2 }, { name: 'CHANGE' }]],
+    [[{ name: '' }, {}]],
+  ])('totals-only or nameless reads are a 422, never a score', async (raw) => {
+    receiptRouter._setVisionForTests(async () => ({ ok: true, text: JSON.stringify(raw) }));
+    const res = await request(app).post('/api/receipt/first-scan')
+      .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' });
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBe(false);
+    expect(res.body.haulScore).toBeUndefined();
+  });
+});
