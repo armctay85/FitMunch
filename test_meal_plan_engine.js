@@ -337,8 +337,12 @@ describe('Elite QA #88 r1 fixes', () => {
     const low = engine.buildPlan({ calories: 2000, protein: 100, days: 7, dietary: ['low carb'] });
     const carbs = (p) => p.days.reduce((n, d) => n + d.dailyTotals.carbs, 0);
     expect(carbs(low)).toBeLessThan(carbs(base) * 0.85);
+    // Plant proteins now reach 150 g on 2000 kcal, so no note; an impossible target still gets one.
     const vegan = engine.buildPlan({ calories: 2000, protein: 150, days: 7, dietary: ['vegan'] });
-    expect(vegan.notes[0]).toMatch(/^Protein averages \d+ g a day against your 150 g target\. Tofu, tempeh or legumes would close the gap\.$/);
+    expect(Math.abs(vegan.avgDailyProtein - 150)).toBeLessThanOrEqual(15);
+    expect(vegan.notes).toBeUndefined();
+    const short = engine.buildPlan({ calories: 1500, protein: 300, days: 7, dietary: ['vegan'] });
+    expect(short.notes[0]).toMatch(/^Protein averages \d+ g a day against your 300 g target\. Tofu, tempeh or legumes would close the gap\.$/);
   });
 
   it('S4: diet names are normalised, and vegan excludes meat, fish, dairy and eggs', () => {
@@ -348,7 +352,7 @@ describe('Elite QA #88 r1 fixes', () => {
     const vegan = engine.buildPlan({ calories: 2100, protein: 80, days: 7, dietary: ['vegan'] });
     expectEveryDayOnTarget(vegan, 2100);
     const text = JSON.stringify(vegan).toLowerCase();
-    for (const banned of ['chicken', 'beef', 'salmon', 'tuna', 'barramundi', 'egg', 'yoghurt', 'whey', 'cheese', 'ricotta', 'skim milk']) expect(text).not.toContain(banned);
+    for (const banned of ['chicken', 'beef', 'salmon', 'tuna', 'barramundi', 'egg', 'greek yoghurt', 'whey', 'cheese', 'ricotta', 'skim milk']) expect(text).not.toContain(banned);
     for (const t of engine.TEMPLATES) {
       if (t.items.some(([f]) => /^Egg/.test(f))) expect(t.flags).toContain('eggs');
     }

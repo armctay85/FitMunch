@@ -124,3 +124,80 @@ describe('onboarding UI wiring', () => {
     expect(fn).toContain('builderOnly: true');
   });
 });
+
+describe('vegan and vegetarian weeks hit protein with real plant proteins', () => {
+  const engine = require('./lib/meal-plan-engine');
+  const { FOODS } = require('./food-db');
+  const PLANT = ['Firm tofu', 'Tempeh', 'Seitan', 'Edamame (cooked)', 'Lentils (cooked)', 'Chickpeas (cooked)', 'Soy milk', 'Pea-protein yoghurt (Greek style)'];
+  const ANIMAL = /chicken|beef|lamb|pork|salmon|tuna|barramundi|prawn|egg|whey|casein|milk \(|skim milk|full cream|yoghurt \(plain|cottage|ricotta|cheddar/i;
+  const PROFILES = {
+    'the 72 kg example': { sex: 'female', age: 34, heightCm: 168, weightKg: 72, activity: 'moderate', goal: 'lose_weight' },
+    'male 85 kg maintain': { sex: 'male', age: 40, heightCm: 180, weightKg: 85, activity: 'moderate', goal: 'maintain' },
+    'female 60 kg muscle gain': { sex: 'female', age: 28, heightCm: 163, weightKg: 60, activity: 'active', goal: 'muscle_gain' },
+    'male 95 kg fat loss': { sex: 'male', age: 45, heightCm: 183, weightKg: 95, activity: 'light', goal: 'lose_weight' },
+  };
+
+  it('every plant protein is in food-db with a source and consistent macros (kcal within 15% of 4P+4C+9F)', () => {
+    for (const name of PLANT) {
+      const f = FOODS.find((x) => x.name === name);
+      expect(f).toBeDefined();
+      expect(f.src).toMatch(/^FDC \d+ /);
+      expect(Math.abs(f.cal - (4 * f.p + 4 * f.c + 9 * f.f))).toBeLessThanOrEqual(f.cal * 0.15);
+    }
+  });
+
+  it('every meal template is within 15% of 4P+4C+9F and has quantities', () => {
+    for (const t of engine.TEMPLATES) {
+      let cal = 0; let est = 0;
+      for (const [food, g] of t.items) {
+        const f = FOODS.find((x) => x.name === food);
+        expect(g).toBeGreaterThan(0);
+        cal += (f.cal * g) / 100;
+        est += ((4 * f.p + 4 * f.c + 9 * f.f) * g) / 100;
+      }
+      expect([t.name, Math.abs(cal - est) <= cal * 0.15]).toEqual([t.name, true]);
+    }
+  });
+
+  it('there are vegan templates for every slot built around the plant proteins', () => {
+    for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
+      const vegan = engine.TEMPLATES.filter((t) => t.slot === slot && !t.flags.some((f) => ['meat', 'fish', 'dairy', 'eggs'].includes(f)));
+      const withPlant = vegan.filter((t) => t.items.some(([food]) => PLANT.includes(food)));
+      expect([slot, withPlant.length >= 4]).toEqual([slot, true]);
+    }
+  });
+
+  for (const [label, profile] of Object.entries(PROFILES)) {
+    for (const diet of ['vegan', 'vegetarian']) {
+      it(`${label}, ${diet}: protein within 10%, calories within 5% every day, 8+ distinct meals, no shortfall note`, () => {
+        const t = T.computeTargets(profile);
+        const plan = engine.buildPlan({ calories: t.calories, protein: t.protein, days: 7, dietary: [diet] });
+        expect(plan.days).toHaveLength(7);
+        expect(Math.abs(plan.avgDailyProtein - t.protein)).toBeLessThanOrEqual(t.protein * 0.1);
+        for (const d of plan.days) expect(Math.abs(d.dailyTotals.calories - t.calories)).toBeLessThanOrEqual(t.calories * 0.05);
+        expect(Math.abs(plan.avgDailyCalories - t.calories)).toBeLessThanOrEqual(t.calories * 0.05);
+        const meals = plan.days.flatMap((d) => Object.values(d.meals));
+        expect(new Set(meals.map((m) => m.name)).size).toBeGreaterThanOrEqual(8);
+        expect(plan.notes || []).toEqual([]);
+        if (diet === 'vegan') {
+          for (const m of meals) for (const ing of m.ingredients) expect([m.name, ANIMAL.test(ing.item)]).toEqual([m.name, false]);
+        }
+      });
+    }
+  }
+
+  it('the shortfall note only appears when protein really is short', () => {
+    const plan = engine.buildPlan({ calories: 1500, protein: 300, days: 7, dietary: ['vegan'] });
+    expect(plan.avgDailyProtein).toBeLessThan(270);
+    expect(plan.notes.join(' ')).toMatch(/Protein averages/);
+  });
+});
+
+describe('plant-protein meals are kept for vegan and vegetarian weeks', () => {
+  const engine = require('./lib/meal-plan-engine');
+  it('an omnivore week keeps its usual meals', () => {
+    const plan = engine.buildPlan({ calories: 2100, protein: 150, days: 7 });
+    const plantNames = new Set(engine.TEMPLATES.filter((t) => t.plant).map((t) => t.name));
+    for (const d of plan.days) for (const m of Object.values(d.meals)) expect(plantNames.has(m.name)).toBe(false);
+  });
+});
