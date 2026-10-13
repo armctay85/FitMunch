@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <script src="/js/chart.umd.min.js"></script>
+<script src="/js/fm-targets.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -859,7 +860,7 @@ html.fm-authed #app-gate{display:none}
  <div class="scroll-body">
  <div class="metrics-row">
  <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" onclick="nav('portal-meals')">Log a meal →</button></div>
- <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" onclick="openModal('modal-goals')">Set goals →</button></div>
+ <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" onclick="openOnboarding()">Set goals →</button></div>
  <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-green" id="pm-workouts" style="color:var(--green2)">0</div><div class="metric-sub">this week</div><button class="metric-cta" onclick="nav('portal-workouts')">Log workout →</button></div>
  <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div><button class="metric-cta" onclick="nav('receipt-scanner')">Scan receipt →</button></div>
  </div>
@@ -881,7 +882,7 @@ html.fm-authed #app-gate{display:none}
  <div id="portal-goal-banner" style="display:none;margin-bottom:14px"></div>
  <div id="home-goals-nudge" class="goals-nudge" style="display:none">
  <div><strong>Set your calorie & protein targets</strong><span>Unlock progress bars, weekly review scoring and better AI coaching.</span></div>
- <button class="btn btn-green btn-sm" onclick="openModal('modal-goals')">Set goals</button>
+ <button class="btn btn-green btn-sm" onclick="openOnboarding()">Set goals</button>
  </div>
 
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1031,7 +1032,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div id="meals-goals-nudge" class="goals-nudge" style="display:none">
  <div><strong>Set daily goals to track remaining calories</strong><span>Bars stay empty until targets are set.</span></div>
- <button class="btn btn-green btn-sm" onclick="openModal('modal-goals')">Set goals</button>
+ <button class="btn btn-green btn-sm" onclick="openOnboarding()">Set goals</button>
  </div>
  <div id="meals-log-body">
  <div class="meal-section"><div class="meal-section-title"><span>Breakfast</span><button class="meal-add-btn" onclick="openLogMealFor('breakfast')">+ Add</button></div><div id="log-breakfast" class="meal-entries"></div></div>
@@ -1465,6 +1466,44 @@ html.fm-authed #app-gate{display:none}
 </div>
 
 <!-- GOALS ONBOARDING MODAL -->
+<div class="modal-overlay" id="modal-onboard" style="z-index:301" onclick="closeOnOverlay(event)">
+ <div class="modal" style="max-width:460px">
+ <div class="modal-title"><span id="ob-title">About you</span><button class="modal-close" onclick="closeModal('modal-onboard')">✕</button></div>
+ <div id="ob-step-1">
+ <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:14px">We use this to work out your daily calories and protein. It stays in your account.</p>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+ <div class="form-field"><label class="form-label" for="ob-age">Age</label><input id="ob-age" class="form-input" type="number" min="16" max="100" inputmode="numeric" placeholder="30"/></div>
+ <div class="form-field"><label class="form-label" for="ob-sex">Sex</label><select id="ob-sex" class="form-select"><option value="female">Female</option><option value="male">Male</option><option value="other">Prefer not to say</option></select></div>
+ <div class="form-field"><label class="form-label" for="ob-height">Height (cm)</label><input id="ob-height" class="form-input" type="number" min="120" max="230" inputmode="numeric" placeholder="170"/></div>
+ <div class="form-field"><label class="form-label" for="ob-weight">Weight (kg)</label><input id="ob-weight" class="form-input" type="number" min="35" max="300" step="0.1" inputmode="decimal" placeholder="75"/></div>
+ </div>
+ <div class="form-field"><label class="form-label" for="ob-activity">Activity</label><select id="ob-activity" class="form-select">
+ <option value="sedentary">Mostly sitting, little exercise</option><option value="light">Train 1-3 times a week</option><option value="moderate" selected>Train 3-5 times a week</option><option value="active">Train 6-7 times a week</option><option value="very_active">Physical job plus training</option></select></div>
+ <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
+ <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
+ <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
+ <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="gluten_free">Gluten free</option></select></div>
+ <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
+ <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
+ </div>
+ <div id="ob-step-2" style="display:none">
+ <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:12px" id="ob-explain"></p>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+ <div class="form-field"><label class="form-label" for="ob-cals">Calories a day</label><input id="ob-cals" class="form-input" type="number" min="1200" max="5000" oninput="onboardRebalance()"/></div>
+ <div class="form-field"><label class="form-label" for="ob-prot">Protein (g a day)</label><input id="ob-prot" class="form-input" type="number" min="40" max="350" oninput="onboardRebalance()"/></div>
+ </div>
+ <p style="font-size:.8rem;color:var(--text2);margin:0 0 14px" id="ob-macros"></p>
+ <p style="font-size:.72rem;color:var(--text2);margin:0 0 14px">Estimates from the Mifflin-St Jeor equation. Edit them if you know your numbers. Not medical advice.</p>
+ <div style="display:flex;gap:8px"><button class="btn btn-ghost2" onclick="onboardStep(1)">Back</button><button class="btn btn-green" style="flex:1" id="ob-build" onclick="onboardBuildWeek()">Save and build my week</button></div>
+ </div>
+ <div id="ob-step-3" style="display:none">
+ <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px" id="ob-week-note"></p>
+ <div id="ob-week" style="max-height:52vh;overflow:auto"></div>
+ <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
+ </div>
+ </div>
+</div>
+
 <div class="modal-overlay" id="modal-goals" style="z-index:300" onclick="closeOnOverlay(event)">
  <div class="modal" style="max-width:420px">
  <div class="modal-title">👋 Let's set your goals<button class="modal-close" onclick="closeModal('modal-goals')">✕</button></div>
@@ -2464,7 +2503,7 @@ async function loadPortalHome() {
  // Show goals modal if no goals set and no plan
  if (!S.goals && !r.mealPlan && !sessionStorage.getItem('fm_goals_prompted')) {
  sessionStorage.setItem('fm_goals_prompted', '1');
- setTimeout(() => openModal('modal-goals'), 800);
+ setTimeout(() => openOnboarding(), 800);
  }
  }
  // Dashboard metrics
@@ -3244,6 +3283,78 @@ function copyShareText() {
  btn.textContent = '✓ Copied!';
  setTimeout(() => btn.textContent = orig, 2000);
  });
+}
+
+
+// ── ONBOARDING: about you -> targets -> your first week ─────────────────────
+let OB = null;
+function openOnboarding() {
+ if (typeof FMTargets === 'undefined') { openModal('modal-goals'); return; }
+ onboardStep(1); openModal('modal-onboard');
+}
+function onboardStep(n) {
+ [1,2,3].forEach(i => { document.getElementById('ob-step-' + i).style.display = i === n ? '' : 'none'; });
+ document.getElementById('ob-title').textContent = ['About you','Your daily targets','Your first week'][n-1];
+}
+function onboardCompute() {
+ const v = id => document.getElementById(id).value;
+ const input = { age: v('ob-age'), sex: v('ob-sex'), heightCm: v('ob-height'), weightKg: v('ob-weight'), activity: v('ob-activity'), goal: v('ob-goal') };
+ const err = document.getElementById('ob-err');
+ try {
+ const t = FMTargets.computeTargets(input);
+ OB = { input, diet: v('ob-diet'), targets: t };
+ err.style.display = 'none';
+ document.getElementById('ob-cals').value = t.calories;
+ document.getElementById('ob-prot').value = t.protein;
+ document.getElementById('ob-explain').textContent = `Your body burns about ${t.bmr} kcal at rest and ${t.tdee} kcal on a typical day. For your goal we suggest:`;
+ onboardRebalance(); onboardStep(2);
+ } catch (e) {
+ const names = { age:'age (16-100)', heightCm:'height (120-230 cm)', weightKg:'weight (35-300 kg)' };
+ err.textContent = 'Check your ' + (e.fields || []).map(f => names[f] || f).join(', ') + '.';
+ err.style.display = '';
+ }
+}
+function onboardRebalance() {
+ const r = FMTargets.rebalance({ calories: document.getElementById('ob-cals').value || 0, protein: document.getElementById('ob-prot').value || 0 });
+ document.getElementById('ob-macros').textContent = `That leaves about ${r.carbs}g carbs and ${r.fat}g fat a day.`;
+ return r;
+}
+function onboardRenderWeek(plan, note) {
+ document.getElementById('ob-week-note').textContent = note;
+ const box = document.getElementById('ob-week'); box.textContent = '';
+ (plan.days || []).forEach(d => {
+ const card = document.createElement('div'); card.style.cssText = 'border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:10px 12px;margin-bottom:8px';
+ const h = document.createElement('div'); h.style.cssText = 'font-weight:700;font-size:.85rem;margin-bottom:4px';
+ const tot = d.totals || {}; h.textContent = (d.day || '') + (tot.calories ? ` · ${tot.calories} kcal · ${tot.protein}g protein` : '');
+ card.appendChild(h);
+ (d.meals || []).forEach(m => { const p = document.createElement('div'); p.style.cssText = 'font-size:.78rem;color:var(--text2);line-height:1.5'; p.textContent = `${m.slot || m.type || ''}: ${m.name}${m.prepMins ? ' · ' + m.prepMins + ' min' : ''}`; card.appendChild(p); });
+ box.appendChild(card);
+ });
+}
+async function onboardBuildWeek() {
+ const r = onboardRebalance();
+ if (!(r.calories >= 1200 && r.calories <= 5000) || !(r.protein >= 40 && r.protein <= 350)) { toast('Calories 1200-5000 and protein 40-350 g', 'warn'); return; }
+ const btn = document.getElementById('ob-build'); btn.disabled = true; btn.textContent = 'Building...';
+ const fitnessGoal = OB.input.goal;
+ try {
+ await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein }) });
+ if (OB.input.weightKg) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight: parseFloat(OB.input.weightKg) }) });
+ S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
+ renderGoalTargets();
+ } catch (_) { /* targets still used for the week below */ }
+ const diet = OB.diet && OB.diet !== 'none' ? [OB.diet] : [];
+ const local = () => onboardRenderWeek(FMTargets.buildSimpleWeek({ calories: r.calories, protein: r.protein, diet }), 'A simple starter week built on your targets, no AI used. Turn on AI in Me, Privacy for a fully personalised plan.');
+ // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
+ let consented = false;
+ // aiConsentState() comes with the AI consent flow (#90); until then there is no recorded consent.
+ try { consented = typeof aiConsentState === 'function' && aiConsentState() === true; } catch (_) { consented = false; }
+ try {
+ if (!consented) { local(); return; }
+ const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.'); }
+ else local();
+ } catch (_) { local(); }
+ finally { btn.disabled = false; btn.textContent = 'Save and build my week'; onboardStep(3); }
 }
 
 // ── GOALS ONBOARDING ─────────────────────────────────────────────────────────
