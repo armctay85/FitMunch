@@ -1543,11 +1543,15 @@ describe('POST /api/stripe/customers is authed and own-account only', () => {
     ['no header', null],
     ['forged token', 'Bearer not-a-jwt'],
     ['wrong secret', `Bearer ${jwt.sign({ userId: 'u1' }, 'wrong-secret')}`],
+    ['expired token', `Bearer ${jwt.sign({ userId: 'u1', exp: Math.floor(Date.now() / 1000) - 60 }, jwtSecret())}`],
+    ['alg none', `Bearer ${jwt.sign({ userId: 'u1' }, null, { algorithm: 'none' })}`],
+    ['HS512 with the real secret', `Bearer ${jwt.sign({ userId: 'u1' }, jwtSecret(), { algorithm: 'HS512' })}`],
   ])('%s => 401, zero Stripe calls', async (_label, auth) => {
     let r = request(app).post('/api/stripe/customers');
     if (auth) r = r.set('Authorization', auth);
     const res = await r.send(body);
     expect(res.status).toBe(401);
+    expect(res.body).toEqual({ success: false, message: 'Authentication required.' });
     expect(count(fake)).toBe(0);
     expect(fake.S.customers).toHaveLength(0);
   });
@@ -1599,6 +1603,87 @@ describe('POST /api/stripe/customers is authed and own-account only', () => {
       expect(count(fake)).toBe(0);
     } finally {
       process.env.STRIPE_CUSTOMERS_IP_MAX_PER_HOUR = '100000';
+    }
+  });
+});
+
+describe('shared rate limits on guest checkout-sessions', () => {
+  const calls = (o, seen = new Set()) => {
+    if (!o || seen.has(o)) return 0;
+    seen.add(o);
+    return Object.entries(o).reduce((n, [k, v]) => {
+      if (k === 'S') return n;
+      if (typeof v === 'function' && v.mock) return n + v.mock.calls.length;
+      if (v && typeof v === 'object') return n + calls(v, seen);
+      return n;
+    }, 0);
+  };
+  const body = (i) => ({
+    priceId: PRICE_IDS.premium,
+    customerId: 'cus_existing',
+    successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+    cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    nonce: `limit-${i}`,
+  });
+
+  test('limit 2: the 3rd request gets 429 and makes no Stripe call', async () => {
+    process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR = '2';
+    try {
+      const ip = '198.51.100.23';
+      const go = (i) => request(app).post('/api/stripe/checkout-sessions').set('X-Forwarded-For', ip)
+        .set('Idempotency-Key', `cs-limit-${i}-${Date.now()}`).send(body(i));
+      expect((await go(1)).status).toBe(200);
+      expect((await go(2)).status).toBe(200);
+      const customersBefore = fake.S.customers.length;
+      const sessionsBefore = fake.S.sessions.length;
+      const callsBefore = calls(fake);
+      const third = await go(3);
+      expect(third.status).toBe(429);
+      expect(third.body).toEqual({ success: false, message: 'Too many checkout attempts. Please try again later.' });
+      expect(third.headers['retry-after']).toBe('3600');
+      expect(fake.S.customers.length).toBe(customersBefore);
+      expect(fake.S.sessions.length).toBe(sessionsBefore);
+      expect(calls(fake)).toBe(callsBefore);
+    } finally {
+      process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR = '100000';
+    }
+  });
+
+  test('fails closed: shared counter down => 503, zero Stripe calls', async () => {
+    const counters = require('./lib/shared-counters');
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    counters.setSharedCounterQueryForTests(async () => { throw Object.assign(new Error('postgres://u:p@h/db down'), { code: 'ECONNREFUSED' }); });
+    try {
+      const a = await request(app).post('/api/stripe/checkout-sessions').send(body(9));
+      expect(a.status).toBe(503);
+      const b = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${tokenFor('u1')}`).send({});
+      expect(b.status).toBe(503);
+      expect(calls(fake)).toBe(0);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/postgres:\/\/|u:p@/);
+    } finally {
+      counters.setSharedCounterQueryForTests(null);
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('error logs are redacted', () => {
+  test('checkout-sessions failure logs no secret or connection string', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const boom = jest.fn(async () => { throw new Error('Invalid API Key provided: sk_test_123 DATABASE_URL=postgres://u:p@h/db'); });
+    fake.checkout.sessions.create = boom;
+    fake.rawRequest = boom;
+    try {
+      const res = await request(app).post('/api/stripe/checkout-sessions').send({
+        priceId: PRICE_IDS.premium,
+        customerId: 'cus_existing',
+        successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+        cancelUrl: 'https://www.fitmunch.com.au/pricing',
+      });
+      expect(res.status).toBe(500);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/sk_test_|postgres:|DATABASE_URL/);
+    } finally {
+      spy.mockRestore();
     }
   });
 });
