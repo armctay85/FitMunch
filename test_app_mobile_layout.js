@@ -1,7 +1,7 @@
 'use strict';
 
-// Playwright is not a devDependency, so this guards the 390px phone layout of
-// the signed-in app at the CSS level: the bottom nav replaces the sidebar and
+// CSS-level guard for the phone layout of the signed-in app (the rendered check
+// lives in test_app_mobile_rendered.js): the bottom nav replaces the sidebar and
 // nothing inside a view or a modal may be wider than the screen.
 const fs = require('fs');
 const path = require('path');
@@ -51,5 +51,22 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
     for (const id of ['portal-home', 'ai-coach', 'portal-meals', 'portal-workouts', 'portal-plan', 'portal-progress', 'portal-shopping', 'receipt-scanner', 'meal-plans', 'shopping-lists', 'billing', 'dashboard', 'clients']) {
       expect(html).toMatch(new RegExp(`\\{id:'${id}',\\s*icon:`));
     }
+  });
+
+  it('gives phone tap targets 44px and moves Sign out into the More sheet', () => {
+    expect(phone).toMatch(/\.topnav \.btn-logout\{display:none\}/);
+    expect(phone).toMatch(/\.nav-btn,\.diet-tag,\.metric-cta,[^{]*\{min-height:44px;min-width:44px\}/);
+    expect(html).toMatch(/onclick="logout\(\)">🚪 Sign Out<\/button>/);
+  });
+
+  it('uses AA-contrast brand greens and visible focus styles', () => {
+    expect(html).toMatch(/:root\{--leaf:#15803d;--leaf2:#166534;/);
+    expect(html).toMatch(/\.modal input:focus-visible[^{]*\{outline:2px solid var\(--leaf2\);outline-offset:2px\}/);
+    expect(html).toMatch(/\.modal-overlay\{visibility:hidden\}/);
+  });
+
+  it('names no supermarket in the signed-in app copy', () => {
+    const copy = html.replace(/<a class="sl-item-link"[^>]*>[WC]<\/a>/g, '');
+    expect(copy).not.toMatch(/Woolies|Woolworths|\bColes\b|\bAldi\b|\bIGA\b|Costco/i);
   });
 });

@@ -31,6 +31,7 @@ module.exports = {
     '**/test_app_load.js',
     '**/test_trial_used_notice.js',
     '**/test_app_mobile_layout.js',
+    '**/test_app_mobile_rendered.js',
     '**/test_stripe_webhook.js',
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',

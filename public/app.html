@@ -12,6 +12,8 @@
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <script src="/js/chart.umd.min.js"></script>
 <style>
+/* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
+:root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--ink);font-size:13px;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
@@ -273,7 +275,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-meta.user{align-self:flex-end;padding-right:4px}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.goals-nudge span{font-size:.75rem;color:var(--mute)}
+.goals-nudge span{font-size:.75rem;color:#4b5a52}
 .receipt-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
 .receipt-empty-panel{height:100%;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 22px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
 .receipt-empty-panel img{width:120px;height:120px;object-fit:contain;margin-bottom:12px;opacity:.95}
@@ -312,7 +314,25 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .modal [style*="grid-template-columns"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .scroll-body [style*="grid-template-columns:1fr 1fr 1fr"],.scroll-body [style*="grid-template-columns: 1fr 1fr 1fr"],.scroll-body [style*="repeat(3"],.scroll-body [style*="repeat(4"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .mob-more-btn{min-width:0;flex:1 1 calc(50% - 8px)}
+ /* Phones: Sign out lives in the More sheet; every tap target is at least 44px. */
+ .topnav .btn-logout{display:none}
+ .btn-logout,.mob-more-btn{white-space:nowrap}
+ .nav-logo{min-height:44px;display:flex;align-items:center}
+ button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),[role=button],.btn,.btn-sm,.nav-btn,.diet-tag,.metric-cta,.mob-nav-btn,.mob-more-btn,.modal-close{min-height:44px;min-width:44px}
+ input[type=checkbox],input[type=radio]{width:24px;height:24px;margin:10px}
+ a[href].btn,a[href][class*="cta"],[onclick]:not(div):not(tr):not(li){min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+ .view-actions .btn{flex:1 1 auto;justify-content:center}
+ .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
+ .shop-cb.checked{box-shadow:none}
 }
+@media (max-width: 360px) {
+ .card-header{flex-wrap:wrap;gap:8px}
+ .card-header > div:last-child,.card-header .btn{flex:1 1 100%}
+ .view-actions .btn{flex:1 1 100%}
+}
+.modal-overlay{visibility:hidden}
+.modal-overlay.open{visibility:visible}
+.modal input:focus-visible,.modal select:focus-visible,.modal textarea:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--leaf2);outline-offset:2px}
 html:not(.fm-authed) .topnav,
 html:not(.fm-authed) .shell,
 html:not(.fm-authed) .mobile-nav,
@@ -556,7 +576,7 @@ html.fm-authed #app-gate{display:none}
  <span style="font-size:28px">🤖</span>
  <div>
  <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly meal plan</div>
- <div style="font-size:.75rem;color:#166534">FitMunch AI · takes ~15 seconds · real Woolies/Coles ingredients</div>
+ <div style="font-size:.75rem;color:#166534">FitMunch AI · takes ~15 seconds · real everyday ingredients</div>
  </div>
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -753,7 +773,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
  <div class="view-header">
- <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles. The Fitness Butler shopper drafts a week trolley. Prices vary by store and week.</div></div>
+ <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for your next shop. The Fitness Butler shopper drafts a week trolley. Prices vary by store and week.</div></div>
  <div class="view-actions">
  <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
  <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
@@ -773,12 +793,6 @@ html.fm-authed #app-gate{display:none}
  </div>
  </div>
  <div style="display:flex;gap:6px">
- <a id="sl-woolies-link" href="https://www.woolworths.com.au" target="_blank" style="text-decoration:none">
- <button class="btn btn-ghost2 btn-sm">🟢 Shop Woolies</button>
- </a>
- <a id="sl-coles-link" href="https://www.coles.com.au" target="_blank" style="text-decoration:none">
- <button class="btn btn-ghost2 btn-sm">🔴 Shop Coles</button>
- </a>
  <button class="btn btn-green btn-sm" onclick="saveAiList()">💾 Save list</button>
  </div>
  </div>
@@ -900,7 +914,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card-header"><span class="card-title">My Meal Plan</span><button class="btn btn-ghost2 btn-sm" id="home-mealplan-btn" onclick="nav('meal-plans')">Generate</button></div>
  <div class="card-body" id="home-mealplan">
  <div class="home-plan-empty">
- <p>No plan yet. Generate an Aussie Woolies/Coles week in ~15 seconds.</p>
+ <p>No plan yet. Generate a week of meals in ~15 seconds.</p>
  <button class="btn btn-green btn-sm" onclick="nav('meal-plans')">Generate meal plan →</button>
  </div>
  </div>
@@ -946,7 +960,7 @@ html.fm-authed #app-gate{display:none}
  <div style="padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:8px">
  <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--green2)">📸 Start here</div>
  <div style="font-size:1.02rem;font-weight:800;color:#14532d;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Scan your first receipt</div>
- <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your Woolies or Coles receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
+ <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your supermarket receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
  <button class="btn btn-green" style="align-self:flex-start;margin-top:6px" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
  </div>
  <img src="/assets/fm-receipt-scan.webp" alt="" loading="lazy" style="width:100%;height:100%;min-height:170px;object-fit:cover;display:block"/>
@@ -976,7 +990,7 @@ html.fm-authed #app-gate{display:none}
  <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein Woolies shop for the week')">Build me a high-protein Woolies shop</button>
+ <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein shopping list for the week')">Build me a high-protein shopping list</button>
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('I keep snacking at 9pm. How do I stop?')">I keep snacking at 9pm. How do I stop?</button>
  </div>
  </div>
@@ -1168,7 +1182,7 @@ html.fm-authed #app-gate{display:none}
  style="border:2px dashed rgba(31,157,74,.28);border-radius:10px;padding:24px 20px;text-align:center;background:rgba(31,157,74,.08);transition:all .15s">
  <div style="font-size:32px;margin-bottom:8px">📸</div>
  <div style="font-size:.88rem;font-weight:700;color:var(--green2);margin-bottom:4px">Scan your supermarket receipt</div>
- <div style="font-size:.75rem;color:var(--text3);margin-bottom:14px">JPG or PNG preferred (HEIC may need a retake). Max ~20MB original. Woolies, Coles, Aldi, IGA.</div>
+ <div style="font-size:.75rem;color:var(--text3);margin-bottom:14px">JPG or PNG preferred (HEIC may need a retake). Max ~20MB original. Works with most printed supermarket receipts.</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button type="button" class="btn btn-green" style="width:100%" onclick="openReceiptCamera(event)">📷 Take a photo</button>
  <button type="button" class="btn btn-ghost2" style="width:100%" onclick="openReceiptLibrary(event)">🖼 Choose from library</button>
@@ -1210,7 +1224,7 @@ html.fm-authed #app-gate{display:none}
  <div id="scan-empty" class="receipt-empty-panel">
  <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));border:1px solid rgba(31,157,74,.28);display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:14px">🧾</div>
  <div style="font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Your macro breakdown appears here</div>
- <div style="font-size:.78rem;color:var(--text3);line-height:1.55;max-width:280px;margin:0 auto 14px">Take a photo or choose a Woolies / Coles / Aldi / IGA / Costco receipt. We'll score the haul and list protein, calories, carbs and fat.</div>
+ <div style="font-size:.78rem;color:var(--text3);line-height:1.55;max-width:280px;margin:0 auto 14px">Take a photo or choose a supermarket receipt. We'll score the haul and list protein, calories, carbs and fat.</div>
  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
  <button type="button" class="btn btn-green btn-sm" onclick="openReceiptCamera(event)">📷 Take photo</button>
  <button type="button" class="btn btn-ghost2 btn-sm" onclick="openReceiptLibrary(event)">🖼 Library</button>
@@ -1464,7 +1478,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-manual-list" onclick="closeOnOverlay(event)">
  <div class="modal">
  <div class="modal-title">New Shopping List<button class="modal-close" onclick="closeModal('modal-manual-list')">✕</button></div>
- <div class="form-field"><label class="form-label">List name</label><input class="form-input" id="manual-list-name" placeholder="e.g. Woolies Sunday run"/></div>
+ <div class="form-field"><label class="form-label">List name</label><input class="form-input" id="manual-list-name" placeholder="e.g. Sunday shop"/></div>
  <div class="form-field" style="margin-top:10px"><label class="form-label">Items (one per line)</label>
  <textarea class="form-input" id="manual-list-items" rows="6" placeholder="Chicken breast 1kg&#10;Oats 750g&#10;Greek yoghurt&#10;Broccoli 2x&#10;Eggs dozen"></textarea>
  </div>
@@ -2353,7 +2367,7 @@ function renderShoppingLists(lists, targetId) {
  const el = document.getElementById(targetId);
  if (!el) return;
  if (!lists.length) {
- el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build a Woolies/Coles ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
+ el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build an ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
  return;
  }
  el.innerHTML = lists.map(list => `
@@ -2566,7 +2580,7 @@ function renderPortalPlan() {
  <div class="portal-plan-meta">${mealPlan.total_calories||0} calories/day target</div>
  <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('portal-shopping')">🛒 View Shopping List</button></div>
  </div>`;
- } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with Woolies/Coles foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
+ } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
  <div class="portal-plan-name">${workoutPlan.workout_plan_name||'Workout Plan'}</div>
@@ -3062,7 +3076,7 @@ function clearReceipt() {
  document.getElementById('receipt-drop-zone').style.display = '';
  document.getElementById('scan-results').style.display = 'none';
  document.getElementById('scan-empty').style.display = '';
- document.getElementById('scan-empty').innerHTML = '<div style="font-size:36px;margin-bottom:12px">🧾</div><div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div><div style="font-size:.78rem;color:var(--text3)">Works with Woolworths, Coles, Aldi, IGA, Costco</div>';
+ document.getElementById('scan-empty').innerHTML = '<div style="font-size:36px;margin-bottom:12px">🧾</div><div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div><div style="font-size:.78rem;color:var(--text3)">Works with most printed supermarket receipts</div>';
  document.getElementById('share-card').style.display = 'none';
  const logBox = document.getElementById('scan-log-meals-box');
  if (logBox) logBox.style.display = 'none';
