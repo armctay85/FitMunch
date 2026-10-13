@@ -38,6 +38,27 @@ describe('no store names on any public page (app.html and coach.html included, n
     expect(fs.readdirSync(PUBLIC).filter((f) => STORE.test(f))).toEqual([]);
   });
 
+  it('every served text file under public/ (any folder: html, js, css, json, xml, txt, webmanifest) has no store name', () => {
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      const full = path.join(dir, d.name);
+      return d.isDirectory() ? walk(full) : [full];
+    });
+    const served = walk(PUBLIC).filter((f) => /\.(html?|js|mjs|css|json|xml|txt|webmanifest|svg)$/i.test(f));
+    expect(served.length).toBeGreaterThan(20);
+    const hits = served
+      .map((f) => {
+        const m = fs.readFileSync(f, 'utf8').match(new RegExp(`.{0,40}(${STORE.source}).{0,40}`, 'i'));
+        return m ? `${path.relative(PUBLIC, f)}: ${m[0]}` : null;
+      })
+      .filter(Boolean);
+    expect(hits).toEqual([]);
+  });
+
+  it('the meal planner and shopping-list copy names no chain (no Woolies/Coles empty state)', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
+    expect(html).not.toMatch(/Woolies\s*\/\s*Coles|Woolies or Coles|sl-woolies-link|sl-coles-link/i);
+  });
+
   it('coach.html intro copy is generic and it has no store picker', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'coach.html'), 'utf8');
     expect(html).toContain('<p>Pick a client, set targets, and draft a 7-day plan with a supermarket list.</p>');
