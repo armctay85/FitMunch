@@ -29,11 +29,10 @@ describe('no store names on marketing pages', () => {
     expect(hit && hit[0]).toBeFalsy();
   });
 
-  it('app_fixes.js carries no dead store price data or store names', () => {
-    const src = fs.readFileSync(path.join(__dirname, 'app_fixes.js'), 'utf8');
-    expect(src).not.toMatch(STORE);
-    expect(src).not.toMatch(/SupermarketAPI|mockPrices/);
+  it('app_fixes.js (dead, unserved, store price data) is deleted', () => {
+    expect(fs.existsSync(path.join(__dirname, 'app_fixes.js'))).toBe(false);
   });
+
 
   it('the dead supermarket_api.js mock is gone', () => {
     expect(fs.existsSync(path.join(__dirname, 'supermarket_api.js'))).toBe(false);
@@ -52,12 +51,32 @@ describe('no store names on marketing pages', () => {
     expect(fs.readdirSync(PUBLIC).filter((f) => STORE.test(f))).toEqual([]);
   });
 
-  it('coach.html intro copy is generic; its store picker is unchanged (Wilson)', () => {
+  it('every served text file under public/ (any folder: html, js, css, json, xml, txt, webmanifest) has no store name', () => {
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      const full = path.join(dir, d.name);
+      return d.isDirectory() ? walk(full) : [full];
+    });
+    const served = walk(PUBLIC).filter((f) => /\.(html?|js|mjs|css|json|xml|txt|webmanifest|svg)$/i.test(f));
+    expect(served.length).toBeGreaterThan(20);
+    const hits = served
+      .map((f) => {
+        const m = fs.readFileSync(f, 'utf8').match(new RegExp(`.{0,40}(${STORE.source}).{0,40}`, 'i'));
+        return m ? `${path.relative(PUBLIC, f)}: ${m[0]}` : null;
+      })
+      .filter(Boolean);
+    expect(hits).toEqual([]);
+  });
+
+  it('the meal planner and shopping-list copy names no chain (no Woolies/Coles empty state)', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
+    expect(html).not.toMatch(/Woolies\s*\/\s*Coles|Woolies or Coles|sl-woolies-link|sl-coles-link/i);
+  });
+
+  it('coach.html intro copy is generic and it has no store picker', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'coach.html'), 'utf8');
     expect(html).toContain('<p>Pick a client, set targets, and draft a 7-day plan with a supermarket list.</p>');
-    expect(html).toContain('<option value="woolworths">Woolworths</option>');
-    expect(html).toContain('<option value="coles">Coles</option>');
-    expect(html).toContain('<option value="aldi">Aldi</option>');
+    expect(html).not.toContain('id="coach-store"');
+    expect(fs.readFileSync(path.join(PUBLIC, 'js', 'fm-coach.js'), 'utf8')).not.toMatch(/coach-store'\)\.value|storeName/);
   });
 
   it('app.html has no store name anywhere, including links, titles and placeholders', () => {
