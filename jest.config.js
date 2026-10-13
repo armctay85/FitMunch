@@ -58,6 +58,7 @@ module.exports = {
     '**/test_rate_limit_ip.js',
     '**/test_public_copy_hotfix.js',
     '**/test_ship_safety.js',
+    '**/test_xss_escape.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
