@@ -54,6 +54,10 @@
     });
   }
 
+  function showName(n) {
+    return (window.FMItemName && window.FMItemName.displayName) ? window.FMItemName.displayName(n) : n;
+  }
+
   function storeHaul(data) {
     try {
       sessionStorage.setItem('fm_guest_haul', JSON.stringify({
@@ -62,7 +66,7 @@
         itemCount: data.itemCount,
         tonightDinner: data.tonightDinner,
         items: (data.items || []).slice(0, 12).map(function (i) {
-          return { name: i.name, nutrition: i.nutrition };
+          return { name: showName(i.name), nutrition: i.nutrition };
         }),
         savedAt: Date.now(),
       }));
@@ -88,7 +92,7 @@
       usesEl.innerHTML = '';
       (dinner.usesDetectedItems || []).forEach(function (name) {
         var li = document.createElement('li');
-        li.textContent = name;
+        li.textContent = showName(name);
         usesEl.appendChild(li);
       });
     }
@@ -227,6 +231,8 @@
         show(results, false);
         scanBtn.disabled = true;
         var fd = new FormData();
+        // The button is the consent: "Allow and scan" sends this one photo to the AI provider.
+        fd.append('aiConsent', 'true');
         fd.append('receipt', blob, 'receipt.jpg');
         fetch('/api/receipt/first-scan', { method: 'POST', body: fd })
           .then(function (r) {

@@ -1,0 +1,174 @@
+/**
+ * @jest-environment jsdom
+ */
+'use strict';
+// Elite QA proved stored, cross-user XSS: a trainer saves a food name with
+// markup, the client generates a shopping list from the assigned plan, and the
+// name ran in the client's browser. Names are now stripped of < > " ' on write
+// and escaped on render. These tests save through the API, then render.
+
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = global.TextEncoder || TextEncoder;
+global.TextDecoder = global.TextDecoder || TextDecoder;
+global.setImmediate = global.setImmediate || ((fn, ...a) => setTimeout(fn, 0, ...a));
+
+const fs = require('fs');
+const path = require('path');
+
+const db = { meal_plans: [], shopping_lists: [], plan_assignments: [], workout_plans: [] };
+function query(sql, params = []) {
+  const q = sql.replace(/\s+/g, ' ').trim();
+  const rows = (r) => Promise.resolve({ rows: r, rowCount: r.length });
+  if (q.startsWith('INSERT INTO meal_plans')) {
+    const [user_id, name, description, goal_type, meals] = params;
+    const row = { id: db.meal_plans.length + 1, user_id, name, description, goal_type, meals: JSON.parse(meals) };
+    db.meal_plans.push(row); return rows([row]);
+  }
+  if (q.startsWith('UPDATE meal_plans SET')) {
+    const row = db.meal_plans.find((p) => String(p.id) === String(params[8]) && p.user_id === params[9]);
+    if (!row) return rows([]);
+    if (params[0] != null) row.name = params[0];
+    if (params[3] != null) row.meals = JSON.parse(params[3]);
+    return rows([row]);
+  }
+  if (q.startsWith('INSERT INTO workout_plans')) {
+    const [user_id, name, description, level, frequency, workouts] = params;
+    const row = { id: 1, user_id, name, description, level, frequency, workouts: JSON.parse(workouts) };
+    db.workout_plans.push(row); return rows([row]);
+  }
+  if (q.startsWith('SELECT * FROM meal_plans WHERE id=$1 AND (user_id=$2 OR EXISTS')) {
+    const [id, me] = params;
+    return rows(db.meal_plans.filter((p) => p.id === id && (p.user_id === me || db.plan_assignments.some((a) => (
+      a.plan_id === p.id && a.client_id === me && a.pt_id === p.user_id && a.active)))));
+  }
+  if (q.startsWith('INSERT INTO shopping_lists (user_id, meal_plan_id, name, items)')) {
+    const [user_id, meal_plan_id, name, items] = params;
+    const row = { id: db.shopping_lists.length + 1, user_id, meal_plan_id, name, items: JSON.parse(items) };
+    db.shopping_lists.push(row); return rows([row]);
+  }
+  if (q.startsWith('INSERT INTO shopping_lists (user_id, name, items)')) {
+    const [user_id, name, items] = params;
+    const row = { id: db.shopping_lists.length + 1, user_id, name, items: JSON.parse(items) };
+    db.shopping_lists.push(row); return rows([row]);
+  }
+  if (q.startsWith('UPDATE shopping_lists SET')) {
+    const [id, me] = params.slice(-2);
+    const row = db.shopping_lists.find((l) => String(l.id) === String(id) && l.user_id === me);
+    if (!row) return rows([]);
+    if (q.includes('items=$1')) row.items = JSON.parse(params[0]);
+    return rows([row]);
+  }
+  throw new Error(`unexpected SQL in test: ${q.slice(0, 120)}`);
+}
+jest.mock('pg', () => ({ Pool: jest.fn(() => ({ query: (...a) => query(...a), on: () => {} })) }));
+
+const express = require('express');
+const request = require('supertest');
+const jwt = require('jsonwebtoken');
+const { stripMarkup, stripNames } = require('./lib/strip-markup');
+
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+const app = express();
+app.use(express.json());
+app.use('/api', require('./api_server'));
+const as = (userId) => `Bearer ${jwt.sign({ userId }, process.env.JWT_SECRET)}`;
+
+const PT = '00000000-0000-4000-8000-000000000003';
+const CLIENT = '00000000-0000-4000-8000-000000000004';
+const PAYLOADS = [
+  '<img src=x onerror=window.__pwned=1>',
+  '<script>window.__pwned=1</script>',
+  '"><img src=x onerror=window.__pwned=1>',
+  "x' onmouseover='window.__pwned=1",
+];
+const noMarkup = (s) => expect(String(s)).not.toMatch(/[<>"']/);
+
+const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+function extractFn(name) {
+  const start = html.indexOf(`function ${name}(`);
+  let i = html.indexOf('{', start); let depth = 0;
+  for (; i < html.length; i++) {
+    if (html[i] === '{') depth++;
+    else if (html[i] === '}' && --depth === 0) return html.slice(start, i + 1);
+  }
+  throw new Error(name);
+}
+let render;
+beforeAll(() => {
+  const src = ['escapeHtml', 'renderShoppingList', 'renderAiShoppingList'].map(extractFn).join('\n')
+    + '\nconst CAT_ICONS = {};\nreturn { renderShoppingList, renderAiShoppingList };';
+  render = new Function('S', src)({});
+});
+
+beforeEach(() => {
+  db.meal_plans = []; db.shopping_lists = []; db.workout_plans = [];
+  db.plan_assignments = [{ pt_id: PT, client_id: CLIENT, plan_type: 'meal', plan_id: 1, active: true }];
+  window.__pwned = 0;
+  document.body.innerHTML = '<div id="out"></div><div id="sl-ai-name"></div><div id="sl-ai-total"></div><div id="sl-ai-remaining"></div><div id="sl-ai-aisles"></div><div id="sl-ai-list"></div><div id="sl-sub"></div>';
+});
+
+describe('stripMarkup / stripNames', () => {
+  test('removes < > " \' from names only', () => {
+    expect(stripMarkup('<b>"Nature\'s"</b>')).toBe('bNatures/b');
+    const out = stripNames({ name: '<x>', calories: 5, meals: [{ ingredients: [{ item: '"y"', qty: '1' }], foodName: "z'" }] });
+    expect(out).toEqual({ name: 'x', calories: 5, meals: [{ ingredients: [{ item: 'y', qty: '1' }], foodName: 'z' }] });
+    expect(stripMarkup(42)).toBe(42);
+  });
+});
+
+describe.each(PAYLOADS)('stored payload %s', (payload) => {
+  const plan = () => ({ name: payload, meals: [{ day: 'Monday', meals: { lunch: { name: payload, ingredients: [{ item: payload, qty: '150g' }] } } }] });
+
+  test('trainer plan -> client shopping list is stripped and renders as text', async () => {
+    const saved = await request(app).post('/api/meal-plans').set('Authorization', as(PT)).send(plan());
+    expect(saved.status).toBe(200);
+    noMarkup(db.meal_plans[0].name);
+    noMarkup(JSON.stringify(db.meal_plans[0].meals).replace(/\\?"/g, ''));
+    expect(JSON.stringify(db.meal_plans[0].meals)).not.toMatch(/[<>']/);
+
+    const gen = await request(app).post('/api/shopping-list/generate').set('Authorization', as(CLIENT)).send({ mealPlanId: 1 });
+    expect(gen.status).toBe(200);
+    const list = gen.body.list;
+    list.items.forEach((i) => noMarkup(i.name));
+
+    render.renderShoppingList(list, 'out');
+    const out = document.getElementById('out');
+    expect(out.querySelector('img, script, [onerror], [onmouseover]')).toBeNull();
+    expect(out.querySelector('.shop-name').textContent).toBe(stripMarkup(payload));
+    expect(window.__pwned).toBe(0);
+  });
+
+  test('legacy unstripped plan already in the DB is stripped when the list is built', async () => {
+    db.meal_plans.push({ id: 1, user_id: PT, name: 'Old', meals: plan().meals });
+    const gen = await request(app).post('/api/shopping-list/generate').set('Authorization', as(CLIENT)).send({ mealPlanId: 1 });
+    gen.body.list.items.forEach((i) => noMarkup(i.name));
+  });
+
+  test('PUT /meal-plans, POST and PATCH /shopping-list and POST /workout-plans strip names', async () => {
+    await request(app).post('/api/meal-plans').set('Authorization', as(PT)).send({ name: 'ok', meals: [] });
+    await request(app).put('/api/meal-plans/1').set('Authorization', as(PT))
+      .send({ name: payload, meals: [{ foods: [{ name: payload, calories: 1 }] }] });
+    noMarkup(db.meal_plans[0].name);
+    noMarkup(db.meal_plans[0].meals[0].foods[0].name);
+
+    await request(app).post('/api/shopping-list').set('Authorization', as(CLIENT))
+      .send({ name: payload, items: [{ name: payload, category: payload }] });
+    noMarkup(db.shopping_lists[0].name);
+    noMarkup(db.shopping_lists[0].items[0].name);
+    noMarkup(db.shopping_lists[0].items[0].category);
+
+    await request(app).patch('/api/shopping-list/1').set('Authorization', as(CLIENT))
+      .send({ items: [{ name: payload, checked: true }] });
+    noMarkup(db.shopping_lists[0].items[0].name);
+    expect(db.shopping_lists[0].items[0].checked).toBe(true);
+
+    await request(app).post('/api/workout-plans').set('Authorization', as(PT))
+      .send({ name: payload, workouts: [{ name: payload, sets: 3 }] });
+    noMarkup(db.workout_plans[0].name);
+    noMarkup(db.workout_plans[0].workouts[0].name);
+
+    render.renderAiShoppingList({ name: 'x', itemCount: 1, byAisle: { a: db.shopping_lists[0].items } });
+    expect(document.querySelector('#sl-ai-aisles img, #sl-ai-aisles script')).toBeNull();
+    expect(window.__pwned).toBe(0);
+  });
+});

@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <script src="/js/chart.umd.min.js"></script>
+<script src="/js/fm-item-name.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -302,6 +303,15 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .metrics-row{grid-template-columns:repeat(2,1fr) !important}
  .topnav{padding:0 12px}
 }
+/* Privacy and AI consent modals: above onboarding, 44px targets, a real switch. */
+#modal-ai-consent{z-index:400}
+#modal-ai-consent .btn,#modal-privacy .btn,#modal-privacy .modal-close{min-height:44px;min-width:44px}
+.privacy-switch-row{display:flex;gap:12px;align-items:flex-start;font-size:.88rem;cursor:pointer;min-height:44px;padding:4px 0}
+.fm-switch{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:48px;height:28px;margin:8px 0;border-radius:14px;background:#6b7a72;position:relative;cursor:pointer;transition:background .15s}
+.fm-switch::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+.fm-switch:checked{background:#15803d}
+.fm-switch:checked::after{transform:translateX(20px)}
+.fm-switch:focus-visible{outline:2px solid #166534;outline-offset:2px}
 html:not(.fm-authed) .topnav,
 html:not(.fm-authed) .shell,
 html:not(.fm-authed) .mobile-nav,
@@ -354,6 +364,7 @@ html.fm-authed #app-gate{display:none}
  <span class="nav-plan" id="nav-plan-badge" style="display:none"></span>
  <div class="nav-user"><div class="nav-av" id="nav-av"></div><span id="nav-name"></span></div>
  <button class="nav-btn btn-upgrade" id="btn-upgrade" onclick="nav('billing')" style="display:none">Upgrade</button>
+ <button class="nav-btn btn-logout" onclick="openPrivacy()">Privacy</button>
  <button class="nav-btn btn-logout" onclick="logout()">Sign out</button>
 </nav>
 
@@ -1245,6 +1256,27 @@ html.fm-authed #app-gate{display:none}
 </div><!-- /shell -->
 
 <!-- ── MODALS ── -->
+<div class="modal-overlay" id="modal-ai-consent">
+ <div class="modal" role="dialog" aria-labelledby="ai-consent-title">
+ <div class="modal-title" id="ai-consent-title">Allow AI features?</div>
+ <div style="font-size:.85rem;color:var(--text2);line-height:1.5">Coach, meal plans, workout plans, reviews and receipt scans send the details you enter (and a receipt photo for scans) to an AI provider to produce your answer. Nothing is sent until you allow it. You can change this any time in Privacy. <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a></div>
+ <div class="modal-actions">
+ <button class="btn btn-ghost2" id="ai-consent-no">Not now</button>
+ <button class="btn btn-green" id="ai-consent-yes">Allow</button>
+ </div>
+ </div>
+</div>
+
+<div class="modal-overlay" id="modal-privacy" onclick="closeOnOverlay(event)">
+ <div class="modal" role="dialog" aria-labelledby="privacy-title">
+ <div class="modal-title" id="privacy-title">Privacy<button class="modal-close" onclick="closeModal('modal-privacy')" aria-label="Close">✕</button></div>
+ <label class="privacy-switch-row"><input type="checkbox" role="switch" class="fm-switch" id="privacy-ai-toggle" onchange="setAiConsent(this.checked)" aria-describedby="privacy-ai-desc"/><span><b>AI features</b><br><span id="privacy-ai-desc" style="color:var(--text2);font-size:.8rem">Coach, meal plans, workout plans, reviews and receipt scans. When off, nothing is sent to an AI provider and the rest of FitMunch keeps working.</span></span></label>
+ <div style="border-top:1px solid var(--line);margin:16px 0"></div>
+ <div style="font-size:.88rem"><b>Your data</b><br><span style="color:var(--text2);font-size:.8rem">Download your account, profile, logs, progress, plans, shopping lists, favourites, achievements, activity, AI usage counts and trainer links as a JSON file. Up to 5 times an hour.</span></div>
+ <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-ghost2" id="privacy-export-btn" onclick="downloadMyData()">Download my data</button></div>
+ </div>
+</div>
+
 <div class="modal-overlay" id="modal-invite" onclick="closeOnOverlay(event)">
  <div class="modal">
  <div class="modal-title">Invite a Client<button class="modal-close" onclick="closeModal('modal-invite')">✕</button></div>
@@ -1555,7 +1587,63 @@ const S = {
  mealsDate: new Date().toISOString().split('T')[0],
 };
 
-const API = (path, opts={}) => {
+// AI routes run only after the account has said Allow (enforced server-side too).
+const AI_PATHS = ['/ai/chat', '/ai/weekly-review', '/ai/workout-plan', '/meal-plan/generate'];
+const AI_OFF_RESULT = { success: false, code: 'ai_consent_off', error: 'AI features are off. Turn them on in Privacy.' };
+function aiConsentState() { return S.user ? S.user.aiDataConsent : null; }
+async function setAiConsent(allowed) {
+ const r = await fetch('/api/auth/ai-consent', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token }, body: JSON.stringify({ allowed: !!allowed }) }).then(x => x.json()).catch(() => ({}));
+ if (r && r.success) { if (S.user) S.user.aiDataConsent = r.aiDataConsent; toast(r.aiDataConsent ? 'AI features on' : 'AI features off'); }
+ else toast('Could not save your choice. Try again.', 'error');
+ const t = document.getElementById('privacy-ai-toggle'); if (t) t.checked = aiConsentState() === true;
+ return !!(r && r.success && r.aiDataConsent);
+}
+function askAiConsent() {
+ return new Promise((resolve) => {
+ const yes = document.getElementById('ai-consent-yes'), no = document.getElementById('ai-consent-no');
+ const overlay = document.getElementById('modal-ai-consent');
+ // Esc and a tap outside the box both mean "Not now".
+ const onKey = (e) => { if (e.key === 'Escape') done(false); };
+ const done = async (allow) => {
+ yes.onclick = no.onclick = overlay.onclick = null; document.removeEventListener('keydown', onKey);
+ closeModal('modal-ai-consent'); resolve(allow ? await setAiConsent(true) : false);
+ };
+ yes.onclick = () => done(true); no.onclick = () => done(false);
+ overlay.onclick = (e) => { if (e.target === overlay) done(false); };
+ document.addEventListener('keydown', onKey);
+ if (typeof closeModal === 'function') closeModal('modal-goals');
+ openModal('modal-ai-consent');
+ setTimeout(() => yes.focus(), 50);
+ });
+}
+async function ensureAiConsent() {
+ const c = aiConsentState();
+ if (c === true) return true;
+ if (c === false) { toast('AI features are off. Turn them on in Privacy.', 'error'); return false; }
+ return askAiConsent();
+}
+function openPrivacy() {
+ const t = document.getElementById('privacy-ai-toggle'); if (t) t.checked = aiConsentState() === true;
+ openModal('modal-privacy');
+}
+async function downloadMyData() {
+ const btn = document.getElementById('privacy-export-btn'); if (btn) btn.disabled = true;
+ try {
+ const r = await fetch('/api/auth/export', { headers: { Authorization: 'Bearer ' + S.token } });
+ if (!r.ok) throw new Error('export ' + r.status);
+ const blob = await r.blob();
+ const a = document.createElement('a');
+ a.href = URL.createObjectURL(blob);
+ a.download = 'fitmunch-export-' + new Date().toISOString().slice(0, 10) + '.json';
+ document.body.appendChild(a); a.click(); a.remove();
+ setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+ } catch (_) { toast('Could not download your data. Try again.', 'error'); }
+ finally { if (btn) btn.disabled = false; }
+}
+
+const API = async (path, opts={}) => {
+ if (path.startsWith('/ai/insight') && aiConsentState() !== true) return { success: false, code: 'ai_consent_required' };
+ if (AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
 };
@@ -1667,7 +1755,7 @@ async function loadReferralCode() {
  try {
  const r = await apiFetch('/api/referral/code');
  if (r.success) {
- box.innerHTML = `<strong>Your link:</strong><br/>${r.link}<br/><br/>Uses: ${r.uses} | Free months earned: ${r.credits}<br/><br/><button class="btn btn-green btn-sm" style="width:100%;margin-top:4px" onclick="navigator.clipboard.writeText('${r.link}');toast('Copied!','ok')">Copy link</button>`;
+ box.innerHTML = `<strong>Your link:</strong><br/>${escapeHtml(r.link)}<br/><br/>Uses: ${escapeHtml(r.uses)} | Free months earned: ${escapeHtml(r.credits)}<br/><br/><button class="btn btn-green btn-sm" style="width:100%;margin-top:4px" onclick="navigator.clipboard.writeText(${escapeHtml(JSON.stringify(String(r.link||'')))});toast('Copied!','ok')">Copy link</button>`;
  }
  } catch(e) { box.textContent = 'Error loading code'; }
 }
@@ -1720,12 +1808,12 @@ function setupMobileNav(role) {
  const itemsEl = document.getElementById('mob-nav-items');
  const moreEl = document.getElementById('mob-nav-more');
  itemsEl.innerHTML = mainItems.map(item => {
- if (item.id === '__more') return `<button class="mob-nav-btn" id="mob-more-toggle" onclick="toggleMobMore()"><span class="mn-icon">${item.icon}</span>${item.label}</button>`;
- return `<button class="mob-nav-btn" id="mob-nav-${item.id}" onclick="mobNav('${item.id}')"><span class="mn-icon">${item.icon}</span>${item.label}</button>`;
+ if (item.id === '__more') return `<button class="mob-nav-btn" id="mob-more-toggle" onclick="toggleMobMore()"><span class="mn-icon">${escapeHtml(item.icon)}</span>${escapeHtml(item.label)}</button>`;
+ return `<button class="mob-nav-btn" id="mob-nav-${item.id}" onclick="mobNav('${item.id}')"><span class="mn-icon">${escapeHtml(item.icon)}</span>${escapeHtml(item.label)}</button>`;
  }).join('');
  moreEl.innerHTML = moreItems.map(item =>
- `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${item.icon} ${item.label}</button>`
- ).join('') + `<button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
+ `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${escapeHtml(item.icon)} ${escapeHtml(item.label)}</button>`
+ ).join('') + `<button class="mob-more-btn" onclick="openPrivacy()">🔒 Privacy</button><button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
  // Highlight first active - everyone lands on Home now
  const firstBtn = document.getElementById('mob-nav-portal-home');
  if (firstBtn) firstBtn.classList.add('active');
@@ -1806,12 +1894,12 @@ function renderClientList(clients, targetId) {
  const daysSince = c.last_logged ? (Date.now()-new Date(c.last_logged))/86400000 : 99;
  const compClass = daysSince < 1 ? 'comp-high' : daysSince < 3 ? 'comp-mid' : 'comp-low';
  const phase = c.phase || 'maintain';
- return `<div class="client-row" onclick="openClient('${c.id}')">
+ return `<div class="client-row" onclick="openClient(${escapeHtml(JSON.stringify(String(c.id)))})">
  <div class="compliance-dot ${compClass}"></div>
- <div class="c-av" style="background:${clientColor(c.name)}">${initials(c.name)}</div>
+ <div class="c-av" style="background:${clientColor(c.name)}">${escapeHtml(initials(c.name))}</div>
  <div style="flex:1">
- <div class="c-name">${c.name}</div>
- <div class="c-meta">${c.email} · <span class="phase-chip phase-${phase}">${phase}</span></div>
+ <div class="c-name">${escapeHtml(c.name)}</div>
+ <div class="c-meta">${escapeHtml(c.email)} · <span class="phase-chip phase-${escapeHtml(phase)}">${escapeHtml(phase)}</span></div>
  </div>
  <div class="c-stats">
  <div class="c-stat"><div class="c-stat-v">${c.meals_7d||0}</div><div class="c-stat-l">Meals/7d</div></div>
@@ -1865,8 +1953,8 @@ function renderDetailTab(tab) {
  <div class="card-body">
  ${assignments.length ? assignments.map(a => `
  <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
- <span class="tag ${a.plan_type==='meal'?'tag-green':'tag-blue'}">${a.plan_type}</span>
- <span style="font-size:.82rem;font-weight:600">${a.meal_plan_name||a.workout_plan_name||'Plan #'+a.plan_id}</span>
+ <span class="tag ${a.plan_type==='meal'?'tag-green':'tag-blue'}">${escapeHtml(a.plan_type)}</span>
+ <span style="font-size:.82rem;font-weight:600">${escapeHtml(a.meal_plan_name||a.workout_plan_name||'Plan #'+a.plan_id)}</span>
  <span style="margin-left:auto;font-size:.72rem;color:var(--text3)">Assigned ${timeAgo(a.assigned_at)}</span>
  </div>`).join('') : '<div style="color:var(--text3);font-size:.78rem">No plans assigned yet.</div>'}
  </div>
@@ -1874,21 +1962,21 @@ function renderDetailTab(tab) {
  } else if (tab === 'meals') {
  const meals = d.meals || [];
  el.innerHTML = meals.length ? meals.slice(0,20).map(m =>
- `<div class="food-item"><div class="food-name">${m.food_name||m.foodName}</div><div><div class="food-cals">${m.calories} cal</div><div class="food-macro">P:${m.protein||0}g C:${m.carbs||0}g F:${m.fat||0}g</div></div><div style="font-size:.72rem;color:var(--text3);margin-left:8px">${timeAgo(m.date)}</div></div>`
+ `<div class="food-item"><div class="food-name">${escapeHtml(m.food_name||m.foodName)}</div><div><div class="food-cals">${escapeHtml(m.calories)} cal</div><div class="food-macro">P:${m.protein||0}g C:${m.carbs||0}g F:${m.fat||0}g</div></div><div style="font-size:.72rem;color:var(--text3);margin-left:8px">${timeAgo(m.date)}</div></div>`
  ).join('') : '<div class="empty-state"><div class="es">No meal logs yet.</div></div>';
  } else if (tab === 'workouts') {
  const wk = d.workouts || [];
  el.innerHTML = wk.length ? wk.slice(0,20).map(w =>
- `<div class="workout-item"><span class="tag tag-blue">${w.workout_type||w.workoutType}</span><div class="exercise-name">${w.notes||'Session'}</div><div class="exercise-detail">${w.duration||0}min · ${w.calories_burned||0} cal</div><div style="margin-left:auto;font-size:.72rem;color:var(--text3)">${timeAgo(w.date)}</div></div>`
+ `<div class="workout-item"><span class="tag tag-blue">${escapeHtml(w.workout_type||w.workoutType)}</span><div class="exercise-name">${escapeHtml(w.notes||'Session')}</div><div class="exercise-detail">${w.duration||0}min · ${w.calories_burned||0} cal</div><div style="margin-left:auto;font-size:.72rem;color:var(--text3)">${timeAgo(w.date)}</div></div>`
  ).join('') : '<div class="empty-state"><div class="es">No workout logs yet.</div></div>';
  } else if (tab === 'progress') {
  const prog = d.progress || [];
  el.innerHTML = prog.length ? prog.slice(0,20).map(p =>
  `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
  <span style="font-size:.75rem;color:var(--text3);min-width:70px">${timeAgo(p.date)}</span>
- ${p.weight?`<span class="tag tag-green">${p.weight}kg</span>`:''}
- ${p.body_fat_percentage?`<span class="tag tag-amber">${p.body_fat_percentage}% BF</span>`:''}
- ${p.notes?`<span style="font-size:.75rem;color:var(--text2)">${p.notes}</span>`:''}
+ ${p.weight?`<span class="tag tag-green">${escapeHtml(p.weight)}kg</span>`:''}
+ ${p.body_fat_percentage?`<span class="tag tag-amber">${escapeHtml(p.body_fat_percentage)}% BF</span>`:''}
+ ${p.notes?`<span style="font-size:.75rem;color:var(--text2)">${escapeHtml(p.notes)}</span>`:''}
  </div>`
  ).join('') : '<div class="empty-state"><div class="es">No progress logs yet.</div></div>';
  }
@@ -1909,7 +1997,7 @@ async function openAssignModal() {
  const plans = type === 'meal' ? S.mealPlans : S.workoutPlans;
  if (!plans.length) await (type === 'meal' ? loadMealPlans() : loadWorkoutPlans());
  const list = type === 'meal' ? S.mealPlans : S.workoutPlans;
- sel.innerHTML = list.length ? list.map(p => `<option value="${p.id}">${p.name}</option>`).join('') : '<option>No plans yet - create one first</option>';
+ sel.innerHTML = list.length ? list.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('') : '<option>No plans yet - create one first</option>';
 }
 
 async function doAssignPlan() {
@@ -1952,14 +2040,14 @@ function _mealRowHtml(idx, item, containerId) {
  return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" value="${item.name||''}" data-field="name"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
  <div><label style="font-size:.7rem;color:var(--text3)">Meal Time</label><select class="form-select" style="padding:4px 6px;font-size:.78rem" data-field="mealType">${opts}</select></div>
  </div>
  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Cal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.calories||''}" placeholder="300" data-field="calories"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Protein(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.protein||''}" placeholder="25" data-field="protein"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Carbs(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.carbs||''}" placeholder="40" data-field="carbs"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Fat(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${item.fat||''}" placeholder="8" data-field="fat"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Cal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${escapeHtml(item.calories||'')}" placeholder="300" data-field="calories"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Protein(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${escapeHtml(item.protein||'')}" placeholder="25" data-field="protein"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Carbs(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${escapeHtml(item.carbs||'')}" placeholder="40" data-field="carbs"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Fat(g)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${escapeHtml(item.fat||'')}" placeholder="8" data-field="fat"/></div>
  </div>
  </div>`;
 }
@@ -2043,13 +2131,13 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${i.name} - ${i.calories||0} cal · P:${i.protein||0}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${i.calories||0} cal · P:${i.protein||0}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
  return `<div class="plan-card">
- <div class="plan-card-name">${p.name}</div>
- <div class="plan-card-meta">${goalLabel} · ${p.total_calories||' - '} cal/day</div>
- ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${p.description}</div>` : ''}
+ <div class="plan-card-name">${escapeHtml(p.name)}</div>
+ <div class="plan-card-meta">${goalLabel} · ${escapeHtml(p.total_calories||' - ')} cal/day</div>
+ ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${escapeHtml(p.description)}</div>` : ''}
  ${mealSummary}
  <div class="plan-card-footer">
  <span class="tag tag-green">Meal Plan</span>
@@ -2176,13 +2264,13 @@ async function loadWorkoutPlans() {
  exs.forEach(e => { if (!dayGroups[e.day]) dayGroups[e.day]=[]; dayGroups[e.day].push(e); });
  const exHtml = Object.keys(dayGroups).sort((a,b)=>a-b).map(d =>
  `<div style="margin-top:8px"><div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:3px">Day ${d}</div>${
- dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${e.name} - ${e.sets}×${e.reps||'reps'}${e.rest?' · '+e.rest+'s rest':''}</div>`).join('')
+ dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(e.name)} - ${e.sets}×${e.reps||'reps'}${e.rest?' · '+e.rest+'s rest':''}</div>`).join('')
  }</div>`
  ).join('');
  return `<div class="plan-card">
- <div class="plan-card-name">${p.name}</div>
+ <div class="plan-card-name">${escapeHtml(p.name)}</div>
  <div class="plan-card-meta">${p.level||'intermediate'} · ${p.frequency||3} days/week</div>
- ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${p.description}</div>` : ''}
+ ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${escapeHtml(p.description)}</div>` : ''}
  ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet - tap below to add.</div>`}
  <div class="plan-card-footer" style="flex-wrap:wrap;gap:6px">
  <span class="tag tag-blue">Workout</span>
@@ -2262,9 +2350,9 @@ function _renderExList() {
  el.innerHTML = dayExs.map(e =>
  `<div id="ex-item-${e._id}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
  <div style="flex:1;min-width:0">
- <div style="font-weight:600;font-size:.85rem;color:var(--text1)">${e.name}</div>
- <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${e.sets||3} sets × ${e.reps||' - '}${e.rest ? ' · ' + e.rest + 's rest' : ''}</div>
- ${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;margin-top:2px">${e.notes}</div>` : ''}
+ <div style="font-weight:600;font-size:.85rem;color:var(--text1)">${escapeHtml(e.name)}</div>
+ <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${e.sets||3} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + e.rest + 's rest' : ''}</div>
+ ${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;margin-top:2px">${escapeHtml(e.notes)}</div>` : ''}
  </div>
  <button onclick="_removeExercise(${e._id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
  </div>`
@@ -2330,12 +2418,12 @@ function renderShoppingList(list, targetId) {
  });
  el.innerHTML = Object.entries(grouped).map(([cat, catItems]) => `
  <div class="shop-category">
- <div class="shop-cat-label"><span class="shop-cat-icon" style="font-family:'IBM Plex Mono',monospace;font-size:.65rem;letter-spacing:.04em">${CAT_ICONS[cat]||'OT'}</span>${cat.charAt(0).toUpperCase()+cat.slice(1)}</div>
+ <div class="shop-cat-label"><span class="shop-cat-icon" style="font-family:'IBM Plex Mono',monospace;font-size:.65rem;letter-spacing:.04em">${CAT_ICONS[cat]||'OT'}</span>${escapeHtml(cat.charAt(0).toUpperCase()+cat.slice(1))}</div>
  ${catItems.map((item, i) => `
  <div class="shop-item ${item.checked?'checked':''}" id="si-${list.id}-${i}">
  <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i})">${item.checked?'✓':''}</div>
- <span class="shop-name">${item.name}</span>
- <span class="shop-qty">${item.qty||''} ${item.unit||''}</span>
+ <span class="shop-name">${escapeHtml(item.name)}</span>
+ <span class="shop-qty">${escapeHtml(item.qty||'')} ${escapeHtml(item.unit||'')}</span>
  </div>`).join('')}
  </div>`).join('');
 }
@@ -2350,7 +2438,7 @@ function renderShoppingLists(lists, targetId) {
  el.innerHTML = lists.map(list => `
  <div class="card" style="margin-bottom:14px">
  <div class="card-header">
- <span class="card-title">${list.name}</span>
+ <span class="card-title">${escapeHtml(list.name)}</span>
  <div style="display:flex;gap:6px;align-items:center">
  ${list.completed ? '<span class="tag tag-green">Completed</span>' : ''}
  <button class="btn btn-ghost2 btn-sm" onclick="deleteShoppingList(${list.id})">✕</button>
@@ -2393,7 +2481,7 @@ document.getElementById('modal-generate-shopping').addEventListener('click', asy
  if (!S.mealPlans.length) await loadMealPlans();
  const sel = document.getElementById('gen-plan-select');
  sel.innerHTML = S.mealPlans.length
- ? S.mealPlans.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+ ? S.mealPlans.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')
  : '<option>No plans - create one first</option>';
 });
 
@@ -2409,9 +2497,9 @@ async function loadFavourites() {
  }
  grid.innerHTML = S.favourites.map(f => `
  <div class="fav-card">
- <div class="fav-heart" onclick="removeFav('${f.item_type}','${f.item_id}')">❤️</div>
- <div class="fav-type">${f.item_type}</div>
- <div class="fav-name">${f.item_data?.name || f.item_id}</div>
+ <div class="fav-heart" onclick="removeFav(${escapeHtml(JSON.stringify(String(f.item_type)))},${escapeHtml(JSON.stringify(String(f.item_id)))})">❤️</div>
+ <div class="fav-type">${escapeHtml(f.item_type)}</div>
+ <div class="fav-name">${escapeHtml(f.item_data?.name || f.item_id)}</div>
  </div>`).join('');
 }
 
@@ -2479,13 +2567,13 @@ async function loadPortalHome() {
  const mealPlanEl = document.getElementById('home-mealplan');
  const mealBtn = document.getElementById('home-mealplan-btn');
  if (r.mealPlan) {
- mealPlanEl.innerHTML = `<div class="portal-plan-name">${r.mealPlan.meal_plan_name||'Meal Plan'}</div><div class="portal-plan-meta">${r.mealPlan.total_calories||0} cal/day target</div>`;
+ mealPlanEl.innerHTML = `<div class="portal-plan-name">${escapeHtml(r.mealPlan.meal_plan_name||'Meal Plan')}</div><div class="portal-plan-meta">${escapeHtml(r.mealPlan.total_calories||0)} cal/day target</div>`;
  if (mealBtn) { mealBtn.textContent = 'View'; mealBtn.onclick = () => nav('portal-plan'); }
  }
  const woPlanEl = document.getElementById('home-workoutplan');
  const woBtn = document.getElementById('home-workoutplan-btn');
  if (r.workoutPlan) {
- woPlanEl.innerHTML = `<div class="portal-plan-name">${r.workoutPlan.workout_plan_name||'Workout Plan'}</div>`;
+ woPlanEl.innerHTML = `<div class="portal-plan-name">${escapeHtml(r.workoutPlan.workout_plan_name||'Workout Plan')}</div>`;
  if (woBtn) { woBtn.textContent = 'View'; woBtn.onclick = () => nav('portal-plan'); }
  }
  // Goals nudge on home
@@ -2553,14 +2641,14 @@ function renderPortalPlan() {
  let html = '';
  if (mealPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🥗 Meal Plan</div>
- <div class="portal-plan-name">${mealPlan.meal_plan_name||'Meal Plan'}</div>
- <div class="portal-plan-meta">${mealPlan.total_calories||0} calories/day target</div>
+ <div class="portal-plan-name">${escapeHtml(mealPlan.meal_plan_name||'Meal Plan')}</div>
+ <div class="portal-plan-meta">${escapeHtml(mealPlan.total_calories||0)} calories/day target</div>
  <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('portal-shopping')">🛒 View Shopping List</button></div>
  </div>`;
  } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with Woolies/Coles foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
- <div class="portal-plan-name">${workoutPlan.workout_plan_name||'Workout Plan'}</div>
+ <div class="portal-plan-name">${escapeHtml(workoutPlan.workout_plan_name||'Workout Plan')}</div>
  </div>`;
  } else html += '<div class="empty-state" style="margin-top:14px"><div class="ei">🏋️</div><div class="et">No workout plan yet</div><div class="es">Log sessions as you go, or ask AI Coach for a simple split.</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn btn-green ea" onclick="nav(\'portal-workouts\')">Log a workout</button><button class="btn btn-ghost2 ea" onclick="nav(\'ai-coach\')">Ask coach</button></div></div>';
  el.innerHTML = html;
@@ -2613,9 +2701,9 @@ async function loadTodayMeals() {
  totalFat += item.fat||0;
  const isFav = (S.favourites||[]).some(f=>f.item_type==='food'&&f.item_id===(item.foodName||item.food_name));
  return `<div class="food-item">
- <div class="food-name">${item.foodName||item.food_name}</div>
- <div><div class="food-cals">${item.calories} cal</div><div class="food-macro">P:${item.protein||0}g C:${item.carbs||0}g F:${item.fat||0}g</div></div>
- <button class="fav-btn ${isFav?'active':''}" onclick="toggleFav('food','${item.foodName}',{name:'${item.foodName}',calories:${item.calories||0}});this.classList.toggle('active')">❤️</button>
+ <div class="food-name">${escapeHtml(item.foodName||item.food_name)}</div>
+ <div><div class="food-cals">${escapeHtml(item.calories)} cal</div><div class="food-macro">P:${item.protein||0}g C:${item.carbs||0}g F:${item.fat||0}g</div></div>
+ <button class="fav-btn ${isFav?'active':''}" onclick="toggleFav('food',${escapeHtml(JSON.stringify(String(item.foodName||'')))},{name:${escapeHtml(JSON.stringify(String(item.foodName||'')))},calories:${Number(item.calories)||0}});this.classList.toggle('active')">❤️</button>
  </div>`;
  }).join('') : `<div class="meal-empty-row"><span>Nothing logged yet</span><button class="btn btn-ghost2 btn-sm" onclick="openLogMealFor('${type}')">+ Add ${type}</button></div>`;
  });
@@ -2674,12 +2762,12 @@ function renderFoodDropdown(foods, dd) {
  dd.innerHTML = foods.map((f, i) => `
  <div class="food-result" data-idx="${i}" onclick="selectFood(${i})" onmouseover="focusResult(${i})">
  <div>
- <div class="food-result-name">${f.name}</div>
- <div class="food-result-serving">${f.serving}</div>
+ <div class="food-result-name">${escapeHtml(f.name)}</div>
+ <div class="food-result-serving">${escapeHtml(f.serving)}</div>
  </div>
  <div class="food-result-macros">
- <span class="food-result-macro frmcal">${f.calories} cal</span>
- <span class="food-result-macro frmpro">${f.protein}g P</span>
+ <span class="food-result-macro frmcal">${escapeHtml(f.calories)} cal</span>
+ <span class="food-result-macro frmpro">${escapeHtml(f.protein)}g P</span>
  </div>
  </div>`).join('');
  dd.style.display = '';
@@ -2713,7 +2801,7 @@ function selectFood(idx) {
 
  // Show selected badge
  const badge = document.getElementById('lm-selected-badge');
- badge.innerHTML = `✅ <strong>${f.name}</strong> - ${f.serving} · ${f.calories} cal · ${f.protein}g protein · ${f.carbs}g carbs · ${f.fat}g fat <span style="color:var(--text3);font-weight:400;font-size:.7rem">Change serving size to recalculate ↓</span>`;
+ badge.innerHTML = `✅ <strong>${escapeHtml(f.name)}</strong> - ${escapeHtml(f.serving)} · ${escapeHtml(f.calories)} cal · ${escapeHtml(f.protein)}g protein · ${escapeHtml(f.carbs)}g carbs · ${escapeHtml(f.fat)}g fat <span style="color:var(--text3);font-weight:400;font-size:.7rem">Change serving size to recalculate ↓</span>`;
  badge.style.display = '';
 
  // Hide manual name row
@@ -2770,8 +2858,8 @@ async function loadWorkoutLog() {
  if (!el) return;
  el.innerHTML = workouts.length ? workouts.slice(0,20).map(w => `
  <div class="workout-item">
- <span class="tag tag-blue">${w.workout_type||w.workoutType}</span>
- <div class="exercise-name">${w.notes||'Session'}</div>
+ <span class="tag tag-blue">${escapeHtml(w.workout_type||w.workoutType)}</span>
+ <div class="exercise-name">${escapeHtml(w.notes||'Session')}</div>
  <div class="exercise-detail">${w.duration||0}min · ${w.calories_burned||0} cal</div>
  <div style="margin-left:auto;font-size:.72rem;color:var(--text3)">${timeAgo(w.date)}</div>
  <button class="fav-btn" data-fav-type="workout" data-fav-id="${w.id}" data-fav-name="${(w.workout_type||'workout').replace(/['"<>&]/g,'')}" onclick="favFromBtn(this)">❤️</button>
@@ -2854,11 +2942,11 @@ async function loadProgressLog() {
  el.innerHTML = allProg.length ? allProg.slice(0,30).map(p=>`
  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)">
  <span style="font-size:.75rem;color:var(--text3);min-width:80px">${new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'2-digit'})}</span>
- ${p.weight?`<span class="tag tag-green">${p.weight}kg</span>`:''}
- ${p.body_fat_percentage?`<span class="tag tag-amber">${p.body_fat_percentage}% BF</span>`:''}
- ${p.measurements?.waist?`<span class="tag tag-blue">Waist ${p.measurements.waist}cm</span>`:''}
- ${p.measurements?.chest?`<span class="tag" style="background:#f3e8ff;color:#7c3aed">Chest ${p.measurements.chest}cm</span>`:''}
- ${p.notes?`<span style="font-size:.72rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.notes}</span>`:''}
+ ${p.weight?`<span class="tag tag-green">${escapeHtml(p.weight)}kg</span>`:''}
+ ${p.body_fat_percentage?`<span class="tag tag-amber">${escapeHtml(p.body_fat_percentage)}% BF</span>`:''}
+ ${p.measurements?.waist?`<span class="tag tag-blue">Waist ${escapeHtml(p.measurements.waist)}cm</span>`:''}
+ ${p.measurements?.chest?`<span class="tag" style="background:#f3e8ff;color:#7c3aed">Chest ${escapeHtml(p.measurements.chest)}cm</span>`:''}
+ ${p.notes?`<span style="font-size:.72rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.notes)}</span>`:''}
  </div>`).join('')
  : '<div class="empty-state"><div class="ei">📈</div><div class="et">No measurements logged</div><div class="es">Tap the button above to log your first measurement.</div></div>';
 }
@@ -3062,6 +3150,7 @@ function clearReceipt() {
 async function scanReceipt() {
  if (!receiptBlob && !receiptBase64) { toast('Choose or take a receipt photo first', 'error'); return; }
  if (!S.token) { toast('Please sign in again to scan', 'error'); return; }
+ if (!(await ensureAiConsent())) return;
  document.getElementById('scan-loading').style.display = '';
  document.getElementById('scan-empty').style.display = 'none';
  document.getElementById('scan-results').style.display = 'none';
@@ -3161,14 +3250,14 @@ function renderScanResults(data) {
  let html = '';
  let itemIdx = 0;
  for (const [cat, catItems] of Object.entries(grouped)) {
- html += `<div style="padding:8px 14px 2px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--bg);font-family:'IBM Plex Mono',monospace">${CAT_EMOJI2[cat]||'OT'} · ${cat}</div>`;
+ html += `<div style="padding:8px 14px 2px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--bg);font-family:'IBM Plex Mono',monospace">${CAT_EMOJI2[cat]||'OT'} · ${escapeHtml(cat)}</div>`;
  catItems.forEach(item => {
  const idx = itemIdx++;
  html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px dashed var(--border);cursor:pointer">
  <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0" checked/>
- <span style="flex:1;font-size:.8rem;font-weight:500">${item.name}</span>
- <span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${item.nutrition.protein}g P</span>
- <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${item.nutrition.calories} cal</span>
+ <span style="flex:1;font-size:.8rem;font-weight:500">${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}</span>
+ <span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.protein)}g P</span>
+ <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal</span>
  </label>`;
  });
  }
@@ -3348,15 +3437,15 @@ function renderMealPlan(plan) {
  // Metrics bar
  const metricsEl = document.getElementById('mp-plan-metrics');
  metricsEl.innerHTML = `
- <div class="metric"><div class="metric-label">Avg Calories</div><div class="metric-value mv-green">${plan.avgDailyCalories||' - '}</div><div class="metric-sub">per day</div></div>
- <div class="metric"><div class="metric-label">Avg Protein</div><div class="metric-value mv-blue">${plan.avgDailyProtein||' - '}g</div><div class="metric-sub">per day</div></div>
+ <div class="metric"><div class="metric-label">Avg Calories</div><div class="metric-value mv-green">${escapeHtml(plan.avgDailyCalories||' - ')}</div><div class="metric-sub">per day</div></div>
+ <div class="metric"><div class="metric-label">Avg Protein</div><div class="metric-value mv-blue">${escapeHtml(plan.avgDailyProtein||' - ')}g</div><div class="metric-sub">per day</div></div>
  <div class="metric"><div class="metric-label">Days Planned</div><div class="metric-value mv-purple">${plan.days.length}</div><div class="metric-sub">days</div></div>
  <div class="metric"><div class="metric-label">Meals</div><div class="metric-value mv-amber">${plan.days.reduce((n, d) => n + Object.keys(d.meals || {}).length, 0)}</div><div class="metric-sub">planned</div></div>`;
 
  // Day tabs
  const tabsEl = document.getElementById('mp-day-tabs');
  tabsEl.innerHTML = plan.days.map((d,i) =>
- `<button class="mp-day-tab${i===0?' active':''}" onclick="showPlanDay(${i},this)">${d.day.substring(0,3)}</button>`
+ `<button class="mp-day-tab${i===0?' active':''}" onclick="showPlanDay(${i},this)">${escapeHtml(String(d.day||'').substring(0,3))}</button>`
  ).join('');
 
  // Show first day
@@ -3379,25 +3468,25 @@ function renderPlanDay(day) {
  const el = document.getElementById('mp-day-content');
  const t = day.dailyTotals || {};
  let html = `<div style="background:linear-gradient(135deg,#0a1a0a,#0d2d1a);border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap">
- <div style="color:#86efac;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;width:100%">${day.day} - Daily totals</div>
- <div style="color:#fff;font-weight:900;font-size:.95rem">${t.calories||0} <span style="font-size:.65rem;color:#86efac;font-weight:400">cal</span></div>
- <div style="color:#fff;font-weight:900;font-size:.95rem">${t.protein||0}g <span style="font-size:.65rem;color:#86efac;font-weight:400">protein</span></div>
- <div style="color:#fff;font-weight:900;font-size:.95rem">${t.carbs||0}g <span style="font-size:.65rem;color:#86efac;font-weight:400">carbs</span></div>
- <div style="color:#fff;font-weight:900;font-size:.95rem">${t.fat||0}g <span style="font-size:.65rem;color:#86efac;font-weight:400">fat</span></div>
+ <div style="color:#86efac;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;width:100%">${escapeHtml(day.day)} - Daily totals</div>
+ <div style="color:#fff;font-weight:900;font-size:.95rem">${escapeHtml(t.calories||0)} <span style="font-size:.65rem;color:#86efac;font-weight:400">cal</span></div>
+ <div style="color:#fff;font-weight:900;font-size:.95rem">${escapeHtml(t.protein||0)}g <span style="font-size:.65rem;color:#86efac;font-weight:400">protein</span></div>
+ <div style="color:#fff;font-weight:900;font-size:.95rem">${escapeHtml(t.carbs||0)}g <span style="font-size:.65rem;color:#86efac;font-weight:400">carbs</span></div>
+ <div style="color:#fff;font-weight:900;font-size:.95rem">${escapeHtml(t.fat||0)}g <span style="font-size:.65rem;color:#86efac;font-weight:400">fat</span></div>
  </div>`;
  for (const type of ['breakfast','lunch','dinner','snack']) {
  const meal = day.meals?.[type];
  if (!meal) continue;
- const ings = (meal.ingredients||[]).map(i => `${i.item}${i.qty?' ('+i.qty+')':''}`).join(' · ');
+ const ings = (meal.ingredients||[]).map(i => escapeHtml(`${i.item}${i.qty?' ('+i.qty+')':''}`)).join(' · ');
  html += `<div class="meal-card">
- <div class="meal-type-label">${MEAL_LABELS[type]||type}</div>
- <div class="meal-name">${meal.name}</div>
+ <div class="meal-type-label">${escapeHtml(MEAL_LABELS[type]||type)}</div>
+ <div class="meal-name">${escapeHtml(meal.name)}</div>
  <div class="meal-meta">
- <span class="meal-macro meal-m-cal">${meal.calories||0} cal</span>
- <span class="meal-macro meal-m-p">P: ${meal.protein||0}g</span>
- <span class="meal-macro meal-m-c">C: ${meal.carbs||0}g</span>
- <span class="meal-macro meal-m-f">F: ${meal.fat||0}g</span>
- ${meal.prepMins?`<span class="meal-macro meal-m-time">${meal.prepMins} min</span>`:''}
+ <span class="meal-macro meal-m-cal">${escapeHtml(meal.calories||0)} cal</span>
+ <span class="meal-macro meal-m-p">P: ${escapeHtml(meal.protein||0)}g</span>
+ <span class="meal-macro meal-m-c">C: ${escapeHtml(meal.carbs||0)}g</span>
+ <span class="meal-macro meal-m-f">F: ${escapeHtml(meal.fat||0)}g</span>
+ ${meal.prepMins?`<span class="meal-macro meal-m-time">${escapeHtml(meal.prepMins)} min</span>`:''}
  </div>
  ${ings?`<div class="meal-ings">🛒 ${ings}</div>`:''}
  </div>`;
@@ -3445,15 +3534,17 @@ function renderAiShoppingList(list) {
 
  const aislesEl = document.getElementById('sl-ai-aisles');
  let html = '';
+ let aisleIdx = 0;
  for (const aisle of (list.aisleOrder || Object.keys(list.byAisle))) {
+ const aIdx = aisleIdx++;
  const items = list.byAisle[aisle] || [];
  if (!items.length) continue;
- html += `<div class="sl-aisle-header">${aisle} <span style="margin-left:auto;font-weight:400;font-family:'IBM Plex Mono',monospace;font-size:.72rem">${items.length} items</span></div>`;
+ html += `<div class="sl-aisle-header">${escapeHtml(aisle)} <span style="margin-left:auto;font-weight:400;font-family:'IBM Plex Mono',monospace;font-size:.72rem">${items.length} items</span></div>`;
  items.forEach((item, idx) => {
- html += `<div class="sl-item" id="slitem-${aisle}-${idx}">
- <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}')"/>
- <span class="sl-item-name">${item.name}</span>
- <span class="sl-item-qty">${item.qty}</span>
+ html += `<div class="sl-item" id="slitem-${aIdx}-${idx}">
+ <input type="checkbox" onchange="slItemCheck(this,'slitem-${aIdx}-${idx}')"/>
+ <span class="sl-item-name">${escapeHtml(item.name)}</span>
+ <span class="sl-item-qty">${escapeHtml(item.qty)}</span>
  </div>`;
  });
  }
@@ -3719,7 +3810,7 @@ function chatStarter(text) {
 }
 
 function escapeHtml(s) {
- return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function renderMarkdownLite(src) {
  // Safe lightweight markdown for AI coach replies (no raw HTML passthrough).
@@ -3852,12 +3943,12 @@ async function loadWeeklyReview() {
  body.innerHTML = `
  <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
  <div style="width:54px;height:54px;border-radius:50%;background:${score>=7?'rgba(31,157,74,.08)':score>=4?'#fffbeb':'#fef2f2'};border:2px solid ${score>=7?'rgba(31,157,74,.28)':score>=4?'#fde68a':'#fecaca'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
- <span style="font-size:1.05rem;font-weight:900;color:${score>=7?'#16a34a':score>=4?'#d97706':'#dc2626'}">${score}<span style="font-size:.6rem;color:var(--text3)">/10</span></span>
+ <span style="font-size:1.05rem;font-weight:900;color:${score>=7?'#16a34a':score>=4?'#d97706':'#dc2626'}">${escapeHtml(score)}<span style="font-size:.6rem;color:var(--text3)">/10</span></span>
  </div>
  <div style="flex:1;min-width:220px">
- <div style="font-size:.88rem;font-weight:800;margin-bottom:8px">${rev.headline || 'Your week in review'}</div>
- ${(rev.wins||[]).map(w => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">✅ ${w}</div>`).join('')}
- ${(rev.focus||[]).map(f => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">🎯 ${f}</div>`).join('')}
+ <div style="font-size:.88rem;font-weight:800;margin-bottom:8px">${escapeHtml(rev.headline || 'Your week in review')}</div>
+ ${(rev.wins||[]).map(w => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">✅ ${escapeHtml(w)}</div>`).join('')}
+ ${(rev.focus||[]).map(f => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">🎯 ${escapeHtml(f)}</div>`).join('')}
  </div>
  </div>`;
  } catch (e) {
@@ -3910,9 +4001,9 @@ function renderGeneratedWorkoutPlan(plan) {
  <div class="card-header"><span class="card-title">Day ${d}${byDay[d][0]?.name && !/^day/i.test(byDay[d][0].name) ? '' : ''}</span></div>
  <div class="card-body" style="padding:10px 14px">
  ${byDay[d].map(e => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.8rem">
- <span style="font-weight:600">${e.name}</span>
- <span style="color:var(--text3);flex-shrink:0">${e.sets || 3}×${e.reps || '10'}${e.rest ? ' · ' + e.rest + 's' : ''}</span>
- </div>${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;padding:2px 0 4px">${e.notes}</div>` : ''}`).join('')}
+ <span style="font-weight:600">${escapeHtml(e.name)}</span>
+ <span style="color:var(--text3);flex-shrink:0">${escapeHtml(e.sets || 3)}×${escapeHtml(e.reps || '10')}${e.rest ? ' · ' + e.rest + 's' : ''}</span>
+ </div>${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;padding:2px 0 4px">${escapeHtml(e.notes)}</div>` : ''}`).join('')}
  </div>
  </div>`).join('');
  document.getElementById('wpg-output').style.display = '';

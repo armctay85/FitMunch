@@ -22,7 +22,7 @@ describe('haul score', () => {
     expect(['A', 'A+']).not.toContain(p.grade);
     expect(p.macroMatchScoreLabel).toBe(`${p.haulScore}/100 haul score`);
     const gap = p.pantryGapReport.find((g) => g.gap === 'Treats and drinks');
-    expect(gap.finding).toMatch(/TIM TAM ORIGINAL/);
+    expect(gap.finding).toMatch(/tim tam original/i);
   });
   it('removing treats raises the score, and each treat lowers it', () => {
     const full = c.macroMatchScore(AUDIT_BASKET);
@@ -79,8 +79,8 @@ describe('haul score QA r1', () => {
     ]);
     const text = JSON.stringify(p);
     expect(text).not.toMatch(/coles|woolworths|woolies|\bww\b|aldi|\biga\b|homebrand|essentials|macro chicken/i);
-    expect(p.pantryGapReport.find((g) => g.gap === 'Treats and drinks').finding).toMatch(/\(COKE 1\.25L\)/);
-    expect(p.items[1].name).toBe('CHICKEN BREAST');
+    expect(p.pantryGapReport.find((g) => g.gap === 'Treats and drinks').finding).toMatch(/\(coke 1\.25l\)/i);
+    expect(p.items[1].name).toMatch(/^chicken breast$/i);
   });
   it.each([
     ['RICE CAKES', 'staple'], ['FISH CAKES', 'protein'], ['WINE VINEGAR', 'other'], ['PIZZA BASE', 'staple'],

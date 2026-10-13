@@ -1,6 +1,7 @@
 // FitMunch API Server
 // This module provides API endpoints for the FitMunch app
 
+const { stripMarkup, stripNames } = require('./lib/strip-markup');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -29,7 +30,7 @@ const {
   schema,
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
-const { isBlocked, choiceFromSettings } = require('./lib/ai-data-consent');
+const { consentResponse, choiceFromSettings } = require('./lib/ai-data-consent');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -104,7 +105,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 // Meal Logging API routes
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
-    const mealData = { ...req.body };
+    const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
     const meal = await logMeal(req.user.userId, mealData);
@@ -295,11 +296,40 @@ function funnelReadKeyValid(req) {
   return safeKeyEqual(provided, expected);
 }
 
-router.get('/analytics/funnel', async (req, res) => {
+// Per-IP limit on the funnel GET, shared across instances via Postgres
+// (lib/shared-counters, atomic upsert). Fails closed: if the counter is down,
+// the request is refused. Counts every attempt, so key guessing hits 429.
+const FUNNEL_WINDOW_MS = 10 * 60 * 1000;
+function funnelMaxPerWindow() {
+  const n = Number(process.env.FUNNEL_IP_MAX_PER_10_MIN);
+  return Number.isFinite(n) && n > 0 ? n : 20;
+}
+async function funnelLimiter(req, res, next) {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  const { ipKeyGenerator } = require('express-rate-limit');
+  let hits;
+  try {
+    hits = await hitRateCounter('analytics-funnel-ip', ipKeyGenerator(req.ip || 'unknown'), { windowMs: FUNNEL_WINDOW_MS, failClosed: true });
+  } catch (err) {
+    console.error('[analytics-funnel] rate counter unavailable', err && err.code ? err.code : 'Error');
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', '60');
+    return res.status(503).json({ success: false, error: 'Try again shortly.' });
+  }
+  if (hits > funnelMaxPerWindow()) {
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', String(FUNNEL_WINDOW_MS / 1000));
+    return res.status(429).json({ success: false, error: 'Too many requests' });
+  }
+  return next();
+}
+
+router.get('/analytics/funnel', funnelLimiter, async (req, res) => {
   try {
     const expected = process.env.FM_ANALYTICS_KEY;
-    const provided = req.query.key || req.headers['x-fm-analytics-key'];
-    const fullAccess = Boolean(expected && provided && safeKeyEqual(provided, expected));
+    // Header only: a key in the query string lands in access and CDN logs.
+    const provided = req.headers['x-fm-analytics-key'];
+    const fullAccess = Boolean(expected && typeof provided === 'string' && provided && safeKeyEqual(provided, expected));
     const readOnly = !fullAccess && funnelReadKeyValid(req);
     if (!fullAccess && !readOnly) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -912,6 +942,88 @@ router.get('/auth/me', async (req, res) => {
   }
 });
 
+// GET /api/auth/export — JSON download of the caller's own data.
+// Every table that holds the caller's data, scoped by the JWT user id only.
+// Rows are read in pages until done, so nothing is cut off.
+const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites', 'achievements', 'analytics_events'];
+const EXPORT_QUERIES = [
+  ...EXPORT_TABLES.map((t) => ({ key: t, from: t, where: 'user_id=$1', order: 'id' })),
+  { key: 'ai_usage', from: 'ai_usage_monthly', where: 'user_id=$1::text', order: 'month, feature' },
+  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'plan_assignments', from: 'plan_assignments', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'id' },
+];
+const EXPORT_PAGE_ROWS = 1000;
+async function exportAllRows(q, userId) {
+  const rows = [];
+  for (let offset = 0; ; offset += EXPORT_PAGE_ROWS) {
+    const r = await _pool.query(
+      `SELECT * FROM ${q.from} WHERE ${q.where} ORDER BY ${q.order} LIMIT ${EXPORT_PAGE_ROWS} OFFSET $2`,
+      [userId, offset]
+    );
+    const page = r.rows || [];
+    rows.push(...page.map(exportRow));
+    if (page.length < EXPORT_PAGE_ROWS) return rows;
+  }
+}
+const exportLimiter = (req, res, next) => {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  hitRateCounter('data-export-user-hour', String(req.user.userId), { windowMs: 60 * 60 * 1000, failClosed: true })
+    .then((hits) => {
+      if (hits > 5) {
+        res.set('Retry-After', '3600');
+        return res.status(429).json({ success: false, error: 'You can download your data 5 times an hour.' });
+      }
+      return next();
+    })
+    .catch(() => {
+      res.set('Retry-After', '60');
+      res.status(503).json({ success: false, error: 'Service busy. Please try again shortly.' });
+    });
+};
+const EXPORT_SECRET_COL = /password|token|secret|hash|stripe/i;
+function exportRow(row) {
+  const out = {};
+  for (const [k, v] of Object.entries(row || {})) if (!EXPORT_SECRET_COL.test(k)) out[k] = v;
+  return out;
+}
+router.get('/auth/export', authMiddleware, exportLimiter, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await getUserById(userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+    const consent = choiceFromSettings(user.settings);
+    const data = {
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        subscriptionTier: effectiveTier(user),
+        createdAt: user.createdAt || null,
+        aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
+      },
+      profile: exportRow(await getProfile(userId).catch(() => null)),
+    };
+    for (const q of EXPORT_QUERIES) {
+      try {
+        data[q.key] = await exportAllRows(q, userId);
+      } catch (_) {
+        // Never hand over a partial file as if it were complete.
+        console.error('[export] table read failed:', q.key);
+        res.set('Cache-Control', 'no-store');
+        return res.status(500).json({ success: false, error: 'Could not prepare your full data export. Please try again.' });
+      }
+    }
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Type', 'application/json; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="fitmunch-export-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.send(JSON.stringify(data, null, 2));
+  } catch (err) {
+    sendApiError(res, err);
+  }
+});
+
 // POST /api/auth/ai-consent — one account choice for Coach, receipt scan, and meal plans.
 router.post('/auth/ai-consent', authMiddleware, async (req, res) => {
   try {
@@ -1116,11 +1228,11 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
     const { aggregateShoppingList } = require('./lib/meal-plan-engine');
     const items = aggregateShoppingList({ days: planDays })
-      .map((i) => ({ name: i.name, qty: i.qty, unit: '', category: categorise(i.name), checked: false }))
+      .map((i) => ({ name: stripMarkup(i.name), qty: stripMarkup(i.qty), unit: '', category: categorise(String(i.name || '')), checked: false }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
-      [req.user.userId, planId, String(name || `${plan.rows[0].name} — Shopping List`).slice(0, 120), JSON.stringify(items)]
+      [req.user.userId, planId, stripMarkup(String(name || `${plan.rows[0].name} — Shopping List`)).slice(0, 120), JSON.stringify(items)]
     );
     res.json({ success: true, list: list.rows[0] });
   } catch (err) { sendApiError(res, err); }
@@ -1129,7 +1241,7 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
 // GET /api/shopping-list — get all shopping lists for user
 router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
-    const { name, items = [] } = req.body;
+    const { name, items = [] } = stripNames(req.body || {});
     const result = await _pool.query(
       `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
       [req.user.userId, name || 'My List', JSON.stringify(items)]
@@ -1157,7 +1269,7 @@ router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
 // PATCH /api/shopping-list/:id — update items (check/uncheck) or complete
 router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
-    const { items, completed } = req.body;
+    const { items, completed } = stripNames(req.body || {});
     const sets = [];
     const vals = [];
     let i = 1;
@@ -1197,7 +1309,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
     const b = req.body || {};
     const itemType = b.itemType || b.type || b.item_type;
     const itemId = b.itemId != null ? b.itemId : b.item_id;
-    const itemData = b.itemData || b.item_data || b.data || {};
+    const itemData = stripNames(b.itemData || b.item_data || b.data || {});
     if (!itemType || itemId == null || itemId === '') {
       return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
     }
@@ -1232,7 +1344,7 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
@@ -1243,7 +1355,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
     if (meals && Array.isArray(meals)) {
@@ -1285,7 +1397,7 @@ router.get('/workout-plans', authMiddleware, async (req, res) => {
 
 router.post('/workout-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, level, frequency, workouts } = req.body;
+    const { name, description, level, frequency, workouts } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
       [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
@@ -1296,7 +1408,7 @@ router.post('/workout-plans', authMiddleware, async (req, res) => {
 
 router.put('/workout-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, level, frequency, workouts } = req.body;
+    const { name, description, level, frequency, workouts } = stripNames(req.body || {});
     const r = await _pool.query(
       `UPDATE workout_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
        level=COALESCE($3,level), frequency=COALESCE($4,frequency),
@@ -1375,12 +1487,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
     } catch (_) {
       return res.status(503).json({
@@ -1465,6 +1573,73 @@ function chatIntentPrompt(intent) {
   'If the user asks something unsafe or clearly medical, recommend they speak to a GP or dietitian.',
 ].join(' ');
 
+// 8 exchanges (user + assistant), earlier turns trimmed; the newest message keeps up to 4,000 chars.
+const CHAT_HISTORY_MESSAGES = 16;
+const CHAT_TURN_CHARS = 1200;
+const CHAT_LATEST_CHARS = 4000;
+const CHAT_MAX_TOKENS = 350;
+const CHAT_BUDGET_MS = 12000;
+const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', maintain: 'maintain weight', general_fitness: 'general fitness' };
+const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
+const listOf = (v) => {
+  let x = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+  return Array.isArray(x) ? x.map((s) => String(s).trim()).filter(Boolean).slice(0, 6) : [];
+};
+
+/**
+ * The plan Coach should talk about, scoped to the JWT user only:
+ * 1. an active meal plan a trainer assigned to this user;
+ * 2. else this user's own plan, active first then newest, skipping plans this
+ *    user built for and assigned to clients.
+ */
+const COACH_ASSIGNED_PLAN_SQL = `SELECT mp.name, mp.meals FROM plan_assignments pa JOIN meal_plans mp ON mp.id = pa.plan_id
+ WHERE pa.client_id = $1 AND pa.active = TRUE AND pa.plan_type = 'meal' ORDER BY pa.assigned_at DESC LIMIT 1`;
+const COACH_OWN_PLAN_SQL = `SELECT mp.name, mp.meals FROM meal_plans mp WHERE mp.user_id = $1
+ AND NOT EXISTS (SELECT 1 FROM plan_assignments pa WHERE pa.plan_id = mp.id AND pa.pt_id = $1 AND pa.plan_type = 'meal')
+ ORDER BY mp.is_active DESC NULLS LAST, mp.created_at DESC LIMIT 1`;
+async function coachPlanFor(userId) {
+  const assigned = await _pool.query(COACH_ASSIGNED_PLAN_SQL, [userId]).catch(() => null);
+  if (assigned && assigned.rows && assigned.rows[0]) return assigned.rows[0];
+  const own = await _pool.query(COACH_OWN_PLAN_SQL, [userId]);
+  return own && own.rows && own.rows[0];
+}
+
+/** Compact personal context for Coach. Never includes email or ids. */
+async function buildCoachContext(userId, profile, context = {}) {
+  const p = profile || {};
+  const ctx = context && typeof context === 'object' ? context : {};
+  const lines = [];
+  const body = [num(p.age) && `${num(p.age)} y`, p.gender && String(p.gender).slice(0, 20), num(p.weight) && `${num(p.weight)} kg`, num(p.height) && `${num(p.height)} cm`].filter(Boolean);
+  if (body.length) lines.push(`Body: ${body.join(', ')}`);
+  const goal = p.fitnessGoal || p.goal;
+  if (goal) lines.push(`Goal: ${GOAL_LABELS[goal] || String(goal).slice(0, 60)}`);
+  if (p.activityLevel) lines.push(`Activity: ${String(p.activityLevel).slice(0, 40)}`);
+  const kcal = num(p.targetCalories) || num(ctx.targetCalories);
+  const prot = num(p.targetProtein) || num(ctx.targetProtein);
+  const t = [kcal && `${kcal} kcal`, prot && `${prot} g protein`, num(p.targetCarbs) && `${num(p.targetCarbs)} g carbs`, num(p.targetFat) && `${num(p.targetFat)} g fat`].filter(Boolean);
+  if (t.length) lines.push(`Daily targets: ${t.join(', ')}`);
+  const diet = listOf(p.dietaryPreferences);
+  if (diet.length) lines.push(`Diet: ${diet.join(', ')}`);
+  const allergies = listOf(p.allergies);
+  if (allergies.length) lines.push(`Allergies: ${allergies.join(', ')}`);
+  if (Number.isFinite(Number(ctx.todayCalories))) {
+    lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
+  }
+  if (num(ctx.streak)) lines.push(`Logging streak: ${num(ctx.streak)} days`);
+  try {
+    const plan = await coachPlanFor(userId);
+    if (plan) {
+      let meals = plan.meals;
+      if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { meals = null; } }
+      const days = meals && Array.isArray(meals.days) ? meals.days : [];
+      const first = days[0] && days[0].meals ? Object.values(days[0].meals).map((m) => m && (m.name || m.title)).filter(Boolean).slice(0, 4) : [];
+      lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
+    }
+  } catch (_) { /* plan context is optional */ }
+  return lines.join('\n');
+}
+
 router.post('/ai/chat', authMiddleware, async (req, res) => {
   try {
     if (!aiClient.hasProvider()) {
@@ -1482,12 +1657,8 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {
@@ -1500,13 +1671,16 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const textOf = (c) => (Array.isArray(c)
       ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
       : String(c ?? '')).trim();
+    // Smaller context = faster first token. Blanks are dropped first, then the
+    // last 16 messages kept; earlier turns are cut to 1,200 chars, the newest to 4,000.
     const safeMessages = (Array.isArray(messages) ? messages : [])
-      .slice(-20)
       .map((m) => ({
         role: m && m.role === 'assistant' ? 'assistant' : 'user',
-        content: textOf(m && m.content).slice(0, 4000),
+        content: textOf(m && m.content),
       }))
-      .filter((m) => m.content.length);
+      .filter((m) => m.content.length)
+      .slice(-CHAT_HISTORY_MESSAGES)
+      .map((m, i, a) => ({ ...m, content: m.content.slice(0, i === a.length - 1 ? CHAT_LATEST_CHARS : CHAT_TURN_CHARS) }));
 
     // Validate before any credit is charged: there must be a user message.
     if (!safeMessages.some((m) => m.role === 'user')) {
@@ -1532,30 +1706,20 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     aiUsage.refundSmokeOnFailure(gate, res);
 
 
-    // Profile + client-supplied context block appended as a system addendum.
-    const profileBits = [
-      profile?.age ? `Age: ${profile.age}` : '',
-      profile?.weight ? `Weight: ${profile.weight}kg` : '',
-      profile?.height ? `Height: ${profile.height}cm` : '',
-      profile?.goal ? `Goal: ${profile.goal}` : '',
-      profile?.dietary_preferences ? `Dietary: ${profile.dietary_preferences}` : '',
-      context?.targetCalories ? `Target calories: ${context.targetCalories}` : '',
-      context?.targetProtein ? `Target protein: ${context.targetProtein}g` : '',
-      context?.todayCalories !== undefined ? `Today calories: ${context.todayCalories}` : '',
-      context?.todayProtein !== undefined ? `Today protein: ${context.todayProtein}g` : '',
-      context?.streak ? `Streak: ${context.streak} days` : '',
-    ].filter(Boolean).join('\n');
-
-    const finalSystem = profileBits
-      ? `${system}\n\n--- User Context ---\n${profileBits}`
+    // Personal context from the account itself (profile, targets, latest plan,
+    // today's log), not just what the browser sends. Compact, one line each.
+    const personal = await buildCoachContext(req.user.userId, profile, context).catch(() => '');
+    const finalSystem = personal
+      ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
       : system;
 
     const r = await aiClient.chat({
       system: finalSystem,
       messages: safeMessages,
-      maxTokens: 500,
-      temperature: 0.7,
+      maxTokens: CHAT_MAX_TOKENS,
+      temperature: 0.6,
       route: '/ai/chat',
+      budgetMs: CHAT_BUDGET_MS,
     });
 
     if (!r.ok && r.error === 'no_user_message') {
@@ -1636,12 +1800,8 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
     } catch (_) {
       return res.status(503).json({
@@ -1719,12 +1879,8 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {
