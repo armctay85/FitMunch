@@ -10,6 +10,7 @@ const jwt     = require('jsonwebtoken');
 const aiClient = require('./lib/ai-client');
 const aiUsage  = require('./lib/ai-usage');
 const { sendApiError } = require('./lib/public-error');
+const planEngine = require('./lib/meal-plan-engine');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -94,64 +95,57 @@ function lookupPrice(name) {
 // AI calls go through lib/ai-client: xAI, then OpenAI, then Anthropic.
 
 // ── GENERATE MEAL PLAN ────────────────────────────────────────────────────────
-router.post('/generate', requireAuth, async (req, res) => {
-  try {
-    const { goal = 'general_fitness', calories = 2000, protein = 150, budget = 120, days = 7, dietary = [] } = req.body;
+// The whole request stays inside MEAL_PLAN_BUDGET_MS (well under the 90s
+// function limit): one AI attempt, one retry if there's time, then a plan
+// built from the local food DB. Every day is checked against the calorie
+// target (±5%) before it's returned.
+const PLAN_BUDGET_MS = () => Number(process.env.MEAL_PLAN_BUDGET_MS) || 25000;
+const PLAN_ATTEMPT_MS = () => Number(process.env.MEAL_PLAN_ATTEMPT_MS) || 20000;
 
-    const goalLabel = {
-      lose_weight: 'lose weight / fat loss',
-      muscle_gain: 'build muscle / bulking',
-      maintain: 'maintain weight',
-      general_fitness: 'general fitness and health',
-    }[goal] || 'general fitness';
+function planInput(body) {
+  const b = body || {};
+  const num = (v, d) => (v === undefined || v === null || v === '' ? d : Number(v));
+  const calories = Math.round(num(b.calories, 2000));
+  const protein = Math.round(num(b.protein, 150));
+  const days = Math.round(num(b.days, 7));
+  const budget = Math.round(num(b.budget, 120));
+  if (!Number.isFinite(calories) || calories < 1200 || calories > 4500) return { error: 'Daily calories must be between 1200 and 4500.' };
+  if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
+  if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
+  const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
+  const dietary = Array.isArray(b.dietary) ? b.dietary.map(String).slice(0, 8) : [];
+  return { calories, protein, days, budget: Number.isFinite(budget) ? budget : 120, goal, dietary };
+}
 
-    const dietaryNote = dietary.length ? `Dietary requirements: ${dietary.join(', ')}.` : 'No special dietary requirements.';
-
-    const prompt = `You are a nutritionist creating a meal plan for an Australian person who shops at Woolworths or Coles.
+function planPrompt({ goal, calories, protein, budget, days, dietary }, retryReason) {
+  const goalLabel = {
+    lose_weight: 'lose weight / fat loss',
+    muscle_gain: 'build muscle / bulking',
+    maintain: 'maintain weight',
+    general_fitness: 'general fitness and health',
+  }[goal];
+  const dietaryNote = dietary.length ? `Dietary requirements: ${dietary.join(', ')}.` : 'No special dietary requirements.';
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, days).join(', ');
+  return `You are a nutritionist creating a meal plan for an Australian person who shops at Woolworths or Coles.
 
 Goal: ${goalLabel}
-Daily calorie target: ${calories} kcal
+Daily calorie target: ${calories} kcal. Each day's breakfast + lunch + dinner + snack calories MUST add up to ${calories} kcal (within 5%).
 Daily protein target: ${protein}g
 Weekly grocery budget: AUD $${budget}
-Number of days: ${days}
 ${dietaryNote}
 
-Generate a practical, realistic ${days}-day meal plan using common Australian supermarket ingredients.
-Use simple meals that are quick to prepare (under 30 mins). Include exact quantities.
+Return EXACTLY ${days} entries in "days", in this order: ${dayNames}. Every day has all four meals.
+Use common Australian supermarket ingredients and quick meals (under 30 mins).
+Give every ingredient qty as grams or ml with a number first (e.g. "150g", "250ml"), or a count (e.g. "2 large").
+${retryReason ? `Your last answer was rejected (${retryReason}). Fix that.\n` : ''}
+Return ONLY valid JSON, no markdown:
+{"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}],"weeklyBudgetEst":0}`;
+}
 
-Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
-{
-  "planName": "string",
-  "summary": "one sentence description",
-  "days": [
-    {
-      "day": "Monday",
-      "meals": {
-        "breakfast": {
-          "name": "string",
-          "ingredients": [{"item": "string", "qty": "string"}],
-          "calories": number,
-          "protein": number,
-          "carbs": number,
-          "fat": number,
-          "prepMins": number
-        },
-        "lunch": { same structure },
-        "dinner": { same structure },
-        "snack": { same structure }
-      },
-      "dailyTotals": {"calories": number, "protein": number, "carbs": number, "fat": number}
-    }
-  ],
-  "weeklyBudgetEst": number,
-  "avgDailyCalories": number,
-  "avgDailyProtein": number
-}`;
-
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
-
+router.post('/generate', requireAuth, async (req, res) => {
+  const input = planInput(req.body);
+  if (input.error) return res.status(400).json({ success: false, error: input.error });
+  try {
     const { isBlocked } = require('./lib/ai-data-consent');
     const { getUserById } = require('./server/storage.js');
     try {
@@ -169,39 +163,59 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       });
     }
 
-    // Free-tier gating — plan generation is a heavyweight AI call.
-    const tier = await userTier(req.user.userId);
-    const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
-    if (!gate.allowed && gate.unavailable) {
-      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    let gate = null;
+    if (aiClient.hasProvider()) {
+      // Free-tier gating — plan generation is a heavyweight AI call.
+      const tier = await userTier(req.user.userId);
+      gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
+      if (!gate.allowed && gate.unavailable) {
+        return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+      }
+      if (!gate.allowed && gate.smoke) {
+        return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
+      }
+      if (!gate.allowed) {
+        return res.status(429).json({
+          success: false, upgrade: true, limit: gate.limit, used: gate.used,
+          error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
+        });
+      }
+      aiUsage.refundSmokeOnFailure(gate, res);
     }
-    if (!gate.allowed && gate.smoke) {
-      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
-    }
-    if (!gate.allowed) {
-      return res.status(429).json({
-        success: false, upgrade: true, limit: gate.limit, used: gate.used,
-        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited plans.`,
-      });
-    }
-    aiUsage.refundSmokeOnFailure(gate, res);
 
-    const r = await aiClient.chatJson({
-      messages: [{ role: 'user', content: prompt }],
+    let lastReason = '';
+    const callAi = gate ? (attempt) => aiClient.chatJson({
+      messages: [{ role: 'user', content: planPrompt(input, attempt > 1 ? lastReason : '') }],
       maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
       temperature: 0.6,
       route: '/meal-plan/generate',
+    }) : null;
+    const started = Date.now();
+    const result = await planEngine.generatePlan(input, {
+      callAi: callAi && ((attempt) => callAi(attempt).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
+      budgetMs: PLAN_BUDGET_MS(),
+      attemptMs: PLAN_ATTEMPT_MS(),
     });
-    if (!r.ok) throw new Error(r.error || 'AI generation failed');
-    const plan = r.data;
+    if (result.attempts.length) {
+      console.warn('[meal-planner] AI plan rejected:', result.attempts.join(', '), '->', result.source, `${Date.now() - started}ms`);
+    }
 
-    // Validate structure
-    if (!plan.days || !Array.isArray(plan.days)) throw new Error('Invalid plan structure');
-
-    res.locals.aiAnswered = true;
-    res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
-  } catch(err) {
-    sendApiError(res, err, '[meal-planner]');
+    if (result.source !== 'builder') res.locals.aiAnswered = true;
+    res.json({
+      success: true,
+      plan: result.plan,
+      source: result.source,
+      provider: result.provider || undefined,
+      remaining: gate ? gate.remaining : undefined,
+    });
+  } catch (err) {
+    // Last resort: never leave the user with a 500 for a plan.
+    try {
+      console.error('[meal-planner] generate failed, serving built plan:', err && err.message);
+      return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder' });
+    } catch (_) {
+      return res.status(503).json({ success: false, error: "We couldn't build your plan right now. Please try again in a minute." });
+    }
   }
 });
 
@@ -209,53 +223,19 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
 router.post('/shopping', requireAuth, async (req, res) => {
   try {
     const { plan, excludeOwned = [] } = req.body;
-    if (!plan || !plan.days) return res.status(400).json({ success: false, error: 'Plan required' });
+    if (!plan || !Array.isArray(plan.days)) return res.status(400).json({ success: false, error: 'Plan required' });
 
-    // Aggregate ingredients — supports AI shape (meals.breakfast.ingredients)
-    // and manual/saved shape (meals[] with name/foods/ingredients).
-    const aggregated = {};
-    const addIng = (name, qty) => {
-      if (!name || typeof name !== 'string') return;
-      const key = name.toLowerCase().trim();
-      if (!key) return;
-      if (!aggregated[key]) aggregated[key] = { name: name.trim(), mentions: 0, qtys: [] };
-      aggregated[key].mentions++;
-      if (qty) aggregated[key].qtys.push(qty);
-    };
-    for (const day of plan.days) {
-      const meals = day.meals;
-      if (!meals) continue;
-      if (Array.isArray(meals)) {
-        for (const meal of meals) {
-          if (Array.isArray(meal.ingredients)) {
-            for (const ing of meal.ingredients) {
-              addIng(ing.item || ing.name || ing, ing.qty || ing.quantity);
-            }
-          } else if (Array.isArray(meal.foods)) {
-            for (const f of meal.foods) addIng(typeof f === 'string' ? f : (f.name || f.item), f.qty || f.quantity || '1');
-          } else if (meal.name) {
-            addIng(meal.name, meal.qty || '1');
-          }
-        }
-        continue;
-      }
-      for (const mealType of ['breakfast','lunch','dinner','snack']) {
-        const meal = meals[mealType];
-        if (!meal?.ingredients) continue;
-        for (const ing of meal.ingredients) {
-          addIng(ing.item || ing.name, ing.qty || ing.quantity);
-        }
-      }
-    }
-
-    // Build shopping list with prices
-    const items = Object.values(aggregated)
-      .filter(i => !excludeOwned.some(e => e.toLowerCase().includes(i.name.toLowerCase())))
-      .map(i => {
+    // Combine every ingredient across the plan (same item + unit summed).
+    const owned = (Array.isArray(excludeOwned) ? excludeOwned : []).map((e) => String(e).toLowerCase());
+    const items = planEngine.aggregateShoppingList(plan)
+      .filter((i) => !owned.some((e) => e && e.includes(i.name.toLowerCase())))
+      .map((i) => {
         const priceData = lookupPrice(i.name);
         return {
           name: i.name,
-          qty: i.mentions > 1 ? `×${i.mentions} (${[...new Set(i.qtys)].slice(0,2).join(', ')})` : i.qtys[0] || '1',
+          qty: i.qty,
+          amounts: i.amounts,
+          meals: i.meals,
           unit: priceData.unit,
           aisle: priceData.aisle,
           wooliesUrl: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(i.name)}`,

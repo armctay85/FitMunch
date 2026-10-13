@@ -868,57 +868,48 @@ router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) =
 // POST /api/shopping-list/generate — auto-generate from a meal plan
 router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
   try {
-    const { mealPlanId, name } = req.body;
-    // Get the meal plan
-    const plan = await _pool.query('SELECT * FROM meal_plans WHERE id=$1', [mealPlanId]);
+    const { mealPlanId, name } = req.body || {};
+    const planId = Number(mealPlanId);
+    if (!Number.isInteger(planId) || planId <= 0) return res.status(400).json({ error: 'mealPlanId is required' });
+    // Your own plan, or one a trainer assigned to you.
+    const plan = await _pool.query(
+      `SELECT * FROM meal_plans WHERE id=$1 AND (user_id=$2 OR EXISTS (
+         SELECT 1 FROM plan_assignments a WHERE a.plan_type='meal' AND a.plan_id=meal_plans.id AND a.client_id=$2 AND a.active
+       ))`,
+      [planId, req.user.userId]
+    );
     if (!plan.rows[0]) return res.status(404).json({ error: 'Meal plan not found' });
     const meals = plan.rows[0].meals || [];
-    
-    // Extract ingredients, group by category
-    const itemMap = {};
+
     const CATEGORIES = {
-      meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','egg','eggs','prawn','shrimp'],
-      dairy: ['milk','yogurt','yoghurt','cheese','cream','butter','whey'],
+      meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','barramundi','egg','eggs','prawn','shrimp'],
+      dairy: ['milk','yogurt','yoghurt','cheese','ricotta','cream','butter','whey'],
       grains: ['rice','oats','bread','pasta','noodle','quinoa','wheat','flour','cereal','wrap','tortilla'],
-      vegetables: ['broccoli','spinach','kale','carrot','onion','garlic','tomato','capsicum','pepper','zucchini','cucumber','lettuce','asparagus','avocado','celery'],
+      vegetables: ['broccoli','spinach','kale','carrot','onion','garlic','tomato','capsicum','pepper','zucchini','cucumber','lettuce','salad','asparagus','avocado','celery','potato','corn'],
       fruit: ['apple','banana','orange','berry','berries','grape','mango','pear','strawberry','blueberry'],
-      pantry: ['oil','sauce','spice','salt','pepper','vinegar','honey','syrup','sugar','protein powder','supplement'],
+      pantry: ['oil','sauce','spice','salt','vinegar','honey','syrup','sugar','protein powder','supplement','chia','peanut','almond'],
       other: [],
     };
-    function categorise(name) {
-      const n = name.toLowerCase();
+    function categorise(itemName) {
+      const n = itemName.toLowerCase();
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
       return 'other';
     }
-    
-    // Walk meals structure — support array or object
-    const mealItems = Array.isArray(meals) ? meals : Object.values(meals).flat();
-    mealItems.forEach(day => {
-      const dayMeals = Array.isArray(day) ? day : (day.meals ? Object.values(day.meals).flat() : [day]);
-      dayMeals.forEach(item => {
-        const foodName = item.name || item.foodName || item.food || String(item);
-        if (!foodName || foodName === '[object Object]') return;
-        const key = foodName.toLowerCase().trim();
-        if (itemMap[key]) {
-          itemMap[key].qty = (parseFloat(itemMap[key].qty) || 1) + 1;
-        } else {
-          itemMap[key] = {
-            name: foodName,
-            qty: item.servingSize || item.quantity || 1,
-            unit: item.unit || '',
-            category: categorise(foodName),
-            checked: false,
-          };
-        }
-      });
-    });
-    
-    const items = Object.values(itemMap).sort((a,b) => a.category.localeCompare(b.category));
+
+    // Saved AI plans store the days array; older manual plans store meals
+    // with foods. Both go through the same aggregation, which sums
+    // quantities for the same item and unit.
+    const days = Array.isArray(meals) ? meals : Object.values(meals);
+    const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
+    const { aggregateShoppingList } = require('./lib/meal-plan-engine');
+    const items = aggregateShoppingList({ days: planDays })
+      .map((i) => ({ name: i.name, qty: i.qty, unit: '', category: categorise(i.name), checked: false }))
+      .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
-      [req.user.userId, mealPlanId, name || plan.rows[0].name + ' — Shopping List', JSON.stringify(items)]
+      [req.user.userId, planId, name || plan.rows[0].name + ' — Shopping List', JSON.stringify(items)]
     );
     res.json({ success: true, list: list.rows[0] });
   } catch (err) { sendApiError(res, err); }

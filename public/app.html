@@ -3336,7 +3336,7 @@ function renderMealPlan(plan) {
  <div class="metric"><div class="metric-label">Avg Calories</div><div class="metric-value mv-green">${plan.avgDailyCalories||' - '}</div><div class="metric-sub">per day</div></div>
  <div class="metric"><div class="metric-label">Avg Protein</div><div class="metric-value mv-blue">${plan.avgDailyProtein||' - '}g</div><div class="metric-sub">per day</div></div>
  <div class="metric"><div class="metric-label">Days Planned</div><div class="metric-value mv-purple">${plan.days.length}</div><div class="metric-sub">days</div></div>
- <div class="metric"><div class="metric-label">Est. Budget</div><div class="metric-value mv-amber">$${plan.weeklyBudgetEst||'?'}</div><div class="metric-sub">per week</div></div>`;
+ <div class="metric"><div class="metric-label">Est. Budget</div><div class="metric-value mv-amber">${plan.weeklyBudgetEst ? '$' + plan.weeklyBudgetEst : ' - '}</div><div class="metric-sub">per week</div></div>`;
 
  // Day tabs
  const tabsEl = document.getElementById('mp-day-tabs');
