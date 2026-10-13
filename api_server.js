@@ -270,14 +270,47 @@ router.post('/analytics/events', async (req, res) => {
   }
 });
 
+// Constant-time string compare (hash both sides so lengths always match).
+function safeKeyEqual(provided, expected) {
+  const crypto = require('crypto');
+  const a = crypto.createHash('sha256').update(String(provided)).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+// Read-only funnel key (FM_FUNNEL_READ_KEY, header x-fm-funnel-key). Valid on
+// this GET only and returns step counts only: no events, pages, plans or
+// sessions. Disabled when the env var is unset or empty.
+const FUNNEL_READ_STEPS = {
+  landingViews: 'landing_page_view',
+  trialClicks: 'trial_cta_click',
+  checkoutStarts: 'checkout_start',
+  trialStarts: 'trial_started',
+};
+function funnelReadKeyValid(req) {
+  const expected = process.env.FM_FUNNEL_READ_KEY;
+  const provided = req.headers['x-fm-funnel-key'];
+  if (!expected || typeof provided !== 'string' || !provided) return false;
+  return safeKeyEqual(provided, expected);
+}
+
 router.get('/analytics/funnel', async (req, res) => {
   try {
     const expected = process.env.FM_ANALYTICS_KEY;
     const provided = req.query.key || req.headers['x-fm-analytics-key'];
-    if (!expected || !provided || String(provided) !== String(expected)) {
+    const fullAccess = Boolean(expected && provided && safeKeyEqual(provided, expected));
+    const readOnly = !fullAccess && funnelReadKeyValid(req);
+    if (!fullAccess && !readOnly) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
     const stats = await getFunnelStats(req.query.days);
+    res.set('Cache-Control', 'no-store');
+    if (readOnly) {
+      const byStep = new Map((stats.steps || []).map((s) => [s.step, Number(s.count) || 0]));
+      const counts = {};
+      for (const [name, step] of Object.entries(FUNNEL_READ_STEPS)) counts[name] = byStep.get(step) || 0;
+      return res.json({ success: true, days: stats.days, asOf: stats.asOf, counts });
+    }
     res.json({ success: true, ...stats });
   } catch (error) {
     sendApiError(res, error, 'Error loading funnel stats');
