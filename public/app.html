@@ -742,7 +742,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
  <div class="view-header">
- <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for your supermarket. The Fitness Butler shopper drafts a week trolley. Prices vary by store and week.</div></div>
+ <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for your next shop. The Fitness Butler shopper drafts a week trolley. Prices vary by store and week.</div></div>
  <div class="view-actions">
  <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
  <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
@@ -762,12 +762,6 @@ html.fm-authed #app-gate{display:none}
  </div>
  </div>
  <div style="display:flex;gap:6px">
- <a id="sl-woolies-link" href="https://www.woolworths.com.au" target="_blank" style="text-decoration:none">
- <button class="btn btn-ghost2 btn-sm">🟢 Shop Woolies</button>
- </a>
- <a id="sl-coles-link" href="https://www.coles.com.au" target="_blank" style="text-decoration:none">
- <button class="btn btn-ghost2 btn-sm">🔴 Shop Coles</button>
- </a>
  <button class="btn btn-green btn-sm" onclick="saveAiList()">💾 Save list</button>
  </div>
  </div>
@@ -937,7 +931,7 @@ html.fm-authed #app-gate{display:none}
  <div style="padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:8px">
  <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--green2)">📸 Start here</div>
  <div style="font-size:1.02rem;font-weight:800;color:#14532d;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Scan your first receipt</div>
- <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your supermarket receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
+ <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your grocery receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
  <button class="btn btn-green" style="align-self:flex-start;margin-top:6px" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
  </div>
  <img src="/assets/fm-receipt-scan.webp" alt="" loading="lazy" style="width:100%;height:100%;min-height:170px;object-fit:cover;display:block"/>
@@ -967,7 +961,7 @@ html.fm-authed #app-gate{display:none}
  <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein supermarket shop for the week')">Build me a high-protein supermarket shop</button>
+ <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein shop for the week')">Build me a high-protein shop</button>
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('I keep snacking at 9pm. How do I stop?')">I keep snacking at 9pm. How do I stop?</button>
  </div>
  </div>
@@ -1159,7 +1153,7 @@ html.fm-authed #app-gate{display:none}
  style="border:2px dashed rgba(31,157,74,.28);border-radius:10px;padding:24px 20px;text-align:center;background:rgba(31,157,74,.08);transition:all .15s">
  <div style="font-size:32px;margin-bottom:8px">📸</div>
  <div style="font-size:.88rem;font-weight:700;color:var(--green2);margin-bottom:4px">Scan your supermarket receipt</div>
- <div style="font-size:.75rem;color:var(--text3);margin-bottom:14px">JPG or PNG preferred (HEIC may need a retake). Max ~20MB original. Any Australian supermarket.</div>
+ <div style="font-size:.75rem;color:var(--text3);margin-bottom:14px">JPG or PNG preferred (HEIC may need a retake). Max ~20MB original. Any supermarket receipt.</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button type="button" class="btn btn-green" style="width:100%" onclick="openReceiptCamera(event)">📷 Take a photo</button>
  <button type="button" class="btn btn-ghost2" style="width:100%" onclick="openReceiptLibrary(event)">🖼 Choose from library</button>
@@ -3053,7 +3047,7 @@ function clearReceipt() {
  document.getElementById('receipt-drop-zone').style.display = '';
  document.getElementById('scan-results').style.display = 'none';
  document.getElementById('scan-empty').style.display = '';
- document.getElementById('scan-empty').innerHTML = '<div style="font-size:36px;margin-bottom:12px">🧾</div><div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div><div style="font-size:.78rem;color:var(--text3)">Works with Woolworths, Coles, Aldi, IGA, Costco</div>';
+ document.getElementById('scan-empty').innerHTML = '<div style="font-size:36px;margin-bottom:12px">🧾</div><div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div><div style="font-size:.78rem;color:var(--text3)">Works with any supermarket receipt</div>';
  document.getElementById('share-card').style.display = 'none';
  const logBox = document.getElementById('scan-log-meals-box');
  if (logBox) logBox.style.display = 'none';

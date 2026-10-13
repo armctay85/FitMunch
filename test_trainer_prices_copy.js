@@ -85,8 +85,8 @@ describe('#92 r2 lows and shoulds', () => {
   test('in-app portal opens ask to return to Billing', () => {
     expect(app).toContain("API('/billing-portal', { method: 'POST', body: JSON.stringify({ returnTo: 'app' }) })");
   });
-  test('no store names in app copy except the store buttons and the works-with badge', () => {
-    const lines = app.split('\n').filter((l) => /Woolies|Woolworths|Coles|Aldi|\bIGA\b|Costco/.test(l));
-    expect(lines.every((l) => /Shop Woolies|Shop Coles|Works with Woolworths, Coles/.test(l))).toBe(true);
+  test('no store names anywhere in app.html, no store buttons or badges', () => {
+    expect(app).not.toMatch(/Woolies|Woolworths|Coles|Aldi|\bIGA\b|Costco|woolworths\.com\.au|coles\.com\.au/i);
+    expect(app).not.toMatch(/sl-woolies-link|sl-coles-link|Works with Woolworths/);
   });
 });
