@@ -555,6 +555,12 @@ describe('guest checkout links on signup', () => {
     const id = (prefix) => `${prefix}_${++S.n}`;
     const stripe = {
       S,
+      prices: {
+        retrieve: jest.fn(async (id) => ({
+          id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 },
+          unit_amount: id === process.env.STRIPE_COACH_79_PRICE_ID ? 7900 : 3900,
+        })),
+      },
       customers: {
         create: jest.fn(async (params, opts) => {
           const key = opts && opts.idempotencyKey;
