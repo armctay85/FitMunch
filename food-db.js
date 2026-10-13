@@ -180,3 +180,4 @@ router.get('/search', (req, res) => {
 
 module.exports = router;
 module.exports.searchFoods = searchFoods;
+module.exports.FOODS = FOODS;
