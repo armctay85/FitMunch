@@ -24,6 +24,8 @@ module.exports = {
     '**/test_server_api.js',
     '**/test_checkout_session_privacy.js',
     '**/test_trust_bar.js',
+    '**/test_onboarding_targets.js',
+    '**/test_onboard_rendered.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',
     '**/test_coach_plan.js',
