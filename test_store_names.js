@@ -29,6 +29,19 @@ describe('no store names on marketing pages', () => {
     expect(hit && hit[0]).toBeFalsy();
   });
 
+  it('app_fixes.js carries no dead store price data or store names', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'app_fixes.js'), 'utf8');
+    expect(src).not.toMatch(STORE);
+    expect(src).not.toMatch(/SupermarketAPI|mockPrices/);
+  });
+
+  it('food-db keeps its national brands', () => {
+    const { FOODS } = require('./food-db');
+    const names = FOODS.map((f) => f.name).join('\n');
+    expect(names).not.toMatch(STORE);
+    expect(names).toMatch(/Chobani/);
+  });
+
   it('sitemap, slugs and the lander tracker carry no store names', () => {
     expect(fs.readFileSync(path.join(PUBLIC, 'sitemap.xml'), 'utf8')).not.toMatch(STORE);
     expect(fs.readFileSync(path.join(PUBLIC, 'js', 'fm-track.js'), 'utf8')).not.toMatch(STORE);
