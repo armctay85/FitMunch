@@ -302,6 +302,15 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .metrics-row{grid-template-columns:repeat(2,1fr) !important}
  .topnav{padding:0 12px}
 }
+/* Privacy and AI consent modals: above onboarding, 44px targets, a real switch. */
+#modal-ai-consent{z-index:400}
+#modal-ai-consent .btn,#modal-privacy .btn,#modal-privacy .modal-close{min-height:44px;min-width:44px}
+.privacy-switch-row{display:flex;gap:12px;align-items:flex-start;font-size:.88rem;cursor:pointer;min-height:44px;padding:4px 0}
+.fm-switch{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:48px;height:28px;margin:8px 0;border-radius:14px;background:#6b7a72;position:relative;cursor:pointer;transition:background .15s}
+.fm-switch::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+.fm-switch:checked{background:#15803d}
+.fm-switch:checked::after{transform:translateX(20px)}
+.fm-switch:focus-visible{outline:2px solid #166534;outline-offset:2px}
 html:not(.fm-authed) .topnav,
 html:not(.fm-authed) .shell,
 html:not(.fm-authed) .mobile-nav,
@@ -354,6 +363,7 @@ html.fm-authed #app-gate{display:none}
  <span class="nav-plan" id="nav-plan-badge" style="display:none"></span>
  <div class="nav-user"><div class="nav-av" id="nav-av"></div><span id="nav-name"></span></div>
  <button class="nav-btn btn-upgrade" id="btn-upgrade" onclick="nav('billing')" style="display:none">Upgrade</button>
+ <button class="nav-btn btn-logout" onclick="openPrivacy()">Privacy</button>
  <button class="nav-btn btn-logout" onclick="logout()">Sign out</button>
 </nav>
 
@@ -1245,6 +1255,27 @@ html.fm-authed #app-gate{display:none}
 </div><!-- /shell -->
 
 <!-- ── MODALS ── -->
+<div class="modal-overlay" id="modal-ai-consent">
+ <div class="modal" role="dialog" aria-labelledby="ai-consent-title">
+ <div class="modal-title" id="ai-consent-title">Allow AI features?</div>
+ <div style="font-size:.85rem;color:var(--text2);line-height:1.5">Coach, meal plans, workout plans, reviews and receipt scans send the details you enter (and a receipt photo for scans) to an AI provider to produce your answer. Nothing is sent until you allow it. You can change this any time in Privacy. <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a></div>
+ <div class="modal-actions">
+ <button class="btn btn-ghost2" id="ai-consent-no">Not now</button>
+ <button class="btn btn-green" id="ai-consent-yes">Allow</button>
+ </div>
+ </div>
+</div>
+
+<div class="modal-overlay" id="modal-privacy" onclick="closeOnOverlay(event)">
+ <div class="modal" role="dialog" aria-labelledby="privacy-title">
+ <div class="modal-title" id="privacy-title">Privacy<button class="modal-close" onclick="closeModal('modal-privacy')" aria-label="Close">✕</button></div>
+ <label class="privacy-switch-row"><input type="checkbox" role="switch" class="fm-switch" id="privacy-ai-toggle" onchange="setAiConsent(this.checked)" aria-describedby="privacy-ai-desc"/><span><b>AI features</b><br><span id="privacy-ai-desc" style="color:var(--text2);font-size:.8rem">Coach, meal plans, workout plans, reviews and receipt scans. When off, nothing is sent to an AI provider and the rest of FitMunch keeps working.</span></span></label>
+ <div style="border-top:1px solid var(--line);margin:16px 0"></div>
+ <div style="font-size:.88rem"><b>Your data</b><br><span style="color:var(--text2);font-size:.8rem">Download your account, profile, logs, progress, plans, shopping lists, favourites, achievements, activity, AI usage counts and trainer links as a JSON file. Up to 5 times an hour.</span></div>
+ <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-ghost2" id="privacy-export-btn" onclick="downloadMyData()">Download my data</button></div>
+ </div>
+</div>
+
 <div class="modal-overlay" id="modal-invite" onclick="closeOnOverlay(event)">
  <div class="modal">
  <div class="modal-title">Invite a Client<button class="modal-close" onclick="closeModal('modal-invite')">✕</button></div>
@@ -1555,7 +1586,63 @@ const S = {
  mealsDate: new Date().toISOString().split('T')[0],
 };
 
-const API = (path, opts={}) => {
+// AI routes run only after the account has said Allow (enforced server-side too).
+const AI_PATHS = ['/ai/chat', '/ai/weekly-review', '/ai/workout-plan', '/meal-plan/generate'];
+const AI_OFF_RESULT = { success: false, code: 'ai_consent_off', error: 'AI features are off. Turn them on in Privacy.' };
+function aiConsentState() { return S.user ? S.user.aiDataConsent : null; }
+async function setAiConsent(allowed) {
+ const r = await fetch('/api/auth/ai-consent', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token }, body: JSON.stringify({ allowed: !!allowed }) }).then(x => x.json()).catch(() => ({}));
+ if (r && r.success) { if (S.user) S.user.aiDataConsent = r.aiDataConsent; toast(r.aiDataConsent ? 'AI features on' : 'AI features off'); }
+ else toast('Could not save your choice. Try again.', 'error');
+ const t = document.getElementById('privacy-ai-toggle'); if (t) t.checked = aiConsentState() === true;
+ return !!(r && r.success && r.aiDataConsent);
+}
+function askAiConsent() {
+ return new Promise((resolve) => {
+ const yes = document.getElementById('ai-consent-yes'), no = document.getElementById('ai-consent-no');
+ const overlay = document.getElementById('modal-ai-consent');
+ // Esc and a tap outside the box both mean "Not now".
+ const onKey = (e) => { if (e.key === 'Escape') done(false); };
+ const done = async (allow) => {
+ yes.onclick = no.onclick = overlay.onclick = null; document.removeEventListener('keydown', onKey);
+ closeModal('modal-ai-consent'); resolve(allow ? await setAiConsent(true) : false);
+ };
+ yes.onclick = () => done(true); no.onclick = () => done(false);
+ overlay.onclick = (e) => { if (e.target === overlay) done(false); };
+ document.addEventListener('keydown', onKey);
+ if (typeof closeModal === 'function') closeModal('modal-goals');
+ openModal('modal-ai-consent');
+ setTimeout(() => yes.focus(), 50);
+ });
+}
+async function ensureAiConsent() {
+ const c = aiConsentState();
+ if (c === true) return true;
+ if (c === false) { toast('AI features are off. Turn them on in Privacy.', 'error'); return false; }
+ return askAiConsent();
+}
+function openPrivacy() {
+ const t = document.getElementById('privacy-ai-toggle'); if (t) t.checked = aiConsentState() === true;
+ openModal('modal-privacy');
+}
+async function downloadMyData() {
+ const btn = document.getElementById('privacy-export-btn'); if (btn) btn.disabled = true;
+ try {
+ const r = await fetch('/api/auth/export', { headers: { Authorization: 'Bearer ' + S.token } });
+ if (!r.ok) throw new Error('export ' + r.status);
+ const blob = await r.blob();
+ const a = document.createElement('a');
+ a.href = URL.createObjectURL(blob);
+ a.download = 'fitmunch-export-' + new Date().toISOString().slice(0, 10) + '.json';
+ document.body.appendChild(a); a.click(); a.remove();
+ setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+ } catch (_) { toast('Could not download your data. Try again.', 'error'); }
+ finally { if (btn) btn.disabled = false; }
+}
+
+const API = async (path, opts={}) => {
+ if (path.startsWith('/ai/insight') && aiConsentState() !== true) return { success: false, code: 'ai_consent_required' };
+ if (AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
 };
@@ -1725,7 +1812,7 @@ function setupMobileNav(role) {
  }).join('');
  moreEl.innerHTML = moreItems.map(item =>
  `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${item.icon} ${item.label}</button>`
- ).join('') + `<button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
+ ).join('') + `<button class="mob-more-btn" onclick="openPrivacy()">🔒 Privacy</button><button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
  // Highlight first active - everyone lands on Home now
  const firstBtn = document.getElementById('mob-nav-portal-home');
  if (firstBtn) firstBtn.classList.add('active');
@@ -3062,6 +3149,7 @@ function clearReceipt() {
 async function scanReceipt() {
  if (!receiptBlob && !receiptBase64) { toast('Choose or take a receipt photo first', 'error'); return; }
  if (!S.token) { toast('Please sign in again to scan', 'error'); return; }
+ if (!(await ensureAiConsent())) return;
  document.getElementById('scan-loading').style.display = '';
  document.getElementById('scan-empty').style.display = 'none';
  document.getElementById('scan-results').style.display = 'none';
