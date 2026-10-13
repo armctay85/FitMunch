@@ -1261,8 +1261,10 @@ function chatIntentPrompt(intent) {
   'If the user asks something unsafe or clearly medical, recommend they speak to a GP or dietitian.',
 ].join(' ');
 
-const CHAT_HISTORY_TURNS = 8;
+// 8 exchanges (user + assistant), earlier turns trimmed; the newest message keeps up to 4,000 chars.
+const CHAT_HISTORY_MESSAGES = 16;
 const CHAT_TURN_CHARS = 1200;
+const CHAT_LATEST_CHARS = 4000;
 const CHAT_MAX_TOKENS = 350;
 const CHAT_BUDGET_MS = 12000;
 const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', maintain: 'maintain weight', general_fitness: 'general fitness' };
@@ -1272,6 +1274,24 @@ const listOf = (v) => {
   if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
   return Array.isArray(x) ? x.map((s) => String(s).trim()).filter(Boolean).slice(0, 6) : [];
 };
+
+/**
+ * The plan Coach should talk about, scoped to the JWT user only:
+ * 1. an active meal plan a trainer assigned to this user;
+ * 2. else this user's own plan, active first then newest, skipping plans this
+ *    user built for and assigned to clients.
+ */
+const COACH_ASSIGNED_PLAN_SQL = `SELECT mp.name, mp.meals FROM plan_assignments pa JOIN meal_plans mp ON mp.id = pa.plan_id
+ WHERE pa.client_id = $1 AND pa.active = TRUE AND pa.plan_type = 'meal' ORDER BY pa.assigned_at DESC LIMIT 1`;
+const COACH_OWN_PLAN_SQL = `SELECT mp.name, mp.meals FROM meal_plans mp WHERE mp.user_id = $1
+ AND NOT EXISTS (SELECT 1 FROM plan_assignments pa WHERE pa.plan_id = mp.id AND pa.pt_id = $1 AND pa.plan_type = 'meal')
+ ORDER BY mp.is_active DESC NULLS LAST, mp.created_at DESC LIMIT 1`;
+async function coachPlanFor(userId) {
+  const assigned = await _pool.query(COACH_ASSIGNED_PLAN_SQL, [userId]).catch(() => null);
+  if (assigned && assigned.rows && assigned.rows[0]) return assigned.rows[0];
+  const own = await _pool.query(COACH_OWN_PLAN_SQL, [userId]);
+  return own && own.rows && own.rows[0];
+}
 
 /** Compact personal context for Coach. Never includes email or ids. */
 async function buildCoachContext(userId, profile, context = {}) {
@@ -1296,8 +1316,7 @@ async function buildCoachContext(userId, profile, context = {}) {
   }
   if (num(ctx.streak)) lines.push(`Logging streak: ${num(ctx.streak)} days`);
   try {
-    const r = await _pool.query('SELECT name, meals, total_calories, total_protein FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1', [userId]);
-    const plan = r && r.rows && r.rows[0];
+    const plan = await coachPlanFor(userId);
     if (plan) {
       let meals = plan.meals;
       if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { meals = null; } }
@@ -1344,14 +1363,16 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const textOf = (c) => (Array.isArray(c)
       ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
       : String(c ?? '')).trim();
-    // Smaller context = faster first token: last 8 turns, 1200 chars each.
+    // Smaller context = faster first token. Blanks are dropped first, then the
+    // last 16 messages kept; earlier turns are cut to 1,200 chars, the newest to 4,000.
     const safeMessages = (Array.isArray(messages) ? messages : [])
-      .slice(-CHAT_HISTORY_TURNS)
       .map((m) => ({
         role: m && m.role === 'assistant' ? 'assistant' : 'user',
-        content: textOf(m && m.content).slice(0, CHAT_TURN_CHARS),
+        content: textOf(m && m.content),
       }))
-      .filter((m) => m.content.length);
+      .filter((m) => m.content.length)
+      .slice(-CHAT_HISTORY_MESSAGES)
+      .map((m, i, a) => ({ ...m, content: m.content.slice(0, i === a.length - 1 ? CHAT_LATEST_CHARS : CHAT_TURN_CHARS) }));
 
     // Validate before any credit is charged: there must be a user message.
     if (!safeMessages.some((m) => m.role === 'user')) {
