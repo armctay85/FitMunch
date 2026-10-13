@@ -2131,7 +2131,7 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${i.calories||0} cal · P:${i.protein||0}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
  return `<div class="plan-card">
@@ -2348,13 +2348,13 @@ function _renderExList() {
  return;
  }
  el.innerHTML = dayExs.map(e =>
- `<div id="ex-item-${e._id}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
+ `<div id="ex-item-${Number(e._id)}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
  <div style="flex:1;min-width:0">
  <div style="font-weight:600;font-size:.85rem;color:var(--text1)">${escapeHtml(e.name)}</div>
- <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${e.sets||3} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + e.rest + 's rest' : ''}</div>
+ <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${escapeHtml(e.sets||3)} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + escapeHtml(e.rest) + 's rest' : ''}</div>
  ${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;margin-top:2px">${escapeHtml(e.notes)}</div>` : ''}
  </div>
- <button onclick="_removeExercise(${e._id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
+ <button onclick="_removeExercise(${Number(e._id)})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
  </div>`
  ).join('');
 }
