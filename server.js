@@ -346,8 +346,8 @@ app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-tear
 app.get('/shopper', (req, res) => res.sendFile('shopper.html', { root: 'public' }));
 app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
 app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
-app.get('/demo', (req, res) => res.sendFile('demo.html', { root: 'public' }));
-app.get('/try', (req, res) => res.redirect(301, '/demo'));
+// /demo retired: the homepage worked example (#proof) replaces it.
+app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#proof'));
 // SEO pack 2 landers (new routes only)
 // Store names are out of marketing slugs (Wilson, PR 76). Old URLs 301 here and in vercel.json.
 app.get('/supermarket-meal-planner', (req, res) => res.sendFile('supermarket-meal-planner.html', { root: 'public' }));
