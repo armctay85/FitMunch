@@ -509,7 +509,10 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
     }
 
     const plan = planForPriceId(priceId);
-    if (!plan) {
+    // Retired plans (pt-starter, pt-pro) still map for existing subscribers
+    // but are not sold: only plans priceIdForPlan allows, or Coach.
+    const sellable = plan && (plan === 'coach-39' || plan === 'coach-79' || priceIdForPlan(plan) === priceId);
+    if (!sellable) {
       return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
     }
 

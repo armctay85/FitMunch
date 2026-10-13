@@ -182,21 +182,51 @@ describe('Coach webhook tier', () => {
     storage.db = originalDb;
   });
 
-  test.each([
+  const legacyCases = [
     ['price_1T3SvgGMuYRuJYDrOyR2hYoq', 'pt-starter', 'starter'],
     ['price_1T3SyDGMuYRuJYDrF8mvMrwi', 'pt-pro', 'pro'],
-  ])('webhook for a retired %s (%s) subscriber still maps to tier %s', async (priceId, plan, tier) => {
-    const sub = {
-      id: 'sub_legacy_pt', customer: 'cus_coach', status: 'active', created: 100,
-      current_period_end: 2000000000,
-      metadata: { plan, product: 'fitmunch', brand: 'FitMunch' },
-      items: { data: [{ id: 'si_legacy', price: { id: priceId } }] },
-    };
-    installWebhookStripe([sub]);
-    const res = await postWebhook({ id: `evt_legacy_${plan}`, type: 'customer.subscription.updated', data: { object: sub } });
+  ];
+  const legacySub = (priceId, plan, status = 'active') => ({
+    id: `sub_legacy_${plan}`, customer: 'cus_coach', status, created: 100,
+    current_period_end: 2000000000,
+    metadata: { plan, product: 'fitmunch', brand: 'FitMunch' },
+    items: { data: [{ id: 'si_legacy', price: { id: priceId } }] },
+  });
+  const events = ['customer.subscription.created', 'customer.subscription.updated'];
+  test.each(legacyCases.flatMap((c) => events.map((e) => [e, ...c])))(
+    '%s for a retired %s (%s) subscriber still maps to tier %s', async (type, priceId, plan, tier) => {
+      const sub = legacySub(priceId, plan);
+      installWebhookStripe([sub]);
+      const res = await postWebhook({ id: `evt_${type}_${plan}`, type, data: { object: sub } });
+      expect(res.status).toBe(200);
+      expect(storage.updateUserSubscription).toHaveBeenCalledWith('pt-1', tier, expect.anything());
+      expect(user.subscriptionTier).toBe(tier);
+    });
+
+  test.each(legacyCases)('customer.subscription.deleted for retired %s (%s) drops to free', async (priceId, plan, tier) => {
+    user.subscriptionTier = tier;
+    const sub = legacySub(priceId, plan, 'canceled');
+    installWebhookStripe([]);
+    const res = await postWebhook({ id: `evt_del_${plan}`, type: 'customer.subscription.deleted', data: { object: sub } });
     expect(res.status).toBe(200);
-    expect(storage.updateUserSubscription).toHaveBeenCalledWith('pt-1', tier, expect.anything());
-    expect(user.subscriptionTier).toBe(tier);
+    expect(user.subscriptionTier).toBe('free');
+  });
+
+  test.each(legacyCases)('invoice.payment_failed for retired %s (%s) is accepted and leaves tier %s alone', async (priceId, plan, tier) => {
+    user.subscriptionTier = tier;
+    installWebhookStripe([legacySub(priceId, plan)]);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const res = await postWebhook({
+        id: `evt_inv_${plan}`, type: 'invoice.payment_failed',
+        data: { object: { id: `in_${plan}`, customer: 'cus_coach', subscription: `sub_legacy_${plan}`, lines: { data: [{ price: { id: priceId } }] } } },
+      });
+      expect(res.status).toBe(200);
+      expect(storage.updateUserSubscription).not.toHaveBeenCalled();
+      expect(user.subscriptionTier).toBe(tier);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test('trialing sets coach tier trial and leaves the consumer tier alone', async () => {

@@ -1723,6 +1723,55 @@ describe('retired pt-starter / pt-pro checkout plans', () => {
     expect(stripeCalls(fake)).toBe(0);
   });
 
+  test.each([
+    ['PT-STARTER'], [' pt-pro '], ['pt-starter\t'], ['Pt-Pro'],
+  ])('/api/checkout and /api/quick-checkout reject %j => 400, zero Stripe calls', async (plan) => {
+    const a = await request(app).post('/api/checkout')
+      .set('Authorization', `Bearer ${tokenFor('u1', { role: 'pt' })}`)
+      .set('Origin', 'https://www.fitmunch.com.au')
+      .send({ plan });
+    expect(a.status).toBe(400);
+    const b = await request(app).post('/api/quick-checkout').send({ email: 'steph@example.com', plan });
+    expect(b.status).toBe(400);
+    expect(stripeCalls(fake)).toBe(0);
+  });
+
+  const sessionBody = (priceId, i) => ({
+    priceId,
+    customerId: 'cus_existing',
+    successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+    cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    nonce: `retired-${i}`,
+  });
+  test.each([
+    ['price_1T3SvgGMuYRuJYDrOyR2hYoq'],
+    ['price_1T3SyDGMuYRuJYDrF8mvMrwi'],
+  ])('/api/stripe/checkout-sessions with retired %s => 400, zero Stripe calls', async (priceId) => {
+    const res = await request(app).post('/api/stripe/checkout-sessions').send(sessionBody(priceId, priceId));
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, message: 'Unknown FitMunch price.' });
+    expect(stripeCalls(fake)).toBe(0);
+    expect(fake.S.customers).toHaveLength(0);
+    expect(fake.S.sessions).toHaveLength(0);
+  });
+
+  test('/api/stripe/checkout-sessions still sells premium', async () => {
+    const res = await request(app).post('/api/stripe/checkout-sessions').send(sessionBody(PRICE_IDS.premium, 'p'));
+    expect(res.status).toBe(200);
+    expect(res.body.url).toBeTruthy();
+  });
+
+  test('app.html offers no checkout for retired pt-* plans', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+    expect(html).not.toMatch(/startCheckout\(\s*['"]pt-/i);
+  });
+
+  test('signup with plan pt-starter / pt-pro no longer forces a trainer account', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, 'api_server.js'), 'utf8');
+    const want = src.slice(src.indexOf('const wantPt ='), src.indexOf('if (wantPt)'));
+    expect(want).not.toMatch(/pt-starter|pt-pro/);
+  });
+
   test('priceIdForPlan rejects pt-*; PRICE_IDS entries are kept', () => {
     expect(checkout.priceIdForPlan('pt-starter')).toBeNull();
     expect(checkout.priceIdForPlan('pt-pro')).toBeNull();
