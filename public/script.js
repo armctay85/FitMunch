@@ -1424,10 +1424,6 @@ function handleWorkoutLogSubmit(event) {
   localStorage.setItem('workoutLogs', JSON.stringify(workoutLogs));
 
   closeModal('workoutLogModal');
-
-  if (window.fmNotifications) {
-    window.fmNotifications.success("Workout logged successfully!", "Progress Tracked");
-  }
 }
 
 // Detect mobile device and apply class
