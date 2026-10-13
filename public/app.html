@@ -1811,8 +1811,8 @@ function setupMobileNav(role) {
  return `<button class="mob-nav-btn" id="mob-nav-${item.id}" onclick="mobNav('${item.id}')"><span class="mn-icon">${escapeHtml(item.icon)}</span>${escapeHtml(item.label)}</button>`;
  }).join('');
  moreEl.innerHTML = moreItems.map(item =>
-  `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${escapeHtml(item.icon)} ${escapeHtml(item.label)}</button>`
-  ).join('') + `<button class="mob-more-btn" onclick="openPrivacy()">🔒 Privacy</button><button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
+ `<button class="mob-more-btn" onclick="mobNav('${item.id}')">${escapeHtml(item.icon)} ${escapeHtml(item.label)}</button>`
+ ).join('') + `<button class="mob-more-btn" onclick="openPrivacy()">🔒 Privacy</button><button class="mob-more-btn" onclick="logout()">🚪 Sign Out</button>`;
  // Highlight first active - everyone lands on Home now
  const firstBtn = document.getElementById('mob-nav-portal-home');
  if (firstBtn) firstBtn.classList.add('active');
