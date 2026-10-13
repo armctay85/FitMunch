@@ -122,7 +122,7 @@ function extractImage(req) {
   return null;
 }
 
-const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items. Parse quantity from name. Raw JSON only.';
+const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. "price" is the line total paid for that line (unit price times quantity), not the unit price. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items, no totals, payment or discount lines. Parse quantity from name. Raw JSON only.';
 
 async function readReceiptItems(imageBase64, mimeType, route) {
   const visionResult = await getVision()({
