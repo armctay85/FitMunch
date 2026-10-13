@@ -12,7 +12,7 @@ FitMunch: Meal Plans & Macros
 AI meal plans and macros
 
 ## KEYWORDS
-calorie,protein,meal prep,shopping list,receipt,nutrition,diet,weight loss,food log,workout,coach
+calorie,protein,macro,high protein,receipt,nutrition,diet,weight loss,food log,workout,coach,prep
 
 ## PROMOTIONAL TEXT
 Plan a week of meals to your calorie and protein targets, then scan your receipt to see how the shop matched.
@@ -21,13 +21,13 @@ Plan a week of meals to your calorie and protein targets, then scan your receipt
 FitMunch plans your meals around your goal, helps you log what you eat, and checks your shop against the plan.
 
 **Plan your week**
-Set your goal, calorie and protein targets and any dietary needs. FitMunch drafts a meal plan with quantities you can cook in under 30 minutes, and builds the shopping list from it.
+Set your goal, calorie and protein targets. FitMunch drafts a meal plan with quantities, built to your targets: quick meals with prep time shown.
 
 **Log meals and hit your macros**
 Log breakfast, lunch, dinner and snacks. See calories, protein, carbs and fat against your daily targets as you go.
 
 **Scan your receipt**
-Take a photo of a grocery receipt. FitMunch reads the items, estimates their macros, gives the shop a haul score and suggests a dinner from what you bought. Scores are estimates, not medical advice.
+Take a photo of a grocery receipt. FitMunch reads the items, estimates their macros, gives the shop a haul score. Scores are estimates, not medical advice.
 
 **Coach and workout plans**
 Ask Coach about meals, training or your progress, and get a workout plan for your goal and schedule.
@@ -48,4 +48,19 @@ Terms: https://www.fitmunch.com.au/terms
 Support: support@fitmunch.com.au
 
 ## WHAT'S NEW
-Receipt haul score now reflects what you actually bought, and Coach uses your own targets and plan.
+Bug fixes and improvements.
+
+## SUPPORT URL
+https://www.fitmunch.com.au/support
+
+## PRIVACY POLICY URL
+https://www.fitmunch.com.au/privacy
+
+## PRIMARY CATEGORY
+Health & Fitness
+
+## SECONDARY CATEGORY
+Food & Drink
+
+## AGE RATING
+4+
