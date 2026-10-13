@@ -502,11 +502,129 @@ router.post('/auth/register', async (req, res) => {
       /* analytics must not affect sign-up */
     }
 
+    sendWelcomeEmail(user, req);
+
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
+  }
+});
+
+// ── WELCOME + EMAIL VERIFICATION ─────────────────────────────────────────────
+function backgroundTask(promise) {
+  const safe = Promise.resolve(promise).catch(() => {});
+  try { require('@vercel/functions').waitUntil(safe); } catch (_) { /* off Vercel it just runs */ }
+  return safe;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+/** The real client IP: req.ip, which honours trust proxy and never reads forwarding headers itself. IPv6 by /56. */
+function clientIpKey(req) {
+  const { ipKeyGenerator } = require('express-rate-limit');
+  return ipKeyGenerator(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown');
+}
+/**
+ * Shared Postgres limits (lib/shared-counters, fail closed) on confirmation
+ * emails. Returns 'ok', 'limited' or 'unavailable'. Every rule is counted.
+ */
+async function verifyEmailLimits(rules) {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  let limited = false;
+  try {
+    for (const r of rules) {
+      const hits = await hitRateCounter(r.scope, r.key, { windowMs: r.windowMs, failClosed: true });
+      if (hits > r.max) limited = true;
+    }
+  } catch (_) {
+    return 'unavailable';
+  }
+  return limited ? 'limited' : 'ok';
+}
+function verifySendRules(req, email) {
+  const em = String(email || '').trim().toLowerCase();
+  return [
+    { scope: 'verify-email-to-day', key: em, windowMs: DAY_MS, max: 5 },
+    { scope: 'verify-email-ip-hour', key: clientIpKey(req), windowMs: HOUR_MS, max: 20 },
+  ];
+}
+
+/** Stores a fresh single-use token (hash only) and emails the link. Never logs the address or link. */
+async function issueVerifyEmail(user) {
+  const ev = require('./lib/email-verify');
+  const token = ev.newVerifyToken();
+  await require('./lib/db-migrate').ensureSchema();
+  await _pool.query(
+    'INSERT INTO email_verifications (user_id, token_hash, email, expires_at) VALUES ($1,$2,$3,$4)',
+    [user.id, ev.hashVerifyToken(token), String(user.email || '').trim().toLowerCase(), new Date(Date.now() + ev.VERIFY_TTL_MS)]
+  );
+  const { sendEmail } = require('./server/email.js');
+  const r = await sendEmail({ to: user.email, ...ev.welcomeEmail({ name: user.name, url: ev.verifyUrl(token) }) });
+  if (!r || !r.success) throw new Error('send failed');
+}
+
+/** Sends the welcome + verify email after the signup response, within the shared limits. Never throws. */
+function sendWelcomeEmail(user, req) {
+  return backgroundTask((async () => {
+    const ok = await verifyEmailLimits(verifySendRules(req, user.email));
+    if (ok !== 'ok') { console.error('[welcome-email] skipped:', ok); return; }
+    await issueVerifyEmail(user);
+  })().catch(() => console.error('[welcome-email] send failed')));
+}
+
+// POST /api/auth/verify-email {token} — from the emailed #verify= link. No session needed. Single use.
+router.post('/auth/verify-email', async (req, res) => {
+  const bad = { success: false, error: 'This confirmation link is invalid or has expired. Sign in to send a new one.' };
+  try {
+    const ev = require('./lib/email-verify');
+    const token = ev.cleanVerifyToken(req.body && req.body.token);
+    if (!token) return res.status(400).json(bad);
+    const used = await _pool.query(
+      'UPDATE email_verifications SET used_at = now() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() RETURNING user_id, email',
+      [ev.hashVerifyToken(token)]
+    );
+    const row = used.rows && used.rows[0];
+    if (!row) return res.status(400).json(bad);
+    const r = await _pool.query(
+      'UPDATE users SET email_verified = TRUE WHERE id = $1 AND LOWER(email) = $2 RETURNING id',
+      [row.user_id, row.email]
+    );
+    if (!r.rows || !r.rows.length) return res.status(400).json(bad);
+    res.json({ success: true, message: 'Email confirmed. Thanks!' });
+  } catch (err) {
+    console.error('[verify-email] failed');
+    res.status(500).json({ success: false, error: 'Could not confirm your email. Please try again.' });
+  }
+});
+
+// POST /api/auth/resend-verification — signed-in user, own address only.
+// Shared limits: 3 an hour per account and per address, 5 a day per address, 20 an hour per IP.
+router.post('/auth/resend-verification', authMiddleware, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+    if (user.emailVerified) return res.json({ success: true, alreadyVerified: true });
+    const em = String(user.email || '').trim().toLowerCase();
+    const verdict = await verifyEmailLimits([
+      { scope: 'verify-resend-user-hour', key: String(req.user.userId), windowMs: HOUR_MS, max: 3 },
+      { scope: 'verify-resend-to-hour', key: em, windowMs: HOUR_MS, max: 3 },
+      ...verifySendRules(req, em),
+    ]);
+    if (verdict === 'unavailable') {
+      res.set('Retry-After', '60');
+      return res.status(503).json({ success: false, error: 'Service busy. Please try again shortly.' });
+    }
+    if (verdict === 'limited') {
+      res.set('Retry-After', '3600');
+      return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
+    }
+    await issueVerifyEmail(user);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[resend-verification] failed');
+    res.status(500).json({ success: false, error: 'Could not send the email. Please try again.' });
   }
 });
 
@@ -749,7 +867,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'No token provided.' });
 
     const token = authHeader.slice(7);
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = require('./lib/session-token').verifySessionToken(token, JWT_SECRET);
     if (decoded.preview) {
       const coachStore = require('./lib/coach-store');
       if (!coachStore.previewEnabled()) {
@@ -786,6 +904,7 @@ router.get('/auth/me', async (req, res) => {
         role,
         ptId,
         aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
+        emailVerified: user.emailVerified === true,
       },
     });
   } catch (err) {
@@ -819,7 +938,7 @@ function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
   try {
-    req.user = jwt.verify(h.slice(7), JWT_SECRET);
+    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
     next();
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
