@@ -94,9 +94,9 @@ describe('r3 hardening', () => {
     const previous = process.env.FM_ANALYTICS_KEY;
     process.env.FM_ANALYTICS_KEY = 'r3-test-key';
     try {
-      await request(app).get('/funnel.html?key=r3-test-ke').expect(401);
-      await request(app).get('/funnel.html?key=' + 'x'.repeat(5000)).expect(401);
-      await request(app).get('/funnel.html?key=r3-test-key').expect(200);
+      await request(app).get('/funnel.html').set('x-fm-analytics-key', 'r3-test-ke').expect(401);
+      await request(app).get('/funnel.html').set('x-fm-analytics-key', 'x'.repeat(5000)).expect(401);
+      await request(app).get('/funnel.html').set('x-fm-analytics-key', 'r3-test-key').expect(200);
     } finally {
       if (previous === undefined) delete process.env.FM_ANALYTICS_KEY;
       else process.env.FM_ANALYTICS_KEY = previous;

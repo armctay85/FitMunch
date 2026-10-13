@@ -131,8 +131,11 @@ app.use(compression({
 // Absolute path so Vercel serverless cwd doesn't matter.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+// Header only (x-fm-analytics-key). A key in the query string would land in
+// access logs, CDN logs, browser history and Referer headers.
 function providedAnalyticsKey(req) {
-  return req.query.key || req.headers['x-fm-analytics-key'] || '';
+  const h = req.headers['x-fm-analytics-key'];
+  return typeof h === 'string' ? h : '';
 }
 
 function analyticsKeyMatches(req) {
@@ -157,13 +160,54 @@ app.use((req, res, next) => {
 // Private analytics UI is not a public page. The file lives outside public/
 // so the CDN cannot serve it. Both paths use the same key gate.
 const FUNNEL_PAGE = path.join(__dirname, 'private/funnel.html');
+// Shown on a 401: asks for the key, keeps it in sessionStorage for this tab
+// only, and loads the page again with the key as a header. Contains no data.
+const FUNNEL_KEY_PROMPT = `<!DOCTYPE html>
+<html lang="en-AU"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/><title>FitMunch funnel (private)</title>
+<style>body{font-family:system-ui,sans-serif;max-width:420px;margin:15vh auto;padding:0 20px;color:#10231a}
+label{display:block;margin-bottom:6px;font-weight:600}input{width:100%;box-sizing:border-box;padding:10px 12px;font:inherit;margin-bottom:12px;border:1px solid #9aa9a1;border-radius:4px}
+button{min-height:44px;padding:0 18px;border:none;border-radius:4px;background:#1f7a3f;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.err{color:#b42318}</style></head>
+<body><main><h1>Conversion funnel</h1>
+<form id="f"><label for="k">Analytics key</label><input id="k" type="password" autocomplete="off" required/>
+<button type="submit">Open</button></form><p class="err" id="e" role="alert" hidden></p></main>
+<script>
+(function () {
+  var KEY = 'fm_analytics_key';
+  var e = document.getElementById('e');
+  async function open(key) {
+    var r = await fetch(location.pathname, { headers: { 'x-fm-analytics-key': key }, cache: 'no-store' });
+    if (r.status !== 200) {
+      sessionStorage.removeItem(KEY);
+      e.textContent = 'That key was not accepted.'; e.hidden = false; return;
+    }
+    var html = await r.text();
+    document.open(); document.write(html); document.close();
+  }
+  document.getElementById('f').onsubmit = function (ev) {
+    ev.preventDefault();
+    var key = document.getElementById('k').value.trim();
+    if (!key) return;
+    sessionStorage.setItem(KEY, key);
+    open(key);
+  };
+  var saved = sessionStorage.getItem(KEY);
+  if (saved) open(saved);
+})();
+</script></body></html>`;
 app.use((req, res, next) => {
   const pathOnly = (req.path || '').replace(/\/$/, '') || '/';
   if (pathOnly !== '/funnel' && pathOnly !== '/funnel.html') return next();
   res.set('X-Robots-Tag', 'noindex, nofollow');
   res.set('Cache-Control', 'private, no-store');
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('Vary', 'x-fm-analytics-key');
+  if (req.query && Object.prototype.hasOwnProperty.call(req.query, 'key')) {
+    return res.status(400).type('text/plain').send('Send the analytics key in the x-fm-analytics-key header, not the URL.');
+  }
   if (!analyticsKeyMatches(req)) {
-    return res.status(401).sendFile(path.join(PUBLIC_DIR, '404.html'));
+    return res.status(401).type('html').send(FUNNEL_KEY_PROMPT);
   }
   return res.sendFile(FUNNEL_PAGE);
 });

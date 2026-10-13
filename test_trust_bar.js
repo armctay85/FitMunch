@@ -65,17 +65,17 @@ describe('Trust bar 3: funnel is not a public analytics UI', () => {
     process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
     await request(app).get('/funnel').expect(401);
     await request(app).get('/funnel.html').expect(401);
-    await request(app).get('/funnel?key=wrong-key').expect(401);
-    await request(app).get('/funnel.html?key=wrong-key').expect(401);
+    await request(app).get('/funnel').set('x-fm-analytics-key', 'wrong-key').expect(401);
+    await request(app).get('/funnel.html').set('x-fm-analytics-key', 'wrong-key').expect(401);
   });
 
   it('serves the private UI only with the matching key and does not name the env var', async () => {
     process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
-    const res = await request(app).get('/funnel?key=trust-bar-funnel-key').expect(200);
+    const res = await request(app).get('/funnel').set('x-fm-analytics-key', 'trust-bar-funnel-key').expect(200);
     expect(res.text).toContain('Conversion funnel');
     expect(res.text).not.toContain('FM_ANALYTICS_KEY');
     expect(res.headers['x-robots-tag']).toMatch(/noindex/i);
-    const html = await request(app).get('/funnel.html?key=trust-bar-funnel-key').expect(200);
+    const html = await request(app).get('/funnel.html').set('x-fm-analytics-key', 'trust-bar-funnel-key').expect(200);
     expect(html.text).toContain('Conversion funnel');
     expect(fs.existsSync(path.join(__dirname, 'public/funnel.html'))).toBe(false);
     expect(fs.existsSync(path.join(__dirname, 'private/funnel.html'))).toBe(true);
