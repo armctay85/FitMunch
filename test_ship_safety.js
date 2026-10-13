@@ -77,26 +77,28 @@ describe('r3 hardening', () => {
   const fs = require('fs');
   const path = require('path');
 
-  it('sends CSP and Permissions-Policy on the /funnel 401s too', async () => {
-    for (const urlPath of ['/funnel', '/funnel.html']) {
-      const res = await request(app).get(urlPath).expect(401);
+  it('sends CSP and Permissions-Policy on the /funnel shell and its ?key 400s', async () => {
+    for (const urlPath of ['/funnel', '/funnel.html', '/funnel?key=x']) {
+      const res = await request(app).get(urlPath);
+      expect([200, 400]).toContain(res.status);
       expect(res.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
       expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
     }
   });
 
-  it('compares the analytics key with SHA-256 digests and timingSafeEqual, no length branch', async () => {
+  it('the /funnel shell checks no key, so it cannot be used to guess one', async () => {
     const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
-    const fn = src.slice(src.indexOf('function analyticsKeyMatches'), src.indexOf('function analyticsKeyMatches') + 700);
-    expect(fn).toMatch(/createHash\('sha256'\)/);
-    expect(fn).toMatch(/timingSafeEqual/);
-    expect(fn).not.toMatch(/\.length\s*!==/);
+    expect(src).not.toMatch(/function analyticsKeyMatches|x-fm-analytics-key'\]/);
     const previous = process.env.FM_ANALYTICS_KEY;
     process.env.FM_ANALYTICS_KEY = 'r3-test-key';
     try {
-      await request(app).get('/funnel.html').set('x-fm-analytics-key', 'r3-test-ke').expect(401);
-      await request(app).get('/funnel.html').set('x-fm-analytics-key', 'x'.repeat(5000)).expect(401);
-      await request(app).get('/funnel.html').set('x-fm-analytics-key', 'r3-test-key').expect(200);
+      const bodies = [];
+      for (const h of ['r3-test-ke', 'x'.repeat(5000), 'r3-test-key', undefined]) {
+        const r = request(app).get('/funnel.html');
+        const res = await (h === undefined ? r : r.set('x-fm-analytics-key', h)).expect(200);
+        bodies.push(res.text);
+      }
+      expect(new Set(bodies).size).toBe(1);
     } finally {
       if (previous === undefined) delete process.env.FM_ANALYTICS_KEY;
       else process.env.FM_ANALYTICS_KEY = previous;

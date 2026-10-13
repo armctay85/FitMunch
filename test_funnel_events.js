@@ -528,7 +528,10 @@ describe('read-only funnel key (FM_FUNNEL_READ_KEY)', () => {
   });
 
   it('does not open the private /funnel page or other routes', async () => {
-    expect((await request(app).get('/funnel').set('x-fm-funnel-key', READ)).status).toBe(401);
+    // The /funnel page is a shell with no data; the read key adds nothing to it.
+    const shell = await request(app).get('/funnel').set('x-fm-funnel-key', READ);
+    expect(shell.status).toBe(200);
+    expect(shell.text).not.toContain(READ);
     const post = await request(app).post('/api/analytics/funnel').set('x-fm-funnel-key', READ).send({});
     expect(post.status).not.toBe(200);
   });
@@ -570,6 +573,29 @@ describe('funnel GET: shared limiter, header-only keys', () => {
     const ok = await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test');
     expect(ok.status).toBe(429);
     expect(ok.headers['retry-after']).toBe('600');
+  });
+
+  it('rotating X-Forwarded-For does not dodge the limit: one counter key, 429 on the 21st', async () => {
+    delete process.env.FUNNEL_IP_MAX_PER_10_MIN; // default 20 per 10 min
+    expect(app.get('trust proxy')).toBeFalsy();
+    const spy = jest.spyOn(counters, 'hitRateCounter');
+    try {
+      const codes = [];
+      for (let i = 0; i < 21; i++) {
+        const res = await request(app).get('/api/analytics/funnel')
+          .set('X-Forwarded-For', `203.0.113.${i + 1}, 198.51.100.${i + 1}`)
+          .set('x-fm-analytics-key', `wrong-${i}`);
+        codes.push(res.status);
+      }
+      expect(codes.slice(0, 20)).toEqual(Array(20).fill(401));
+      expect(codes[20]).toBe(429);
+      const keys = new Set(spy.mock.calls.filter((c) => c[0] === 'analytics-funnel-ip').map((c) => c[1]));
+      expect(spy.mock.calls.filter((c) => c[0] === 'analytics-funnel-ip')).toHaveLength(21);
+      expect(keys.size).toBe(1);
+      expect([...keys][0]).not.toMatch(/203\.0\.113|198\.51\.100/);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('fails closed: counter down => 503 even with the right key', async () => {
