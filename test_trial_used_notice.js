@@ -19,8 +19,8 @@ describe('trial-used and subscriber screens, homepage fold (post PR 78)', () => 
 
   it('phone fold sizes to content and top-aligns the hero', () => {
     const html = read('index.html');
-    const mobile = html.slice(html.indexOf('@media(max-width:860px){'));
-    expect(mobile).toMatch(/^@media\(max-width:860px\)\{[\s\S]*?\.fold\{min-height:auto\}\s*\.hero\{align-items:flex-start;padding-top:24px\}/);
+    const mobile = html.slice(html.indexOf('@media(max-width:859px){'));
+    expect(mobile).toMatch(/^@media\(max-width:859px\)\{[\s\S]*?\.fold\{min-height:auto\}\s*\.hero\{align-items:flex-start;padding-top:24px\}/);
   });
 });
 
