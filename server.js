@@ -642,6 +642,15 @@ const quickCheckoutLimiter = rateLimit({
   message: { success: false, error: QUICK_CHECKOUT_LIMITED },
 });
 app.use('/api/quick-checkout', quickCheckoutLimiter);
+// Same guest flow (creates a live customer and session without auth): same IP limit.
+app.use('/api/stripe/checkout-sessions', rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('CHECKOUT_SESSIONS_IP_MAX_PER_HOUR', 10),
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: QUICK_CHECKOUT_LIMITED },
+}));
 
 /** Sends work past the response on Vercel (waitUntil); off Vercel it just runs. */
 function runInBackground(promise) {
@@ -1090,53 +1099,71 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
 // the full Stripe customer (email, address) to anyone holding a session id.
 
 // Endpoint to create or get Stripe customer
-app.post('/api/stripe/customers', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({
-      success: false,
-      message: 'Stripe is not configured'
-    });
-  }
-  
+// Authed only. Creates or returns the Stripe customer for the logged-in user's
+// own account. Client-supplied email, name and metadata are ignored.
+function stripeCustomersUserKey(req) {
   try {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    const name = req.body?.name || '';
-    const metadata = req.body?.metadata || {};
+    const decoded = requireAuthUser(req);
+    return `u:${String(decoded.userId)}`;
+  } catch (_) {
+    return `ip:${rateLimitKey(req)}`;
+  }
+}
+const stripeCustomersIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('STRIPE_CUSTOMERS_IP_MAX_PER_HOUR', 20),
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please try again later.' },
+});
+const stripeCustomersUserLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('STRIPE_CUSTOMERS_USER_MAX_PER_HOUR', 5),
+  keyGenerator: stripeCustomersUserKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please try again later.' },
+});
 
-    if (!email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is required'
+app.post('/api/stripe/customers', stripeCustomersIpLimiter, stripeCustomersUserLimiter, async (req, res) => {
+  let decoded;
+  try {
+    decoded = requireAuthUser(req);
+  } catch (e) {
+    if (sendAuthError(e, res)) return;
+    return sendApiError(res, e, 'Stripe customer error');
+  }
+  if (!stripe) {
+    return res.status(503).json({ success: false, message: 'Stripe is not configured' });
+  }
+  try {
+    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+    const { eq } = require('drizzle-orm');
+    const customerId = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
+      let current = user;
+      if (!checkoutSmokeFallback) {
+        const fresh = await storage.getUserById(user.id);
+        if (fresh) current = fresh;
+      }
+      const id = await findOrCreateStripeCustomer(stripe, {
+        userId: current.id,
+        email: current.email,
+        name: current.name,
+        existingCustomerId: current.stripeCustomerId,
       });
-    }
-
-    // Unauthenticated. Never look up an existing customer by email.
-    const storage = require('./server/storage.js');
-    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
-    const fingerprint = guestCheckoutFingerprint({ nonce, email, plan: 'customer', ip, userAgent });
-    const safeMeta = { ...(metadata || {}) };
-    delete safeMeta.userId;
-    delete safeMeta.user_id;
-    const customer = await storage.withStripeCustomerLock(`guest-customer:${fingerprint}`, () =>
-      createFitMunchCustomer(stripe, {
-        email,
-        name,
-        metadata: safeMeta,
-        idempotencyParts: ['public-customer', fingerprint, email],
-      })
-    );
-
-    res.json({ 
-      success: true, 
-      id: customer.id,
-      email
+      if (!checkoutSmokeFallback && id !== current.stripeCustomerId) {
+        await storage.db.update(storage.schema.users)
+          .set({ stripeCustomerId: id })
+          .where(eq(storage.schema.users.id, current.id));
+      }
+      return id;
     });
+    res.json({ success: true, id: customerId, email: String(user.email || '').trim().toLowerCase() });
   } catch (error) {
-    console.error('Error creating customer:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create customer',
-    });
+    if (error.statusCode === 404) return res.status(404).json({ success: false, message: 'User not found.' });
+    console.error('Error creating customer:', error && error.message);
+    res.status(500).json({ success: false, message: 'Failed to create customer' });
   }
 });
 
