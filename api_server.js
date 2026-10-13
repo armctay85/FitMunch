@@ -1,6 +1,7 @@
 // FitMunch API Server
 // This module provides API endpoints for the FitMunch app
 
+const { stripMarkup, stripNames } = require('./lib/strip-markup');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -104,7 +105,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 // Meal Logging API routes
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
-    const mealData = { ...req.body };
+    const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
     const meal = await logMeal(req.user.userId, mealData);
@@ -1231,11 +1232,11 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
     const { aggregateShoppingList } = require('./lib/meal-plan-engine');
     const items = aggregateShoppingList({ days: planDays })
-      .map((i) => ({ name: i.name, qty: i.qty, unit: '', category: categorise(i.name), checked: false }))
+      .map((i) => ({ name: stripMarkup(i.name), qty: stripMarkup(i.qty), unit: '', category: categorise(String(i.name || '')), checked: false }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
-      [req.user.userId, planId, String(name || `${plan.rows[0].name} — Shopping List`).slice(0, 120), JSON.stringify(items)]
+      [req.user.userId, planId, stripMarkup(String(name || `${plan.rows[0].name} — Shopping List`)).slice(0, 120), JSON.stringify(items)]
     );
     res.json({ success: true, list: list.rows[0] });
   } catch (err) { sendApiError(res, err); }
@@ -1244,7 +1245,7 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
 // GET /api/shopping-list — get all shopping lists for user
 router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
-    const { name, items = [] } = req.body;
+    const { name, items = [] } = stripNames(req.body || {});
     const result = await _pool.query(
       `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
       [req.user.userId, name || 'My List', JSON.stringify(items)]
@@ -1272,7 +1273,7 @@ router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
 // PATCH /api/shopping-list/:id — update items (check/uncheck) or complete
 router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
-    const { items, completed } = req.body;
+    const { items, completed } = stripNames(req.body || {});
     const sets = [];
     const vals = [];
     let i = 1;
@@ -1312,7 +1313,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
     const b = req.body || {};
     const itemType = b.itemType || b.type || b.item_type;
     const itemId = b.itemId != null ? b.itemId : b.item_id;
-    const itemData = b.itemData || b.item_data || b.data || {};
+    const itemData = stripNames(b.itemData || b.item_data || b.data || {});
     if (!itemType || itemId == null || itemId === '') {
       return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
     }
@@ -1347,7 +1348,7 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
@@ -1358,7 +1359,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
     if (meals && Array.isArray(meals)) {
@@ -1400,7 +1401,7 @@ router.get('/workout-plans', authMiddleware, async (req, res) => {
 
 router.post('/workout-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, level, frequency, workouts } = req.body;
+    const { name, description, level, frequency, workouts } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
       [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
@@ -1411,7 +1412,7 @@ router.post('/workout-plans', authMiddleware, async (req, res) => {
 
 router.put('/workout-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, level, frequency, workouts } = req.body;
+    const { name, description, level, frequency, workouts } = stripNames(req.body || {});
     const r = await _pool.query(
       `UPDATE workout_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
        level=COALESCE($3,level), frequency=COALESCE($4,frequency),
