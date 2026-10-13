@@ -107,6 +107,33 @@ describe('POST /api/meal-plan/generate builderOnly', () => {
   });
 });
 
+describe('builderOnly week with no AI consent', () => {
+  const request = require('supertest');
+  const jwt = require('jsonwebtoken');
+  it('never calls the AI client, even with a provider configured and no consent recorded', async () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'onboarding-test-secret';
+    const aiClient = require('./lib/ai-client');
+    const storage = require('./server/storage.js');
+    // A configured provider and an account with no AI consent: the AI branch would run if reached.
+    const spies = Object.keys(aiClient).filter((k) => typeof aiClient[k] === 'function')
+      .map((k) => jest.spyOn(aiClient, k).mockImplementation(() => { throw new Error(`AI client ${k} called`); }));
+    expect(spies.length).toBeGreaterThan(0);
+    const userSpy = jest.spyOn(storage, 'getUserById').mockResolvedValue({ id: 'u', settings: {}, subscriptionTier: 'free' });
+    try {
+      const app = require('./server');
+      const tok = jwt.sign({ userId: '00000000-0000-4000-8000-0000000000ab' }, process.env.JWT_SECRET);
+      const res = await request(app).post('/api/meal-plan/generate').set('Authorization', `Bearer ${tok}`)
+        .send({ builderOnly: true, goal: 'lose_weight', days: 7, calories: 1780, protein: 144, dietary: [] });
+      expect(res.status).toBe(200);
+      expect(res.body.source).toBe('builder');
+      for (const s of spies) expect(s).toHaveBeenCalledTimes(0);
+    } finally {
+      spies.forEach((s) => s.mockRestore());
+      userSpy.mockRestore();
+    }
+  });
+});
+
 describe('onboarding UI wiring', () => {
   const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
   it('loads the shared targets maths and collects every input', () => {

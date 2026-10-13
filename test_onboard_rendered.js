@@ -7,11 +7,33 @@
 const fs = require('fs');
 const path = require('path');
 
-let chromium = null;
-try { ({ chromium } = require('playwright-core')); } catch (_) { chromium = null; }
+// In CI, if playwright-core is installed this suite must run: a missing browser or a module that
+// won't load is a failure, never a skip. It only skips when playwright-core is not installed, or
+// locally (outside CI) when it can't load, and then it says so loudly.
+const inCI = !!process.env.CI && process.env.CI !== 'false';
+let installed = false;
+try { require.resolve('playwright-core'); installed = true; } catch (_) { installed = false; }
+let chromium = null; let loadError = null;
+if (installed) { try { ({ chromium } = require('playwright-core')); } catch (e) { loadError = e; chromium = null; } }
 const executablePath = [process.env.CHROME, '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser']
   .filter(Boolean).find((p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } });
-const maybe = chromium && executablePath ? describe : describe.skip;
+const mustRun = inCI && installed;
+const canRun = !!(chromium && executablePath);
+if (!canRun && !mustRun) {
+  // eslint-disable-next-line no-console
+  console.warn(`\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n`
+    + `!!! SKIPPING test_onboard_rendered.js: ${!installed ? 'playwright-core is not installed' : !chromium ? `playwright-core failed to load (${loadError && loadError.message})` : 'no Chrome/Chromium executable found (set CHROME)'}.\n`
+    + `!!! The onboarding modal was NOT checked in a real browser.\n`
+    + `!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n`);
+}
+if (mustRun && !canRun) {
+  describe('onboarding modal rendered (CI, playwright-core installed)', () => {
+    it('can launch a browser', () => {
+      throw new Error(`test_onboard_rendered.js cannot run in CI: ${!chromium ? `playwright-core failed to load (${loadError && loadError.message})` : 'no Chrome/Chromium executable found (set CHROME)'}`);
+    });
+  });
+}
+const maybe = canRun ? describe : describe.skip;
 
 maybe('onboarding modal rendered on phones and tablets', () => {
   jest.setTimeout(120000);
