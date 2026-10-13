@@ -33,7 +33,7 @@ describe('Public Premium CTA', () => {
     expect(res.text).toContain('14-day trial');
     expect(res.text).toContain('card on file');
     expect(res.text).not.toMatch(/Wipper|wipper|client hub/i);
-    expect(res.text).not.toMatch(/\bABN\b/);
+    expect(res.text.replace(/<p class="fm-(?:footer-note fm-entity|entity-legal)">FitMunch is operated by DEVELOOP \(ABN <a href="https:\/\/abr\.business\.gov\.au\/ABN\/View\?abn=30140738615"[^>]*>30 140 738 615<\/a>\)\. DEVELOOP is not registered for GST, so no GST is charged\.<\/p>/g, '')).not.toMatch(/\bABN\b/);
   });
 
   it('login?plan=premium is email-first when signed out, and opens checkout straight after sign-in', async () => {
