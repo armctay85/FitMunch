@@ -387,6 +387,7 @@
     "js/fm-coach.js",
     "js/fm-first-scan.js",
     "js/fm-identity.js",
+    "js/fm-targets.js",
     "js/fm-shopper.js",
     "js/fm-storage.js",
     "js/fm-track.js",
