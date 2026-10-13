@@ -142,7 +142,6 @@ describe('Trust bar 5: web app, not store', () => {
 
 describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
   const surfaces = [
-    ['/', ['92', '987']],
     ['/haul-teardown', ['92', '987']],
     ['/receipt-nutrition-scanner', ['92', '987']],
     ['/pricing', ['92']],
@@ -154,6 +153,16 @@ describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
       expect(res.text).toContain(token);
     }
     expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
+    expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+  });
+});
+
+describe('Trust bar 6b: homepage proof is a labelled sample receipt, not a claimed real shop', () => {
+  it('homepage offers the no-sign-up sample receipt demo', async () => {
+    const res = await request(app).get('/').expect(200);
+    expect(res.text).toContain('id="demo-run"');
+    expect(res.text).toContain('SAMPLE RECEIPT');
+    expect(res.text).toContain('/api/receipt/demo');
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
   });
 });

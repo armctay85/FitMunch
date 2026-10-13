@@ -366,6 +366,22 @@ router.get('/first-scan', (_req, res) => res.json({
 }));
 
 // Preview and dev only. Production 404s. Key required. Five calls per 10 minutes per IP.
+// Homepage "try a sample receipt": deterministic scoring of a bundled sample.
+// No auth, no AI, no credit. Light per-IP limit; cacheable.
+const demoLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: sampleClientKey,
+  message: { success: false, error: 'Too many requests' },
+});
+router.get('/demo', demoLimiter, (_req, res) => {
+  const { sampleReceiptDemo } = require('./lib/sample-receipt-demo');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(sampleReceiptDemo());
+});
+
 router.get('/sample', sampleLimiter, sampleGate, async (_req, res) => {
   const configured = Boolean(process.env.GEMINI_API_KEY);
   const result = {

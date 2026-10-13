@@ -57,7 +57,7 @@ describe('Server API shell', () => {
     expect(res.text.length).toBeGreaterThan(100);
     expect(res.text).toContain('href="/refund"');
     expect(res.text).toContain('web app');
-    expect(res.text).toContain('Worked example');
+    expect(res.text).toContain('SAMPLE RECEIPT');
     expect(res.text).not.toContain('snap the paper from the checkout');
     expect(res.text).toContain('App Store listing is not live');
     expect(res.text).not.toContain('Download on the App Store');
