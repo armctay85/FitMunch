@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
+    '**/test_trainer_prices_copy.js',
+    '**/test_jest_testmatch_guard.js',
     '**/test_app.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',
@@ -30,6 +32,8 @@ module.exports = {
     '**/test_checkout_duplicates.js',
     '**/test_app_load.js',
     '**/test_trial_used_notice.js',
+    '**/test_meal_plan_engine.js',
+    '**/test_meal_plan_owner.js',
     '**/test_stripe_webhook.js',
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',

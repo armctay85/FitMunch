@@ -39,6 +39,7 @@ const {
   evaluateCoachClientGate,
   readCoachBilling,
   coachGateHttpBody,
+  COACH_39_ACTIVE_CLIENT_LIMIT,
 } = require('./lib/fitmunch-coach-billing');
 const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -270,14 +271,47 @@ router.post('/analytics/events', async (req, res) => {
   }
 });
 
+// Constant-time string compare (hash both sides so lengths always match).
+function safeKeyEqual(provided, expected) {
+  const crypto = require('crypto');
+  const a = crypto.createHash('sha256').update(String(provided)).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+// Read-only funnel key (FM_FUNNEL_READ_KEY, header x-fm-funnel-key). Valid on
+// this GET only and returns step counts only: no events, pages, plans or
+// sessions. Disabled when the env var is unset or empty.
+const FUNNEL_READ_STEPS = {
+  landingViews: 'landing_page_view',
+  trialClicks: 'trial_cta_click',
+  checkoutStarts: 'checkout_start',
+  trialStarts: 'trial_started',
+};
+function funnelReadKeyValid(req) {
+  const expected = process.env.FM_FUNNEL_READ_KEY;
+  const provided = req.headers['x-fm-funnel-key'];
+  if (!expected || typeof provided !== 'string' || !provided) return false;
+  return safeKeyEqual(provided, expected);
+}
+
 router.get('/analytics/funnel', async (req, res) => {
   try {
     const expected = process.env.FM_ANALYTICS_KEY;
     const provided = req.query.key || req.headers['x-fm-analytics-key'];
-    if (!expected || !provided || String(provided) !== String(expected)) {
+    const fullAccess = Boolean(expected && provided && safeKeyEqual(provided, expected));
+    const readOnly = !fullAccess && funnelReadKeyValid(req);
+    if (!fullAccess && !readOnly) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
     const stats = await getFunnelStats(req.query.days);
+    res.set('Cache-Control', 'no-store');
+    if (readOnly) {
+      const byStep = new Map((stats.steps || []).map((s) => [s.step, Number(s.count) || 0]));
+      const counts = {};
+      for (const [name, step] of Object.entries(FUNNEL_READ_STEPS)) counts[name] = byStep.get(step) || 0;
+      return res.json({ success: true, days: stats.days, asOf: stats.asOf, counts });
+    }
     res.json({ success: true, ...stats });
   } catch (error) {
     sendApiError(res, error, 'Error loading funnel stats');
@@ -672,6 +706,42 @@ router.post('/revenuecat/webhook', async (req, res) => {
 });
 
 // GET /api/auth/me  — verify token + return user info
+// Coach billing state for the Billing view (trainer accounts only).
+router.get('/coach/billing-status', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+    } catch (_) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    }
+    if (!decoded || !decoded.userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
+    if (decoded.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [decoded.userId]);
+    const coach = readCoachBilling(userRow.rows[0] && userRow.rows[0].settings);
+    const countRow = await _pool.query(
+      `SELECT COUNT(*)::int AS n FROM pt_clients WHERE pt_id=$1 AND COALESCE(status, 'active') = 'active'`,
+      [decoded.userId]
+    );
+    const activeClientCount = countRow.rows[0] ? Number(countRow.rows[0].n) : 0;
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      plan: coach.plan,
+      tier: coach.tier,
+      activeClientCount,
+      limit: coach.plan === 'coach-79' ? null : COACH_39_ACTIVE_CLIENT_LIMIT,
+    });
+  } catch (err) {
+    console.error('[coach-billing-status] failed', err && err.code ? err.code : 'Error');
+    return res.status(500).json({ success: false, error: 'Could not load billing.' });
+  }
+});
+
 router.get('/auth/me', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -738,6 +808,13 @@ router.post('/auth/ai-consent', authMiddleware, async (req, res) => {
 });
 
 // ── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
+// A plan id from a request body: a positive integer or its digits as a string.
+function positiveIntId(v) {
+  if (typeof v === 'number' && Number.isInteger(v) && v > 0) return v;
+  if (typeof v === 'string' && /^[1-9]\d{0,9}$/.test(v)) return Number(v);
+  return null;
+}
+
 function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
@@ -851,10 +928,25 @@ router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
 // POST /api/clients/:clientId/assign-plan — PT assigns a meal or workout plan to client
 router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) => {
   try {
-    const { planType, planId } = req.body;
+    const { planType } = req.body || {};
     if (!['meal','workout'].includes(planType)) return res.status(400).json({ error: 'planType must be meal or workout' });
-    // Deactivate old assignment of same type
-    await _pool.query('UPDATE plan_assignments SET active=FALSE WHERE client_id=$1 AND plan_type=$2', [req.params.clientId, planType]);
+    const planId = positiveIntId(req.body.planId);
+    if (!planId) return res.status(400).json({ error: 'planId is required' });
+    // Only a trainer with this client on their active roster, assigning a
+    // plan they own.
+    const roster = await _pool.query(
+      "SELECT 1 FROM pt_clients WHERE pt_id=$1 AND client_id=$2 AND status='active'",
+      [req.user.userId, req.params.clientId]
+    );
+    if (!roster.rows[0]) return res.status(403).json({ error: 'Not your client' });
+    const table = planType === 'meal' ? 'meal_plans' : 'workout_plans';
+    const owned = await _pool.query(`SELECT 1 FROM ${table} WHERE id=$1 AND user_id=$2`, [planId, req.user.userId]);
+    if (!owned.rows[0]) return res.status(404).json({ error: 'Plan not found' });
+    // Deactivate this trainer's old assignment of the same type
+    await _pool.query(
+      'UPDATE plan_assignments SET active=FALSE WHERE client_id=$1 AND plan_type=$2 AND pt_id=$3',
+      [req.params.clientId, planType, req.user.userId]
+    );
     await _pool.query(
       'INSERT INTO plan_assignments (pt_id, client_id, plan_type, plan_id) VALUES ($1,$2,$3,$4)',
       [req.user.userId, req.params.clientId, planType, planId]
@@ -868,57 +960,48 @@ router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) =
 // POST /api/shopping-list/generate — auto-generate from a meal plan
 router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
   try {
-    const { mealPlanId, name } = req.body;
-    // Get the meal plan
-    const plan = await _pool.query('SELECT * FROM meal_plans WHERE id=$1', [mealPlanId]);
+    const { mealPlanId, name } = req.body || {};
+    const planId = positiveIntId(mealPlanId);
+    if (!planId) return res.status(400).json({ error: 'mealPlanId is required' });
+    // Your own plan, or one a trainer assigned to you.
+    const plan = await _pool.query(
+      `SELECT * FROM meal_plans WHERE id=$1 AND (user_id=$2 OR EXISTS (
+         SELECT 1 FROM plan_assignments a WHERE a.plan_type='meal' AND a.plan_id=meal_plans.id AND a.client_id=$2 AND a.pt_id=meal_plans.user_id AND a.active
+       ))`,
+      [planId, req.user.userId]
+    );
     if (!plan.rows[0]) return res.status(404).json({ error: 'Meal plan not found' });
     const meals = plan.rows[0].meals || [];
-    
-    // Extract ingredients, group by category
-    const itemMap = {};
+
     const CATEGORIES = {
-      meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','egg','eggs','prawn','shrimp'],
-      dairy: ['milk','yogurt','yoghurt','cheese','cream','butter','whey'],
+      meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','barramundi','prawn','shrimp'],
+      dairy: ['egg','milk','yogurt','yoghurt','cheese','ricotta','cream','butter','whey'],
       grains: ['rice','oats','bread','pasta','noodle','quinoa','wheat','flour','cereal','wrap','tortilla'],
-      vegetables: ['broccoli','spinach','kale','carrot','onion','garlic','tomato','capsicum','pepper','zucchini','cucumber','lettuce','asparagus','avocado','celery'],
+      vegetables: ['broccoli','spinach','kale','carrot','onion','garlic','tomato','capsicum','pepper','zucchini','cucumber','lettuce','salad','asparagus','avocado','celery','potato','corn'],
       fruit: ['apple','banana','orange','berry','berries','grape','mango','pear','strawberry','blueberry'],
-      pantry: ['oil','sauce','spice','salt','pepper','vinegar','honey','syrup','sugar','protein powder','supplement'],
+      pantry: ['oil','sauce','spice','salt','vinegar','honey','syrup','sugar','protein powder','supplement','chia','peanut','almond'],
       other: [],
     };
-    function categorise(name) {
-      const n = name.toLowerCase();
+    function categorise(itemName) {
+      const n = itemName.toLowerCase();
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
       return 'other';
     }
-    
-    // Walk meals structure — support array or object
-    const mealItems = Array.isArray(meals) ? meals : Object.values(meals).flat();
-    mealItems.forEach(day => {
-      const dayMeals = Array.isArray(day) ? day : (day.meals ? Object.values(day.meals).flat() : [day]);
-      dayMeals.forEach(item => {
-        const foodName = item.name || item.foodName || item.food || String(item);
-        if (!foodName || foodName === '[object Object]') return;
-        const key = foodName.toLowerCase().trim();
-        if (itemMap[key]) {
-          itemMap[key].qty = (parseFloat(itemMap[key].qty) || 1) + 1;
-        } else {
-          itemMap[key] = {
-            name: foodName,
-            qty: item.servingSize || item.quantity || 1,
-            unit: item.unit || '',
-            category: categorise(foodName),
-            checked: false,
-          };
-        }
-      });
-    });
-    
-    const items = Object.values(itemMap).sort((a,b) => a.category.localeCompare(b.category));
+
+    // Saved AI plans store the days array; older manual plans store meals
+    // with foods. Both go through the same aggregation, which sums
+    // quantities for the same item and unit.
+    const days = Array.isArray(meals) ? meals : Object.values(meals);
+    const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
+    const { aggregateShoppingList } = require('./lib/meal-plan-engine');
+    const items = aggregateShoppingList({ days: planDays })
+      .map((i) => ({ name: i.name, qty: i.qty, unit: '', category: categorise(i.name), checked: false }))
+      .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
-      [req.user.userId, mealPlanId, name || plan.rows[0].name + ' — Shopping List', JSON.stringify(items)]
+      [req.user.userId, planId, String(name || `${plan.rows[0].name} — Shopping List`).slice(0, 120), JSON.stringify(items)]
     );
     res.json({ success: true, list: list.rows[0] });
   } catch (err) { sendApiError(res, err); }
@@ -963,7 +1046,8 @@ router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
     if (completed !== undefined) { sets.push(`completed=$${i++}`); vals.push(completed); }
     sets.push(`updated_at=NOW()`);
     vals.push(req.params.id, req.user.userId);
-    await _pool.query(`UPDATE shopping_lists SET ${sets.join(',')} WHERE id=$${i++} AND user_id=$${i++}`, vals);
+    const updated = await _pool.query(`UPDATE shopping_lists SET ${sets.join(',')} WHERE id=$${i++} AND user_id=$${i++}`, vals);
+    if (!updated.rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch (err) { sendApiError(res, err); }
 });
@@ -971,7 +1055,8 @@ router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
 // DELETE /api/shopping-list/:id
 router.delete('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
-    await _pool.query('DELETE FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
+    const removed = await _pool.query('DELETE FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
+    if (!removed.rowCount) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch (err) { sendApiError(res, err); }
 });
@@ -1246,7 +1331,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 
 // ── AI CHAT (conversational coach) ────────────────────────────────────────────
 const CHAT_INTENTS = Object.freeze(Object.assign(Object.create(null), {
-  nutrition: 'You are FitMunch, an Australian nutrition coach. Help the user plan meals, hit macros, shop at Woolworths/Coles, and troubleshoot cravings or dieting plateaus. Use Australian spelling and products.',
+  nutrition: 'You are FitMunch, an Australian nutrition coach. Help the user plan meals, hit macros, build a shopping list from everyday foods, and troubleshoot cravings or dieting plateaus. Use Australian spelling and products.',
   workout: 'You are FitMunch, an Australian strength and conditioning coach. Help the user plan sessions, pick accessories, manage fatigue, and fix form cues. Keep advice practical for home or gym users.',
   progress: 'You are FitMunch, an Australian progress coach. Read the user\'s recent numbers, explain what they mean, and suggest one concrete change for next week. No medical claims.',
   general: 'You are FitMunch, an Australian fitness and nutrition coach. Answer the user clearly and specifically.',

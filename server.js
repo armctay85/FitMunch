@@ -855,10 +855,18 @@ app.post('/api/coach/checkout', async (req, res) => {
     const priceId = coachBilling.coachPriceId(plan);
     if (!priceId) {
       const envName = plan === 'coach-39' ? 'STRIPE_COACH_39_PRICE_ID' : 'STRIPE_COACH_79_PRICE_ID';
-      return res.status(503).json({
-        success: false,
-        error: `Coach price is not configured. Set ${envName}.`,
-      });
+      console.error(`[coach-checkout] price not configured: ${envName}`);
+      return res.status(503).json({ success: false, error: 'Coach checkout is unavailable right now.' });
+    }
+    let priceOk = false;
+    try {
+      priceOk = await coachBilling.verifyCoachPrice(stripe, plan, priceId);
+    } catch (err) {
+      console.error('[coach-checkout] price check failed', webhookHandlerErrorLabel(err));
+    }
+    if (!priceOk) {
+      console.error(`[coach-checkout] configured price does not match ${plan}`);
+      return res.status(503).json({ success: false, error: 'Coach checkout is unavailable right now.' });
     }
 
     const authHeader = req.headers.authorization || '';
@@ -1121,10 +1129,6 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
   }
 });
 
-// Endpoint to complete subscription after payment success
-// /api/complete-subscription removed: unauthenticated, unused, and it returned
-// the full Stripe customer (email, address) to anyone holding a session id.
-
 // Endpoint to create or get Stripe customer
 // Authed only. Creates or returns the Stripe customer for the logged-in user's
 // own account. Client-supplied email, name and metadata are ignored.
@@ -1161,6 +1165,9 @@ app.post('/api/stripe/customers', stripeCustomersIpLimiter, stripeCustomersUserL
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
     return sendApiError(res, e, 'Stripe customer error');
+  }
+  if (!decoded || decoded.userId == null || decoded.userId === '') {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
   }
   if (!stripe) {
     return res.status(503).json({ success: false, message: 'Stripe is not configured' });

@@ -1516,13 +1516,15 @@ describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2
 });
 
 describe('removed /api/complete-subscription', () => {
-  test('is gone: no 2xx, no customer data, zero Stripe calls', async () => {
-    const before = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
+  test('is gone: 404, no customer data, a paid session is never retrieved', async () => {
+    fake.checkout.sessions.retrieve = jest.fn(async () => ({
+      id: 'cs_live_x', payment_status: 'paid', status: 'complete',
+      customer: { id: 'cus_victim', email: 'victim@example.com', address: { line1: '1 Victim St' } },
+    }));
     const res = await request(app).post('/api/complete-subscription').send({ sessionId: 'cs_live_x' });
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(JSON.stringify(res.body || {})).not.toMatch(/customer|address|subscription/i);
-    const after = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
-    expect(after).toBe(before);
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body || {})).not.toMatch(/customer|address|subscription|victim/i);
+    expect(fake.checkout.sessions.retrieve).not.toHaveBeenCalled();
   });
 });
 
@@ -1788,5 +1790,42 @@ describe('retired pt-starter / pt-pro checkout plans', () => {
     const sub = { status: 'active', current_period_end: 2000000000, items: { data: [{ price: { id: priceId } }] } };
     expect(checkout.subscriptionTierUpdateFromStripe(sub).tier).toBe(tier);
     expect(checkout.allFitMunchPriceIds()).toContain(priceId);
+  });
+});
+
+describe('#83 follow-ups', () => {
+  test('POST /api/stripe/customers logs no DB URL or Stripe key when storage throws', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const orig = storage.getUserById;
+    storage.getUserById = jest.fn(async () => { throw new Error('connect failed DATABASE_URL=postgres://u:p@h/db Invalid API Key provided: sk_test_123'); });
+    try {
+      const res = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${tokenFor('u1')}`).send({});
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(JSON.stringify(res.body)).not.toMatch(/postgres:|sk_test_|DATABASE_URL/);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/postgres:|u:p@|sk_test_|DATABASE_URL/);
+    } finally {
+      storage.getUserById = orig;
+      spy.mockRestore();
+    }
+  });
+
+  test('a validly signed token with no userId gets 401, not 404', async () => {
+    const t = jwt.sign({ email: 'nouser@example.com', role: 'client' }, jwtSecret());
+    const res = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${t}`).send({});
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ success: false, message: 'Authentication required.' });
+  });
+
+  test('failClosed: a 0 or non-finite hit count throws RATE_COUNTER_UNAVAILABLE', async () => {
+    const counters = require('./lib/shared-counters');
+    for (const rows of [[{ hits: 0 }], [{ hits: 'NaN' }], []]) {
+      counters.setSharedCounterQueryForTests(async () => ({ rows }));
+      try {
+        await expect(counters.hitRateCounter('t', 'k', { windowMs: 1000, failClosed: true }))
+          .rejects.toMatchObject({ code: 'RATE_COUNTER_UNAVAILABLE' });
+      } finally {
+        counters.setSharedCounterQueryForTests(null);
+      }
+    }
   });
 });
