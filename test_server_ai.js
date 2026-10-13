@@ -63,6 +63,7 @@ jest.mock('./server/storage.js', () => {
       name: 'Tester',
       email: 't@example.com',
       subscriptionTier: 'free',
+      settings: { aiDataConsent: true },
     })),
     updateUserSubscription: jest.fn(),
     createOrUpdateProfile: jest.fn(),
@@ -216,6 +217,7 @@ describe('AI routes', () => {
         name: 'Tester',
         email: 't@example.com',
         subscriptionTier: 'free',
+        settings: { aiDataConsent: true },
       });
     }
   });
@@ -245,27 +247,43 @@ describe('AI routes', () => {
         name: 'Tester',
         email: 't@example.com',
         subscriptionTier: 'free',
+        settings: { aiDataConsent: true },
       });
       aiClient.hasProvider.mockReturnValue(true);
     }
   });
 
-  it('an account that has not answered can still call insight', async () => {
+  it('an account that has not answered gets 403 ai_consent_required before any AI work', async () => {
     const storage = require('./server/storage.js');
+    const aiUsage = require('./lib/ai-usage');
+    const aiClient = require('./lib/ai-client');
     storage.getUserById.mockResolvedValue({
-      id: 'u-test',
-      name: 'Tester',
-      email: 't@example.com',
-      subscriptionTier: 'free',
-      settings: {},
+      id: 'u-test', name: 'Tester', email: 't@example.com', subscriptionTier: 'free', settings: {},
     });
-    const r = await request(app)
-      .post('/api/ai/insight')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ todayCalories: 1200, todayProtein: 60, streak: 3, goal: 'muscle_gain', targetCalories: 2500, targetProtein: 180 });
-    expect(r.status).toBe(200);
-    expect(r.body.success).toBe(true);
+    aiUsage.checkAndConsume.mockClear();
+    aiClient.chat.mockClear();
+    aiClient.hasProvider.mockReset();
+    aiClient.hasProvider.mockReturnValue(true);
+    try {
+      const routes = [
+        request(app).post('/api/ai/insight').set('Authorization', `Bearer ${token}`).send({ todayCalories: 1 }),
+        request(app).post('/api/ai/chat').set('Authorization', `Bearer ${token}`).send({ messages: [{ role: 'user', content: 'hi' }] }),
+        request(app).post('/api/ai/workout-plan').set('Authorization', `Bearer ${token}`).send({ goal: 'muscle_gain' }),
+        request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${token}`),
+      ];
+      for (const r of await Promise.all(routes)) {
+        expect(r.status).toBe(403);
+        expect(r.body.code).toBe('ai_consent_required');
+      }
+      expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+      expect(aiClient.chat).not.toHaveBeenCalled();
+    } finally {
+      storage.getUserById.mockResolvedValue({
+        id: 'u-test', name: 'Tester', email: 't@example.com', subscriptionTier: 'free', settings: { aiDataConsent: true },
+      });
+    }
   });
+
 
   const settingsRetry = "We couldn't check your AI settings. Please try again.";
 
@@ -293,6 +311,7 @@ describe('AI routes', () => {
         name: 'Tester',
         email: 't@example.com',
         subscriptionTier: 'free',
+        settings: { aiDataConsent: true },
       });
     }
   }
