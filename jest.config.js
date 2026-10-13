@@ -6,6 +6,12 @@ module.exports = {
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
     '**/test_app.js',
+    '**/test_coach_context.js',
+
+    '**/test_privacy_export.js',
+    '**/test_ai_consent_routes.js',
+
+    '**/test_welcome_verify.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',
     '**/test_smoke_exempt_routes.js',

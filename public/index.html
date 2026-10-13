@@ -204,6 +204,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .fs-actions{display:flex;flex-direction:column;gap:8px}
 .fs-preview-wrap img{width:100%;height:220px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .fs-error{margin-top:12px;font-size:.84rem;font-weight:600;color:#b91c1c}
+.fs-consent{margin-top:10px;font-size:.84rem;line-height:1.5;color:var(--mute)}
 .fs-empty{color:var(--mute);font-size:.95rem;line-height:1.6}
 .fs-result-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:16px}
 .fs-score{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;line-height:.88;color:var(--leaf2);letter-spacing:-.06em}
@@ -677,8 +678,9 @@ footer{
         <input type="file" data-fs-library accept="image/*,.heic,.heif" hidden/>
         <div data-fs-preview-wrap hidden class="fs-preview-wrap" style="display:none">
           <img data-fs-preview alt="Your receipt preview" width="400" height="220"/>
+          <p class="fs-consent" data-fs-consent>Your receipt photo is sent to an AI provider (xAI or OpenAI) to read the items, then discarded.</p>
           <div class="fs-actions" style="margin-top:12px">
-            <button type="button" class="btn btn-leaf" data-fs-scan>Score this shop</button>
+            <button type="button" class="btn btn-leaf" data-fs-scan>Allow and scan</button>
             <button type="button" class="btn btn-ink" data-fs-clear>Choose another</button>
           </div>
         </div>
