@@ -59,6 +59,7 @@ module.exports = {
     '**/test_public_copy_hotfix.js',
     '**/test_ship_safety.js',
     '**/test_xss_escape.js',
+    '**/test_stored_xss.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
