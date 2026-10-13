@@ -79,4 +79,9 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
     expect(html).toContain('id="scan-meal-type" aria-label="Meal time"');
     expect(html).toContain('aria-label="Meal time" style="padding:4px 6px;font-size:.78rem" data-field="mealType"');
   });
+
+  it('Shopping Lists copy does not point at the retired shopper', () => {
+    expect(html).toContain('id="sl-sub">Your lists, ready for your next shop. Plan your shop with the list below.</div>');
+    expect(html).not.toMatch(/href="\/shopper"|Fitness Butler shopper/);
+  });
 });
