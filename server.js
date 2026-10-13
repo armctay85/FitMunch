@@ -858,10 +858,18 @@ app.post('/api/coach/checkout', async (req, res) => {
     const priceId = coachBilling.coachPriceId(plan);
     if (!priceId) {
       const envName = plan === 'coach-39' ? 'STRIPE_COACH_39_PRICE_ID' : 'STRIPE_COACH_79_PRICE_ID';
-      return res.status(503).json({
-        success: false,
-        error: `Coach price is not configured. Set ${envName}.`,
-      });
+      console.error(`[coach-checkout] price not configured: ${envName}`);
+      return res.status(503).json({ success: false, error: 'Coach checkout is unavailable right now.' });
+    }
+    let priceOk = false;
+    try {
+      priceOk = await coachBilling.verifyCoachPrice(stripe, plan, priceId);
+    } catch (err) {
+      console.error('[coach-checkout] price check failed', webhookHandlerErrorLabel(err));
+    }
+    if (!priceOk) {
+      console.error(`[coach-checkout] configured price does not match ${plan}`);
+      return res.status(503).json({ success: false, error: 'Coach checkout is unavailable right now.' });
     }
 
     const authHeader = req.headers.authorization || '';

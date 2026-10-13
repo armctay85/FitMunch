@@ -39,6 +39,7 @@ const {
   evaluateCoachClientGate,
   readCoachBilling,
   coachGateHttpBody,
+  COACH_39_ACTIVE_CLIENT_LIMIT,
 } = require('./lib/fitmunch-coach-billing');
 const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -705,6 +706,42 @@ router.post('/revenuecat/webhook', async (req, res) => {
 });
 
 // GET /api/auth/me  — verify token + return user info
+// Coach billing state for the Billing view (trainer accounts only).
+router.get('/coach/billing-status', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+    } catch (_) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' });
+    }
+    if (!decoded || !decoded.userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
+    if (decoded.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [decoded.userId]);
+    const coach = readCoachBilling(userRow.rows[0] && userRow.rows[0].settings);
+    const countRow = await _pool.query(
+      `SELECT COUNT(*)::int AS n FROM pt_clients WHERE pt_id=$1 AND COALESCE(status, 'active') = 'active'`,
+      [decoded.userId]
+    );
+    const activeClientCount = countRow.rows[0] ? Number(countRow.rows[0].n) : 0;
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      plan: coach.plan,
+      tier: coach.tier,
+      activeClientCount,
+      limit: coach.plan === 'coach-79' ? null : COACH_39_ACTIVE_CLIENT_LIMIT,
+    });
+  } catch (err) {
+    console.error('[coach-billing-status] failed', err && err.code ? err.code : 'Error');
+    return res.status(500).json({ success: false, error: 'Could not load billing.' });
+  }
+});
+
 router.get('/auth/me', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
