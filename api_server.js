@@ -468,11 +468,68 @@ router.post('/auth/register', async (req, res) => {
       /* analytics must not affect sign-up */
     }
 
+    sendWelcomeEmail(user);
+
     const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
+  }
+});
+
+// ── WELCOME + EMAIL VERIFICATION ─────────────────────────────────────────────
+function backgroundTask(promise) {
+  const safe = Promise.resolve(promise).catch(() => {});
+  try { require('@vercel/functions').waitUntil(safe); } catch (_) { /* off Vercel it just runs */ }
+  return safe;
+}
+/** Sends the welcome + verify email after the response. Never throws, never logs the address or link. */
+function sendWelcomeEmail(user) {
+  return backgroundTask((async () => {
+    const ev = require('./lib/email-verify');
+    const { sendEmail } = require('./server/email.js');
+    const msg = ev.welcomeEmail({ name: user.name, url: ev.verifyUrl(ev.verifyToken(user, JWT_SECRET)) });
+    const r = await sendEmail({ to: user.email, ...msg });
+    if (!r || !r.success) console.error('[welcome-email] send failed');
+  })().catch(() => console.error('[welcome-email] send failed')));
+}
+
+// POST /api/auth/verify-email {token} — from the emailed #verify= link. No session needed.
+router.post('/auth/verify-email', async (req, res) => {
+  const bad = { success: false, error: 'This confirmation link is invalid or has expired. Sign in to send a new one.' };
+  try {
+    const { readVerifyToken } = require('./lib/email-verify');
+    const t = readVerifyToken(req.body && req.body.token, JWT_SECRET);
+    if (!t) return res.status(400).json(bad);
+    const r = await _pool.query(
+      'UPDATE users SET email_verified = TRUE WHERE id = $1 AND LOWER(email) = $2 RETURNING id',
+      [t.userId, t.email]
+    );
+    if (!r.rows || !r.rows.length) return res.status(400).json(bad);
+    res.json({ success: true, message: 'Email confirmed. Thanks!' });
+  } catch (err) {
+    console.error('[verify-email] failed');
+    res.status(500).json({ success: false, error: 'Could not confirm your email. Please try again.' });
+  }
+});
+
+// POST /api/auth/resend-verification — signed-in user, own address only, 3 an hour.
+const resendVerifyHits = new Map();
+router.post('/auth/resend-verification', authMiddleware, async (req, res) => {
+  try {
+    const key = String(req.user.userId);
+    const now = Date.now();
+    const recent = (resendVerifyHits.get(key) || []).filter((t) => now - t < 60 * 60 * 1000);
+    if (recent.length >= 3) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
+    resendVerifyHits.set(key, [...recent, now]);
+    const user = await getUserById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+    if (user.emailVerified) return res.json({ success: true, alreadyVerified: true });
+    await sendWelcomeEmail(user);
+    res.json({ success: true });
+  } catch (err) {
+    sendApiError(res, err);
   }
 });
 
@@ -716,6 +773,7 @@ router.get('/auth/me', async (req, res) => {
         role,
         ptId,
         aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
+        emailVerified: user.emailVerified === true,
       },
     });
   } catch (err) {

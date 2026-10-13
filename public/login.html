@@ -834,6 +834,22 @@
  if (plan === 'premium' && window.location.hash !== '#login') showTab('register');
  // Fragment #reset=TOKEN is the email link. Legacy ?reset= is stripped above.
  if (resetToken) showReset();
+ // Fragment #verify=TOKEN is the welcome email's confirm link.
+ (function confirmEmailFromLink() {
+ let vt = '';
+ try { vt = new URLSearchParams((window.location.hash || '').replace(/^#/, '')).get('verify') || ''; } catch (e) { vt = ''; }
+ if (!vt) return;
+ try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
+ showTab('login');
+ fetch('/api/auth/verify-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: vt }) })
+ .then(r => r.json().then(j => ({ ok: r.ok, j })))
+ .then(({ ok, j }) => {
+ const el = document.getElementById(ok ? 'login-success' : 'login-error');
+ el.textContent = ok ? 'Email confirmed. Thanks! Sign in to carry on.' : (j && j.error) || 'This confirmation link is invalid or has expired.';
+ el.classList.add('show');
+ })
+ .catch(() => {});
+ })();
 
  // Enter key support
  document.addEventListener('keydown', e => {
