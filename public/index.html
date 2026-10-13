@@ -165,7 +165,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   display:block;font-size:.95rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
 }
 .phone-list .src{
-  font-size:.58rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5c6d64;
+  font-size:.74rem;font-weight:600;letter-spacing:0;color:#3f5047;white-space:nowrap;
 }
 .sheet-foot{
   padding:14px 16px 16px;
@@ -489,6 +489,11 @@ footer{
   .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:14px}
   .hero-ctas{display:flex;max-width:none}
 }
+/* 860-1100: two columns are narrow, so the H1 is smaller and wider to stay at 3 lines. */
+@media(min-width:860px) and (max-width:1100px){
+  .hero-inner{grid-template-columns:1.1fr .9fr;gap:40px}
+  .hero h1{font-size:clamp(2.5rem,4.9vw,3.35rem);max-width:13ch}
+}
 @media(max-width:860px){
   /* The fold is 100svh tall; bottom-aligning the hero left an empty dark band above the H1 on phones. */
   .fold{min-height:auto}
@@ -564,16 +569,16 @@ footer{
         <p class="sheet-body">From the meals you lock. You take this list.</p>
         <ol class="phone-list">
           <li>
-            <strong>Chicken 1kg</strong>
-            <span class="src">list</span>
+            <strong>Chicken breast 1kg</strong>
+            <span class="src">4 dinners</span>
           </li>
           <li>
             <strong>Eggs x12</strong>
-            <span class="src">last shop</span>
+            <span class="src">6 lunches</span>
           </li>
           <li>
-            <strong>Oats</strong>
-            <span class="src">body</span>
+            <strong>Rolled oats 500g</strong>
+            <span class="src">7 breakfasts</span>
           </li>
         </ol>
         <div class="sheet-foot">
@@ -614,9 +619,9 @@ footer{
       <h3>Commit to the week. We write the trolley; you check out.</h3>
       <p>You approve the plan. FitMunch writes the list. You check out at the supermarket.</p>
       <div class="trolley-draft" aria-label="Draft trolley, sample week">
-        <div class="row"><span>Chicken 1kg</span><span class="row-val">list</span></div>
-        <div class="row"><span>Eggs x12</span><span class="row-val">last shop</span></div>
-        <div class="row"><span>Oats</span><span class="row-val">body need</span></div>
+        <div class="row"><span>Chicken breast 1kg</span><span class="row-val">4 dinners</span></div>
+        <div class="row"><span>Eggs x12</span><span class="row-val">6 lunches</span></div>
+        <div class="row"><span>Rolled oats 500g</span><span class="row-val">7 breakfasts</span></div>
       </div>
       <p class="butler-note">Approve is the plan, not a supermarket checkout. FitMunch is a web app today.</p>
     </aside>
