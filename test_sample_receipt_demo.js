@@ -49,3 +49,51 @@ describe('Homepage sample receipt demo', () => {
     expect(block).not.toMatch(/credit|requireAuth|authenticate/i);
   });
 });
+
+describe('sample receipt demo r2', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+  it('reveals the receipt card on load or scroll, not only after a score', () => {
+    const js = html.slice(html.indexOf('(function sampleReceiptDemo()'));
+    expect(js).toMatch(/IntersectionObserver/);
+    expect(js).toMatch(/device\.classList\.add\('in'\)/);
+    expect(html).toContain('<noscript><style>.receipt{opacity:1;transform:none}</style></noscript>');
+  });
+  it('the error sits outside the receipt card', () => {
+    const card = html.slice(html.indexOf('id="proof-device"'), html.indexOf('</section>', html.indexOf('id="proof-device"')));
+    expect(card).not.toContain('id="demo-error"');
+    expect(html).toContain('id="demo-error"');
+  });
+  it('labels protein as this shop, and the number matches the sample', () => {
+    expect(html).toContain("d.protein + 'g protein in this shop'");
+    expect(sampleReceiptDemo().protein).toBe(583);
+  });
+  it('drops tonightDinner from the payload', () => {
+    expect(sampleReceiptDemo()).not.toHaveProperty('tonightDinner');
+  });
+  it('uses the shared Postgres limiter, failing closed', async () => {
+    const counters = require('./lib/shared-counters');
+    const app = require('./server');
+    const prev = process.env.RECEIPT_DEMO_IP_MAX_PER_MIN;
+    process.env.RECEIPT_DEMO_IP_MAX_PER_MIN = '2';
+    counters.resetSharedCountersForTests();
+    try {
+      const ip = '198.51.100.99';
+      expect((await request(app).get('/api/receipt/demo').set('X-Forwarded-For', ip)).status).toBe(200);
+      expect((await request(app).get('/api/receipt/demo').set('X-Forwarded-For', ip)).status).toBe(200);
+      const third = await request(app).get('/api/receipt/demo').set('X-Forwarded-For', ip);
+      expect(third.status).toBe(429);
+      expect(third.headers['cache-control']).toBe('no-store');
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      counters.setSharedCounterQueryForTests(async () => { throw Object.assign(new Error('down'), { code: 'ECONNREFUSED' }); });
+      try {
+        const down = await request(app).get('/api/receipt/demo').set('X-Forwarded-For', '198.51.100.100');
+        expect(down.status).toBe(503);
+      } finally {
+        counters.setSharedCounterQueryForTests(null);
+        spy.mockRestore();
+      }
+    } finally {
+      if (prev == null) delete process.env.RECEIPT_DEMO_IP_MAX_PER_MIN; else process.env.RECEIPT_DEMO_IP_MAX_PER_MIN = prev;
+    }
+  });
+});
