@@ -62,17 +62,48 @@ describe('rebalance after the user edits targets', () => {
   });
 });
 
-describe('buildSimpleWeek', () => {
-  it('is deterministic, 7 days, near the calorie target', () => {
-    const a = T.buildSimpleWeek({ calories: 2400, protein: 160 });
-    expect(a).toEqual(T.buildSimpleWeek({ calories: 2400, protein: 160 }));
-    expect(a.days).toHaveLength(7);
-    for (const d of a.days) expect(Math.abs(d.totals.calories - 2400)).toBeLessThanOrEqual(40);
+describe('the 72 kg example gets a week on target from the #88 builder', () => {
+  const engine = require('./lib/meal-plan-engine');
+  const example = { sex: 'female', age: 34, heightCm: 168, weightKg: 72, activity: 'moderate', goal: 'lose_weight' };
+  const t = T.computeTargets(example);
+
+  it('targets are 1780 kcal and 144 g protein', () => {
+    expect(t).toMatchObject({ calories: 1780, protein: 144 });
   });
-  it('respects a vegan diet', () => {
-    const w = T.buildSimpleWeek({ calories: 2000, protein: 120, diet: ['vegan'] });
-    const names = w.days.flatMap((d) => d.meals.map((m) => m.name)).join(' ');
-    expect(names).not.toMatch(/chicken|beef|salmon|tuna|egg|yoghurt/i);
+
+  it.each([[[]], [['vegetarian']], [['dairy free']], [['gluten free']]])('diet %j: weekly protein and calories within 5%%, every day calories within 5%%', (dietary) => {
+    const plan = engine.buildPlan({ calories: t.calories, protein: t.protein, days: 7, dietary });
+    expect(plan.days).toHaveLength(7);
+    expect(Math.abs(plan.avgDailyProtein - t.protein)).toBeLessThanOrEqual(t.protein * 0.05);
+    expect(Math.abs(plan.avgDailyCalories - t.calories)).toBeLessThanOrEqual(t.calories * 0.05);
+    for (const d of plan.days) expect(Math.abs(d.dailyTotals.calories - t.calories)).toBeLessThanOrEqual(t.calories * 0.05);
+    expect(plan).toEqual(engine.buildPlan({ calories: t.calories, protein: t.protein, days: 7, dietary })); // deterministic
+  });
+
+  it('the week has variety (not one day repeated)', () => {
+    const plan = engine.buildPlan({ calories: t.calories, protein: t.protein, days: 7, dietary: [] });
+    const names = new Set(plan.days.flatMap((d) => Object.values(d.meals).map((m) => m.name)));
+    expect(names.size).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe('POST /api/meal-plan/generate builderOnly', () => {
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'onboarding-test-secret';
+  const request = require('supertest');
+  const jwt = require('jsonwebtoken');
+  it('returns the deterministic plan with no AI call and no consent check', async () => {
+    const aiClient = require('./lib/ai-client');
+    const spy = jest.spyOn(aiClient, 'chatJson');
+    const app = require('./server');
+    const tok = jwt.sign({ userId: '00000000-0000-4000-8000-0000000000aa' }, process.env.JWT_SECRET);
+    const res = await request(app).post('/api/meal-plan/generate').set('Authorization', `Bearer ${tok}`)
+      .send({ builderOnly: true, goal: 'lose_weight', days: 7, calories: 1780, protein: 144, dietary: ['vegetarian'] });
+    expect(res.status).toBe(200);
+    expect(res.body.source).toBe('builder');
+    expect(res.body.plan.days).toHaveLength(7);
+    expect(Math.abs(res.body.plan.avgDailyProtein - 144)).toBeLessThanOrEqual(144 * 0.05);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
@@ -87,8 +118,9 @@ describe('onboarding UI wiring', () => {
   it('only calls the AI plan with recorded consent, otherwise builds the deterministic week', () => {
     const fn = html.slice(html.indexOf('async function onboardBuildWeek'), html.indexOf('// ── GOALS ONBOARDING'));
     expect(fn).toMatch(/aiConsentState\(\) === true/);
-    expect(fn.indexOf('if (!consented) { local(); return; }')).toBeGreaterThan(-1);
-    expect(fn.indexOf('if (!consented)')).toBeLessThan(fn.indexOf("/meal-plan/generate"));
-    expect(fn).toContain('FMTargets.buildSimpleWeek');
+    expect(fn.indexOf('if (!consented) { await local(); return; }')).toBeGreaterThan(-1);
+    expect(fn.indexOf('if (!consented)')).toBeLessThan(fn.indexOf('JSON.stringify({ goal: fitnessGoal'));
+    expect(fn.indexOf('JSON.stringify({ goal: fitnessGoal')).toBeGreaterThan(-1);
+    expect(fn).toContain('builderOnly: true');
   });
 });

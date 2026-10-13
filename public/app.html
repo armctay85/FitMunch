@@ -3325,9 +3325,10 @@ function onboardRenderWeek(plan, note) {
  (plan.days || []).forEach(d => {
  const card = document.createElement('div'); card.style.cssText = 'border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:10px 12px;margin-bottom:8px';
  const h = document.createElement('div'); h.style.cssText = 'font-weight:700;font-size:.85rem;margin-bottom:4px';
- const tot = d.totals || {}; h.textContent = (d.day || '') + (tot.calories ? ` · ${tot.calories} kcal · ${tot.protein}g protein` : '');
+ const tot = d.totals || d.dailyTotals || {}; h.textContent = (d.day || '') + (tot.calories ? ` · ${tot.calories} kcal · ${tot.protein}g protein` : '');
  card.appendChild(h);
- (d.meals || []).forEach(m => { const p = document.createElement('div'); p.style.cssText = 'font-size:.78rem;color:var(--text2);line-height:1.5'; p.textContent = `${m.slot || m.type || ''}: ${m.name}${m.prepMins ? ' · ' + m.prepMins + ' min' : ''}`; card.appendChild(p); });
+ const ms = Array.isArray(d.meals) ? d.meals : Object.entries(d.meals || {}).map(([slot, m]) => ({ slot, ...m }));
+ ms.forEach(m => { const p = document.createElement('div'); p.style.cssText = 'font-size:.78rem;color:var(--text2);line-height:1.5'; p.textContent = `${m.slot || m.type || ''}: ${m.name}${m.prepMins ? ' · ' + m.prepMins + ' min' : ''}`; card.appendChild(p); });
  box.appendChild(card);
  });
 }
@@ -3342,18 +3343,23 @@ async function onboardBuildWeek() {
  S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }
- const diet = OB.diet && OB.diet !== 'none' ? [OB.diet] : [];
- const local = () => onboardRenderWeek(FMTargets.buildSimpleWeek({ calories: r.calories, protein: r.protein, diet }), 'A simple starter week built on your targets, no AI used. Turn on AI in Me, Privacy for a fully personalised plan.');
+ const diet = OB.diet && OB.diet !== 'none' ? [OB.diet.replace('_', ' ')] : [];
+ const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Me, Privacy for AI-written plans.';
+ const local = async () => {
+ const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
+ if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : '')); }
+ else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
+ };
  // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
  let consented = false;
  // aiConsentState() comes with the AI consent flow (#90); until then there is no recorded consent.
  try { consented = typeof aiConsentState === 'function' && aiConsentState() === true; } catch (_) { consented = false; }
  try {
- if (!consented) { local(); return; }
+ if (!consented) { await local(); return; }
  const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
  if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.'); }
- else local();
- } catch (_) { local(); }
+ else await local();
+ } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
  finally { btn.disabled = false; btn.textContent = 'Save and build my week'; onboardStep(3); }
 }
 

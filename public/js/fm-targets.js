@@ -1,5 +1,6 @@
 /*
- * FitMunch daily targets + simple deterministic week.
+ * FitMunch daily targets. The week itself comes from lib/meal-plan-engine
+ * (POST /api/meal-plan/generate, builderOnly without AI consent).
  * Mifflin-St Jeor BMR -> activity multiplier -> goal adjustment -> macros.
  * Shared by the onboarding flow (browser global FMTargets) and tests (CommonJS).
  * No network, no AI.
@@ -72,58 +73,5 @@
     return { calories: c, protein: pr, fat, carbs: Math.max(0, Math.round((c - pr * 4 - fat * 9) / 4)) };
   }
 
-  // Per-serve meals. kcal/protein at 1x. Diet tags: vegetarian, vegan, dairy_free, gluten_free.
-  const MEALS = {
-    breakfast: [
-      { name: 'Oats with Greek yoghurt and berries', kcal: 450, protein: 30, prepMins: 5, tags: ['vegetarian'] },
-      { name: 'Scrambled eggs on toast with spinach', kcal: 420, protein: 28, prepMins: 10, tags: ['vegetarian', 'dairy_free'] },
-      { name: 'Tofu scramble with toast', kcal: 400, protein: 26, prepMins: 10, tags: ['vegetarian', 'vegan', 'dairy_free'] },
-      { name: 'Banana protein smoothie', kcal: 380, protein: 30, prepMins: 5, tags: ['vegetarian', 'gluten_free'] },
-    ],
-    lunch: [
-      { name: 'Chicken, rice and broccoli bowl', kcal: 600, protein: 45, prepMins: 15, tags: ['dairy_free', 'gluten_free'] },
-      { name: 'Tuna and bean salad', kcal: 520, protein: 40, prepMins: 10, tags: ['dairy_free', 'gluten_free'] },
-      { name: 'Lentil and vegetable soup with bread', kcal: 520, protein: 26, prepMins: 20, tags: ['vegetarian', 'vegan', 'dairy_free'] },
-      { name: 'Egg and quinoa salad', kcal: 540, protein: 30, prepMins: 15, tags: ['vegetarian', 'gluten_free', 'dairy_free'] },
-    ],
-    dinner: [
-      { name: 'Beef stir-fry with rice', kcal: 680, protein: 45, prepMins: 20, tags: ['dairy_free'] },
-      { name: 'Salmon, potatoes and greens', kcal: 650, protein: 42, prepMins: 25, tags: ['dairy_free', 'gluten_free'] },
-      { name: 'Chickpea and tofu curry with rice', kcal: 640, protein: 30, prepMins: 25, tags: ['vegetarian', 'vegan', 'dairy_free', 'gluten_free'] },
-      { name: 'Chicken pasta with tomato and spinach', kcal: 680, protein: 48, prepMins: 20, tags: ['dairy_free'] },
-    ],
-    snack: [
-      { name: 'Greek yoghurt and nuts', kcal: 280, protein: 20, prepMins: 2, tags: ['vegetarian', 'gluten_free'] },
-      { name: 'Apple and peanut butter', kcal: 260, protein: 8, prepMins: 2, tags: ['vegetarian', 'vegan', 'dairy_free', 'gluten_free'] },
-      { name: 'Edamame', kcal: 200, protein: 17, prepMins: 5, tags: ['vegetarian', 'vegan', 'dairy_free', 'gluten_free'] },
-    ],
-  };
-  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  /** Deterministic 7-day plan scaled to calorie target, filtered by diet tags. */
-  function buildSimpleWeek({ calories, protein, diet = [] }) {
-    const want = (Array.isArray(diet) ? diet : []).filter((d) => d && d !== 'none');
-    const pick = (slot) => {
-      const ok = MEALS[slot].filter((m) => want.every((d) => m.tags.includes(d)));
-      return ok.length ? ok : MEALS[slot];
-    };
-    const slots = ['breakfast', 'lunch', 'dinner', 'snack'];
-    const days = DAYS.map((day, i) => {
-      const chosen = slots.map((s) => { const list = pick(s); return { slot: s, ...list[i % list.length] }; });
-      const base = chosen.reduce((t, m) => t + m.kcal, 0);
-      const scale = Math.min(2, Math.max(0.6, calories / base));
-      const meals = chosen.map((m) => ({
-        slot: m.slot, name: m.name, prepMins: m.prepMins,
-        serves: Math.round(scale * 4) / 4,
-        calories: Math.round(m.kcal * scale), protein: Math.round(m.protein * scale),
-      }));
-      return {
-        day, meals,
-        totals: { calories: meals.reduce((t, m) => t + m.calories, 0), protein: meals.reduce((t, m) => t + m.protein, 0) },
-      };
-    });
-    return { planName: 'Your first week', source: 'deterministic', targets: { calories, protein }, days };
-  }
-
-  return { ACTIVITY, GOALS, bmr, computeTargets, rebalance, validate, buildSimpleWeek };
+  return { ACTIVITY, GOALS, bmr, computeTargets, rebalance, validate };
 }));
