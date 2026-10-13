@@ -2338,7 +2338,7 @@ function renderShoppingLists(lists, targetId) {
  const el = document.getElementById(targetId);
  if (!el) return;
  if (!lists.length) {
- el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build a supermarket ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
+ el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build the ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
  return;
  }
  el.innerHTML = lists.map(list => `
@@ -2551,7 +2551,7 @@ function renderPortalPlan() {
  <div class="portal-plan-meta">${mealPlan.total_calories||0} calories/day target</div>
  <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('portal-shopping')">🛒 View Shopping List</button></div>
  </div>`;
- } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with common Australian supermarket foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
+ } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
  <div class="portal-plan-name">${workoutPlan.workout_plan_name||'Workout Plan'}</div>
