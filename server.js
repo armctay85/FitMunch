@@ -509,7 +509,10 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
     }
 
     const plan = planForPriceId(priceId);
-    if (!plan) {
+    // Retired plans (pt-starter, pt-pro) still map for existing subscribers
+    // but are not sold: only plans priceIdForPlan allows, or Coach.
+    const sellable = plan && (plan === 'coach-39' || plan === 'coach-79' || priceIdForPlan(plan) === priceId);
+    if (!sellable) {
       return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
     }
 
@@ -723,7 +726,7 @@ app.post('/api/quick-checkout', async (req, res) => {
     // Validate before any Stripe call.
     const priceId = priceIdForPlan(plan);
     if (!priceId) {
-      return res.status(400).json({ success: false, error: 'Unknown plan. Use premium, premium-annual, pt-starter, or pt-pro.' });
+      return res.status(400).json({ success: false, error: 'Unknown plan. Use premium or premium-annual.' });
     }
 
     const { canonicalTrialEmail, trialHistoryForEmail } = require('./lib/trial-guard');
@@ -782,12 +785,6 @@ app.post('/api/checkout', async (req, res) => {
     const requestedPlan = typeof req.body?.plan === 'string' ? req.body.plan : null;
     if (!requestedPlan) {
       return res.status(400).json({ error: 'Plan is required.' });
-    }
-    const isPtPlan = ['pt-starter', 'pt-pro'].includes(requestedPlan);
-    if (isPtPlan && decoded.role !== 'pt') {
-      return res.status(403).json({
-        error: 'PT plans are only available for trainer accounts.'
-      });
     }
     const plan = normalizeCheckoutPlan(requestedPlan, decoded.role);
     // Validate before any Stripe call.

@@ -415,7 +415,7 @@ router.post('/auth/register', async (req, res) => {
     const wantPt =
       req.body.role === 'pt' ||
       req.body.accountType === 'pt' ||
-      ['starter', 'pro', 'pt-starter', 'pt-pro'].includes(req.body.plan) ||
+      ['starter', 'pro'].includes(req.body.plan) ||
       isCoachPlan(req.body.plan);
     if (wantPt) role = 'pt';
     if (req.body.inviteToken) {
