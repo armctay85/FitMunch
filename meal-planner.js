@@ -24,7 +24,7 @@ async function userTier(userId) {
 function requireAuth(req, res, next) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Unauthorised' });
-  try { req.user = require('./lib/jwt-secret').verifyJwt(h.slice(7)); next(); }
+  try { req.user = require('./lib/session-token').verifySessionToken(h.slice(7)); next(); }
   catch { return res.status(401).json({ success: false, error: 'Invalid or expired token' }); }
 }
 

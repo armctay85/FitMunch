@@ -101,3 +101,115 @@ describe('JWT_SECRET unset', () => {
       expect(lib.jwtSecret()).toBe('');
     }));
 });
+
+describe('Elite QA r1 (#105)', () => {
+  const STRONG = 'x'.repeat(16) + 'strong-test-secret-0123456789';
+  const OLD_LONG = OLD_FALLBACKS[1]; // over 32 characters, still refused (deny-list)
+
+  it.each([
+    ['a', 'one character'], ['secret', 'a common default'], ['changeme', 'a common default'],
+    ['x'.repeat(31), '31 characters'], [OLD_LONG, 'the old hard-coded fallback (deny-list)'],
+  ])('M1: JWT_SECRET of %#: %s is refused; health 503; a token forged with it is 401', (value) =>
+    withEnv({ JWT_SECRET: value, NODE_ENV: 'production' }, async () => {
+      expect(lib.jwtSecret()).toBe('');
+      expect(lib.jwtSecretProblem()).toBe('too_short');
+      expect(() => lib.signJwt(payload)).toThrow(/not configured/);
+      const forged = jwt.sign(payload, value);
+      for (const [method, path] of ROUTES) expect((await send(method, path, forged)).status).toBe(401);
+      const health = await request(app).get('/api/health');
+      expect(health.status).toBe(503);
+      if (value.length > 3) expect(health.text).not.toContain(value);
+    }));
+
+  it('M1: a short secret is refused locally too', () =>
+    withEnv({ JWT_SECRET: 'short-local', NODE_ENV: 'development', VERCEL_ENV: undefined }, () => {
+      expect(lib.jwtSecret()).toBe('');
+    }));
+
+  it('M1: a 32+ character secret not on the deny-list works', () =>
+    withEnv({ JWT_SECRET: STRONG, NODE_ENV: 'production' }, async () => {
+      expect(lib.jwtSecretProblem()).toBe('');
+      const t = lib.signJwt(payload);
+      expect(lib.verifyJwt(t).userId).toBe('u-forge');
+    }));
+
+  it('M2: tokens with no userId or with a purpose field are not sessions', async () => {
+    const { verifySessionToken } = require('./lib/session-token');
+    const s = process.env.JWT_SECRET;
+    const bad = [
+      jwt.sign({ name: 'X', role: 'pt' }, s),
+      jwt.sign({ userId: '', role: 'pt' }, s),
+      jwt.sign({ userId: null }, s),
+      jwt.sign({ userId: 'u-1', p: 'verify-email' }, s),
+      jwt.sign({ email: 'a@b.co', purpose: 'verify-email' }, s),
+    ];
+    for (const t of bad) {
+      expect(() => verifySessionToken(t)).toThrow();
+      for (const [method, path] of ROUTES) expect((await send(method, path, t)).status).toBe(401);
+    }
+    expect(() => lib.verifyJwt(bad[0])).toThrow(/no user/);
+  });
+
+  it('M2/M4: every call site uses verifySessionToken with no secret argument', () => {
+    for (const f of ['api_server.js', 'meal-planner.js', 'receipt-scanner.js', 'server.js', 'coach-api.js']) {
+      const src = fs.readFileSync(f, 'utf8');
+      expect([f, /verifySessionToken\([^)]*,/.test(src)]).toEqual([f, false]);
+      expect([f, /jwt\.verify\(|require\('jsonwebtoken'\)/.test(src)]).toEqual([f, false]);
+    }
+    expect(fs.readFileSync('lib/session-token.js', 'utf8')).toMatch(/verifyJwt\(token\)/);
+  });
+
+  it('M3: /api/coach/billing-status gives a valid trainer 200 and refuses a no-userId token', async () => {
+    const { Pool } = require('pg');
+    const spy = jest.spyOn(Pool.prototype, 'query').mockImplementation(async (sql) => {
+      if (/FROM users/i.test(sql)) return { rows: [{ settings: {} }] };
+      if (/FROM pt_clients/i.test(sql)) return { rows: [{ n: 2 }] };
+      return { rows: [] };
+    });
+    try {
+      const ok = await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${lib.signJwt({ userId: 'pt-1', role: 'pt' })}`);
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({ success: true, activeClientCount: 2 });
+      const noUser = jwt.sign({ role: 'pt' }, process.env.JWT_SECRET);
+      expect((await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${noUser}`)).status).toBe(401);
+      const client = lib.signJwt({ userId: 'c-1', role: 'client' });
+      expect((await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${client}`)).status).toBe(403);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('S1: deployed with no secret, verifyJwt throws JWT_SECRET_MISSING', () =>
+    withEnv({ JWT_SECRET: undefined, NODE_ENV: 'production' }, () => {
+      const t = jwt.sign(payload, 'anything-at-all-that-is-long-enough-123');
+      let err;
+      try { lib.verifyJwt(t); } catch (e) { err = e; }
+      expect(err && err.code).toBe('JWT_SECRET_MISSING');
+    }));
+
+  it('S2: login and register give 503, not 500, when the secret is missing', () =>
+    withEnv({ JWT_SECRET: undefined, NODE_ENV: 'production' }, async () => {
+      for (const p of ['/api/auth/login', '/api/auth/register']) {
+        const r = await request(app).post(p).send({ email: 'a@example.com', password: 'Password123!', name: 'A' });
+        expect(r.status).toBe(503);
+        expect(r.body.error).toBe('Sign-in is unavailable right now.');
+      }
+    }));
+
+  it.each([
+    [{ NODE_ENV: undefined, VERCEL_ENV: undefined }, true],
+    [{ NODE_ENV: 'staging', VERCEL_ENV: undefined }, true],
+    [{ NODE_ENV: 'development', VERCEL_ENV: undefined, RAILWAY_ENVIRONMENT: 'production' }, true],
+    [{ NODE_ENV: 'development', VERCEL_ENV: undefined, RENDER: 'true' }, true],
+    [{ NODE_ENV: 'development', VERCEL_ENV: undefined }, false],
+    [{ NODE_ENV: 'test', VERCEL_ENV: undefined }, false],
+  ])('L1: %j counts as deployed: %s', (env, deployed) => {
+    expect(lib.isDeployedEnv({ ...env })).toBe(deployed);
+  });
+
+  it('L1: with no NODE_ENV and no secret, auth fails closed (no random secret)', () =>
+    withEnv({ JWT_SECRET: undefined, NODE_ENV: undefined, VERCEL_ENV: undefined }, () => {
+      expect(lib.jwtSecret()).toBe('');
+      expect(lib.jwtSecretProblem()).toBe('missing');
+    }));
+});

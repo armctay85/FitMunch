@@ -616,7 +616,7 @@ function requireAuthUser(req) {
     throw err;
   }
   try {
-    return require('./lib/jwt-secret').verifyJwt(authHeader.slice(7));
+    return require('./lib/session-token').verifySessionToken(authHeader.slice(7));
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       const authErr = new Error('Authentication required.');
@@ -1103,7 +1103,7 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const authHeader = req.headers['authorization'];
     if (!authHeader?.startsWith('Bearer '))
       return res.status(401).json({ success: false, error: 'Authentication required.' });
-    const decoded = require('./lib/jwt-secret').verifyJwt(authHeader.slice(7));
+    const decoded = require('./lib/session-token').verifySessionToken(authHeader.slice(7));
 
     const { getUserById, updateUserSubscription, updateUserCoachBilling, effectiveTier } = require('./server/storage.js');
     const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
@@ -1295,7 +1295,7 @@ app.use((req, res, next) => {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
       const token = authHeader.slice(7);
-      const decoded = require('./lib/jwt-secret').verifyJwt(token);
+      const decoded = require('./lib/session-token').verifySessionToken(token);
       req.user = { id: decoded.userId, name: decoded.name };
     } catch (e) {
       req.user = null;
