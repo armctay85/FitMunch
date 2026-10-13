@@ -35,6 +35,10 @@ describe('no store names on marketing pages', () => {
     expect(src).not.toMatch(/SupermarketAPI|mockPrices/);
   });
 
+  it('the dead supermarket_api.js mock is gone', () => {
+    expect(fs.existsSync(path.join(__dirname, 'supermarket_api.js'))).toBe(false);
+  });
+
   it('food-db keeps its national brands', () => {
     const { FOODS } = require('./food-db');
     const names = FOODS.map((f) => f.name).join('\n');
