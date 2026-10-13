@@ -290,8 +290,18 @@ router.get('/scan', (_req, res) => res.json({
   seeAlso: 'POST /api/receipt/first-scan for a no-account first haul. GET /api/receipt/sample for a smoke test',
 }));
 
+const GUEST_CONSENT_ERROR = 'Tap "Allow and scan" to send your receipt photo to our AI provider to read the items.';
+/** No account means no saved choice: the guest must allow this upload explicitly, every time. */
+function guestAllowedAi(req) {
+  const v = req.body && req.body.aiConsent;
+  return v === true || v === 'true';
+}
+
 router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (req, res) => {
   try {
+    if (!guestAllowedAi(req)) {
+      return res.status(403).json({ success: false, code: 'ai_consent_required', error: GUEST_CONSENT_ERROR });
+    }
     const image = extractImage(req);
     if (!image) {
       return res.status(400).json({ success: false, error: core.publicGuestError('no_image') });

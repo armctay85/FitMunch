@@ -724,14 +724,51 @@ router.get('/auth/me', async (req, res) => {
 });
 
 // GET /api/auth/export — JSON download of the caller's own data.
-const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites'];
+// Every table that holds the caller's data, scoped by the JWT user id only.
+// Rows are read in pages until done, so nothing is cut off.
+const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites', 'achievements', 'analytics_events'];
+const EXPORT_QUERIES = [
+  ...EXPORT_TABLES.map((t) => ({ key: t, from: t, where: 'user_id=$1', order: 'id' })),
+  { key: 'ai_usage', from: 'ai_usage_monthly', where: 'user_id=$1::text', order: 'month, feature' },
+  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'plan_assignments', from: 'plan_assignments', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'id' },
+];
+const EXPORT_PAGE_ROWS = 1000;
+async function exportAllRows(q, userId) {
+  const rows = [];
+  for (let offset = 0; ; offset += EXPORT_PAGE_ROWS) {
+    const r = await _pool.query(
+      `SELECT * FROM ${q.from} WHERE ${q.where} ORDER BY ${q.order} LIMIT ${EXPORT_PAGE_ROWS} OFFSET $2`,
+      [userId, offset]
+    );
+    const page = r.rows || [];
+    rows.push(...page.map(exportRow));
+    if (page.length < EXPORT_PAGE_ROWS) return rows;
+  }
+}
+const exportLimiter = (req, res, next) => {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  hitRateCounter('data-export-user-hour', String(req.user.userId), { windowMs: 60 * 60 * 1000, failClosed: true })
+    .then((hits) => {
+      if (hits > 5) {
+        res.set('Retry-After', '3600');
+        return res.status(429).json({ success: false, error: 'You can download your data 5 times an hour.' });
+      }
+      return next();
+    })
+    .catch(() => {
+      res.set('Retry-After', '60');
+      res.status(503).json({ success: false, error: 'Service busy. Please try again shortly.' });
+    });
+};
 const EXPORT_SECRET_COL = /password|token|secret|hash|stripe/i;
 function exportRow(row) {
   const out = {};
   for (const [k, v] of Object.entries(row || {})) if (!EXPORT_SECRET_COL.test(k)) out[k] = v;
   return out;
 }
-router.get('/auth/export', authMiddleware, async (req, res) => {
+router.get('/auth/export', authMiddleware, exportLimiter, async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await getUserById(userId);
@@ -749,12 +786,14 @@ router.get('/auth/export', authMiddleware, async (req, res) => {
       },
       profile: exportRow(await getProfile(userId).catch(() => null)),
     };
-    for (const t of EXPORT_TABLES) {
+    for (const q of EXPORT_QUERIES) {
       try {
-        const r = await _pool.query(`SELECT * FROM ${t} WHERE user_id=$1 ORDER BY 1 LIMIT 5000`, [userId]);
-        data[t] = (r.rows || []).map(exportRow);
+        data[q.key] = await exportAllRows(q, userId);
       } catch (_) {
-        data[t] = [];
+        // Never hand over a partial file as if it were complete.
+        console.error('[export] table read failed:', q.key);
+        res.set('Cache-Control', 'no-store');
+        return res.status(500).json({ success: false, error: 'Could not prepare your full data export. Please try again.' });
       }
     }
     res.set('Cache-Control', 'no-store');

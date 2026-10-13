@@ -15,6 +15,10 @@ Workflow: `.github/workflows/prod-smoke.yml`. Logs in as the smoke account, send
 - Deploy smokes share `fitmunch-production-smoke-deploy`; schedule and dispatch share `fitmunch-production-smoke-periodic`. Both cancel in progress, so only the latest run in each group finishes, and a periodic run never cancels a deploy smoke.
 - The issue job has its own group and is never cancelled.
 
+## AI consent step
+
+AI routes refuse an account that has not allowed AI features (403 `ai_consent_required`). After login, if the account's `aiDataConsent` is not `true`, the smoke posts `{"allowed": true}` to `/api/auth/ai-consent`. If that does not return 200 with `aiDataConsent: true`, the run stops with `FAIL consent POST failed` and exits 1, so a consent problem is never reported as a Coach failure.
+
 ## Smoke cap
 
 The smoke account has a daily AI cap (`SMOKE_DAILY_AI_CAP`, default 30, max 100, Sydney day). A call is only charged when the provider answers; failed calls are refunded.

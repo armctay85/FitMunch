@@ -5,6 +5,7 @@ module.exports = {
   testMatch: [
     '**/test_app.js',
     '**/test_privacy_export.js',
+    '**/test_ai_consent_routes.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',
     '**/test_smoke_exempt_routes.js',

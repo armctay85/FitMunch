@@ -302,6 +302,15 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .metrics-row{grid-template-columns:repeat(2,1fr) !important}
  .topnav{padding:0 12px}
 }
+/* Privacy and AI consent modals: above onboarding, 44px targets, a real switch. */
+#modal-ai-consent{z-index:400}
+#modal-ai-consent .btn,#modal-privacy .btn,#modal-privacy .modal-close{min-height:44px;min-width:44px}
+.privacy-switch-row{display:flex;gap:12px;align-items:flex-start;font-size:.88rem;cursor:pointer;min-height:44px;padding:4px 0}
+.fm-switch{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:48px;height:28px;margin:8px 0;border-radius:14px;background:#6b7a72;position:relative;cursor:pointer;transition:background .15s}
+.fm-switch::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+.fm-switch:checked{background:#15803d}
+.fm-switch:checked::after{transform:translateX(20px)}
+.fm-switch:focus-visible{outline:2px solid #166534;outline-offset:2px}
 html:not(.fm-authed) .topnav,
 html:not(.fm-authed) .shell,
 html:not(.fm-authed) .mobile-nav,
@@ -1258,9 +1267,9 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-privacy" onclick="closeOnOverlay(event)">
  <div class="modal" role="dialog" aria-labelledby="privacy-title">
  <div class="modal-title" id="privacy-title">Privacy<button class="modal-close" onclick="closeModal('modal-privacy')" aria-label="Close">✕</button></div>
- <label style="display:flex;gap:10px;align-items:flex-start;font-size:.88rem;cursor:pointer"><input type="checkbox" id="privacy-ai-toggle" onchange="setAiConsent(this.checked)" style="margin-top:3px"/><span><b>AI features</b><br><span style="color:var(--text2);font-size:.8rem">Coach, meal plans, workout plans, reviews and receipt scans. When off, nothing is sent to an AI provider and the rest of FitMunch keeps working.</span></span></label>
+ <label class="privacy-switch-row"><input type="checkbox" role="switch" class="fm-switch" id="privacy-ai-toggle" onchange="setAiConsent(this.checked)" aria-describedby="privacy-ai-desc"/><span><b>AI features</b><br><span id="privacy-ai-desc" style="color:var(--text2);font-size:.8rem">Coach, meal plans, workout plans, reviews and receipt scans. When off, nothing is sent to an AI provider and the rest of FitMunch keeps working.</span></span></label>
  <div style="border-top:1px solid var(--line);margin:16px 0"></div>
- <div style="font-size:.88rem"><b>Your data</b><br><span style="color:var(--text2);font-size:.8rem">Download your account, profile, food and workout logs, progress, plans, shopping lists and favourites as a JSON file.</span></div>
+ <div style="font-size:.88rem"><b>Your data</b><br><span style="color:var(--text2);font-size:.8rem">Download your account, profile, logs, progress, plans, shopping lists, favourites, achievements, activity, AI usage counts and trainer links as a JSON file. Up to 5 times an hour.</span></div>
  <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-ghost2" id="privacy-export-btn" onclick="downloadMyData()">Download my data</button></div>
  </div>
 </div>
@@ -1589,9 +1598,19 @@ async function setAiConsent(allowed) {
 function askAiConsent() {
  return new Promise((resolve) => {
  const yes = document.getElementById('ai-consent-yes'), no = document.getElementById('ai-consent-no');
- const done = async (allow) => { yes.onclick = no.onclick = null; closeModal('modal-ai-consent'); resolve(allow ? await setAiConsent(true) : false); };
+ const overlay = document.getElementById('modal-ai-consent');
+ // Esc and a tap outside the box both mean "Not now".
+ const onKey = (e) => { if (e.key === 'Escape') done(false); };
+ const done = async (allow) => {
+ yes.onclick = no.onclick = overlay.onclick = null; document.removeEventListener('keydown', onKey);
+ closeModal('modal-ai-consent'); resolve(allow ? await setAiConsent(true) : false);
+ };
  yes.onclick = () => done(true); no.onclick = () => done(false);
+ overlay.onclick = (e) => { if (e.target === overlay) done(false); };
+ document.addEventListener('keydown', onKey);
+ if (typeof closeModal === 'function') closeModal('modal-goals');
  openModal('modal-ai-consent');
+ setTimeout(() => yes.focus(), 50);
  });
 }
 async function ensureAiConsent() {

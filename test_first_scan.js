@@ -58,7 +58,7 @@ describe('POST /api/receipt/first-scan', () => {
   });
 
   it('refuses a missing photo without leaking internals', async () => {
-    const res = await request(app).post('/api/receipt/first-scan').expect(400);
+    const res = await request(app).post('/api/receipt/first-scan').field('aiConsent', 'true').expect(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toBe(core.GUEST_NO_IMAGE);
     expect(JSON.stringify(res.body)).not.toMatch(/GEMINI|JWT|setup|vercel/i);
@@ -71,7 +71,7 @@ describe('POST /api/receipt/first-scan', () => {
     }));
 
     const res = await request(app)
-      .post('/api/receipt/first-scan')
+      .post('/api/receipt/first-scan').field('aiConsent', 'true')
       .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
       .expect(200);
 
@@ -99,7 +99,7 @@ describe('POST /api/receipt/first-scan', () => {
     }));
 
     const res = await request(app)
-      .post('/api/receipt/first-scan')
+      .post('/api/receipt/first-scan').field('aiConsent', 'true')
       .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
       .expect(503);
 
@@ -118,7 +118,7 @@ describe('POST /api/receipt/first-scan', () => {
     }));
 
     const res = await request(app)
-      .post('/api/receipt/first-scan')
+      .post('/api/receipt/first-scan').field('aiConsent', 'true')
       .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
       .expect(422);
 
