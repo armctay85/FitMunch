@@ -29,7 +29,7 @@ const {
   schema,
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
-const { isBlocked, choiceFromSettings } = require('./lib/ai-data-consent');
+const { consentResponse, choiceFromSettings } = require('./lib/ai-data-consent');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -723,6 +723,49 @@ router.get('/auth/me', async (req, res) => {
   }
 });
 
+// GET /api/auth/export — JSON download of the caller's own data.
+const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites'];
+const EXPORT_SECRET_COL = /password|token|secret|hash|stripe/i;
+function exportRow(row) {
+  const out = {};
+  for (const [k, v] of Object.entries(row || {})) if (!EXPORT_SECRET_COL.test(k)) out[k] = v;
+  return out;
+}
+router.get('/auth/export', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await getUserById(userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+    const consent = choiceFromSettings(user.settings);
+    const data = {
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        subscriptionTier: effectiveTier(user),
+        createdAt: user.createdAt || null,
+        aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
+      },
+      profile: exportRow(await getProfile(userId).catch(() => null)),
+    };
+    for (const t of EXPORT_TABLES) {
+      try {
+        const r = await _pool.query(`SELECT * FROM ${t} WHERE user_id=$1 ORDER BY 1 LIMIT 5000`, [userId]);
+        data[t] = (r.rows || []).map(exportRow);
+      } catch (_) {
+        data[t] = [];
+      }
+    }
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Type', 'application/json; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="fitmunch-export-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.send(JSON.stringify(data, null, 2));
+  } catch (err) {
+    sendApiError(res, err);
+  }
+});
+
 // POST /api/auth/ai-consent — one account choice for Coach, receipt scan, and meal plans.
 router.post('/auth/ai-consent', authMiddleware, async (req, res) => {
   try {
@@ -1171,12 +1214,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
     } catch (_) {
       return res.status(503).json({
@@ -1278,12 +1317,8 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {
@@ -1432,12 +1467,8 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     let tier = 'free';
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
     } catch (_) {
       return res.status(503).json({
@@ -1515,12 +1546,8 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     let profile = null;
     try {
       const user = await getUserById(req.user.userId);
-      if (isBlocked(user && user.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(user && user.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => null);
     } catch (_) {

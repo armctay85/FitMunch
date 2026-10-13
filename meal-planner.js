@@ -152,16 +152,12 @@ Return ONLY valid JSON with NO markdown, NO explanation, just the JSON object:
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
-    const { isBlocked } = require('./lib/ai-data-consent');
+    const { consentResponse } = require('./lib/ai-data-consent');
     const { getUserById } = require('./server/storage.js');
     try {
       const account = await getUserById(req.user.userId);
-      if (isBlocked(account && account.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(account && account.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
     } catch (_) {
       return res.status(503).json({
         success: false,

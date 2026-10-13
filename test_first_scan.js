@@ -142,7 +142,7 @@ describe('POST /api/receipt/scan server errors', () => {
     process.env.GEMINI_API_KEY = 'test-key';
     const token = jwt.sign({ userId: 'u-scan' }, process.env.JWT_SECRET);
     const sql = 'Failed query: insert into "ai_usage" params: secret-scan-param';
-    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free' });
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     receiptRouter._setVisionForTests(async () => ({
       ok: true,
       text: JSON.stringify(REAL_HAUL),
@@ -190,7 +190,7 @@ describe('POST /api/receipt/scan read failure', () => {
       code: 'unavailable',
       error: 'vision_failed GEMINI_API_KEY credit balance is too low',
     }));
-    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: {} });
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
     const info = jest.spyOn(console, 'info').mockImplementation(() => {});
 
@@ -221,7 +221,7 @@ describe('POST /api/receipt/scan read failure', () => {
       ok: true,
       text: 'No grocery lines in this photo.',
     }));
-    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: {} });
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
 
     const res = await request(app)
@@ -244,7 +244,7 @@ describe('POST /api/receipt/scan read failure', () => {
       ok: true,
       text: JSON.stringify(REAL_HAUL),
     }));
-    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'premium', settings: {} });
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'premium', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume').mockResolvedValue({ allowed: true, remaining: null });
 
     const res = await request(app)
@@ -298,7 +298,7 @@ describe('POST /api/receipt/scan read failure', () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.XAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
-    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: {} });
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
     try {
       const res = await request(app)

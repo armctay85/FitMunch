@@ -67,6 +67,15 @@ if (login.status !== 200 || !login.json || login.json.success !== true || !token
 }
 result.login = { ok: true, status: 200 };
 
+// AI routes need an explicit Allow on the account. Idempotent.
+if (login.json.user && login.json.user.aiDataConsent !== true) {
+  await requestJson(`${base}/api/auth/ai-consent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ allowed: true }),
+  });
+}
+
 const coach = await requestJson(`${base}/api/ai/chat`, {
   method: 'POST',
   headers: {
