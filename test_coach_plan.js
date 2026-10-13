@@ -300,7 +300,7 @@ describe('Coach plan HTTP', () => {
     expect(read('lib/coach-plan.js')).not.toMatch(/require\(['"]stripe['"]\)/);
     expect(read('coach-api.js')).not.toMatch(/require\(['"]stripe['"]\)/);
     const home = await request(app).get('/').expect(200);
-    expect(home.text).toContain('<h1>AI meal plans, with the shopping list to match.</h1>');
+    expect(home.text).toContain('<h1>Your week of meals, planned to your macros.</h1>');
     const shopper = await request(app).get('/shopper').expect(200);
     expect(shopper.text).toContain('$19.99 a month');
   });

@@ -125,7 +125,7 @@ describe('FitMunch Coach landers', () => {
 
   it('does not retitle the homepage or reprice the consumer plan', () => {
     const home = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-    expect(home).toContain('<h1>AI meal plans, with the shopping list to match.</h1>');
+    expect(home).toContain('<h1>Your week of meals, planned to your macros.</h1>');
     expect(home).toContain('$19.99');
     const shopper = fs.readFileSync(path.join(__dirname, 'public', 'shopper.html'), 'utf8');
     expect(shopper).toContain('$19.99');

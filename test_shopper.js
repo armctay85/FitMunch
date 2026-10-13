@@ -107,7 +107,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(css).toMatch(/\.sp-day\{[\s\S]*?background:#04100a/);
     expect(css).toMatch(/\.sp-day b\{[\s\S]*?color:#7dffa3/);
     expect(css).toMatch(/\.sp-day span\{[\s\S]*?color:#f4f7f4/);
-    expect(read('public/index.html')).toContain('AI meal plans, with the shopping list to match.');
+    expect(read('public/index.html')).toContain('Your week of meals, planned to your macros.');
   });
 
   it('first fold wraps seven day chips and keeps CTAs inside a 390 viewport', () => {
@@ -127,7 +127,7 @@ describe('Fitness Butler shopper HTTP', () => {
     expect(html).toContain('Draft trolley. You check out at the store. We do not pay any supermarket for you. Prices vary by store and week.');
     expect(html).not.toContain('No Apple Watch. No HealthKit.');
     expect(html).not.toMatch(/fm-groceries/);
-    expect(read('public/index.html')).toContain('AI meal plans, with the shopping list to match.');
+    expect(read('public/index.html')).toContain('Your week of meals, planned to your macros.');
   });
 
   it('aliases land on the shopper surface', async () => {
