@@ -1124,10 +1124,6 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
   }
 });
 
-// Endpoint to complete subscription after payment success
-// /api/complete-subscription removed: unauthenticated, unused, and it returned
-// the full Stripe customer (email, address) to anyone holding a session id.
-
 // Endpoint to create or get Stripe customer
 // Authed only. Creates or returns the Stripe customer for the logged-in user's
 // own account. Client-supplied email, name and metadata are ignored.
@@ -1164,6 +1160,9 @@ app.post('/api/stripe/customers', stripeCustomersIpLimiter, stripeCustomersUserL
       return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
     return sendApiError(res, e, 'Stripe customer error');
+  }
+  if (!decoded || decoded.userId == null || decoded.userId === '') {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
   }
   if (!stripe) {
     return res.status(503).json({ success: false, message: 'Stripe is not configured' });
