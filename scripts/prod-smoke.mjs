@@ -67,6 +67,25 @@ if (login.status !== 200 || !login.json || login.json.success !== true || !token
 }
 result.login = { ok: true, status: 200 };
 
+// AI routes need an explicit Allow on the account. Idempotent. If the Allow
+// cannot be saved, fail here with a clear reason instead of a Coach 403 later.
+if (!login.json.user || login.json.user.aiDataConsent !== true) {
+  const consent = await requestJson(`${base}/api/auth/ai-consent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ allowed: true }),
+  });
+  if (consent.status !== 200 || !consent.json || consent.json.aiDataConsent !== true) {
+    result.consent = { ok: false, status: consent.status };
+    result.coach = { ok: false, status: null, reason: 'skipped after consent' };
+    result.scan = { ok: false, status: null, reason: 'skipped after consent' };
+    writeResult(result);
+    console.error(`FAIL consent POST failed status=${consent.status == null ? 'none' : consent.status}`);
+    process.exit(1);
+  }
+  result.consent = { ok: true, status: 200 };
+}
+
 const coach = await requestJson(`${base}/api/ai/chat`, {
   method: 'POST',
   headers: {
