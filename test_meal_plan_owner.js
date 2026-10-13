@@ -63,7 +63,7 @@ const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
 const app = express();
 app.use(express.json());
 app.use('/api', require('./api_server'));

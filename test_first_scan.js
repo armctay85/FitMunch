@@ -138,7 +138,7 @@ describe('POST /api/receipt/scan server errors', () => {
   it('returns friendly copy and keeps the failure off the response', async () => {
     const previousJwt = process.env.JWT_SECRET;
     const previousGemini = process.env.GEMINI_API_KEY;
-    process.env.JWT_SECRET = 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = 'jest-only-session-secret-0123456789abcdef';
     process.env.GEMINI_API_KEY = 'test-key';
     const token = jwt.sign({ userId: 'u-scan' }, process.env.JWT_SECRET);
     const sql = 'Failed query: insert into "ai_usage" params: secret-scan-param';
@@ -179,7 +179,7 @@ describe('POST /api/receipt/scan read failure', () => {
   });
 
   function authToken() {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
     return jwt.sign({ userId: 'u-scan-fail' }, process.env.JWT_SECRET);
   }
 
@@ -329,7 +329,7 @@ describe('GET /api/receipt index', () => {
   });
 
   it('requires a signed-in account', async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
     const token = jwt.sign({ userId: 'u-index' }, process.env.JWT_SECRET);
     const res = await request(app)
       .get('/api/receipt')

@@ -85,7 +85,7 @@ const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
 const token = jwt.sign({ userId: 'u-test', name: 'Tester' }, JWT_SECRET);
 
 function makeApp() {
@@ -325,7 +325,7 @@ describe('AI routes', () => {
   });
 
   it('POST /api/meal-plan/generate returns 503 when the account lookup throws', async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
     const planToken = jwt.sign({ userId: 'u-test' }, process.env.JWT_SECRET);
     const planApp = express();
     planApp.use(express.json());

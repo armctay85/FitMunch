@@ -151,7 +151,7 @@ describe('generatePlan: AI, one retry, then the builder, inside a time budget', 
 });
 
 describe('POST /api/meal-plan/generate', () => {
-  process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
   const token = jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET);
   const app = express();
   app.use(express.json());
@@ -238,7 +238,7 @@ describe('shopping list aggregation', () => {
   });
 
   it('POST /api/meal-plan/shopping returns the combined list for a plan', async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
     const token = jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET);
     const app = express();
     app.use(express.json());
@@ -292,7 +292,7 @@ describe('Elite QA #88 r1 fixes', () => {
   });
 
   it('S2: a builder plan is disclosed and the AI credit is refunded', async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
     const app = express();
     app.use(express.json());
     app.use('/api/meal-plan', require('./meal-planner'));
