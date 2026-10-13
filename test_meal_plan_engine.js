@@ -391,6 +391,9 @@ describe('Elite QA #88 r1 fixes', () => {
   it('M3: no store names, prices or budget figures in the plan, prompt or list', async () => {
     const src = fs.readFileSync('meal-planner.js', 'utf8');
     expect(src).not.toMatch(/woolworths|coles|woolies|price:|weeklyBudgetEst|grocery budget|AUD|\$\{budget\}/i);
+    const coachPrompts = fs.readFileSync('api_server.js', 'utf8').match(/nutrition: '[^']*'/g) || [];
+    expect(coachPrompts.length).toBeGreaterThan(0);
+    for (const p of coachPrompts) expect(p).not.toMatch(/woolworths|coles|woolies|aldi|\biga\b|costco/i);
     const app = fs.readFileSync('public/app.html', 'utf8');
     expect(app).not.toMatch(/wooliesUrl|colesUrl|weeklyBudgetEst|Est\. Budget/);
     const p = aiPlan([500, 550, 700, 300]);
