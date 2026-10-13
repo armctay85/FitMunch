@@ -5,6 +5,7 @@ module.exports = {
   testMatch: [
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
+    '**/test_item_name_case.js',
     '**/test_app.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',
