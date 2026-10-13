@@ -6,6 +6,8 @@ module.exports = {
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
     '**/test_app.js',
+    '**/test_coach_context.js',
+
     '**/test_privacy_export.js',
     '**/test_ai_consent_routes.js',
 

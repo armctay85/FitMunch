@@ -1543,6 +1543,73 @@ function chatIntentPrompt(intent) {
   'If the user asks something unsafe or clearly medical, recommend they speak to a GP or dietitian.',
 ].join(' ');
 
+// 8 exchanges (user + assistant), earlier turns trimmed; the newest message keeps up to 4,000 chars.
+const CHAT_HISTORY_MESSAGES = 16;
+const CHAT_TURN_CHARS = 1200;
+const CHAT_LATEST_CHARS = 4000;
+const CHAT_MAX_TOKENS = 350;
+const CHAT_BUDGET_MS = 12000;
+const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', maintain: 'maintain weight', general_fitness: 'general fitness' };
+const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
+const listOf = (v) => {
+  let x = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+  return Array.isArray(x) ? x.map((s) => String(s).trim()).filter(Boolean).slice(0, 6) : [];
+};
+
+/**
+ * The plan Coach should talk about, scoped to the JWT user only:
+ * 1. an active meal plan a trainer assigned to this user;
+ * 2. else this user's own plan, active first then newest, skipping plans this
+ *    user built for and assigned to clients.
+ */
+const COACH_ASSIGNED_PLAN_SQL = `SELECT mp.name, mp.meals FROM plan_assignments pa JOIN meal_plans mp ON mp.id = pa.plan_id
+ WHERE pa.client_id = $1 AND pa.active = TRUE AND pa.plan_type = 'meal' ORDER BY pa.assigned_at DESC LIMIT 1`;
+const COACH_OWN_PLAN_SQL = `SELECT mp.name, mp.meals FROM meal_plans mp WHERE mp.user_id = $1
+ AND NOT EXISTS (SELECT 1 FROM plan_assignments pa WHERE pa.plan_id = mp.id AND pa.pt_id = $1 AND pa.plan_type = 'meal')
+ ORDER BY mp.is_active DESC NULLS LAST, mp.created_at DESC LIMIT 1`;
+async function coachPlanFor(userId) {
+  const assigned = await _pool.query(COACH_ASSIGNED_PLAN_SQL, [userId]).catch(() => null);
+  if (assigned && assigned.rows && assigned.rows[0]) return assigned.rows[0];
+  const own = await _pool.query(COACH_OWN_PLAN_SQL, [userId]);
+  return own && own.rows && own.rows[0];
+}
+
+/** Compact personal context for Coach. Never includes email or ids. */
+async function buildCoachContext(userId, profile, context = {}) {
+  const p = profile || {};
+  const ctx = context && typeof context === 'object' ? context : {};
+  const lines = [];
+  const body = [num(p.age) && `${num(p.age)} y`, p.gender && String(p.gender).slice(0, 20), num(p.weight) && `${num(p.weight)} kg`, num(p.height) && `${num(p.height)} cm`].filter(Boolean);
+  if (body.length) lines.push(`Body: ${body.join(', ')}`);
+  const goal = p.fitnessGoal || p.goal;
+  if (goal) lines.push(`Goal: ${GOAL_LABELS[goal] || String(goal).slice(0, 60)}`);
+  if (p.activityLevel) lines.push(`Activity: ${String(p.activityLevel).slice(0, 40)}`);
+  const kcal = num(p.targetCalories) || num(ctx.targetCalories);
+  const prot = num(p.targetProtein) || num(ctx.targetProtein);
+  const t = [kcal && `${kcal} kcal`, prot && `${prot} g protein`, num(p.targetCarbs) && `${num(p.targetCarbs)} g carbs`, num(p.targetFat) && `${num(p.targetFat)} g fat`].filter(Boolean);
+  if (t.length) lines.push(`Daily targets: ${t.join(', ')}`);
+  const diet = listOf(p.dietaryPreferences);
+  if (diet.length) lines.push(`Diet: ${diet.join(', ')}`);
+  const allergies = listOf(p.allergies);
+  if (allergies.length) lines.push(`Allergies: ${allergies.join(', ')}`);
+  if (Number.isFinite(Number(ctx.todayCalories))) {
+    lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
+  }
+  if (num(ctx.streak)) lines.push(`Logging streak: ${num(ctx.streak)} days`);
+  try {
+    const plan = await coachPlanFor(userId);
+    if (plan) {
+      let meals = plan.meals;
+      if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { meals = null; } }
+      const days = meals && Array.isArray(meals.days) ? meals.days : [];
+      const first = days[0] && days[0].meals ? Object.values(days[0].meals).map((m) => m && (m.name || m.title)).filter(Boolean).slice(0, 4) : [];
+      lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
+    }
+  } catch (_) { /* plan context is optional */ }
+  return lines.join('\n');
+}
+
 router.post('/ai/chat', authMiddleware, async (req, res) => {
   try {
     if (!aiClient.hasProvider()) {
@@ -1574,13 +1641,16 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const textOf = (c) => (Array.isArray(c)
       ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
       : String(c ?? '')).trim();
+    // Smaller context = faster first token. Blanks are dropped first, then the
+    // last 16 messages kept; earlier turns are cut to 1,200 chars, the newest to 4,000.
     const safeMessages = (Array.isArray(messages) ? messages : [])
-      .slice(-20)
       .map((m) => ({
         role: m && m.role === 'assistant' ? 'assistant' : 'user',
-        content: textOf(m && m.content).slice(0, 4000),
+        content: textOf(m && m.content),
       }))
-      .filter((m) => m.content.length);
+      .filter((m) => m.content.length)
+      .slice(-CHAT_HISTORY_MESSAGES)
+      .map((m, i, a) => ({ ...m, content: m.content.slice(0, i === a.length - 1 ? CHAT_LATEST_CHARS : CHAT_TURN_CHARS) }));
 
     // Validate before any credit is charged: there must be a user message.
     if (!safeMessages.some((m) => m.role === 'user')) {
@@ -1606,30 +1676,20 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     aiUsage.refundSmokeOnFailure(gate, res);
 
 
-    // Profile + client-supplied context block appended as a system addendum.
-    const profileBits = [
-      profile?.age ? `Age: ${profile.age}` : '',
-      profile?.weight ? `Weight: ${profile.weight}kg` : '',
-      profile?.height ? `Height: ${profile.height}cm` : '',
-      profile?.goal ? `Goal: ${profile.goal}` : '',
-      profile?.dietary_preferences ? `Dietary: ${profile.dietary_preferences}` : '',
-      context?.targetCalories ? `Target calories: ${context.targetCalories}` : '',
-      context?.targetProtein ? `Target protein: ${context.targetProtein}g` : '',
-      context?.todayCalories !== undefined ? `Today calories: ${context.todayCalories}` : '',
-      context?.todayProtein !== undefined ? `Today protein: ${context.todayProtein}g` : '',
-      context?.streak ? `Streak: ${context.streak} days` : '',
-    ].filter(Boolean).join('\n');
-
-    const finalSystem = profileBits
-      ? `${system}\n\n--- User Context ---\n${profileBits}`
+    // Personal context from the account itself (profile, targets, latest plan,
+    // today's log), not just what the browser sends. Compact, one line each.
+    const personal = await buildCoachContext(req.user.userId, profile, context).catch(() => '');
+    const finalSystem = personal
+      ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
       : system;
 
     const r = await aiClient.chat({
       system: finalSystem,
       messages: safeMessages,
-      maxTokens: 500,
-      temperature: 0.7,
+      maxTokens: CHAT_MAX_TOKENS,
+      temperature: 0.6,
       route: '/ai/chat',
+      budgetMs: CHAT_BUDGET_MS,
     });
 
     if (!r.ok && r.error === 'no_user_message') {
