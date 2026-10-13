@@ -215,8 +215,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(fold).toContain('class="trial-bar"');
     expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then A$19.99 a month');
     expect(fold).toContain('Card on file');
-    expect(hero).toContain('Your body wrote the trolley.');
-    expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
+    expect(hero).toContain('AI meal plans, with the shopping list to match.');
+    expect(hero).toContain('Tell FitMunch your goal. It plans a week of meals and training to your calorie and protein targets, writes the shopping list, and scores what you bought from a receipt photo.');
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/login.html?plan=premium#register"');
     expect(hero).not.toContain('href="/pricing"');
