@@ -25,7 +25,7 @@ async function userTier(userId) {
 function requireAuth(req, res, next) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Unauthorised' });
-  try { req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production'); next(); }
+  try { req.user = require('./lib/session-token').verifySessionToken(h.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production'); next(); }
   catch { return res.status(401).json({ success: false, error: 'Invalid or expired token' }); }
 }
 
@@ -106,25 +106,22 @@ router.post('/generate', requireAuth, async (req, res) => {
     return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder' });
   }
   try {
-    const { isBlocked } = require('./lib/ai-data-consent');
-    const { getUserById } = require('./server/storage.js');
-    try {
-      const account = await getUserById(req.user.userId);
-      if (isBlocked(account && account.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
-    } catch (_) {
-      return res.status(503).json({
-        success: false,
-        error: "We couldn't check your AI settings. Please try again.",
-      });
-    }
-
     let gate = null;
     if (aiClient.hasProvider()) {
+      // The AI branch needs the account's explicit Allow. The food-database
+      // builder sends nothing to an AI provider, so it needs no consent.
+      const { consentResponse } = require('./lib/ai-data-consent');
+      const { getUserById } = require('./server/storage.js');
+      try {
+        const account = await getUserById(req.user.userId);
+        const denied = consentResponse(account && account.settings);
+        if (denied) return res.status(denied.status).json(denied.body);
+      } catch (_) {
+        return res.status(503).json({
+          success: false,
+          error: "We couldn't check your AI settings. Please try again.",
+        });
+      }
       // Free-tier gating — plan generation is a heavyweight AI call.
       const tier = await userTier(req.user.userId);
       gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
