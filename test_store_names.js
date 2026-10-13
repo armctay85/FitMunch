@@ -146,7 +146,6 @@ describe('PR 76 r2 copy fixes', () => {
     expect(pt).toMatch(/<dt>Can the same plan work at a different supermarket\?<\/dt>\s*<dd>Yes\. The draft is an ingredient list, so the client can shop it at any supermarket\. FitMunch does not place the order\.<\/dd>/);
     expect(pt).toContain('<h2>The list stays a draft</h2>');
     expect(pt).not.toContain('Other stores work too');
-    expect(read('shopper.html')).toContain('Nothing is sent to a supermarket as an order.');
     expect(read('meal-plan-software-personal-trainers.html')).toContain('FitMunch is not affiliated with any supermarket, and it does not place the order or pay the store.');
     const garbled = /supermarket, supermarket|a any |on its own site|Does it use supermarket|pay supermarket directly|faded thermal receipt/;
     for (const f of fs.readdirSync(PUBLIC).filter((x) => x.endsWith('.html'))) {

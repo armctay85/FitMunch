@@ -65,96 +65,17 @@ describe('Fitness Butler shopper engine', () => {
   });
 });
 
-describe('Fitness Butler shopper HTTP', () => {
-  it('GET /shopper is its own surface and does not fight the homepage job', async () => {
-    const page = await request(app).get('/shopper').expect(200);
-    expect(page.text).toContain('Commit the week. Take the trolley.');
-    expect(page.text).toContain('class="skip"');
-    expect(read('public/css/fm-shopper.css')).toMatch(/\.skip\{[\s\S]*transform:translateY\(-160%\)/);
-    expect(page.text).toContain('data-sp-commit');
-    expect(page.text).toContain('Approve this trolley');
-    expect(page.text).toContain('Prices vary by store and week.');
-    expect(page.text).toContain('14-day trial, then <strong>A$19.99 a month.</strong> <span>Card on file.</span>');
-    expect(page.text).toContain('Start the 14-day trial');
-    expect(page.text).toContain('href="/login.html?plan=premium#register"');
-    expect(page.text).toContain('web app');
-    expect(page.text).toContain('Add to Home Screen');
-    expect(page.text).not.toContain('Photograph your receipt');
-    expect(page.text).not.toMatch(/syncs with (Apple Watch|HealthKit)/i);
-    expect(page.text).not.toMatch(/HealthKit connected/i);
-    expect(page.text).not.toContain('we already pay Woolies');
-    expect(page.text).not.toContain('we pay Woolworths');
-    expect(page.text).toContain('We do not pay any supermarket');
-    expect(page.text).toContain('You pay at the supermarket.');
-    expect(page.text).not.toContain('Stripe Link');
-    expect(page.text).toContain('Draft trolley. You check out at the store. We do not pay any supermarket for you. Prices vary by store and week.');
-    expect(page.text).not.toContain('No Apple Watch. No HealthKit.');
-
-    const home = await request(app).get('/').expect(200);
-    expect(home.text).not.toContain('id="commit"');
-    expect(home.text).not.toContain('data-sp-commit');
-  });
-
-  it('first fold is a solid fridge studio, not a grocery photo', () => {
-    const css = read('public/css/fm-shopper.css');
-    const html = read('public/shopper.html');
-    expect(css).not.toMatch(/fm-groceries/);
-    expect(html).not.toMatch(/fm-groceries/);
-    expect(css).toMatch(/\.sp-hero\{[\s\S]*?background:#07130d/);
-    expect(css).toMatch(/\.sp-hero \.lead\{[\s\S]*?color:#dce6de/);
-    expect(css).toMatch(/\.sp-pricebar\{[\s\S]*?color:#e8efe6/);
-    expect(css).not.toMatch(/\.sp-pricebar\{[^}]*display:\s*flex/);
-    expect(css).toMatch(/\.sp-day\{[\s\S]*?background:#04100a/);
-    expect(css).toMatch(/\.sp-day b\{[\s\S]*?color:#7dffa3/);
-    expect(css).toMatch(/\.sp-day span\{[\s\S]*?color:#f4f7f4/);
-    expect(read('public/index.html')).toContain('Your body wrote the trolley.');
-  });
-
-  it('first fold wraps seven day chips and keeps CTAs inside a 390 viewport', () => {
-    const css = read('public/css/fm-shopper.css');
-    const html = read('public/shopper.html');
-    expect(css).toMatch(/@media\(max-width:520px\)\{[\s\S]*?\.sp-week-strip\{[\s\S]*?flex-wrap:wrap/);
-    expect(css).toMatch(/@media\(max-width:520px\)\{[\s\S]*?\.sp-ctas\{display:grid;grid-template-columns:1fr\}/);
-    expect(css).toMatch(/\.sp-hero \.fm-btn\{box-sizing:border-box/);
-    expect(css).toMatch(/\.sp-ctas \.fm-btn\{width:100%;max-width:100%;box-sizing:border-box/);
-    expect(html).toContain('Commit the week. Take the trolley.');
-    expect(html).toContain('Commit this week');
-    expect(html).toContain('How the list works');
-    expect(html).toContain('14-day trial, then');
-    expect(html).toContain('$19.99 a month');
-    expect(html).toContain('href="/login.html?plan=premium#register"');
-    expect(html).toContain('We do not pay any supermarket');
-    expect(html).toContain('Draft trolley. You check out at the store. We do not pay any supermarket for you. Prices vary by store and week.');
-    expect(html).not.toContain('No Apple Watch. No HealthKit.');
-    expect(html).not.toMatch(/fm-groceries/);
-    expect(read('public/index.html')).toContain('Your body wrote the trolley.');
-  });
-
-  it('aliases land on the shopper surface', async () => {
-    await request(app).get('/fitness-butler').expect(301).expect('Location', '/shopper');
-    await request(app).get('/butler').expect(301).expect('Location', '/shopper');
-  });
-
-  it('draft and approve APIs do not call trolley or Stripe', async () => {
-    const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
-    expect(draft.body.success).toBe(true);
-    expect(draft.body.draft.status).toBe('draft');
-    expect(draft.body.draft.catalogue.sourceKind).toBe('public_specials_catalogue');
-    expect(draft.body.draft.catalogue.validFrom).toBeUndefined();
-    expect(draft.body.draft.catalogue.validTo).toBeUndefined();
-    expect(draft.body.draft.catalogue.updatedAt).toBeUndefined();
-    expect(draft.body.draft.catalogue.pricedAt).toBeUndefined();
-    expect(draft.body.draft.catalogue.weekLabel).toBeUndefined();
-    expect(draft.body.draft.catalogue.priceNote).toBeUndefined();
-    expect(JSON.stringify(draft.body)).not.toMatch(/2026-08-25|2026-08-31/);
-    expect(draft.body.draft.honesty.trolleyApi).toBe(false);
-    expect(draft.body.draft.honesty.stripeLinkGrocery).toBe(false);
-
-    const approved = await request(app).post('/api/shopper/approve').send({}).expect(200);
-    expect(approved.body.trolley.status).toBe('approved');
-    expect(approved.body.trolley.checkout.kind).toBe('takeaway');
-    expect(approved.body.trolley.checkout.stripeLink).toBe(false);
-    expect(JSON.stringify(approved.body)).not.toMatch(/payment_intent|checkout\.sessions/i);
+describe('Shopper surface retired', () => {
+  it('page and aliases 301 to /app.html#shopping and the API is 410 Gone', async () => {
+    for (const url of ['/shopper', '/shopper.html', '/fitness-butler', '/butler']) {
+      await request(app).get(url).expect(301).expect('Location', '/app.html#shopping');
+    }
+    await request(app).get('/api/shopper/week').expect(410);
+    await request(app).post('/api/shopper/draft').send({}).expect(410);
+    await request(app).post('/api/shopper/approve').send({}).expect(410);
+    expect(fs.existsSync(path.join(__dirname, 'public/shopper.html'))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, 'public/js/fm-shopper.js'))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, 'public/css/fm-shopper.css'))).toBe(false);
   });
 });
 
@@ -163,9 +84,6 @@ describe('Fitness Butler shopper honesty lock', () => {
     const files = [
       'lib/fitness-butler-shopper.js',
       'lib/public-specials-catalogue.js',
-      'shopper.js',
-      'public/js/fm-shopper.js',
-      'public/shopper.html',
     ].map(read).join('\n');
 
     expect(files).not.toMatch(/wowapi|\/shop\/apis|cart\/api/i);

@@ -2,7 +2,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const express = require('express');
 const request = require('supertest');
 const { neutralise } = require('./lib/store-neutral');
 
@@ -69,20 +68,34 @@ describe('neutralise()', () => {
   });
 });
 
-describe('public /api/shopper responses name no chain', () => {
-  const app = express();
-  app.use(express.json());
-  app.use('/api/shopper', require('./shopper'));
-  test.each([['get', '/api/shopper/'], ['get', '/api/shopper/week'], ['post', '/api/shopper/draft'], ['post', '/api/shopper/approve']])(
-    '%s %s', async (method, url) => {
+describe('shopper retired', () => {
+  const app = require('./server.js');
+  test.each(['/shopper', '/shopper.html', '/fitness-butler', '/butler'])('%s 301s to /app.html#shopping', async (url) => {
+    await request(app).get(url).expect(301).expect('Location', '/app.html#shopping');
+  });
+  test.each([['get', '/api/shopper'], ['get', '/api/shopper/'], ['get', '/api/shopper/week'], ['post', '/api/shopper/draft'], ['post', '/api/shopper/approve'], ['get', '/api/shopper/anything']])(
+    '%s %s is 410 Gone', async (method, url) => {
       const res = await request(app)[method](url).send({});
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(410);
       expect(res.text).not.toMatch(STORE);
-      expect(res.text).not.toMatch(/woolworths\.com|coles\.com|aldi\.com/i);
-      const keys = [];
-      JSON.stringify(res.body, (k, v) => { keys.push(k); return v; });
-      expect(keys.filter((k) => STORE_KEY.test(k))).toEqual([]);
     });
+  test('vercel.json carries the same 301s', () => {
+    const v = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+    for (const src of ['/shopper', '/shopper.html', '/fitness-butler', '/butler']) {
+      expect(v.redirects).toContainEqual({ source: src, destination: '/app.html#shopping', statusCode: 301 });
+    }
+  });
+  test('retired and unserved store-name files are deleted, and nothing links to /shopper', () => {
+    for (const f of ['public/shopper.html', 'public/js/fm-shopper.js', 'public/css/fm-shopper.css', 'professional-landing.html', 'simple-landing.html', 'app_fixes.js']) {
+      expect(fs.existsSync(path.join(ROOT, f))).toBe(false);
+    }
+    const hits = walk(path.join(ROOT, 'public')).filter((f) => /\.(html|js|xml)$/.test(f))
+      .filter((f) => /href="\/shopper|\/api\/shopper|fitmunch\.com\.au\/shopper/.test(fs.readFileSync(f, 'utf8')));
+    expect(hits).toEqual([]);
+  });
+  test('app.html opens the shopping list for #shopping', () => {
+    expect(fs.readFileSync(path.join(ROOT, 'public/app.html'), 'utf8')).toContain("location.hash === '#shopping'");
+  });
 });
 
 describe('coach plan output names no chain', () => {

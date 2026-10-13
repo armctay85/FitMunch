@@ -110,7 +110,7 @@ describe('Trust bar 4: one Stripe trial story', () => {
   });
 
   it('public legal and marketing pages do not invent a post-charge refund window', async () => {
-    const pages = ['/refund', '/terms', '/pricing', '/for-pts', '/', '/login.html', '/success.html', '/shopper'];
+    const pages = ['/refund', '/terms', '/pricing', '/for-pts', '/', '/login.html', '/success.html'];
     for (const route of pages) {
       const res = await request(app).get(route).expect(200);
       expect(res.text).not.toContain('14-day refund window');

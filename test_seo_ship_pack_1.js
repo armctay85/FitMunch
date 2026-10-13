@@ -35,13 +35,12 @@ describe('SEO ship pack 1: homepage lander links', () => {
     expect(body).toContain('id="plan-from-here"');
     expect(body).toMatch(/<a href="\/ai-meal-planner-australia">AI meal planner Australia<\/a>/);
     expect(body).toMatch(/<a href="\/budget-meal-planner">Budget high-protein weeks<\/a>/);
-    expect(body).toMatch(/<a href="\/shopper">Commit the week trolley<\/a>/);
     expect(body).toMatch(/<a href="\/receipt-nutrition-scanner">Receipt nutrition \/ haul score<\/a>/);
     expect(body).toContain('href="/haul-teardown"');
 
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/budget-meal-planner"');
-    expect(res.text).toContain('href="/shopper"');
+    expect(res.text).not.toContain('href="/shopper"');
   });
 });
 
@@ -54,7 +53,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/ai-meal-planner-australia');
     expect(res.text).toContain('It does not scrape supermarket trolley APIs.');
     expect(res.text).toContain('Premium is A$19.99 AUD/mo after a 14-day trial.');
-    expect(res.text).toContain('href="/shopper"');
+    expect(res.text).not.toContain('href="/shopper"');
     expect(res.text).toContain('href="/budget-meal-planner"');
     expect(res.text).toContain('href="/haul-teardown"');
     expect(res.text).toContain('Start Premium trial');
@@ -71,21 +70,11 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(res.text).toContain('Prices vary by store and week.');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
     expect(res.text).toContain('href="/haul-teardown"');
-    expect(res.text).toContain('href="/shopper"');
+    expect(res.text).not.toContain('href="/shopper"');
   });
 
-  it('/shopper keeps the commit H1 and does not collapse to receipt-only', async () => {
-    const res = await request(app).get('/shopper').expect(200);
-    expect(title(res.text)).toBe('Commit the Week, Take the Trolley | FitMunch');
-    expect(h1(res.text)).toBe('Commit the week. Take the trolley.');
-    expect(metaDescription(res.text)).toBe('Lock a week of meals. FitMunch drafts a supermarket list. Premium A$19.99 after 14-day trial.');
-    expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/shopper');
-    expect(res.text).toContain('href="/ai-meal-planner-australia"');
-    expect(res.text).toContain('href="/budget-meal-planner"');
-    expect(res.text).toContain('14-day trial, then');
-    expect(res.text).toContain('$19.99 a month');
-    expect(res.text).toContain('Start the 14-day trial');
-    expect(res.text).not.toContain('Photograph your receipt');
+  it('/shopper is retired and 301s to the in-app shopping list', async () => {
+    await request(app).get('/shopper').expect(301).expect('Location', '/app.html#shopping');
   });
 
   it('/receipt-nutrition-scanner uses www canonical and haul-score positioning', async () => {
@@ -97,14 +86,14 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(res.text).not.toContain('https://fitmunch.com.au/receipt-nutrition-scanner');
     expect(res.text).toContain('href="/haul-teardown"');
     expect(res.text).toContain('href="/ai-meal-planner-australia"');
-    expect(res.text).toContain('href="/shopper"');
+    expect(res.text).not.toContain('href="/shopper"');
     expect(res.text.toLowerCase()).not.toMatch(/allergen-only|allergen scanner/);
   });
 });
 
 describe('SEO ship pack 1: inbound links to the AI lander', () => {
-  it('shopper, budget, haul teardown, and receipt scanner all link in', async () => {
-    for (const route of ['/shopper', '/budget-meal-planner', '/haul-teardown', '/receipt-nutrition-scanner']) {
+  it('budget, haul teardown, and receipt scanner all link in', async () => {
+    for (const route of ['/budget-meal-planner', '/haul-teardown', '/receipt-nutrition-scanner']) {
       const res = await request(app).get(route).expect(200);
       expect(res.text).toContain('href="/ai-meal-planner-australia"');
     }

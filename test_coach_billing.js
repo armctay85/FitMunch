@@ -606,9 +606,8 @@ describe('Coach checkout trial', () => {
     expect(res.text).toContain('id="upgrade-btn"');
     expect(res.text).not.toMatch(/gtag\(|googletagmanager|fbq\(|plausible|posthog|segment\.com|mixpanel/i);
     const home = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8');
-    const shopper = fs.readFileSync(path.join(__dirname, 'public/shopper.html'), 'utf8');
     expect(home).not.toContain('/coach/upgrade');
-    expect(shopper).not.toContain('/api/coach/checkout');
+    expect(fs.existsSync(path.join(__dirname, 'public/shopper.html'))).toBe(false);
   });
 });
 

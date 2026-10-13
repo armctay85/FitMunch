@@ -1,93 +1,19 @@
 'use strict';
 
 /**
- * Fitness Butler shopper HTTP surface.
- * Public specials only. No trolley APIs. No Stripe grocery spend.
+ * The shopper surface is retired. Every /api/shopper endpoint answers
+ * 410 Gone; the page itself 301s to /app.html#shopping (server.js, vercel.json).
  */
-
 const express = require('express');
-const shopper = require('./lib/fitness-butler-shopper');
-const { neutralise } = require('./lib/store-neutral');
 
 const router = express.Router();
 
-// No chain names leave this router (see lib/store-neutral.js).
-router.use((_req, res, next) => {
-  const json = res.json.bind(res);
-  res.json = (body) => json(neutralise(body));
-  next();
-});
-
-const DROP_KEYS = new Set([
-  'pricedAt', 'validFrom', 'validTo', 'validUntil', 'updatedAt',
-  'valid_from', 'valid_to', 'priced_at', 'weekLabel',
-  'assignedAud', 'assignedCents', 'goodsAud', 'tripAud', 'totalAud',
-  'bestSingleAud', 'saveVsSingleAud', 'secondTripCostAud', 'secondTripCostCents',
-  'aud', 'quotes', 'goodsCents', 'tripCents', 'totalCents', 'bestSingleCents',
-  'saveVsSingleCents', 'lineAud', 'unitAud', 'price', 'was',
-  'priceNote', 'reason', 'copyText', 'copyAll',
-]);
-
-function omitKeys(value) {
-  if (Array.isArray(value)) return value.map(omitKeys);
-  if (!value || typeof value !== 'object') return value;
-  const out = {};
-  for (const [key, child] of Object.entries(value)) {
-    if (DROP_KEYS.has(key)) continue;
-    out[key] = omitKeys(child);
-  }
-  return out;
-}
-
-function sendError(res, err) {
-  const status = err.code === 'unknown_week' ? 404 : 400;
-  return res.status(status).json({
+router.all(/.*/, (_req, res) => {
+  res.status(410).json({
     success: false,
-    error: err.message,
-    code: err.code || 'shopper_error',
+    error: 'gone',
+    message: 'This feature has been retired. Your shopping list is in the app.',
   });
-}
-
-router.get('/', (_req, res) => {
-  res.json({
-    success: true,
-    service: 'fitmunch-fitness-butler-shopper',
-    surface: '/shopper',
-    honesty: shopper.honestyClaims(),
-    endpoints: {
-      'GET /api/shopper/week': 'Worked week plus public specials catalogue meta',
-      'POST /api/shopper/draft': 'Commit the week and write a draft trolley',
-      'POST /api/shopper/approve': 'Approve the draft and return a takeaway checkout',
-    },
-  });
-});
-
-router.get('/week', (_req, res) => {
-  res.json({ success: true, ...omitKeys(shopper.getWeekPayload()) });
-});
-
-router.post('/draft', (req, res) => {
-  try {
-    const draft = omitKeys(shopper.buildDraft({
-      weekId: req.body && req.body.weekId,
-      secondTripCostAud: req.body && req.body.secondTripCostAud,
-    }));
-    res.json({ success: true, draft });
-  } catch (err) {
-    sendError(res, err);
-  }
-});
-
-router.post('/approve', (req, res) => {
-  try {
-    const trolley = omitKeys(shopper.approveDraft({
-      weekId: req.body && req.body.weekId,
-      secondTripCostAud: req.body && req.body.secondTripCostAud,
-    }));
-    res.json({ success: true, trolley });
-  } catch (err) {
-    sendError(res, err);
-  }
 });
 
 module.exports = router;

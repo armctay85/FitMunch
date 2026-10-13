@@ -80,7 +80,7 @@ describe('SEO pack 4: generic shopping list, budget and AI landers', () => {
       expect(html).not.toMatch(/Pty Ltd|inc\. GST|Grok|OpenClaw|\bMRR\b/i);
       expect(html).not.toMatch(/Stripe|HealthKit|Apple Watch/i);
       expect(html).not.toMatch(/we pay Wool|live trolley pric|\d+%/i);
-      expect(html).toContain('href="/shopper"');
+      expect(html).not.toContain('href="/shopper"');
       expect(html).toContain('href="/budget-meal-planner"');
       expect(html).toContain('href="/ai-meal-planner-australia"');
       expect(html).toContain('href="/privacy"');
