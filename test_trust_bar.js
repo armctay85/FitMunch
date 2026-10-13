@@ -61,22 +61,17 @@ describe('Trust bar 3: funnel is not a public analytics UI', () => {
     else process.env.FM_ANALYTICS_KEY = prevKey;
   });
 
-  it('refuses /funnel and /funnel.html without a matching key', async () => {
+  it('serves /funnel and /funnel.html as a no-store, noindex shell with no data and refuses ?key', async () => {
     process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
-    await request(app).get('/funnel').expect(401);
-    await request(app).get('/funnel.html').expect(401);
-    await request(app).get('/funnel?key=wrong-key').expect(401);
-    await request(app).get('/funnel.html?key=wrong-key').expect(401);
-  });
-
-  it('serves the private UI only with the matching key and does not name the env var', async () => {
-    process.env.FM_ANALYTICS_KEY = 'trust-bar-funnel-key';
-    const res = await request(app).get('/funnel?key=trust-bar-funnel-key').expect(200);
-    expect(res.text).toContain('Conversion funnel');
-    expect(res.text).not.toContain('FM_ANALYTICS_KEY');
-    expect(res.headers['x-robots-tag']).toMatch(/noindex/i);
-    const html = await request(app).get('/funnel.html?key=trust-bar-funnel-key').expect(200);
-    expect(html.text).toContain('Conversion funnel');
+    for (const p of ['/funnel', '/funnel.html']) {
+      const res = await request(app).get(p).expect(200);
+      expect(res.text).toContain('Conversion funnel');
+      expect(res.text).not.toContain('FM_ANALYTICS_KEY');
+      expect(res.text).not.toContain('trust-bar-funnel-key');
+      expect(res.headers['x-robots-tag']).toMatch(/noindex/i);
+      expect(res.headers['cache-control']).toMatch(/no-store/);
+      await request(app).get(p + '?key=trust-bar-funnel-key').expect(400);
+    }
     expect(fs.existsSync(path.join(__dirname, 'public/funnel.html'))).toBe(false);
     expect(fs.existsSync(path.join(__dirname, 'private/funnel.html'))).toBe(true);
     const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
