@@ -330,6 +330,28 @@ html.fm-authed #app-gate{display:none}
 .gate-card a{display:block;text-align:center;text-decoration:none;min-height:44px;line-height:44px;border-radius:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700}
 .gate-card .gate-in{background:var(--leaf);color:#fff;margin-bottom:8px}
 .gate-card .gate-reg{border:1px solid var(--line);color:var(--ink)}
+/* Onboarding: 44px fields, 48px buttons, step progress, week cards with macro bars. */
+#modal-onboard .form-input,#modal-onboard .form-select{min-height:44px}
+#modal-onboard .btn{min-height:48px}
+#modal-onboard .btn-green{background:#15803d;border-color:#15803d}
+#modal-onboard .modal-close{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+#modal-onboard p{color:#3f4a45}
+.ob-progress{margin:-4px 0 14px}
+#modal-onboard .ob-stepno{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#166534;margin:0 0 6px}
+.ob-track{height:4px;border-radius:2px;background:#e4ebe4;overflow:hidden}
+.ob-track span{display:block;height:100%;background:#15803d;transition:width .2s}
+.ob-day{border:1px solid #dfe6df;border-radius:10px;padding:12px;margin-bottom:10px;background:#fff}
+.ob-day-h{font-size:.95rem;font-weight:800;margin:0 0 8px;color:#11180f}
+.ob-bar{margin-bottom:6px}
+.ob-bar-label{font-size:.72rem;color:#3f4a45;margin-bottom:3px}
+.ob-bar-track{height:6px;border-radius:3px;background:#e4ebe4;overflow:hidden}
+.ob-bar-track span{display:block;height:100%;background:#15803d}
+.ob-bar-track span.off{background:#b45309}
+.ob-meal{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef2ee}
+.ob-meal-ic{font-size:1.1rem;line-height:1.3;width:22px;text-align:center}
+.ob-meal-k{font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#166534}
+.ob-meal-n{font-size:.86rem;font-weight:700;color:#11180f;line-height:1.3}
+.ob-meal-meta{font-size:.74rem;color:#3f4a45}
 </style>
 <script>
 (function () {
@@ -1501,7 +1523,8 @@ html.fm-authed #app-gate{display:none}
 <!-- GOALS ONBOARDING MODAL -->
 <div class="modal-overlay" id="modal-onboard" style="z-index:301" onclick="closeOnOverlay(event)">
  <div class="modal" style="max-width:460px">
- <div class="modal-title"><span id="ob-title">About you</span><button class="modal-close" onclick="closeModal('modal-onboard')">✕</button></div>
+ <div class="modal-title"><span id="ob-title">About you</span><button class="modal-close" aria-label="Close" onclick="closeModal('modal-onboard')">✕</button></div>
+ <div class="ob-progress"><p class="ob-stepno" id="ob-stepno" aria-live="polite">Step 1 of 3</p><div class="ob-track" aria-hidden="true"><span id="ob-track-fill" style="width:33.3%"></span></div></div>
  <div id="ob-step-1">
  <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:14px">We use this to work out your daily calories and protein. It stays in your account.</p>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1515,7 +1538,7 @@ html.fm-authed #app-gate{display:none}
  <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
  <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
  <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
- <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="gluten_free">Gluten free</option></select></div>
+ <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option></select></div>
  <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
  <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
  </div>
@@ -1531,7 +1554,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div id="ob-step-3" style="display:none">
  <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px" id="ob-week-note"></p>
- <div id="ob-week" style="max-height:52vh;overflow:auto"></div>
+ <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
  <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
  </div>
  </div>
@@ -1681,7 +1704,9 @@ async function downloadMyData() {
 
 const API = async (path, opts={}) => {
  if (path.startsWith('/ai/insight') && aiConsentState() !== true) return { success: false, code: 'ai_consent_required' };
- if (AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
+ // builderOnly meal plans make no AI call, so they never ask for AI consent.
+ const builderOnly = path === '/meal-plan/generate' && typeof opts.body === 'string' && /"builderOnly":true/.test(opts.body);
+ if (!builderOnly && AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
 };
@@ -3385,6 +3410,8 @@ function openOnboarding() {
 function onboardStep(n) {
  [1,2,3].forEach(i => { document.getElementById('ob-step-' + i).style.display = i === n ? '' : 'none'; });
  document.getElementById('ob-title').textContent = ['About you','Your daily targets','Your first week'][n-1];
+ document.getElementById('ob-stepno').textContent = 'Step ' + n + ' of 3';
+ document.getElementById('ob-track-fill').style.width = (n / 3 * 100).toFixed(1) + '%';
 }
 function onboardCompute() {
  const v = id => document.getElementById(id).value;
@@ -3409,16 +3436,45 @@ function onboardRebalance() {
  document.getElementById('ob-macros').textContent = `That leaves about ${r.carbs}g carbs and ${r.fat}g fat a day.`;
  return r;
 }
-function onboardRenderWeek(plan, note) {
+const OB_SLOTS = { breakfast: ['🍳', 'Breakfast'], lunch: ['🥗', 'Lunch'], dinner: ['🍽️', 'Dinner'], snack: ['🍎', 'Snack'] };
+const OB_SMALL = new Set(['a', 'an', 'and', 'or', 'with', 'on', 'in', 'of', 'the', 'to', 'for']);
+function obTitle(str) {
+ return String(str || '').split(' ').map((w, i) => (i > 0 && OB_SMALL.has(w.toLowerCase())) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+function obBar(label, value, target, unit) {
+ const row = document.createElement('div'); row.className = 'ob-bar';
+ const pct = target ? Math.min(100, Math.round(value / target * 100)) : 0;
+ const off = target ? Math.round((value - target) / target * 100) : 0;
+ const t = document.createElement('div'); t.className = 'ob-bar-label';
+ t.textContent = `${label} ${value}${unit} of ${target}${unit}`;
+ const track = document.createElement('div'); track.className = 'ob-bar-track';
+ track.setAttribute('role', 'img'); track.setAttribute('aria-label', `${label} ${pct}% of target`);
+ const fill = document.createElement('span'); fill.style.width = pct + '%'; if (Math.abs(off) > 10) fill.className = 'off';
+ track.appendChild(fill); row.append(t, track); return row;
+}
+function onboardRenderWeek(plan, note, targets) {
  document.getElementById('ob-week-note').textContent = note;
  const box = document.getElementById('ob-week'); box.textContent = '';
+ const tg = targets || {};
  (plan.days || []).forEach(d => {
- const card = document.createElement('div'); card.style.cssText = 'border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:10px 12px;margin-bottom:8px';
- const h = document.createElement('div'); h.style.cssText = 'font-weight:700;font-size:.85rem;margin-bottom:4px';
- const tot = d.totals || d.dailyTotals || {}; h.textContent = (d.day || '') + (tot.calories ? ` · ${tot.calories} kcal · ${tot.protein}g protein` : '');
+ const card = document.createElement('section'); card.className = 'ob-day';
+ const h = document.createElement('h3'); h.className = 'ob-day-h'; h.textContent = d.day || '';
  card.appendChild(h);
+ const tot = d.totals || d.dailyTotals || {};
+ if (tot.calories && tg.calories) card.appendChild(obBar('Calories', tot.calories, tg.calories, ' kcal'));
+ if (tot.protein && tg.protein) card.appendChild(obBar('Protein', tot.protein, tg.protein, 'g'));
  const ms = Array.isArray(d.meals) ? d.meals : Object.entries(d.meals || {}).map(([slot, m]) => ({ slot, ...m }));
- ms.forEach(m => { const p = document.createElement('div'); p.style.cssText = 'font-size:.78rem;color:var(--text2);line-height:1.5'; p.textContent = `${m.slot || m.type || ''}: ${m.name}${m.prepMins ? ' · ' + m.prepMins + ' min' : ''}`; card.appendChild(p); });
+ ms.forEach(m => {
+ const slot = String(m.slot || m.type || '').toLowerCase(); const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
+ const row = document.createElement('div'); row.className = 'ob-meal';
+ const ic = document.createElement('span'); ic.className = 'ob-meal-ic'; ic.setAttribute('aria-hidden', 'true'); ic.textContent = icon;
+ const body = document.createElement('div'); body.className = 'ob-meal-body';
+ const k = document.createElement('div'); k.className = 'ob-meal-k'; k.textContent = label;
+ const n = document.createElement('div'); n.className = 'ob-meal-n'; n.textContent = obTitle(m.name);
+ const meta = document.createElement('div'); meta.className = 'ob-meal-meta';
+ meta.textContent = [m.calories ? m.calories + ' kcal' : '', m.protein ? m.protein + 'g protein' : '', m.prepMins ? m.prepMins + ' min' : ''].filter(Boolean).join(' · ');
+ body.append(k, n, meta); row.append(ic, body); card.appendChild(row);
+ });
  box.appendChild(card);
  });
 }
@@ -3434,20 +3490,19 @@ async function onboardBuildWeek() {
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }
  const diet = OB.diet && OB.diet !== 'none' ? [OB.diet.replace('_', ' ')] : [];
- const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Me, Privacy for AI-written plans.';
+ const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
  const local = async () => {
  const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : '')); }
+ if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : ''), r); }
  else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
  };
  // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
  let consented = false;
- // aiConsentState() comes with the AI consent flow (#90); until then there is no recorded consent.
  try { consented = typeof aiConsentState === 'function' && aiConsentState() === true; } catch (_) { consented = false; }
  try {
  if (!consented) { await local(); return; }
  const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.'); }
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.', r); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
  finally { btn.disabled = false; btn.textContent = 'Save and build my week'; onboardStep(3); }

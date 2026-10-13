@@ -37,7 +37,7 @@ const FOODS = [
   { name:'Lentils (cooked)',            cal:116,  p:9,    c:20.1, f:0.4,  serving:'1 cup (198g)', servingG:198, tags:['lentils','legumes','vegan','protein'], src:'FDC 172421 Lentils, mature seeds, cooked, boiled, without salt' },
   { name:'Chickpeas (cooked)',          cal:164,  p:8.9,  c:27.4, f:2.6,  serving:'1 cup (164g)', servingG:164, tags:['chickpeas','legumes','vegan','protein'], src:'FDC 173757 Chickpeas, mature seeds, cooked, boiled, without salt' },
   { name:'Soy milk',                    cal:54,   p:3.3,  c:6.3,  f:1.8,  serving:'250ml cup', servingG:250, tags:['soy milk','soy','vegan','milk'], src:'FDC 172446 Soymilk, original and vanilla, unfortified' },
-  { name:'Pea-protein yoghurt (Greek style)', cal:127, p:6.7, c:8.7, f:7.3, serving:'150g tub', servingG:150, tags:['yoghurt','vegan','pea protein'], src:'FDC 2564115 Greek style coconutmilk yogurt alternative with pea protein (branded label)' },
+  { name:'Coconut yoghurt with pea protein (vanilla)', cal:127, p:6.7, c:8.7, f:7.3, serving:'150g tub', servingG:150, tags:['yoghurt','vegan','pea protein'], src:'FDC 2564115 Greek style coconutmilk yogurt alternative with pea protein (branded label)' },
   // ── DAIRY ────────────────────────────────────────────────────────────────────
   { name:'Greek yoghurt (plain, full fat)', cal:133, p:9.5, c:6,  f:7,    serving:'200g cup',servingG:200, tags:['yoghurt','dairy','greek'] },
   { name:'Greek yoghurt (plain, low fat)',  cal:67,  p:9,   c:7,  f:0.4,  serving:'200g',   servingG:200, tags:['yoghurt','dairy','greek','low fat'] },

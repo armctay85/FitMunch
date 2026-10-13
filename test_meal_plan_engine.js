@@ -348,7 +348,7 @@ describe('Elite QA #88 r1 fixes', () => {
   it('S4: diet names are normalised, and vegan excludes meat, fish, dairy and eggs', () => {
     expect(engine.normaliseDiet(['Gluten-Free', 'dairy_free', ' VEGAN ', 'gluten free'])).toEqual(['gluten free', 'dairy free', 'vegan']);
     const gfdf = JSON.stringify(engine.buildPlan({ calories: 2100, protein: 120, days: 7, dietary: ['gluten-free', 'dairy-free'] })).toLowerCase();
-    for (const banned of ['bread', 'pasta', 'oats', 'yoghurt', 'skim milk', 'whey', 'ricotta', 'cottage']) expect(gfdf).not.toContain(banned);
+    for (const banned of ['bread', 'pasta', 'oats', 'greek yoghurt', 'skim milk', 'whey', 'ricotta', 'cottage']) expect(gfdf).not.toContain(banned);
     const vegan = engine.buildPlan({ calories: 2100, protein: 80, days: 7, dietary: ['vegan'] });
     expectEveryDayOnTarget(vegan, 2100);
     const text = JSON.stringify(vegan).toLowerCase();

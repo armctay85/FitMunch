@@ -60,7 +60,10 @@
     const tdee = b * ACTIVITY[p.activity];
     const g = GOALS[p.goal];
     const calories = Math.max(FLOOR_KCAL[p.sex], Math.round((tdee * (1 + g.adjust)) / 10) * 10);
-    const protein = Math.round(p.weightKg * g.proteinPerKg);
+    // Protein from a capped weight (BMI 25 at this height) so large bodies get a reachable target,
+    // and never more than 35% of calories.
+    const proteinWeight = Math.min(p.weightKg, 25 * Math.pow(p.heightCm / 100, 2));
+    const protein = Math.min(Math.round(proteinWeight * g.proteinPerKg), Math.floor((calories * 0.35) / 4));
     const fat = Math.round((calories * FAT_SHARE) / 9);
     const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
     return { bmr: Math.round(b), tdee: Math.round(tdee), calories, protein, carbs, fat };

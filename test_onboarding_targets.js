@@ -67,8 +67,8 @@ describe('the 72 kg example gets a week on target from the #88 builder', () => {
   const example = { sex: 'female', age: 34, heightCm: 168, weightKg: 72, activity: 'moderate', goal: 'lose_weight' };
   const t = T.computeTargets(example);
 
-  it('targets are 1780 kcal and 144 g protein', () => {
-    expect(t).toMatchObject({ calories: 1780, protein: 144 });
+  it('targets are 1780 kcal and 141 g protein (72kg capped to 70.6kg at 168cm)', () => {
+    expect(t).toMatchObject({ calories: 1780, protein: 141 });
   });
 
   it.each([[[]], [['vegetarian']], [['dairy free']], [['gluten free']]])('diet %j: weekly protein and calories within 5%%, every day calories within 5%%', (dietary) => {
@@ -128,7 +128,7 @@ describe('onboarding UI wiring', () => {
 describe('vegan and vegetarian weeks hit protein with real plant proteins', () => {
   const engine = require('./lib/meal-plan-engine');
   const { FOODS } = require('./food-db');
-  const PLANT = ['Firm tofu', 'Tempeh', 'Seitan', 'Edamame (cooked)', 'Lentils (cooked)', 'Chickpeas (cooked)', 'Soy milk', 'Pea-protein yoghurt (Greek style)'];
+  const PLANT = ['Firm tofu', 'Tempeh', 'Seitan', 'Edamame (cooked)', 'Lentils (cooked)', 'Chickpeas (cooked)', 'Soy milk', 'Coconut yoghurt with pea protein (vanilla)'];
   const ANIMAL = /chicken|beef|lamb|pork|salmon|tuna|barramundi|prawn|egg|whey|casein|milk \(|skim milk|full cream|yoghurt \(plain|cottage|ricotta|cheddar/i;
   const PROFILES = {
     'the 72 kg example': { sex: 'female', age: 34, heightCm: 168, weightKg: 72, activity: 'moderate', goal: 'lose_weight' },
@@ -199,5 +199,97 @@ describe('plant-protein meals are kept for vegan and vegetarian weeks', () => {
     const plan = engine.buildPlan({ calories: 2100, protein: 150, days: 7 });
     const plantNames = new Set(engine.TEMPLATES.filter((t) => t.plant).map((t) => t.name));
     for (const d of plan.days) for (const m of Object.values(d.meals)) expect(plantNames.has(m.name)).toBe(false);
+  });
+});
+
+describe('large bodies and dairy-free or egg-free weeks (EQA r1 M2)', () => {
+  const engine = require('./lib/meal-plan-engine');
+  const PROFILES = {
+    'M 130kg 180cm cut sedentary': { sex: 'male', age: 45, heightCm: 180, weightKg: 130, activity: 'sedentary', goal: 'lose_weight' },
+    'F 110kg 165cm cut light': { sex: 'female', age: 40, heightCm: 165, weightKg: 110, activity: 'light', goal: 'lose_weight' },
+    'F 60kg 165cm cut sedentary': { sex: 'female', age: 30, heightCm: 165, weightKg: 60, activity: 'sedentary', goal: 'lose_weight' },
+    'M 95kg 185cm bulk active': { sex: 'male', age: 25, heightCm: 185, weightKg: 95, activity: 'active', goal: 'muscle_gain' },
+  };
+  it('bases protein on min(weight, 25 x height^2) and caps it at 35% of calories', () => {
+    for (const p of Object.values(PROFILES)) {
+      const t = T.computeTargets(p);
+      const capped = Math.min(p.weightKg, 25 * (p.heightCm / 100) ** 2);
+      const perKg = T.GOALS[p.goal].proteinPerKg;
+      expect(t.protein).toBe(Math.min(Math.round(capped * perKg), Math.floor((t.calories * 0.35) / 4)));
+      expect(t.protein * 4).toBeLessThanOrEqual(t.calories * 0.35);
+    }
+    // 130kg at 180cm: capped weight 81kg, so 162g rather than 260g.
+    expect(T.computeTargets(PROFILES['M 130kg 180cm cut sedentary']).protein).toBe(162);
+  });
+  for (const [name, p] of Object.entries(PROFILES)) {
+    for (const diet of [['vegan'], ['dairy free'], ['egg free'], ['dairy free', 'egg free'], ['vegetarian'], []]) {
+      it(`${name}, ${diet.join(' + ') || 'no filter'}: every day within 10% of protein`, () => {
+        const t = T.computeTargets(p);
+        const plan = engine.buildPlan({ calories: t.calories, protein: t.protein, days: 7, dietary: diet });
+        for (const d of plan.days) expect(Math.abs(d.dailyTotals.protein - t.protein)).toBeLessThanOrEqual(t.protein * 0.1);
+      });
+    }
+  }
+  it('dairy-free and egg-free weeks get the plant meals', () => {
+    const plantNames = new Set(engine.TEMPLATES.filter((t) => t.plant).map((t) => t.name));
+    for (const diet of [['dairy free'], ['egg free']]) {
+      const plan = engine.buildPlan({ calories: 1940, protein: 160, days: 7, dietary: diet });
+      const names = plan.days.flatMap((d) => Object.values(d.meals).map((m) => m.name));
+      expect(names.some((n) => plantNames.has(n))).toBe(true);
+    }
+  });
+  it('every template has a real prep time, not a fixed 15', () => {
+    for (const t of engine.TEMPLATES) expect(engine.PREP_MINS[t.name]).toBeGreaterThan(0);
+    expect(new Set(Object.values(engine.PREP_MINS)).size).toBeGreaterThan(4);
+  });
+  it('labels the vanilla coconut yoghurt honestly (EQA L1)', () => {
+    const db = require('fs').readFileSync(require('path').join(__dirname, 'food-db.js'), 'utf8');
+    expect(db).toContain("name:'Coconut yoghurt with pea protein (vanilla)'");
+    expect(db).not.toMatch(/Pea-protein yoghurt \(Greek style\)/);
+  });
+});
+
+describe('protein never goes over the target (EQA r1 L2)', () => {
+  const engine = require('./lib/meal-plan-engine');
+  it('no day is over its protein target, and none is more than 10% under, across bodies, goals and diets', () => {
+    let days = 0;
+    for (const sex of ['male', 'female', 'other']) for (const weightKg of [50, 72, 95, 130]) for (const heightCm of [155, 180]) {
+      for (const goal of Object.keys(T.GOALS)) for (const activity of ['sedentary', 'moderate', 'very_active']) {
+        const t = T.computeTargets({ sex, age: 35, heightCm, weightKg, activity, goal });
+        for (const dietary of [[], ['vegan'], ['vegetarian'], ['dairy free'], ['egg free'], ['gluten free']]) {
+          const plan = engine.buildPlan({ calories: t.calories, protein: t.protein, days: 7, dietary });
+          for (const d of plan.days) {
+            days += 1;
+            expect(d.dailyTotals.protein).toBeLessThanOrEqual(t.protein);
+            expect(d.dailyTotals.protein).toBeGreaterThanOrEqual(t.protein * 0.9);
+          }
+        }
+      }
+    }
+    expect(days).toBeGreaterThan(5000);
+  });
+});
+
+describe('onboarding modal markup (EQA r1 M1, S1-S3)', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+  it('44px fields and close, 48px buttons, AA green', () => {
+    expect(html).toContain('#modal-onboard .form-input,#modal-onboard .form-select{min-height:44px}');
+    expect(html).toContain('#modal-onboard .btn{min-height:48px}');
+    expect(html).toMatch(/#modal-onboard \.modal-close\{min-width:44px;min-height:44px/);
+    expect(html).toContain('#modal-onboard .btn-green{background:#15803d');
+  });
+  it('step progress, focusable week region, Privacy wording, title-case slots and macro bars', () => {
+    expect(html).toContain('id="ob-stepno" aria-live="polite">Step 1 of 3</p>');
+    expect(html).toContain("'Step ' + n + ' of 3'");
+    expect(html).toContain('<div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day"');
+    expect(html).toContain('Turn on AI in Privacy for AI-written plans.');
+    expect(html).not.toContain('Turn on AI in Me, Privacy');
+    expect(html).toContain("breakfast: ['🍳', 'Breakfast']");
+    expect(html).toContain("obBar('Protein', tot.protein, tg.protein, 'g')");
+    expect(html).toContain('n.textContent = obTitle(m.name)');
+  });
+  it('a builderOnly plan never opens the AI consent prompt', () => {
+    expect(html).toMatch(/const builderOnly = path === '\/meal-plan\/generate'[^\n]*"builderOnly":true/);
+    expect(html).toContain('if (!builderOnly && AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent()))');
   });
 });
