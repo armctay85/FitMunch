@@ -1516,13 +1516,15 @@ describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2
 });
 
 describe('removed /api/complete-subscription', () => {
-  test('is gone: no 2xx, no customer data, zero Stripe calls', async () => {
-    const before = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
+  test('is gone: 404, no customer data, a paid session is never retrieved', async () => {
+    fake.checkout.sessions.retrieve = jest.fn(async () => ({
+      id: 'cs_live_x', payment_status: 'paid', status: 'complete',
+      customer: { id: 'cus_victim', email: 'victim@example.com', address: { line1: '1 Victim St' } },
+    }));
     const res = await request(app).post('/api/complete-subscription').send({ sessionId: 'cs_live_x' });
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(JSON.stringify(res.body || {})).not.toMatch(/customer|address|subscription/i);
-    const after = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
-    expect(after).toBe(before);
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body || {})).not.toMatch(/customer|address|subscription|victim/i);
+    expect(fake.checkout.sessions.retrieve).not.toHaveBeenCalled();
   });
 });
 
@@ -1684,6 +1686,146 @@ describe('error logs are redacted', () => {
       expect(JSON.stringify(spy.mock.calls)).not.toMatch(/sk_test_|postgres:|DATABASE_URL/);
     } finally {
       spy.mockRestore();
+    }
+  });
+});
+
+describe('retired pt-starter / pt-pro checkout plans', () => {
+  const stripeCalls = (o, seen = new Set()) => {
+    if (!o || seen.has(o)) return 0;
+    seen.add(o);
+    return Object.entries(o).reduce((n, [k, v]) => {
+      if (k === 'S') return n;
+      if (typeof v === 'function' && v.mock) return n + v.mock.calls.length;
+      if (v && typeof v === 'object') return n + stripeCalls(v, seen);
+      return n;
+    }, 0);
+  };
+  const checkout = require('./lib/fitmunch-checkout');
+
+  test.each([
+    ['pt-starter', 'client'],
+    ['pt-pro', 'client'],
+    ['pt-starter', 'pt'],
+    ['pt-pro', 'pt'],
+    ['starter', 'pt'],
+    ['pro', 'pt'],
+  ])('/api/checkout plan %s (role %s) => 400, zero Stripe calls', async (plan, role) => {
+    const res = await request(app).post('/api/checkout')
+      .set('Authorization', `Bearer ${tokenFor('u1', { role })}`)
+      .set('Origin', 'https://www.fitmunch.com.au')
+      .send({ plan });
+    expect(res.status).toBe(400);
+    expect(stripeCalls(fake)).toBe(0);
+  });
+
+  test.each(['pt-starter', 'pt-pro'])('/api/quick-checkout plan %s => 400, zero Stripe calls', async (plan) => {
+    const res = await request(app).post('/api/quick-checkout').send({ email: 'steph@example.com', plan });
+    expect(res.status).toBe(400);
+    expect(stripeCalls(fake)).toBe(0);
+  });
+
+  test.each([
+    ['PT-STARTER'], [' pt-pro '], ['pt-starter\t'], ['Pt-Pro'],
+  ])('/api/checkout and /api/quick-checkout reject %j => 400, zero Stripe calls', async (plan) => {
+    const a = await request(app).post('/api/checkout')
+      .set('Authorization', `Bearer ${tokenFor('u1', { role: 'pt' })}`)
+      .set('Origin', 'https://www.fitmunch.com.au')
+      .send({ plan });
+    expect(a.status).toBe(400);
+    const b = await request(app).post('/api/quick-checkout').send({ email: 'steph@example.com', plan });
+    expect(b.status).toBe(400);
+    expect(stripeCalls(fake)).toBe(0);
+  });
+
+  const sessionBody = (priceId, i) => ({
+    priceId,
+    customerId: 'cus_existing',
+    successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+    cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    nonce: `retired-${i}`,
+  });
+  test.each([
+    ['price_1T3SvgGMuYRuJYDrOyR2hYoq'],
+    ['price_1T3SyDGMuYRuJYDrF8mvMrwi'],
+  ])('/api/stripe/checkout-sessions with retired %s => 400, zero Stripe calls', async (priceId) => {
+    const res = await request(app).post('/api/stripe/checkout-sessions').send(sessionBody(priceId, priceId));
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, message: 'Unknown FitMunch price.' });
+    expect(stripeCalls(fake)).toBe(0);
+    expect(fake.S.customers).toHaveLength(0);
+    expect(fake.S.sessions).toHaveLength(0);
+  });
+
+  test('/api/stripe/checkout-sessions still sells premium', async () => {
+    const res = await request(app).post('/api/stripe/checkout-sessions').send(sessionBody(PRICE_IDS.premium, 'p'));
+    expect(res.status).toBe(200);
+    expect(res.body.url).toBeTruthy();
+  });
+
+  test('app.html offers no checkout for retired pt-* plans', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+    expect(html).not.toMatch(/startCheckout\(\s*['"]pt-/i);
+  });
+
+  test('signup with plan pt-starter / pt-pro no longer forces a trainer account', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, 'api_server.js'), 'utf8');
+    const want = src.slice(src.indexOf('const wantPt ='), src.indexOf('if (wantPt)'));
+    expect(want).not.toMatch(/pt-starter|pt-pro/);
+  });
+
+  test('priceIdForPlan rejects pt-*; PRICE_IDS entries are kept', () => {
+    expect(checkout.priceIdForPlan('pt-starter')).toBeNull();
+    expect(checkout.priceIdForPlan('pt-pro')).toBeNull();
+    expect(checkout.PRICE_IDS['pt-starter']).toBe('price_1T3SvgGMuYRuJYDrOyR2hYoq');
+    expect(checkout.PRICE_IDS['pt-pro']).toBe('price_1T3SyDGMuYRuJYDrF8mvMrwi');
+    expect(checkout.priceIdForPlan('premium')).toBe(PRICE_IDS.premium);
+  });
+
+  test.each([
+    ['price_1T3SvgGMuYRuJYDrOyR2hYoq', 'pt-starter', 'starter'],
+    ['price_1T3SyDGMuYRuJYDrF8mvMrwi', 'pt-pro', 'pro'],
+  ])('existing subscriber on %s still maps (plan %s, tier %s)', (priceId, plan, tier) => {
+    expect(checkout.planForPriceId(priceId)).toBe(plan);
+    const sub = { status: 'active', current_period_end: 2000000000, items: { data: [{ price: { id: priceId } }] } };
+    expect(checkout.subscriptionTierUpdateFromStripe(sub).tier).toBe(tier);
+    expect(checkout.allFitMunchPriceIds()).toContain(priceId);
+  });
+});
+
+describe('#83 follow-ups', () => {
+  test('POST /api/stripe/customers logs no DB URL or Stripe key when storage throws', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const orig = storage.getUserById;
+    storage.getUserById = jest.fn(async () => { throw new Error('connect failed DATABASE_URL=postgres://u:p@h/db Invalid API Key provided: sk_test_123'); });
+    try {
+      const res = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${tokenFor('u1')}`).send({});
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(JSON.stringify(res.body)).not.toMatch(/postgres:|sk_test_|DATABASE_URL/);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/postgres:|u:p@|sk_test_|DATABASE_URL/);
+    } finally {
+      storage.getUserById = orig;
+      spy.mockRestore();
+    }
+  });
+
+  test('a validly signed token with no userId gets 401, not 404', async () => {
+    const t = jwt.sign({ email: 'nouser@example.com', role: 'client' }, jwtSecret());
+    const res = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${t}`).send({});
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ success: false, message: 'Authentication required.' });
+  });
+
+  test('failClosed: a 0 or non-finite hit count throws RATE_COUNTER_UNAVAILABLE', async () => {
+    const counters = require('./lib/shared-counters');
+    for (const rows of [[{ hits: 0 }], [{ hits: 'NaN' }], []]) {
+      counters.setSharedCounterQueryForTests(async () => ({ rows }));
+      try {
+        await expect(counters.hitRateCounter('t', 'k', { windowMs: 1000, failClosed: true }))
+          .rejects.toMatchObject({ code: 'RATE_COUNTER_UNAVAILABLE' });
+      } finally {
+        counters.setSharedCounterQueryForTests(null);
+      }
     }
   });
 });
