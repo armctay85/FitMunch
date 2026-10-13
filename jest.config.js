@@ -7,6 +7,7 @@ module.exports = {
     '**/test_jest_testmatch_guard.js',
     '**/test_app.js',
     '**/test_haul_score.js',
+    '**/test_welcome_verify.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',
     '**/test_smoke_exempt_routes.js',
