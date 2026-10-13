@@ -182,6 +182,53 @@ describe('Coach webhook tier', () => {
     storage.db = originalDb;
   });
 
+  const legacyCases = [
+    ['price_1T3SvgGMuYRuJYDrOyR2hYoq', 'pt-starter', 'starter'],
+    ['price_1T3SyDGMuYRuJYDrF8mvMrwi', 'pt-pro', 'pro'],
+  ];
+  const legacySub = (priceId, plan, status = 'active') => ({
+    id: `sub_legacy_${plan}`, customer: 'cus_coach', status, created: 100,
+    current_period_end: 2000000000,
+    metadata: { plan, product: 'fitmunch', brand: 'FitMunch' },
+    items: { data: [{ id: 'si_legacy', price: { id: priceId } }] },
+  });
+  const events = ['customer.subscription.created', 'customer.subscription.updated'];
+  test.each(legacyCases.flatMap((c) => events.map((e) => [e, ...c])))(
+    '%s for a retired %s (%s) subscriber still maps to tier %s', async (type, priceId, plan, tier) => {
+      const sub = legacySub(priceId, plan);
+      installWebhookStripe([sub]);
+      const res = await postWebhook({ id: `evt_${type}_${plan}`, type, data: { object: sub } });
+      expect(res.status).toBe(200);
+      expect(storage.updateUserSubscription).toHaveBeenCalledWith('pt-1', tier, expect.anything());
+      expect(user.subscriptionTier).toBe(tier);
+    });
+
+  test.each(legacyCases)('customer.subscription.deleted for retired %s (%s) drops to free', async (priceId, plan, tier) => {
+    user.subscriptionTier = tier;
+    const sub = legacySub(priceId, plan, 'canceled');
+    installWebhookStripe([]);
+    const res = await postWebhook({ id: `evt_del_${plan}`, type: 'customer.subscription.deleted', data: { object: sub } });
+    expect(res.status).toBe(200);
+    expect(user.subscriptionTier).toBe('free');
+  });
+
+  test.each(legacyCases)('invoice.payment_failed for retired %s (%s) is accepted and leaves tier %s alone', async (priceId, plan, tier) => {
+    user.subscriptionTier = tier;
+    installWebhookStripe([legacySub(priceId, plan)]);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const res = await postWebhook({
+        id: `evt_inv_${plan}`, type: 'invoice.payment_failed',
+        data: { object: { id: `in_${plan}`, customer: 'cus_coach', subscription: `sub_legacy_${plan}`, lines: { data: [{ price: { id: priceId } }] } } },
+      });
+      expect(res.status).toBe(200);
+      expect(storage.updateUserSubscription).not.toHaveBeenCalled();
+      expect(user.subscriptionTier).toBe(tier);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   test('trialing sets coach tier trial and leaves the consumer tier alone', async () => {
     const res = await postWebhook({
       id: 'evt_coach_trial',
@@ -280,6 +327,12 @@ describe('Coach checkout trial', () => {
   const customers = [];
   let subs;
   const mockStripe = {
+    prices: {
+      retrieve: jest.fn(async (id) => ({
+        id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 },
+        unit_amount: id === process.env.STRIPE_COACH_79_PRICE_ID ? 7900 : 3900,
+      })),
+    },
     customers: {
       create: jest.fn(async (params) => {
         const customer = {
@@ -328,6 +381,7 @@ describe('Coach checkout trial', () => {
     mockStripe.subscriptions.list.mockClear();
     mockStripe.subscriptions.update.mockClear();
     mockStripe.rawRequest.mockClear();
+    require('./lib/fitmunch-coach-billing').resetCoachPriceCheckForTests();
     app._private.setStripeForTests(mockStripe);
     storage.getUserById = jest.fn(async (id) => ({
       id,
@@ -386,6 +440,92 @@ describe('Coach checkout trial', () => {
     expect(params.locale).toBe('en-GB');
     expect(mockStripe.customers.list).not.toHaveBeenCalled();
     expect(mockStripe.customers.search).not.toHaveBeenCalled();
+  });
+
+  test.each([['coach-39', 'price_coach39_test'], ['coach-79', 'price_coach79_test']])(
+    '%s still opens Coach checkout after pt-* plans were retired', async (plan, price) => {
+      const token = jwt.sign({ userId: 'pt-1', email: 'pt@example.com', name: 'Pat Trainer', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/coach/checkout')
+        .set('Authorization', `Bearer ${token}`)
+        .set('Origin', 'https://www.fitmunch.com.au')
+        .send({ plan })
+        .expect(200);
+      expect(res.body.url).toContain('checkout.stripe.com');
+      expect(mockStripe.rawRequest.mock.calls[0][2].line_items[0].price).toBe(price);
+    });
+
+  test.each([
+    ['wrong amount 4900', { unit_amount: 4900 }],
+    ['wrong currency', { currency: 'usd' }],
+    ['yearly', { recurring: { interval: 'year', interval_count: 1 } }],
+    ['archived', { active: false }],
+  ])('a Coach price that does not match (%s) => 503, generic message, no checkout', async (_l, bad) => {
+    mockStripe.prices.retrieve.mockImplementationOnce(async (id) => ({
+      id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 }, unit_amount: 3900, ...bad,
+    }));
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const token = jwt.sign({ userId: 'pt-1', email: 'pt@example.com', name: 'Pat Trainer', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/coach/checkout')
+        .set('Authorization', `Bearer ${token}`)
+        .set('Origin', 'https://www.fitmunch.com.au')
+        .send({ plan: 'coach-39' });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe('Coach checkout is unavailable right now.');
+      expect(JSON.stringify(res.body)).not.toMatch(/STRIPE_|price_/);
+      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+      expect(mockStripe.customers.create).not.toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  describe('guest /api/stripe/checkout-sessions and Coach prices', () => {
+    const body = (priceId) => ({
+      priceId,
+      customerId: 'cus_any',
+      successUrl: 'https://www.fitmunch.com.au/coach/upgrade',
+      cancelUrl: 'https://www.fitmunch.com.au/for-pts',
+      nonce: `n-${priceId}-${Math.random()}`,
+    });
+    const calls = () => mockStripe.rawRequest.mock.calls.length + mockStripe.customers.create.mock.calls.length
+      + mockStripe.prices.retrieve.mock.calls.length;
+    test.each([[COACH_39], [COACH_79]])('guest with %s => 400, zero Stripe calls', async (price) => {
+      const before = calls();
+      const res = await request(app).post('/api/stripe/checkout-sessions').send(body(price));
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ success: false, message: 'Unknown FitMunch price.' });
+      expect(calls()).toBe(before);
+    });
+    test('client role with a Coach price => 400, zero Stripe calls', async () => {
+      const t = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
+      const before = calls();
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      expect(res.status).toBe(400);
+      expect(calls()).toBe(before);
+    });
+    test('forged token with role pt => 400', async () => {
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, 'wrong-secret');
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      expect(res.status).toBe(400);
+      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+    });
+    test('trainer with a live price that does not verify (4900) => 400, no session', async () => {
+      mockStripe.prices.retrieve.mockImplementationOnce(async (id) => ({
+        id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 }, unit_amount: 4900,
+      }));
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      expect(res.status).toBe(400);
+      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+      expect(mockStripe.customers.create).not.toHaveBeenCalled();
+    });
+    test('trainer with a verified Coach price passes the gate', async () => {
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_79));
+      expect(res.status).not.toBe(400);
+      expect(mockStripe.prices.retrieve).toHaveBeenCalledWith(COACH_79);
+    });
   });
 
   test('a client account cannot open Coach checkout', async () => {
@@ -519,5 +659,17 @@ liveDescribe('Stripe test mode Coach checkout', () => {
       : null;
     expect(trialDays === 14 || session.mode === 'subscription').toBe(true);
     await stripe.checkout.sessions.expire(session.id);
+  });
+});
+
+describe('GET /api/coach/billing-status', () => {
+  test('no token => 401', async () => {
+    const res = await request(app).get('/api/coach/billing-status');
+    expect(res.status).toBe(401);
+  });
+  test('client role => 403', async () => {
+    const t = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
+    const res = await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${t}`);
+    expect(res.status).toBe(403);
   });
 });
