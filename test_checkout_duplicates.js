@@ -1523,3 +1523,14 @@ describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2
     expect(plan).toEqual([{ id: 'c1', fm_canonical_email: 'josmith@gmail.com' }]);
   });
 });
+
+describe('removed /api/complete-subscription', () => {
+  test('is gone: no 2xx, no customer data, zero Stripe calls', async () => {
+    const before = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
+    const res = await request(app).post('/api/complete-subscription').send({ sessionId: 'cs_live_x' });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(res.body || {})).not.toMatch(/customer|address|subscription/i);
+    const after = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
+    expect(after).toBe(before);
+  });
+});

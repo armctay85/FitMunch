@@ -764,7 +764,7 @@
    leaving = true;
    if (d.notice) {
     // Returning trial user: say so before Stripe, and let them choose to go on.
-    // Elite QA r3 M2: no trial applies, so the banner and note must not promise one.
+    // No trial applies, so the banner and note must not promise one.
     const intent = document.getElementById('premium-intent');
     if (intent) {
      intent.querySelector('div').textContent = 'PREMIUM';

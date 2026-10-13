@@ -212,7 +212,7 @@ async function openBillingPortal(e) {
           ? 'Premium has started. Your first charge is today. Set your password from the link we sent to finish your account.'
           : 'Your 14-day trial has started. Set your password from the link we sent to finish your account.';
         if (data.trial === false) {
-          // Elite QA r3 M1: no trial applied, so the trial block must not promise one.
+          // No trial applied, so the trial block must not promise one.
           const price = data.plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';
           const block = document.getElementById('trialBlock');
           block.querySelector('h3').textContent = 'Premium has started';
