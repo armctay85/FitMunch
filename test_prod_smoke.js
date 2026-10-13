@@ -171,3 +171,59 @@ describe('prod-smoke.yml serialization', () => {
     expect(issueJob).toMatch(/group: fitmunch-production-smoke-issue\n\s+cancel-in-progress: false/);
   });
 });
+
+describe('prod-smoke AI consent step', () => {
+  const http = require('http');
+  const fs = require('fs');
+  const os = require('os');
+
+  function runAgainst(consentStatus) {
+    const seen = [];
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        seen.push({ url: req.url, body });
+        res.setHeader('content-type', 'application/json');
+        if (req.url === '/api/auth/login') return res.end(JSON.stringify({ success: true, token: 't.k.n', user: { aiDataConsent: null } }));
+        if (req.url === '/api/auth/ai-consent') {
+          res.statusCode = consentStatus;
+          return res.end(JSON.stringify(consentStatus === 200 ? { success: true, aiDataConsent: true } : { success: false }));
+        }
+        res.statusCode = 503;
+        return res.end('{}');
+      });
+    });
+    return new Promise((resolve) => server.listen(0, '127.0.0.1', () => {
+      const out = path.join(os.tmpdir(), `smoke-${process.pid}-${consentStatus}.json`);
+      const child = require('child_process').spawn(process.execPath, [path.join(__dirname, 'scripts/prod-smoke.mjs')], {
+        env: { ...process.env, FM_SMOKE_EMAIL: 's@example.com', FM_SMOKE_PASSWORD: 'pw', SMOKE_BASE_URL: `http://127.0.0.1:${server.address().port}`, PROD_SMOKE_RESULT: out },
+      });
+      let text = '';
+      child.stdout.on('data', (d) => { text += d; });
+      child.stderr.on('data', (d) => { text += d; });
+      child.on('close', (code) => {
+        server.close();
+        const result = fs.existsSync(out) ? JSON.parse(fs.readFileSync(out, 'utf8')) : null;
+        resolve({ code, text, seen, result });
+      });
+    }));
+  }
+
+  it('posts {allowed:true} and fails clearly when the consent POST is not 200', async () => {
+    const r = await runAgainst(500);
+    expect(r.code).toBe(1);
+    expect(r.text).toMatch(/FAIL consent POST failed status=500/);
+    const consent = r.seen.find((s) => s.url === '/api/auth/ai-consent');
+    expect(JSON.parse(consent.body)).toEqual({ allowed: true });
+    expect(r.seen.some((s) => s.url === '/api/ai/chat')).toBe(false);
+    expect(r.result.consent).toEqual({ ok: false, status: 500 });
+  }, 30000);
+
+  it('carries on to Coach once the consent POST succeeds', async () => {
+    const r = await runAgainst(200);
+    expect(r.text).not.toMatch(/consent POST failed/);
+    expect(r.seen.some((s) => s.url === '/api/ai/chat')).toBe(true);
+    expect(r.result.consent).toEqual({ ok: true, status: 200 });
+  }, 30000);
+});
