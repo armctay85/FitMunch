@@ -118,8 +118,31 @@ describe('stripMarkup / stripNames', () => {
   test('strips every string field at any depth, whatever the key or case', () => {
     const out = stripNames({ Name: '<a>', NAME: '<b>', reps: '<8>', sets: '<3>', notes: '<n>', level: '<l>',
       description: '<d>', goalType: '<g>', calories: 5, tags: ['<t>'], meals: [{ ingredients: [{ item: '<i>', qty: '<1>', unit: '<g>' }] }] });
-    expect(out).toEqual({ Name: 'a', NAME: 'b', reps: '8', sets: '3', notes: 'n', level: 'l', description: 'd', goalType: 'g',
-      calories: 5, tags: ['t'], meals: [{ ingredients: [{ item: 'i', qty: '1', unit: 'g' }] }] });
+    expect(out).toEqual({ Name: 'a', NAME: 'b', reps: 'under 8', sets: 'under 3', notes: 'n', level: 'l', description: 'd', goalType: 'g',
+      calories: 5, tags: ['t'], meals: [{ ingredients: [{ item: 'i', qty: 'under 1', unit: 'g' }] }] });
+  });
+
+  test('< and > next to a number or between spaces become words', () => {
+    expect(stripMarkup('Rest <90s')).toBe('Rest under 90s');
+    expect(stripMarkup('>8 reps')).toBe('over 8 reps');
+    expect(stripMarkup('< 5 min')).toBe('under 5 min');
+    expect(stripMarkup('heart rate > 150')).toBe('heart rate over 150');
+    expect(stripMarkup('a < b')).toBe('a under b');
+    expect(stripMarkup('<img src=x onerror=1>')).toBe('img src=x onerror=1');
+    expect(stripMarkup('<script>x</script>')).toBe('scriptx/script');
+  });
+
+  test('only PAYLOAD_TOO_DEEP passes its message through; other exposed errors stay generic', () => {
+    const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
+    const res = () => { const r = { code: 0, body: null }; r.status = (c) => { r.code = c; return r; }; r.json = (b) => { r.body = b; return r; }; return r; };
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    let deep = {}; for (let i = 0; i < 14; i++) deep = { a: deep };
+    let err; try { stripNames(deep); } catch (e) { err = e; }
+    const a = sendApiError(res(), err);
+    expect([a.code, a.body.error]).toEqual([400, 'Payload is nested too deeply']);
+    const b = sendApiError(res(), Object.assign(new Error('internal detail'), { status: 400, expose: true }));
+    expect([b.code, b.body.error]).toEqual([500, GENERIC_API_ERROR]);
+    spy.mockRestore();
   });
 
   test('payloads nested deeper than 12 levels are rejected', async () => {
