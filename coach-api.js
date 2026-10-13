@@ -19,6 +19,14 @@ const { renderSharePage, renderMissing } = require('./lib/coach-share');
 
 const api = express.Router();
 const pages = express.Router();
+const { neutralise } = require('./lib/store-neutral');
+
+// No chain names leave this router (see lib/store-neutral.js).
+api.use((_req, res, next) => {
+  const json = res.json.bind(res);
+  res.json = (body) => json(neutralise(body));
+  next();
+});
 
 function fail(code, message) {
   const err = new Error(message);

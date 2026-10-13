@@ -7,8 +7,16 @@
 
 const express = require('express');
 const shopper = require('./lib/fitness-butler-shopper');
+const { neutralise } = require('./lib/store-neutral');
 
 const router = express.Router();
+
+// No chain names leave this router (see lib/store-neutral.js).
+router.use((_req, res, next) => {
+  const json = res.json.bind(res);
+  res.json = (body) => json(neutralise(body));
+  next();
+});
 
 const DROP_KEYS = new Set([
   'pricedAt', 'validFrom', 'validTo', 'validUntil', 'updatedAt',

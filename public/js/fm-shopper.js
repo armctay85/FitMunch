@@ -111,7 +111,7 @@
               <ol>
                 ${basket.lines.map((line) => `<li>${line.packs} × ${escapeHtml(line.name)}</li>`).join('')}
               </ol>
-              <a href="${escapeAttr(basket.lines[0] ? basket.lines[0].searchUrl : basket.searchHome)}" target="_blank" rel="noopener">Open ${escapeHtml(basket.storeName)} public search</a>
+              ${((basket.lines[0] && basket.lines[0].searchUrl) || basket.searchHome) ? `<a href="${escapeAttr((basket.lines[0] && basket.lines[0].searchUrl) || basket.searchHome)}" target="_blank" rel="noopener">Open public search</a>` : ''}
             </article>
           `).join('')}
         </div>

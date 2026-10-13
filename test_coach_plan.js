@@ -37,7 +37,7 @@ describe('Coach plan builder', () => {
       expect(day.kcal).toBeLessThan(2600);
       expect(day.meals.length).toBeGreaterThan(2);
     }
-    expect(plan.shopping.storeName).toBe('Woolworths');
+    expect(plan.shopping.storeName).toBe('Supermarket');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
     expect(plan.shopping.lines.every((line) => line.priced && line.lineAud > 0)).toBe(true);
     const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
@@ -201,7 +201,7 @@ describe('Coach plan HTTP', () => {
     expect(created.body.plan.adherence.daysLogged).toBe(4);
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
-    expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
+    expect(created.body.plan.plan.shopping.storeName).toBe('Supermarket');
     expect(created.body.plan.plan.priceNote).toBe('Prices vary by store and week.');
     expect(created.body.plan.plan.catalogue).toBeUndefined();
     expect(JSON.stringify(created.body.plan.plan)).not.toContain('2026-08-25');
@@ -222,7 +222,7 @@ describe('Coach plan HTTP', () => {
     expect(share.text).not.toContain(priceEstimateNote(CATALOGUE));
     expect(share.text).not.toContain('2026-08-25');
     expect(share.text).toContain('See a dietitian for medical nutrition.');
-    expect(share.text).toContain('Coles draft list');
+    expect(share.text).toContain('Supermarket draft list');
     expect(share.text).not.toContain('Coles total');
     expect(share.headers['x-robots-tag']).toBe('noindex');
 
