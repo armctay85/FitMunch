@@ -1,3 +1,5 @@
+// Tests sign and verify with their own secret; the app has no built-in fallback.
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret';
 // Mock global objects needed for testing
 global.Chart = class {
   constructor() {}

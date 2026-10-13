@@ -3,6 +3,7 @@ module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
+    '**/test_jwt_secret.js',
     '**/test_app.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',

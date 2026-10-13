@@ -15,6 +15,7 @@ const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-e
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
 require('./lib/guest-claim').warnMissingGuestClaimSecret();
+require('./lib/jwt-secret').warnMissingJwtSecret();
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
   // One trusted hop only when we are actually behind Railway or Vercel (or
@@ -435,6 +436,10 @@ app.get("/api/db-test", (req, res) => {
 app.get('/api/health', (req, res) => {
   // Deployed builds without a usable GUEST_CLAIM_SECRET fail the health check
   // loudly. The reason is generic; the value is never read out.
+  if (require('./lib/jwt-secret').jwtSecretProblem()) {
+    console.error('[health] CONFIG ERROR: session secret');
+    return res.status(503).json({ status: 'misconfigured', service: 'fitmunch' });
+  }
   if (require('./lib/guest-claim').guestClaimSecretProblem()) {
     console.error('[health] CONFIG ERROR: guest claim secret');
     return res.status(503).json({ status: 'misconfigured', service: 'fitmunch' });
@@ -584,9 +589,8 @@ function requireAuthUser(req) {
     err.statusCode = 401;
     throw err;
   }
-  const jwtLib = require('jsonwebtoken');
   try {
-    return jwtLib.verify(authHeader.slice(7), jwtSecret(), { algorithms: ['HS256'] });
+    return require('./lib/jwt-secret').verifyJwt(authHeader.slice(7));
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       const authErr = new Error('Authentication required.');
@@ -1071,8 +1075,7 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
     const authHeader = req.headers['authorization'];
     if (!authHeader?.startsWith('Bearer '))
       return res.status(401).json({ success: false, error: 'Authentication required.' });
-    const jwtLib = require('jsonwebtoken');
-    const decoded = jwtLib.verify(authHeader.slice(7), jwtSecret());
+    const decoded = require('./lib/jwt-secret').verifyJwt(authHeader.slice(7));
 
     const { getUserById, updateUserSubscription, updateUserCoachBilling, effectiveTier } = require('./server/storage.js');
     const { isCoachSubscription, coachTierUpdateFromStripe } = require('./lib/fitmunch-coach-billing');
@@ -1264,9 +1267,8 @@ app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      const jwt = require('jsonwebtoken');
       const token = authHeader.slice(7);
-      const decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] });
+      const decoded = require('./lib/jwt-secret').verifyJwt(token);
       req.user = { id: decoded.userId, name: decoded.name };
     } catch (e) {
       req.user = null;

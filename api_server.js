@@ -319,9 +319,8 @@ router.get('/analytics/funnel', async (req, res) => {
 
 // ── AUTH ROUTES (real JWT + bcrypt + PostgreSQL) ──────────────────────────────
 const bcrypt  = require('bcrypt');
-const jwt     = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+const { signJwt, verifyJwt } = require('./lib/jwt-secret');
 const JWT_EXPIRES = '30d';
 const SALT_ROUNDS = 12;
 
@@ -501,7 +500,7 @@ router.post('/auth/register', async (req, res) => {
       /* analytics must not affect sign-up */
     }
 
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = signJwt({ userId: user.id, name: user.name, email: user.email, role }, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
@@ -537,7 +536,7 @@ router.post('/auth/login', async (req, res) => {
     } catch (e) {
       console.warn('[login] role lookup failed');
     }
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = signJwt({ userId: user.id, name: user.name, email: user.email, role }, { expiresIn: JWT_EXPIRES });
     try {
       await _pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
     } catch (e) {
@@ -712,7 +711,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'No token provided.' });
 
     const token = authHeader.slice(7);
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = verifyJwt(token);
     if (decoded.preview) {
       const coachStore = require('./lib/coach-store');
       if (!coachStore.previewEnabled()) {
@@ -782,7 +781,7 @@ function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
   try {
-    req.user = jwt.verify(h.slice(7), JWT_SECRET);
+    req.user = verifyJwt(h.slice(7));
     next();
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }

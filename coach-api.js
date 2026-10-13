@@ -2,8 +2,6 @@
 
 const path = require('path');
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('./lib/fitmunch-checkout');
 const { isInternalLeak, GENERIC_API_ERROR } = require('./lib/public-error');
 const store = require('./lib/coach-store');
 const {
@@ -59,7 +57,7 @@ function requirePt(req, res, next) {
     return res.status(401).json({ success: false, error: 'Unauthorised' });
   }
   try {
-    const user = jwt.verify(header.slice(7), jwtSecret());
+    const user = require('./lib/jwt-secret').verifyJwt(header.slice(7));
     if (user.preview && !store.previewEnabled()) {
       return res.status(401).json({ success: false, error: 'Unauthorised' });
     }
@@ -127,13 +125,18 @@ api.get('/preview-status', (_req, res) => {
 api.post('/preview-session', (_req, res) => {
   if (!store.previewEnabled()) return res.status(404).json({ success: false, error: 'Not found' });
   const user = store.PREVIEW_PT;
-  const token = jwt.sign({
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    role: 'pt',
-    preview: true,
-  }, jwtSecret(), { expiresIn: '12h' });
+  let token;
+  try {
+    token = require('./lib/jwt-secret').signJwt({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: 'pt',
+      preview: true,
+    }, { expiresIn: '12h' });
+  } catch (_) {
+    return res.status(503).json({ success: false, error: 'Sign-in is unavailable right now.' });
+  }
   res.json({
     success: true,
     token,
