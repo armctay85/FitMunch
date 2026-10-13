@@ -305,7 +305,7 @@ describe('public price and claim ban', () => {
   it('uses exactly the No GST line on /terms and does not name a person or a sole trader', async () => {
     const page = await request(app).get('/terms').expect(200);
     expect(page.text).toContain('No GST is charged.');
-    expect(page.text).not.toContain('not registered for GST');
+    expect(page.text.replace(/<p class="fm-(?:footer-note fm-entity|entity-legal)">FitMunch is operated by DEVELOOP \(ABN <a href="https:\/\/abr\.business\.gov\.au\/ABN\/View\?abn=30140738615"[^>]*>30 140 738 615<\/a>\)\. DEVELOOP is not registered for GST, so no GST is charged\.<\/p>/g, '')).not.toContain('not registered for GST');
     expect(page.text).not.toMatch(/\bDrew\b/);
     expect(page.text).not.toMatch(/sole trader/i);
     expect(fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8')).not.toContain('Client count gate: open.');

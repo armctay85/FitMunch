@@ -50,7 +50,7 @@ describe('public copy hotfix', () => {
       const text = /\.html$/i.test(f) ? visibleText(raw) : raw;
       const sentences = text.match(/[^.!?<>"'`]*\bGST\b[^.!?<>"'`]*[.!?]?/g) || [];
       for (const s of sentences) {
-        if (s.trim() !== 'No GST is charged.') hits.push(`${rel(f)}: ${s.trim().slice(0, 120)}`);
+        if (!['No GST is charged.', 'DEVELOOP is not registered for GST, so no GST is charged.'].includes(s.trim())) hits.push(`${rel(f)}: ${s.trim().slice(0, 120)}`);
       }
     }
     expect(hits).toEqual([]);

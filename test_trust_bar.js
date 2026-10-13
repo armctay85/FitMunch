@@ -291,8 +291,10 @@ describe('Trust bar 9: no invented ABN', () => {
   it('contact, terms, and refund do not invent an ABN, ACN, or street address', async () => {
     for (const route of ['/contact', '/terms', '/refund', '/privacy']) {
       const res = await request(app).get(route).expect(200);
-      expect(res.text).not.toMatch(/\bABN\b/);
-      expect(res.text).not.toMatch(/\bACN\b/);
+      const t = res.text.replace(/<p class="fm-(?:footer-note fm-entity|entity-legal)">FitMunch is operated by DEVELOOP \(ABN <a href="https:\/\/abr\.business\.gov\.au\/ABN\/View\?abn=30140738615"[^>]*>30 140 738 615<\/a>\)\. DEVELOOP is not registered for GST, so no GST is charged\.<\/p>/g, '');
+      // Only the approved operator line may carry an ABN (test_entity_line.js).
+      expect(t).not.toMatch(/\bABN\b/);
+      expect(t).not.toMatch(/\bACN\b/);
       expect(res.text).toContain('support@fitmunch.com.au');
     }
   });
