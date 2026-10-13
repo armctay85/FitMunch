@@ -12,13 +12,13 @@ FitMunch: Meal Plans & Macros
 Protein targets, receipt scans
 
 ## KEYWORDS
-calorie,protein,macro,high protein,receipt,nutrition,diet,weight loss,food log,workout,coach,prep
+calorie,counter,grocery,nutrition,diet,weight loss,food log,workout,coach,prep,fitness,tracker
 
 ## PROMOTIONAL TEXT
-Plan a week of meals to your calorie and protein targets, then scan your receipt to see how the shop matched.
+Plan a week of meals to your calorie and protein targets, then scan a grocery receipt for item macros and a haul score.
 
 ## DESCRIPTION
-FitMunch plans your meals around your goal, helps you log what you eat, and checks your shop against the plan.
+FitMunch plans your meals around your goal, helps you log what you eat, and scores your grocery shop.
 
 **Plan your week**
 Set your goal, calorie and protein targets. FitMunch drafts a week of meals built to your targets, with calories, protein and prep time for each.
@@ -33,7 +33,7 @@ Take a photo of a grocery receipt. FitMunch reads the items, estimates their mac
 Ask Coach about meals, training or your progress. Pick gym or home and your level for a weekly workout plan you can tick off.
 
 **AI and your data**
-Meal plans, Coach and receipt scans use AI providers. FitMunch asks before any of your data is sent, and you can turn AI features off at any time under Me, Privacy. Your account data is stored on FitMunch servers so it is there when you sign in. See the privacy policy for details.
+Meal plans, Coach, receipt scans, insights and the weekly review use AI providers. FitMunch asks before any of your data is sent, and you can turn AI features off at any time under Me, Privacy. Your account data is stored on FitMunch servers so it is there when you sign in. See the privacy policy for details.
 
 **Subscription**
 FitMunch Premium is an auto-renewing subscription:

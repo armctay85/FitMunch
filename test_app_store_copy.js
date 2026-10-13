@@ -10,7 +10,9 @@ describe('App Store copy', () => {
     const banned = [/HD video/i, /hundreds of/i, /Apple Watch/i, /iPad/i, /Apple Health|HealthKit/i, /recipe database|extensive database/i,
       /ad-free|no ads/i, /stays on your device|stored locally/i, /export \(CSV|data export/i, /unlimited daily meal logging/i, /\[PRIVACY_URL\]|\[SUPPORT_URL\]/,
       // Not in the iOS binary yet (PaywallView: no shopping list; plan request has no diet; scan has no dinner).
-      /shopping list/i, /dietary/i, /dinner from/i, /suggests a dinner/i, /under 30 minutes/i];
+      /shopping list/i, /dietary/i, /dinner from/i, /suggests a dinner/i, /under 30 minutes/i,
+      // ReceiptScanView has no plan or target comparison (EQA r3 M1).
+      /against the plan|shop matched/i];
     for (const re of [...banned]) expect(md).not.toMatch(re);
   });
   it('has no store names, entity or tax wording, or internal names', () => {
@@ -34,11 +36,15 @@ describe('App Store copy', () => {
     expect(section('PRIMARY CATEGORY')).toBe('Health & Fitness');
     expect(section('AGE RATING')).toBe('4+');
   });
-  it('keywords do not repeat words from the app name', () => {
-    const nameWords = section('APP NAME').toLowerCase().split(/[^a-z]+/).filter(Boolean);
-    for (const kw of section('KEYWORDS').toLowerCase().split(',')) {
-      for (const w of kw.split(/\s+/)) expect(nameWords).not.toContain(w);
-    }
+  it('keywords do not repeat words from the app name or subtitle (plurals stemmed)', () => {
+    const stem = (w) => w.replace(/s$/, '');
+    const words = (t) => t.toLowerCase().split(/[^a-z]+/).filter(Boolean).map(stem);
+    const taken = [...words(section('APP NAME')), ...words(section('SUBTITLE'))];
+    for (const w of words(section('KEYWORDS'))) expect(taken).not.toContain(w);
+  });
+  it('uses the EQA opener and promo text exactly', () => {
+    expect(section('PROMOTIONAL TEXT')).toBe('Plan a week of meals to your calorie and protein targets, then scan a grocery receipt for item macros and a haul score.');
+    expect(desc.trim().startsWith('FitMunch plans your meals around your goal, helps you log what you eat, and scores your grocery shop.')).toBe(true);
   });
   it('listed prices match the StoreKit config (App Store Connect is checked by hand)', () => {
     const sk = JSON.parse(fs.readFileSync(path.join(__dirname, 'FitMunchUITests', 'FitMunchProducts.storekit'), 'utf8'));
@@ -55,7 +61,7 @@ describe('App Store copy', () => {
     expect(desc).not.toMatch(/goal and schedule/i);
     expect(desc).toContain('Pick gym or home and your level for a weekly workout plan');
     // Workout plans are not AI.
-    expect(desc).toContain('Meal plans, Coach and receipt scans use AI providers.');
+    expect(desc).toContain('Meal plans, Coach, receipt scans, insights and the weekly review use AI providers.');
     expect(desc).not.toMatch(/workout plans?[^.]*use AI/i);
     const swift = (p) => fs.readFileSync(path.join(__dirname, 'FitMunch', 'Views', p), 'utf8');
     expect(swift('WorkoutPlanGenerator.swift')).not.toMatch(/APIClient|URLSession|\/api\//);
