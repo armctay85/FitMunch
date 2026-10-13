@@ -2200,4 +2200,6 @@ router.post('/pt-leads', async (req, res) => {
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  // Read by the store-name sweep test.
+  router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }
