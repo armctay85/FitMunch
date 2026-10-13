@@ -135,11 +135,6 @@
       "count": 1
     },
     {
-      "file": "public/demo.html",
-      "id": "cheap",
-      "count": 1
-    },
-    {
       "file": "public/family-meal-plan.html",
       "id": "specials",
       "count": 9
@@ -373,7 +368,6 @@
     "css/fm-shopper.css",
     "css/fm-tokens-auth.css",
     "css/fm-tokens.css",
-    "demo.html",
     "family-meal-plan.html",
     "fitmunch-coach-vs-spreadsheets.html",
     "fonts/NOTICE.txt",
