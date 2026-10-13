@@ -69,4 +69,14 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
     const copy = html;
     expect(copy).not.toMatch(/Woolies|Woolworths|\bColes\b|\bAldi\b|\bIGA\b|Costco/i);
   });
+
+  it('puts header buttons on their own row below 1024px, 44px logo and Sign out at every width, labelled selects, AA checked items', () => {
+    expect(html).toMatch(/@media \(max-width: 1024px\) \{\n \.view-header\{flex-wrap:wrap\}\n \.view-actions\{flex-wrap:wrap;width:100%\}\n \.view-actions \.btn\{white-space:nowrap;min-height:44px\}/);
+    expect(html).toMatch(/\.nav-logo\{[^}]*min-height:44px\}/);
+    expect(html).toMatch(/\.btn-logout\{[^}]*min-height:44px;min-width:44px\}/);
+    expect(html).not.toMatch(/\.shop-item\.checked\{opacity/);
+    expect(html).toContain('id="detail-phase" aria-label="Client phase"');
+    expect(html).toContain('id="scan-meal-type" aria-label="Meal time"');
+    expect(html).toContain('aria-label="Meal time" style="padding:4px 6px;font-size:.78rem" data-field="mealType"');
+  });
 });
