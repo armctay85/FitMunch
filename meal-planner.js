@@ -103,7 +103,8 @@ router.post('/generate', requireAuth, async (req, res) => {
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
-    return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder' });
+    // Each meal carries up to three builder swaps so the app can swap instantly, offline.
+    return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary), source: 'builder' });
   }
   try {
     let gate = null;
