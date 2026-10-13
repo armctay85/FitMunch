@@ -516,27 +516,11 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
     if (!sellable) {
       return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
     }
-    // Coach prices are not sold to guests. Only a signed-in trainer (role pt)
-    // and only when the live price checks out (A$39/A$79, AUD, monthly).
+    // Coach prices are never sold here. This endpoint is unauthenticated and
+    // cannot link a subscription to a trainer account, so a trainer would pay
+    // and get no Coach access. Trainers use /api/coach/checkout.
     if (isCoach) {
-      let decoded = null;
-      try {
-        decoded = requireAuthUser(req);
-      } catch (_) {
-        decoded = null;
-      }
-      if (!decoded || !decoded.userId || decoded.role !== 'pt') {
-        return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
-      }
-      let priceOk = false;
-      try {
-        priceOk = await require('./lib/fitmunch-coach-billing').verifyCoachPrice(stripe, plan, priceId);
-      } catch (err) {
-        console.error('[checkout-sessions] coach price check failed', webhookHandlerErrorLabel(err));
-      }
-      if (!priceOk) {
-        return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
-      }
+      return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
     }
 
     // Unauthenticated. Ignore the customer id in the body: attaching Checkout
