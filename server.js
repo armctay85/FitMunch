@@ -1086,52 +1086,8 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
 });
 
 // Endpoint to complete subscription after payment success
-app.post('/api/complete-subscription', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({
-      success: false,
-      message: 'Stripe is not configured'
-    });
-  }
-  
-  try {
-    const { sessionId } = req.body;
-
-    if (!sessionId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Session ID is required'
-      });
-    }
-
-    // Retrieve the session to verify payment
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['subscription', 'customer']
-    });
-
-    if (session.payment_status !== 'paid') {
-      return res.status(400).json({
-        success: false,
-        message: 'Payment not completed'
-      });
-    }
-
-    // Return subscription details
-    res.json({
-      success: true,
-      message: 'Subscription completed successfully',
-      subscription: session.subscription,
-      customer: session.customer
-    });
-
-  } catch (error) {
-    console.error('Error completing subscription:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to complete subscription',
-    });
-  }
-});
+// /api/complete-subscription removed: unauthenticated, unused, and it returned
+// the full Stripe customer (email, address) to anyone holding a session id.
 
 // Endpoint to create or get Stripe customer
 app.post('/api/stripe/customers', async (req, res) => {
