@@ -14,6 +14,9 @@ const jwt = require('jsonwebtoken');
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_fake';
 // The per-IP and per-email limits have their own tests below.
 process.env.QUICK_CHECKOUT_IP_MAX_PER_HOUR = '100000';
+process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR = '100000';
+process.env.STRIPE_CUSTOMERS_IP_MAX_PER_HOUR = '100000';
+process.env.STRIPE_CUSTOMERS_USER_MAX_PER_HOUR = '100000';
 process.env.QUICK_CHECKOUT_EMAIL_MAX_PER_HOUR = '100000';
 
 const app = require('./server.js');
@@ -711,20 +714,8 @@ describe('unauthenticated checkout privacy', () => {
     expect(fake.customers.create.mock.calls[0][1].idempotencyKey).toEqual(expect.stringContaining('browser-attempt-42'));
   });
 
-  test('public customer create and checkout-sessions do not reuse a customer found by email', async () => {
+  test('checkout-sessions does not reuse a customer found by email', async () => {
     seedVictim();
-    const created = await request(app).post('/api/stripe/customers')
-      .send({ email: 'victim@example.com', name: 'Stranger', metadata: { userId: 'u1', isTest: true } })
-      .expect(200);
-    expect(created.body.id).not.toBe('cus_victim');
-    expect(created.body.email).toBe('victim@example.com');
-    expect(fake.customers.list).not.toHaveBeenCalled();
-    expect(fake.customers.search).not.toHaveBeenCalled();
-    const customer = fake.S.customers.find((c) => c.id === created.body.id);
-    expect(customer.metadata.brand).toBe('fitmunch');
-    expect(customer.metadata.userId).toBeUndefined();
-    expect(customer.metadata.isTest).toBe(true);
-
     const session = await request(app).post('/api/stripe/checkout-sessions').send({
       priceId: PRICE_IDS.premium,
       customerId: 'cus_victim',
@@ -1521,6 +1512,179 @@ describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2
       { id: 'c3', email: 'w@example.com', metadata: { brand: 'wipper', product: 'wipper' } },
     ]);
     expect(plan).toEqual([{ id: 'c1', fm_canonical_email: 'josmith@gmail.com' }]);
+  });
+});
+
+describe('removed /api/complete-subscription', () => {
+  test('is gone: no 2xx, no customer data, zero Stripe calls', async () => {
+    const before = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
+    const res = await request(app).post('/api/complete-subscription').send({ sessionId: 'cs_live_x' });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(res.body || {})).not.toMatch(/customer|address|subscription/i);
+    const after = fake.checkout && fake.checkout.sessions && fake.checkout.sessions.retrieve ? fake.checkout.sessions.retrieve.mock.calls.length : 0;
+    expect(after).toBe(before);
+  });
+});
+
+describe('POST /api/stripe/customers is authed and own-account only', () => {
+  const count = (o, seen = new Set()) => {
+    if (!o || seen.has(o)) return 0;
+    seen.add(o);
+    return Object.entries(o).reduce((n, [k, v]) => {
+      if (k === 'S') return n;
+      if (typeof v === 'function' && v.mock) return n + v.mock.calls.length;
+      if (v && typeof v === 'object') return n + count(v, seen);
+      return n;
+    }, 0);
+  };
+  const body = { email: 'victim@example.com', name: 'Stranger', metadata: { userId: 'u2', isTest: true } };
+
+  test.each([
+    ['no header', null],
+    ['forged token', 'Bearer not-a-jwt'],
+    ['wrong secret', `Bearer ${jwt.sign({ userId: 'u1' }, 'wrong-secret')}`],
+    ['expired token', `Bearer ${jwt.sign({ userId: 'u1', exp: Math.floor(Date.now() / 1000) - 60 }, jwtSecret())}`],
+    ['alg none', `Bearer ${jwt.sign({ userId: 'u1' }, null, { algorithm: 'none' })}`],
+    ['HS512 with the real secret', `Bearer ${jwt.sign({ userId: 'u1' }, jwtSecret(), { algorithm: 'HS512' })}`],
+  ])('%s => 401, zero Stripe calls', async (_label, auth) => {
+    let r = request(app).post('/api/stripe/customers');
+    if (auth) r = r.set('Authorization', auth);
+    const res = await r.send(body);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ success: false, message: 'Authentication required.' });
+    expect(count(fake)).toBe(0);
+    expect(fake.S.customers).toHaveLength(0);
+  });
+
+  test('authed user with a linked customer gets their own, client email/metadata ignored', async () => {
+    const res = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${tokenFor('u1')}`).send(body);
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe('cus_existing');
+    expect(res.body.email).toBe('steph@example.com');
+    expect(fake.customers.list).not.toHaveBeenCalled();
+    expect(fake.customers.search).not.toHaveBeenCalled();
+    expect(fake.S.customers).toHaveLength(0);
+  });
+
+  test('authed user without a customer gets one created from their own account', async () => {
+    users.u1.stripeCustomerId = null;
+    const res = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${tokenFor('u1')}`).send(body);
+    expect(res.status).toBe(200);
+    expect(fake.S.customers).toHaveLength(1);
+    const c = fake.S.customers[0];
+    expect(res.body.id).toBe(c.id);
+    expect(c.email).toBe('steph@example.com');
+    expect(c.metadata.userId).toBe('u1');
+    expect(c.metadata.isTest).toBeUndefined();
+    expect(JSON.stringify(c)).not.toMatch(/victim|Stranger/);
+  });
+
+  test('over the per-user limit => 429', async () => {
+    process.env.STRIPE_CUSTOMERS_USER_MAX_PER_HOUR = '2';
+    try {
+      const t = tokenFor('u1', { userId: 'u-limit' });
+      users['u-limit'] = { id: 'u-limit', email: 'lim@example.com', name: 'L', subscriptionTier: 'free', stripeCustomerId: 'cus_existing' };
+      const go = () => request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${t}`).send({});
+      expect((await go()).status).toBe(200);
+      expect((await go()).status).toBe(200);
+      expect((await go()).status).toBe(429);
+    } finally {
+      process.env.STRIPE_CUSTOMERS_USER_MAX_PER_HOUR = '100000';
+    }
+  });
+
+  test('over the per-IP limit => 429, even unauthenticated, with zero Stripe calls', async () => {
+    process.env.STRIPE_CUSTOMERS_IP_MAX_PER_HOUR = '1';
+    try {
+      const ip = '203.0.113.77';
+      await request(app).post('/api/stripe/customers').set('X-Forwarded-For', ip).send({});
+      const res = await request(app).post('/api/stripe/customers').set('X-Forwarded-For', ip).send({});
+      expect(res.status).toBe(429);
+      expect(count(fake)).toBe(0);
+    } finally {
+      process.env.STRIPE_CUSTOMERS_IP_MAX_PER_HOUR = '100000';
+    }
+  });
+});
+
+describe('shared rate limits on guest checkout-sessions', () => {
+  const calls = (o, seen = new Set()) => {
+    if (!o || seen.has(o)) return 0;
+    seen.add(o);
+    return Object.entries(o).reduce((n, [k, v]) => {
+      if (k === 'S') return n;
+      if (typeof v === 'function' && v.mock) return n + v.mock.calls.length;
+      if (v && typeof v === 'object') return n + calls(v, seen);
+      return n;
+    }, 0);
+  };
+  const body = (i) => ({
+    priceId: PRICE_IDS.premium,
+    customerId: 'cus_existing',
+    successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+    cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    nonce: `limit-${i}`,
+  });
+
+  test('limit 2: the 3rd request gets 429 and makes no Stripe call', async () => {
+    process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR = '2';
+    try {
+      const ip = '198.51.100.23';
+      const go = (i) => request(app).post('/api/stripe/checkout-sessions').set('X-Forwarded-For', ip)
+        .set('Idempotency-Key', `cs-limit-${i}-${Date.now()}`).send(body(i));
+      expect((await go(1)).status).toBe(200);
+      expect((await go(2)).status).toBe(200);
+      const customersBefore = fake.S.customers.length;
+      const sessionsBefore = fake.S.sessions.length;
+      const callsBefore = calls(fake);
+      const third = await go(3);
+      expect(third.status).toBe(429);
+      expect(third.body).toEqual({ success: false, message: 'Too many checkout attempts. Please try again later.' });
+      expect(third.headers['retry-after']).toBe('3600');
+      expect(fake.S.customers.length).toBe(customersBefore);
+      expect(fake.S.sessions.length).toBe(sessionsBefore);
+      expect(calls(fake)).toBe(callsBefore);
+    } finally {
+      process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR = '100000';
+    }
+  });
+
+  test('fails closed: shared counter down => 503, zero Stripe calls', async () => {
+    const counters = require('./lib/shared-counters');
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    counters.setSharedCounterQueryForTests(async () => { throw Object.assign(new Error('postgres://u:p@h/db down'), { code: 'ECONNREFUSED' }); });
+    try {
+      const a = await request(app).post('/api/stripe/checkout-sessions').send(body(9));
+      expect(a.status).toBe(503);
+      const b = await request(app).post('/api/stripe/customers').set('Authorization', `Bearer ${tokenFor('u1')}`).send({});
+      expect(b.status).toBe(503);
+      expect(calls(fake)).toBe(0);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/postgres:\/\/|u:p@/);
+    } finally {
+      counters.setSharedCounterQueryForTests(null);
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('error logs are redacted', () => {
+  test('checkout-sessions failure logs no secret or connection string', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const boom = jest.fn(async () => { throw new Error('Invalid API Key provided: sk_test_123 DATABASE_URL=postgres://u:p@h/db'); });
+    fake.checkout.sessions.create = boom;
+    fake.rawRequest = boom;
+    try {
+      const res = await request(app).post('/api/stripe/checkout-sessions').send({
+        priceId: PRICE_IDS.premium,
+        customerId: 'cus_existing',
+        successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+        cancelUrl: 'https://www.fitmunch.com.au/pricing',
+      });
+      expect(res.status).toBe(500);
+      expect(JSON.stringify(spy.mock.calls)).not.toMatch(/sk_test_|postgres:|DATABASE_URL/);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

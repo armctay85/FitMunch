@@ -86,7 +86,7 @@ describe('funnel event helper', () => {
       expect(landingPageFromPath(`${route}.html`)).toBe(route.slice(1));
     }
     expect(Object.keys(LANDING_PAGES).sort()).toEqual(['/', ...SEARCH_LANDERS].sort());
-    for (const route of ['/pricing', '/login', '/login.html', '/demo', '/for-pts', '/app.html', '/best-pt-software-australia']) {
+    for (const route of ['/pricing', '/login', '/login.html', '/for-pts', '/app.html', '/best-pt-software-australia']) {
       expect(landingPageFromPath(route)).toBe('');
     }
   });
@@ -457,5 +457,16 @@ describe('funnel beacon and private viewer', () => {
       if (previous == null) delete process.env.FM_ANALYTICS_KEY;
       else process.env.FM_ANALYTICS_KEY = previous;
     }
+  });
+});
+
+describe('/demo is retired', () => {
+  test.each(['/demo', '/demo.html', '/try'])('%s => 301 to the homepage worked example', async (route) => {
+    const res = await require('supertest')(require('./server')).get(route);
+    expect(res.status).toBe(301);
+    expect(res.headers.location).toBe('/#proof');
+  });
+  test('sitemap no longer lists /demo', () => {
+    expect(require('fs').readFileSync(require('path').join(__dirname, 'public/sitemap.xml'), 'utf8')).not.toMatch(/fitmunch\.com\.au\/demo</);
   });
 });
