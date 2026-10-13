@@ -33,6 +33,10 @@ function withEnv(vars, fn) {
   });
 }
 
+// The fixed secret jest.setup.js used to set. It is public in git history, so
+// it is denied everywhere; jest now generates a random secret per run.
+const OLD_JEST_SECRET = 'jest-only-session-secret';
+
 describe('no hard-coded JWT fallback', () => {
   it('no server file falls back to a literal JWT secret', () => {
     for (const f of ['api_server.js', 'meal-planner.js', 'receipt-scanner.js', 'server.js', 'coach-api.js', 'lib/fitmunch-checkout.js', 'lib/jwt-secret.js']) {
@@ -69,7 +73,7 @@ describe('JWT_SECRET unset', () => {
       expect(lib.jwtSecret()).toBe('');
       expect(lib.jwtSecretProblem()).toBe('missing');
       expect(() => lib.signJwt(payload)).toThrow(/not configured/);
-      const tokens = [...OLD_FALLBACKS, 'any-secret', 'jest-only-session-secret'].map((s) => jwt.sign(payload, s));
+      const tokens = [...OLD_FALLBACKS, 'any-secret', OLD_JEST_SECRET].map((s) => jwt.sign(payload, s));
       for (const t of tokens) {
         expect(() => lib.verifyJwt(t)).toThrow();
         for (const [method, path] of ROUTES) expect((await send(method, path, t)).status).toBe(401);
@@ -212,4 +216,38 @@ describe('Elite QA r1 (#105)', () => {
       expect(lib.jwtSecret()).toBe('');
       expect(lib.jwtSecretProblem()).toBe('missing');
     }));
+});
+
+describe('test secrets never work in prod (Elite QA #105 r2 M1)', () => {
+  it('the old fixed jest secret is denied when deployed: nothing signs, forged tokens get 401', () =>
+    withEnv({ JWT_SECRET: OLD_JEST_SECRET, NODE_ENV: 'production' }, async () => {
+      expect(lib.jwtSecret()).toBe('');
+      expect(lib.jwtSecretProblem()).toBe('too_short');
+      expect(() => lib.signJwt(payload)).toThrow(/not configured/);
+      const forged = jwt.sign(payload, OLD_JEST_SECRET);
+      expect(() => lib.verifyJwt(forged)).toThrow();
+      for (const [method, path] of ROUTES) expect((await send(method, path, forged)).status).toBe(401);
+    }));
+
+  it('the old fixed jest secret is denied locally too', () =>
+    withEnv({ JWT_SECRET: OLD_JEST_SECRET, NODE_ENV: 'test' }, async () => {
+      expect(lib.jwtSecret()).toBe('');
+    }));
+
+  it('jest runs with a random per-run secret, not a fixed one', () => {
+    expect(process.env.JEST_JWT_SECRET).toMatch(/^[0-9a-f]{64}$/);
+    expect(process.env.JEST_JWT_SECRET).not.toBe(OLD_JEST_SECRET);
+    const src = require('fs').readFileSync(require('path').join(__dirname, 'jest.setup.js'), 'utf8');
+    expect(src).toMatch(/randomBytes\(32\)/);
+    expect(src).not.toMatch(/JWT_SECRET\s*=\s*process\.env\.JWT_SECRET\s*\|\|\s*'/);
+  });
+});
+
+describe('purpose tokens are not sessions (Elite QA #105 r2 S1)', () => {
+  it('a token with {userId, purpose} gets 401 on signed-in routes', async () => {
+    const t = jwt.sign({ userId: 'u-forge', purpose: 'x' }, process.env.JWT_SECRET, { algorithm: 'HS256' });
+    for (const [method, path] of ROUTES) expect((await send(method, path, t)).status).toBe(401);
+    const plain = jwt.sign({ userId: 'u-forge' }, process.env.JWT_SECRET, { algorithm: 'HS256' });
+    expect(lib.verifyJwt(plain).userId).toBe('u-forge');
+  });
 });

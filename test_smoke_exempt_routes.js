@@ -30,7 +30,7 @@ const app = require('./server.js');
 
 const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 const HAUL = [{ name: 'Eggs 12', quantity: 1, unit: 'pack', price: 6, category: 'dairy' }];
-const SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
+const SECRET = process.env.JWT_SECRET || process.env.JEST_JWT_SECRET;
 const ORIG = process.env.SMOKE_ACCOUNT_IDS;
 let smokeUsed; let smokeFail; let refunds;
 

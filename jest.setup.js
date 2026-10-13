@@ -1,5 +1,8 @@
 // Tests sign and verify with their own secret; the app has no built-in fallback.
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
+// A fresh random secret per run. The old fixed test secret is on the deny
+// list in lib/jwt-secret.js, so no test secret can ever sign a prod token.
+process.env.JEST_JWT_SECRET = require('crypto').randomBytes(32).toString('hex');
+process.env.JWT_SECRET = process.env.JEST_JWT_SECRET;
 // Mock global objects needed for testing
 global.Chart = class {
   constructor() {}
