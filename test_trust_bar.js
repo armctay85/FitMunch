@@ -219,8 +219,7 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/login.html?plan=premium#register"');
     expect(hero).not.toContain('href="/pricing"');
-    expect(hero).toContain('See this list');
-    expect(hero).toContain('Not a shop charge');
+    expect(hero).toContain('src="/assets/fm-app-week.webp"');
     expect(hero).not.toContain('$19.99');
     expect(hero).not.toMatch(/photograph your receipt/i);
     expect(hero).not.toMatch(/viewfinder|getUserMedia|capture=/i);

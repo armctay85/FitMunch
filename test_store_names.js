@@ -116,10 +116,3 @@ describe('PR 76 r2 copy fixes', () => {
   });
 });
 
-describe('homepage phone list layout (QA r3)', () => {
-  it('two-column rows and no leftover store-label rules', () => {
-    const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-    expect(html).toContain('.phone-list li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #ece6db}');
-    expect(html).not.toMatch(/\.phone-list b\b/);
-  });
-});

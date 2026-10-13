@@ -45,10 +45,10 @@ body{
   transform:translateY(-140%);transition:transform .2s;
 }
 .skip:focus{transform:none}
-h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.phone-k,.phone-week,.phone-approve,.lander-card a{
+h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.lander-card a{
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
 }
-.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status,.phone-list .src{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
 /* FIRST FOLD: studio product sheet. Price only in this thin bar. */
 .fold{
@@ -103,7 +103,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   display:grid;
   gap:22px;
 }
-.hero-kicker{display:none}
+.hero-kicker{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:10px}
 .hero h1{
   font-size:clamp(2.35rem,10.2vw,4.15rem);
   font-weight:800;letter-spacing:-.07em;line-height:.94;
@@ -134,53 +134,10 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 }
 .btn-ink:hover{border-color:var(--mute)}
 
-.phone{
-  width:100%;
-  max-width:22.5rem;
-  justify-self:end;
-}
-.sheet{
-  background:#f4efe6;
-  color:#11180f;
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:4px;
-  overflow:hidden;
-  box-shadow:0 22px 50px rgba(0,0,0,.38);
-}
-.sheet-top{padding:16px 16px 10px}
-.phone-k{
-  font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-  color:#17833c;margin-bottom:6px;
-}
-.phone-week{
-  font-size:1.28rem;font-weight:800;letter-spacing:-.045em;line-height:1.05;color:#11180f;
-}
-.sheet-body{
-  margin:0 16px 12px;
-  font-size:.86rem;line-height:1.45;color:#1c2420;
-}
-.phone-list{list-style:none;border-top:1px solid #e4dccf}
-.phone-list li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #ece6db}
-.phone-list strong{
-  display:block;font-size:.95rem;font-weight:700;letter-spacing:-.03em;color:#11180f;
-}
-.phone-list .src{
-  font-size:.74rem;font-weight:600;letter-spacing:0;color:#3f5047;white-space:nowrap;
-}
-.sheet-foot{
-  padding:14px 16px 16px;
-}
-.phone-approve{
-  display:inline-block;
-  color:#136b31;background:transparent;
-  font-size:.95rem;font-weight:700;
-  text-decoration:underline;text-underline-offset:3px;
-  padding:0;
-}
-.phone-honest{
-  margin-top:6px;
-  font-size:.78rem;line-height:1.4;color:#3a4540;
-}
+.hero-shot{position:relative;margin:0;width:100%;max-width:34rem;justify-self:end}
+.hero-food{display:block;width:78%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:6px}
+.hero-app{position:absolute;right:0;top:10%;width:54%;height:auto;aspect-ratio:388/520;object-fit:cover;object-position:top;border-radius:8px;border:1px solid rgba(255,255,255,.14);box-shadow:0 22px 50px rgba(0,0,0,.45);background:#eef2ee}
+.hero-shot figcaption{margin-top:10px;font-size:.74rem;line-height:1.4;color:#a9bcb0;max-width:30ch}
 
 /* FIRST SCAN */
 .first-scan{
@@ -484,9 +441,11 @@ footer{
 
 @media(min-width:860px){
   .site-nav{padding:18px 48px}
-  .hero{padding:12px 48px 56px;align-items:center}
+  /* Top-aligned so no empty dark band sits above the kicker (EQA r3 S1). */
+  .hero{padding:clamp(56px,8vh,96px) 48px 56px;align-items:flex-start}
   .hero-inner{grid-template-columns:1fr .92fr;gap:64px;align-items:center}
-  .hero-kicker{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7dffa3;margin-bottom:14px}
+  .hero-kicker{font-size:.72rem;margin-bottom:14px}
+  .hero-sub{max-width:38ch}
   .hero-ctas{display:flex;max-width:none}
 }
 /* 860-1100: two columns are narrow, so the H1 is smaller and wider to stay at 3 lines. */
@@ -522,8 +481,6 @@ footer{
   .hero{padding-bottom:16px}
   .hero h1{margin-bottom:8px;font-size:2.15rem}
   .hero-sub{margin-bottom:12px;font-size:.95rem}
-  .sheet-body{display:none}
-  .phone-list li{padding:10px 16px}
 }
 @media(prefers-reduced-motion:reduce){
   .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
@@ -561,32 +518,11 @@ footer{
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
     </div>
-    <aside class="phone" aria-label="Sample week shopping list">
-      <div class="sheet">
-        <div class="sheet-top">
-          <p class="phone-k">Sample week</p>
-        </div>
-        <p class="sheet-body">From the meals you lock. You take this list.</p>
-        <ol class="phone-list">
-          <li>
-            <strong>Chicken breast 1kg</strong>
-            <span class="src">4 dinners</span>
-          </li>
-          <li>
-            <strong>Eggs x12</strong>
-            <span class="src">6 lunches</span>
-          </li>
-          <li>
-            <strong>Rolled oats 500g</strong>
-            <span class="src">7 breakfasts</span>
-          </li>
-        </ol>
-        <div class="sheet-foot">
-          <a class="phone-approve" href="#loop">See this list</a>
-          <p class="phone-honest">Not a shop charge. You take this list.</p>
-        </div>
-      </div>
-    </aside>
+    <figure class="hero-shot">
+      <img class="hero-food" src="/assets/fm-hero-mealprep.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="1400" height="933" fetchpriority="high"/>
+      <img class="hero-app" src="/assets/fm-app-week.webp" alt="FitMunch Meal Planner showing a generated Wednesday: 2005 cal and 155g protein across breakfast, lunch, dinner and a snack" width="1164" height="2142"/>
+      <figcaption>The Meal Planner screen, built for a 2,000 kcal, 150g protein week.</figcaption>
+    </figure>
   </div>
 </header>
 </div>
