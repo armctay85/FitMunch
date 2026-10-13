@@ -1,9 +1,10 @@
 'use strict';
 
-// Renders the signed-in app in a real browser at 320px and 390px with a mocked
+// Renders the signed-in app in a real browser at 320px, 390px and 768px with a mocked
 // /api, opens every view and modal, and checks that nothing is wider than the
 // screen and that every visible tap target is at least 44px. Uses the system
-// Chrome (CHROME env var, or the usual install paths); skipped if none is found.
+// Chrome (CHROME env var, or the usual install paths); skipped locally if none
+// is found, but fails when CI=true. Also runs at 768px (touch tablet).
 const fs = require('fs');
 const path = require('path');
 
@@ -15,6 +16,10 @@ const CANDIDATES = [
   '/usr/bin/chromium-browser',
 ].filter(Boolean);
 const executablePath = CANDIDATES.find((p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } });
+// In CI a missing Chrome is a failure, not a silent skip.
+if (!executablePath && process.env.CI) {
+  throw new Error('test_app_mobile_rendered: no Chrome found and CI=true. Install Chrome or set CHROME.');
+}
 const maybe = executablePath ? describe : describe.skip;
 
 const user = (role) => ({ success: true, user: { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role, subscriptionTier: 'premium', settings: {} } });
@@ -52,7 +57,7 @@ maybe('signed-in app rendered on phones', () => {
   });
 
   for (const role of ['client', 'pt']) {
-    for (const width of [320, 390]) {
+    for (const width of [320, 390, 768]) {
       it(`${role} at ${width}px: no horizontal overflow and 44px tap targets in every view and modal`, async () => {
         const ctx = await browser.newContext({ viewport: { width, height: 760 }, hasTouch: true, isMobile: true });
         await ctx.addInitScript(() => localStorage.setItem('fm_token', 'test.token'));

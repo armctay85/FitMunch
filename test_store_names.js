@@ -43,10 +43,9 @@ describe('no store names on marketing pages', () => {
     expect(html).toContain('<option value="aldi">Aldi</option>');
   });
 
-  it('app.html keeps its store buttons and badges', () => {
+  it('app.html names no supermarket', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
-    expect(html).toMatch(/Woolworths/);
-    expect(html).toMatch(/Coles/);
+    expect(html).not.toMatch(/Woolworths|Woolies|\bColes\b/i);
   });
 });
 

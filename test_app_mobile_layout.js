@@ -66,7 +66,7 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
   });
 
   it('names no supermarket in the signed-in app copy', () => {
-    const copy = html.replace(/<a class="sl-item-link"[^>]*>[WC]<\/a>/g, '');
+    const copy = html;
     expect(copy).not.toMatch(/Woolies|Woolworths|\bColes\b|\bAldi\b|\bIGA\b|Costco/i);
   });
 });
