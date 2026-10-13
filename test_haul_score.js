@@ -120,3 +120,83 @@ describe('haul score QA r1', () => {
     expect(c.grade).toBeUndefined();
   });
 });
+
+describe('haul score QA r2', () => {
+  const clean = [
+    { name: 'CHICKEN BREAST', price: 12 }, { name: 'BROCCOLI', price: 4 }, { name: 'BANANA', price: 3 },
+    { name: 'JASMINE RICE', price: 5 }, { name: 'FREE RANGE EGGS', price: 7 }, { name: 'BABY SPINACH', price: 3 },
+  ];
+  const STORE = /woolworths|woolies|coles(?!law)|\bww\b|\baldi\b|\biga\b|harris ?farm|foodworks|drakes|\bspar\b|foodland|ritchies|supabarn|everyday ?rewards|flybuys/i;
+
+  it.each([
+    ['COLES COKE', 'COKE'], ['ColesCoke', 'Coke'], ['COLES-COKE', 'COKE'], ["Coles' Finest Beef", 'Finest Beef'],
+    ['Harris Farm Apples', 'Apples'], ['HarrisFarm Pears', 'Pears'], ['FoodWorks Bananas', 'Bananas'], ['Drakes Milk', 'Milk'],
+    ['Spar Rice', 'Rice'], ['Foodland Eggs', 'Eggs'], ['Ritchies Bread', 'Bread'], ['Supabarn Oats', 'Oats'],
+    ['Everyday Rewards Chicken', 'Chicken'], ['Flybuys Tuna', 'Tuna'], ['Chicken Coles 500g', 'Chicken 500g'],
+    ['Milk WOOLWORTHS 2L', 'Milk 2L'], ['Eggs - Aldi', 'Eggs - '.trim()],
+  ])('M1: strips store and loyalty names anywhere: %s -> %s', (raw, want) => {
+    const got = c.displayName(raw);
+    expect(got).not.toMatch(STORE);
+    if (want !== 'Eggs -') expect(got).toBe(want);
+  });
+
+  it.each(['Coleslaw mix', 'Sparkling water', 'Garibaldi biscuits', 'Macadamia nuts'])('M1: food words that contain a store name stay: %s', (n) => {
+    expect(c.displayName(n)).toBe(n);
+  });
+
+  it.each([
+    'Coles Savings', 'Member Savings', 'Promo Discount', '*** GST', 'Price Reduction', 'Amount tendered',
+    'Bag 15c', 'Reusable bag', 'Loyalty Points', 'Everyday Rewards', 'Flybuys', 'TOTAL', '  Card ****1234', 'Change', 'EFTPOS PURCHASE',
+  ])('M2: junk line dropped mid-line too: %s', (n) => {
+    const kept = c.readableItems([{ name: n, price: 5 }, { name: 'Chicken breast', price: 10 }]).map((i) => i.name);
+    expect(kept).toEqual(['Chicken breast']);
+  });
+
+  it.each(['Baby spinach bag', 'Salad bag 200g', 'Cardamom pods', 'Chicken breast'])('M2: real food is kept: %s', (n) => {
+    expect(c.readableItems([{ name: n, price: 5 }, { name: 'Chicken breast', price: 10 }]).map((i) => i.name)).toContain(n);
+  });
+
+  it('M1/M2: a full payload from a loyalty-heavy receipt carries no store or loyalty names', () => {
+    const items = c.readableItems([
+      { name: 'Coles Savings', price: 2 }, { name: 'ColesCoke 1.25L', price: 3 }, { name: 'Harris Farm Apples', price: 4 },
+      { name: 'Everyday Rewards', price: 0 }, { name: 'Drakes Chicken', price: 11 },
+    ]);
+    const names = items.map((i) => c.displayName(i.name)).join(' | ');
+    expect(names).not.toMatch(STORE);
+    expect(c.pantryGapReport(items, { protein: 50 }).map((g) => g.finding).join(' ')).not.toMatch(STORE);
+  });
+
+  it('S1: only unrecognised lines is unreadable, not a score', () => {
+    expect(() => c.readableItems([{ name: 'ITEM 1234', price: 5 }, { name: 'Crab sticks', price: 4 }])).toThrow('scan_unreadable');
+  });
+
+  it('S1: one line weighs at most $100', () => {
+    expect(c.LINE_MAX_DOLLARS).toBe(100);
+    const veg = ['BROCCOLI', 'CARROTS', 'SPINACH', 'BANANA', 'APPLE'].map((name) => ({ name, price: 50 }));
+    const b = c.haulBreakdown([{ name: 'CHICKEN BREAST', price: 500 }, ...veg]);
+    expect(b.spend.protein).toBe(100);
+    expect(b.total).toBe(350);
+  });
+
+  it('S1: a small diet-drink share still lowers the score (below the 10% cap)', () => {
+    const base = [{ name: 'CHICKEN BREAST', price: 12 }, { name: 'JASMINE RICE', price: 14 }, { name: 'BANANA', price: 2 }];
+    const withDiet = [...base, { name: 'COKE NO SUGAR', price: 1.5 }];
+    const b = c.haulBreakdown(withDiet);
+    expect(b.share.diet).toBeGreaterThan(0);
+    expect(b.share.diet).toBeLessThan(0.1);
+    expect(c.macroMatchScore(withDiet)).toBeLessThan(c.macroMatchScore([...base, { name: 'CRAB STICKS', price: 1.5 }]));
+  });
+
+  it('S1: vegemite is not produce', () => {
+    expect(c.itemKind({ name: 'VEGEMITE 380G' })).not.toBe('produce');
+  });
+
+  it.each(['Pringles Original', 'Skittles', 'M&Ms Peanut', "M & M's", 'Freddo Frog', 'Sour Patch Kids', 'Lindt Easter Bunny'])('S2: %s is a treat', (n) => {
+    expect(c.itemKind({ name: n })).toBe('treat');
+  });
+
+  it('S2: pancake mix is not a treat; cupcakes are', () => {
+    expect(c.itemKind({ name: 'Pancakes mix' })).not.toBe('treat');
+    expect(c.itemKind({ name: 'Cupcakes' })).toBe('treat');
+  });
+});
