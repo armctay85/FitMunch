@@ -1425,8 +1425,8 @@ function handleWorkoutLogSubmit(event) {
 
   closeModal('workoutLogModal');
 
-  if (window.grokNotifications) {
-    window.grokNotifications.success("Workout logged successfully!", "Progress Tracked");
+  if (window.fmNotifications) {
+    window.fmNotifications.success("Workout logged successfully!", "Progress Tracked");
   }
 }
 
