@@ -481,6 +481,54 @@ describe('Coach checkout trial', () => {
     }
   });
 
+  describe('guest /api/stripe/checkout-sessions and Coach prices', () => {
+    const body = (priceId) => ({
+      priceId,
+      customerId: 'cus_any',
+      successUrl: 'https://www.fitmunch.com.au/coach/upgrade',
+      cancelUrl: 'https://www.fitmunch.com.au/for-pts',
+      nonce: `n-${priceId}-${Math.random()}`,
+    });
+    const calls = () => mockStripe.rawRequest.mock.calls.length + mockStripe.customers.create.mock.calls.length
+      + mockStripe.prices.retrieve.mock.calls.length;
+    test.each([[COACH_39], [COACH_79]])('guest with %s => 400, zero Stripe calls', async (price) => {
+      const before = calls();
+      const res = await request(app).post('/api/stripe/checkout-sessions').send(body(price));
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ success: false, message: 'Unknown FitMunch price.' });
+      expect(calls()).toBe(before);
+    });
+    test('client role with a Coach price => 400, zero Stripe calls', async () => {
+      const t = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
+      const before = calls();
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      expect(res.status).toBe(400);
+      expect(calls()).toBe(before);
+    });
+    test('forged token with role pt => 400', async () => {
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, 'wrong-secret');
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      expect(res.status).toBe(400);
+      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+    });
+    test('trainer with a live price that does not verify (4900) => 400, no session', async () => {
+      mockStripe.prices.retrieve.mockImplementationOnce(async (id) => ({
+        id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 }, unit_amount: 4900,
+      }));
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      expect(res.status).toBe(400);
+      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+      expect(mockStripe.customers.create).not.toHaveBeenCalled();
+    });
+    test('trainer with a verified Coach price passes the gate', async () => {
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_79));
+      expect(res.status).not.toBe(400);
+      expect(mockStripe.prices.retrieve).toHaveBeenCalledWith(COACH_79);
+    });
+  });
+
   test('a client account cannot open Coach checkout', async () => {
     const token = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
     const res = await request(app)
