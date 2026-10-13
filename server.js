@@ -511,9 +511,32 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
     const plan = planForPriceId(priceId);
     // Retired plans (pt-starter, pt-pro) still map for existing subscribers
     // but are not sold: only plans priceIdForPlan allows, or Coach.
-    const sellable = plan && (plan === 'coach-39' || plan === 'coach-79' || priceIdForPlan(plan) === priceId);
+    const isCoach = plan === 'coach-39' || plan === 'coach-79';
+    const sellable = plan && (isCoach || priceIdForPlan(plan) === priceId);
     if (!sellable) {
       return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
+    }
+    // Coach prices are not sold to guests. Only a signed-in trainer (role pt)
+    // and only when the live price checks out (A$39/A$79, AUD, monthly).
+    if (isCoach) {
+      let decoded = null;
+      try {
+        decoded = requireAuthUser(req);
+      } catch (_) {
+        decoded = null;
+      }
+      if (!decoded || !decoded.userId || decoded.role !== 'pt') {
+        return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
+      }
+      let priceOk = false;
+      try {
+        priceOk = await require('./lib/fitmunch-coach-billing').verifyCoachPrice(stripe, plan, priceId);
+      } catch (err) {
+        console.error('[checkout-sessions] coach price check failed', webhookHandlerErrorLabel(err));
+      }
+      if (!priceOk) {
+        return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
+      }
     }
 
     // Unauthenticated. Ignore the customer id in the body: attaching Checkout
