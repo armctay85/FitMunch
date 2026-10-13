@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { displayName } = require('./lib/item-name-case');
 const core = require('./lib/receipt-scan-core');
+const coreSrc = fs.readFileSync(path.join(__dirname, 'lib/receipt-scan-core.js'), 'utf8');
 
 describe('receipt item display names', () => {
   test.each([
@@ -20,6 +21,19 @@ describe('receipt item display names', () => {
     ["NATURE'S MUESLI", "Nature's Muesli"],
     ['SALT AND VINEGAR CHIPS', 'Salt and Vinegar Chips'],
     ['TUNA (IN OIL)', 'Tuna (in Oil)'],
+    ['KG CHICKEN', 'kg Chicken'],
+    ['CHICKEN THIGH KG', 'Chicken Thigh kg'],
+    ['ÉCLAIR', 'Éclair'],
+    ['CRÈME FRAÎCHE 200ML', 'Crème Fraîche 200ml'],
+    ['ÖKO MÜSLI', 'Öko Müsli'],
+    ['VITAMIN A TABS', 'Vitamin A Tabs'],
+    ['LF YOGHURT', 'LF Yoghurt'],
+    ['NAS PEANUT BUTTER', 'NAS Peanut Butter'],
+    ['PB&J SANDWICH', 'PB&J Sandwich'],
+    ['COLA 6X330ML', 'Cola 6x330ml'],
+    ['MUESLI BARS 60G X 4', 'Muesli Bars 60g x 4'],
+    ['MCCAIN PEAS', 'McCain Peas'],
+    ['PET FOOD', 'Pet Food'],
   ])('%s -> %s', (raw, want) => {
     expect(displayName(raw)).toBe(want);
   });
@@ -34,6 +48,7 @@ describe('receipt item display names', () => {
     expect(displayName(undefined)).toBeUndefined();
     expect(displayName(null)).toBeNull();
     expect(displayName('123')).toBe('123');
+    expect(displayName('Éclair')).toBe('Éclair');
   });
 
   test('scan payload names are normalised everywhere they appear', () => {
@@ -61,9 +76,14 @@ describe('receipt item display names', () => {
     const index = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8');
     const fs1 = fs.readFileSync(path.join(__dirname, 'public/js/fm-first-scan.js'), 'utf8');
     expect(app).toContain('<script src="/js/fm-item-name.js"></script>');
-    expect(app).toContain('FMItemName.displayName(item.name)');
+    expect(app).toContain('${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}');
     expect(index.indexOf('/js/fm-item-name.js')).toBeGreaterThan(-1);
     expect(index.indexOf('/js/fm-item-name.js')).toBeLessThan(index.indexOf('/js/fm-first-scan.js'));
     expect(fs1).toContain('showName(name)');
+  });
+
+  test('server helper is aliased as caseName so it cannot collide with displayName', () => {
+    expect(coreSrc).toMatch(/const \{ displayName: caseName \} = require\('\.\/item-name-case'\)/);
+    expect(coreSrc).not.toMatch(/^const \{ displayName \}/m);
   });
 });
