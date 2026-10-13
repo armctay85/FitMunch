@@ -47,6 +47,23 @@ describe('App Store copy', () => {
     expect(desc).toContain(`Monthly: A$${price('fitmunch_monthly')}`);
     expect(desc).toContain(`Annual: A$${price('fitmunch_annual')}`);
   });
+  it('meal, workout and AI claims match the iOS views (MealPlanView, WorkoutView, WorkoutPlanGenerator)', () => {
+    // MealPlanView rows show kcal, protein per serve and prep minutes; no quantities.
+    expect(desc).not.toMatch(/quantit/i);
+    expect(desc).toContain('with calories, protein and prep time for each');
+    // WorkoutView builds the plan locally from Type (gym/home) and Level only.
+    expect(desc).not.toMatch(/goal and schedule/i);
+    expect(desc).toContain('Pick gym or home and your level for a weekly workout plan');
+    // Workout plans are not AI.
+    expect(desc).toContain('Meal plans, Coach and receipt scans use AI providers.');
+    expect(desc).not.toMatch(/workout plans?[^.]*use AI/i);
+    const swift = (p) => fs.readFileSync(path.join(__dirname, 'FitMunch', 'Views', p), 'utf8');
+    expect(swift('WorkoutPlanGenerator.swift')).not.toMatch(/APIClient|URLSession|\/api\//);
+  });
+  it('subtitle does not repeat words from the app name', () => {
+    const nameWords = section('APP NAME').toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    for (const w of section('SUBTITLE').toLowerCase().split(/[^a-z]+/).filter(Boolean)) expect(nameWords).not.toContain(w);
+  });
   it('the old draft is retired', () => {
     const old = fs.readFileSync(path.join(__dirname, 'app_store_description.txt'), 'utf8');
     expect(old).toMatch(/lives in appstore-metadata\.md/);

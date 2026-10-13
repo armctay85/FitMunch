@@ -9,7 +9,7 @@ automatically.
 FitMunch: Meal Plans & Macros
 
 ## SUBTITLE
-AI meal plans and macros
+Protein targets, receipt scans
 
 ## KEYWORDS
 calorie,protein,macro,high protein,receipt,nutrition,diet,weight loss,food log,workout,coach,prep
@@ -21,7 +21,7 @@ Plan a week of meals to your calorie and protein targets, then scan your receipt
 FitMunch plans your meals around your goal, helps you log what you eat, and checks your shop against the plan.
 
 **Plan your week**
-Set your goal, calorie and protein targets. FitMunch drafts a meal plan with quantities, built to your targets: quick meals with prep time shown.
+Set your goal, calorie and protein targets. FitMunch drafts a week of meals built to your targets, with calories, protein and prep time for each.
 
 **Log meals and hit your macros**
 Log breakfast, lunch, dinner and snacks. See calories, protein, carbs and fat against your daily targets as you go.
@@ -30,10 +30,10 @@ Log breakfast, lunch, dinner and snacks. See calories, protein, carbs and fat ag
 Take a photo of a grocery receipt. FitMunch reads the items, estimates their macros, gives the shop a haul score. Scores are estimates, not medical advice.
 
 **Coach and workout plans**
-Ask Coach about meals, training or your progress, and get a workout plan for your goal and schedule.
+Ask Coach about meals, training or your progress. Pick gym or home and your level for a weekly workout plan you can tick off.
 
 **AI and your data**
-Meal plans, Coach, workout plans and receipt scans use AI providers. FitMunch asks before any of your data is sent, and you can turn AI features off at any time under Me, Privacy. Your account data is stored on FitMunch servers so it is there when you sign in. See the privacy policy for details.
+Meal plans, Coach and receipt scans use AI providers. FitMunch asks before any of your data is sent, and you can turn AI features off at any time under Me, Privacy. Your account data is stored on FitMunch servers so it is there when you sign in. See the privacy policy for details.
 
 **Subscription**
 FitMunch Premium is an auto-renewing subscription:
