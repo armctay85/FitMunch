@@ -280,6 +280,12 @@ describe('Coach checkout trial', () => {
   const customers = [];
   let subs;
   const mockStripe = {
+    prices: {
+      retrieve: jest.fn(async (id) => ({
+        id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 },
+        unit_amount: id === process.env.STRIPE_COACH_79_PRICE_ID ? 7900 : 3900,
+      })),
+    },
     customers: {
       create: jest.fn(async (params) => {
         const customer = {
@@ -328,6 +334,7 @@ describe('Coach checkout trial', () => {
     mockStripe.subscriptions.list.mockClear();
     mockStripe.subscriptions.update.mockClear();
     mockStripe.rawRequest.mockClear();
+    require('./lib/fitmunch-coach-billing').resetCoachPriceCheckForTests();
     app._private.setStripeForTests(mockStripe);
     storage.getUserById = jest.fn(async (id) => ({
       id,
@@ -386,6 +393,32 @@ describe('Coach checkout trial', () => {
     expect(params.locale).toBe('en-GB');
     expect(mockStripe.customers.list).not.toHaveBeenCalled();
     expect(mockStripe.customers.search).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['wrong amount 4900', { unit_amount: 4900 }],
+    ['wrong currency', { currency: 'usd' }],
+    ['yearly', { recurring: { interval: 'year', interval_count: 1 } }],
+    ['archived', { active: false }],
+  ])('a Coach price that does not match (%s) => 503, generic message, no checkout', async (_l, bad) => {
+    mockStripe.prices.retrieve.mockImplementationOnce(async (id) => ({
+      id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 }, unit_amount: 3900, ...bad,
+    }));
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const token = jwt.sign({ userId: 'pt-1', email: 'pt@example.com', name: 'Pat Trainer', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/coach/checkout')
+        .set('Authorization', `Bearer ${token}`)
+        .set('Origin', 'https://www.fitmunch.com.au')
+        .send({ plan: 'coach-39' });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe('Coach checkout is unavailable right now.');
+      expect(JSON.stringify(res.body)).not.toMatch(/STRIPE_|price_/);
+      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+      expect(mockStripe.customers.create).not.toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+    }
   });
 
   test('a client account cannot open Coach checkout', async () => {
@@ -519,5 +552,17 @@ liveDescribe('Stripe test mode Coach checkout', () => {
       : null;
     expect(trialDays === 14 || session.mode === 'subscription').toBe(true);
     await stripe.checkout.sessions.expire(session.id);
+  });
+});
+
+describe('GET /api/coach/billing-status', () => {
+  test('no token => 401', async () => {
+    const res = await request(app).get('/api/coach/billing-status');
+    expect(res.status).toBe(401);
+  });
+  test('client role => 403', async () => {
+    const t = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
+    const res = await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${t}`);
+    expect(res.status).toBe(403);
   });
 });
