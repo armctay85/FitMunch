@@ -461,7 +461,7 @@ describe('funnel beacon and private viewer', () => {
 });
 
 describe('/demo is retired', () => {
-  test.each(['/demo', '/demo.html', '/try'])('%s => 301 to the homepage worked example', async (route) => {
+  test.each(['/demo', '/demo/', '/demo.html', '/try'])('%s => 301 to the homepage worked example', async (route) => {
     const res = await require('supertest')(require('./server')).get(route);
     expect(res.status).toBe(301);
     expect(res.headers.location).toBe('/#proof');
