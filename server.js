@@ -9,6 +9,7 @@ const helmet = require('helmet');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
+const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
@@ -451,7 +452,45 @@ app.get('/api/stripe-test', (_req, res) => {
 });
 
 // Endpoint to create a Stripe checkout session
-app.post('/api/stripe/checkout-sessions', async (req, res) => {
+// Fixed-window limiter shared across serverless instances via Postgres
+// (lib/shared-counters, atomic upsert). Fails closed: if the shared counter
+// cannot be reached, the request is refused before any Stripe call.
+function sharedLimiter({ scope, windowMs, limit, key, message }) {
+  return async function sharedLimit(req, res, next) {
+    let hits;
+    try {
+      hits = await hitRateCounter(scope, key(req), { windowMs, failClosed: true });
+    } catch (err) {
+      console.error(`[rate-limit] ${scope} counter unavailable`, webhookHandlerErrorLabel(err));
+      res.set('Cache-Control', 'no-store');
+      res.set('Retry-After', '60');
+      return res.status(503).json({ success: false, message: 'Service busy. Please try again shortly.' });
+    }
+    const max = limit();
+    res.set('RateLimit-Limit', String(max));
+    res.set('RateLimit-Remaining', String(Math.max(0, max - hits)));
+    if (hits > max) {
+      res.set('Cache-Control', 'no-store');
+      res.set('Retry-After', String(Math.ceil(windowMs / 1000)));
+      return res.status(429).json({ success: false, message });
+    }
+    return next();
+  };
+}
+function envLimitEarly(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+// Guest flow (creates a customer and session without auth): per-IP limit.
+const checkoutSessionsLimiter = sharedLimiter({
+  scope: 'checkout-sessions-ip',
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimitEarly('CHECKOUT_SESSIONS_IP_MAX_PER_HOUR', 10),
+  key: (req) => rateLimitKey(req),
+  message: 'Too many checkout attempts. Please try again later.',
+});
+
+app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, res) => {
   if (!stripe) {
     return res.status(503).json({
       success: false,
@@ -503,7 +542,7 @@ app.post('/api/stripe/checkout-sessions', async (req, res) => {
       id: result.id
     });
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Error creating checkout session:', webhookHandlerErrorLabel(error));
     res.status(500).json({
       success: false,
       message: 'Failed to create checkout session',
@@ -547,7 +586,7 @@ function requireAuthUser(req) {
   }
   const jwtLib = require('jsonwebtoken');
   try {
-    return jwtLib.verify(authHeader.slice(7), jwtSecret());
+    return jwtLib.verify(authHeader.slice(7), jwtSecret(), { algorithms: ['HS256'] });
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       const authErr = new Error('Authentication required.');
@@ -1090,53 +1129,72 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
 // the full Stripe customer (email, address) to anyone holding a session id.
 
 // Endpoint to create or get Stripe customer
-app.post('/api/stripe/customers', async (req, res) => {
-  if (!stripe) {
-    return res.status(503).json({
-      success: false,
-      message: 'Stripe is not configured'
-    });
-  }
-  
+// Authed only. Creates or returns the Stripe customer for the logged-in user's
+// own account. Client-supplied email, name and metadata are ignored.
+function stripeCustomersUserKey(req) {
   try {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    const name = req.body?.name || '';
-    const metadata = req.body?.metadata || {};
+    const decoded = requireAuthUser(req);
+    return `u:${String(decoded.userId)}`;
+  } catch (_) {
+    return `ip:${rateLimitKey(req)}`;
+  }
+}
+const STRIPE_CUSTOMERS_LIMITED = 'Too many requests. Please try again later.';
+const stripeCustomersIpLimiter = sharedLimiter({
+  scope: 'stripe-customers-ip',
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('STRIPE_CUSTOMERS_IP_MAX_PER_HOUR', 20),
+  key: (req) => rateLimitKey(req),
+  message: STRIPE_CUSTOMERS_LIMITED,
+});
+const stripeCustomersUserLimiter = sharedLimiter({
+  scope: 'stripe-customers-user',
+  windowMs: 60 * 60 * 1000,
+  limit: () => envLimit('STRIPE_CUSTOMERS_USER_MAX_PER_HOUR', 5),
+  key: stripeCustomersUserKey,
+  message: STRIPE_CUSTOMERS_LIMITED,
+});
 
-    if (!email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is required'
-      });
+app.post('/api/stripe/customers', stripeCustomersIpLimiter, stripeCustomersUserLimiter, async (req, res) => {
+  let decoded;
+  try {
+    decoded = requireAuthUser(req);
+  } catch (e) {
+    if (e.statusCode === 401 || e.name === 'JsonWebTokenError' || e.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
-
-    // Unauthenticated. Never look up an existing customer by email.
-    const storage = require('./server/storage.js');
-    const { nonce, ip, userAgent } = checkoutRequestParts(req, req.body || {});
-    const fingerprint = guestCheckoutFingerprint({ nonce, email, plan: 'customer', ip, userAgent });
-    const safeMeta = { ...(metadata || {}) };
-    delete safeMeta.userId;
-    delete safeMeta.user_id;
-    const customer = await storage.withStripeCustomerLock(`guest-customer:${fingerprint}`, () =>
-      createFitMunchCustomer(stripe, {
-        email,
-        name,
-        metadata: safeMeta,
-        idempotencyParts: ['public-customer', fingerprint, email],
-      })
-    );
-
-    res.json({ 
-      success: true, 
-      id: customer.id,
-      email
+    return sendApiError(res, e, 'Stripe customer error');
+  }
+  if (!stripe) {
+    return res.status(503).json({ success: false, message: 'Stripe is not configured' });
+  }
+  try {
+    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+    const { eq } = require('drizzle-orm');
+    const customerId = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
+      let current = user;
+      if (!checkoutSmokeFallback) {
+        const fresh = await storage.getUserById(user.id);
+        if (fresh) current = fresh;
+      }
+      const id = await findOrCreateStripeCustomer(stripe, {
+        userId: current.id,
+        email: current.email,
+        name: current.name,
+        existingCustomerId: current.stripeCustomerId,
+      });
+      if (!checkoutSmokeFallback && id !== current.stripeCustomerId) {
+        await storage.db.update(storage.schema.users)
+          .set({ stripeCustomerId: id })
+          .where(eq(storage.schema.users.id, current.id));
+      }
+      return id;
     });
+    res.json({ success: true, id: customerId, email: String(user.email || '').trim().toLowerCase() });
   } catch (error) {
-    console.error('Error creating customer:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create customer',
-    });
+    if (error.statusCode === 404) return res.status(404).json({ success: false, message: 'User not found.' });
+    console.error('Error creating customer:', webhookHandlerErrorLabel(error));
+    res.status(500).json({ success: false, message: 'Failed to create customer' });
   }
 });
 
@@ -1208,7 +1266,7 @@ app.use((req, res, next) => {
     try {
       const jwt = require('jsonwebtoken');
       const token = authHeader.slice(7);
-      const decoded = jwt.verify(token, jwtSecret());
+      const decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] });
       req.user = { id: decoded.userId, name: decoded.name };
     } catch (e) {
       req.user = null;
