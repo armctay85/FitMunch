@@ -32,10 +32,8 @@ describe('no store names on any public page (app.html and coach.html included, n
     expect(hit && hit[0]).toBeFalsy();
   });
 
-  it('app_fixes.js carries no dead store price data or store names', () => {
-    const src = fs.readFileSync(path.join(__dirname, 'app_fixes.js'), 'utf8');
-    expect(src).not.toMatch(STORE);
-    expect(src).not.toMatch(/SupermarketAPI|mockPrices/);
+  it('the dead app_fixes.js is gone', () => {
+    expect(fs.existsSync(path.join(__dirname, 'app_fixes.js'))).toBe(false);
   });
 
   it('the dead supermarket_api.js mock is gone', () => {

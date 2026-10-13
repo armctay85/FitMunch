@@ -41,7 +41,6 @@ const SEARCH_LANDERS = [
   '/ai-meal-plan-shopping-list',
   '/ai-meal-planner-australia',
   '/budget-meal-planner',
-  '/shopper',
   '/receipt-nutrition-scanner',
   '/haul-teardown',
   '/supermarket-meal-planner',
@@ -212,7 +211,7 @@ describe('funnel event helper', () => {
   it('rolls the five steps up and splits landing views by page', () => {
     const summary = summarizeFunnel([
       { eventType: 'landing_page_view', sessionId: 's_1', eventData: { page: 'home', step: 'landing_page_view' } },
-      { eventType: 'landing_page_view', sessionId: 's_1', eventData: { page: 'shopper', step: 'landing_page_view' } },
+      { eventType: 'landing_page_view', sessionId: 's_1', eventData: { page: 'budget-meal-plan', step: 'landing_page_view' } },
       { eventType: 'trial_cta_click', sessionId: 's_1', eventData: { page: 'home', plan: 'premium' } },
       { eventType: 'checkout_start', sessionId: null, eventData: { plan: 'premium', step: 'checkout_start' } },
       { eventType: 'trial_started', sessionId: null, eventData: { plan: 'premium', source: 'webhook', email: 'hidden@example.com' } },
@@ -227,8 +226,8 @@ describe('funnel event helper', () => {
       { step: 'trial_started', count: 1, sessions: 0 },
     ]);
     expect(summary.events.map((row) => [row.eventType, row.page, row.plan, row.count])).toEqual([
+      ['landing_page_view', 'budget-meal-plan', '', 1],
       ['landing_page_view', 'home', '', 1],
-      ['landing_page_view', 'shopper', '', 1],
       ['trial_cta_click', 'home', 'premium', 1],
       ['checkout_start', '', 'premium', 1],
       ['trial_started', '', 'premium', 1],

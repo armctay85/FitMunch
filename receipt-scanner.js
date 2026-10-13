@@ -415,3 +415,5 @@ router.get('/sample', sampleLimiter, sampleGate, async (_req, res) => {
 router._setVisionForTests = (fn) => { visionOverride = fn; };
 router._core = core;
 module.exports = router;
+// Read by the store-name sweep test.
+router.AI_PROMPTS = { VISION_PROMPT };
