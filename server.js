@@ -131,21 +131,6 @@ app.use(compression({
 // Absolute path so Vercel serverless cwd doesn't matter.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-function providedAnalyticsKey(req) {
-  return req.query.key || req.headers['x-fm-analytics-key'] || '';
-}
-
-function analyticsKeyMatches(req) {
-  const expected = process.env.FM_ANALYTICS_KEY;
-  const provided = String(providedAnalyticsKey(req) || '');
-  if (!expected || !provided) return false;
-  // Compare fixed-length digests so neither timing nor an early length check
-  // reveals anything about the key.
-  const crypto = require('crypto');
-  const a = crypto.createHash('sha256').update(String(expected)).digest();
-  const b = crypto.createHash('sha256').update(provided).digest();
-  return crypto.timingSafeEqual(a, b);
-}
 
 // CSP and Permissions-Policy go on every response, including the /funnel 401s.
 app.use((req, res, next) => {
@@ -155,16 +140,21 @@ app.use((req, res, next) => {
 });
 
 // Private analytics UI is not a public page. The file lives outside public/
-// so the CDN cannot serve it. Both paths use the same key gate.
+// so the CDN cannot serve it. Both paths serve the same no-store, noindex shell.
 const FUNNEL_PAGE = path.join(__dirname, 'private/funnel.html');
+
 app.use((req, res, next) => {
   const pathOnly = (req.path || '').replace(/\/$/, '') || '/';
   if (pathOnly !== '/funnel' && pathOnly !== '/funnel.html') return next();
   res.set('X-Robots-Tag', 'noindex, nofollow');
   res.set('Cache-Control', 'private, no-store');
-  if (!analyticsKeyMatches(req)) {
-    return res.status(401).sendFile(path.join(PUBLIC_DIR, '404.html'));
+  res.set('Referrer-Policy', 'no-referrer');
+  if (req.query && Object.prototype.hasOwnProperty.call(req.query, 'key')) {
+    return res.status(400).type('text/plain').send('Send the analytics key in the x-fm-analytics-key header, not the URL.');
   }
+  // The page is a static shell with no data and checks no key, so it cannot be
+  // used to guess the key. It asks for the key, keeps it in sessionStorage and
+  // sends it as a header to /api/analytics/funnel, which is gated and limited.
   return res.sendFile(FUNNEL_PAGE);
 });
 
@@ -516,27 +506,11 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
     if (!sellable) {
       return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
     }
-    // Coach prices are not sold to guests. Only a signed-in trainer (role pt)
-    // and only when the live price checks out (A$39/A$79, AUD, monthly).
+    // Coach prices are never sold here. This endpoint is unauthenticated and
+    // cannot link a subscription to a trainer account, so a trainer would pay
+    // and get no Coach access. Trainers use /api/coach/checkout.
     if (isCoach) {
-      let decoded = null;
-      try {
-        decoded = requireAuthUser(req);
-      } catch (_) {
-        decoded = null;
-      }
-      if (!decoded || !decoded.userId || decoded.role !== 'pt') {
-        return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
-      }
-      let priceOk = false;
-      try {
-        priceOk = await require('./lib/fitmunch-coach-billing').verifyCoachPrice(stripe, plan, priceId);
-      } catch (err) {
-        console.error('[checkout-sessions] coach price check failed', webhookHandlerErrorLabel(err));
-      }
-      if (!priceOk) {
-        return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
-      }
+      return res.status(400).json({ success: false, message: 'Unknown FitMunch price.' });
     }
 
     // Unauthenticated. Ignore the customer id in the body: attaching Checkout
