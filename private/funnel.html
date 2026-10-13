@@ -50,7 +50,13 @@
 <script>
 (function () {
   var params = new URLSearchParams(location.search);
-  if (params.get('key')) document.getElementById('key').value = params.get('key');
+  if (params.get('key')) {
+    document.getElementById('key').value = params.get('key');
+    // Drop the key from the address bar and history once it is in the form.
+    params.delete('key');
+    var rest = params.toString();
+    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+  }
   document.getElementById('load').onclick = async function () {
     var err = document.getElementById('err');
     var meta = document.getElementById('meta');
@@ -69,7 +75,10 @@
         .replace(/"/g, '&quot;');
     }
     try {
-      var r = await fetch('/api/analytics/funnel?days=' + encodeURIComponent(days) + '&key=' + encodeURIComponent(key));
+      var r = await fetch('/api/analytics/funnel?days=' + encodeURIComponent(days), {
+        headers: { 'x-fm-analytics-key': key },
+        cache: 'no-store',
+      });
       var j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.error || ('HTTP ' + r.status));
       meta.textContent = 'Last ' + j.days + ' days · ' + j.totalEvents + ' events · updated ' + new Date(j.asOf).toLocaleString();

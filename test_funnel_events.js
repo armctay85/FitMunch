@@ -449,7 +449,7 @@ describe('funnel beacon and private viewer', () => {
     try {
       const res = await request(app)
         .get('/api/analytics/funnel')
-        .query({ key: 'test-key' });
+        .set('x-fm-analytics-key', 'test-key');
       expect(res.status).toBe(500);
       expect(res.body).toEqual({ success: false, error: 'Internal server error' });
       expectNoSql(res.body);
@@ -538,5 +538,74 @@ describe('read-only funnel key (FM_FUNNEL_READ_KEY)', () => {
     expect(res.status).toBe(200);
     expect(res.body.events).toHaveLength(1);
     expect(res.body.steps).toHaveLength(5);
+  });
+});
+
+describe('funnel GET: shared limiter, header-only keys', () => {
+  const counters = require('./lib/shared-counters');
+  let prev;
+  beforeEach(() => {
+    prev = { full: process.env.FM_ANALYTICS_KEY, read: process.env.FM_FUNNEL_READ_KEY, max: process.env.FUNNEL_IP_MAX_PER_10_MIN };
+    process.env.FM_ANALYTICS_KEY = 'full-limit-test';
+    counters.resetSharedCountersForTests();
+  });
+  afterEach(() => {
+    for (const [k, v] of [['FM_ANALYTICS_KEY', prev.full], ['FM_FUNNEL_READ_KEY', prev.read], ['FUNNEL_IP_MAX_PER_10_MIN', prev.max]]) {
+      if (v == null) delete process.env[k]; else process.env[k] = v;
+    }
+    counters.setSharedCounterQueryForTests(null);
+    counters.resetSharedCountersForTests();
+  });
+
+  it('the full key in ?key= is refused; the header works', async () => {
+    expect((await request(app).get('/api/analytics/funnel').query({ key: 'full-limit-test' })).status).toBe(401);
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test')).status).toBe(200);
+  });
+
+  it('wrong keys hit 429 after the per-IP limit (no Retry-After guessing past it)', async () => {
+    process.env.FUNNEL_IP_MAX_PER_10_MIN = '3';
+    const codes = [];
+    for (let i = 0; i < 5; i++) codes.push((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', `wrong-${i}`)).status);
+    expect(codes).toEqual([401, 401, 401, 429, 429]);
+    const ok = await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test');
+    expect(ok.status).toBe(429);
+    expect(ok.headers['retry-after']).toBe('600');
+  });
+
+  it('fails closed: counter down => 503 even with the right key', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    counters.setSharedCounterQueryForTests(async () => { throw Object.assign(new Error('down'), { code: 'ECONNREFUSED' }); });
+    try {
+      const before = storage.getFunnelStats.mock.calls.length;
+      const res = await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test');
+      expect(res.status).toBe(503);
+      expect(storage.getFunnelStats.mock.calls.length).toBe(before);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('read key: env unset and a header of "undefined" => 401', async () => {
+    delete process.env.FM_FUNNEL_READ_KEY;
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-funnel-key', 'undefined')).status).toBe(401);
+  });
+
+  it('full key: env unset and a header of "undefined" => 401', async () => {
+    delete process.env.FM_ANALYTICS_KEY;
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'undefined')).status).toBe(401);
+  });
+
+  it('safeKeyEqual compares with crypto.timingSafeEqual (no ===)', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    const fn = src.slice(src.indexOf('function safeKeyEqual'), src.indexOf('\n}\n', src.indexOf('function safeKeyEqual')));
+    expect(fn).toMatch(/crypto\.timingSafeEqual\(a, b\)/);
+    expect(fn).not.toMatch(/===|!==/);
+  });
+
+  it('the private funnel page sends the key in a header and strips it from the URL', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'private/funnel.html'), 'utf8');
+    expect(html).toContain("headers: { 'x-fm-analytics-key': key }");
+    expect(html).not.toMatch(/&key=/);
+    expect(html).toContain('history.replaceState');
   });
 });

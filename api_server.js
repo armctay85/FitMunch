@@ -294,11 +294,40 @@ function funnelReadKeyValid(req) {
   return safeKeyEqual(provided, expected);
 }
 
-router.get('/analytics/funnel', async (req, res) => {
+// Per-IP limit on the funnel GET, shared across instances via Postgres
+// (lib/shared-counters, atomic upsert). Fails closed: if the counter is down,
+// the request is refused. Counts every attempt, so key guessing hits 429.
+const FUNNEL_WINDOW_MS = 10 * 60 * 1000;
+function funnelMaxPerWindow() {
+  const n = Number(process.env.FUNNEL_IP_MAX_PER_10_MIN);
+  return Number.isFinite(n) && n > 0 ? n : 20;
+}
+async function funnelLimiter(req, res, next) {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  const { ipKeyGenerator } = require('express-rate-limit');
+  let hits;
+  try {
+    hits = await hitRateCounter('analytics-funnel-ip', ipKeyGenerator(req.ip || 'unknown'), { windowMs: FUNNEL_WINDOW_MS, failClosed: true });
+  } catch (err) {
+    console.error('[analytics-funnel] rate counter unavailable', err && err.code ? err.code : 'Error');
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', '60');
+    return res.status(503).json({ success: false, error: 'Try again shortly.' });
+  }
+  if (hits > funnelMaxPerWindow()) {
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', String(FUNNEL_WINDOW_MS / 1000));
+    return res.status(429).json({ success: false, error: 'Too many requests' });
+  }
+  return next();
+}
+
+router.get('/analytics/funnel', funnelLimiter, async (req, res) => {
   try {
     const expected = process.env.FM_ANALYTICS_KEY;
-    const provided = req.query.key || req.headers['x-fm-analytics-key'];
-    const fullAccess = Boolean(expected && provided && safeKeyEqual(provided, expected));
+    // Header only: a key in the query string lands in access and CDN logs.
+    const provided = req.headers['x-fm-analytics-key'];
+    const fullAccess = Boolean(expected && typeof provided === 'string' && provided && safeKeyEqual(provided, expected));
     const readOnly = !fullAccess && funnelReadKeyValid(req);
     if (!fullAccess && !readOnly) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
