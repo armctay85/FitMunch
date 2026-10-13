@@ -33,7 +33,7 @@ function requireAuth(req, res, next) {
   if (!h.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Unauthorised' });
   try {
         if (!process.env.JWT_SECRET) { return res.status(500).json({ success: false, error: 'Server configuration error' }); }
-    req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET);
+    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), process.env.JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ success: false, error: 'Invalid or expired token' });
@@ -193,16 +193,12 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       return res.json({ success: false, error: 'No image. Send multipart file (field: receipt) or JSON {image: base64dataUrl}' });
     }
 
-    const { isBlocked } = require('./lib/ai-data-consent');
+    const { consentResponse } = require('./lib/ai-data-consent');
     const { getUserById } = require('./server/storage.js');
     try {
       const account = await getUserById(req.user.userId);
-      if (isBlocked(account && account.settings)) {
-        return res.status(403).json({
-          success: false,
-          error: 'AI features are off for this account. Turn them on in Me, Privacy.',
-        });
-      }
+      const denied = consentResponse(account && account.settings);
+      if (denied) return res.status(denied.status).json(denied.body);
     } catch (_) {
       return res.status(503).json({
         success: false,
@@ -294,8 +290,18 @@ router.get('/scan', (_req, res) => res.json({
   seeAlso: 'POST /api/receipt/first-scan for a no-account first haul. GET /api/receipt/sample for a smoke test',
 }));
 
+const GUEST_CONSENT_ERROR = 'Tap "Allow and scan" to send your receipt photo to our AI provider to read the items.';
+/** No account means no saved choice: the guest must allow this upload explicitly, every time. */
+function guestAllowedAi(req) {
+  const v = req.body && req.body.aiConsent;
+  return v === true || v === 'true';
+}
+
 router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (req, res) => {
   try {
+    if (!guestAllowedAi(req)) {
+      return res.status(403).json({ success: false, code: 'ai_consent_required', error: GUEST_CONSENT_ERROR });
+    }
     const image = extractImage(req);
     if (!image) {
       return res.status(400).json({ success: false, error: core.publicGuestError('no_image') });
