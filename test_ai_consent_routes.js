@@ -121,3 +121,14 @@ describe('POST /api/receipt/first-scan (no account) consent', () => {
     expect(html).toContain('Your receipt photo is sent to an AI provider (xAI or OpenAI) to read the items, then discarded.');
   });
 });
+
+describe('meal plan builder path needs no consent', () => {
+  it('with no AI provider, an account that has not answered still gets a food-database plan', async () => {
+    account({});
+    aiClient.hasProvider.mockReturnValueOnce(false);
+    const r = await generate();
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expectNoAiWork();
+  });
+});
