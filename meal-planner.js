@@ -2,7 +2,7 @@
 /**
  * FitMunch AI Meal Planner
  * POST /api/meal-plan/generate — AI-generated 7-day plan
- * POST /api/meal-plan/shopping  — consolidated shopping list with AU prices
+ * POST /api/meal-plan/shopping  — consolidated shopping list, grouped by aisle
  */
 
 const express = require('express');
@@ -29,67 +29,23 @@ function requireAuth(req, res, next) {
   catch { return res.status(401).json({ success: false, error: 'Invalid or expired token' }); }
 }
 
-// ── AU SUPERMARKET PRICE TABLE (Woolies/Coles estimates, AUD per unit) ────────
-const AU_PRICES = {
-  // Proteins
-  'chicken breast':     { price: 3.25, unit: '500g', per: '500g', aisle: 'Meat & Seafood' },
-  'chicken thigh':      { price: 2.80, unit: '500g', per: '500g', aisle: 'Meat & Seafood' },
-  'beef mince':         { price: 5.50, unit: '500g', per: '500g', aisle: 'Meat & Seafood' },
-  'salmon fillet':      { price: 6.00, unit: '200g', per: '200g', aisle: 'Meat & Seafood' },
-  'tuna canned':        { price: 1.80, unit: 'can',  per: '95g',  aisle: 'Pantry' },
-  'eggs':               { price: 5.50, unit: 'dozen',per: '12',   aisle: 'Dairy & Eggs' },
-  'greek yoghurt':      { price: 4.50, unit: '500g', per: '500g', aisle: 'Dairy & Eggs' },
-  'cottage cheese':     { price: 3.20, unit: '500g', per: '500g', aisle: 'Dairy & Eggs' },
-  'milk':               { price: 2.00, unit: '1L',   per: '1L',   aisle: 'Dairy & Eggs' },
-  'whey protein':       { price: 2.50, unit: 'serve',per: '30g',  aisle: 'Supplements' },
-  // Carbs
-  'oats':               { price: 2.50, unit: '750g', per: '750g', aisle: 'Pantry' },
-  'brown rice':         { price: 2.80, unit: '1kg',  per: '1kg',  aisle: 'Pantry' },
-  'white rice':         { price: 2.00, unit: '1kg',  per: '1kg',  aisle: 'Pantry' },
-  'sweet potato':       { price: 1.50, unit: '500g', per: '500g', aisle: 'Produce' },
-  'bread wholegrain':   { price: 3.50, unit: 'loaf', per: '650g', aisle: 'Bakery' },
-  'pasta':              { price: 1.80, unit: '500g', per: '500g', aisle: 'Pantry' },
-  'quinoa':             { price: 4.50, unit: '500g', per: '500g', aisle: 'Pantry' },
-  'banana':             { price: 0.40, unit: 'each', per: '1',    aisle: 'Produce' },
-  'apple':              { price: 0.60, unit: 'each', per: '1',    aisle: 'Produce' },
-  // Veg
-  'broccoli':           { price: 3.50, unit: 'head', per: '400g', aisle: 'Produce' },
-  'spinach':            { price: 3.00, unit: 'bag',  per: '120g', aisle: 'Produce' },
-  'mixed salad leaves': { price: 3.00, unit: 'bag',  per: '100g', aisle: 'Produce' },
-  'capsicum':           { price: 1.20, unit: 'each', per: '1',    aisle: 'Produce' },
-  'zucchini':           { price: 0.80, unit: 'each', per: '1',    aisle: 'Produce' },
-  'tomato':             { price: 0.60, unit: 'each', per: '1',    aisle: 'Produce' },
-  'onion':              { price: 0.40, unit: 'each', per: '1',    aisle: 'Produce' },
-  'garlic':             { price: 0.50, unit: 'bulb', per: '1',    aisle: 'Produce' },
-  'avocado':            { price: 1.50, unit: 'each', per: '1',    aisle: 'Produce' },
-  'cucumber':           { price: 1.20, unit: 'each', per: '1',    aisle: 'Produce' },
-  'carrot':             { price: 0.50, unit: 'each', per: '1',    aisle: 'Produce' },
-  // Dairy / fats
-  'olive oil':          { price: 5.00, unit: '375ml',per: '375ml',aisle: 'Pantry' },
-  'peanut butter':      { price: 4.50, unit: '375g', per: '375g', aisle: 'Pantry' },
-  'almond butter':      { price: 7.00, unit: '250g', per: '250g', aisle: 'Pantry' },
-  'cheese':             { price: 6.00, unit: '500g', per: '500g', aisle: 'Dairy & Eggs' },
-  'butter':             { price: 3.50, unit: '250g', per: '250g', aisle: 'Dairy & Eggs' },
-  // Pantry staples
-  'honey':              { price: 4.00, unit: '500g', per: '500g', aisle: 'Pantry' },
-  'soy sauce':          { price: 2.50, unit: '250ml',per: '250ml',aisle: 'Pantry' },
-  'sriracha':           { price: 3.50, unit: 'bottle',per:'200ml',aisle: 'Pantry' },
-  'mixed herbs':        { price: 2.00, unit: 'jar',  per: '15g',  aisle: 'Pantry' },
-  'protein bar':        { price: 3.50, unit: 'each', per: '60g',  aisle: 'Supplements' },
-  // Frozen
-  'frozen mixed veg':   { price: 2.50, unit: '500g', per: '500g', aisle: 'Frozen' },
-  'frozen berries':     { price: 4.50, unit: '500g', per: '500g', aisle: 'Frozen' },
-};
-
+// ── AISLES (grouping only; no prices) ────────────────────────────────────────
+const AISLE_WORDS = [
+  ['Meat & Seafood', ['chicken', 'beef', 'mince', 'lamb', 'pork', 'turkey', 'salmon', 'tuna', 'barramundi', 'fish', 'prawn']],
+  ['Dairy & Eggs', ['egg', 'yoghurt', 'yogurt', 'milk', 'cheese', 'ricotta', 'butter', 'cream']],
+  ['Bakery', ['bread', 'wrap', 'roll', 'bagel']],
+  ['Frozen', ['frozen']],
+  ['Supplements', ['whey', 'protein powder', 'protein bar']],
+  ['Produce', ['banana', 'apple', 'berr', 'broccoli', 'spinach', 'salad', 'capsicum', 'zucchini', 'tomato', 'onion', 'garlic', 'avocado', 'cucumber', 'carrot', 'potato', 'corn', 'kale', 'mango', 'orange', 'lettuce']],
+  ['Pantry', ['oats', 'rice', 'pasta', 'quinoa', 'oil', 'peanut', 'almond', 'honey', 'sauce', 'herb', 'chia', 'tuna', 'cakes']],
+];
 const AISLE_ORDER = ['Meat & Seafood','Produce','Dairy & Eggs','Pantry','Bakery','Frozen','Supplements','Other'];
 const AISLE_ICONS = { 'Meat & Seafood':'🥩','Produce':'🥦','Dairy & Eggs':'🥚','Pantry':'🫙','Bakery':'🍞','Frozen':'🧊','Supplements':'💊','Other':'📦' };
 
-function lookupPrice(name) {
-  const key = name.toLowerCase().replace(/[^a-z\s]/g,'').trim();
-  for (const [k, v] of Object.entries(AU_PRICES)) {
-    if (key.includes(k) || k.includes(key.split(' ')[0])) return v;
-  }
-  return { price: 2.50, unit: 'item', per: '1', aisle: 'Other' }; // default estimate
+function aisleFor(name) {
+  const n = String(name).toLowerCase();
+  for (const [aisle, words] of AISLE_WORDS) if (words.some((w) => n.includes(w))) return aisle;
+  return 'Other';
 }
 
 // AI calls go through lib/ai-client: xAI, then OpenAI, then Anthropic.
@@ -99,6 +55,7 @@ function lookupPrice(name) {
 // function limit): one AI attempt, one retry if there's time, then a plan
 // built from the local food DB. Every day is checked against the calorie
 // target (±5%) before it's returned.
+const BUILDER_NOTICE = "The AI didn't answer, so this plan was built from our food database to your targets. It didn't use an AI credit.";
 const PLAN_BUDGET_MS = () => Number(process.env.MEAL_PLAN_BUDGET_MS) || 25000;
 const PLAN_ATTEMPT_MS = () => Number(process.env.MEAL_PLAN_ATTEMPT_MS) || 20000;
 
@@ -108,16 +65,15 @@ function planInput(body) {
   const calories = Math.round(num(b.calories, 2000));
   const protein = Math.round(num(b.protein, 150));
   const days = Math.round(num(b.days, 7));
-  const budget = Math.round(num(b.budget, 120));
   if (!Number.isFinite(calories) || calories < 1200 || calories > 4500) return { error: 'Daily calories must be between 1200 and 4500.' };
   if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
-  const dietary = Array.isArray(b.dietary) ? b.dietary.map(String).slice(0, 8) : [];
-  return { calories, protein, days, budget: Number.isFinite(budget) ? budget : 120, goal, dietary };
+  const dietary = planEngine.normaliseDiet(b.dietary).slice(0, 8);
+  return { calories, protein, days, goal, dietary };
 }
 
-function planPrompt({ goal, calories, protein, budget, days, dietary }, retryReason) {
+function planPrompt({ goal, calories, protein, days, dietary }, retryReason) {
   const goalLabel = {
     lose_weight: 'lose weight / fat loss',
     muscle_gain: 'build muscle / bulking',
@@ -126,20 +82,19 @@ function planPrompt({ goal, calories, protein, budget, days, dietary }, retryRea
   }[goal];
   const dietaryNote = dietary.length ? `Dietary requirements: ${dietary.join(', ')}.` : 'No special dietary requirements.';
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, days).join(', ');
-  return `You are a nutritionist creating a meal plan for an Australian person who shops at Woolworths or Coles.
+  return `You are a nutritionist creating a meal plan for a person in Australia.
 
 Goal: ${goalLabel}
 Daily calorie target: ${calories} kcal. Each day's breakfast + lunch + dinner + snack calories MUST add up to ${calories} kcal (within 5%).
 Daily protein target: ${protein}g
-Weekly grocery budget: AUD $${budget}
 ${dietaryNote}
 
 Return EXACTLY ${days} entries in "days", in this order: ${dayNames}. Every day has all four meals.
-Use common Australian supermarket ingredients and quick meals (under 30 mins).
+Use common everyday ingredients and quick meals (under 30 mins).
 Give every ingredient qty as grams or ml with a number first (e.g. "150g", "250ml"), or a count (e.g. "2 large").
 ${retryReason ? `Your last answer was rejected (${retryReason}). Fix that.\n` : ''}
 Return ONLY valid JSON, no markdown:
-{"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}],"weeklyBudgetEst":0}`;
+{"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -184,15 +139,16 @@ router.post('/generate', requireAuth, async (req, res) => {
     }
 
     let lastReason = '';
-    const callAi = gate ? (attempt) => aiClient.chatJson({
+    const callAi = gate ? (attempt, signal) => aiClient.chatJson({
       messages: [{ role: 'user', content: planPrompt(input, attempt > 1 ? lastReason : '') }],
       maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
       temperature: 0.6,
       route: '/meal-plan/generate',
+      signal,
     }) : null;
     const started = Date.now();
     const result = await planEngine.generatePlan(input, {
-      callAi: callAi && ((attempt) => callAi(attempt).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
+      callAi: callAi && ((attempt, signal) => callAi(attempt, signal).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
       budgetMs: PLAN_BUDGET_MS(),
       attemptMs: PLAN_ATTEMPT_MS(),
     });
@@ -200,19 +156,26 @@ router.post('/generate', requireAuth, async (req, res) => {
       console.warn('[meal-planner] AI plan rejected:', result.attempts.join(', '), '->', result.source, `${Date.now() - started}ms`);
     }
 
-    if (result.source !== 'builder') res.locals.aiAnswered = true;
+    let remaining = gate ? gate.remaining : undefined;
+    if (result.source === 'builder') {
+      // No AI plan was used, so the user keeps their AI credit.
+      if (gate && await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'meal_plan' }) && typeof remaining === 'number') remaining += 1;
+    } else {
+      res.locals.aiAnswered = true;
+    }
     res.json({
       success: true,
       plan: result.plan,
       source: result.source,
+      notice: result.source === 'builder' ? BUILDER_NOTICE : undefined,
       provider: result.provider || undefined,
-      remaining: gate ? gate.remaining : undefined,
+      remaining,
     });
   } catch (err) {
     // Last resort: never leave the user with a 500 for a plan.
     try {
       console.error('[meal-planner] generate failed, serving built plan:', err && err.message);
-      return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder' });
+      return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder', notice: BUILDER_NOTICE });
     } catch (_) {
       return res.status(503).json({ success: false, error: "We couldn't build your plan right now. Please try again in a minute." });
     }
@@ -230,16 +193,12 @@ router.post('/shopping', requireAuth, async (req, res) => {
     const items = planEngine.aggregateShoppingList(plan)
       .filter((i) => !owned.some((e) => e && e.includes(i.name.toLowerCase())))
       .map((i) => {
-        const priceData = lookupPrice(i.name);
         return {
           name: i.name,
           qty: i.qty,
           amounts: i.amounts,
           meals: i.meals,
-          unit: priceData.unit,
-          aisle: priceData.aisle,
-          wooliesUrl: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(i.name)}`,
-          colesUrl: `https://www.coles.com.au/search?q=${encodeURIComponent(i.name)}`,
+          aisle: aisleFor(i.name),
         };
       });
 
@@ -297,7 +256,6 @@ router.get('/generate', (_req, res) => res.json({
     goal: 'lose_weight | muscle_gain | maintain | general_fitness',
     calories: 2000,
     protein: 150,
-    budget: 120,
     days: 7,
     dietary: '[] (e.g. ["vegetarian", "gluten-free"])',
   },

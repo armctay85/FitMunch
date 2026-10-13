@@ -3316,8 +3316,9 @@ async function generateMealPlan() {
  throw new Error(r.error || 'Generation failed');
  }
  S_activePlan = r.plan;
+ S_activePlan.notice = r.notice || '';
  renderMealPlan(r.plan);
- toast('Meal plan ready! 🎉');
+ toast(r.source === 'builder' ? 'Meal plan ready (built from our food database)' : 'Meal plan ready! 🎉');
  } catch(err) {
  toast('Could not generate plan: ' + err.message, 'error');
  } finally {
@@ -3329,6 +3330,18 @@ async function generateMealPlan() {
 function renderMealPlan(plan) {
  document.getElementById('mp-plan-name').textContent = plan.planName || '7-Day Meal Plan';
  document.getElementById('mp-plan-summary').textContent = plan.summary || '';
+ // Say so when the plan came from the food database rather than the AI, and
+ // when a target or filter couldn't be fully met.
+ let noticeEl = document.getElementById('mp-plan-notice');
+ if (!noticeEl) {
+ noticeEl = document.createElement('div');
+ noticeEl.id = 'mp-plan-notice';
+ noticeEl.className = 'goals-nudge';
+ document.getElementById('mp-plan-summary').insertAdjacentElement('afterend', noticeEl);
+ }
+ const noticeLines = [plan.notice, ...(plan.notes || [])].filter(Boolean);
+ noticeEl.textContent = noticeLines.join(' ');
+ noticeEl.style.display = noticeLines.length ? 'block' : 'none';
 
  // Metrics bar
  const metricsEl = document.getElementById('mp-plan-metrics');
@@ -3336,7 +3349,7 @@ function renderMealPlan(plan) {
  <div class="metric"><div class="metric-label">Avg Calories</div><div class="metric-value mv-green">${plan.avgDailyCalories||' - '}</div><div class="metric-sub">per day</div></div>
  <div class="metric"><div class="metric-label">Avg Protein</div><div class="metric-value mv-blue">${plan.avgDailyProtein||' - '}g</div><div class="metric-sub">per day</div></div>
  <div class="metric"><div class="metric-label">Days Planned</div><div class="metric-value mv-purple">${plan.days.length}</div><div class="metric-sub">days</div></div>
- <div class="metric"><div class="metric-label">Est. Budget</div><div class="metric-value mv-amber">${plan.weeklyBudgetEst ? '$' + plan.weeklyBudgetEst : ' - '}</div><div class="metric-sub">per week</div></div>`;
+ <div class="metric"><div class="metric-label">Meals</div><div class="metric-value mv-amber">${plan.days.reduce((n, d) => n + Object.keys(d.meals || {}).length, 0)}</div><div class="metric-sub">planned</div></div>`;
 
  // Day tabs
  const tabsEl = document.getElementById('mp-day-tabs');
@@ -3439,10 +3452,6 @@ function renderAiShoppingList(list) {
  <input type="checkbox" onchange="slItemCheck(this,'slitem-${aisle}-${idx}')"/>
  <span class="sl-item-name">${item.name}</span>
  <span class="sl-item-qty">${item.qty}</span>
- <div class="sl-item-links">
- <a class="sl-item-link" href="${item.wooliesUrl}" target="_blank" title="Woolworths">W</a>
- <a class="sl-item-link" href="${item.colesUrl}" target="_blank" title="Coles">C</a>
- </div>
  </div>`;
  });
  }
