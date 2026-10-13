@@ -6,6 +6,8 @@ module.exports = {
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
     '**/test_app.js',
+    '**/test_app_store_copy.js',
+
     '**/test_coach_context.js',
 
     '**/test_privacy_export.js',
@@ -66,6 +68,8 @@ module.exports = {
     '**/test_rate_limit_ip.js',
     '**/test_public_copy_hotfix.js',
     '**/test_ship_safety.js',
+    '**/test_xss_escape.js',
+    '**/test_stored_xss.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
