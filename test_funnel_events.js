@@ -602,10 +602,12 @@ describe('funnel GET: shared limiter, header-only keys', () => {
     expect(fn).not.toMatch(/===|!==/);
   });
 
-  it('the private funnel page sends the key in a header and strips it from the URL', () => {
+  it('the private funnel page keeps the key in sessionStorage and sends it only as a header', () => {
     const html = fs.readFileSync(path.join(__dirname, 'private/funnel.html'), 'utf8');
     expect(html).toContain("headers: { 'x-fm-analytics-key': key }");
-    expect(html).not.toMatch(/&key=/);
-    expect(html).toContain('history.replaceState');
+    expect(html).toMatch(/sessionStorage\.setItem\(KEY, key\)/);
+    expect(html).toMatch(/sessionStorage\.getItem\(KEY\)/);
+    expect(html).not.toMatch(/localStorage/);
+    expect(html).not.toMatch(/[?&]key=|URLSearchParams|location\.search/);
   });
 });
