@@ -714,7 +714,7 @@ router.get('/coach/billing-status', async (req, res) => {
     }
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+      decoded = verifyJwt(authHeader.slice(7));
     } catch (_) {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
