@@ -461,12 +461,82 @@ describe('funnel beacon and private viewer', () => {
 });
 
 describe('/demo is retired', () => {
-  test.each(['/demo', '/demo.html', '/try'])('%s => 301 to the homepage worked example', async (route) => {
+  test.each(['/demo', '/demo/', '/demo.html', '/try'])('%s => 301 to the homepage worked example', async (route) => {
     const res = await require('supertest')(require('./server')).get(route);
     expect(res.status).toBe(301);
     expect(res.headers.location).toBe('/#proof');
   });
   test('sitemap no longer lists /demo', () => {
     expect(require('fs').readFileSync(require('path').join(__dirname, 'public/sitemap.xml'), 'utf8')).not.toMatch(/fitmunch\.com\.au\/demo</);
+  });
+});
+
+describe('read-only funnel key (FM_FUNNEL_READ_KEY)', () => {
+  const READ = 'read-only-test-value';
+  const FULL = 'full-test-value';
+  let prevRead;
+  let prevFull;
+  beforeEach(() => {
+    prevRead = process.env.FM_FUNNEL_READ_KEY;
+    prevFull = process.env.FM_ANALYTICS_KEY;
+    process.env.FM_FUNNEL_READ_KEY = READ;
+    process.env.FM_ANALYTICS_KEY = FULL;
+    storage.getFunnelStats.mockResolvedValueOnce({
+      days: 14,
+      totalEvents: 99,
+      asOf: '2026-10-14T00:00:00.000Z',
+      events: [{ eventType: 'trial_cta_click', page: '/pricing', plan: 'premium', count: 7, sessions: 5 }],
+      steps: [
+        { step: 'landing_page_view', count: 40, sessions: 30 },
+        { step: 'trial_cta_click', count: 7, sessions: 5 },
+        { step: 'account_created', count: 4, sessions: 4 },
+        { step: 'checkout_start', count: 3, sessions: 3 },
+        { step: 'trial_started', count: 2, sessions: 2 },
+      ],
+    });
+  });
+  afterEach(() => {
+    if (prevRead == null) delete process.env.FM_FUNNEL_READ_KEY; else process.env.FM_FUNNEL_READ_KEY = prevRead;
+    if (prevFull == null) delete process.env.FM_ANALYTICS_KEY; else process.env.FM_ANALYTICS_KEY = prevFull;
+    storage.getFunnelStats.mockReset();
+    storage.getFunnelStats.mockImplementation(async () => ({ days: 14, totalEvents: 0, events: [], steps: [] }));
+  });
+
+  it('returns the four counts only, nothing else', async () => {
+    const res = await request(app).get('/api/analytics/funnel').set('x-fm-funnel-key', READ);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      days: 14,
+      asOf: '2026-10-14T00:00:00.000Z',
+      counts: { landingViews: 40, trialClicks: 7, checkoutStarts: 3, trialStarts: 2 },
+    });
+    expect(JSON.stringify(res.body)).not.toMatch(/events|sessions|page|plan|pricing|account_created/);
+  });
+
+  it('wrong read key, or read key in the query string, => 401', async () => {
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-funnel-key', READ + 'x')).status).toBe(401);
+    expect((await request(app).get('/api/analytics/funnel').query({ key: READ })).status).toBe(401);
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', READ)).status).toBe(401);
+  });
+
+  it('disabled when FM_FUNNEL_READ_KEY is unset or empty', async () => {
+    delete process.env.FM_FUNNEL_READ_KEY;
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-funnel-key', READ)).status).toBe(401);
+    process.env.FM_FUNNEL_READ_KEY = '';
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-funnel-key', '')).status).toBe(401);
+  });
+
+  it('does not open the private /funnel page or other routes', async () => {
+    expect((await request(app).get('/funnel').set('x-fm-funnel-key', READ)).status).toBe(401);
+    const post = await request(app).post('/api/analytics/funnel').set('x-fm-funnel-key', READ).send({});
+    expect(post.status).not.toBe(200);
+  });
+
+  it('the full analytics key still returns the full stats', async () => {
+    const res = await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', FULL);
+    expect(res.status).toBe(200);
+    expect(res.body.events).toHaveLength(1);
+    expect(res.body.steps).toHaveLength(5);
   });
 });

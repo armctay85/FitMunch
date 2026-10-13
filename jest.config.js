@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
+    '**/test_trainer_prices_copy.js',
+    '**/test_jest_testmatch_guard.js',
     '**/test_app.js',
     '**/test_public_hygiene.js',
     '**/test_ai_credit_check.js',
