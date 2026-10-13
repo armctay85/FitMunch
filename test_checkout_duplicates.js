@@ -1523,3 +1523,57 @@ describe('quick-checkout limits, customer tag, pagination and backfill (PR 78 r2
     expect(plan).toEqual([{ id: 'c1', fm_canonical_email: 'josmith@gmail.com' }]);
   });
 });
+
+describe('retired pt-starter / pt-pro checkout plans', () => {
+  const stripeCalls = (o, seen = new Set()) => {
+    if (!o || seen.has(o)) return 0;
+    seen.add(o);
+    return Object.entries(o).reduce((n, [k, v]) => {
+      if (k === 'S') return n;
+      if (typeof v === 'function' && v.mock) return n + v.mock.calls.length;
+      if (v && typeof v === 'object') return n + stripeCalls(v, seen);
+      return n;
+    }, 0);
+  };
+  const checkout = require('./lib/fitmunch-checkout');
+
+  test.each([
+    ['pt-starter', 'client'],
+    ['pt-pro', 'client'],
+    ['pt-starter', 'pt'],
+    ['pt-pro', 'pt'],
+    ['starter', 'pt'],
+    ['pro', 'pt'],
+  ])('/api/checkout plan %s (role %s) => 400, zero Stripe calls', async (plan, role) => {
+    const res = await request(app).post('/api/checkout')
+      .set('Authorization', `Bearer ${tokenFor('u1', { role })}`)
+      .set('Origin', 'https://www.fitmunch.com.au')
+      .send({ plan });
+    expect(res.status).toBe(400);
+    expect(stripeCalls(fake)).toBe(0);
+  });
+
+  test.each(['pt-starter', 'pt-pro'])('/api/quick-checkout plan %s => 400, zero Stripe calls', async (plan) => {
+    const res = await request(app).post('/api/quick-checkout').send({ email: 'steph@example.com', plan });
+    expect(res.status).toBe(400);
+    expect(stripeCalls(fake)).toBe(0);
+  });
+
+  test('priceIdForPlan rejects pt-*; PRICE_IDS entries are kept', () => {
+    expect(checkout.priceIdForPlan('pt-starter')).toBeNull();
+    expect(checkout.priceIdForPlan('pt-pro')).toBeNull();
+    expect(checkout.PRICE_IDS['pt-starter']).toBe('price_1T3SvgGMuYRuJYDrOyR2hYoq');
+    expect(checkout.PRICE_IDS['pt-pro']).toBe('price_1T3SyDGMuYRuJYDrF8mvMrwi');
+    expect(checkout.priceIdForPlan('premium')).toBe(PRICE_IDS.premium);
+  });
+
+  test.each([
+    ['price_1T3SvgGMuYRuJYDrOyR2hYoq', 'pt-starter', 'starter'],
+    ['price_1T3SyDGMuYRuJYDrF8mvMrwi', 'pt-pro', 'pro'],
+  ])('existing subscriber on %s still maps (plan %s, tier %s)', (priceId, plan, tier) => {
+    expect(checkout.planForPriceId(priceId)).toBe(plan);
+    const sub = { status: 'active', current_period_end: 2000000000, items: { data: [{ price: { id: priceId } }] } };
+    expect(checkout.subscriptionTierUpdateFromStripe(sub).tier).toBe(tier);
+    expect(checkout.allFitMunchPriceIds()).toContain(priceId);
+  });
+});

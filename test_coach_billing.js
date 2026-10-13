@@ -182,6 +182,23 @@ describe('Coach webhook tier', () => {
     storage.db = originalDb;
   });
 
+  test.each([
+    ['price_1T3SvgGMuYRuJYDrOyR2hYoq', 'pt-starter', 'starter'],
+    ['price_1T3SyDGMuYRuJYDrF8mvMrwi', 'pt-pro', 'pro'],
+  ])('webhook for a retired %s (%s) subscriber still maps to tier %s', async (priceId, plan, tier) => {
+    const sub = {
+      id: 'sub_legacy_pt', customer: 'cus_coach', status: 'active', created: 100,
+      current_period_end: 2000000000,
+      metadata: { plan, product: 'fitmunch', brand: 'FitMunch' },
+      items: { data: [{ id: 'si_legacy', price: { id: priceId } }] },
+    };
+    installWebhookStripe([sub]);
+    const res = await postWebhook({ id: `evt_legacy_${plan}`, type: 'customer.subscription.updated', data: { object: sub } });
+    expect(res.status).toBe(200);
+    expect(storage.updateUserSubscription).toHaveBeenCalledWith('pt-1', tier, expect.anything());
+    expect(user.subscriptionTier).toBe(tier);
+  });
+
   test('trialing sets coach tier trial and leaves the consumer tier alone', async () => {
     const res = await postWebhook({
       id: 'evt_coach_trial',
@@ -387,6 +404,18 @@ describe('Coach checkout trial', () => {
     expect(mockStripe.customers.list).not.toHaveBeenCalled();
     expect(mockStripe.customers.search).not.toHaveBeenCalled();
   });
+
+  test.each([['coach-39', 'price_coach39_test'], ['coach-79', 'price_coach79_test']])(
+    '%s still opens Coach checkout after pt-* plans were retired', async (plan, price) => {
+      const token = jwt.sign({ userId: 'pt-1', email: 'pt@example.com', name: 'Pat Trainer', role: 'pt' }, jwtSecret());
+      const res = await request(app).post('/api/coach/checkout')
+        .set('Authorization', `Bearer ${token}`)
+        .set('Origin', 'https://www.fitmunch.com.au')
+        .send({ plan })
+        .expect(200);
+      expect(res.body.url).toContain('checkout.stripe.com');
+      expect(mockStripe.rawRequest.mock.calls[0][2].line_items[0].price).toBe(price);
+    });
 
   test('a client account cannot open Coach checkout', async () => {
     const token = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
