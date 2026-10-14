@@ -1386,7 +1386,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-mealplan" onclick="closeOnOverlay(event)">
  <div class="modal" style="max-width:520px;width:95vw">
  <div class="modal-title">New Meal Plan<button class="modal-close" onclick="closeModal('modal-mealplan')">✕</button></div>
- <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" placeholder="e.g. 12-week deficit plan"/></div>
+ <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" maxlength="200" placeholder="e.g. 12-week deficit plan"/></div>
  <div class="form-row">
  <div class="form-field"><label class="form-label" for="mp-goal">Goal</label>
  <select class="form-select" id="mp-goal"><option value="weight_loss">Weight Loss</option><option value="maintenance">Maintenance</option><option value="muscle_gain">Muscle Gain</option></select></div>
@@ -1479,7 +1479,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Smart food search -->
  <div class="form-field" style="position:relative;margin-bottom:4px">
  <label class="form-label">Search food <span style="color:var(--green2);font-weight:700"> - macros auto-fill ✨</span></label>
- <input class="form-input" id="lm-search" placeholder="e.g. chicken breast, oats, banana…"
+ <input class="form-input" id="lm-search" maxlength="200" placeholder="e.g. chicken breast, oats, banana…"
  oninput="foodSearchInput(this.value)" onkeydown="foodSearchKey(event)" autocomplete="off"/>
  <div id="lm-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;max-height:240px;overflow-y:auto"></div>
  </div>
@@ -1516,7 +1516,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Manual food name (hidden when food selected from search) -->
  <div class="form-field" id="lm-manual-name-row">
  <label class="form-label">Food name <span style="color:var(--text3);font-weight:400">(or type above to search)</span></label>
- <input class="form-input" id="lm-food" placeholder="e.g. Chicken breast"/>
+ <input class="form-input" id="lm-food" maxlength="200" placeholder="e.g. Chicken breast"/>
  </div>
 
  <div class="modal-actions">
@@ -1867,7 +1867,7 @@ function nav(id) {
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('open'); }
+function openModal(id) { const el = document.getElementById(id); el.classList.add('open'); const err = el.querySelector('.modal-err'); if (err) err.remove(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function closeOnOverlay(e) { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); }
 function openInviteModal() { openModal('modal-invite'); }
@@ -2164,7 +2164,7 @@ function _mealRowHtml(idx, item, containerId) {
  return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" maxlength="200" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
  <div><label style="font-size:.7rem;color:var(--text3)">Meal Time</label><select class="form-select" aria-label="Meal time" style="padding:4px 6px;font-size:.78rem" data-field="mealType">${opts}</select></div>
  </div>
  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
@@ -2221,13 +2221,23 @@ function openEditMealPlan(planId) {
  openModal('modal-edit-meal-plan');
 }
 
+// A refused save keeps the form open with the server's message (e.g. a name over 200 characters).
+function showModalError(id, msg) {
+ const modal = document.querySelector('#' + id + ' .modal'); if (!modal) return;
+ let p = modal.querySelector('.modal-err');
+ if (!p) { p = document.createElement('p'); p.className = 'modal-err'; p.setAttribute('role', 'alert'); p.style.cssText = 'color:#b91c1c;font-size:.8rem;margin:8px 0 0'; modal.appendChild(p); }
+ p.textContent = msg;
+}
+function clearModalError(id) { const p = document.querySelector('#' + id + ' .modal-err'); if (p) p.remove(); }
+
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
  const meals = _collectMealItems('emp');
  const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+ if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
+ clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
- if (r.success) { loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓'); }
- else toast('Failed to save', 'error');
+ loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓');
 }
 
 // ── Meal Plan List ────────────────────────────────────────────────────────────
@@ -2301,11 +2311,12 @@ async function saveMealPlan() {
  totalCalories: parseInt(document.getElementById('mp-cals').value)||meals.reduce((s,m)=>s+m.calories,0)||0,
  meals,
  })});
+ if (!r.success) { showModalError('modal-mealplan', r.error || 'Failed to create plan'); return; }
+ clearModalError('modal-mealplan');
  closeModal('modal-mealplan');
  _mpItemCount = 0;
  document.getElementById('mp-meal-list').innerHTML = '';
- if (r.success) { S.mealPlans.push(r.plan); loadMealPlans(); if (!showAllergenWarnings(r)) toast('Meal plan created ✓'); }
- else toast('Failed to create plan', 'error');
+ S.mealPlans.push(r.plan); loadMealPlans(); if (!showAllergenWarnings(r)) toast('Meal plan created ✓');
 }
 
 async function deleteMealPlan(id, e) {
@@ -2645,6 +2656,7 @@ async function toggleFav(itemType, itemId, itemData) {
  } else {
  const r = await API('/favourites', { method:'POST', body: JSON.stringify({ itemType, itemId: String(itemId), itemData }) });
  if (r.success && r.favourite) S.favourites.push(r.favourite);
+ else if (!r.success) toast(r.error || "Couldn't save that favourite", 'error');
  }
 }
 async function removeFav(type, id) {
@@ -2972,10 +2984,11 @@ async function logMealEntry() {
  servingSize: (document.getElementById('lm-serving-g').value ? document.getElementById('lm-serving-g').value + 'g' : ''),
  };
  const r = await API('/meals/log', { method:'POST', body: JSON.stringify(body) });
+ if (!r.success) { showModalError('modal-log-meal', r.error || 'Failed to log meal'); return; }
+ clearModalError('modal-log-meal');
  closeModal('modal-log-meal');
  resetMealModal();
- if (r.success) { toast('✅ Logged: ' + foodName + ' - ' + body.calories + ' cal'); loadTodayMeals(); }
- else toast('Failed to log meal', 'error');
+ toast('✅ Logged: ' + foodName + ' - ' + body.calories + ' cal'); loadTodayMeals();
 }
 
 // ── WORKOUT LOG ───────────────────────────────────────────────────────────────
