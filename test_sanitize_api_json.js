@@ -1,6 +1,6 @@
 'use strict';
 const jwt = require('jsonwebtoken');
-const { sanitizeApiJson } = require('./lib/sanitize-api-json');
+const { sanitizeApiJson, isOpaque } = require('./lib/sanitize-api-json');
 
 describe('API JSON sanitizer leaves opaque tokens alone', () => {
   it('the CI flake: a register token whose signature held a provider word by chance now survives', () => {
@@ -26,5 +26,46 @@ describe('API JSON sanitizer leaves opaque tokens alone', () => {
     const out = sanitizeApiJson({ message: 'Answered by Grok via xAI.', provider: 'openai', model: 'gpt-4o', note: 'gemini-2.5-flash', label: 'Gemini-2.5-Pro-Preview' });
     expect(JSON.stringify(out)).not.toMatch(/gemini|openai|grok|xai/i);
     expect(out.model).toBeUndefined();
+  });
+
+  it.each([
+    'Gemini-2.5-Pro-Preview-Experimental-0827x',
+    'Grok-4-Fast-Reasoning-Beta-Build-2026-10-14',
+    'x-ai/Grok-4-Fast-Reasoning-2026-10-14-Preview',
+    'PoweredByGrokAndGemini2026ForFitMunchUsers',
+    'GrokBot2026Edition',
+    'AnsweredByGrokViaOpenAIForFitMunchMembersWithoutAnyDigitsAtAll',
+  ])('long or word-joined model text is not treated as a token: %s', (text) => {
+    expect(isOpaque(text)).toBe(false);
+    const out = sanitizeApiJson({ label: text, list: [text], nested: { deep: [{ value: text }] } });
+    expect(JSON.stringify(out)).not.toMatch(/gemini|openai|grok|anthropic|xai/i);
+  });
+
+  it('only real token shapes are opaque', () => {
+    expect(isOpaque('eyJhbGciOi.eyJ1c2VySW.Grok_xAI-sig')).toBe(true);
+    expect(isOpaque('eyJhbGciOi.eyJ1c2VySW')).toBe(false);
+    expect(isOpaque('aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0')).toBe(true); // 32-char random base64url run
+    expect(isOpaque('aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL')).toBe(false); // 31 chars
+    expect(isOpaque('aB3xAiQ9zK2mN7pR-4tV8wY1cE5gH6jL0')).toBe(false); // delimiter breaks the run
+    // Random runs that hold a provider word by chance stay intact, even with no digit at all
+    // or with 41% of the run reading as Capitalised words.
+    for (const id of ['hiGfvABAhAPxAiPHggKzTPQUoXvtYBiq', 's63BsvzekSpvV4gqFc9K0V9V4lAxai4T']) {
+      expect(isOpaque(id)).toBe(true);
+      expect(sanitizeApiJson({ id }).id).toBe(id);
+    }
+    // Dotted model text is not a JWT: short segments, or "/" inside a segment.
+    for (const text of ['v2.Grok.4fast', 'x-ai/Grok-4.fast-preview.build-2026']) {
+      expect(isOpaque(text)).toBe(false);
+      expect(sanitizeApiJson({ text }).text).not.toMatch(/grok/i);
+    }
+    const out = sanitizeApiJson({ id: 'aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0' });
+    expect(out.id).toBe('aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0');
+  });
+
+  it('a key named token is cleaned like any other key, at any depth', () => {
+    const plan = { plan: { meals: [{ token: 'Answered by Grok via OpenAI' }] } };
+    expect(sanitizeApiJson(plan)).toEqual({ plan: { meals: [{ token: 'Answered by via' }] } });
+    const out = sanitizeApiJson({ token: 'grok said hi', items: [{ claimToken: 'Gemini wrote this', TOKEN: 'xai' }] });
+    expect(out).toEqual({ token: 'said hi', items: [{ claimToken: 'wrote this' }] });
   });
 });
