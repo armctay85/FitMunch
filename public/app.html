@@ -683,6 +683,10 @@ html.fm-authed #app-gate{display:none}
  <button class="diet-tag" data-val="high protein" onclick="toggleDietTag(this)">💪 High protein</button>
  <button class="diet-tag" data-val="low carb" onclick="toggleDietTag(this)">⬇️ Low carb</button>
  <button class="diet-tag" data-val="nut free" onclick="toggleDietTag(this)">🥜 Nut free</button>
+ <button class="diet-tag" data-val="egg free" onclick="toggleDietTag(this)">🥚 Egg free</button>
+ <button class="diet-tag" data-val="sesame free" onclick="toggleDietTag(this)">🌱 Sesame free</button>
+ <button class="diet-tag" data-val="soy free" onclick="toggleDietTag(this)">🫘 Soy free</button>
+ <button class="diet-tag" data-val="shellfish free" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
  </div>
  </div>
  <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="mp-gen-btn" onclick="generateMealPlan()">
@@ -2658,6 +2662,7 @@ async function loadPortalHome() {
  // Load user profile / goals
  try {
  const prof = await API('/user/profile/' + S.user.id);
+ if (prof.success && prof.profile) prefillDietTags(prof.profile.dietaryPreferences);
  if (prof.success && prof.profile && prof.profile.targetCalories) {
  S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein };
  renderGoalTargets();
@@ -3688,6 +3693,14 @@ let S_activePlan = null;
 let S_activeShoppingList = null;
 
 function toggleDietTag(btn) { btn.classList.toggle('active'); }
+// The meal plan form starts with the saved diet filters ticked, so a plan never quietly drops one.
+function prefillDietTags(saved) {
+ let list = saved;
+ if (typeof list === 'string') { try { list = JSON.parse(list); } catch (_) { list = list.split(','); } }
+ if (!Array.isArray(list)) return;
+ const want = new Set(list.map(d => String(d).toLowerCase().replace(/[-_]+/g, ' ').trim()));
+ document.querySelectorAll('#dietary-tags .diet-tag').forEach(b => { if (want.has(b.dataset.val)) b.classList.add('active'); });
+}
 
 async function generateMealPlan() {
  const goal = document.getElementById('mp-goal-sel').value;

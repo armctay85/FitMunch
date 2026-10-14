@@ -99,23 +99,27 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
-// The user's stored diet filters and allergies, merged with the request's. A lookup failure keeps the
-// request's filters; every plan below still goes through the allergen check.
+// The user's stored diet filters and allergies. Null when no database is configured; throws when the
+// lookup fails, so the route can stop instead of planning without the user's allergies.
 async function storedFilters(userId) {
   if (!process.env.DATABASE_URL) return null; // no database configured: nothing is stored
-  try {
-    const { getProfile } = require('./server/storage.js');
-    return mealSafety.profileFilters(await getProfile(userId));
-  } catch (_) { return null; }
+  const { getProfile } = require('./server/storage.js');
+  return mealSafety.profileFilters(await getProfile(userId));
 }
 
-function rememberFilters(userId, dietary, stored) {
-  const before = stored ? planEngine.normaliseDiet(stored.dietary) : null;
+/**
+ * Add the request's filters to the saved ones. Never removes a saved filter: this route only adds, so a
+ * plan made with nothing ticked can't wipe what chat, saved plans and insights rely on. Called only after
+ * the consent and usage checks pass.
+ */
+function rememberFilters(userId, sentDietary, stored) {
   if (!process.env.DATABASE_URL) return;
-  if (before && before.length === dietary.length && before.every((d) => dietary.includes(d))) return;
+  const before = stored ? planEngine.normaliseDiet(stored.dietary) : [];
+  const added = planEngine.normaliseDiet(sentDietary).filter((d) => planEngine.DIET_FILTERS.includes(d) && !before.includes(d));
+  if (!added.length) return;
   try {
     const { createOrUpdateProfile } = require('./server/storage.js');
-    Promise.resolve(createOrUpdateProfile(userId, { dietaryPreferences: dietary })).catch(() => {});
+    Promise.resolve(createOrUpdateProfile(userId, { dietaryPreferences: [...before, ...added] })).catch(() => {});
   } catch (_) { /* best effort */ }
 }
 
@@ -134,15 +138,19 @@ function safeSwaps(plan, input) {
 router.post('/generate', requireAuth, async (req, res) => {
   const parsed = planInput(req.body);
   if (parsed.error) return res.status(400).json({ success: false, error: parsed.error });
-  // The filters sent with this request are the user's latest choice; with none sent, the stored ones apply.
-  // Allergies always come from the profile. The choice is remembered so Coach chat and saved plans use it.
-  const stored = await storedFilters(req.user.userId);
-  const sent = Array.isArray(req.body && req.body.dietary);
-  const input = { ...parsed, dietary: sent ? parsed.dietary : mealSafety.mergeFilters(stored).dietary, allergies: mealSafety.mergeFilters(stored).allergies };
-  if (sent) rememberFilters(req.user.userId, parsed.dietary, stored);
+  // Plan from the saved filters plus the ones sent: a saved filter always applies, even with nothing ticked.
+  // Allergies come from the profile. New filters are saved only once the consent and usage checks pass.
+  let stored;
+  try { stored = await storedFilters(req.user.userId); } catch (_) {
+    return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+  }
+  const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary });
+  const input = { ...parsed, dietary: merged.dietary.slice(0, 12), allergies: merged.allergies };
+  const remember = () => rememberFilters(req.user.userId, parsed.dietary, stored);
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
+    remember(); // no AI call, so no consent or usage check applies
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input), source: 'builder' });
   }
@@ -180,6 +188,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       }
       aiUsage.refundSmokeOnFailure(gate, res);
     }
+    remember();
 
     let lastReason = '';
     const callAi = gate ? (attempt, signal) => aiClient.chatJson({

@@ -1264,7 +1264,7 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
       [planId, req.user.userId]
     );
     if (!plan.rows[0]) return res.status(404).json({ error: 'Meal plan not found' });
-    const meals = plan.rows[0].meals || [];
+    const meals = (await safePlanRows(req.user.userId, [plan.rows[0]]))[0].meals || [];
 
     const CATEGORIES = {
       meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','barramundi','prawn','shrimp'],
@@ -1395,16 +1395,29 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
   } catch (err) { sendApiError(res, err); }
 });
 
-/** The user's stored diet filters and allergies; empty on a lookup failure. */
+/** The user's stored diet filters and allergies. Throws on a lookup failure (callers fail closed). */
 async function userFilters(userId) {
   if (!process.env.DATABASE_URL) return { dietary: [], allergies: [] };
-  try { return mealSafety.profileFilters(await getProfile(userId)); } catch (_) { return { dietary: [], allergies: [] }; }
+  return mealSafety.profileFilters(await getProfile(userId));
 }
-/** A saved plan in day form ([{ day, meals: { slot: meal } }]) goes through the allergen check before it's stored. */
+/**
+ * A saved, manual or edited plan in any stored shape (day form with meals as an object or list, a flat list
+ * of manual meals, or { days }) goes through the allergen check before it's stored or served.
+ */
 async function safeSavedMeals(userId, meals) {
-  if (!Array.isArray(meals) || !meals.some((d) => d && typeof d === 'object' && d.meals && typeof d.meals === 'object' && !Array.isArray(d.meals))) return meals;
+  if (meals == null) return meals;
   const filters = await userFilters(userId);
-  return mealSafety.enforcePlan({ days: meals }, filters).plan.days;
+  return mealSafety.enforceSavedMeals(meals, filters).meals;
+}
+/** A tip that names an excluded food becomes a food-free tip. */
+function safeInsight(tip, filters) {
+  const r = mealSafety.enforceText(tip, { ...filters, alternative: false });
+  return r.removed.length ? 'Keep logging today. Pick a meal from your plan that fits your filters and your protein target.' : tip;
+}
+/** Old saved rows are checked again when they're read, against the filters the user has now. */
+async function safePlanRows(userId, rows) {
+  const filters = await userFilters(userId);
+  return rows.map((row) => (row && row.meals != null ? { ...row, meals: mealSafety.enforceSavedMeals(row.meals, filters).meals } : row));
 }
 
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
@@ -1412,7 +1425,7 @@ async function safeSavedMeals(userId, meals) {
 router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, plans: r.rows });
+    res.json({ success: true, plans: await safePlanRows(req.user.userId, r.rows) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1574,9 +1587,14 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       });
     }
 
-    const filters = await userFilters(req.user.userId);
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
-    const fallback = heuristicInsight(facts);
+    let filters;
+    try { filters = await userFilters(req.user.userId); } catch (_) {
+      // Without the user's filters, no AI tip: the plain built-in tip names no food.
+      return res.json({ success: true, insight: heuristicInsight(facts), provider: null });
+    }
+    // The built-in tip goes through the same check as the AI one.
+    const fallback = safeInsight(heuristicInsight(facts), filters);
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
@@ -1702,7 +1720,7 @@ async function buildCoachContext(userId, profile, context = {}) {
   const diet = listOf(p.dietaryPreferences);
   if (diet.length) lines.push(`Diet: ${diet.join(', ')}`);
   const allergies = listOf(p.allergies);
-  if (allergies.length) lines.push(`Allergies: ${allergies.join(', ')}`);
+  if (allergies.length) lines.push(`Allergies: ${allergies.map(mealSafety.promptSafe).filter(Boolean).map((a) => a.slice(0, 40)).slice(0, 10).join(', ')}`);
   if (Number.isFinite(Number(ctx.todayCalories))) {
     lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
   }
@@ -1712,6 +1730,7 @@ async function buildCoachContext(userId, profile, context = {}) {
     if (plan) {
       let meals = plan.meals;
       if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { meals = null; } }
+      meals = mealSafety.enforceSavedMeals(meals, mealSafety.profileFilters(p)).meals;
       const days = meals && Array.isArray(meals.days) ? meals.days : [];
       const first = days[0] && days[0].meals ? Object.values(days[0].meals).map((m) => m && (m.name || m.title)).filter(Boolean).slice(0, 4) : [];
       lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
