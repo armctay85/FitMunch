@@ -190,7 +190,8 @@ describe('r5: rebuilt names, lookalikes, spaced forms and whole words', () => {
     let t;
     for (let i = 0; i < 200000 && !t; i += 1) {
       const c = jwt.sign({ userId: USER, iat: Math.floor(Date.now() / 1000) - i }, 'fitmunch-dev-secret');
-      if (PROVIDER.test(c)) t = c;
+      // Pick one the scrub really hits (the loose test regex also matches mid-word 'x_ai').
+      if (PROVIDER.test(c) && sanitizeApiJson(c) !== c) t = c;
     }
     expect(jwtSecret()).not.toBe('fitmunch-dev-secret');
     expect(isOurSessionToken(t)).toBe(false);
@@ -302,5 +303,116 @@ describe('end to end: stored user JSON is never exempt', () => {
     expect((await request(mini).post('/api/auth/register')).body.token).not.toMatch(PROVIDER);
     const coach = await request(mini).get('/api/coach/plans');
     expect(coach.body.plans[0].sharePath).toBe(`/c/${FAKE_SHARE}`);
+  });
+});
+
+describe('r6: linear scrub, original text untouched, more invisibles, loop', () => {
+  const ms = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
+  // Measured locally at 15-390ms per 1MB. The bound is loose because CI runners are shared and
+  // jest runs under coverage; r5 took 53s on 100KB (quadratic), so this still catches it.
+  const LIMIT_MS = 5000;
+
+  it.each([
+    ['plain', 'a'.repeat(1 << 20)],
+    ['GrGrokok', 'GrGrokok '.repeat(116000)],
+    ['grokgrok', 'grok'.repeat(262144)],
+    ['Open grok AI', 'Open grok AI '.repeat(80000)],
+    ['open (near miss)', 'open '.repeat(209715)],
+    ['fullwidth', '\uFF27\uFF52\uFF4F\uFF4B\u00E9 '.repeat(150000)],
+    ['zero width', 'G\u200Brok '.repeat(170000)],
+    ['emoji', '\u{1F468}\u200D\u{1F469}\u200D\u{1F467} '.repeat(100000)],
+  ])('1MB %s finishes in linear time', (_, big) => {
+    sanitizeApiJson(big.slice(0, 1000));
+    expect(ms(() => sanitizeApiJson(big))).toBeLessThan(LIMIT_MS);
+  });
+
+  it('scales linearly: 16x the input costs well under 256x (quadratic) the time', () => {
+    const unit = 'GrGrokok \uFF27rok \u00BD ';
+    const small = unit.repeat(Math.ceil(65536 / unit.length)).slice(0, 65000);
+    const big = small.repeat(16);
+    sanitizeApiJson(small);
+    const a = Math.max(ms(() => sanitizeApiJson(small)), 5);
+    expect(ms(() => sanitizeApiJson(big))).toBeLessThan(a * 80 + 500);
+  });
+
+  it('returns strings with no provider word byte-for-byte (match on a normalised copy only)', () => {
+    for (const s of ['\u00BD cup oats', '\u{1F468}\u200D\u{1F469}\u200D\u{1F467} family', '\u2764\uFE0F', 'H\u2082O', 'x\u00B2',
+      '\uFB01sh', '  padded  ', 'a  b', 'line\r\nbreak', '\u0418\u0432\u0430\u043D', '\u03B1\u03B2\u03B3', 'open aisle', 'caf\u00E9',
+      'e\u0301', '\uFF21\uFF22', 'x\u2066y']) {
+      expect(sanitizeApiJson(s)).toBe(s);
+    }
+  });
+
+  it('removes only the provider span, mapped back onto the original', () => {
+    expect(sanitizeApiJson('\u00BD cup \uFF27\uFF52\uFF4F\uFF4B oats H\u2082O')).toBe('\u00BD cup oats H\u2082O');
+    expect(sanitizeApiJson('\u{1F468}\u200D\u{1F469}\u200D\u{1F467} G\u200Brok \u2764\uFE0F')).toBe('\u{1F468}\u200D\u{1F469}\u200D\u{1F467} \u2764\uFE0F');
+    expect(sanitizeApiJson('\uFB01sh by Grok x\u00B2')).toBe('\uFB01sh by x\u00B2');
+  });
+
+  it.each([
+    'Open\r\nAI', 'Open\nAI', 'Open\u2066AI', 'G\u2067rok', 'Gr\u2068o\u2069k', 'G\u{E0041}rok', 'Gr\u{E007F}ok',
+    'Open\uFFF9AI', 'G\uFFFAr\uFFFBok', 'x\u180F ai', 'Gem\u180Fini', 'Open \u2066 AI',
+  ])('S1: %j is caught', (s) => {
+    const out = sanitizeApiJson(`${s} bowl`);
+    expect(out).toBe('bowl');
+  });
+
+  it('S2: "Open grok AI" needs a second pass and leaves no name', () => {
+    expect(sanitizeApiJson('Open grok AI')).toBe('');
+    expect(sanitizeApiJson('Open grok AI bowl')).toBe('bowl');
+    expect(sanitizeApiJson('Open grok grok AI tea')).toBe('tea');
+    expect(sanitizeApiJson('x grok ai soup')).toBe('soup');
+  });
+
+  it('a huge string holding a provider word is dropped whole', () => {
+    expect(sanitizeApiJson(`${'oats '.repeat(30000)}Grok`)).toBe('');
+    const clean = 'oats '.repeat(30000);
+    expect(sanitizeApiJson(clean)).toBe(clean);
+  });
+
+  describe('through /api/meal-plans', () => {
+    const app = express();
+    app.use(express.json({ limit: '2mb' }));
+    app.use(attachApiJsonSanitizer);
+    app.use('/api', require('./api_server'));
+    const auth = () => `Bearer ${jwt.sign({ userId: USER, role: 'client' }, jwtSecret(), { expiresIn: '1h' })}`;
+    beforeEach(() => { rows = {}; });
+
+    it('GET with a stored 50KB name stays fast', async () => {
+      const name = `${'GrGrokok '.repeat(5600)}bowl`;
+      expect(name.length).toBeGreaterThan(50000);
+      rows['SELECT * FROM meal_plans WHERE user_id=$1'] = [{ id: 9, user_id: USER, name, meals: [{ name: 'G\u200Brok '.repeat(10000) }] }];
+      const t = Date.now();
+      const res = await request(app).get('/api/meal-plans').set('Authorization', auth());
+      expect(Date.now() - t).toBeLessThan(LIMIT_MS);
+      expect(res.status).toBe(200);
+      expect(res.body.plans[0].name).toBe('bowl');
+      expect(JSON.stringify(res.body)).not.toMatch(PROVIDER);
+    });
+
+    it('GET keeps \u00BD, emoji and H\u2082O in names exactly', async () => {
+      const names = ['\u00BD batch \u{1F468}\u200D\u{1F469}\u200D\u{1F467} curry', 'H\u2082O \u2764\uFE0F x\u00B2 \uFB01sh'];
+      rows['SELECT * FROM meal_plans WHERE user_id=$1'] = names.map((name, id) => ({ id, user_id: USER, name }));
+      const res = await request(app).get('/api/meal-plans').set('Authorization', auth());
+      expect(res.body.plans.map((p) => p.name)).toEqual(names);
+    });
+
+    it.each([
+      ['post', '/api/meal-plans', { name: 'x'.repeat(201) }],
+      ['post', '/api/meal-plans', { name: 'ok', meals: [{ name: 'y'.repeat(201) }] }],
+      ['put', '/api/meal-plans/1', { name: 'x'.repeat(201) }],
+      ['post', '/api/meals/log', { name: 'x'.repeat(201), calories: 100 }],
+      ['post', '/api/favourites', { itemType: 'meal', itemId: 'm1', itemData: { name: 'x'.repeat(201) } }],
+    ])('%s %s rejects a name over 200 characters with a 400', async (method, path, body) => {
+      const res = await request(app)[method](path).set('Authorization', auth()).send(body);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/200 characters or fewer/);
+    });
+
+    it('a 200-character name is accepted', async () => {
+      rows['INSERT INTO meal_plans'] = [{ id: 3, name: 'x'.repeat(200) }];
+      const res = await request(app).post('/api/meal-plans').set('Authorization', auth()).send({ name: 'x'.repeat(200) });
+      expect(res.status).toBe(200);
+    });
   });
 });
