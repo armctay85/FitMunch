@@ -3,6 +3,8 @@
 // joining. The only untouched values are server-issued top-level fields on their own routes:
 // a verified session JWT on the auth routes and the exact coach share link on coach plan
 // routes. Stored user JSON is never exempt, whatever it looks like.
+// S2: run under a non-default secret, so a token signed with the dev fallback must not verify.
+process.env.JWT_SECRET = 'ci-only-test-secret-not-the-dev-fallback-0123456789';
 const jwt = require('jsonwebtoken');
 const express = require('express');
 const request = require('supertest');
@@ -158,6 +160,59 @@ describe('provider names are scrubbed in every casing and joining', () => {
   });
 });
 
+describe('r5: rebuilt names, lookalikes, spaced forms and whole words', () => {
+  const clean = (t) => sanitizeApiJson({ v: t }).v;
+  it.each([
+    'GrGrokok', 'OpOpenAIenAI', 'GeGeminimini', 'Open  AI', 'Open \t AI', 'xxaiai', 'AnAnthropicthropic',
+    'GrGrGrokokok', 'G\u200Brok', 'Gr\u00ADok', 'G\u2060rok', '\uFF27\uFF52\uFF4F\uFF4B',
+    'Gr\u043Ek', 'Gemin\u0131', '\u0391nthropic', 'Gr\u03BFk', 'Open\u00A0AI', 'x ai', 'X  AI',
+    'GrG\u200Brokok', 'Op\uFF2F\uFF50\uFF45\uFF4E\uFF21\uFF29enAI',
+  ])('%j leaves no provider name', (text) => {
+    const out = clean(`Made by ${text} today`);
+    expect(out.normalize('NFKC')).not.toMatch(PROVIDER);
+    expect(out).toMatch(/^Made by\s*today$/);
+  });
+
+  it('removes the whole word: grokking leaves no fragment', () => {
+    expect(clean('Stop grokking around')).toBe('Stop around');
+    expect(sanitizeApiJson({ v: 'ungrokkable', k: 1 })).toEqual({ k: 1 });
+  });
+
+  it('ordinary words survive, including real Cyrillic and Greek text', () => {
+    expect(clean('open aisle, max-aim, taxi, Привет, γεια σου')).toBe('open aisle, max-aim, taxi, Привет, γεια σου');
+  });
+
+  it('a key spelled with a lookalike is dropped', () => {
+    expect(sanitizeApiJson({ ['Gr\u043Ek_note']: 'x', keep: 1 })).toEqual({ keep: 1 });
+  });
+
+  it('S2: a token signed with fitmunch-dev-secret is scrubbed on /api/auth/login', () => {
+    let t;
+    for (let i = 0; i < 200000 && !t; i += 1) {
+      const c = jwt.sign({ userId: USER, iat: Math.floor(Date.now() / 1000) - i }, 'fitmunch-dev-secret');
+      if (PROVIDER.test(c)) t = c;
+    }
+    expect(jwtSecret()).not.toBe('fitmunch-dev-secret');
+    expect(isOurSessionToken(t)).toBe(false);
+    const out = sanitizeApiResponse({ token: t }, '/api/auth/login').token;
+    expect(out).not.toBe(t);
+    expect(out).not.toMatch(PROVIDER);
+  });
+
+  it('S3: other top-level fields of a coach-plans response are sanitized', () => {
+    const t = 'abcdefghijklmnopqrstuvwx';
+    const out = sanitizeApiResponse({
+      success: true, message: 'Written by Grok', model: 'grok-4', note: { by: 'Open AI' }, list: ['GrGrokok'],
+      plan: { token: t, sharePath: `/c/${t}`, title: 'Gemini week' },
+    }, '/api/coach/plans/9');
+    expect(out.plan.token).toBe(t);
+    expect(out.message).toBe('Written by');
+    expect(out.model).toBeUndefined();
+    expect(out.note.by).toBeUndefined();
+    expect(JSON.stringify({ ...out, plan: { ...out.plan, token: '', sharePath: '' } })).not.toMatch(PROVIDER);
+  });
+});
+
 describe('coach share links', () => {
   const plan = (token, extra = {}) => ({ id: 'p1', status: 'sent', token, sharePath: `/c/${token}`, clientLabel: 'by Grok', ...extra });
 
@@ -209,6 +264,19 @@ describe('end to end: stored user JSON is never exempt', () => {
     expect(res.status).toBe(200);
     expect(res.body.plans[0].name).toBe('Week by');
     expect(JSON.stringify(res.body)).not.toMatch(PROVIDER);
+  });
+
+  it('GET /api/meal-plans: a saved GrGrokok bowl and other rebuilt names come back with no provider name', async () => {
+    rows['SELECT * FROM meal_plans WHERE user_id=$1'] = [{
+      id: 2, user_id: USER, name: 'GrGrokok bowl',
+      meals: [{ name: 'OpOpenAIenAI salad' }, { name: 'GeGeminimini wrap' }, { name: 'Open  AI oats' },
+        { name: 'G\u200Brok \uFF27\uFF52\uFF4F\uFF4B Gr\u043Ek Gemin\u0131 curry' }, { name: 'x ai grokking stew' }],
+    }];
+    const res = await request(app).get('/api/meal-plans').set('Authorization', auth());
+    expect(res.status).toBe(200);
+    expect(res.body.plans[0].name).toBe('bowl');
+    expect(res.body.plans[0].meals.map((m) => m.name)).toEqual(['salad', 'wrap', 'oats', 'curry', 'stew']);
+    expect(JSON.stringify(res.body).normalize('NFKC')).not.toMatch(PROVIDER);
   });
 
   it('GET /api/favourites scrubs them in item_data', async () => {
