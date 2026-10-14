@@ -98,7 +98,7 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
         return { texts: [...svg.querySelectorAll('text')].map((t) => ({ px: parseFloat(getComputedStyle(t).fontSize) * scale, h: t.getBoundingClientRect().height, s: t.textContent })), est: parseFloat(getComputedStyle(est).fontSize) };
       });
       expect(sizes.texts.length).toBe(4);
-      for (const t of sizes.texts) { expect([t.s, t.px >= 11]).toEqual([t.s, true]); expect([t.s, t.h >= 14]).toEqual([t.s, true]); }
+      for (const t of sizes.texts) { expect([t.s, `${t.px.toFixed(2)}px`, t.px >= 11]).toEqual([t.s, `${t.px.toFixed(2)}px`, true]); expect([t.s, `box ${t.h.toFixed(2)}`, t.h >= 14]).toEqual([t.s, `box ${t.h.toFixed(2)}`, true]); }
       expect(sizes.est).toBeGreaterThanOrEqual(11);
 
       // (4) a Swap button on every meal, 44px or larger.
