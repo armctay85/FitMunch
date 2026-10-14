@@ -70,6 +70,11 @@ describe('no store names on any public page (app.html and coach.html included, n
     expect(hits).toEqual([]);
   });
 
+  it('app.html names no supermarket', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
+    expect(html).not.toMatch(/Woolworths|Woolies|\bColes\b/i);
+  });
+
   it('the meal planner and shopping-list copy names no chain (no Woolies/Coles empty state)', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
     expect(html).not.toMatch(/Woolies\s*\/\s*Coles|Woolies or Coles|sl-woolies-link|sl-coles-link/i);
