@@ -138,7 +138,22 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Allergies and diet filters must be a list of words, like ["peanut"].' });
       }
     }
-    await createOrUpdateProfile(req.user.userId, profileData);
+    // A form may send the profile's updatedAt it loaded; if filters are saved and the profile changed
+    // since (a generate added a ticked filter), 409 instead of silently dropping it (EQA #141 r2 M1).
+    const ifUpdatedAt = profileData.profileUpdatedAt;
+    delete profileData.profileUpdatedAt;
+    const sendsFilters = 'dietaryPreferences' in profileData || 'allergies' in profileData;
+    if (ifUpdatedAt != null && Number.isNaN(new Date(ifUpdatedAt).getTime())) {
+      return res.status(400).json({ success: false, error: 'profileUpdatedAt must be a date.' });
+    }
+    try {
+      await createOrUpdateProfile(req.user.userId, profileData, sendsFilters && ifUpdatedAt != null ? { ifUpdatedAt } : {});
+    } catch (err) {
+      if (err && err.code === 'PROFILE_STALE') {
+        return res.status(409).json({ success: false, stale: true, error: 'Your profile changed since this page loaded. Reload it and try again.' });
+      }
+      throw err;
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving profile:', error);

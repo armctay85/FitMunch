@@ -40,7 +40,7 @@ jest.mock('./lib/ai-usage', () => {
 });
 jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
-  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn(), mergeDietaryPreferences: jest.fn(async () => true) };
+  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn(), mergeProfileFilters: jest.fn(async () => true) };
 });
 
 const express = require('express');
@@ -116,10 +116,10 @@ describe('meal plan generation', () => {
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
     expect(aiClient.chatJson).not.toHaveBeenCalled();
     // Hotfix: ticked filters are saved (merged, never shrunk) so Coach and the weekly review see them.
-    expect(storage.mergeDietaryPreferences).toHaveBeenCalledTimes(1);
-    const [uid, merge] = storage.mergeDietaryPreferences.mock.calls[0];
+    expect(storage.mergeProfileFilters).toHaveBeenCalledTimes(1);
+    const [uid, merge] = storage.mergeProfileFilters.mock.calls[0];
     expect(uid).toBe(storage.getProfile.mock.calls[0][0]);
-    expect(merge(['dairy free'])).toEqual(['dairy free', 'nut free']);
+    expect(merge({ dietaryPreferences: ['dairy free'], allergies: [] })).toEqual({ dietaryPreferences: ['dairy free', 'nut free'] });
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
 
@@ -129,27 +129,42 @@ describe('meal plan generation', () => {
       const r = await generate({ dietary: ['nut free'], ...extra });
       expect(r.body.source).toBe('builder');
     }
-    expect(storage.mergeDietaryPreferences).not.toHaveBeenCalled();
+    expect(storage.mergeProfileFilters).not.toHaveBeenCalled();
   });
 
   it('#141 M2: onboarding (builderOnly) saves ticked filters too', async () => {
     account({ dietaryPreferences: [], allergies: [] });
     await generate({ dietary: ['nut free'], builderOnly: true });
-    expect(storage.mergeDietaryPreferences).toHaveBeenCalledTimes(1);
-    expect(storage.mergeDietaryPreferences.mock.calls[0][1]([])).toEqual(['nut free']);
+    expect(storage.mergeProfileFilters).toHaveBeenCalledTimes(1);
+    expect(storage.mergeProfileFilters.mock.calls[0][1]({ dietaryPreferences: [], allergies: [] })).toEqual({ dietaryPreferences: ['nut free'] });
   });
 
-  it('#141 S1/S2: mergedFilterList dedupes, case-folds, skips no-ops and never overwrites odd formats', () => {
-    const { mergedFilterList: m } = require('./meal-planner');
-    expect(m(['gluten free'], ['nut free'])).toEqual(['gluten free', 'nut free']);
-    expect(m(null, ['nut free'])).toEqual(['nut free']);
-    expect(m([], ['nut free', 'nut free', 'Nut-Free'])).toEqual(['nut free']); // dedupe
-    expect(m(['Gluten Free'], ['gluten free'])).toBeNull(); // case-folded: nothing added
-    expect(m(['Gluten Free'], ['GLUTEN_FREE', 'dairy free'])).toEqual(['Gluten Free', 'dairy free']);
-    expect(m(['nut free'], ['nut free'])).toBeNull(); // nothing added -> no write
-    expect(m(['nut free'], [])).toBeNull();
-    for (const odd of [[{ name: 'gluten free' }], { gluten: { severe: true } }, 'peanut-free diet', 'vegan', ['peanut-free diet'], [null], 7]) {
-      expect([odd, m(odd, ['nut free'])]).toEqual([odd, null]);
+  it('#141 S1: a failed filter save still serves the checked plan with 0 AI calls', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    storage.mergeProfileFilters.mockRejectedValueOnce(new Error('db write failed'));
+    const r = await generate({ dietary: ['nut free'] });
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect(servedGroups(r.body.plan)).not.toContain('nuts');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+  });
+
+  it('#141 S1/S2/M2: filterPatch dedupes, case-folds, skips no-ops, treats empty-looking as [] and never overwrites odd formats', () => {
+    const { filterPatch: f } = require('./meal-planner');
+    const P = (dietaryPreferences, allergies = []) => ({ dietaryPreferences, allergies });
+    expect(f(P(['gluten free']), ['nut free'])).toEqual({ dietaryPreferences: ['gluten free', 'nut free'] });
+    expect(f(null, ['nut free'])).toEqual({ dietaryPreferences: ['nut free'] });
+    expect(f(P([]), ['nut free', 'nut free', 'Nut-Free'])).toEqual({ dietaryPreferences: ['nut free'] }); // dedupe
+    expect(f(P(['Gluten Free']), ['gluten free'])).toBeNull(); // case-folded: nothing added
+    expect(f(P(['Gluten Free']), ['GLUTEN_FREE', 'dairy free'])).toEqual({ dietaryPreferences: ['Gluten Free', 'dairy free'] });
+    expect(f(P(['nut free']), ['nut free'])).toBeNull(); // nothing added -> no write
+    expect(f(P([], ['peanuts']), ['nut free'])).toBeNull(); // already covered by an allergy
+    for (const empty of ['none', '', '[]', {}, ['none'], { 'nut free': false }, null, [''], [null]]) {
+      expect([empty, f(P(empty), ['nut free'])]).toEqual([empty, { dietaryPreferences: ['nut free'] }]);
+    }
+    for (const odd of [[{ name: 'gluten free' }], { gluten: { severe: true } }, 'peanut-free diet', ['peanut-free diet'], ['Paleo'], 'vegan']) {
+      expect([odd, f(P(odd, ['kiwi']), ['nut free'])]).toEqual([odd, { allergies: ['kiwi', 'nut free'] }]);
+      expect([odd, f(P(odd, [{ severe: 'egg' }]), ['nut free'])]).toEqual([odd, null]);
     }
   });
 

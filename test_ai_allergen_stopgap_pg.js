@@ -189,14 +189,73 @@ maybe('#127a on real Postgres', () => {
     expect((await pool.query('select count(*)::int n from user_profiles where user_id=$1', [PLAIN])).rows[0].n).toBe(1);
   });
 
-  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: a generate racing a profile save (gluten free) keeps the save', async () => {
-    const [g, p] = await Promise.all([
-      gen(PLAIN, ['nut free']),
-      request(app).post('/api/user/profile').set('Authorization', as(PLAIN)).send({ dietaryPreferences: ['gluten free'] }),
-    ]);
-    expect([g.status, p.status]).toEqual([200, 200]);
-    // Either order is serialised: the save is never lost (merge after the save keeps both).
-    expect((await profileOf(PLAIN)).dietary_preferences).toContain('gluten free');
+  const save = (who, body) => request(app).post('/api/user/profile').set('Authorization', as(who)).send(body);
+  const updatedAt = async (id) => (await pool.query('select updated_at from user_profiles where user_id=$1', [id])).rows[0].updated_at.toISOString();
+  // Deterministic ordering: a second client holds the row lock; requests are started one by one and each
+  // is seen waiting on a lock before the next starts; then the lock is released (EQA #141 r2 S1).
+  const waiting = async () => (await pool.query("select count(*)::int n from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()")).rows[0].n;
+  const until = async (n) => { for (let i = 0; i < 200 && (await waiting()) < n; i++) await new Promise((r) => setTimeout(r, 10)); expect(await waiting()).toBeGreaterThanOrEqual(n); };
+  async function ordered(id, first, second) {
+    const holder = await pool.connect();
+    try {
+      await holder.query('begin');
+      await holder.query('select id from user_profiles where user_id=$1 for update', [id]);
+      const p1 = first(); p1.then(() => {}, () => {}); const r1 = p1.then((x) => x);
+      await until(1);
+      const p2 = second(); const r2 = p2.then((x) => x);
+      await until(2);
+      await holder.query('commit');
+      return [await r1, await r2];
+    } finally { holder.release(); }
+  }
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: generate (nut free) then a stale profile save -> 409, nut free and the old value kept', async () => {
+    await setDiet(PLAIN, ['gluten free']);
+    const loaded = await updatedAt(PLAIN);
+    const [g, p] = await ordered(PLAIN, () => gen(PLAIN, ['nut free']), () => save(PLAIN, { dietaryPreferences: [], weight: 70, profileUpdatedAt: loaded }));
+    expect(g.status).toBe(200);
+    expect(p.status).toBe(409);
+    expect(await sorted(PLAIN)).toEqual(['gluten free', 'nut free']);
+  });
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: profile save (gluten free) then generate (nut free) -> both kept', async () => {
+    const loaded = await updatedAt(PLAIN);
+    const [p, g] = await ordered(PLAIN, () => save(PLAIN, { dietaryPreferences: ['gluten free'], profileUpdatedAt: loaded }), () => gen(PLAIN, ['nut free']));
+    expect([p.status, g.status]).toEqual([200, 200]);
+    expect(await sorted(PLAIN)).toEqual(['gluten free', 'nut free']);
+  });
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: generate racing a [] save with a fresh updatedAt -> filters, AI and credits stay safe', async () => {
+    const loaded = await updatedAt(PLAIN);
+    const [g, p] = await Promise.all([gen(PLAIN, ['nut free']), save(PLAIN, { dietaryPreferences: [], weight: 70, profileUpdatedAt: loaded })]);
+    expect(g.status).toBe(200);
+    // Either the save ran first (200, then the generate adds nut free) or second (409, nut free kept).
+    expect([200, 409]).toContain(p.status);
+    expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
+    const c = await request(app).post('/api/ai/chat').set('Authorization', as(PLAIN)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
+    expect(c.body.provider).toBeNull();
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: no profile row, a save racing a generate -> exactly 1 row with nut free', async () => {
+    await pool.query('delete from user_profiles where user_id=$1', [PLAIN]);
+    const [p, g] = await Promise.all([save(PLAIN, { weight: 70 }), gen(PLAIN, ['nut free'])]);
+    expect([p.status, g.status]).toEqual([200, 200]);
+    const rows = (await pool.query('select dietary_preferences d, weight from user_profiles where user_id=$1', [PLAIN])).rows;
+    expect(rows.length).toBe(1);
+    expect(rows[0].d).toEqual(['nut free']);
+    expect(rows[0].weight).toBe(70);
+  });
+
+  it('#141 L1: a brand-new user (no users row) with two concurrent generates keeps both ticks', async () => {
+    const NEW = '00000000-0000-4000-8000-0000000141a1';
+    await pool.query('delete from users where id=$1', [NEW]);
+    await Promise.all([gen(NEW, ['nut free']), gen(NEW, ['dairy free'])]);
+    const rows = (await pool.query('select dietary_preferences d from user_profiles where user_id=$1', [NEW])).rows;
+    expect(rows.length).toBe(1);
+    expect([...rows[0].d].sort()).toEqual(['dairy free', 'nut free']);
+    await pool.query('delete from users where id=$1', [NEW]);
   });
 
   it('#141 M1: a user with no profile row gets exactly one row from two concurrent generates', async () => {
@@ -231,10 +290,38 @@ maybe('#127a on real Postgres', () => {
     expect((await profileOf(GF)).dietary_preferences).toEqual(['Gluten Free', 'nut free']);
   });
 
-  it.each([[[{ name: 'gluten free' }]], [{ gluten: { severe: true } }], ['peanut-free diet']])('#141 S2: odd saved format %j is never overwritten', async (odd) => {
+  const coachFood = () => request(app).post('/api/ai/chat').set('Authorization', as(GF)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
+
+  it.each([['none'], [''], ['[]'], [{}], [['none']], [{ 'nut free': false }]])('#141 r2 M2: empty-looking saved %j + nut free tick -> saved; Coach, review, insight make 0 AI calls', async (empty) => {
+    await setDiet(GF, empty);
+    await gen(GF, ['nut free']);
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['nut free']);
+    const c = await coachFood();
+    const w = await request(app).get('/api/ai/weekly-review').set('Authorization', as(GF));
+    const i = await request(app).post('/api/ai/insight').set('Authorization', as(GF)).send({ todayCalories: 800, targetCalories: 2000, targetProtein: 150 });
+    for (const x of [c, w, i]) expect(JSON.stringify(x.body)).not.toMatch(/MOCKAI|peanut/i);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+
+  it.each([[[{ name: 'gluten free' }]], [{ gluten: { severe: true } }], ['peanut-free diet'], [['Paleo']]])('#141 S2/M2: odd saved format %j is never overwritten; the tick goes to allergies and Coach names no peanut', async (odd) => {
     await setDiet(GF, odd);
     await gen(GF, ['nut free']);
     expect((await profileOf(GF)).dietary_preferences).toEqual(odd);
+    expect((await profileOf(GF)).allergies).toEqual(['nut free']);
+    const c = await coachFood();
+    expect(c.body.provider).toBeNull();
+    // The meals name no nut food ('Not applied' only echoes the user's own saved words).
+    expect(String(c.body.reply).replace(/^Not applied:.*$/m, '')).not.toMatch(/MOCKAI|peanut|satay|almond|cashew/i);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('#141 M1: a stale save without filters still saves; a bad profileUpdatedAt is a 400', async () => {
+    const r = await save(GF, { weight: 80, profileUpdatedAt: '2001-01-01T00:00:00Z' });
+    expect(r.status).toBe(200);
+    expect((await save(GF, { dietaryPreferences: [], profileUpdatedAt: 'nope' })).status).toBe(400);
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
   });
 
   // ── r2 (Elite QA #135 r1) ──
