@@ -7,7 +7,7 @@ const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
-const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const { attachApiJsonSanitizer, sendStripeJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
@@ -539,7 +539,7 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
       })
     );
 
-    res.json({
+    sendStripeJson(res, {
       success: true,
       url: result.url,
       id: result.id
@@ -764,7 +764,7 @@ app.post('/api/quick-checkout', async (req, res) => {
       })
     );
     const { TRIAL_USED_COPY } = require('./server/email.js');
-    return res.json({
+    return sendStripeJson(res, {
       success: true,
       url: result.url,
       id: result.id,
@@ -832,7 +832,7 @@ app.post('/api/checkout', async (req, res) => {
       });
     });
 
-    res.json(checkoutJson(result));
+    sendStripeJson(res, checkoutJson(result));
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
@@ -926,7 +926,7 @@ app.post('/api/coach/checkout', async (req, res) => {
           message: result.message,
         });
       }
-      return res.json({ success: true, ...checkoutJson(result) });
+      return sendStripeJson(res, { success: true, ...checkoutJson(result) });
     }
 
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -947,7 +947,7 @@ app.post('/api/coach/checkout', async (req, res) => {
         cancelPath: coachBilling.COACH_CANCEL_PATH,
       })
     );
-    return res.json({ success: true, url: result.url, id: result.id });
+    return sendStripeJson(res, { success: true, url: result.url, id: result.id });
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
@@ -1046,9 +1046,13 @@ async function claimResendLimiter(req, res, next) {
   }
   return next();
 }
+// Test-only observer of the handler's own reply window (see
+// test_guest_claim_r5.js). Null in production; never affects the reply.
+let claimResendObserver = null;
 app.post('/api/stripe/claim-resend', claimResendLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const started = Date.now();
+  const startedHr = process.hrtime.bigint();
   const windowMs = claimResendWindowMs();
   const { resendGuestClaimLink, RESEND_GENERIC_REPLY } = require('./lib/guest-claim');
   try {
@@ -1062,6 +1066,11 @@ app.post('/api/stripe/claim-resend', claimResendLimiter, async (req, res) => {
   }
   const wait = windowMs - (Date.now() - started);
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  if (claimResendObserver) {
+    try {
+      claimResendObserver({ windowMs, replyMs: Number(process.hrtime.bigint() - startedHr) / 1e6 });
+    } catch (_) { /* test hook only */ }
+  }
   return res.status(200).json({ success: true, message: RESEND_GENERIC_REPLY });
 });
 
@@ -1257,7 +1266,7 @@ app.post('/api/billing-portal', async (req, res) => {
       },
       { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
-    res.json({ success: true, url: portal.url });
+    sendStripeJson(res, { success: true, url: portal.url });
   } catch (e) {
     if (sendAuthError(e, res)) return;
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
@@ -1353,8 +1362,13 @@ function setStripeForTests(next) {
   require('./lib/guest-claim').resetGuestClaimsForTests();
 }
 
+function setClaimResendObserverForTests(fn) {
+  claimResendObserver = typeof fn === 'function' ? fn : null;
+}
+
 module.exports = app;
 module.exports._private = {
+  setClaimResendObserverForTests,
   rateLimitKey,
   subscriptionTierUpdateFromStripe,
   setStripeForTests,

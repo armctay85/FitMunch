@@ -13,6 +13,7 @@
 <script src="/js/chart.umd.min.js"></script>
 <script src="/js/fm-targets.js"></script>
 <script src="/js/fm-item-name.js"></script>
+<script src="/js/fm-week-wow.js"></script>
 <style>
 /* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
 :root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
@@ -399,6 +400,19 @@ html.fm-authed #app-gate{display:none}
 .ob-meal-k{font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#166534}
 .ob-meal-n{font-size:.86rem;font-weight:700;color:#11180f;line-height:1.3}
 .ob-meal-meta{font-size:.74rem;color:#3f4a45}
+#modal-onboard .form-label{color:#4b5a52}
+.ob-head{font-size:.95rem;font-weight:800;color:#11180f;line-height:1.4;margin:0 0 10px}
+.ob-curve{margin:0 0 12px;border:1px solid #dfe6df;border-radius:10px;padding:10px 12px;background:#fff}
+.ob-curve svg{display:block;width:100%;height:auto}
+.ob-curve figcaption{font-size:.74rem;color:#3f4a45;line-height:1.45;margin-top:6px}
+.ob-est{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c2d12;background:#ffedd5;border-radius:4px;padding:2px 6px;margin-right:6px}
+.ob-meal-body{flex:1;min-width:0}
+.ob-swap{font:inherit;min-height:44px;min-width:64px;padding:0 12px;border:1px solid #b9cbbd;border-radius:8px;background:#fff;color:#14532d;font-weight:700;font-size:.8rem;cursor:pointer;align-self:center}
+.ob-swap[aria-expanded="true"]{background:#ecfdf3;border-color:#15803d}
+.ob-swaps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+.ob-swaps[hidden]{display:none}
+.ob-swaps button{font:inherit;width:100%;min-height:44px;text-align:left;padding:6px 10px;border:1px solid #dfe6df;border-radius:8px;background:#f7faf7;color:#11180f;font-size:.8rem;line-height:1.3;cursor:pointer}
+.ob-swaps button span{display:block;font-size:.72rem;color:#3f4a45}
 </style>
 <script>
 (function () {
@@ -1566,6 +1580,7 @@ html.fm-authed #app-gate{display:none}
  <div class="form-field"><label class="form-label" for="ob-sex">Sex</label><select id="ob-sex" class="form-select"><option value="female">Female</option><option value="male">Male</option><option value="other">Prefer not to say</option></select></div>
  <div class="form-field"><label class="form-label" for="ob-height">Height (cm)</label><input id="ob-height" class="form-input" type="number" min="120" max="230" inputmode="numeric" placeholder="170"/></div>
  <div class="form-field"><label class="form-label" for="ob-weight">Weight (kg)</label><input id="ob-weight" class="form-input" type="number" min="35" max="300" step="0.1" inputmode="decimal" placeholder="75"/></div>
+ <div class="form-field"><label class="form-label" for="ob-goal-weight">Goal weight (kg, optional)</label><input id="ob-goal-weight" class="form-input" type="number" min="35" max="300" step="0.1" inputmode="decimal" placeholder="70"/></div>
  </div>
  <div class="form-field"><label class="form-label" for="ob-activity">Activity</label><select id="ob-activity" class="form-select">
  <option value="sedentary">Mostly sitting, little exercise</option><option value="light">Train 1-3 times a week</option><option value="moderate" selected>Train 3-5 times a week</option><option value="active">Train 6-7 times a week</option><option value="very_active">Physical job plus training</option></select></div>
@@ -1587,6 +1602,8 @@ html.fm-authed #app-gate{display:none}
  <div style="display:flex;gap:8px"><button class="btn btn-ghost2" onclick="onboardStep(1)">Back</button><button class="btn btn-green" style="flex:1" id="ob-build" onclick="onboardBuildWeek()">Save and build my week</button></div>
  </div>
  <div id="ob-step-3" style="display:none">
+ <p class="ob-head" id="ob-head"></p>
+ <figure class="ob-curve" id="ob-curve" style="display:none"></figure>
  <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px" id="ob-week-note"></p>
  <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
  <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
@@ -3440,6 +3457,8 @@ function copyShareText() {
 let OB = null;
 function openOnboarding() {
  if (typeof FMTargets === 'undefined') { openModal('modal-goals'); return; }
+ const gwEl = document.getElementById('ob-goal-weight');
+ if (gwEl && !gwEl.value && S && S.user && Number(S.user.goalWeightKg) > 0) gwEl.value = S.user.goalWeightKg;
  onboardStep(1); openModal('modal-onboard');
 }
 function onboardStep(n) {
@@ -3454,7 +3473,13 @@ function onboardCompute() {
  const err = document.getElementById('ob-err');
  try {
  const t = FMTargets.computeTargets(input);
- OB = { input, diet: v('ob-diet'), targets: t };
+ // Goal weight: 35-300 kg and within 40% of today's weight (the same check runs on the server).
+ const gw = FMWeekWow.validGoalWeight(v('ob-goal-weight'), input.weightKg);
+ const gwEl = document.getElementById('ob-goal-weight');
+ if (!gw.ok) { err.textContent = gw.error; err.style.display = ''; gwEl.setAttribute('aria-invalid', 'true'); gwEl.focus(); return; }
+ gwEl.removeAttribute('aria-invalid');
+ const goalKg = gw.value;
+ OB = { input, goalKg, diet: v('ob-diet'), targets: t };
  err.style.display = 'none';
  document.getElementById('ob-cals').value = t.calories;
  document.getElementById('ob-prot').value = t.protein;
@@ -3487,20 +3512,39 @@ function obBar(label, value, target, unit) {
  const fill = document.createElement('span'); fill.style.width = pct + '%'; if (Math.abs(off) > 10) fill.className = 'off';
  track.appendChild(fill); row.append(t, track); return row;
 }
-function onboardRenderWeek(plan, note, targets) {
- document.getElementById('ob-week-note').textContent = note;
- const box = document.getElementById('ob-week'); box.textContent = '';
- const tg = targets || {};
- (plan.days || []).forEach(d => {
- const card = document.createElement('section'); card.className = 'ob-day';
- const h = document.createElement('h3'); h.className = 'ob-day-h'; h.textContent = d.day || '';
- card.appendChild(h);
- const tot = d.totals || d.dailyTotals || {};
- if (tot.calories && tg.calories) card.appendChild(obBar('Calories', tot.calories, tg.calories, ' kcal'));
- if (tot.protein && tg.protein) card.appendChild(obBar('Protein', tot.protein, tg.protein, 'g'));
- const ms = Array.isArray(d.meals) ? d.meals : Object.entries(d.meals || {}).map(([slot, m]) => ({ slot, ...m }));
- ms.forEach(m => {
- const slot = String(m.slot || m.type || '').toLowerCase(); const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
+function obSvg(tag, attrs) { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+function obRenderCurve(proj) {
+ const fig = document.getElementById('ob-curve'); fig.textContent = '';
+ // No curve without a valid goal, or when the goal is not reached inside the two-year window.
+ if (!proj || !proj.reached) { fig.style.display = 'none'; return; }
+ const pts = proj.points; const H = 110, L = 34, R = 8, T = 10, B = 22;
+ // Draw in real pixels (viewBox width = the figure's width), so 11px labels stay 11px at 320.
+ fig.style.display = ''; const cs = getComputedStyle(fig);
+ const W = Math.max(200, Math.round((fig.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) || 300));
+ const ks = pts.map(p => p.kg); const lo = Math.min(...ks), hi = Math.max(...ks), span = Math.max(1, hi - lo);
+ const x = w => L + (W - L - R) * (pts.length > 1 ? w / pts[pts.length - 1].week : 0);
+ const y = k => T + (H - T - B) * (hi - k) / span;
+ const when = proj.goalDate.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
+ const first = pts[0].kg, last = pts[pts.length - 1].kg;
+ const svg = obSvg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `Estimated weight from ${first} kg now to ${last} kg around ${when}, over ${proj.weeks} weeks` });
+ svg.appendChild(obSvg('line', { x1: L, y1: H - B, x2: W - R, y2: H - B, stroke: '#c9d6cc', 'stroke-width': 1 }));
+ svg.appendChild(obSvg('polyline', { points: pts.map(p => `${x(p.week).toFixed(1)},${y(p.kg).toFixed(1)}`).join(' '), fill: 'none', stroke: '#15803d', 'stroke-width': 2.5, 'stroke-dasharray': '5 4', 'stroke-linecap': 'round' }));
+ const label = (tx, ty, text, anchor) => { const t = obSvg('text', { x: tx, y: ty, 'font-size': 12, fill: '#3f4a45', 'text-anchor': anchor || 'start' }); t.textContent = text; svg.appendChild(t); };
+ label(L - 4, y(first) + 4, `${first}`, 'end'); label(L - 4, y(last) + 4, `${last}`, 'end');
+ label(L, H - 6, 'Now'); label(W - R, H - 6, when, 'end');
+ const cap = document.createElement('figcaption');
+ const est = document.createElement('span'); est.className = 'ob-est'; est.textContent = 'Estimate';
+ const rate = proj.direction === 'lose' ? 'about 0.5% of body weight a week, at most 0.9 kg' : 'about 0.25% of body weight a week, at most 0.35 kg';
+ cap.append(est, `${first} kg to ${last} kg by about ${when} (${proj.weeks} weeks) at ${rate}. A steady pace, not a promise: real weeks go up and down.`);
+ fig.append(svg, cap); fig.style.display = '';
+}
+function obRenderHeader(plan, tg) {
+ const a = FMWeekWow.weekAverages(plan);
+ const meals = ((plan.days || [])[0] && Object.keys(plan.days[0].meals || {}).length) || 4;
+ document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: a.calories || tg.calories, protein: a.protein || tg.protein, meals });
+}
+function obMealRow(d, slot, m, onSwap) {
+ const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
  const row = document.createElement('div'); row.className = 'ob-meal';
  const ic = document.createElement('span'); ic.className = 'ob-meal-ic'; ic.setAttribute('aria-hidden', 'true'); ic.textContent = icon;
  const body = document.createElement('div'); body.className = 'ob-meal-body';
@@ -3508,8 +3552,53 @@ function onboardRenderWeek(plan, note, targets) {
  const n = document.createElement('div'); n.className = 'ob-meal-n'; n.textContent = obTitle(m.name);
  const meta = document.createElement('div'); meta.className = 'ob-meal-meta';
  meta.textContent = [m.calories ? m.calories + ' kcal' : '', m.protein ? m.protein + 'g protein' : '', m.prepMins ? m.prepMins + ' min' : ''].filter(Boolean).join(' · ');
- body.append(k, n, meta); row.append(ic, body); card.appendChild(row);
+ body.append(k, n, meta); row.append(ic, body);
+ // No Swap button when there is nothing to swap to.
+ if (Array.isArray(m.swaps) && m.swaps.length) {
+ const listId = `ob-sw-${String(d.day || '').toLowerCase()}-${slot}`;
+ const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ob-swap'; btn.textContent = 'Swap';
+ btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', listId);
+ btn.setAttribute('aria-label', `Swap ${d.day || ''} ${label.toLowerCase()}: ${obTitle(m.name)}`);
+ const list = document.createElement('ul'); list.className = 'ob-swaps'; list.id = listId; list.hidden = true;
+ m.swaps.forEach((a, i) => {
+ const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button';
+ b.textContent = obTitle(a.name); const sub = document.createElement('span'); sub.textContent = `${a.calories} kcal · ${a.protein}g protein`; b.appendChild(sub);
+ b.onclick = () => onSwap(i); li.appendChild(b); list.appendChild(li);
  });
+ btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(open)); list.hidden = !open; };
+ row.appendChild(btn); body.appendChild(list);
+ }
+ return row;
+}
+function obRenderDay(card, d, tg, plan) {
+ card.textContent = '';
+ const h = document.createElement('h3'); h.className = 'ob-day-h'; h.textContent = d.day || '';
+ card.appendChild(h);
+ const tot = d.totals || d.dailyTotals || {};
+ if (tot.calories && tg.calories) card.appendChild(obBar('Calories', tot.calories, tg.calories, ' kcal'));
+ if (tot.protein && tg.protein) card.appendChild(obBar('Protein', tot.protein, tg.protein, 'g'));
+ if (Array.isArray(d.meals)) {
+ d.meals.forEach(m => card.appendChild(obMealRow(d, String(m.slot || m.type || '').toLowerCase(), m, () => {})));
+ return;
+ }
+ Object.keys(d.meals || {}).forEach(slot => {
+ card.appendChild(obMealRow(d, slot, d.meals[slot], (i) => {
+ FMWeekWow.swapMeal(d, slot, i);
+ obRenderDay(card, d, tg, plan); obRenderHeader(plan, tg);
+ const again = card.querySelector(`#ob-sw-${String(d.day || '').toLowerCase()}-${slot}`);
+ const b = again && again.parentElement.parentElement.querySelector('.ob-swap'); if (b) b.focus();
+ }));
+ });
+}
+function onboardRenderWeek(plan, note, targets) {
+ document.getElementById('ob-week-note').textContent = note;
+ const box = document.getElementById('ob-week'); box.textContent = '';
+ const tg = targets || {};
+ obRenderHeader(plan, tg);
+ obRenderCurve(OB ? FMWeekWow.projectWeight({ weightKg: OB.input.weightKg, goalKg: OB.goalKg, goal: OB.input.goal }) : null);
+ (plan.days || []).forEach(d => {
+ const card = document.createElement('section'); card.className = 'ob-day';
+ obRenderDay(card, d, tg, plan);
  box.appendChild(card);
  });
 }
@@ -3521,6 +3610,8 @@ async function onboardBuildWeek() {
  try {
  await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein }) });
  if (OB.input.weightKg) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight: parseFloat(OB.input.weightKg) }) });
+ // Keep the goal weight so the curve comes back after a reload. The server checks it against the weight just logged.
+ try { await API('/user/goal-weight', { method:'POST', body: JSON.stringify({ goalWeightKg: OB.goalKg }) }); if (S.user) S.user.goalWeightKg = OB.goalKg; } catch (_) { /* optional */ }
  S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }
@@ -3540,7 +3631,11 @@ async function onboardBuildWeek() {
  if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.', r); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
- finally { btn.disabled = false; btn.textContent = 'Save and build my week'; onboardStep(3); }
+ finally {
+ btn.disabled = false; btn.textContent = 'Save and build my week'; onboardStep(3);
+ // Redraw the curve now step 3 is visible, so it is drawn at the figure's real width.
+ if (OB && document.getElementById('ob-curve').style.display !== 'none') obRenderCurve(FMWeekWow.projectWeight({ weightKg: OB.input.weightKg, goalKg: OB.goalKg, goal: OB.input.goal }));
+ }
 }
 
 // ── GOALS ONBOARDING ─────────────────────────────────────────────────────────

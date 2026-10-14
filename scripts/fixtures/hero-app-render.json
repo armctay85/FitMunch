@@ -1,0 +1,22 @@
+{
+ "note": "Hero app render (public/assets/fm-app-week.webp), made by /workspace/shots/pr87-r6/render-hero.js from #115's first-week screen at deviceScaleFactor 3. Re-run that script and update this file whenever the webp changes.",
+ "pixelWidth": 1122,
+ "pixelHeight": 1617,
+ "sourceCssWidth": 374,
+ "minFontCssPx": 15,
+ "inputs": {
+  "calories": 2000,
+  "protein": 150,
+  "goal": "lose_weight",
+  "weightKg": 82,
+  "goalKg": 78
+ },
+ "day": "Wednesday",
+ "dayTotals": {
+  "calories": 2005,
+  "protein": 148
+ },
+ "breakfast": "Veggie omelette with potatoes",
+ "header": "Built for 82kg, cutting to 78kg: 2,000 cal, 149g protein, 4 meals a day",
+ "swapsShown": 3
+}
