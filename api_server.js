@@ -1772,18 +1772,20 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
 
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
-    // #127a: filtered users (or an unreadable profile) get a fixed tip that names no foods. No AI, no credit.
+    // An unreadable profile fails closed with no AI. A readable diet or allergy list gets a real tip, then a food check.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
     const insightFilters = dietGuard.savedFilters(insightProfile);
-    if (insightUnread || insightFilters.length) {
+    if (insightUnread || dietGuard.unreadable(insightFilters)) {
       const insight = dietGuard.safeInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein });
       return res.json({ success: true, insight, provider: null });
     }
-    // Same profile read as the guard above (no second lookup): only unfiltered users get here.
     const filters = mealSafety.profileFilters(insightProfile);
-    // The built-in tip goes through the same check as the AI one.
-    const fallback = safeInsight(heuristicInsight(facts), filters);
+    const filteredInsight = insightFilters.length > 0;
+    // The built-in tip goes through the same check as the AI one. Filtered users get a checked meal that cites today's numbers.
+    const fallback = filteredInsight
+      ? dietGuard.addressedInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein, todayCalories, todayProtein })
+      : safeInsight(heuristicInsight(facts), filters);
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
@@ -1807,22 +1809,45 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       'Speak directly to the user in 1-3 short sentences, max ~55 words.',
       'Be specific, practical, and kind. No medical claims. Use Australian spelling and foods.',
       'Never include a greeting or the user\'s name. Never mention that you are an AI.',
+      filteredInsight ? COACH_CITE : '',
+      filteredInsight ? COACH_VERIFY : '',
       mealSafety.promptRules(filters),
     ].filter(Boolean).join(' ');
     const prompt = [
       `Goal: ${goal}.`,
       `Today so far: ${todayCalories} kcal (${calPct}% of ${targetCalories}), ${todayProtein}g protein (${protPct}% of ${targetProtein}).`,
       `Logging streak: ${streak} day(s).`,
+      filteredInsight ? `Diet and allergy filters: ${insightFilters.join(', ')}.` : '',
       'Write one concise coaching tip for right now.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
-    const r = await aiClient.chat({
-      system,
+    const callInsight = (extra) => aiClient.chat({
+      system: extra ? `${system}\n\n${extra}` : system,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 160,
       temperature: 0.7,
       route: '/ai/insight',
     });
+
+    if (filteredInsight) {
+      let r = await callInsight();
+      let text = r.ok && r.text && dietGuard.replyVerified(r.text, insightFilters, filters) ? r.text.trim() : '';
+      if (!text) {
+        r = await callInsight(COACH_RETRY);
+        text = r.ok && r.text && dietGuard.replyVerified(r.text, insightFilters, filters) ? r.text.trim() : '';
+      }
+      if (!text) return res.json({ success: true, insight: fallback, provider: null, remaining: gate.remaining });
+      res.locals.aiAnswered = true;
+      return res.json({
+        success: true,
+        insight: ensureCite(text, targetCalories, targetProtein),
+        provider: r.provider,
+        model: r.model,
+        remaining: gate.remaining,
+      });
+    }
+
+    const r = await callInsight();
 
     if (!r.ok || !r.text.trim()) {
       res.locals.aiFailed = true;
@@ -1894,7 +1919,7 @@ async function coachPlanFor(userId) {
 }
 
 /** Compact personal context for Coach. Never includes email or ids. */
-async function buildCoachContext(userId, profile, context = {}) {
+async function buildCoachContext(userId, profile, context = {}, filters, aiFilters) {
   const p = profile || {};
   const ctx = context && typeof context === 'object' ? context : {};
   const lines = [];
@@ -1911,6 +1936,9 @@ async function buildCoachContext(userId, profile, context = {}) {
   if (diet.length) lines.push(`Diet: ${diet.join(', ')}`);
   const allergies = listOf(p.allergies);
   if (allergies.length) lines.push(`Allergies: ${allergies.map(mealSafety.promptSafe).filter(Boolean).map((a) => a.slice(0, 40)).slice(0, 10).join(', ')}`);
+  if (Array.isArray(filters) && filters.length && !dietGuard.unreadable(filters)) {
+    lines.push(`Active diet and allergy filters: ${filters.filter((f) => f && f !== dietGuard.UNREADABLE).slice(0, 16).join(', ')}`);
+  }
   if (Number.isFinite(Number(ctx.todayCalories))) {
     lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
   }
@@ -1927,22 +1955,54 @@ async function buildCoachContext(userId, profile, context = {}) {
       lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
     }
   } catch (_) { /* plan context is optional */ }
+  try {
+    const since = new Date(Date.now() - 7 * 86400000);
+    const [logged, workouts] = await Promise.all([
+      getMealLogsForPeriod(userId, since, new Date()).catch(() => []),
+      getRecentWorkouts(userId, 5).catch(() => []),
+    ]);
+    const bits = [];
+    for (const m of (logged || []).slice(0, 12)) {
+      const name = String(m.foodName || m.name || '').trim().slice(0, 80);
+      if (!name) continue;
+      if (Array.isArray(filters) && filters.length && !dietGuard.replyVerified(name, filters, aiFilters)) continue;
+      const kcalBit = Number.isFinite(Number(m.calories)) ? `${Math.round(Number(m.calories))} kcal` : '';
+      const protBit = Number.isFinite(Number(m.protein)) ? `${Math.round(Number(m.protein))} g protein` : '';
+      const macro = [kcalBit, protBit].filter(Boolean).join(', ');
+      bits.push([m.mealType, name, macro].filter(Boolean).join(': '));
+    }
+    if (bits.length) lines.push(`Recent logs: ${bits.join('; ').slice(0, 420)}`);
+    const types = [...new Set((workouts || []).map((w) => w && (w.workoutType || w.type)).filter(Boolean))].slice(0, 5);
+    if (types.length) lines.push(`Recent training: ${types.join(', ').slice(0, 120)}`);
+  } catch (_) { /* recent logs are optional */ }
   return lines.join('\n');
+}
+
+const COACH_CITE = 'Cite the user\'s daily calorie and protein targets in the answer, in digits (for example: at 2,100 kcal and 150 g protein).';
+const COACH_VERIFY = 'Name only foods you can verify against the user\'s diet and allergies. Do not name a brand. Do not name a food just to say to avoid it. If you are not sure a food is safe, leave it out.';
+const COACH_RETRY = 'Your last answer named a food that cannot be verified as safe for this user. Reply again. Name only plain foods that fit every diet and allergy listed. Do not name brands. Do not name a food in order to warn against it. Cite the calorie and protein targets.';
+
+/** Prepend the user's targets when a checked reply does not already name the kcal number. */
+function ensureCite(text, calories, protein) {
+  const { kcal, prot } = dietGuard.targetsOf(calories, protein);
+  const body = String(text || '').trim();
+  const formatted = dietGuard.fmt(kcal);
+  if (body.includes(formatted) || body.includes(String(kcal))) return body;
+  return `At ${formatted} kcal and ${prot} g protein. ${body}`.trim();
+}
+
+function chatAiFilters(profile, ctxObj) {
+  return mealSafety.mergeFilters(mealSafety.profileFilters(profile), {
+    dietary: Array.isArray(ctxObj.dietary) ? ctxObj.dietary : [],
+    allergies: Array.isArray(ctxObj.allergies) ? ctxObj.allergies : [],
+  });
 }
 
 router.post('/ai/chat', authMiddleware, async (req, res) => {
   try {
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
-
     const { intent = 'general', messages = [], context = {} } = req.body || {};
-    const system = [
-      chatIntentPrompt(intent),
-      CHAT_GLOBAL_RULES,
-    ].join('\n\n');
 
-    // Load profile + tier for context and gating.
+    // Load profile + tier for context and gating. Consent is checked before any provider error.
     let tier = 'free';
     let profile = null;
     let profileUnread = false;
@@ -1978,22 +2038,33 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
     }
 
-    // #127a: any saved or sent diet/allergy filter -> meals come from the ingredient-checked
-    // builder only, never the AI. Saved filters are read, never written. Unreadable profile fails closed.
+    // Saved filters are read, never written. An unreadable profile or filter list fails closed with no AI.
+    // A readable diet or allergy list still gets a real answer, then a fail-closed food check.
     const ctxObj = context && typeof context === 'object' ? context : {};
     const filters = dietGuard.combineFilters(profile, [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)]);
-    const guarded = profileUnread || filters.length > 0;
+    const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
     const safeOpts = {
       filters,
       calories: (profile && profile.targetCalories) || ctxObj.targetCalories,
       protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
+      question: latestUser,
+      intent,
     };
-    const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
-    // Filtered users never reach the AI: food questions get checked recipes, everything else food-free guidance.
-    if (guarded) {
+    const hardBlocked = profileUnread || dietGuard.unreadable(filters);
+    if (hardBlocked) {
       return dietGuard.isFoodTalk(intent, latestUser)
         ? res.json({ success: true, reply: dietGuard.safeCoachReply(safeOpts).reply, source: 'builder', provider: null })
         : res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
+    }
+
+    const aiFilters = chatAiFilters(profile, ctxObj);
+    const filtered = filters.length > 0;
+    if (filtered && !aiClient.hasProvider()) {
+      const fb = dietGuard.addressedCoachReply(safeOpts);
+      return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null });
+    }
+    if (!filtered && !aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
@@ -2014,25 +2085,50 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-
     // Personal context from the account itself (profile, targets, latest plan,
-    // today's log), not just what the browser sends. Compact, one line each.
-    const personal = await buildCoachContext(req.user.userId, profile, context).catch(() => '');
-    const aiFilters = mealSafety.mergeFilters(mealSafety.profileFilters(profile), { dietary: Array.isArray(context && context.dietary) ? context.dietary : [], allergies: Array.isArray(context && context.allergies) ? context.allergies : [] });
+    // today's log, recent meals), not just what the browser sends. Compact, one line each.
+    const personal = await buildCoachContext(req.user.userId, profile, context, filters, aiFilters).catch(() => '');
     const rules = mealSafety.promptRules(aiFilters);
-    const withRules = rules ? `${system}\n\n--- Food rules for this user (always follow) ---\n${rules}` : system;
+    const baseSystem = [chatIntentPrompt(intent), CHAT_GLOBAL_RULES].join('\n\n');
+    const withRules = rules ? `${baseSystem}\n\n--- Food rules for this user (always follow) ---\n${rules}` : baseSystem;
+    const cited = filtered ? `${withRules}\n\n${COACH_CITE}\n${COACH_VERIFY}` : withRules;
     const finalSystem = personal
-      ? `${withRules}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
-      : withRules;
+      ? `${cited}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
+      : cited;
 
-    const r = await aiClient.chat({
-      system: finalSystem,
+    const callChat = (extra) => aiClient.chat({
+      system: extra ? `${finalSystem}\n\n${extra}` : finalSystem,
       messages: safeMessages,
       maxTokens: CHAT_MAX_TOKENS,
       temperature: 0.6,
       route: '/ai/chat',
       budgetMs: CHAT_BUDGET_MS,
     });
+
+    if (filtered) {
+      let r = await callChat();
+      let text = r.ok && r.text && dietGuard.replyVerified(r.text, filters, aiFilters) ? r.text.trim() : '';
+      if (!text) {
+        r = await callChat(COACH_RETRY);
+        text = r.ok && r.text && dietGuard.replyVerified(r.text, filters, aiFilters) ? r.text.trim() : '';
+      }
+      if (text) {
+        res.locals.aiAnswered = true;
+        return res.json({
+          success: true,
+          reply: ensureCite(text, safeOpts.calories, safeOpts.protein),
+          provider: r.provider,
+          model: r.model,
+          usage: r.usage || null,
+          remaining: gate.remaining,
+          source: 'ai',
+        });
+      }
+      const fb = dietGuard.addressedCoachReply(safeOpts);
+      return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining: gate.remaining });
+    }
+
+    const r = await callChat();
 
     if (!r.ok && r.error === 'no_user_message') {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
@@ -2207,15 +2303,40 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // #127a: filtered users get no food advice from the AI; unsafe lines are dropped below.
+    // An unreadable profile fails closed with no AI. Everyone else is scored only after 3 logged days.
     const reviewFilters = dietGuard.savedFilters(profile);
-    const reviewGuarded = reviewUnread || reviewFilters.length > 0;
-    if (reviewGuarded) {
-      // Fixed, food-free review with one checked meal. No AI, no credit.
+    if (reviewUnread || dietGuard.unreadable(reviewFilters)) {
       return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
     }
-    // Filtered users need no AI, so this check comes after their fixed review (EQA #135 r4 L2).
+
+    // Gather the last 7 days of real data before deciding whether this week can be scored.
+    const since = new Date(Date.now() - 7 * 86400000);
+    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
+    const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
+    const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
+
+    const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
+    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
+    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
+    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
+    const stats = { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length };
+    const reviewOpts = {
+      filters: reviewFilters,
+      calories: profile && profile.targetCalories,
+      protein: profile && profile.targetProtein,
+      daysLogged,
+      workouts: weekWorkouts.length,
+    };
+    // A new week is honest and unscored. No model call, no credit, no filler win.
+    if (daysLogged < 3) {
+      return res.json({ success: true, review: dietGuard.firstWeekReview(reviewOpts), stats, source: 'fixed', provider: null });
+    }
+
+    const filteredReview = reviewFilters.length > 0;
     if (!aiClient.hasProvider()) {
+      if (filteredReview) {
+        return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null });
+      }
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
@@ -2234,17 +2355,6 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-    // Gather the last 7 days of real data.
-    const since = new Date(Date.now() - 7 * 86400000);
-    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
-    const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
-    const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
-
-    const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
-    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
-    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
-    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
-
     const dataBlock = [
       `Days with meals logged (last 7): ${daysLogged}`,
       `Total calories logged: ${totCal} (avg ${daysLogged ? Math.round(totCal / daysLogged) : 0}/logged day)`,
@@ -2254,11 +2364,12 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       profile?.fitnessGoal ? `Goal: ${profile.fitnessGoal}` : '',
       profile?.targetCalories ? `Calorie target: ${profile.targetCalories}/day` : '',
       profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
+      filteredReview ? `Diet and allergy filters: ${reviewFilters.join(', ')}` : '',
     ].filter(Boolean).join('\n');
 
     const reviewAiFilters = mealSafety.profileFilters(profile);
     const reviewRules = mealSafety.promptRules(reviewAiFilters);
-    const system = `You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.${reviewRules ? `\n${reviewRules}` : ''}`;
+    const system = `You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims. Wins must be real things the user did. Never give a score of 1 just for opening the app.${filteredReview ? ` ${COACH_CITE} ${COACH_VERIFY}` : ''}${reviewRules ? `\n${reviewRules}` : ''}`;
     const prompt = `Here is the user's last 7 days of real logged data:
 
 ${dataBlock}
@@ -2270,23 +2381,46 @@ Write a weekly review as JSON only, no markdown:
   "focus": ["2-3 short specific improvements for next week"],
   "score": <integer 1-10 for overall week consistency>
 }
-If very little data was logged, be encouraging about starting and make "focus" about building a logging habit.`;
+Cite the calorie and protein targets. Do not award a win for showing up, opening the app, or asking for a review.`;
 
-    const r = await aiClient.chatJson({
-      system,
+    const callReview = (extra) => aiClient.chatJson({
+      system: extra ? `${system}\n\n${extra}` : system,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1500,
       temperature: 0.7,
       route: '/ai/weekly-review',
     });
+
+    if (filteredReview) {
+      let r = await callReview();
+      let data = r.ok && r.data && dietGuard.replyVerified(dietGuard.reviewText(r.data), reviewFilters, reviewAiFilters) ? r.data : null;
+      if (!data) {
+        r = await callReview(COACH_RETRY);
+        data = r.ok && r.data && dietGuard.replyVerified(dietGuard.reviewText(r.data), reviewFilters, reviewAiFilters) ? r.data : null;
+      }
+      if (!data) {
+        return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, remaining: gate.remaining });
+      }
+      res.locals.aiAnswered = true;
+      return res.json({
+        success: true,
+        review: dietGuard.polishReview(data, reviewOpts),
+        stats,
+        provider: r.provider,
+        remaining: gate.remaining,
+        source: 'ai',
+      });
+    }
+
+    const r = await callReview();
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
     res.locals.aiAnswered = true;
     res.json({
       success: true,
-      review: mealSafety.enforceJsonText(r.data, reviewAiFilters).value,
-      stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
+      review: dietGuard.polishReview(mealSafety.enforceJsonText(r.data, reviewAiFilters).value, reviewOpts),
+      stats,
       provider: r.provider,
       remaining: gate.remaining,
     });

@@ -16,6 +16,7 @@ module.exports = {
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
+    '**/test_coach_filtered_ai.js',
 
     '**/test_privacy_export.js',
     '**/test_ai_consent_routes.js',
