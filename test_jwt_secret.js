@@ -35,7 +35,7 @@ function withEnv(vars, fn) {
 
 // The fixed secret jest.setup.js used to set. It is public in git history, so
 // it is denied everywhere; jest now generates a random secret per run.
-const OLD_JEST_SECRET = 'jest-only-session-secret';
+const OLD_JEST_SECRET = 'jest-only-session-secret-0123456789abcdef';
 
 describe('no hard-coded JWT fallback', () => {
   it('no server file falls back to a literal JWT secret', () => {
