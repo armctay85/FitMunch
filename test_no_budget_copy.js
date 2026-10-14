@@ -103,21 +103,39 @@ const COST_PROMISES = [
 // A$149.99 a year, Coach A$39 and A$79). EQA #121 r2 S1.
 const PLAN_PRICES = new Set(['$0', 'A$19.99', 'A$149.99', 'A$39', 'A$79']);
 // EQA #121 r3 S1: AU$/NZ$/US$, HTML-entity and fullwidth dollars, per-kg prices, spelled-out dollars, tenners.
-// Regex back-references like $1 (a $ straight after a quote, = or word char followed by a digit) are code.
-const NUM_WORD = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred)';
+// EQA #137 r1 S: cents, euro and pound signs, currency codes either side, &#x24;/&#036;, a trailing $,
+// "per kilogram", and teens/tens number words.
+const NUM_WORD = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)';
+const DOLLAR = '(?:\\$|&#0*36;|&#x0*24;|&dollar;|＄)';
+const CODE = '(?:AUD|USD|NZD|EUR|GBP)';
 const MONEY = new RegExp([
-  '(?:\\b[A-Z]{1,3})?(?:\\$|&#36;|&dollar;|＄|\\bAUD\\s?)\\s?\\d[\\d,]*(?:\\.\\d+)?',
-  '&#36;|&dollar;|＄',
-  '\\b\\d[\\d,]*(?:\\.\\d+)?\\s?(?:AUD|dollars?|bucks|per kg|per kilo|\\/kg)\\b',
-  `\\b${NUM_WORD}\\s+(?:dollars?|bucks)\\b`,
+  `(?:\\b[A-Z]{1,3})?${DOLLAR}\\s?\\d[\\d,]*(?:\\.\\d+)?`,
+  '&#0*36;|&#x0*24;|&dollar;|＄|[€£]|&euro;|&pound;',
+  `\\b${CODE}\\s?\\d[\\d,]*(?:\\.\\d+)?`,
+  `\\b\\d[\\d,]*(?:\\.\\d+)?\\s?(?:${CODE}|dollars?|bucks|cents?|per kg|per kilo(?:gram)?s?|\\/kg)\\b`,
+  '(?<![#\\w.])\\d+c\\b',
+  '\\b\\d[\\d,]*(?:\\.\\d+)?\\s?\\$(?![{\\w])',
+  `\\b${NUM_WORD}(?:[\\s-]+${NUM_WORD})*\\s+(?:dollars?|bucks|cents?)\\b`,
+  '\\bper kilo(?:gram)?s?\\b',
   '\\btenners?\\b',
 ].join('|'), 'gi');
-// A regex replacement back-reference sits alone between quote or tag delimiters ('$1', >$1<).
-// Anything else on a .replace( line, like "Chicken $12.", is still scanned.
-// A SQL fragment placeholder follows an = (user_id=$1). Neither is a price.
-const BACKREF = /(?<=[>'"`(])\$\d(?=[<'"`)])|(?<=\w\s?=\s?)\$\d(?![\d.,])/g;
+// Only two $N shapes are code, and each is skipped only where it is code (EQA #137 r1 M):
+// - a back-reference inside the replacement argument of a .replace( call: x.replace(/a/, '<b>$1</b>');
+// - an =$N placeholder inside a string that starts with a SQL keyword: SELECT ... WHERE id=$1.
+// Anything else, like 'Chicken <b>$9</b> a week.', 'price = $7 tub' or a bare '$9', is scanned.
+const REPLACE_ARG = /\.replace\(\s*(?:\/(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n[])+\/[a-z]*|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|[\w.]+)\s*,\s*(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
+const SQL_LED = /^\s*['"`(]*\s*(?:SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER)\s/i;
+// A where-clause fragment handed to a query builder ('user_id=$1', '(pt_id=$1 OR client_id=$1)') is SQL
+// only when the whole string is column=$N terms joined by OR/AND, with no other words.
+const SQL_TERM = '\\(?\\s*[a-z_][a-z0-9_.]*\\s?=\\s?\\$\\d+(?:::[a-z]+)?\\s*\\)?';
+const SQL_PREDICATE = new RegExp(`^${SQL_TERM}(?:\\s+(?:OR|AND)\\s+${SQL_TERM})*$`, 'i');
+function stripCode(line) {
+  let out = line.replace(REPLACE_ARG, (m, q, arg) => m.slice(0, m.length - arg.length - 1) + arg.replace(/\$\d/g, '') + q);
+  if (SQL_LED.test(out) || SQL_PREDICATE.test(out)) out = out.replace(/=\s?\$\d(?![\d.,])/g, '=');
+  return out;
+}
 function moneyHits(line) {
-  return [...line.replace(BACKREF, '').matchAll(MONEY)].map((m) => m[0].replace(/,$/, '')).filter((x) => !PLAN_PRICES.has(x));
+  return [...stripCode(line).matchAll(MONEY)].map((m) => m[0].replace(/,$/, '')).filter((x) => !PLAN_PRICES.has(x));
 }
 
 // Server-side customer text: receipt scan findings, coach tips and chat, emails, AI prompts.
@@ -133,8 +151,11 @@ const SERVER_TEXT = [
 const NOT_COPY = new Set([
   'server.js|/budget-meal-plan', 'server.js|/budget-meal-planner',
 ]);
-const NOT_COPY_PREFIX = [['receipt-scanner.js', 'This is a supermarket receipt photo.']];
-const isCopy = (rel, text) => !NOT_COPY.has(`${rel}|${text}`) && !NOT_COPY_PREFIX.some(([r, p]) => r === rel && text.startsWith(p));
+// The receipt model instruction is matched exactly (by hash), not by prefix, so any edit to it or any
+// other string sharing its opening is scanned again (EQA #137 r1 S).
+const NOT_COPY_EXACT = [['receipt-scanner.js', 'efa82209e52b9493901aaef788edc80caf823a4116c52d51e3bc3b0e250ca7dc']];
+const sha = (t) => require('crypto').createHash('sha256').update(t).digest('hex');
+const isCopy = (rel, text) => !NOT_COPY.has(`${rel}|${text}`) && !NOT_COPY_EXACT.some(([r, h]) => r === rel && sha(text) === h);
 function stringLiterals(src) {
   const out = [];
   const re = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
@@ -210,6 +231,31 @@ describe('no budget, cost or saving promises in served customer copy', () => {
       '3 days per week', 'Save your plan', 'Saved to your lists']) expect([s, caught(s)]).toEqual([s, false]);
   });
 
+  // EQA #137 r1 M: the old $N skip let these through; each must be caught again.
+  for (const s of ['Chicken <b>$9</b> a week.', 'Only <strong>$5</strong> a meal.', 'price = $7 tub', '$9',
+    "'Chicken <b>$9</b> a week.'", "where: 'price=$7 tub'", "x.replace(/a/, 'b'); y = '<b>$9</b>';"]) {
+    it(`catches the old bypass: ${s}`, () => expect(moneyHits(s).length).toBeGreaterThan(0));
+  }
+  it('still skips real code: .replace( back-references and SQL-led placeholders', () => {
+    for (const s of ["s.replace(/x/g, '<code>$1</code>');", 'x.replace(/(a)(b)/, "$2-$1")', "t.replace(re, '$1')",
+      "'SELECT * FROM t WHERE id=$1'", "UPDATE users SET name=$2 WHERE id=$1"]) expect([s, moneyHits(s)]).toEqual([s, []]);
+  });
+  // EQA #137 r1 S: one test each.
+  for (const s of ['fourteen dollars', 'sixty bucks', '50 cents', '12c', '€', '£', 'USD 12', '12 NZD', '&#x24;', '&#036;', '12$', 'per kilogram']) {
+    it(`catches ${s}`, () => {
+      expect(moneyHits(s).length).toBeGreaterThan(0);
+      expect(moneyHits(`Chicken thighs, ${s} this week.`).length).toBeGreaterThan(0);
+    });
+  }
+  it('the receipt model instruction is an exact exception, not a prefix', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'receipt-scanner.js'), 'utf8');
+    const prompt = stringLiterals(src).find((l) => l.text.startsWith('This is a supermarket receipt photo.')).text;
+    expect(isCopy('receipt-scanner.js', prompt)).toBe(false);
+    expect(isCopy('receipt-scanner.js', `${prompt} Save $40 a week.`)).toBe(true);
+    expect(isCopy('receipt-scanner.js', 'This is a supermarket receipt photo. Save $40 a week.')).toBe(true);
+    expect(isCopy('lib/coach-share.js', prompt)).toBe(true);
+  });
+
   it('the meal-plan modal has no budget field', () => {
     const app = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
     expect(app).not.toMatch(/mp-budget-sel/);
@@ -260,7 +306,11 @@ describe('no budget, cost or saving promises in server-side customer text', () =
     const lits = stringLiterals("// budget comment\nconst budgetMs = 5; /* cheap */ const t = 'Save heaps'; const u = `From $5`; q('SELECT * FROM t WHERE id=$1'); const v = 'UPDATE: save $40 a week on groceries';");
     expect(lits.map((l) => l.text)).toEqual(['Save heaps', 'From $5', 'UPDATE: save $40 a week on groceries']);
     expect(moneyHits('UPDATE: save $40 a week on groceries')).toEqual(['$40']);
-    expect(moneyHits("where: '(pt_id=$1 OR client_id=$1)'")).toEqual([]);
+    expect(moneyHits("'SELECT * FROM t WHERE (pt_id=$1 OR client_id=$1)'")).toEqual([]);
+    expect(moneyHits('(pt_id=$1 OR client_id=$1)')).toEqual([]);
+    expect(moneyHits('user_id=$1::text')).toEqual([]);
+    expect(moneyHits('price = $7 tub')).toEqual(['$7']);
+    expect(moneyHits("where: '(pt_id=$1 OR client_id=$1)'")).toEqual(['$1', '$1']);
     expect(moneyHits("s.replace(/x/g, '<code>$1</code>');")).toEqual([]);
   });
 });
