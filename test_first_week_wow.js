@@ -82,7 +82,7 @@ describe('meal swaps from the builder', () => {
   const flagsOf = new Map(engine.TEMPLATES.map((t) => [t.name, t.flags]));
 
   for (const c of cases) {
-    it(`${c.dietary.join(', ') || 'no restrictions'}: up to 3 swaps a meal, each within 10% kcal and protein, diet respected`, () => {
+    it(`${c.dietary.join(', ') || 'no restrictions'}: 3 swaps a meal, each within 3% kcal and 20% protein, diet respected`, () => {
       const plan = engine.withSwaps(engine.buildPlan({ ...c, days: 7 }), c.dietary);
       let withAny = 0; let meals = 0;
       for (const d of plan.days) {
@@ -97,17 +97,38 @@ describe('meal swaps from the builder', () => {
             expect(names.has(a.name)).toBe(false); names.add(a.name);
             expect(Math.abs(a.calories - m.calories)).toBeLessThanOrEqual(m.calories * 0.10);
             expect(Math.abs(a.calories - m.calories)).toBeLessThanOrEqual(m.calories * engine.SWAP_KCAL);
-            expect(Math.abs(a.protein - m.protein)).toBeLessThanOrEqual(m.protein * 0.10);
+            expect(Math.abs(a.protein - m.protein)).toBeLessThanOrEqual(Math.max(m.protein * engine.SWAP_PROTEIN, engine.SWAP_PROTEIN_MIN_G));
             const bad = (c.dietary.flatMap((x) => excluded[x] || []));
             expect(flagsOf.get(a.name).filter((f) => bad.includes(f))).toEqual([]);
             expect(a.swaps).toBeUndefined();
           }
         }
       }
-      expect(withAny).toBeGreaterThan(0);
+      expect(withAny).toBe(28);
       expect(meals).toBe(28);
     });
   }
+
+  it('the protein match is 20% (3g floor on low-protein meals) and calories stay within 3%', () => {
+    expect(engine.SWAP_PROTEIN).toBe(0.20);
+    expect(engine.SWAP_PROTEIN_MIN_G).toBe(3);
+    expect(engine.SWAP_KCAL).toBe(0.03);
+  });
+
+  it('a single swap keeps the day within ±5% of calories and moves day protein by 10% or less', () => {
+    for (const c of cases) {
+      const plan = engine.withSwaps(engine.buildPlan({ ...c, days: 7 }), c.dietary);
+      for (const d of plan.days) {
+        for (const s of engine.SLOTS) {
+          for (const a of d.meals[s].swaps) {
+            const kcal = d.dailyTotals.calories - d.meals[s].calories + a.calories;
+            expect(Math.abs(kcal - c.calories)).toBeLessThanOrEqual(c.calories * 0.05);
+            expect(Math.abs(a.protein - d.meals[s].protein)).toBeLessThanOrEqual(d.dailyTotals.protein * 0.10);
+          }
+        }
+      }
+    }
+  });
 
   it('is deterministic', () => {
     const a = engine.withSwaps(engine.buildPlan({ calories: 2000, protein: 150, days: 7 }), []);
@@ -169,5 +190,61 @@ describe('swaps are instant: builder only, no AI client', () => {
     const fn = html.slice(html.indexOf('function obMealRow'), html.indexOf('function onboardRenderWeek'));
     expect(fn).toContain('FMWeekWow.swapMeal(d, slot, i)');
     expect(fn).not.toMatch(/\bAPI\(|fetch\(/);
+  });
+});
+
+// Every meal, under every diet filter and across four calorie/protein targets over 7 days, gets at least
+// three swaps. Fails loudly, naming each meal and diet that falls short, and above all any that get none.
+describe('swap coverage: at least 3 swaps for every meal under every diet', () => {
+  const DIETS = [[], ['vegetarian'], ['vegan'], ['pescatarian'], ['gluten free'], ['dairy free'], ['egg free'], ['nut free'],
+    ['high protein'], ['low carb'], ['gluten free', 'dairy free'], ['vegan', 'gluten free'], ['vegetarian', 'gluten free'], ['vegan', 'nut free']];
+  const TARGETS = [{ calories: 1600, protein: 110 }, { calories: 2000, protein: 150 }, { calories: 2400, protein: 160 }, { calories: 2850, protein: 140 }];
+  for (const dietary of DIETS) {
+    it(`${dietary.join(' + ') || 'no filter'}: 4 targets x 7 days x 4 meals, none under 3 swaps`, () => {
+      const short = []; let meals = 0;
+      for (const t of TARGETS) {
+        const plan = engine.withSwaps(engine.buildPlan({ ...t, days: 7, dietary }), dietary);
+        for (const d of plan.days) {
+          for (const s of engine.SLOTS) {
+            meals += 1;
+            const n = d.meals[s].swaps.length;
+            if (n < 3) short.push(`${t.calories} cal ${d.day} ${s} ${d.meals[s].name}: ${n}${n === 0 ? ' (ZERO)' : ''}`);
+          }
+        }
+      }
+      expect(meals).toBe(112);
+      expect(short).toEqual([]);
+    });
+  }
+});
+
+describe('swap-only meal templates', () => {
+  const swapOnly = engine.TEMPLATES.filter((t) => t.swapOnly);
+  const fs = require('fs'); const path = require('path');
+  it('exist for every slot, gluten-free ones first, and the weekly builder never picks them', () => {
+    for (const slot of engine.SLOTS) expect([slot, swapOnly.filter((t) => t.slot === slot && !t.flags.includes('gluten')).length >= 8]).toEqual([slot, true]);
+    const names = new Set(swapOnly.map((t) => t.name));
+    for (const dietary of [[], ['vegan'], ['gluten free'], ['dairy free'], ['low carb']]) {
+      const plan = engine.buildPlan({ calories: 2000, protein: 140, days: 7, dietary });
+      for (const d of plan.days) for (const s of engine.SLOTS) expect(names.has(d.meals[s].name)).toBe(false);
+    }
+  });
+  it('are store-neutral: no store names, prices, company or tax wording, and names title-case cleanly', () => {
+    const banned = /woolworths|woolies|coles|aldi|\bIGA\b|costco|harris farm|foodworks|\$|price|special|catalogue|pty|ltd|gst|\binc\b/i;
+    for (const t of swapOnly) {
+      expect([t.name, banned.test(JSON.stringify(t))]).toEqual([t.name, false]);
+      expect(t.name).toMatch(/^[A-Z][a-z]+(?:[ ,-]+[a-z]+)*$/);
+      expect(Object.keys(t).sort()).toEqual(['flags', 'items', 'name', 'slot', 'swapOnly']);
+    }
+    const src = fs.readFileSync(path.join(__dirname, 'lib', 'meal-plan-engine.js'), 'utf8');
+    expect(src).not.toMatch(/woolworths|woolies|\bcoles\b|\baldi\b|pty ltd|inc\.? gst/i);
+  });
+  it('carry the right allergen flags for what is in them', () => {
+    const need = [[/^(Chicken|Beef|Lamb|Pork)/, 'meat'], [/^(Salmon|Tuna|Barramundi|Prawns)/, 'fish'], [/^Egg/, 'eggs'],
+      [/^(Whey|Casein|Greek yoghurt|Cottage|Ricotta|Cheddar|Skim milk|Full cream milk)/, 'dairy'], [/^(Seitan|Wholegrain bread|Pasta|Rolled oats)/, 'gluten'],
+      [/^(Peanut|Almond butter|Almonds|Cashews)/, 'nuts'], [/^(Firm tofu|Tempeh|Edamame|Soy milk)/, 'soy']];
+    for (const t of swapOnly) {
+      for (const [food] of t.items) for (const [re, flag] of need) if (re.test(food)) expect([t.name, food, t.flags.includes(flag)]).toEqual([t.name, food, true]);
+    }
   });
 });
