@@ -23,7 +23,7 @@ const FOODS = [
   { name:'Tuna in water (canned)',      cal:109,  p:25,   c:0,    f:0.8,  serving:'95g can', servingG:95,  tags:['tuna','fish','canned'] },
   { name:'Tuna in springwater',         cal:109,  p:25,   c:0,    f:0.8,  serving:'95g',     servingG:95,  tags:['tuna','fish'] },
   { name:'Barramundi fillet',           cal:98,   p:20,   c:0,    f:2,    serving:'150g',    servingG:150, tags:['fish','barramundi','seafood'] },
-  { name:'Prawns (cooked)',             cal:99,   p:21,   c:0,    f:1.5,  serving:'100g',    servingG:100, tags:['prawns','seafood'] },
+  { name:'Prawns (cooked)',             cal:99,   p:24,   c:0,    f:1.5,  serving:'100g',    servingG:100, tags:['prawns','seafood'] },
   { name:'Eggs (whole)',                cal:143,  p:13,   c:0.7,  f:10,   serving:'2 eggs (100g)', servingG:100, tags:['eggs','protein'] },
   { name:'Egg whites',                  cal:52,   p:11,   c:0.7,  f:0.2,  serving:'100g',    servingG:100, tags:['eggs','whites','protein'] },
   { name:'Whey protein powder',         cal:400,  p:75,   c:8,    f:5,    serving:'1 scoop (30g)', servingG:30, tags:['protein','whey','supplement','shake'] },

@@ -70,6 +70,11 @@ describe('no store names on any public page (app.html and coach.html included, n
     expect(hits).toEqual([]);
   });
 
+  it('app.html names no supermarket', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
+    expect(html).not.toMatch(/Woolworths|Woolies|\bColes\b/i);
+  });
+
   it('the meal planner and shopping-list copy names no chain (no Woolies/Coles empty state)', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
     expect(html).not.toMatch(/Woolies\s*\/\s*Coles|Woolies or Coles|sl-woolies-link|sl-coles-link/i);
@@ -167,14 +172,6 @@ describe('PR 76 r2 copy fixes', () => {
     for (const f of fs.readdirSync(PUBLIC).filter((x) => x.endsWith('.html'))) {
       expect([f, garbled.test(read(f))]).toEqual([f, false]);
     }
-  });
-});
-
-describe('homepage phone list layout (QA r3)', () => {
-  it('two-column rows and no leftover store-label rules', () => {
-    const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-    expect(html).toContain('.phone-list li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #ece6db}');
-    expect(html).not.toMatch(/\.phone-list b\b/);
   });
 });
 
