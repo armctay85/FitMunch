@@ -28,13 +28,18 @@ const PROVIDER = /gemini|openai|open[\s._-]ai|grok|anthropic|xai|x[._-]ai/i;
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const USER = '00000000-0000-4000-8000-000000000001';
 const session = (extra = {}) => jwt.sign({ userId: USER, role: 'client', ...extra }, jwtSecret(), { expiresIn: '30d' });
-// A session-shaped token whose signature holds a provider word (search a few iats).
+// A session-shaped token whose signature holds a provider word the scrubber removes.
+// Fixed iat + fixed test secret + HS256 = the same bytes on every run, so these tests
+// no longer depend on the clock (#129 S2). The signature contains "XXAI", which
+// sanitizeApiJson strips; a clock-searched token could hit an "x_Ai" the scrubber keeps.
+const PROVIDER_TOKEN_IAT = 1790811871; // 2026-09-30T23:44:31Z
+const PROVIDER_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJpYXQiOjE3OTA4MTE4NzF9.yU25AhtpK571qOf5yPVXXAIpwbrM5rfXJaTPL5hoze8';
 function providerToken() {
-  for (let i = 0; i < 200000; i += 1) {
-    const t = jwt.sign({ userId: USER, iat: Math.floor(Date.now() / 1000) - i }, jwtSecret());
-    if (PROVIDER.test(t)) return t;
-  }
-  throw new Error('no provider token found');
+  const t = jwt.sign({ userId: USER, iat: PROVIDER_TOKEN_IAT }, jwtSecret());
+  expect(t).toBe(PROVIDER_TOKEN);
+  expect(isOurSessionToken(t)).toBe(true);
+  expect(sanitizeApiJson(t)).not.toBe(t);
+  return t;
 }
 const FORGED_NONE = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ userId: USER })}.`;
 const FORGED_NONE_SIG = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ userId: 'GrokGemini' })}.GrokXaIsig_0123456789`;
