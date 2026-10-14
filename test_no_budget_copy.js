@@ -157,7 +157,7 @@ const NOT_COPY = new Set([
 ]);
 // The receipt model instruction is matched exactly (by hash), not by prefix, so any edit to it or any
 // other string sharing its opening is scanned again (EQA #137 r1 S).
-const NOT_COPY_EXACT = [['receipt-scanner.js', 'efa82209e52b9493901aaef788edc80caf823a4116c52d51e3bc3b0e250ca7dc']];
+const NOT_COPY_EXACT = [['receipt-scanner.js', '087d617dfd248bb527540dff539ab6ea149e211b6eac4f892e3c490995559edb']];
 const sha = (t) => require('crypto').createHash('sha256').update(t).digest('hex');
 const isCopy = (rel, text) => !NOT_COPY.has(`${rel}|${text}`) && !NOT_COPY_EXACT.some(([r, h]) => r === rel && sha(text) === h);
 function stringLiterals(src) {

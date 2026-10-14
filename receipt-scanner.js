@@ -122,7 +122,7 @@ function extractImage(req) {
   return null;
 }
 
-const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. "price" is the line total paid for that line (unit price times quantity), not the unit price. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items, no totals, payment or discount lines. Parse quantity from name. Raw JSON only.';
+const VISION_PROMPT = 'This is a supermarket receipt photo. Return one JSON object and nothing else: {"items":[{"name":"Bananas","quantity":1,"unit":"kg","unitPrice":3.9,"price":3.9,"discount":0,"category":"fruit","line":"BANANAS 1.000 kg @ $3.90/kg 3.90"}]}. price is the dollars paid for that line after any discount. unitPrice is the printed per kg or per item price when you can see it. Weighted lines (per kg, deli scales): quantity is the weight, unit is kg or g, price is the amount charged. Multi-buy (2 for $5, 3 @ $1.80): quantity is how many, price is the amount charged for the deal. If a price is not readable, set price to null. Never use 1 as a placeholder. Skip totals, tax, payment, loyalty, bags and savings lines. Put the printed line text in line. Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other.';
 
 async function readReceiptItems(imageBase64, mimeType, route) {
   const visionResult = await getVision()({
@@ -130,6 +130,10 @@ async function readReceiptItems(imageBase64, mimeType, route) {
     mimeType: mimeType || 'image/jpeg',
     prompt: VISION_PROMPT,
     route,
+    // One structured call. A short cap keeps the read from rambling.
+    maxTokens: 1200,
+    temperature: 0,
+    jsonMode: true,
   });
   if (!visionResult || !visionResult.ok) {
     const unreadable = visionResult && visionResult.code === 'unreadable';
