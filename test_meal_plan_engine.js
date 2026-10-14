@@ -437,7 +437,20 @@ describe('builder lands every day within ±5% for every diet, style and target',
   const STYLES = [[], ['high protein'], ['low carb']];
   const combos = STYLES.flatMap((s) => [s, ...DIETS.map((d) => [...s, d])]);
 
-  test('the low carb week at 2850 kcal / 140 g protein is on target (was 2625 kcal, 7.9% under)', () => {
+  
+  test('BUILD_DAY_PASSES stays above 200 so hard low-carb days can finish', () => {
+    expect(engine.BUILD_DAY_PASSES).toBeGreaterThan(200);
+  });
+
+  test('low carb days average under 26% of kcal from carbs', () => {
+    const plan = engine.buildPlan({ calories: 2250, protein: 60, days: 7, dietary: ['low carb'] });
+    const shares = plan.days.map((d) => (4 * d.dailyTotals.carbs) / d.dailyTotals.calories);
+    const avg = shares.reduce((a, b) => a + b, 0) / shares.length;
+    expect(avg).toBeLessThan(0.26);
+    for (const d of plan.days) expect(within5(d.dailyTotals.calories, 2250)).toBe(true);
+  });
+
+test('the low carb week at 2850 kcal / 140 g protein is on target (was 2625 kcal, 7.9% under)', () => {
     const plan = engine.buildPlan({ calories: 2850, protein: 140, days: 7, dietary: ['low carb'] });
     for (const d of plan.days) expect(within5(d.dailyTotals.calories, 2850)).toBe(true);
     expect(engine.everyDayOnTarget(plan, 2850)).toBe(true);
