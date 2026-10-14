@@ -935,6 +935,7 @@ router.get('/auth/me', async (req, res) => {
         ptId,
         aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,
         emailVerified: user.emailVerified === true,
+        goalWeightKg: (user.settings && Number.isFinite(Number(user.settings.goalWeightKg)) && user.settings.goalWeightKg !== null) ? Number(user.settings.goalWeightKg) : null,
       },
     });
   } catch (err) {
@@ -1019,6 +1020,29 @@ router.get('/auth/export', authMiddleware, exportLimiter, async (req, res) => {
     res.set('Content-Type', 'application/json; charset=utf-8');
     res.set('Content-Disposition', `attachment; filename="fitmunch-export-${new Date().toISOString().slice(0, 10)}.json"`);
     res.send(JSON.stringify(data, null, 2));
+  } catch (err) {
+    sendApiError(res, err);
+  }
+});
+
+// POST /api/user/goal-weight {goalWeightKg, weightKg}: saves the onboarding goal weight to
+// users.settings.goalWeightKg so the first-week curve survives a reload. Same bounds as the form:
+// 35-300 kg and within 40% of the current weight. A blank goal clears it.
+router.post('/user/goal-weight', authMiddleware, async (req, res) => {
+  try {
+    const { validGoalWeight } = require('./public/js/fm-week-wow');
+    const b = req.body || {};
+    const v = validGoalWeight(b.goalWeightKg, b.weightKg);
+    if (!v.ok) return res.status(400).json({ success: false, error: v.error });
+    if (v.value === null) {
+      await _pool.query(`UPDATE users SET settings = COALESCE(settings,'{}'::jsonb) - 'goalWeightKg' WHERE id=$1`, [req.user.userId]);
+    } else {
+      await _pool.query(
+        `UPDATE users SET settings = COALESCE(settings,'{}'::jsonb) || jsonb_build_object('goalWeightKg', $1::numeric) WHERE id=$2`,
+        [v.value, req.user.userId]
+      );
+    }
+    res.json({ success: true, goalWeightKg: v.value });
   } catch (err) {
     sendApiError(res, err);
   }

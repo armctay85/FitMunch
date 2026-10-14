@@ -198,12 +198,13 @@ describe('swaps are instant: builder only, no AI client', () => {
 describe('swap coverage: at least 3 swaps for every meal under every diet', () => {
   const DIETS = [[], ['vegetarian'], ['vegan'], ['pescatarian'], ['gluten free'], ['dairy free'], ['egg free'], ['nut free'],
     ['high protein'], ['low carb'], ['gluten free', 'dairy free'], ['vegan', 'gluten free'], ['vegetarian', 'gluten free'], ['vegan', 'nut free']];
-  const TARGETS = [{ calories: 1600, protein: 110 }, { calories: 2000, protein: 150 }, { calories: 2400, protein: 160 }, { calories: 2850, protein: 140 }];
+  const TARGETS = [{ calories: 1500, protein: 100 }, { calories: 1600, protein: 110 }, { calories: 1800, protein: 90 }, { calories: 2000, protein: 150 },
+    { calories: 2400, protein: 160 }, { calories: 2850, protein: 140 }, { calories: 3000, protein: 200 }];
   for (const dietary of DIETS) {
-    it(`${dietary.join(' + ') || 'no filter'}: 4 targets x 7 days x 4 meals, none under 3 swaps`, () => {
+    it(`${dietary.join(' + ') || 'no filter'}: 7 targets x 7 days x 4 meals, none under 3 swaps`, () => {
       const short = []; let meals = 0;
       for (const t of TARGETS) {
-        const plan = engine.withSwaps(engine.buildPlan({ ...t, days: 7, dietary }), dietary);
+        const plan = engine.withSwaps(engine.buildPlan({ ...t, days: 7, dietary }), dietary, t.calories);
         for (const d of plan.days) {
           for (const s of engine.SLOTS) {
             meals += 1;
@@ -212,7 +213,7 @@ describe('swap coverage: at least 3 swaps for every meal under every diet', () =
           }
         }
       }
-      expect(meals).toBe(112);
+      expect(meals).toBe(196);
       expect(short).toEqual([]);
     });
   }
@@ -239,12 +240,123 @@ describe('swap-only meal templates', () => {
     const src = fs.readFileSync(path.join(__dirname, 'lib', 'meal-plan-engine.js'), 'utf8');
     expect(src).not.toMatch(/woolworths|woolies|\bcoles\b|\baldi\b|pty ltd|inc\.? gst/i);
   });
-  it('carry the right allergen flags for what is in them', () => {
-    const need = [[/^(Chicken|Beef|Lamb|Pork)/, 'meat'], [/^(Salmon|Tuna|Barramundi|Prawns)/, 'fish'], [/^Egg/, 'eggs'],
-      [/^(Whey|Casein|Greek yoghurt|Cottage|Ricotta|Cheddar|Skim milk|Full cream milk)/, 'dairy'], [/^(Seitan|Wholegrain bread|Pasta|Rolled oats)/, 'gluten'],
-      [/^(Peanut|Almond butter|Almonds|Cashews)/, 'nuts'], [/^(Firm tofu|Tempeh|Edamame|Soy milk)/, 'soy']];
-    for (const t of swapOnly) {
-      for (const [food] of t.items) for (const [re, flag] of need) if (re.test(food)) expect([t.name, food, t.flags.includes(flag)]).toEqual([t.name, food, true]);
+
+});
+
+// Allergens are DERIVED from the ingredients, never read back from a meal's own tags, and checked on
+// every template (the builder's and the swap-only ones). Nuts include almond milk and every tree nut.
+const ALLERGENS = [
+  ['nuts', /^(Peanut|Almond|Cashew|Walnut|Pecan|Hazelnut|Pistachio|Macadamia)/i],
+  ['dairy', /^(Whey|Casein|Greek yoghurt|Chobani|Cottage|Ricotta|Cheddar|Cheese|Skim milk|Full cream milk|Protein milk|Coffee with full cream|Milk|Butter|Cream|Yoghurt)/i],
+  ['eggs', /^(Egg|Scrambled eggs)/i],
+  ['gluten', /^(Seitan|Wholegrain bread|Sourdough|White bread|Bread|Pasta|Spaghetti|Rolled oats|Oatmeal|Weetbix|Wheat|Couscous|Barley)/i],
+  ['soy', /^(Firm tofu|Tofu|Tempeh|Edamame|Soy)/i],
+  ['fish', /^(Salmon|Tuna|Barramundi|Prawns|Fish|Shrimp|Crab|Lobster|Mussels|Oysters|Squid)/i],
+  ['meat', /^(Chicken|Beef|Lamb|Pork|Turkey|Bacon|Ham)/i],
+];
+const derived = (items) => [...new Set(items.flatMap(([food]) => ALLERGENS.filter(([, re]) => re.test(food)).map(([f]) => f)))];
+describe('allergens derived from ingredients', () => {
+  it('every meal template carries every allergen its ingredients have', () => {
+    const missing = [];
+    for (const t of engine.TEMPLATES) for (const a of derived(t.items)) if (!t.flags.includes(a)) missing.push(`${t.name}: ${a}`);
+    expect(missing).toEqual([]);
+  });
+  it('the nut rule catches almond milk and tree nuts (guards the regex itself)', () => {
+    expect(derived([['Almond milk (unsweetened)', 100]])).toEqual(['nuts']);
+    for (const f of ['Peanut butter (natural)', 'Almonds', 'Cashews', 'Walnuts', 'Pecans', 'Hazelnut spread', 'Pistachios', 'Macadamias']) expect(derived([[f, 10]])).toContain('nuts');
+    expect(derived([['Coconut yoghurt with pea protein (vanilla)', 100]])).toEqual([]);
+  });
+  it('a nut-free week never sees a nut ingredient in any meal or swap', () => {
+    for (const t of [{ calories: 1600, protein: 110 }, { calories: 2400, protein: 160 }]) {
+      for (const dietary of [['nut free'], ['nut free', 'vegan'], ['nut free', 'dairy free']]) {
+        const plan = engine.withSwaps(engine.buildPlan({ ...t, days: 7, dietary }), dietary, t.calories);
+        const text = JSON.stringify(plan);
+        expect(text).not.toMatch(/"item":"(Peanut|Almond|Cashew|Walnut|Pecan|Hazelnut|Pistachio|Macadamia)/i);
+      }
     }
+  });
+});
+
+describe('swap combinations and styles', () => {
+  const T = [[1500, 100], [1800, 90], [2000, 150], [2400, 160], [3000, 200]];
+  it('ANY combination of swaps keeps an in-target day within ±5% of the calorie target', () => {
+    let combos = 0;
+    for (const dietary of [[], ['vegan'], ['gluten free'], ['high protein'], ['low carb']]) {
+      for (const [calories, protein] of T) {
+        const plan = engine.withSwaps(engine.buildPlan({ calories, protein, days: 7, dietary }), dietary, calories);
+        for (const d of plan.days) {
+          if (Math.abs(d.dailyTotals.calories - calories) > calories * 0.05) continue;
+          const opts = engine.SLOTS.map((s) => [d.meals[s], ...d.meals[s].swaps]);
+          const walk = (i, k) => {
+            if (i === opts.length) { combos += 1; expect(Math.abs(k - calories)).toBeLessThanOrEqual(calories * 0.05); return; }
+            for (const m of opts[i]) walk(i + 1, k + m.calories);
+          };
+          walk(0, 0);
+        }
+      }
+    }
+    expect(combos).toBeGreaterThan(10000);
+  });
+  it('a day already off target never moves further away through swaps', () => {
+    const plan = engine.withSwaps(engine.buildPlan({ calories: 2850, protein: 140, days: 7, dietary: ['low carb'] }), ['low carb'], 2850);
+    for (const d of plan.days) {
+      const base = d.dailyTotals.calories;
+      for (const s of engine.SLOTS) for (const a of d.meals[s].swaps) if (base < 2850 * 0.95) expect(a.calories).toBeGreaterThanOrEqual(d.meals[s].calories);
+    }
+  });
+  it('low carb swaps never raise carb share by more than 5 points; high protein swaps never drop protein share by more than 5', () => {
+    const share = (m, k) => (4 * m[k]) / m.calories;
+    for (const [calories, protein] of T) {
+      for (const style of ['low carb', 'high protein']) {
+        const plan = engine.withSwaps(engine.buildPlan({ calories, protein, days: 7, dietary: [style] }), [style], calories);
+        for (const d of plan.days) for (const s of engine.SLOTS) {
+          const m = d.meals[s];
+          for (const a of m.swaps) {
+            if (style === 'low carb') expect(share(a, 'carbs')).toBeLessThanOrEqual(share(m, 'carbs') + 0.05 + 1e-9);
+            else expect(share(a, 'protein')).toBeGreaterThanOrEqual(share(m, 'protein') - 0.05 - 1e-9);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('goal weight bounds (client and server share validGoalWeight)', () => {
+  it('rejects 5, 1e6, "abc", out-of-40% and accepts blank or a sane goal', () => {
+    expect(wow.validGoalWeight('5', 82).ok).toBe(false);
+    expect(wow.validGoalWeight('1000000', 82).ok).toBe(false);
+    expect(wow.validGoalWeight(1e6, 82).ok).toBe(false);
+    expect(wow.validGoalWeight('abc', 82).ok).toBe(false);
+    expect(wow.validGoalWeight('1e2', 82).ok).toBe(false);
+    expect(wow.validGoalWeight('', 82)).toEqual({ ok: true, value: null });
+    expect(wow.validGoalWeight(undefined, 82)).toEqual({ ok: true, value: null });
+    expect(wow.validGoalWeight('80', 150).ok).toBe(false); // 47% below
+    expect(wow.validGoalWeight('90', 150)).toEqual({ ok: true, value: 90 }); // 40% exactly
+    expect(wow.validGoalWeight('78', 82)).toEqual({ ok: true, value: 78 });
+    expect(wow.validGoalWeight('34.9', 50).ok).toBe(false);
+    expect(wow.validGoalWeight('300.1', 250).ok).toBe(false);
+    expect(wow.validGoalWeight('70', '').ok).toBe(false);
+  });
+  it('the form checks it, shows the inline error and hides the curve when the goal is unreachable', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+    const fn = html.slice(html.indexOf('function onboardCompute'), html.indexOf('function onboardRebalance'));
+    expect(fn).toContain("FMWeekWow.validGoalWeight(v('ob-goal-weight'), input.weightKg)");
+    expect(fn).toMatch(/if \(!gw\.ok\) \{ err\.textContent = gw\.error; err\.style\.display = ''/);
+    const curve = html.slice(html.indexOf('function obRenderCurve'), html.indexOf('function obRenderHeader'));
+    expect(curve).toContain("if (!proj || !proj.reached) { fig.style.display = 'none'; return; }");
+    expect(html).toContain("API('/user/goal-weight'");
+  });
+  it('the server refuses bad goal weights with 400 before touching the database', async () => {
+    const request = require('supertest');
+    const jwt = require('jsonwebtoken');
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
+    const app = require('./server');
+    const tok = jwt.sign({ userId: '00000000-0000-4000-8000-0000000000ad' }, process.env.JWT_SECRET);
+    for (const body of [{ goalWeightKg: 5, weightKg: 82 }, { goalWeightKg: 1e6, weightKg: 82 }, { goalWeightKg: 'abc', weightKg: 82 }, { goalWeightKg: 80, weightKg: 150 }, { goalWeightKg: 70 }]) {
+      const res = await request(app).post('/api/user/goal-weight').set('Authorization', `Bearer ${tok}`).send(body);
+      expect([JSON.stringify(body), res.status]).toEqual([JSON.stringify(body), 400]);
+    }
+    const anon = await request(app).post('/api/user/goal-weight').send({ goalWeightKg: 78, weightKg: 82 });
+    expect(anon.status).toBe(401);
   });
 });

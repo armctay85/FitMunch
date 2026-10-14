@@ -104,7 +104,7 @@ router.post('/generate', requireAuth, async (req, res) => {
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
-    return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary), source: 'builder' });
+    return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
   }
   try {
     let gate = null;

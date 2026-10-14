@@ -46,8 +46,9 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
     app.use(express.json());
     app.post('/api/meal-plan/generate', (req, res) => {
       const dietary = engine.normaliseDiet(req.body.dietary || []);
-      res.json({ success: true, source: 'builder', plan: engine.withSwaps(engine.buildPlan({ calories: req.body.calories, protein: req.body.protein, days: 7, dietary }), dietary) });
+      res.json({ success: true, source: 'builder', plan: engine.withSwaps(engine.buildPlan({ calories: req.body.calories, protein: req.body.protein, days: 7, dietary }), dietary, req.body.calories) });
     });
+    app.post('/api/user/goal-weight', (req, res) => { res.json({ success: true, goalWeightKg: req.body.goalWeightKg }); });
     app.use('/api', (req, res) => res.json(req.path.includes('/auth/me')
       ? { success: true, user: { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role: 'client', subscriptionTier: 'free', settings: {} } }
       : { success: true, lists: [], plans: [], logs: [], profile: {} }));
@@ -88,6 +89,17 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
       expect(curve.est).toBe('Estimate');
       expect(curve.label).toMatch(/^Estimated weight from 82 kg now to 78 kg around [A-Z][a-z]{2} \d{4}, over 10 weeks$/);
       expect(curve.cap).toMatch(/not a promise/);
+
+      // M2: every curve label is drawn at 11px or more on screen (viewBox scale included), with a
+      // 14px+ box, and the Estimate badge is 11px or more, at every width including 320.
+      const sizes = await p.evaluate(() => {
+        const svg = document.querySelector('#ob-curve svg'); const vb = svg.viewBox.baseVal.width; const scale = svg.getBoundingClientRect().width / vb;
+        const est = document.querySelector('#ob-curve .ob-est');
+        return { texts: [...svg.querySelectorAll('text')].map((t) => ({ px: parseFloat(getComputedStyle(t).fontSize) * scale, h: t.getBoundingClientRect().height, s: t.textContent })), est: parseFloat(getComputedStyle(est).fontSize) };
+      });
+      expect(sizes.texts.length).toBe(4);
+      for (const t of sizes.texts) { expect([t.s, t.px >= 11]).toEqual([t.s, true]); expect([t.s, t.h >= 14]).toEqual([t.s, true]); }
+      expect(sizes.est).toBeGreaterThanOrEqual(11);
 
       // (4) a Swap button on every meal, 44px or larger.
       const btns = await p.evaluate(() => [...document.querySelectorAll('#ob-week .ob-swap')].map((b) => ({ w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height })));
@@ -135,4 +147,32 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
       await ctx.close();
     });
   }
+
+  it('320px: a bad goal weight shows the inline error and stays on step 1; a saved goal is prefilled after reload', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 844 }, hasTouch: true });
+    await ctx.addInitScript(() => localStorage.setItem('fm_token', 't.t'));
+    await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+    const p = await ctx.newPage();
+    const open = async () => {
+      await p.goto(`${base}/app.html`);
+      await p.waitForFunction(() => typeof openOnboarding === 'function' && typeof FMWeekWow === 'object' && S && S.user);
+      await p.waitForTimeout(800);
+      await p.evaluate(() => { document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open')); openOnboarding(); });
+    };
+    await open();
+    await p.fill('#ob-age', '34'); await p.selectOption('#ob-sex', 'male'); await p.fill('#ob-height', '180'); await p.fill('#ob-weight', '82');
+    for (const bad of ['5', '1000000', '40']) {
+      await p.fill('#ob-goal-weight', bad);
+      await p.click('#ob-step-1 .btn-green');
+      expect(await p.isVisible('#ob-err')).toBe(true);
+      expect(await p.textContent('#ob-err')).toMatch(/Goal weight must be/);
+      expect(await p.isVisible('#ob-step-1')).toBe(true);
+      expect(await p.getAttribute('#ob-goal-weight', 'aria-invalid')).toBe('true');
+    }
+    // A reload with a saved goal (users.settings.goalWeightKg via /auth/me) prefills the field.
+    await p.route('**/api/auth/me', (r) => r.fulfill({ json: { success: true, user: { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role: 'client', subscriptionTier: 'free', goalWeightKg: 76.5 } } }));
+    await open();
+    expect(await p.inputValue('#ob-goal-weight')).toBe('76.5');
+    await ctx.close();
+  });
 });

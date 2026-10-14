@@ -57,6 +57,21 @@
     return { direction: dir, weeks, reached, goalDate, firstWeekKg: r1(Math.abs(points[1].kg - w0)), points };
   }
 
+  const GOAL_MIN_KG = 35; const GOAL_MAX_KG = 300; const GOAL_MAX_SHARE = 0.4;
+  /**
+   * Goal weight check, shared by the onboarding form and the server. Blank means no goal (ok, null).
+   * Otherwise a number 35-300 kg and within 40% of the current weight.
+   */
+  function validGoalWeight(goalKg, weightKg) {
+    if (goalKg === null || goalKg === undefined || String(goalKg).trim() === '') return { ok: true, value: null };
+    const g = typeof goalKg === 'number' ? goalKg : (/^\s*\d+(\.\d+)?\s*$/.test(String(goalKg)) ? Number(goalKg) : NaN);
+    if (!Number.isFinite(g) || g < GOAL_MIN_KG || g > GOAL_MAX_KG) return { ok: false, error: 'Goal weight must be 35-300 kg.' };
+    const w = num(weightKg);
+    if (!(w >= GOAL_MIN_KG && w <= GOAL_MAX_KG)) return { ok: false, error: 'Enter your current weight first.' };
+    if (Math.abs(g - w) > w * GOAL_MAX_SHARE) return { ok: false, error: 'Goal weight must be within 40% of your current weight.' };
+    return { ok: true, value: r1(g) };
+  }
+
   /** "Built for 82kg, cutting to 78kg: 2,000 cal, 148g protein, 4 meals a day". */
   function headerLine({ weightKg, goalKg, goal, calories, protein, meals = 4 }) {
     const w = num(weightKg);
@@ -103,5 +118,5 @@
     return day;
   }
 
-  return { RATES, MAX_WEEKS, direction, projectWeight, headerLine, dayTotals, weekAverages, swapMeal, thousands };
+  return { RATES, MAX_WEEKS, GOAL_MIN_KG, GOAL_MAX_KG, GOAL_MAX_SHARE, validGoalWeight, direction, projectWeight, headerLine, dayTotals, weekAverages, swapMeal, thousands };
 }));
