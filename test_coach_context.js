@@ -47,7 +47,8 @@ describe('Coach context', () => {
   it('system prompt carries the user\u2019s own numbers and plan, no email; options are tuned for speed', async () => {
     aiClient.chat.mockClear();
     const history = Array.from({ length: 12 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'x'.repeat(2000) }));
-    history.push({ role: 'user', content: 'What should I eat tonight?' });
+    // A peanut-allergy user's food questions are answered from checked recipes (#127a), so this asks a non-food one.
+    history.push({ role: 'user', content: 'How should I warm up for squats?' });
     const r = await request(app).post('/api/ai/chat').set('Authorization', `Bearer ${token}`)
       .send({ messages: history, context: { todayCalories: 1200, todayProtein: 80, targetCalories: 9999 } });
     expect(r.status).toBe(200);
@@ -63,7 +64,7 @@ describe('Coach context', () => {
     expect(opts.system).not.toMatch(/me@example\.com|u1/);
     expect(opts.messages.length).toBeLessThanOrEqual(16);
     for (const m of opts.messages.slice(0, -1)) expect(m.content.length).toBeLessThanOrEqual(1200);
-    expect(opts.messages[opts.messages.length - 1].content).toBe('What should I eat tonight?');
+    expect(opts.messages[opts.messages.length - 1].content).toBe('How should I warm up for squats?');
     expect(opts.maxTokens).toBe(350);
     expect(opts.budgetMs).toBe(12000);
   });

@@ -1496,6 +1496,7 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
 // deterministic coach tip if no provider is configured or the provider errors.
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
+const dietGuard = require('./lib/diet-guard');
 
 function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCalories, targetProtein }) {
   const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
@@ -1717,12 +1718,13 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Load profile + tier for context and gating.
     let tier = 'free';
     let profile = null;
+    let profileUnread = false;
     try {
       const user = await getUserById(req.user.userId);
       const denied = consentResponse(user && user.settings);
       if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
-      profile = await getProfile(req.user.userId).catch(() => null);
+      profile = await getProfile(req.user.userId).catch(() => { profileUnread = true; return null; });
     } catch (_) {
       return res.status(503).json({
         success: false,
@@ -1747,6 +1749,21 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Validate before any credit is charged: there must be a user message.
     if (!safeMessages.some((m) => m.role === 'user')) {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
+
+    // #127a: any saved or sent diet/allergy filter -> meals come from the ingredient-checked
+    // builder only, never the AI. Saved filters are read, never written. Unreadable profile fails closed.
+    const ctxObj = context && typeof context === 'object' ? context : {};
+    const filters = dietGuard.combineFilters(profile, [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)]);
+    const guarded = profileUnread || filters.length > 0;
+    const safeReply = () => dietGuard.safeCoachReply({
+      filters,
+      calories: (profile && profile.targetCalories) || ctxObj.targetCalories,
+      protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
+    }).reply;
+    const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
+    if (guarded && dietGuard.isFoodTalk(intent, latestUser)) {
+      return res.json({ success: true, reply: safeReply(), source: 'builder', provider: null });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
@@ -1774,9 +1791,12 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const finalSystem = personal
       ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
       : system;
+    const guardedSystem = guarded
+      ? `${finalSystem}\n\nThis user has diet or allergy filters. Do not suggest meals, recipes or foods; point them to Meal Plans for checked meals.`
+      : finalSystem;
 
     const r = await aiClient.chat({
-      system: finalSystem,
+      system: guardedSystem,
       messages: safeMessages,
       maxTokens: CHAT_MAX_TOKENS,
       temperature: 0.6,
@@ -1791,6 +1811,12 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
 
+    if (guarded && dietGuard.textBreaksFilters(r.text, filters)) {
+      // The AI named a food this user can't have: serve checked recipes instead and refund the credit.
+      let remaining = gate.remaining;
+      try { if (await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'chat' }) && typeof remaining === 'number') remaining += 1; } catch (_) { /* best effort */ }
+      return res.json({ success: true, reply: safeReply(), source: 'builder', provider: null, remaining });
+    }
     res.locals.aiAnswered = true;
     return res.json({
       success: true,

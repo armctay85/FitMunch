@@ -33,6 +33,8 @@ module.exports = {
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',
     '**/test_allergen_tags.js',
+    '**/test_ai_allergen_stopgap.js',
+    '**/test_ai_allergen_stopgap_pg.js',
     '**/test_onboard_rendered.js',
     '**/test_first_week_wow.js',
     '**/test_first_week_wow_rendered.js',

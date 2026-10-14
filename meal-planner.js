@@ -11,6 +11,7 @@ const aiClient = require('./lib/ai-client');
 const aiUsage  = require('./lib/ai-usage');
 const { sendApiError } = require('./lib/public-error');
 const planEngine = require('./lib/meal-plan-engine');
+const dietGuard = require('./lib/diet-guard');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -103,12 +104,32 @@ router.post('/generate', requireAuth, async (req, res) => {
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
+    // Saved filters always apply too (read only, never written).
+    try { input.dietary = dietGuard.combineFilters(await require('./server/storage.js').getProfile(req.user.userId), input.dietary).slice(0, 16); } catch (_) { /* sent filters still apply */ }
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
   }
+  // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
+  // Saved filters are only read here; this route never writes the profile.
+  const filteredPlan = (dietary) => {
+    input.dietary = dietary.slice(0, 16);
+    return res.json({
+      success: true,
+      plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories),
+      source: 'builder',
+      notice: dietGuard.PLAN_NOTICE,
+      dietary: input.dietary,
+    });
+  };
+  if (input.dietary.length) {
+    let saved = null;
+    try { saved = await require('./server/storage.js').getProfile(req.user.userId); } catch (_) { /* sent filters still apply */ }
+    return filteredPlan(dietGuard.combineFilters(saved, input.dietary));
+  }
   try {
     let gate = null;
-    if (aiClient.hasProvider()) {
+    const hasAi = aiClient.hasProvider();
+    if (hasAi) {
       // The AI branch needs the account's explicit Allow. The food-database
       // builder sends nothing to an AI provider, so it needs no consent.
       const { consentResponse } = require('./lib/ai-data-consent');
@@ -123,6 +144,13 @@ router.post('/generate', requireAuth, async (req, res) => {
           error: "We couldn't check your AI settings. Please try again.",
         });
       }
+    }
+    // Saved filters, read after the consent check and before any usage is charged.
+    // If they can't be read, fail closed: builder only.
+    let saved;
+    try { saved = dietGuard.savedFilters(await require('./server/storage.js').getProfile(req.user.userId)); } catch (_) { saved = null; }
+    if (saved === null || saved.length) return filteredPlan(saved || []);
+    if (hasAi) {
       // Free-tier gating — plan generation is a heavyweight AI call.
       const tier = await userTier(req.user.userId);
       gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
