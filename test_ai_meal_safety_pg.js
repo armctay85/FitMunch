@@ -122,6 +122,24 @@ maybe('AI meal plans on real Postgres', () => {
   });
 });
 
+// r6: QA's three r5 escapes, end to end through the generate route on real Postgres.
+maybe('r6: stand-ins that sit beside the dish, and English muffins, on real Postgres', () => {
+  it.each([
+    ['egg', 'dinner', meal('Chicken fried rice with tofu', ['White rice', 'Chicken breast', 'Firm tofu', 'Peas'], 700), /fried rice/i],
+    ['egg', 'dinner', meal('Fried rice with a side of tofu', ['White rice', 'Firm tofu', 'Peas'], 700), /fried rice/i],
+    ['gluten', 'breakfast', meal('English muffin with almond flour', ['Almond flour', 'Banana'], 500), /english muffin/i],
+  ])('%s allergy: the AI %s is swapped and the user told', async (allergy, slot, bad, re) => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
+    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
+    const res = await gen([]);
+    expect(res.status).toBe(200);
+    const monday = res.body.plan.days[0].meals[slot];
+    expect(monday.name).not.toMatch(re);
+    expect(monday.replacedForFilters).toBe(true);
+    expect(JSON.stringify(res.body.plan.days.map((d) => d.meals))).not.toMatch(re);
+  });
+});
+
 // Every FSANZ PEAL label term (and its plural or alternate spelling) typed as an allergy, against an AI meal
 // that contains it. The meal must be swapped and the user told.
 const FSANZ = [

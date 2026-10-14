@@ -630,7 +630,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ MEAL PLANS - AI-POWERED ══ -->
 <div class="view" id="view-meal-plans">
  <div class="view-header">
- <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">AI builds your weekly plan in seconds. You eat. Simple.</div></div>
+ <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">Your weekly plan in seconds, built to your targets. You eat. Simple.</div></div>
  </div>
  <div class="scroll-body">
 
@@ -2273,7 +2273,7 @@ async function loadMealPlans() {
  if (meals[0]?.name) items = meals;
  else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType}))));
  }
- const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
+ const mealSummary = items.length ? `<div tabindex="0" role="region" aria-label="Meals in this plan" style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
  items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')

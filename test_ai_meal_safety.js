@@ -761,3 +761,59 @@ describe('r5: dish words need a real stand-in, name-only warnings, brands, label
     expect(new Set(r.plan.days.map((d) => d.meals.lunch.name)).size).toBeGreaterThan(1);
   });
 });
+
+describe('r6: stand-ins must describe the dish, English muffins stay gluten, more brands, calorie drift', () => {
+  const lexicon = require('./lib/food-lexicon');
+  const probs = (meal, f) => safety.mealProblems(meal, safety.excludedFlags(f), safety.customTerms(f));
+  it('tofu beside fried rice does not lift egg; tofu or egg-free describing the dish does', () => {
+    expect(probs({ name: 'Chicken fried rice with tofu', ingredients: ['Rice', 'Chicken', 'Firm tofu'] }, { allergies: ['egg'] })).toContain('eggs');
+    expect(probs({ name: 'Fried rice with a side of tofu', ingredients: ['Rice', 'Firm tofu'] }, { allergies: ['egg'] })).toContain('eggs');
+    expect(probs({ name: 'Tofu and fried rice', ingredients: ['Rice', 'Firm tofu'] }, { allergies: ['egg'] })).toContain('eggs');
+    expect(probs({ name: 'Fried rice', ingredients: ['Rice', 'Firm tofu'] }, { allergies: ['egg'] })).toContain('eggs');
+    expect(probs({ name: 'Tofu fried rice', ingredients: ['Rice', 'Firm tofu'] }, { allergies: ['egg'] })).toBeNull();
+    expect(probs({ name: 'Egg-free fried rice', ingredients: ['Rice', 'Peas'] }, { allergies: ['egg'] })).toBeNull();
+    expect(probs({ name: 'Eggless vegetable fried rice', ingredients: ['Rice', 'Carrot'] }, { allergies: ['egg'] })).toBeNull();
+  });
+  it('English muffin stays gluten whatever flour is listed', () => {
+    expect(probs({ name: 'English muffin with almond flour', ingredients: ['Almond flour', 'Butter'] }, { allergies: ['gluten'] })).toContain('gluten');
+    expect(probs({ name: 'English muffins', ingredients: ['Rice flour', 'Yeast'] }, { dietary: ['gluten free'] })).toContain('gluten');
+  });
+  it('a muffin flour named only in the meal name lifts nothing; listed in the ingredients it does (B3)', () => {
+    expect(probs({ name: 'Almond flour muffins', ingredients: ['Blueberries', 'Eggs'] }, { dietary: ['gluten free'] })).toContain('gluten');
+    expect(probs({ name: 'Almond flour muffins', ingredients: ['Almond flour', 'Blueberries', 'Eggs'] }, { dietary: ['gluten free'] })).toBeNull();
+    expect(probs({ name: 'Rice flour muffins', ingredients: ['Blueberries'] }, { dietary: ['gluten free'] })).toContain('gluten');
+  });
+  it('almond flour pancakes pass gluten free only when the flour is listed', () => {
+    expect(probs({ name: 'Almond flour pancakes', ingredients: ['Almond flour', 'Banana', 'Eggs'] }, { dietary: ['gluten free'] })).toBeNull();
+    expect(probs({ name: 'Almond flour pancakes', ingredients: ['Banana', 'Eggs'] }, { dietary: ['gluten free'] })).toContain('gluten');
+    expect(probs({ name: 'Almond flour pancakes', ingredients: ['Almond flour', 'Plain flour'] }, { dietary: ['gluten free'] })).toContain('gluten');
+    expect(probs({ name: 'Almond flour pancakes', ingredients: ['Almond flour', 'Banana'] }, { dietary: ['nut free'] })).toContain('nuts');
+  });
+  const BRANDS6 = [
+    ['Cheezels', ['gluten', 'dairy']], ['Maltesers', ['gluten', 'dairy']], ['Le Snak', ['gluten', 'dairy']], ['Kinder Bueno', ['gluten', 'dairy', 'nuts']],
+    ["Smith's", ['gluten', 'dairy']], ['Grain Waves', ['gluten', 'dairy']], ['Pauls Zymil', ['dairy']], ['Zymil lactose-free milk', ['dairy']],
+  ];
+  it.each(BRANDS6)('brand %s carries %j', (brand, flags) => {
+    const { flags: got, unknown } = lexicon.scan(brand);
+    for (const f of flags) expect([brand, f, got.has(f)]).toEqual([brand, f, true]);
+    expect(unknown).toEqual([]);
+  });
+  it('a replacement meal stays within 20% of the calories it replaces, across a week of rotations (B8)', () => {
+    const combos = [['nut free'], ['vegan'], ['gluten free', 'dairy free'], ['egg free'], ['vegetarian', 'nut free'], ['vegan', 'gluten free', 'soy free']];
+    let checked = 0; let worst = 0;
+    for (const dietary of combos) for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) for (const kcal of [200, 400, 550, 700, 900]) for (const share of [0.15, 0.25, 0.4]) {
+      const bad = { name: 'Peanut prawn egg toast', ingredients: ['Peanuts', 'Prawns', 'Egg', 'Bread', 'Milk', 'Chicken'], calories: kcal, protein: Math.round(kcal * share / 4) };
+      const { plan } = safety.enforcePlan({ days: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meals: { [slot]: { ...bad } } })) }, { dietary });
+      for (const d of plan.days) {
+        const m = d.meals[slot];
+        expect(m && m.replacedForFilters).toBe(true);
+        const drift = Math.abs(m.calories - kcal) / kcal;
+        expect([dietary.join('+'), slot, kcal, share, m.name, drift <= 0.2]).toEqual([dietary.join('+'), slot, kcal, share, m.name, true]);
+        worst = Math.max(worst, drift); checked += 1;
+      }
+    }
+    expect(checked).toBe(2520);
+    // Pins the calorie term in the replacement cost and the rotation slack: either change pushes the worst past 12%.
+    expect(worst).toBeLessThanOrEqual(0.12);
+  });
+});
