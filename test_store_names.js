@@ -11,8 +11,7 @@ const request = require('supertest');
 const app = require('./server.js');
 
 const PUBLIC = path.join(__dirname, 'public');
-const PRODUCT_PAGES = new Set(['app.html', 'coach.html']);
-const STORE = /woolworths|woolies|\bcoles\b|\baldi\b|\bIGA\b|1 Shop 5 Meals/i;
+const STORE = /woolworths|woolies|\bcoles\b|\baldi\b|\bIGA\b|costco|1 Shop 5 Meals/i;
 
 const REDIRECTS = [
   ['/woolworths-meal-planner', '/supermarket-meal-planner'],
@@ -20,8 +19,12 @@ const REDIRECTS = [
   ['/pt-client-meal-plans-woolworths', '/pt-client-meal-plans'],
 ];
 
-describe('no store names on marketing pages', () => {
-  const pages = fs.readdirSync(PUBLIC).filter((f) => f.endsWith('.html') && !PRODUCT_PAGES.has(f));
+describe('no store names on any public page (app.html and coach.html included, no skips)', () => {
+  const pages = fs.readdirSync(PUBLIC).filter((f) => f.endsWith('.html'));
+
+  it('covers the product pages', () => {
+    expect(pages).toEqual(expect.arrayContaining(['app.html', 'coach.html', 'index.html']));
+  });
 
   it.each(pages)('%s has no store name in its copy, title or links', (file) => {
     const html = fs.readFileSync(path.join(PUBLIC, file), 'utf8');
@@ -29,11 +32,10 @@ describe('no store names on marketing pages', () => {
     expect(hit && hit[0]).toBeFalsy();
   });
 
-  it('app_fixes.js carries no dead store price data or store names', () => {
-    const src = fs.readFileSync(path.join(__dirname, 'app_fixes.js'), 'utf8');
-    expect(src).not.toMatch(STORE);
-    expect(src).not.toMatch(/SupermarketAPI|mockPrices/);
+  it('app_fixes.js (dead, unserved, store price data) is deleted', () => {
+    expect(fs.existsSync(path.join(__dirname, 'app_fixes.js'))).toBe(false);
   });
+
 
   it('the dead supermarket_api.js mock is gone', () => {
     expect(fs.existsSync(path.join(__dirname, 'supermarket_api.js'))).toBe(false);
@@ -52,18 +54,54 @@ describe('no store names on marketing pages', () => {
     expect(fs.readdirSync(PUBLIC).filter((f) => STORE.test(f))).toEqual([]);
   });
 
-  it('coach.html intro copy is generic; its store picker is unchanged (Wilson)', () => {
-    const html = fs.readFileSync(path.join(PUBLIC, 'coach.html'), 'utf8');
-    expect(html).toContain('<p>Pick a client, set targets, and draft a 7-day plan with a supermarket list.</p>');
-    expect(html).toContain('<option value="woolworths">Woolworths</option>');
-    expect(html).toContain('<option value="coles">Coles</option>');
-    expect(html).toContain('<option value="aldi">Aldi</option>');
+  it('every served text file under public/ (any folder: html, js, css, json, xml, txt, webmanifest) has no store name', () => {
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      const full = path.join(dir, d.name);
+      return d.isDirectory() ? walk(full) : [full];
+    });
+    const served = walk(PUBLIC).filter((f) => /\.(html?|js|mjs|css|json|xml|txt|webmanifest|svg)$/i.test(f));
+    expect(served.length).toBeGreaterThan(20);
+    const hits = served
+      .map((f) => {
+        const m = fs.readFileSync(f, 'utf8').match(new RegExp(`.{0,40}(${STORE.source}).{0,40}`, 'i'));
+        return m ? `${path.relative(PUBLIC, f)}: ${m[0]}` : null;
+      })
+      .filter(Boolean);
+    expect(hits).toEqual([]);
   });
 
-  it('app.html keeps its store buttons and badges', () => {
+  it('the meal planner and shopping-list copy names no chain (no Woolies/Coles empty state)', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
-    expect(html).toMatch(/Woolworths/);
-    expect(html).toMatch(/Coles/);
+    expect(html).not.toMatch(/Woolies\s*\/\s*Coles|Woolies or Coles|sl-woolies-link|sl-coles-link/i);
+  });
+
+  it('coach.html intro copy is generic and it has no store picker', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'coach.html'), 'utf8');
+    expect(html).toContain('<p>Pick a client, set targets, and draft a 7-day plan with a supermarket list.</p>');
+    expect(html).not.toContain('id="coach-store"');
+    expect(fs.readFileSync(path.join(PUBLIC, 'js', 'fm-coach.js'), 'utf8')).not.toMatch(/coach-store'\)\.value|storeName/);
+  });
+
+  it('app.html has no store name anywhere, including links, titles and placeholders', () => {
+    const html = fs.readFileSync(path.join(PUBLIC, 'app.html'), 'utf8');
+    expect(html).not.toMatch(STORE);
+    expect(html).not.toMatch(/woolworths\.com\.au|coles\.com\.au/i);
+  });
+
+  it('the nutrition Coach prompt says "shop at your supermarket" and names no chain', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    const prompts = src.slice(src.indexOf('const CHAT_INTENTS'), src.indexOf('function chatIntentPrompt'));
+    expect(prompts).toMatch(/shop at your supermarket/);
+    expect(prompts).not.toMatch(STORE);
+    expect(src).not.toMatch(/approx Woolies\/Coles/);
+  });
+
+  it('the legacy priced /api/shopping-list/budget route is gone', async () => {
+    expect(fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8')).not.toContain("'/shopping-list/budget'");
+    const jwt = require('jsonwebtoken');
+    const tok = jwt.sign({ userId: '00000000-0000-4000-8000-000000000001' }, process.env.JWT_SECRET || 'fitmunch-dev-secret');
+    const res = await request(app).post('/api/shopping-list/budget').set('Authorization', `Bearer ${tok}`).send({ protein: 150 });
+    expect(res.status).toBe(404);
   });
 });
 
@@ -103,7 +141,7 @@ describe('PR 76 r2 copy fixes', () => {
 
   it('marketing page titles are 60 characters or fewer', () => {
     const long = fs.readdirSync(PUBLIC)
-      .filter((f) => f.endsWith('.html') && !PRODUCT_PAGES.has(f))
+      .filter((f) => f.endsWith('.html') && !['app.html', 'coach.html'].includes(f)) // signed-in tools, not marketing titles
       .map((f) => [f, (read(f).match(/<title>([^<]*)<\/title>/) || [])[1] || ''])
       .filter(([, t]) => t.length > 60);
     expect(long).toEqual([]);
@@ -124,7 +162,6 @@ describe('PR 76 r2 copy fixes', () => {
     expect(pt).toMatch(/<dt>Can the same plan work at a different supermarket\?<\/dt>\s*<dd>Yes\. The draft is an ingredient list, so the client can shop it at any supermarket\. FitMunch does not place the order\.<\/dd>/);
     expect(pt).toContain('<h2>The list stays a draft</h2>');
     expect(pt).not.toContain('Other stores work too');
-    expect(read('shopper.html')).toContain('Nothing is sent to a supermarket as an order.');
     expect(read('meal-plan-software-personal-trainers.html')).toContain('FitMunch is not affiliated with any supermarket, and it does not place the order or pay the store.');
     const garbled = /supermarket, supermarket|a any |on its own site|Does it use supermarket|pay supermarket directly|faded thermal receipt/;
     for (const f of fs.readdirSync(PUBLIC).filter((x) => x.endsWith('.html'))) {
@@ -133,3 +170,57 @@ describe('PR 76 r2 copy fixes', () => {
   });
 });
 
+// Ported from #103's test_store_name_sweep.js (Elite QA #107 r? S1).
+describe('store-name sweep: email, AI prompts and coach-api', () => {
+  const CHAIN = /woolworths|woolies|\bcoles\b|\baldi\b|\bIGA\b|costco|harris farm|foodworks/i;
+  const COMMERCE_KEY = /^(totalAud|totalCents|lineAud|unitAud|onSpecial|priced|unpricedCount|catalogue|pricesFrom|sourceKind|storeId|storeName|store|paysWoolworths|paysColes|paysAldi)$/;
+  const COMMERCE_VALUE = /au-public-specials|\bw35\b|public_specials_catalogue/i;
+  const keysIn = (v, out = []) => {
+    if (Array.isArray(v)) v.forEach((x) => keysIn(x, out));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { if (COMMERCE_KEY.test(k)) out.push(k); keysIn(x, out); }
+    return out;
+  };
+
+  it('server/email.js (including line 80) names no chain', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'server/email.js'), 'utf8');
+    expect(src.split('\n')[79]).not.toMatch(CHAIN);
+    expect(src.match(CHAIN)).toBeNull();
+  });
+
+  it('every AI prompt constant loads and names no chain', () => {
+    const chat = require('./api_server').AI_PROMPTS;
+    const prompts = {
+      CHAT_GLOBAL_RULES: chat.CHAT_GLOBAL_RULES,
+      ...Object.fromEntries(Object.entries(chat.CHAT_INTENTS).map(([k, v]) => [`CHAT_INTENTS.${k}`, v])),
+      VISION_PROMPT: require('./receipt-scanner').AI_PROMPTS.VISION_PROMPT,
+      planPrompt: require('./meal-planner').AI_PROMPTS.planPrompt({ goal: 'maintain', calories: 2000, protein: 150, days: 7, dietary: [] }),
+    };
+    for (const [name, text] of Object.entries(prompts)) {
+      expect(typeof text).toBe('string');
+      expect([name, text.match(CHAIN)]).toEqual([name, null]);
+    }
+  });
+
+  it('coach plans, the saved row and the coach-api response carry no chain, price, special or catalogue', async () => {
+    const { buildCoachPlan } = require('./lib/coach-plan');
+    const coachStore = require('./lib/coach-store');
+    for (const storeId of [undefined, 'woolworths', 'coles', 'aldi']) {
+      const plan = buildCoachPlan({ kcal: 2200, protein: 160, carbs: 220, fat: 70, storeId });
+      expect(keysIn(plan)).toEqual([]);
+      expect(JSON.stringify(plan)).not.toMatch(CHAIN);
+      expect(JSON.stringify(plan)).not.toMatch(COMMERCE_VALUE);
+    }
+    const row = await coachStore.createPlan({ ptId: 'sn-pt', clientId: 'sn-c', clientLabel: 'S', plan: buildCoachPlan({ kcal: 2000, protein: 150, carbs: 200, fat: 60 }) });
+    const saved = await coachStore.getPlan(row.id, 'sn-pt');
+    const body = await coachStore.withAdherence(saved);
+    for (const v of [saved, body]) {
+      expect(keysIn(v)).toEqual([]);
+      expect(JSON.stringify(v)).not.toMatch(CHAIN);
+      expect(JSON.stringify(v)).not.toMatch(COMMERCE_VALUE);
+    }
+    const { api } = require('./coach-api');
+    const res = { json: (b) => b };
+    api.stack[0].handle({}, res, () => {});
+    expect(JSON.stringify(res.json({ storeName: 'Woolworths', paysColes: false }))).not.toMatch(CHAIN);
+  });
+});

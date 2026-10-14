@@ -2,7 +2,7 @@
 
 Coach is the paid tier for Australian personal trainers: a 7-day client meal plan and a priced supermarket draft list. This document covers billing only. The plan builder and the marketing landers are separate.
 
-Consumer Premium stays A$19.99/month (`price_1ToYrXGMuYRuJYDrwHtvWD1c`). Coach does not change that price, the consumer checkout, the homepage, or `/shopper`.
+Consumer Premium stays A$19.99/month (`price_1ToYrXGMuYRuJYDrwHtvWD1c`). Coach does not change that price, the consumer checkout or the homepage.
 
 ## Prices (Stripe test mode only)
 
