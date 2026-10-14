@@ -89,9 +89,10 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
       expect(curve.est).toBe('Estimate');
       expect(curve.label).toMatch(/^Estimated weight from 82 kg now to 78 kg around [A-Z][a-z]{2} \d{4}, over 10 weeks$/);
       expect(curve.cap).toMatch(/not a promise/);
+      expect(curve.cap).toMatch(/^Estimate 82 kg to 78 kg/);
 
       // M2: every curve label is drawn at 11px or more on screen (viewBox scale included), with a
-      // 14px+ box, and the Estimate badge is 11px or more, at every width including 320.
+      // 14px+ box, and the Estimate badge is 12px or more, at every width including 320.
       const sizes = await p.evaluate(() => {
         const svg = document.querySelector('#ob-curve svg'); const vb = svg.viewBox.baseVal.width; const scale = svg.getBoundingClientRect().width / vb;
         const est = document.querySelector('#ob-curve .ob-est');
@@ -99,7 +100,7 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
       });
       expect(sizes.texts.length).toBe(4);
       for (const t of sizes.texts) { expect([t.s, `${t.px.toFixed(2)}px`, t.px >= 11]).toEqual([t.s, `${t.px.toFixed(2)}px`, true]); expect([t.s, `box ${t.h.toFixed(2)}`, t.h >= 14]).toEqual([t.s, `box ${t.h.toFixed(2)}`, true]); }
-      expect(sizes.est).toBeGreaterThanOrEqual(11);
+      expect(sizes.est).toBeGreaterThanOrEqual(12);
 
       // (4) a Swap button on every meal, 44px or larger.
       const btns = await p.evaluate(() => [...document.querySelectorAll('#ob-week .ob-swap')].map((b) => ({ w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height })));
