@@ -108,19 +108,49 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
+/**
+ * The saved list with the ticked filters appended, or null when nothing should be written:
+ * nothing new was ticked, or the saved list isn't a clean list of known filter strings
+ * (objects, a free-text string, unknown words). Odd saved formats are never overwritten.
+ */
+function mergedFilterList(stored, sent) {
+  if (stored != null && !(Array.isArray(stored) && stored.every((d) => typeof d === 'string'))) return null;
+  const keep = stored || [];
+  const have = planEngine.normaliseDiet(keep);
+  if (!have.every((d) => planEngine.DIET_FILTERS.includes(d))) return null;
+  const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !have.includes(d));
+  return added.length ? [...keep, ...added] : null;
+}
+
+/**
+ * Save ticked filters to the profile (merged, never shrunk) in one atomic transaction, so Coach,
+ * the weekly review and insights see them too. Skipped when the profile couldn't be read. Best effort.
+ */
+async function rememberFilters(userId, sent) {
+  if (!planEngine.normaliseDiet(sent).length) return;
+  try {
+    await require('./server/storage.js').mergeDietaryPreferences(userId, (stored) => mergedFilterList(stored, sent));
+  } catch (_) { /* the plan is still built from the merged filters */ }
+}
+
 router.post('/generate', requireAuth, async (req, res) => {
   const input = planInput(req.body);
   if (input.error) return res.status(400).json({ success: false, error: input.error });
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
-    // Saved filters always apply too (read only, never written).
-    try { input.dietary = dietGuard.combineFilters(await require('./server/storage.js').getProfile(req.user.userId), input.dietary).slice(0, 16); } catch (_) { /* sent filters still apply */ }
+    // Saved filters always apply too; ticked ones are saved first (onboarding, EQA #141 M2).
+    try {
+      const profile = await require('./server/storage.js').getProfile(req.user.userId);
+      await rememberFilters(req.user.userId, input.dietary);
+      input.dietary = dietGuard.combineFilters(profile, input.dietary).slice(0, 16);
+    } catch (_) { /* sent filters still apply */ }
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
-  // Saved filters are only read here; this route never writes the profile.
+  // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
+  // weekly review see them too and stay off the AI (live hotfix after #135).
   const filteredPlan = (dietary) => {
     input.dietary = dietary.slice(0, 16);
     return res.json({
@@ -133,7 +163,9 @@ router.post('/generate', requireAuth, async (req, res) => {
   };
   if (input.dietary.length) {
     let saved = null;
-    try { saved = await require('./server/storage.js').getProfile(req.user.userId); } catch (_) { /* sent filters still apply */ }
+    let read = false;
+    try { saved = await require('./server/storage.js').getProfile(req.user.userId); read = true; } catch (_) { /* sent filters still apply */ }
+    if (read) await rememberFilters(req.user.userId, input.dietary);
     return filteredPlan(dietGuard.combineFilters(saved, input.dietary));
   }
   try {
@@ -303,6 +335,7 @@ router.get('/generate', (_req, res) => res.json({
 }));
 
 module.exports = router;
+module.exports.mergedFilterList = mergedFilterList;
 // Read by the store-name sweep test.
 router.AI_PROMPTS = { planPrompt };
 router.planInput = planInput;

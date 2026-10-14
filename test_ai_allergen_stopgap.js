@@ -40,7 +40,7 @@ jest.mock('./lib/ai-usage', () => {
 });
 jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
-  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn() };
+  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn(), mergeDietaryPreferences: jest.fn(async () => true) };
 });
 
 const express = require('express');
@@ -115,7 +115,42 @@ describe('meal plan generation', () => {
     expect(servedGroups(r.body.plan)).not.toEqual(expect.arrayContaining(['dairy']));
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
     expect(aiClient.chatJson).not.toHaveBeenCalled();
+    // Hotfix: ticked filters are saved (merged, never shrunk) so Coach and the weekly review see them.
+    expect(storage.mergeDietaryPreferences).toHaveBeenCalledTimes(1);
+    const [uid, merge] = storage.mergeDietaryPreferences.mock.calls[0];
+    expect(uid).toBe(storage.getProfile.mock.calls[0][0]);
+    expect(merge(['dairy free'])).toEqual(['dairy free', 'nut free']);
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it('#141 S1: no write when the profile could not be read (generate and onboarding)', async () => {
+    storage.getProfile.mockRejectedValue(new Error('db down'));
+    for (const extra of [{}, { builderOnly: true }]) {
+      const r = await generate({ dietary: ['nut free'], ...extra });
+      expect(r.body.source).toBe('builder');
+    }
+    expect(storage.mergeDietaryPreferences).not.toHaveBeenCalled();
+  });
+
+  it('#141 M2: onboarding (builderOnly) saves ticked filters too', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    await generate({ dietary: ['nut free'], builderOnly: true });
+    expect(storage.mergeDietaryPreferences).toHaveBeenCalledTimes(1);
+    expect(storage.mergeDietaryPreferences.mock.calls[0][1]([])).toEqual(['nut free']);
+  });
+
+  it('#141 S1/S2: mergedFilterList dedupes, case-folds, skips no-ops and never overwrites odd formats', () => {
+    const { mergedFilterList: m } = require('./meal-planner');
+    expect(m(['gluten free'], ['nut free'])).toEqual(['gluten free', 'nut free']);
+    expect(m(null, ['nut free'])).toEqual(['nut free']);
+    expect(m([], ['nut free', 'nut free', 'Nut-Free'])).toEqual(['nut free']); // dedupe
+    expect(m(['Gluten Free'], ['gluten free'])).toBeNull(); // case-folded: nothing added
+    expect(m(['Gluten Free'], ['GLUTEN_FREE', 'dairy free'])).toEqual(['Gluten Free', 'dairy free']);
+    expect(m(['nut free'], ['nut free'])).toBeNull(); // nothing added -> no write
+    expect(m(['nut free'], [])).toBeNull();
+    for (const odd of [[{ name: 'gluten free' }], { gluten: { severe: true } }, 'peanut-free diet', 'vegan', ['peanut-free diet'], [null], 7]) {
+      expect([odd, m(odd, ['nut free'])]).toEqual([odd, null]);
+    }
   });
 
   it('builderOnly (onboarding) also applies saved filters', async () => {
