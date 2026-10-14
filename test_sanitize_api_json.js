@@ -1,6 +1,6 @@
 'use strict';
 const jwt = require('jsonwebtoken');
-const { sanitizeApiJson, isOpaque } = require('./lib/sanitize-api-json');
+const { sanitizeApiJson, isOpaque, isJwt, isShareToken } = require('./lib/sanitize-api-json');
 
 describe('API JSON sanitizer leaves opaque tokens alone', () => {
   it('the CI flake: a register token whose signature held a provider word by chance now survives', () => {
@@ -29,40 +29,63 @@ describe('API JSON sanitizer leaves opaque tokens alone', () => {
   });
 
   it.each([
+    // Elite QA r1 + r2 strings: every casing, joiner and padding is cleaned.
     'Gemini-2.5-Pro-Preview-Experimental-0827x',
     'Grok-4-Fast-Reasoning-Beta-Build-2026-10-14',
     'x-ai/Grok-4-Fast-Reasoning-2026-10-14-Preview',
     'PoweredByGrokAndGemini2026ForFitMunchUsers',
     'GrokBot2026Edition',
-    'AnsweredByGrokViaOpenAIForFitMunchMembersWithoutAnyDigitsAtAll',
-  ])('long or word-joined model text is not treated as a token: %s', (text) => {
+    'poweredbygrokandgemini2026fitmun',
+    'GROKGEMINIOPENAI2026XXXXXXXXXXXXXX',
+    'grok_4_fast_reasoning_preview_2026',
+    'gemini_2_5_flash_lite_preview_09_2025',
+    'Grok4Fast2026000000000000000000000',
+    '1234567890Gemini1234567890123456789',
+    'PoweredByGROKandGEMINIviaOPENAIforYOU2026x',
+    'grok-4-fast.gemini-25-pro.openai-o3-mini',
+    'Answered_by_Grok.via_xAI_API.Gemini_2_5_Pro',
+    'odd casings XaI gRoK GeMiNi oPeNaI AnThRoPiC',
+    'aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0',
+  ])('provider names are scrubbed in any casing or joining: %s', (text) => {
     expect(isOpaque(text)).toBe(false);
-    const out = sanitizeApiJson({ label: text, list: [text], nested: { deep: [{ value: text }] } });
+    const out = sanitizeApiJson({ label: text, list: [text], nested: { deep: [{ value: text }] }, token: text, sharePath: text });
     expect(JSON.stringify(out)).not.toMatch(/gemini|openai|grok|anthropic|xai/i);
   });
 
-  it('only real token shapes are opaque', () => {
-    expect(isOpaque('eyJhbGciOi.eyJ1c2VySW.Grok_xAI-sig')).toBe(true);
-    expect(isOpaque('eyJhbGciOi.eyJ1c2VySW')).toBe(false);
-    expect(isOpaque('aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0')).toBe(true); // 32-char random base64url run
-    expect(isOpaque('aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL')).toBe(false); // 31 chars
-    expect(isOpaque('aB3xAiQ9zK2mN7pR-4tV8wY1cE5gH6jL0')).toBe(false); // delimiter breaks the run
-    // Random runs that hold a provider word by chance stay intact, even with no digit at all
-    // or with 41% of the run reading as Capitalised words.
-    for (const id of ['hiGfvABAhAPxAiPHggKzTPQUoXvtYBiq', 's63BsvzekSpvV4gqFc9K0V9V4lAxai4T']) {
-      expect(isOpaque(id)).toBe(true);
-      expect(sanitizeApiJson({ id }).id).toBe(id);
+  it('a JWT look-alike is only opaque when its header decodes to JSON with alg', () => {
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const real = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ userId: 'u-1' })}.GrokXaIsig_0123456789`;
+    expect(isJwt(real)).toBe(true);
+    expect(sanitizeApiJson({ t: real }).t).toBe(real);
+    const noAlg = `${b64({ typ: 'JWT' })}.${b64({ userId: 'u-1' })}.GrokXaIsig_0123456789`;
+    const badBody = `${b64({ alg: 'HS256' })}.GrokGrokGrokGrok.GrokXaIsig_0123456789`;
+    const fakeHead = 'eyJhbGciOi.eyJ1c2VySW.Grok_xAI-sig';
+    for (const fake of [noAlg, badBody, fakeHead]) {
+      expect(isJwt(fake)).toBe(false);
+      expect(sanitizeApiJson({ t: fake }).t).not.toMatch(/grok|xai/i);
     }
-    // Dotted model text is not a JWT: short segments, or "/" inside a segment.
-    for (const text of ['v2.Grok.4fast', 'x-ai/Grok-4.fast-preview.build-2026']) {
-      expect(isOpaque(text)).toBe(false);
-      expect(sanitizeApiJson({ text }).text).not.toMatch(/grok/i);
-    }
-    const out = sanitizeApiJson({ id: 'aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0' });
-    expect(out.id).toBe('aB3xAiQ9zK2mN7pR4tV8wY1cE5gH6jL0');
   });
 
-  it('a key named token is cleaned like any other key, at any depth', () => {
+  it('coach share links round-trip unaltered, at any depth, even when the token holds a provider word', () => {
+    const tokens = ['abcXaIdefGROKghi-_012345', 'grokgrokgrokgrokgrokgrok', 'Q9xai_GeminiOpenAI-z1234'];
+    for (const token of tokens) {
+      const plan = { id: 'p1', status: 'sent', token, sharePath: `/c/${token}` };
+      const out = sanitizeApiJson({ success: true, plan, plans: [plan] });
+      expect(out.plan).toEqual(plan);
+      expect(out.plans[0]).toEqual(plan);
+      expect(isShareToken('token', token)).toBe(true);
+      expect(isShareToken('sharePath', `/c/${token}`)).toBe(true);
+    }
+    // Wrong length, wrong key or wrong path prefix is not a share token.
+    expect(isShareToken('token', 'abcXaIdefGROKghi-_01234')).toBe(false);
+    expect(isShareToken('token', 'abcXaIdefGROKghi-_0123456')).toBe(false);
+    expect(isShareToken('id', 'abcXaIdefGROKghi-_012345')).toBe(false);
+    expect(isShareToken('sharePath', '/x/abcXaIdefGROKghi-_012345')).toBe(false);
+    expect(isShareToken('sharePath', 'abcXaIdefGROKghi-_012345')).toBe(false);
+    expect(sanitizeApiJson({ id: 'abcXaIdefGROKghi-_012345' }).id).not.toMatch(/grok|xai/i);
+  });
+
+  it('a key named token is cleaned like any other key unless it holds an exact share token', () => {
     const plan = { plan: { meals: [{ token: 'Answered by Grok via OpenAI' }] } };
     expect(sanitizeApiJson(plan)).toEqual({ plan: { meals: [{ token: 'Answered by via' }] } });
     const out = sanitizeApiJson({ token: 'grok said hi', items: [{ claimToken: 'Gemini wrote this', TOKEN: 'xai' }] });
