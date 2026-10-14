@@ -1707,7 +1707,7 @@ const S = {
  inviteLink: null,
  todayMeals: [],
  mealsDate: new Date().toISOString().split('T')[0],
-};
+ };
 
 // AI routes run only after the account has said Allow (enforced server-side too).
 const AI_PATHS = ['/ai/chat', '/ai/weekly-review', '/ai/workout-plan', '/meal-plan/generate'];
@@ -1770,7 +1770,7 @@ const API = async (path, opts={}) => {
  if (!builderOnly && AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
-};
+ };
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 function showErr(msg) { console.error('[FitMunch]', msg); }
@@ -2239,6 +2239,18 @@ async function loadMealPlans() {
  if (gp && !gp.value) gp.value = S.goals.targetProtein || '';
  if (gg && S.goals.fitnessGoal) gg.value = S.goals.fitnessGoal;
  }
+ // Meals you typed or edited are kept as entered; the server marks any that may not fit your filters.
+ const planAllergenWarnings = (meals) => {
+ const out = [];
+ const walk = (v, depth) => {
+ if (!v || typeof v !== 'object' || depth > 6) return;
+ if (Array.isArray(v)) { v.forEach(x => walk(x, depth + 1)); return; }
+ if (v.allergenWarning && v.allergenWarning.message) out.push({ name: v.name || v.title || 'A meal', message: v.allergenWarning.message });
+ for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
+ };
+ walk(meals, 0);
+ return out;
+ };
  const r = await API('/meal-plans');
  S.mealPlans = r.plans || [];
  const grid = document.getElementById('meal-plans-grid');
@@ -2276,19 +2288,6 @@ async function loadMealPlans() {
  </div>
  </div>`;
  }).join('');
-}
-
-// Meals you typed or edited are kept as entered; the server marks any that may not fit your filters.
-function planAllergenWarnings(meals) {
- const out = [];
- const walk = (v, depth) => {
- if (!v || typeof v !== 'object' || depth > 6) return;
- if (Array.isArray(v)) { v.forEach(x => walk(x, depth + 1)); return; }
- if (v.allergenWarning && v.allergenWarning.message) out.push({ name: v.name || v.title || 'A meal', message: v.allergenWarning.message });
- for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
- };
- walk(meals, 0);
- return out;
 }
 
 async function buildListFromSaved(planId) {
