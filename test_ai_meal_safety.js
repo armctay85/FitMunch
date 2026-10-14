@@ -41,6 +41,10 @@ jest.mock('./server/storage.js', () => {
 });
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+// storage is mocked; the route only looks the profile up when a database is configured.
+const HAD_DB = process.env.DATABASE_URL;
+process.env.DATABASE_URL = HAD_DB || 'postgres://mocked/never-used';
+afterAll(() => { if (HAD_DB === undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL = HAD_DB; });
 const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');

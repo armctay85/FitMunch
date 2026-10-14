@@ -1397,6 +1397,7 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
 
 /** The user's stored diet filters and allergies; empty on a lookup failure. */
 async function userFilters(userId) {
+  if (!process.env.DATABASE_URL) return { dietary: [], allergies: [] };
   try { return mealSafety.profileFilters(await getProfile(userId)); } catch (_) { return { dietary: [], allergies: [] }; }
 }
 /** A saved plan in day form ([{ day, meals: { slot: meal } }]) goes through the allergen check before it's stored. */

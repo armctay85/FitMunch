@@ -102,6 +102,7 @@ Return ONLY valid JSON, no markdown:
 // The user's stored diet filters and allergies, merged with the request's. A lookup failure keeps the
 // request's filters; every plan below still goes through the allergen check.
 async function storedFilters(userId) {
+  if (!process.env.DATABASE_URL) return null; // no database configured: nothing is stored
   try {
     const { getProfile } = require('./server/storage.js');
     return mealSafety.profileFilters(await getProfile(userId));
@@ -110,6 +111,7 @@ async function storedFilters(userId) {
 
 function rememberFilters(userId, dietary, stored) {
   const before = stored ? planEngine.normaliseDiet(stored.dietary) : null;
+  if (!process.env.DATABASE_URL) return;
   if (before && before.length === dietary.length && before.every((d) => dietary.includes(d))) return;
   try {
     const { createOrUpdateProfile } = require('./server/storage.js');
