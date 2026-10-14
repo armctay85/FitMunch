@@ -81,7 +81,7 @@ const PAYLOADS = [
   '"><img src=x onerror=window.__pwned=1>',
   "x' onmouseover='window.__pwned=1",
 ];
-const noMarkup = (s) => expect(String(s)).not.toMatch(/[<>"']/);
+const noMarkup = (s) => expect(String(s)).not.toMatch(/[<>`]/);
 
 const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
 function extractFn(name) {
@@ -108,11 +108,76 @@ beforeEach(() => {
 });
 
 describe('stripMarkup / stripNames', () => {
-  test('removes < > " \' from names only', () => {
-    expect(stripMarkup('<b>"Nature\'s"</b>')).toBe('bNatures/b');
-    const out = stripNames({ name: '<x>', calories: 5, meals: [{ ingredients: [{ item: '"y"', qty: '1' }], foodName: "z'" }] });
-    expect(out).toEqual({ name: 'x', calories: 5, meals: [{ ingredients: [{ item: 'y', qty: '1' }], foodName: 'z' }] });
+  test('removes < > and backticks, keeps quotes', () => {
+    expect(stripMarkup('<b>`x`</b>')).toBe('bx/b');
+    expect(stripMarkup("Kellogg's Corn Flakes")).toBe("Kellogg's Corn Flakes");
+    expect(stripMarkup('6" sub')).toBe('6" sub');
     expect(stripMarkup(42)).toBe(42);
+  });
+
+  test('strips every string field at any depth, whatever the key or case', () => {
+    const out = stripNames({ Name: '<a>', NAME: '<b>', reps: '<8>', sets: '<3>', notes: '<n>', level: '<l>',
+      description: '<d>', goalType: '<g>', calories: 5, tags: ['<t>'], meals: [{ ingredients: [{ item: '<i>', qty: '<1>', unit: '<g>' }] }] });
+    expect(out).toEqual({ Name: 'a', NAME: 'b', reps: 'under 8', sets: 'under 3', notes: 'n', level: 'l', description: 'd', goalType: 'g',
+      calories: 5, tags: ['t'], meals: [{ ingredients: [{ item: 'i', qty: 'under 1', unit: 'g' }] }] });
+  });
+
+  test('< and > next to a number or between spaces become words', () => {
+    expect(stripMarkup('Rest <90s')).toBe('Rest under 90s');
+    expect(stripMarkup('>8 reps')).toBe('over 8 reps');
+    expect(stripMarkup('< 5 min')).toBe('under 5 min');
+    expect(stripMarkup('heart rate > 150')).toBe('heart rate over 150');
+    expect(stripMarkup('a < b')).toBe('a under b');
+    expect(stripMarkup('<img src=x onerror=1>')).toBe('img src=x onerror=1');
+    expect(stripMarkup('<script>x</script>')).toBe('scriptx/script');
+  });
+
+  test('only PAYLOAD_TOO_DEEP passes its message through; other exposed errors stay generic', () => {
+    const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
+    const res = () => { const r = { code: 0, body: null }; r.status = (c) => { r.code = c; return r; }; r.json = (b) => { r.body = b; return r; }; return r; };
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    let deep = {}; for (let i = 0; i < 14; i++) deep = { a: deep };
+    let err; try { stripNames(deep); } catch (e) { err = e; }
+    const a = sendApiError(res(), err);
+    expect([a.code, a.body.error]).toEqual([400, 'Payload is nested too deeply']);
+    const b = sendApiError(res(), Object.assign(new Error('internal detail'), { status: 400, expose: true }));
+    expect([b.code, b.body.error]).toEqual([500, GENERIC_API_ERROR]);
+    spy.mockRestore();
+  });
+
+  test('payloads nested deeper than 12 levels are rejected', async () => {
+    let deep = { name: 'x' };
+    for (let i = 0; i < 14; i++) deep = { a: deep };
+    expect(() => stripNames(deep)).toThrow(/too deeply/);
+    let ok = { name: '<x>' };
+    for (let i = 0; i < 10; i++) ok = { a: ok };
+    expect(() => stripNames(ok)).not.toThrow();
+    const r = await request(app).post('/api/meal-plans').set('Authorization', as(PT)).send({ name: 'x', meals: [deep] });
+    expect(r.status).toBe(400);
+    expect(db.meal_plans).toHaveLength(0);
+  });
+
+  test("Kellogg's and 6\" survive a save and render as text", async () => {
+    await request(app).post('/api/meal-plans').set('Authorization', as(PT))
+      .send({ name: 'q', meals: [{ day: 'Monday', meals: { lunch: { name: 'L', ingredients: [{ item: "Kellogg's Corn Flakes", qty: '6" sub' }] } } }] });
+    const gen = await request(app).post('/api/shopping-list/generate').set('Authorization', as(CLIENT)).send({ mealPlanId: 1 });
+    expect(gen.body.list.items[0].name).toBe("Kellogg's Corn Flakes");
+    render.renderShoppingList(gen.body.list, 'out');
+    expect(document.querySelector('#out .shop-name').textContent).toBe("Kellogg's Corn Flakes");
+  });
+
+  test('workout reps, sets, notes and level, plan description and goalType, food qty and unit are stored stripped', async () => {
+    const evil = '<img src=x onerror=window.__pwned=1>';
+    await request(app).post('/api/workout-plans').set('Authorization', as(PT))
+      .send({ name: 'w', description: evil, level: evil, workouts: [{ name: 'Squat', reps: evil, sets: evil, rest: evil, notes: evil }] });
+    const w = db.workout_plans[0];
+    for (const v of [w.description, w.level, w.workouts[0].reps, w.workouts[0].sets, w.workouts[0].rest, w.workouts[0].notes]) expect(v).not.toMatch(/[<>`]/);
+    await request(app).post('/api/meal-plans').set('Authorization', as(PT))
+      .send({ name: 'm', description: evil, goalType: evil, meals: [{ foods: [{ name: 'Oats', qty: evil, unit: evil }] }] });
+    const m = db.meal_plans[0];
+    for (const v of [m.description, m.goal_type, m.meals[0].foods[0].qty, m.meals[0].foods[0].unit]) expect(v).not.toMatch(/[<>`]/);
+    await request(app).post('/api/shopping-list').set('Authorization', as(CLIENT)).send({ name: 's', items: [{ name: 'Milk', qty: evil, unit: evil }] });
+    expect(JSON.stringify(db.shopping_lists[0].items)).not.toMatch(/[<>`]/);
   });
 });
 
@@ -123,8 +188,7 @@ describe.each(PAYLOADS)('stored payload %s', (payload) => {
     const saved = await request(app).post('/api/meal-plans').set('Authorization', as(PT)).send(plan());
     expect(saved.status).toBe(200);
     noMarkup(db.meal_plans[0].name);
-    noMarkup(JSON.stringify(db.meal_plans[0].meals).replace(/\\?"/g, ''));
-    expect(JSON.stringify(db.meal_plans[0].meals)).not.toMatch(/[<>']/);
+    noMarkup(JSON.stringify(db.meal_plans[0].meals));
 
     const gen = await request(app).post('/api/shopping-list/generate').set('Authorization', as(CLIENT)).send({ mealPlanId: 1 });
     expect(gen.status).toBe(200);

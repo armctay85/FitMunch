@@ -61,7 +61,7 @@ describe('SEO pack 2: new search landers', () => {
       expect(html).not.toMatch(/Pty Ltd/i);
       expect(html).not.toMatch(/Stripe|HealthKit|Apple Watch/i);
       expect(html).not.toMatch(/we pay Wool|live trolley pric/i);
-      expect(html).toContain('href="/shopper"');
+      expect(html).not.toContain('href="/shopper"');
       expect(html).toContain('href="/budget-meal-planner"');
       expect(html).toContain('href="/ai-meal-planner-australia"');
     });

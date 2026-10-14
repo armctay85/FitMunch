@@ -127,7 +127,5 @@ describe('FitMunch Coach landers', () => {
     const home = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
     expect(home).toContain('<h1>Your body wrote the trolley.</h1>');
     expect(home).toContain('$19.99');
-    const shopper = fs.readFileSync(path.join(__dirname, 'public', 'shopper.html'), 'utf8');
-    expect(shopper).toContain('$19.99');
   });
 });
