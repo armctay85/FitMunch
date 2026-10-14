@@ -108,28 +108,46 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
+/** A saved diet that reads (via listOf, so strings too) as only known filter words; else null. */
+function cleanDietList(v) {
+  const words = dietGuard.listOf(v);
+  return planEngine.normaliseDiet(words).every((d) => planEngine.DIET_FILTERS.includes(d)) ? words : null;
+}
 /**
- * The saved list with the ticked filters appended, or null when nothing should be written:
- * nothing new was ticked, or the saved list isn't a clean list of known filter strings
- * (objects, a free-text string, unknown words). Odd saved formats are never overwritten.
+ * Saved allergies with the tick appended, never dropping what was saved: a readable value (list,
+ * string, flag object) is stored as its words; an odd value is kept as the first element.
  */
-function mergedFilterList(stored, sent) {
-  if (stored != null && !(Array.isArray(stored) && stored.every((d) => typeof d === 'string'))) return null;
-  const keep = stored || [];
-  const have = planEngine.normaliseDiet(keep);
-  if (!have.every((d) => planEngine.DIET_FILTERS.includes(d))) return null;
-  const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !have.includes(d));
-  return added.length ? [...keep, ...added] : null;
+function allergiesWith(v, added) {
+  const words = dietGuard.listOf(v);
+  if (!words.includes(dietGuard.UNREADABLE)) return [...words, ...added];
+  return [...(Array.isArray(v) ? v : [v]), ...added];
 }
 
 /**
- * Save ticked filters to the profile (merged, never shrunk) in one atomic transaction, so Coach,
- * the weekly review and insights see them too. Skipped when the profile couldn't be read. Best effort.
+ * The profile patch that saves the ticked filters, or null only when nothing new was ticked.
+ * - a saved diet that reads as known filter words ('vegan', ['Gluten Free'], 'none', {}) gets the tick;
+ * - any other saved diet ([{name}], 'peanut-free diet', ['Paleo']) is kept as it is, and the tick always
+ *   goes into allergies, which every reader also counts as filters (EQA #142 M1).
+ */
+function filterPatch(stored, sent) {
+  const p = stored || {};
+  const have = dietGuard.savedFilters(p);
+  const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !have.includes(d));
+  if (!added.length) return null;
+  const diet = cleanDietList(p.dietaryPreferences);
+  if (diet) return { dietaryPreferences: [...diet, ...added] };
+  return { allergies: allergiesWith(p.allergies, added) };
+}
+
+/**
+ * Save ticked filters to the profile (merged, never shrunk) in one locked transaction, so Coach,
+ * the weekly review and insights see them too. Skipped when the profile couldn't be read. Best effort:
+ * a failed write still serves the checked plan.
  */
 async function rememberFilters(userId, sent) {
   if (!planEngine.normaliseDiet(sent).length) return;
   try {
-    await require('./server/storage.js').mergeDietaryPreferences(userId, (stored) => mergedFilterList(stored, sent));
+    await require('./server/storage.js').mergeProfileFilters(userId, (stored) => filterPatch(stored, sent));
   } catch (_) { /* the plan is still built from the merged filters */ }
 }
 
@@ -335,7 +353,7 @@ router.get('/generate', (_req, res) => res.json({
 }));
 
 module.exports = router;
-module.exports.mergedFilterList = mergedFilterList;
+module.exports.filterPatch = filterPatch;
 // Read by the store-name sweep test.
 router.AI_PROMPTS = { planPrompt };
 router.planInput = planInput;
