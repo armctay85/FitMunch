@@ -6,6 +6,7 @@ module.exports = {
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
     '**/test_item_name_case.js',
+    '**/test_app_select_names.js',
     '**/test_app.js',
     '**/test_haul_score.js',
     '**/test_app_store_copy.js',
