@@ -3,7 +3,7 @@
  * FitMunch doesn't plan to a price. The meal-plan modal had a "Weekly budget ($)"
  * field and the API took a budget param it never used. This guards that:
  * - the API drops any budget param, so sending one changes nothing;
- * - "budget" (any case) never appears in served customer copy;
+ * - "budget" (any case) and cost or saving promises never appear in served copy;
  * - the trainer dashboard has no "$0 subscription revenue" placeholder.
  */
 jest.mock('./lib/ai-client', () => ({
@@ -72,43 +72,66 @@ describe('meal-plan API ignores budget', () => {
   });
 });
 
-// Allowlist, kept deliberately small:
-// - The URL slugs /budget-meal-plan and /budget-meal-planner. They are live, indexed
-//   URLs in sitemap.xml, server.js and vercel.json; renaming them needs 301s and is an
-//   SEO decision, not copy. The same slug is the analytics page id in js/fm-track.js
-//   (matched by lib/funnel-events.js), which is never shown. Link text is still checked.
-// - The two landing pages at those slugs. Their whole topic is the "budget meal plan"
-//   search term; rewriting or retiring them is a separate decision (flagged on the PR).
-const ALLOWED_FILES = new Set(['budget-meal-plan.html', 'budget-meal-planner.html']);
-const SLUG = /\/?\bbudget-meal-plan(?:ner)?\b/g;
+// No allowlist: the old /budget-meal-plan and /budget-meal-planner landers were deleted
+// and 301 to /high-protein-staples-meal-plan (Wilson, PR 121), so "budget" appears nowhere.
+// FitMunch makes no cost or saving promise in served copy either. Plain price disclaimers
+// ("Prices vary by store and week", "does not show supermarket prices") and the A$19.99
+// subscription price are not promises and stay allowed.
+const COST_PROMISES = [
+  ['budget', /budget/i],
+  ['cheap', /\bcheap(?:er|est|ly)?\b/i],
+  ['save money / save $', /\bsav(?:e|es|ed|ing|ings)\b[^.<]{0,20}(?:\$|\bmoney\b|\bdollars?\b|\bcash\b|on (?:your )?(?:groceries|grocery|food|shop|shopping))/i],
+  ['save on groceries', /\bsav(?:e|es|ing)\b[^.<]{0,10}\bgrocer/i],
+  ['savings', /\bsavings\b/i],
+  ['cost less / costs less', /\bcosts? less\b/i],
+  ['spend less', /\bspend(?:ing)? less\b/i],
+  ['lower bill', /\b(?:lower|cut|cuts|reduce|reduces|slash)\b[^.<]{0,20}\b(?:grocery|food|shopping|weekly)\s+(?:bill|spend|costs?)\b/i],
+  ['$ per week', /\$\s?\d[\d.,]*\s*(?:a|per|\/)\s*(?:week|wk|day|meal|serve|serving)\b/i],
+  ['per week $', /\bper (?:week|day|meal|serve)\b[^.<]{0,6}\$\s?\d/i],
+  ['$ per gram of protein', /\$\s?\/\s?\d*\s?g\b|\$\d[\d.]*\s*(?:per|\/)\s*\d*\s?g(?:rams?)?\s+(?:of\s+)?protein/i],
+  ['affordable / bargain / frugal', /\b(?:affordable|bargains?|frugal|economical|value for money|price[- ]conscious|low[- ]cost|inexpensive)\b/i],
+];
 
 function servedFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) servedFiles(p, out);
-    else if (/\.(html|js|json|webmanifest|txt)$/.test(e.name)) out.push(p);
+    else if (/\.(html|js|json|webmanifest|txt|xml)$/.test(e.name)) out.push(p);
   }
   return out;
 }
 
-describe('no "budget" in served customer copy', () => {
+describe('no budget, cost or saving promises in served customer copy', () => {
   const root = path.join(__dirname, 'public');
-  const files = servedFiles(root).filter((f) => !ALLOWED_FILES.has(path.relative(root, f)));
+  const files = servedFiles(root);
 
-  it('scans the served pages', () => {
+  it('scans the served pages, including the staples lander', () => {
     expect(files.length).toBeGreaterThan(20);
-    expect(files.some((f) => f.endsWith(`${path.sep}app.html`))).toBe(true);
+    for (const f of ['app.html', 'index.html', 'high-protein-staples-meal-plan.html']) {
+      expect(files.some((x) => x.endsWith(`${path.sep}${f}`))).toBe(true);
+    }
   });
 
-  it('no file has "budget" outside the allowed URL slugs', () => {
-    const hits = [];
-    for (const f of files) {
-      const text = fs.readFileSync(f, 'utf8').replace(SLUG, '/SLUG');
-      text.split('\n').forEach((line, i) => {
-        if (/budget/i.test(line)) hits.push(`${path.relative(root, f)}:${i + 1}: ${line.trim().slice(0, 120)}`);
-      });
-    }
-    expect(hits).toEqual([]);
+  for (const [label, re] of COST_PROMISES) {
+    it(`no served file says ${label}`, () => {
+      const hits = [];
+      for (const f of files) {
+        fs.readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+          const m = line.match(re);
+          if (m) hits.push(`${path.relative(root, f)}:${i + 1}: ${line.slice(Math.max(0, m.index - 40), m.index + 60).trim()}`);
+        });
+      }
+      expect(hits).toEqual([]);
+    });
+  }
+
+  it('the patterns catch the copy they are meant to', () => {
+    const caught = (s) => COST_PROMISES.some(([, re]) => re.test(s));
+    for (const s of ['Budget meal plan', 'cheap protein', 'Save $40 a week', 'save money on groceries', 'Costs less than takeaway',
+      'Spend less each shop', 'cut your grocery bill', '$45 a week', 'per week $60', '$/25g protein', 'Affordable high protein',
+      'big savings']) expect([s, caught(s)]).toEqual([s, true]);
+    for (const s of ['Prices vary by store and week.', '14-day trial, then A$19.99 a month', 'FitMunch does not show supermarket prices',
+      '3 days per week', 'Save your plan', 'Saved to your lists']) expect([s, caught(s)]).toEqual([s, false]);
   });
 
   it('the meal-plan modal has no budget field', () => {

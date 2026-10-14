@@ -13,9 +13,9 @@ const PAGES = [
     h1: 'High protein shopping list, sized to your target',
   },
   {
-    route: '/budget-meal-plan',
-    title: 'Budget Meal Plan for Your Week | FitMunch',
-    h1: 'Budget meal plan: a week planned to your budget',
+    route: '/high-protein-staples-meal-plan',
+    title: 'High Protein Staples Meal Plan for Your Week | FitMunch',
+    h1: 'A high protein week built from everyday staples',
   },
   {
     route: '/ai-meal-plan-shopping-list',
@@ -81,7 +81,7 @@ describe('SEO pack 4: generic shopping list, budget and AI landers', () => {
       expect(html).not.toMatch(/Stripe|HealthKit|Apple Watch/i);
       expect(html).not.toMatch(/we pay Wool|live trolley pric|\d+%/i);
       expect(html).not.toContain('href="/shopper"');
-      expect(html).toContain('href="/budget-meal-planner"');
+      expect(html).toContain('href="/high-protein-staples-meal-plan"');
       expect(html).toContain('href="/ai-meal-planner-australia"');
       expect(html).toContain('href="/privacy"');
     });

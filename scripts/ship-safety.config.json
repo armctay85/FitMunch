@@ -95,21 +95,6 @@
       "count": 1
     },
     {
-      "file": "public/budget-meal-planner.html",
-      "id": "cheap",
-      "count": 6
-    },
-    {
-      "file": "public/budget-meal-planner.html",
-      "id": "cheapest",
-      "count": 2
-    },
-    {
-      "file": "public/budget-meal-planner.html",
-      "id": "shelf-price",
-      "count": 2
-    },
-    {
       "file": "public/coach.html",
       "id": "specials",
       "count": 1
@@ -330,7 +315,7 @@
     "brand/logo-icon.svg",
     "brand/logo-social-profile.svg",
     "brand/logo-wordmark.svg",
-    "budget-meal-planner.html",
+    "high-protein-staples-meal-plan.html",
     "coach-upgrade.html",
     "coach.html",
     "grocery-meal-planner.html",
@@ -383,7 +368,6 @@
     "terms.html",
     "supermarket-meal-planner.html",
     "high-protein-shopping-list.html",
-    "budget-meal-plan.html",
     "ai-meal-plan-shopping-list.html"
   ],
   "denyNames": [
