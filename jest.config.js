@@ -27,6 +27,7 @@ module.exports = {
     '**/test_meal_plan_owner_pg.js',
     '**/test_onboarding_targets.js',
     '**/test_allergen_tags.js',
+    '**/test_progress_log_pg.js',
     '**/test_onboard_rendered.js',
     '**/test_first_week_wow.js',
     '**/test_first_week_wow_rendered.js',

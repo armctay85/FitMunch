@@ -197,7 +197,7 @@ describe('swaps are instant: builder only, no AI client', () => {
 // three swaps. Fails loudly, naming each meal and diet that falls short, and above all any that get none.
 describe('swap coverage: at least 3 swaps for every meal under every diet', () => {
   const DIETS = [[], ['vegetarian'], ['vegan'], ['pescatarian'], ['gluten free'], ['dairy free'], ['egg free'], ['nut free'],
-    ['high protein'], ['low carb'], ['gluten free', 'dairy free'], ['vegan', 'gluten free'], ['vegetarian', 'gluten free'], ['vegan', 'nut free']];
+    ['high protein'], ['low carb'], ['gluten free', 'dairy free'], ['vegan', 'gluten free'], ['vegetarian', 'gluten free'], ['vegan', 'nut free'], ['sesame free'], ['soy free'], ['shellfish free'], ['gluten free', 'soy free']];
   const TARGETS = [{ calories: 1500, protein: 100 }, { calories: 1600, protein: 110 }, { calories: 1800, protein: 90 }, { calories: 2000, protein: 150 },
     { calories: 2400, protein: 160 }, { calories: 2850, protein: 140 }, { calories: 3000, protein: 200 }];
   for (const dietary of DIETS) {
