@@ -350,9 +350,8 @@ router.get('/analytics/funnel', funnelLimiter, async (req, res) => {
 
 // ── AUTH ROUTES (real JWT + bcrypt + PostgreSQL) ──────────────────────────────
 const bcrypt  = require('bcrypt');
-const jwt     = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+const { signJwt } = require('./lib/jwt-secret');
 const JWT_EXPIRES = '30d';
 const SALT_ROUNDS = 12;
 
@@ -421,6 +420,10 @@ async function ensureMigrations() {
 
 // POST /api/auth/register
 router.post('/auth/register', async (req, res) => {
+  // Fail closed before touching the DB: no session secret, no sign-in.
+  if (!require('./lib/jwt-secret').jwtSecret()) {
+    return res.status(503).json({ success: false, error: 'Sign-in is unavailable right now.' });
+  }
   try {
     const { name, email, password } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -534,10 +537,11 @@ router.post('/auth/register', async (req, res) => {
 
     sendWelcomeEmail(user, req);
 
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = signJwt({ userId: user.id, name: user.name, email: user.email, role }, { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
+    if (err && err.code === 'JWT_SECRET_MISSING') return res.status(503).json({ success: false, error: 'Sign-in is unavailable right now.' });
     res.status(500).json({ success: false, error: 'Registration failed. Please try again.' });
   }
 });
@@ -660,6 +664,10 @@ router.post('/auth/resend-verification', authMiddleware, async (req, res) => {
 
 // POST /api/auth/login
 router.post('/auth/login', async (req, res) => {
+  // Fail closed before touching the DB: no session secret, no sign-in.
+  if (!require('./lib/jwt-secret').jwtSecret()) {
+    return res.status(503).json({ success: false, error: 'Sign-in is unavailable right now.' });
+  }
   try {
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const { email, password } = body;
@@ -686,7 +694,7 @@ router.post('/auth/login', async (req, res) => {
     } catch (e) {
       console.warn('[login] role lookup failed');
     }
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = signJwt({ userId: user.id, name: user.name, email: user.email, role }, { expiresIn: JWT_EXPIRES });
     try {
       await _pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
     } catch (e) {
@@ -695,6 +703,7 @@ router.post('/auth/login', async (req, res) => {
     res.json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, subscriptionTier: effectiveTier(user), role } });
   } catch (err) {
     console.error('Login error');
+    if (err && err.code === 'JWT_SECRET_MISSING') return res.status(503).json({ success: false, error: 'Sign-in is unavailable right now.' });
     res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
   }
 });
@@ -863,7 +872,7 @@ router.get('/coach/billing-status', async (req, res) => {
     }
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+      decoded = require('./lib/session-token').verifySessionToken(authHeader.slice(7));
     } catch (_) {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
@@ -897,7 +906,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'No token provided.' });
 
     const token = authHeader.slice(7);
-    const decoded = require('./lib/session-token').verifySessionToken(token, JWT_SECRET);
+    const decoded = require('./lib/session-token').verifySessionToken(token);
     if (decoded.preview) {
       const coachStore = require('./lib/coach-store');
       if (!coachStore.previewEnabled()) {
@@ -1065,7 +1074,7 @@ function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
   try {
-    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    req.user = require('./lib/session-token').verifySessionToken(h.slice(7));
     next();
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }

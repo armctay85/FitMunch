@@ -42,7 +42,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { sendEmail } = require('./server/email.js');
 const ev = require('./lib/email-verify');
-const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
 const app = express();
 app.use(express.json());
 app.use('/api', require('./api_server'));

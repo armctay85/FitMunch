@@ -6,7 +6,6 @@
  */
 
 const express = require('express');
-const jwt     = require('jsonwebtoken');
 const aiClient = require('./lib/ai-client');
 const aiUsage  = require('./lib/ai-usage');
 const { sendApiError } = require('./lib/public-error');
@@ -25,7 +24,7 @@ async function userTier(userId) {
 function requireAuth(req, res, next) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Unauthorised' });
-  try { req.user = require('./lib/session-token').verifySessionToken(h.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production'); next(); }
+  try { req.user = require('./lib/session-token').verifySessionToken(h.slice(7)); next(); }
   catch { return res.status(401).json({ success: false, error: 'Invalid or expired token' }); }
 }
 

@@ -1118,7 +1118,7 @@ describe('guest checkout links on signup', () => {
     const prevClaim = process.env.GUEST_CLAIM_SECRET;
     const prevJwt = process.env.JWT_SECRET;
     delete process.env.GUEST_CLAIM_SECRET;
-    process.env.JWT_SECRET = 'fitmunch-dev-secret';
+    process.env.JWT_SECRET = process.env.JEST_JWT_SECRET;
     const users = installAccounts();
     users['forger@example.com'] = {
       id: 'u-forger',
@@ -1128,7 +1128,7 @@ describe('guest checkout links on signup', () => {
       settings: {},
     };
     const payload = `cs_forged.cus_forged.${Math.floor(Date.now() / 1000) + 3600}`;
-    const sig = crypto.createHmac('sha256', 'fitmunch-dev-secret').update(payload).digest('base64url');
+    const sig = crypto.createHmac('sha256', process.env.JEST_JWT_SECRET).update(payload).digest('base64url');
     const token = `${Buffer.from(payload, 'utf8').toString('base64url')}.${sig}`;
     try {
       expect(readGuestClaimToken(token)).toBeNull();
@@ -1138,7 +1138,7 @@ describe('guest checkout links on signup', () => {
         .send({ token });
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Claim link is invalid or expired.');
-      expect(JSON.stringify(res.body)).not.toContain('fitmunch-dev-secret');
+      expect(JSON.stringify(res.body)).not.toContain(process.env.JEST_JWT_SECRET);
       expect(users['forger@example.com'].stripeCustomerId).toBeNull();
     } finally {
       if (prevClaim == null) delete process.env.GUEST_CLAIM_SECRET;
@@ -1626,7 +1626,7 @@ describe('claim token transport', () => {
       expect(readGuestClaimToken('fitmunch-dev-secret.not-a-real-token')).toBeNull();
       const text = spy.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(text).toContain('GUEST_CLAIM_SECRET');
-      expect(text).not.toContain('fitmunch-dev-secret');
+      expect(text).not.toContain(process.env.JEST_JWT_SECRET);
     } finally {
       spy.mockRestore();
       process.env.NODE_ENV = prevNode;
