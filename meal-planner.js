@@ -112,15 +112,15 @@ async function storedFilters(userId) {
  * plan made with nothing ticked can't wipe what chat, saved plans and insights rely on. Called only after
  * the consent and usage checks pass.
  */
-function rememberFilters(userId, sentDietary, stored) {
+async function rememberFilters(userId, sentDietary, stored) {
   if (!process.env.DATABASE_URL) return;
   const before = stored ? planEngine.normaliseDiet(stored.dietary) : [];
   const added = planEngine.normaliseDiet(sentDietary).filter((d) => planEngine.DIET_FILTERS.includes(d) && !before.includes(d));
   if (!added.length) return;
   try {
     const { createOrUpdateProfile } = require('./server/storage.js');
-    Promise.resolve(createOrUpdateProfile(userId, { dietaryPreferences: [...before, ...added] })).catch(() => {});
-  } catch (_) { /* best effort */ }
+    await createOrUpdateProfile(userId, { dietaryPreferences: [...before, ...added] });
+  } catch (_) { /* best effort: the plan is still made from the merged filters */ }
 }
 
 /** Every plan leaves this route through the ingredient-derived allergen and diet check. */
@@ -150,7 +150,7 @@ router.post('/generate', requireAuth, async (req, res) => {
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
-    remember(); // no AI call, so no consent or usage check applies
+    await remember(); // no AI call, so no consent or usage check applies
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input), source: 'builder' });
   }
@@ -188,7 +188,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       }
       aiUsage.refundSmokeOnFailure(gate, res);
     }
-    remember();
+    await remember();
 
     let lastReason = '';
     const callAi = gate ? (attempt, signal) => aiClient.chatJson({

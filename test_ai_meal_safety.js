@@ -118,7 +118,7 @@ describe('AI meal plans (POST /api/meal-plan/generate)', () => {
     expect(engine.TEMPLATES.some((t) => t.name === monday.name && t.slot === c.slot)).toBe(true);
     expect(Math.abs(monday.calories - (c.bad.calories || 0))).toBeLessThanOrEqual((c.bad.calories || 0) * 0.1);
     assertSafe(res.body.plan.days, { dietary: c.dietary, allergies: c.allergies }, c.words);
-    expect(res.body.plan.notes.join(' ')).toMatch(/didn't fit your filters/);
+    expect(res.body.plan.notes.join(' ')).toMatch(/didn't fit your filters|couldn't check/);
     // The other days' safe AI meals are untouched.
     expect(res.body.plan.days[1].meals[c.slot].name).toBe(SAFE[c.slot]().name);
     // The prompt names the filters and the hidden forms.
@@ -212,7 +212,7 @@ describe('Coach chat (POST /api/ai/chat)', () => {
     expect(res.status).toBe(200);
     expect(res.body.reply.split('I removed a suggestion')[0]).not.toMatch(words);
     expect(res.body.reply).toMatch(/I removed a suggestion that didn't fit your filters/);
-    expect(res.body.reply).toMatch(/A safe option: /);
+    expect(res.body.reply).toMatch(/A safe (?:\w+ )?option: /);
     const opts = aiClient.chat.mock.calls[0][0];
     expect(opts.system).toMatch(/Food rules for this user \(always follow\)/);
     for (const d of p.dietaryPreferences || []) expect(opts.system).toContain(d);
@@ -501,5 +501,97 @@ describe('r2 S4: the insight fallback', () => {
     expect(res.status).toBe(200);
     expect(res.body.insight).not.toMatch(/peanut|removed/i);
     expect(res.body.insight.length).toBeGreaterThan(10);
+  });
+});
+
+// ── Round 3: QA r2 findings ──────────────────────────────────────────────────
+describe('r3: ingredient keys, emoji, joined quantities, typed allergies', () => {
+  const nutFree = () => safety.excludedFlags({ dietary: ['nut free'] });
+  it('an ingredient written as an object key is read as food', () => {
+    expect(safety.mealProblems({ name: 'Bowl', ingredients: [{ rice: '150g' }, { peanuts: '40g' }] }, nutFree())).toContain('nuts');
+    expect(safety.mealProblems({ name: 'Bowl', ingredients: { rice: '150g', peanuts: '40g' } }, nutFree())).toContain('nuts');
+    expect(safety.mealProblems({ name: 'Bowl', ingredients: [{ item: 'Rice', qty: '150g' }] }, nutFree())).toBeNull();
+  });
+  it('food emoji are read as the food; other symbols in an ingredient fail closed', () => {
+    for (const [e, d] of [['🥜', 'nut free'], ['🦐', 'shellfish free'], ['🥚', 'egg free'], ['🧀', 'dairy free']]) {
+      expect([e, safety.mealProblems({ name: 'Bowl', ingredients: [`${e} handful`] }, safety.excludedFlags({ dietary: [d] }))]).toEqual([e, expect.arrayContaining([expect.any(String)])]);
+    }
+    expect(safety.mealProblems({ name: 'Bowl', ingredients: ['🥜 handful'] }, nutFree())).toContain('nuts');
+    expect(safety.mealProblems({ name: 'Bowl', ingredients: ['✨'] }, nutFree()).join(' ')).toMatch(/unrecognised/);
+  });
+  it('a quantity joined to a word is split; digits inside a word fail closed', () => {
+    expect(safety.mealProblems({ name: 'B', ingredients: ['40gpeanuts'] }, nutFree())).toContain('nuts');
+    expect(safety.mealProblems({ name: 'B', ingredients: ['2xprawns'] }, safety.excludedFlags({ dietary: ['shellfish free'] }))).toContain('shellfish');
+    expect(safety.mealProblems({ name: 'B', ingredients: ['1egg'] }, safety.excludedFlags({ dietary: ['egg free'] }))).toContain('eggs');
+    expect(safety.mealProblems({ name: 'B', ingredients: ['p3anut'] }, nutFree()).join(' ')).toMatch(/unrecognised/);
+    expect(safety.mealProblems({ name: 'B', ingredients: ['150g rice', '2 eggs'] }, nutFree())).toBeNull();
+  });
+  it('typed allergies match compounds and close forms: kiwi catches kiwifruit, mustard catches dijon', () => {
+    const kiwi = safety.customTerms({ allergies: ['kiwi'] });
+    expect(safety.mealProblems({ name: 'Fruit cup', ingredients: ['kiwifruit', 'apple'] }, new Set(), kiwi)).toEqual(['allergy: kiwi']);
+    expect(safety.mealProblems({ name: 'Chicken', ingredients: ['chicken breast', 'dijon'] }, new Set(), safety.customTerms({ allergies: ['mustard'] }))).toEqual(['allergy: mustard']);
+    // the typed-allergy check runs on every string, not just ingredients
+    expect(safety.mealProblems({ name: 'Lupin bowl', ingredients: ['rice'] }, new Set(), safety.customTerms({ allergies: ['lupin'] }))).toEqual(['allergy: lupin']);
+  });
+  it('near-miss spellings of allergens are caught (penut, tahni)', () => {
+    expect(safety.flagsInText('penut butter').has('nuts')).toBe(true);
+    expect(safety.flagsInText('tahni dressing').has('sesame')).toBe(true);
+  });
+  it('invisible characters and look-alike letters don\'t hide an allergen', () => {
+    expect(safety.flagsInText('sesa\u200Bme seeds').has('sesame')).toBe(true);
+    expect(safety.flagsInText('s\u0435same seeds').has('sesame')).toBe(true);
+    expect(safety.flagsInText('t\u0430hini').has('sesame')).toBe(true);
+  });
+  it('a meal nested deeper than 12 levels fails closed', () => {
+    let deep = 'rice'; for (let i = 0; i < 14; i += 1) deep = [deep];
+    expect(safety.mealProblems({ name: 'Bowl', ingredients: [deep] }, nutFree()).join(' ')).toMatch(/too deeply nested/);
+  });
+  it('dish names that hide allergens are caught', () => {
+    for (const [dish, flag] of [['Anzac biscuits', 'dairy'], ['gado gado', 'eggs'], ['chicken katsu', 'eggs'], ['moussaka', 'eggs'], ['cheesecake', 'gluten'], ['calamari rings', 'gluten'], ['granola', 'nuts'], ['Snickers', 'eggs']]) {
+      expect([dish, safety.flagsInText(dish).has(flag)]).toEqual([dish, true]);
+    }
+  });
+});
+
+describe('r3: AI prose is not a reason to reject a safe meal', () => {
+  it('builder meals with ordinary AI descriptions and methods pass; names with unknown words pass', () => {
+    const prose = ['A quick, filling lunch to keep you going.', 'Combine everything together and squeeze over lemon.', 'Great start with complex carbs; perfect after a workout.'];
+    let blocked = 0; let n = 0;
+    for (const f of engine.DIET_FILTERS) {
+      const ex = safety.excludedFlags({ dietary: [f] });
+      for (const d of engine.buildPlan({ calories: 2000, protein: 150, days: 7, dietary: [f] }).days) for (const m of Object.values(d.meals)) {
+        n += 1; if (safety.mealProblems({ ...m, description: prose[n % 3], method: prose[(n + 1) % 3] }, ex)) blocked += 1;
+      }
+    }
+    expect(blocked).toBe(0);
+    for (const name of ['Green goddess bowl', 'Sunrise smoothie bowl', 'Rainbow rice salad', 'Peri peri chicken and rice']) {
+      expect(safety.mealProblems({ name, ingredients: [{ item: 'Chicken breast', qty: '150g' }, { item: 'Rice', qty: '100g' }] }, safety.excludedFlags({ dietary: ['nut free'] }))).toBeNull();
+    }
+  });
+  it('a description still can\'t hide a known allergen', () => {
+    expect(safety.mealProblems({ name: 'Bowl', description: 'Finished with a peanut drizzle', ingredients: ['rice'] }, safety.excludedFlags({ dietary: ['nut free'] }))).toContain('nuts');
+  });
+});
+
+describe('r3: chat text stays coherent', () => {
+  const nf = { dietary: ['nut free'] };
+  it('removes whole list items, renumbers, and corrects the count', () => {
+    const r = safety.enforceText('Here are 3 ideas:\n1. Peanut butter toast.\n2. Satay chicken.\n3. Tuna salad.', nf);
+    expect(r.text.split('\n\n')[0]).toBe('Here is 1 idea:\n1. Tuna salad.');
+  });
+  it('keeps the safe sentences on a line and drops a dangling follow-on', () => {
+    const r = safety.enforceText('Drink water. Try approx. 30g of cashews as a snack. It also has 8g of protein. Sleep well.', nf);
+    expect(r.text.split('\n\n')[0]).toBe('Drink water. Sleep well.');
+    expect(r.text).toMatch(/A safe snack option/);
+  });
+  it('respects typed allergies, emoji and near-miss spellings', () => {
+    expect(safety.enforceText('Add lupin flakes. Rest well.', { allergies: ['lupin'] }).text.split('\n\n')[0]).toBe('Rest well.');
+    expect(safety.enforceText('Grab a handful of 🥜. Rest well.', nf).text.split('\n\n')[0]).toBe('Rest well.');
+    expect(safety.enforceText('Have penut butter on rice cakes. Rest well.', nf).text.split('\n\n')[0]).toBe('Rest well.');
+  });
+  it('allergy text in the prompt is capped at 40 characters', () => {
+    const rules = safety.promptRules({ allergies: [`kiwi${'x'.repeat(100)}`] });
+    const line = rules.split('\n').find((l) => l.startsWith('Allergies'));
+    expect(line.length).toBeLessThanOrEqual('Allergies (must follow): '.length + 41);
   });
 });
