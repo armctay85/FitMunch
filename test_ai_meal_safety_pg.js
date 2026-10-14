@@ -121,3 +121,44 @@ maybe('AI meal plans on real Postgres', () => {
     expect(old.allergenWarning.allergens).toContain('shellfish');
   });
 });
+
+// Every FSANZ PEAL label term (and its plural or alternate spelling) typed as an allergy, against an AI meal
+// that contains it. The meal must be swapped and the user told.
+const FSANZ = [
+  ['crustacea', 'Garlic prawns with rice', ['Prawns', 'White rice', 'Garlic']],
+  ['crustacean', 'Chilli crab with rice', ['Crab', 'White rice']],
+  ['crustaceans', 'Lobster and rice', ['Lobster', 'White rice']],
+  ['bivalves', 'Oysters with rice', ['Oysters', 'White rice']],
+  ['bivalve', 'Mussels and rice', ['Mussels', 'White rice']],
+  ['molluscs', 'Scallops and rice', ['Scallops', 'White rice']],
+  ['mollusks', 'Clams and rice', ['Clams', 'White rice']],
+  ['cephalopods', 'Calamari and rice', ['Calamari', 'White rice']],
+  ['shellfish', 'Balmain bugs with rice', ['Balmain bugs', 'White rice']],
+  ['fish', 'Salmon and rice', ['Salmon fillet', 'White rice']],
+  ['tree nuts', 'Almond rice bowl', ['Almonds', 'White rice']],
+  ['tree nut', 'Cashew rice bowl', ['Cashews', 'White rice']],
+  ['peanut', 'Peanut rice bowl', ['Peanuts', 'White rice']],
+  ['peanuts', 'Satay rice bowl', ['Peanut butter', 'White rice']],
+  ['sesame', 'Sesame rice', ['Sesame seeds', 'White rice']],
+  ['soy', 'Tofu rice bowl', ['Tofu', 'White rice']],
+  ['soybeans', 'Edamame rice bowl', ['Edamame', 'White rice']],
+  ['gluten', 'Pasta bowl', ['Pasta', 'Tomato']],
+  ['cereals containing gluten', 'Barley soup', ['Pearl barley', 'Carrot']],
+  ['wheat', 'Toast and tomato', ['Bread', 'Tomato']],
+  ['egg', 'Egg fried rice', ['Eggs', 'White rice']],
+  ['eggs', 'Rice and eggs', ['Eggs', 'White rice']],
+  ['milk', 'Ricotta rice bowl', ['Ricotta', 'White rice']],
+  ['lupin', 'Lupin rice bowl', ['Lupin flakes', 'White rice']],
+];
+maybe('every FSANZ allergen term typed as an allergy, on real Postgres', () => {
+  it.each(FSANZ)('allergy "%s": the AI meal "%s" is swapped and the plan says so', async (term, name, items) => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [term] });
+    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal(name, items, 700) }) });
+    const res = await gen([]);
+    expect(res.status).toBe(200);
+    const served = JSON.stringify(res.body.plan.days);
+    expect(served).not.toContain(name);
+    for (const i of items.filter((x) => !/^(?:White rice|Tomato|Carrot|Garlic)$/.test(x))) expect(served.toLowerCase()).not.toContain(i.toLowerCase());
+    expect(res.body.plan.notes.join(' ')).toMatch(/replaced with a safe meal/);
+  });
+});

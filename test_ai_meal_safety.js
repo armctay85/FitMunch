@@ -595,3 +595,97 @@ describe('r3: chat text stays coherent', () => {
     expect(line.length).toBeLessThanOrEqual('Allergies (must follow): '.length + 41);
   });
 });
+
+describe('r4: FSANZ allergy terms, brands, dish words, inline lists, declared keys', () => {
+  const ex = (o) => safety.excludedFlags(o);
+  const probs = (m, o) => safety.mealProblems(m, ex(o), safety.customTerms(o));
+  const one = (name, item) => ({ name, ingredients: [{ item, qty: '100g' }, { item: 'White rice', qty: '100g' }] });
+
+  // Wilson's mapping: every typed term in a group against every food in that group.
+  const GROUPS = {
+    crustacea: { terms: ['crustacea', 'crustacean', 'crustaceans', 'shellfish'], foods: ['Prawns', 'Shrimp', 'Crab', 'Lobster', 'Moreton Bay bugs', 'Balmain bugs', 'Yabbies', 'Marron', 'Crayfish'] },
+    molluscs: { terms: ['bivalves', 'bivalve', 'molluscs', 'mollusc', 'mollusks', 'mollusk', 'cephalopods', 'cephalopod', 'shellfish'], foods: ['Oysters', 'Mussels', 'Scallops', 'Clams', 'Pipis', 'Squid', 'Calamari', 'Octopus', 'Cuttlefish', 'Snails', 'Abalone'] },
+    fish: { terms: ['fish', 'finfish', 'seafood'], foods: ['Salmon fillet', 'Tuna', 'Barramundi', 'Snapper', 'Anchovies'] },
+    nuts: { terms: ['tree nuts', 'tree nut', 'treenuts', 'nuts', 'peanut', 'peanuts', 'almonds', 'cashew'], foods: ['Almonds', 'Cashews', 'Walnuts', 'Pecans', 'Hazelnuts', 'Pistachios', 'Macadamias', 'Peanuts', 'Peanut butter'] },
+    sesame: { terms: ['sesame', 'sesame seeds', 'tahini'], foods: ['Sesame seeds', 'Tahini', 'Hummus', 'Sesame oil'] },
+    soy: { terms: ['soy', 'soya', 'soybeans', 'soy beans'], foods: ['Tofu', 'Tempeh', 'Edamame', 'Soy milk', 'Miso paste', 'Soy sauce'] },
+    gluten: { terms: ['gluten', 'wheat', 'barley', 'rye', 'oats', 'cereals containing gluten', 'gluten cereals', 'spelt', 'coeliac'], foods: ['Pasta', 'Bread', 'Pearl barley', 'Rye bread', 'Rolled oats', 'Couscous', 'Gochujang', 'Malt vinegar'] },
+    eggs: { terms: ['egg', 'eggs'], foods: ['Eggs', 'Mayonnaise', 'Egg noodles'] },
+    dairy: { terms: ['milk', 'dairy', 'lactose', 'cows milk'], foods: ['Milk', 'Cheddar', 'Greek yoghurt', 'Butter', 'Whey protein', 'Big M', 'Chobani'] },
+  };
+  for (const [group, { terms, foods }] of Object.entries(GROUPS)) {
+    it(`${group}: every term against every food`, () => {
+      const misses = [];
+      for (const t of terms) for (const f of foods) if (!probs(one(`${f} with rice`, f), { allergies: [t] })) misses.push(`${t} x ${f}`);
+      expect(misses).toEqual([]);
+    });
+  }
+  it('a crustacea or mollusc allergy does not exclude fish, and lupin stays a custom term', () => {
+    for (const t of ['crustacea', 'bivalves', 'molluscs', 'cephalopods']) expect(probs(one('Salmon with rice', 'Salmon fillet'), { allergies: [t] })).toBeNull();
+    expect(safety.customTerms({ allergies: ['lupin'] })).toEqual(new Set(['lupin']));
+  });
+  it('compound and prefixed forms of a custom allergy are caught (lupinflour, mustardseed)', () => {
+    expect(probs(one('Flatbread', 'Lupinflour'), { allergies: ['lupin'] })).toContain('allergy: lupin');
+    expect(probs(one('Dressing', 'Mustardseed'), { allergies: ['mustard'] })).toContain('allergy: mustard');
+    expect(probs(one('Salad', 'Dijon'), { allergies: ['mustard'] })).toContain('allergy: mustard');
+  });
+  it('declared keys (contains, allergens) are final: a label word there excludes the meal, "none" does not excuse the ingredients', () => {
+    expect(probs({ ...one('Rice bowl', 'Rice'), contains: 'Crustacea' }, { dietary: ['shellfish free'] })).toContain('shellfish');
+    expect(probs({ ...one('Rice bowl', 'Rice'), allergens: ['molluscs'] }, { allergies: ['shellfish'] })).toContain('shellfish');
+    expect(probs({ ...one('Rice bowl', 'Rice'), allergens: 'cereals containing gluten' }, { dietary: ['gluten free'] })).toContain('gluten');
+    const p = probs({ name: 'Mystery bowl', ingredients: ['Rice', 'Zorblax'], contains: 'none' }, { dietary: ['nut free'] });
+    expect(p).toContain('unrecognised: zorblax');
+    expect(probs({ ...one('Rice bowl', 'Rice'), contains: 'none' }, { dietary: ['nut free'] })).toBeNull();
+  });
+  it('brands carry their allergens (Up&Go, Musashi, Chobani, Yoplait, Big M, Coco Pops, Mars bar)', () => {
+    const cases = [['Up&Go', 'dairy free'], ['Up & Go', 'dairy free'], ['Musashi protein shake', 'vegan'], ['Musashi', 'dairy free'], ['Chobani', 'dairy free'], ['Yoplait', 'dairy free'], ['Big M', 'dairy free'], ['Coco Pops', 'gluten free'], ['Mars bar', 'nut free']];
+    for (const [food, diet] of cases) expect([food, probs(one(food, food), { dietary: [diet] })]).toEqual([food, expect.any(Array)]);
+  });
+  it('gochujang, doenjang and ssamjang count as gluten and soy', () => {
+    for (const f of ['Gochujang', 'Doenjang', 'Ssamjang']) {
+      expect(probs(one('Korean rice bowl', f), { dietary: ['gluten free'] })).toContain('gluten');
+      expect(probs(one('Korean rice bowl', f), { dietary: ['soy free'] })).toContain('soy');
+    }
+  });
+  it('dish words in a name are lifted only by a named stand-in, never over a named allergen', () => {
+    expect(probs({ name: 'Lentil and tempeh bolognese', ingredients: ['Lentils', 'Tempeh', 'Pasta', 'Tomato'] }, { dietary: ['vegan'] })).toBeNull();
+    expect(probs({ name: 'Tofu scramble', ingredients: ['Firm tofu', 'Spinach'] }, { dietary: ['egg free'] })).toBeNull();
+    expect(probs({ name: 'Tofu berry smoothie', ingredients: ['Firm tofu', 'Banana', 'Soy milk'] }, { dietary: ['dairy free'] })).toBeNull();
+    expect(probs({ name: 'Vegetable fried rice', ingredients: ['White rice', 'Corn', 'Carrot'] }, { dietary: ['egg free'] })).toBeNull();
+    expect(probs({ name: 'Egg white and spinach muffins', ingredients: ['Egg whites', 'Spinach'] }, { dietary: ['gluten free'] })).toBeNull();
+    expect(probs({ name: 'Beef bolognese', ingredients: ['Lentils', 'Pasta'] }, { dietary: ['vegan'] })).toContain('meat');
+    expect(probs({ name: 'Scrambled eggs', ingredients: ['Tofu'] }, { dietary: ['egg free'] })).toContain('eggs');
+    expect(probs({ name: 'Banana smoothie', ingredients: ['Banana'] }, { dietary: ['dairy free'] })).toContain('dairy');
+    expect(probs({ name: 'Tofu scramble', ingredients: ['Firm tofu', 'Eggs'] }, { dietary: ['egg free'] })).toContain('eggs');
+  });
+  it('no builder template is blocked for a filter it fits, in served or AI-style shape', () => {
+    const bad = [];
+    for (const t of engine.TEMPLATES) for (const f of engine.DIET_FILTERS) {
+      const e = safety.excludedFlags({ dietary: [f] });
+      if ([...engine.flagsOf(t)].some((x) => e.has(x))) continue;
+      const shape = { name: t.name, ingredients: t.items.map(([i]) => i.replace(/\s*\(.*?\)/g, '')) };
+      if (safety.mealProblems(shape, e)) bad.push(`${f}: ${t.name}`);
+    }
+    expect(bad).toEqual([]);
+  });
+  it('inline numbered lists are cut item by item and renumbered; follow-ons are dropped', () => {
+    const f = { dietary: ['nut free'] };
+    const r = safety.enforceText('Here are 3 ideas: 1. Peanut butter toast. 2. Tuna salad. 3. Greek yoghurt bowl.', f).text;
+    expect(r).toMatch(/^Here are 2 ideas:\n1\. Tuna salad\.\n2\. Greek yoghurt bowl\./);
+    expect(r).not.toMatch(/peanut|\b1\. 2\./i);
+    expect(safety.enforceText('Try satay chicken. Pair it with a banana.', f).text).not.toMatch(/Pair it/);
+    expect(safety.enforceText('Have approx. 30g almonds. Or rice.', f).text).not.toMatch(/Or rice/);
+    expect(safety.enforceText('Eat 2. Then rest 1. hour', f).text).toBe('Eat 2. Then rest 1. hour');
+  });
+  it('a key-map ingredient list from the AI ({ Peanuts: "40g" }) is read as items, so the swap is reported', () => {
+    const m = { name: 'Snack', ingredients: { Peanuts: '40g', Apple: 1 }, calories: 200, protein: 10, carbs: 20, fat: 9 };
+    const days = ['Monday'].map((day) => ({ day, meals: { breakfast: { ...m, name: 'B' }, lunch: { ...m, name: 'L' }, dinner: { ...m, name: 'D' } } }));
+    const n = engine.normaliseAiPlan({ days }, { calories: 600, days: 1 });
+    if (n.ok) {
+      expect(n.plan.days[0].meals.breakfast.ingredients).toEqual([{ item: 'Peanuts', qty: '40g' }, { item: 'Apple', qty: '1' }]);
+      const r = safety.enforcePlan(n.plan, { dietary: ['nut free'] });
+      expect(r.replaced.length).toBe(3);
+      expect(r.plan.notes.join(' ')).toMatch(/replaced/);
+    } else throw new Error(n.reason);
+  });
+});

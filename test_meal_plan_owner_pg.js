@@ -37,7 +37,7 @@ create table shopping_lists(id serial primary key, user_id uuid, meal_plan_id in
   completed boolean default false, created_at timestamptz default now(), updated_at timestamptz);
 `;
 const SEED = `
-truncate users, pt_clients, meal_plans, workout_plans, plan_assignments, shopping_lists restart identity;
+truncate users, pt_clients, meal_plans, workout_plans, plan_assignments, shopping_lists restart identity cascade;
 insert into users(id, role, pt_id) values ('${U1}','client','${T10}'),('${U2}','client','${T20}'),('${T10}','pt',null),('${T20}','pt',null),('${T30}','pt',null);
 insert into pt_clients(pt_id,client_id,status) values ('${T10}','${U1}','active'),('${T20}','${U2}','active'),('${T30}','${U1}','inactive');
 insert into meal_plans(user_id,name,meals) values
