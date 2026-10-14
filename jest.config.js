@@ -5,7 +5,9 @@ module.exports = {
   testMatch: [
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
+    '**/test_item_name_case.js',
     '**/test_app.js',
+    '**/test_haul_score.js',
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
@@ -23,6 +25,8 @@ module.exports = {
     '**/test_checkout_session_privacy.js',
     '**/test_trust_bar.js',
     '**/test_meal_plan_owner_pg.js',
+    '**/test_onboarding_targets.js',
+    '**/test_onboard_rendered.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',
     '**/test_coach_plan.js',
@@ -70,6 +74,7 @@ module.exports = {
     '**/test_ship_safety.js',
     '**/test_xss_escape.js',
     '**/test_stored_xss.js',
+    '**/test_xss_handlers.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

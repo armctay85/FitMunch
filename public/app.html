@@ -11,6 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/fm-tokens.css"/>
 <script src="/js/chart.umd.min.js"></script>
+<script src="/js/fm-targets.js"></script>
+<script src="/js/fm-item-name.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -329,6 +331,28 @@ html.fm-authed #app-gate{display:none}
 .gate-card a{display:block;text-align:center;text-decoration:none;min-height:44px;line-height:44px;border-radius:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700}
 .gate-card .gate-in{background:var(--leaf);color:#fff;margin-bottom:8px}
 .gate-card .gate-reg{border:1px solid var(--line);color:var(--ink)}
+/* Onboarding: 44px fields, 48px buttons, step progress, week cards with macro bars. */
+#modal-onboard .form-input,#modal-onboard .form-select{min-height:44px}
+#modal-onboard .btn{min-height:48px}
+#modal-onboard .btn-green{background:#15803d;border-color:#15803d}
+#modal-onboard .modal-close{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+#modal-onboard p{color:#3f4a45}
+.ob-progress{margin:-4px 0 14px}
+#modal-onboard .ob-stepno{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#166534;margin:0 0 6px}
+.ob-track{height:4px;border-radius:2px;background:#e4ebe4;overflow:hidden}
+.ob-track span{display:block;height:100%;background:#15803d;transition:width .2s}
+.ob-day{border:1px solid #dfe6df;border-radius:10px;padding:12px;margin-bottom:10px;background:#fff}
+.ob-day-h{font-size:.95rem;font-weight:800;margin:0 0 8px;color:#11180f}
+.ob-bar{margin-bottom:6px}
+.ob-bar-label{font-size:.72rem;color:#3f4a45;margin-bottom:3px}
+.ob-bar-track{height:6px;border-radius:3px;background:#e4ebe4;overflow:hidden}
+.ob-bar-track span{display:block;height:100%;background:#15803d}
+.ob-bar-track span.off{background:#b45309}
+.ob-meal{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #eef2ee}
+.ob-meal-ic{font-size:1.1rem;line-height:1.3;width:22px;text-align:center}
+.ob-meal-k{font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#166534}
+.ob-meal-n{font-size:.86rem;font-weight:700;color:#11180f;line-height:1.3}
+.ob-meal-meta{font-size:.74rem;color:#3f4a45}
 </style>
 <script>
 (function () {
@@ -864,7 +888,7 @@ html.fm-authed #app-gate{display:none}
  <div class="scroll-body">
  <div class="metrics-row">
  <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" onclick="nav('portal-meals')">Log a meal →</button></div>
- <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" onclick="openModal('modal-goals')">Set goals →</button></div>
+ <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" onclick="openOnboarding()">Set goals →</button></div>
  <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-green" id="pm-workouts" style="color:var(--green2)">0</div><div class="metric-sub">this week</div><button class="metric-cta" onclick="nav('portal-workouts')">Log workout →</button></div>
  <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div><button class="metric-cta" onclick="nav('receipt-scanner')">Scan receipt →</button></div>
  </div>
@@ -886,7 +910,7 @@ html.fm-authed #app-gate{display:none}
  <div id="portal-goal-banner" style="display:none;margin-bottom:14px"></div>
  <div id="home-goals-nudge" class="goals-nudge" style="display:none">
  <div><strong>Set your calorie & protein targets</strong><span>Unlock progress bars, weekly review scoring and better AI coaching.</span></div>
- <button class="btn btn-green btn-sm" onclick="openModal('modal-goals')">Set goals</button>
+ <button class="btn btn-green btn-sm" onclick="openOnboarding()">Set goals</button>
  </div>
 
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1036,7 +1060,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div id="meals-goals-nudge" class="goals-nudge" style="display:none">
  <div><strong>Set daily goals to track remaining calories</strong><span>Bars stay empty until targets are set.</span></div>
- <button class="btn btn-green btn-sm" onclick="openModal('modal-goals')">Set goals</button>
+ <button class="btn btn-green btn-sm" onclick="openOnboarding()">Set goals</button>
  </div>
  <div id="meals-log-body">
  <div class="meal-section"><div class="meal-section-title"><span>Breakfast</span><button class="meal-add-btn" onclick="openLogMealFor('breakfast')">+ Add</button></div><div id="log-breakfast" class="meal-entries"></div></div>
@@ -1490,6 +1514,45 @@ html.fm-authed #app-gate{display:none}
 </div>
 
 <!-- GOALS ONBOARDING MODAL -->
+<div class="modal-overlay" id="modal-onboard" style="z-index:301" onclick="closeOnOverlay(event)">
+ <div class="modal" style="max-width:460px">
+ <div class="modal-title"><span id="ob-title">About you</span><button class="modal-close" aria-label="Close" onclick="closeModal('modal-onboard')">✕</button></div>
+ <div class="ob-progress"><p class="ob-stepno" id="ob-stepno" aria-live="polite">Step 1 of 3</p><div class="ob-track" aria-hidden="true"><span id="ob-track-fill" style="width:33.3%"></span></div></div>
+ <div id="ob-step-1">
+ <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:14px">We use this to work out your daily calories and protein. It stays in your account.</p>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+ <div class="form-field"><label class="form-label" for="ob-age">Age</label><input id="ob-age" class="form-input" type="number" min="16" max="100" inputmode="numeric" placeholder="30"/></div>
+ <div class="form-field"><label class="form-label" for="ob-sex">Sex</label><select id="ob-sex" class="form-select"><option value="female">Female</option><option value="male">Male</option><option value="other">Prefer not to say</option></select></div>
+ <div class="form-field"><label class="form-label" for="ob-height">Height (cm)</label><input id="ob-height" class="form-input" type="number" min="120" max="230" inputmode="numeric" placeholder="170"/></div>
+ <div class="form-field"><label class="form-label" for="ob-weight">Weight (kg)</label><input id="ob-weight" class="form-input" type="number" min="35" max="300" step="0.1" inputmode="decimal" placeholder="75"/></div>
+ </div>
+ <div class="form-field"><label class="form-label" for="ob-activity">Activity</label><select id="ob-activity" class="form-select">
+ <option value="sedentary">Mostly sitting, little exercise</option><option value="light">Train 1-3 times a week</option><option value="moderate" selected>Train 3-5 times a week</option><option value="active">Train 6-7 times a week</option><option value="very_active">Physical job plus training</option></select></div>
+ <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
+ <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
+ <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
+ <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option></select></div>
+ <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
+ <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
+ </div>
+ <div id="ob-step-2" style="display:none">
+ <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:12px" id="ob-explain"></p>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+ <div class="form-field"><label class="form-label" for="ob-cals">Calories a day</label><input id="ob-cals" class="form-input" type="number" min="1200" max="5000" oninput="onboardRebalance()"/></div>
+ <div class="form-field"><label class="form-label" for="ob-prot">Protein (g a day)</label><input id="ob-prot" class="form-input" type="number" min="40" max="350" oninput="onboardRebalance()"/></div>
+ </div>
+ <p style="font-size:.8rem;color:var(--text2);margin:0 0 14px" id="ob-macros"></p>
+ <p style="font-size:.72rem;color:var(--text2);margin:0 0 14px">Estimates from the Mifflin-St Jeor equation. Edit them if you know your numbers. Not medical advice.</p>
+ <div style="display:flex;gap:8px"><button class="btn btn-ghost2" onclick="onboardStep(1)">Back</button><button class="btn btn-green" style="flex:1" id="ob-build" onclick="onboardBuildWeek()">Save and build my week</button></div>
+ </div>
+ <div id="ob-step-3" style="display:none">
+ <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px" id="ob-week-note"></p>
+ <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
+ <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
+ </div>
+ </div>
+</div>
+
 <div class="modal-overlay" id="modal-goals" style="z-index:300" onclick="closeOnOverlay(event)">
  <div class="modal" style="max-width:420px">
  <div class="modal-title">👋 Let's set your goals<button class="modal-close" onclick="closeModal('modal-goals')">✕</button></div>
@@ -1634,7 +1697,9 @@ async function downloadMyData() {
 
 const API = async (path, opts={}) => {
  if (path.startsWith('/ai/insight') && aiConsentState() !== true) return { success: false, code: 'ai_consent_required' };
- if (AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
+ // builderOnly meal plans make no AI call, so they never ask for AI consent.
+ const builderOnly = path === '/meal-plan/generate' && typeof opts.body === 'string' && /"builderOnly":true/.test(opts.body);
+ if (!builderOnly && AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
 };
@@ -2124,7 +2189,7 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${i.calories||0} cal · P:${i.protein||0}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
  return `<div class="plan-card">
@@ -2185,15 +2250,15 @@ function _exerciseRowHtml(idx, ex, containerId) {
  return `<div id="exrow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
  <button onclick="document.getElementById('exrow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:40px 1fr;gap:6px;margin-bottom:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Day</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" max="7" value="${ex.day||1}" data-field="day"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Exercise Name</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Squat" value="${ex.name||''}" data-field="name"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Day</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" max="7" value="${Number(ex.day)||1}" data-field="day"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Exercise Name</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Squat" value="${escapeHtml(ex.name||'')}" data-field="name"/></div>
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Sets</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" value="${ex.sets||3}" data-field="sets"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Reps</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. 8 or 8-12" value="${ex.reps||''}" data-field="reps"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Rest (sec)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${ex.rest||90}" data-field="rest"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Sets</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" value="${Number(ex.sets)||3}" data-field="sets"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Reps</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. 8 or 8-12" value="${escapeHtml(ex.reps||'')}" data-field="reps"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Rest (sec)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${Number(ex.rest)||(ex.rest===0?0:90)}" data-field="rest"/></div>
  </div>
- ${ex.notes !== undefined ? `<div style="margin-top:6px"><label style="font-size:.7rem;color:var(--text3)">Notes</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. use barbell, go slow" value="${ex.notes||''}" data-field="notes"/></div>` : ''}
+ ${ex.notes !== undefined ? `<div style="margin-top:6px"><label style="font-size:.7rem;color:var(--text3)">Notes</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. use barbell, go slow" value="${escapeHtml(ex.notes||'')}" data-field="notes"/></div>` : ''}
  </div>`;
 }
 
@@ -2256,19 +2321,19 @@ async function loadWorkoutPlans() {
  const dayGroups = {};
  exs.forEach(e => { if (!dayGroups[e.day]) dayGroups[e.day]=[]; dayGroups[e.day].push(e); });
  const exHtml = Object.keys(dayGroups).sort((a,b)=>a-b).map(d =>
- `<div style="margin-top:8px"><div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:3px">Day ${d}</div>${
- dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(e.name)} - ${e.sets}×${e.reps||'reps'}${e.rest?' · '+e.rest+'s rest':''}</div>`).join('')
+ `<div style="margin-top:8px"><div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:3px">Day ${escapeHtml(d)}</div>${
+ dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(e.name)} - ${escapeHtml(e.sets)}×${escapeHtml(e.reps||'reps')}${e.rest?' · '+escapeHtml(e.rest)+'s rest':''}</div>`).join('')
  }</div>`
  ).join('');
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
- <div class="plan-card-meta">${p.level||'intermediate'} · ${p.frequency||3} days/week</div>
+ <div class="plan-card-meta">${escapeHtml(p.level||'intermediate')} · ${escapeHtml(p.frequency||3)} days/week</div>
  ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${escapeHtml(p.description)}</div>` : ''}
  ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet - tap below to add.</div>`}
  <div class="plan-card-footer" style="flex-wrap:wrap;gap:6px">
  <span class="tag tag-blue">Workout</span>
- <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${p.id},&quot;${(p.name||'Plan').replace(/"/g,'')}&quot;,${p.frequency||3})">💪 Exercises</button>
- <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
+ <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${Number(p.id)},${escapeHtml(JSON.stringify(String(p.name||'Plan')))},${Number(p.frequency)||3})">💪 Exercises</button>
+ <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${Number(p.id)}, event)">✕</button>
  </div>
  </div>`;
  }).join('');
@@ -2341,13 +2406,13 @@ function _renderExList() {
  return;
  }
  el.innerHTML = dayExs.map(e =>
- `<div id="ex-item-${e._id}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
+ `<div id="ex-item-${Number(e._id)}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
  <div style="flex:1;min-width:0">
  <div style="font-weight:600;font-size:.85rem;color:var(--text1)">${escapeHtml(e.name)}</div>
- <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${e.sets||3} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + e.rest + 's rest' : ''}</div>
+ <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${escapeHtml(e.sets||3)} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + escapeHtml(e.rest) + 's rest' : ''}</div>
  ${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;margin-top:2px">${escapeHtml(e.notes)}</div>` : ''}
  </div>
- <button onclick="_removeExercise(${e._id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
+ <button onclick="_removeExercise(${Number(e._id)})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
  </div>`
  ).join('');
 }
@@ -2547,7 +2612,7 @@ async function loadPortalHome() {
  // Show goals modal if no goals set and no plan
  if (!S.goals && !r.mealPlan && !sessionStorage.getItem('fm_goals_prompted')) {
  sessionStorage.setItem('fm_goals_prompted', '1');
- setTimeout(() => openModal('modal-goals'), 800);
+ setTimeout(() => openOnboarding(), 800);
  }
  }
  // Dashboard metrics
@@ -3248,7 +3313,7 @@ function renderScanResults(data) {
  const idx = itemIdx++;
  html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px dashed var(--border);cursor:pointer">
  <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0" checked/>
- <span style="flex:1;font-size:.8rem;font-weight:500">${escapeHtml(item.name)}</span>
+ <span style="flex:1;font-size:.8rem;font-weight:500">${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}</span>
  <span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.protein)}g P</span>
  <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal</span>
  </label>`;
@@ -3328,6 +3393,114 @@ function copyShareText() {
  btn.textContent = '✓ Copied!';
  setTimeout(() => btn.textContent = orig, 2000);
  });
+}
+
+
+// ── ONBOARDING: about you -> targets -> your first week ─────────────────────
+let OB = null;
+function openOnboarding() {
+ if (typeof FMTargets === 'undefined') { openModal('modal-goals'); return; }
+ onboardStep(1); openModal('modal-onboard');
+}
+function onboardStep(n) {
+ [1,2,3].forEach(i => { document.getElementById('ob-step-' + i).style.display = i === n ? '' : 'none'; });
+ document.getElementById('ob-title').textContent = ['About you','Your daily targets','Your first week'][n-1];
+ document.getElementById('ob-stepno').textContent = 'Step ' + n + ' of 3';
+ document.getElementById('ob-track-fill').style.width = (n / 3 * 100).toFixed(1) + '%';
+}
+function onboardCompute() {
+ const v = id => document.getElementById(id).value;
+ const input = { age: v('ob-age'), sex: v('ob-sex'), heightCm: v('ob-height'), weightKg: v('ob-weight'), activity: v('ob-activity'), goal: v('ob-goal') };
+ const err = document.getElementById('ob-err');
+ try {
+ const t = FMTargets.computeTargets(input);
+ OB = { input, diet: v('ob-diet'), targets: t };
+ err.style.display = 'none';
+ document.getElementById('ob-cals').value = t.calories;
+ document.getElementById('ob-prot').value = t.protein;
+ document.getElementById('ob-explain').textContent = `Your body burns about ${t.bmr} kcal at rest and ${t.tdee} kcal on a typical day. For your goal we suggest:`;
+ onboardRebalance(); onboardStep(2);
+ } catch (e) {
+ const names = { age:'age (16-100)', heightCm:'height (120-230 cm)', weightKg:'weight (35-300 kg)' };
+ err.textContent = 'Check your ' + (e.fields || []).map(f => names[f] || f).join(', ') + '.';
+ err.style.display = '';
+ }
+}
+function onboardRebalance() {
+ const r = FMTargets.rebalance({ calories: document.getElementById('ob-cals').value || 0, protein: document.getElementById('ob-prot').value || 0 });
+ document.getElementById('ob-macros').textContent = `That leaves about ${r.carbs}g carbs and ${r.fat}g fat a day.`;
+ return r;
+}
+const OB_SLOTS = { breakfast: ['🍳', 'Breakfast'], lunch: ['🥗', 'Lunch'], dinner: ['🍽️', 'Dinner'], snack: ['🍎', 'Snack'] };
+const OB_SMALL = new Set(['a', 'an', 'and', 'or', 'with', 'on', 'in', 'of', 'the', 'to', 'for']);
+function obTitle(str) {
+ return String(str || '').split(' ').map((w, i) => (i > 0 && OB_SMALL.has(w.toLowerCase())) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+function obBar(label, value, target, unit) {
+ const row = document.createElement('div'); row.className = 'ob-bar';
+ const pct = target ? Math.min(100, Math.round(value / target * 100)) : 0;
+ const off = target ? Math.round((value - target) / target * 100) : 0;
+ const t = document.createElement('div'); t.className = 'ob-bar-label';
+ t.textContent = `${label} ${value}${unit} of ${target}${unit}`;
+ const track = document.createElement('div'); track.className = 'ob-bar-track';
+ track.setAttribute('role', 'img'); track.setAttribute('aria-label', `${label} ${pct}% of target`);
+ const fill = document.createElement('span'); fill.style.width = pct + '%'; if (Math.abs(off) > 10) fill.className = 'off';
+ track.appendChild(fill); row.append(t, track); return row;
+}
+function onboardRenderWeek(plan, note, targets) {
+ document.getElementById('ob-week-note').textContent = note;
+ const box = document.getElementById('ob-week'); box.textContent = '';
+ const tg = targets || {};
+ (plan.days || []).forEach(d => {
+ const card = document.createElement('section'); card.className = 'ob-day';
+ const h = document.createElement('h3'); h.className = 'ob-day-h'; h.textContent = d.day || '';
+ card.appendChild(h);
+ const tot = d.totals || d.dailyTotals || {};
+ if (tot.calories && tg.calories) card.appendChild(obBar('Calories', tot.calories, tg.calories, ' kcal'));
+ if (tot.protein && tg.protein) card.appendChild(obBar('Protein', tot.protein, tg.protein, 'g'));
+ const ms = Array.isArray(d.meals) ? d.meals : Object.entries(d.meals || {}).map(([slot, m]) => ({ slot, ...m }));
+ ms.forEach(m => {
+ const slot = String(m.slot || m.type || '').toLowerCase(); const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
+ const row = document.createElement('div'); row.className = 'ob-meal';
+ const ic = document.createElement('span'); ic.className = 'ob-meal-ic'; ic.setAttribute('aria-hidden', 'true'); ic.textContent = icon;
+ const body = document.createElement('div'); body.className = 'ob-meal-body';
+ const k = document.createElement('div'); k.className = 'ob-meal-k'; k.textContent = label;
+ const n = document.createElement('div'); n.className = 'ob-meal-n'; n.textContent = obTitle(m.name);
+ const meta = document.createElement('div'); meta.className = 'ob-meal-meta';
+ meta.textContent = [m.calories ? m.calories + ' kcal' : '', m.protein ? m.protein + 'g protein' : '', m.prepMins ? m.prepMins + ' min' : ''].filter(Boolean).join(' · ');
+ body.append(k, n, meta); row.append(ic, body); card.appendChild(row);
+ });
+ box.appendChild(card);
+ });
+}
+async function onboardBuildWeek() {
+ const r = onboardRebalance();
+ if (!(r.calories >= 1200 && r.calories <= 5000) || !(r.protein >= 40 && r.protein <= 350)) { toast('Calories 1200-5000 and protein 40-350 g', 'warn'); return; }
+ const btn = document.getElementById('ob-build'); btn.disabled = true; btn.textContent = 'Building...';
+ const fitnessGoal = OB.input.goal;
+ try {
+ await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein }) });
+ if (OB.input.weightKg) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight: parseFloat(OB.input.weightKg) }) });
+ S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
+ renderGoalTargets();
+ } catch (_) { /* targets still used for the week below */ }
+ const diet = OB.diet && OB.diet !== 'none' ? [OB.diet.replace('_', ' ')] : [];
+ const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
+ const local = async () => {
+ const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
+ if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : ''), r); }
+ else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
+ };
+ // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
+ let consented = false;
+ try { consented = typeof aiConsentState === 'function' && aiConsentState() === true; } catch (_) { consented = false; }
+ try {
+ if (!consented) { await local(); return; }
+ const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.', r); }
+ else await local();
+ } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
+ finally { btn.disabled = false; btn.textContent = 'Save and build my week'; onboardStep(3); }
 }
 
 // ── GOALS ONBOARDING ─────────────────────────────────────────────────────────
