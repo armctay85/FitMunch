@@ -93,18 +93,39 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
 // Meal and plan names longer than this are refused at input with a 400.
 const MAX_NAME_LENGTH = 200;
 const NAME_TOO_LONG = `Names must be ${MAX_NAME_LENGTH} characters or fewer.`;
-/** True if a meal or plan name, or a name inside its meals or foods, is over the cap. */
+// Every field that holds a name: meal, plan, food and favourite names.
+const NAME_KEYS = ['name', 'mealName', 'title', 'foodName', 'food_name'];
+/**
+ * True if a name anywhere in the body (meals as a list or an object of slots, foods, items, nested
+ * favourite data) is over the cap.
+ */
 function nameTooLong(body) {
   const long = (v) => typeof v === 'string' && v.length > MAX_NAME_LENGTH;
   const check = (o, depth) => {
-    if (!o || typeof o !== 'object' || depth > 3) return false;
-    if (long(o.name) || long(o.mealName) || long(o.title)) return true;
-    for (const key of ['meals', 'foods', 'items']) {
-      if (Array.isArray(o[key]) && o[key].some((x) => check(x, depth + 1))) return true;
-    }
-    return false;
+    if (!o || typeof o !== 'object' || depth > 6) return false;
+    if (Array.isArray(o)) return o.some((x) => check(x, depth + 1));
+    if (NAME_KEYS.some((k) => long(o[k]))) return true;
+    return Object.values(o).some((x) => x && typeof x === 'object' && check(x, depth + 1));
   };
   return check(body, 0);
+}
+/**
+ * Names saved before the cap are cut to it on read, so the app never sends an over-long legacy name back
+ * and an edit isn't refused for a name the user didn't touch.
+ */
+function capNames(value, depth = 0) {
+  if (!value || typeof value !== 'object' || depth > 8) return value;
+  if (Array.isArray(value)) return value.map((x) => capNames(x, depth + 1));
+  if (value instanceof Date) return value;
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (NAME_KEYS.includes(k) && typeof v === 'string' && v.length > MAX_NAME_LENGTH) out[k] = v.slice(0, MAX_NAME_LENGTH);
+    else if (typeof v === 'string' && (k === 'meals' || k === 'item_data') && v.length && /^[[{]/.test(v.trim())) {
+      // Stored as JSON text: cap inside it and keep it as text.
+      try { out[k] = JSON.stringify(capNames(JSON.parse(v), depth + 1)); } catch (_) { out[k] = v; }
+    } else out[k] = capNames(v, depth + 1);
+  }
+  return out;
 }
 
 router.post('/user/profile', authMiddleware, async (req, res) => {
@@ -140,7 +161,7 @@ router.get('/meals/daily/:userId/:date', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     const meals = await getMealLogsByDate(req.params.userId, new Date(req.params.date));
-    res.json({ success: true, meals });
+    res.json({ success: true, meals: capNames(meals) });
   } catch (error) {
     console.error('Error fetching daily meals:', error);
     sendApiError(res, error);
@@ -1412,7 +1433,7 @@ router.delete('/shopping-list/:id', authMiddleware, async (req, res) => {
 router.get('/favourites', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, favourites: r.rows });
+    res.json({ success: true, favourites: capNames(r.rows) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1478,7 +1499,7 @@ async function safePlanRows(userId, rows) {
 router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, plans: await safePlanRows(req.user.userId, r.rows) });
+    res.json({ success: true, plans: await safePlanRows(req.user.userId, capNames(r.rows)) });
   } catch (err) { sendApiError(res, err); }
 });
 
