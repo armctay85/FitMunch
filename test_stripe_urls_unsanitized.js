@@ -114,6 +114,19 @@ describe('Stripe urls and ids leave the API unaltered', () => {
     sendStripeJson(res, { url: 'x' });
     expect(res.json).toHaveBeenCalledWith({ url: 'x' });
   });
+
+  it('attaching twice wraps res.json only once (the wrap-once flag)', () => {
+    const orig = jest.fn((b) => b);
+    const res = { json: orig };
+    attachApiJsonSanitizer({ originalUrl: '/api/x' }, res, () => {});
+    const wrapped = res.json;
+    expect(res.apiJsonSanitized).toBe(true);
+    attachApiJsonSanitizer({ originalUrl: '/api/x' }, res, () => {});
+    // Without the flag the second attach would wrap the wrapper again.
+    expect(res.json).toBe(wrapped);
+    res.json({ ok: 1 });
+    expect(orig).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('the real server: Stripe checkout and portal urls come back exact', () => {

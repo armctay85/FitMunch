@@ -740,7 +740,7 @@ describe('reset token follow-up', () => {
       'pricing.html',
       'for-pts.html',
       'receipt-nutrition-scanner.html',
-      'budget-meal-planner.html',
+      'high-protein-staples-meal-plan.html',
       'haul-teardown.html',
       'ai-meal-planner-australia.html',
     ]) {
