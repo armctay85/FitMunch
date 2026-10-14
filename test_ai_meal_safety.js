@@ -965,7 +965,7 @@ describe('r9: calm note for unreadable typed meals, swaps honour typed allergies
     expect(html).toContain(`const UNCHECKED_NOTE = "${UNCHECKED}";`);
     expect(html).toMatch(/<div class="allergen-note">\$\{/);
     expect(html).not.toMatch(/class="allergen-note"[^>]*role="alert"/);
-    expect(html).toContain("toast(UNCHECKED_NOTE, 'note')");
+    expect(html).toContain("toast(noteToastText(notes), 'note')");
     expect(html).toContain('allergen-note-badge');
     expect(html).toMatch(/\.allergen-note\{[^}]*background:#f8fafc/);
   });
@@ -985,5 +985,71 @@ describe('r9: calm note for unreadable typed meals, swaps honour typed allergies
   it.each(['Eng. muffin', 'Eng muffins', 'Engl. muffin', 'Toasted eng muffin'])('%s counts as gluten even with almond flour listed', (name) => {
     const p = safety.mealProblems({ name, ingredients: ['Almond flour', 'Butter'] }, safety.excludedFlags({ dietary: ['gluten free'] }));
     expect(p).toContain('gluten');
+  });
+});
+
+describe('r10: badge and toast rendering for the note, PB2, E. muffin', () => {
+  const lexicon = require('./lib/food-lexicon');
+  // Run the app's own allergenBadgeHtml / showAllergenWarnings source with a toast spy.
+  const loadUi = () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+    const grab = (re) => { const m = html.match(re); if (!m) throw new Error(`missing ${re}`); return m[0]; };
+    const src = [
+      grab(/function allergenBadgeHtml\(warnings, alert\) \{[\s\S]*?\n\}\n/),
+      grab(/const UNCHECKED_NOTE = .*;\n/),
+      grab(/function noteToastText\(notes\) \{.*\}\n/),
+      grab(/function showAllergenWarnings\(r\) \{[\s\S]*?\n\}\n/),
+    ].join('\n');
+    const toasts = [];
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    // eslint-disable-next-line no-new-func
+    const api = new Function('escapeHtml', 'toast', `${src}; return { allergenBadgeHtml, showAllergenWarnings };`)(esc, (msg, type) => toasts.push({ msg, type }));
+    return { ...api, toasts };
+  };
+  const RED = { meal: 'Prawn satay', contains: ['nuts'] };
+  const NOTE = { meal: 'Arancini', contains: [], unchecked: true, note: UNCHECKED };
+  it('note only: a grey note naming the meal, no red banner and no role=alert', () => {
+    const { allergenBadgeHtml } = loadUi();
+    for (const alert of [false, true]) {
+      const out = allergenBadgeHtml([NOTE], alert);
+      expect(out).toMatch(/^<div class="allergen-note">Arancini: /);
+      expect(out).toContain('We couldn&#39;t check this meal against your allergies, so check the ingredients.');
+      expect(out).not.toMatch(/allergen-warning|role="alert"|⚠/);
+    }
+  });
+  it('mixed: the red banner names only the allergen meal; the note is grey and separate', () => {
+    const { allergenBadgeHtml } = loadUi();
+    const out = allergenBadgeHtml([RED, NOTE], true);
+    const [red, note] = out.split('<div class="allergen-note">');
+    expect(red).toMatch(/^<div class="allergen-warning" role="alert">⚠ Allergen warning: Prawn satay contains nuts<\/div>$/);
+    expect(red).not.toContain('Arancini');
+    expect(note).toMatch(/^Arancini: /);
+    expect(note).not.toMatch(/role="alert"|⚠/);
+  });
+  it('the note toast names the meal; a mixed save shows the red toast and the note', () => {
+    let ui = loadUi();
+    expect(ui.showAllergenWarnings({ allergenWarnings: [NOTE] })).toBe(true);
+    expect(ui.toasts).toEqual([{ type: 'note', msg: `Arancini: ${UNCHECKED}` }]);
+    ui = loadUi();
+    ui.showAllergenWarnings({ allergenWarnings: [RED, NOTE] });
+    expect(ui.toasts.map((t) => t.type)).toEqual(['error', 'note']);
+    expect(ui.toasts[0].msg).toMatch(/^Allergen warning: Prawn satay contains nuts/);
+    expect(ui.toasts[0].msg).not.toContain('Arancini');
+    expect(ui.toasts[1].msg).toBe(`Arancini: ${UNCHECKED}`);
+    ui = loadUi();
+    expect(ui.showAllergenWarnings({ allergenWarnings: [] })).toBe(false);
+    expect(ui.toasts).toEqual([]);
+  });
+  it.each(['PB2', 'PB2 powder', 'PBfit', 'Powdered peanut butter'])('%s is peanut (red warning for a peanut allergy)', async (name) => {
+    expect(lexicon.scan(name).flags.has('nuts')).toBe(true);
+    profile = { allergies: ['peanut'] };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ name, foods: [] }] });
+    expect(res.body.allergenWarnings).toEqual([{ meal: name, contains: ['nuts'] }]);
+  });
+  it.each(['E. muffin', 'E muffins', 'Toasted E. muffin'])('%s counts as gluten even with almond flour listed', (name) => {
+    expect(safety.mealProblems({ name, ingredients: ['Almond flour', 'Butter'] }, safety.excludedFlags({ dietary: ['gluten free'] }))).toContain('gluten');
+  });
+  it('a plain blueberry muffin with almond flour is still fine for gluten free', () => {
+    expect(safety.mealProblems({ name: 'Blueberry muffin', ingredients: ['Almond flour', 'Blueberries'] }, safety.excludedFlags({ dietary: ['gluten free'] }))).toBeNull();
   });
 });

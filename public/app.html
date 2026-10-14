@@ -4391,6 +4391,7 @@ function allergenBadgeHtml(warnings, alert) {
  return warn + note;
 }
 const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
+function noteToastText(notes) { return notes.slice(0, 3).map(x => x.meal).join(', ') + (notes.length > 3 ? ' and more' : '') + ': ' + UNCHECKED_NOTE; }
 
 // The goal and calories row; hidden on typed plans with no goal or calories (EQA #135 r4 S5).
 function planMetaHtml(p, goalLabel) {
@@ -4404,17 +4405,19 @@ function planMetaHtml(p, goalLabel) {
 function showAllergenWarnings(r) {
  const all = r && Array.isArray(r.allergenWarnings) ? r.allergenWarnings : [];
  const w = all.filter(x => !x.unchecked);
- if (w.length) {
-  toast('Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '. Check against your allergies and diet.', 'error');
-  return true;
- }
- if (all.length) { toast(UNCHECKED_NOTE, 'note'); return true; }
- return false;
+ const notes = all.filter(x => x.unchecked);
+ if (w.length) toast('Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '. Check against your allergies and diet.', 'error');
+ // The calm note names the meal(s), and shows alongside a red warning on a mixed save.
+ if (notes.length) toast(noteToastText(notes), 'note');
+ return all.length > 0;
 }
 
 function toast(msg, type='success') {
  const t = document.createElement('div');
- t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${type==='error'?'#ef4444':type==='warn'?'#f59e0b':type==='note'?'#475569':'#16a34a'};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;
+ // Toasts shown together stack instead of covering each other (a red allergen toast plus a calm note).
+ const stack = document.querySelectorAll('[data-toast]').length;
+ t.setAttribute('data-toast', '');
+ t.style.cssText = `position:fixed;bottom:${24 + stack * 76}px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${type==='error'?'#ef4444':type==='warn'?'#f59e0b':type==='note'?'#475569':'#16a34a'};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;
  t.textContent = msg;
  document.body.appendChild(t);
  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3000);
