@@ -124,6 +124,8 @@
   .fm-table-wrap{overflow-x:visible}
   .fm-table,.fm-table tbody,.fm-table tr,.fm-table td{display:block;width:100%}
   .fm-table thead{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  /* A header group ignores overflow, so clip each cell too: no <th> sticks out past a phone screen (launch audit D10). */
+  .fm-table thead th{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   .fm-table tr{padding:10px 14px;border-bottom:1px dashed var(--line)}
   .fm-table tr:last-child{border-bottom:0}
   .fm-table td,.fm-table tr:last-child td{display:grid;grid-template-columns:minmax(96px,38%) minmax(0,1fr);gap:12px;align-items:baseline;padding:5px 0;border-bottom:0}

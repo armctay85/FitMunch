@@ -40,7 +40,8 @@ jest.mock('./server/storage.js', () => {
       const patch = patchOf(profile);
       if (patch) await m.createOrUpdateProfile(id, patch);
     }),
-    getMealLogsForPeriod: jest.fn(async () => []),
+    // Three logged days, so the weekly review is past its new-user empty state (launch audit D8).
+    getMealLogsForPeriod: jest.fn(async () => [0, 1, 2].map((d) => ({ date: new Date(Date.now() - d * 86400000), calories: 600, protein: 40 }))),
     getWorkoutLogsForPeriod: jest.fn(async () => []),
   };
   return m;
