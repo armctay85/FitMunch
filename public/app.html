@@ -14,6 +14,8 @@
 <script src="/js/fm-targets.js"></script>
 <script src="/js/fm-item-name.js"></script>
 <style>
+/* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
+:root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--ink);font-size:13px;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
@@ -26,7 +28,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  height:52px;background:var(--surface);border-bottom:1px solid var(--line);
  display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;
 }
-.nav-logo{display:flex;align-items:center;gap:8px;text-decoration:none;margin-right:8px}
+.nav-logo{display:flex;align-items:center;gap:8px;text-decoration:none;margin-right:8px;min-height:44px}
 .logo-m{width:28px;height:28px;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .logo-m svg{width:28px;height:28px;display:block}
 .logo-w{font-size:1rem;font-weight:800;color:var(--ink);letter-spacing:-.03em}
@@ -36,7 +38,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .nav-user{font-size:.82rem;font-weight:600;color:var(--mute);display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .nav-av{width:28px;height:28px;border-radius:50%;background:var(--leaf);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 0 0 2px #fff,0 0 0 3px rgba(31,157,74,.35)}
 .nav-btn{padding:5px 12px;border-radius:4px;font-size:.78rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
-.btn-logout{background:transparent;color:var(--mute2)}
+.btn-logout{background:transparent;color:var(--mute2);min-height:44px;min-width:44px}
 .btn-logout:hover{color:var(--red)}
 .btn-upgrade{background:var(--leaf);color:#fff}
 .btn-upgrade:hover{background:var(--leaf2)}
@@ -66,6 +68,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .view-title{font-size:1.15rem;font-weight:800;letter-spacing:-.03em}
 .view-sub{font-size:.75rem;color:var(--mute2);margin-top:2px}
 .view-actions{display:flex;gap:8px;align-items:center}
+.view-actions .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .scroll-body{flex:1;overflow-y:auto;padding:14px 20px 24px}
 .scroll-body::-webkit-scrollbar{width:4px}
 .scroll-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
@@ -119,9 +122,10 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 
 .shop-category{margin-bottom:16px}
 .shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.shop-cat-icon{font-size:12px}
 .shop-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;border:1px solid var(--line);background:var(--surface);margin-bottom:6px;transition:all .15s}
-.shop-item.checked{opacity:.5;background:var(--paper2)}
+.shop-item.checked{background:var(--paper2)}
+.shop-item.checked .shop-name{text-decoration:line-through;color:#4a5751}
+.shop-item.checked .shop-qty{color:#4a5751}
 .shop-cb{width:16px;height:16px;border-radius:3px;border:1.5px solid var(--border2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.65rem;transition:all .15s}
 .shop-cb.checked{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .shop-name{flex:1;font-size:.82rem;font-weight:500;color:var(--ink)}
@@ -234,9 +238,6 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .sl-item-name{flex:1;font-size:.82rem;font-weight:600}
 .sl-item-qty{font-size:.72rem;color:var(--mute2);font-family:'IBM Plex Mono',monospace}
 .sl-item-price{font-size:.78rem;font-weight:600;color:var(--leaf2);white-space:nowrap}
-.sl-item-links{display:flex;gap:4px}
-.sl-item-link{font-size:.65rem;padding:2px 7px;border-radius:3px;border:1px solid var(--line);background:var(--surface);cursor:pointer;text-decoration:none;color:var(--mute);font-weight:600;white-space:nowrap;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.sl-item-link:hover{border-color:var(--leaf);color:var(--leaf2)}
 
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);z-index:100;padding:0 4px env(safe-area-inset-bottom,0)}
 .mob-nav-items{display:flex;justify-content:space-around;align-items:stretch}
@@ -275,7 +276,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-meta.user{align-self:flex-end;padding-right:4px}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.goals-nudge span{font-size:.75rem;color:var(--mute)}
+.goals-nudge span{font-size:.75rem;color:#4b5a52}
 .receipt-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
 .receipt-empty-panel{height:100%;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 22px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
 .receipt-empty-panel img{width:120px;height:120px;object-fit:contain;margin-bottom:12px;opacity:.95}
@@ -302,8 +303,53 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .view-header{padding:12px 14px 0;flex-direction:column;align-items:flex-start;gap:8px}
  #view-dashboard .feat-tile-grid{grid-template-columns:repeat(2,1fr) !important}
  .metrics-row{grid-template-columns:repeat(2,1fr) !important}
- .topnav{padding:0 12px}
+ .topnav{padding:0 12px;gap:8px}
+ /* Phones: the bottom nav replaces the sidebar, and nothing may be wider than the screen. */
+ .sidebar{display:none!important}
+ .main,.view,.scroll-body{min-width:0}
+ .nav-user #nav-name{display:none}
+ .scroll-body *,.modal *{min-width:0}
+ .scroll-body input,.scroll-body select,.scroll-body textarea,.modal input,.modal select,.modal textarea{max-width:100%}
+ .view-actions{flex-wrap:wrap;width:100%}
+ .modal{width:calc(100vw - 24px);max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;padding:18px 16px}
+ .modal [style*="grid-template-columns"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .scroll-body [style*="grid-template-columns:1fr 1fr 1fr"],.scroll-body [style*="grid-template-columns: 1fr 1fr 1fr"],.scroll-body [style*="repeat(3"],.scroll-body [style*="repeat(4"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .mob-more-btn{min-width:0;flex:1 1 calc(50% - 8px)}
+ /* Phones: Sign out lives in the More sheet; every tap target is at least 44px. */
+ .topnav .btn-logout{display:none}
+ .btn-logout,.mob-more-btn{white-space:nowrap}
+ .nav-logo{min-height:44px;display:flex;align-items:center}
+ button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),[role=button],.btn,.btn-sm,.nav-btn,.diet-tag,.metric-cta,.mob-nav-btn,.mob-more-btn,.modal-close{min-height:44px;min-width:44px}
+ input[type=checkbox]:not(.fm-switch),input[type=radio]{width:24px;height:24px;margin:10px}
+ a[href].btn,a[href][class*="cta"],[onclick]:not(div):not(tr):not(li){min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+ .view-actions .btn{flex:1 1 auto;justify-content:center}
+ .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
+ .shop-cb.checked{box-shadow:none}
 }
+/* Touch tablets and small laptops: same 44px tap targets as phones. */
+@media (pointer:coarse), (max-width:1024px) {
+ .nav-logo{min-height:44px;display:flex;align-items:center}
+ .sidebar .nav-item,.btn-logout,.metric-cta,.btn,.btn-sm,.nav-btn,.diet-tag,.mob-nav-btn,.mob-more-btn,.modal-close,button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),[role=button]{min-height:44px;min-width:44px}
+ .sidebar .nav-item{display:flex;align-items:center}
+ a[href].btn,a[href][class*="cta"],[onclick]:not(div):not(tr):not(li){min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+ input[type=checkbox]:not(.fm-switch),input[type=radio]{width:24px;height:24px;margin:10px}
+ .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
+ .shop-cb.checked{box-shadow:none}
+}
+/* Tablets and small laptops: header buttons get their own row and never wrap inside. */
+@media (max-width: 1024px) {
+ .view-header{flex-wrap:wrap}
+ .view-actions{flex-wrap:wrap;width:100%}
+ .view-actions .btn{white-space:nowrap;min-height:44px}
+}
+@media (max-width: 360px) {
+ .card-header{flex-wrap:wrap;gap:8px}
+ .card-header > div:last-child,.card-header .btn{flex:1 1 100%}
+ .view-actions .btn{flex:1 1 100%}
+}
+.modal-overlay{visibility:hidden}
+.modal-overlay.open{visibility:visible}
+.modal input:focus-visible,.modal select:focus-visible,.modal textarea:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--leaf2);outline-offset:2px}
 /* Privacy and AI consent modals: above onboarding, 44px targets, a real switch. */
 #modal-ai-consent{z-index:400}
 #modal-ai-consent .btn,#modal-privacy .btn,#modal-privacy .modal-close{min-height:44px;min-width:44px}
@@ -548,7 +594,7 @@ html.fm-authed #app-gate{display:none}
  <button class="back-btn" onclick="nav('clients')">← Back</button>
  <div class="c-av" id="detail-av" style="width:32px;height:32px;font-size:.65rem"></div>
  <div style="flex:1"><div style="font-size:.9rem;font-weight:800" id="detail-name">Client</div><div style="font-size:.72rem;color:var(--text3)" id="detail-email"></div></div>
- <select class="form-select" id="detail-phase" style="width:130px" onchange="updateClientPhase()">
+ <select class="form-select" id="detail-phase" aria-label="Client phase" style="width:130px" onchange="updateClientPhase()">
  <option value="deficit">Deficit phase</option><option value="maintain">Maintain phase</option><option value="bulk">Bulk phase</option>
  </select>
  <button class="btn btn-green btn-sm" onclick="openAssignModal()">Assign Plan</button>
@@ -776,7 +822,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
  <div class="view-header">
- <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for your next shop. Prices vary by store and week.</div></div>
+ <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for your next shop.</div></div>
  <div class="view-actions">
  <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
  <button class="btn btn-green btn-sm" onclick="openModal('modal-manual-list')">+ Manual list</button>
@@ -1559,7 +1605,7 @@ html.fm-authed #app-gate{display:none}
  <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:16px">30 seconds. We'll track your progress and show how you're tracking.</p>
  <div class="form-field">
  <label class="form-label">My goal</label>
- <select id="goal-type" class="form-select">
+ <select id="goal-type" class="form-select" aria-label="Goal">
  <option value="lose_weight">Lose weight</option>
  <option value="muscle_gain">💪 Build muscle</option>
  <option value="maintain">⚖️ Maintain weight</option>
@@ -2099,7 +2145,7 @@ function _mealRowHtml(idx, item, containerId) {
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
  <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Meal Time</label><select class="form-select" style="padding:4px 6px;font-size:.78rem" data-field="mealType">${opts}</select></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Meal Time</label><select class="form-select" aria-label="Meal time" style="padding:4px 6px;font-size:.78rem" data-field="mealType">${opts}</select></div>
  </div>
  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
  <div><label style="font-size:.7rem;color:var(--text3)">Cal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${escapeHtml(item.calories||'')}" placeholder="300" data-field="calories"/></div>
@@ -2462,7 +2508,6 @@ async function loadShoppingLists() {
  renderShoppingLists(S.shoppingLists, 'shopping-lists-body');
 }
 
-const CAT_ICONS = { meat:'ME', dairy:'DY', grains:'GR', vegetables:'VG', fruit:'FR', pantry:'PN', other:'OT' };
 function renderShoppingList(list, targetId) {
  const el = document.getElementById(targetId);
  if (!el) return;
@@ -2476,7 +2521,7 @@ function renderShoppingList(list, targetId) {
  });
  el.innerHTML = Object.entries(grouped).map(([cat, catItems]) => `
  <div class="shop-category">
- <div class="shop-cat-label"><span class="shop-cat-icon" style="font-family:'IBM Plex Mono',monospace;font-size:.65rem;letter-spacing:.04em">${CAT_ICONS[cat]||'OT'}</span>${escapeHtml(cat.charAt(0).toUpperCase()+cat.slice(1))}</div>
+ <div class="shop-cat-label">${escapeHtml(cat.charAt(0).toUpperCase()+cat.slice(1))}</div>
  ${catItems.map((item, i) => `
  <div class="shop-item ${item.checked?'checked':''}" id="si-${list.id}-${i}">
  <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i})">${item.checked?'✓':''}</div>
@@ -3332,7 +3377,7 @@ function renderScanResults(data) {
  </div>
  <div style="padding:8px 14px 14px">
  <div style="font-size:.72rem;color:var(--text3);margin-bottom:10px">Checked items will be added to your meal log for today.</div>
- <select id="scan-meal-type" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:.78rem;margin-bottom:10px;background:#fff">
+ <select id="scan-meal-type" aria-label="Meal time" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:.78rem;margin-bottom:10px;background:#fff">
  <option value="breakfast">Breakfast</option>
  <option value="lunch" selected>Lunch</option>
  <option value="dinner">Dinner</option>
