@@ -14,7 +14,7 @@ describe('summary of a saved plan', () => {
   const plan = engine.buildPlan({ calories: 1860, protein: 141, days: 7, dietary: [] });
   const row = { id: 9, name: 'Your first week', meals: plan.days };
   it("picks today's weekday, lists its meals in slot order, and totals the day", () => {
-    const s = hw.summary(row, new Date('2026-10-15T10:00:00+11:00')); // a Thursday
+    const s = hw.summary(row, new Date(2026, 9, 15, 12)); // a Thursday, local time in any zone
     expect(s.days).toHaveLength(7);
     expect(s.today.day).toBe('Thursday');
     expect(s.days.filter((d) => d.today).map((d) => d.day)).toEqual(['Thursday']);
