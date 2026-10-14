@@ -64,6 +64,7 @@ module.exports = {
     '**/test_app_mobile_layout.js',
     '**/test_app_mobile_rendered.js',
     '**/test_meal_plan_engine.js',
+    '**/test_no_budget_copy.js',
     '**/test_meal_plan_owner.js',
     '**/test_stripe_webhook.js',
     '**/test_coach_billing.js',

@@ -1590,7 +1590,7 @@ function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCal
     return `You're at ${calPct}% of your calorie target and ${protPct}% of your protein goal for today. Front-loading food earlier in the day tends to reduce evening snacking — try fitting in a balanced meal soon.`;
   }
   if (protPct < 50 && calPct > 60) {
-    return `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without blowing your calorie budget.`;
+    return `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without going over your calorie target.`;
   }
   if (calPct > 110) {
     return goal === 'muscle_gain'
