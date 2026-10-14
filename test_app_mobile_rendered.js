@@ -43,19 +43,29 @@ const MODALS = ['modal-log-meal', 'modal-mealplan', 'modal-generate-shopping', '
 // Modals open with transform:scale(.96) -> 1 over .2s, so a 44px target measured mid-
 // transition reads 42px. Under a busy parallel jest run a fixed sleep wasn't always enough.
 async function settle(page) {
-  await page.evaluate(async () => {
-    const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
-    await Promise.all([...document.querySelectorAll('link[rel=stylesheet]')].map((l) => (l.sheet ? null : new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); }))));
-    await document.fonts.ready;
-    for (let i = 0; i < 20; i += 1) {
+  // The app can open a modal of its own (onboarding) once a mocked /api call resolves,
+  // so also wait for the network to go quiet and repeat until two passes see the same
+  // open modals with nothing animating.
+  let last = null;
+  for (let pass = 0; pass < 20; pass += 1) {
+    await page.waitForLoadState('networkidle').catch(() => {});
+    const state = await page.evaluate(async () => {
+      const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+      await Promise.all([...document.querySelectorAll('link[rel=stylesheet]')].map((l) => (l.sheet ? null : new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); }))));
+      await document.fonts.ready;
       await frame(); await frame();
       void document.body.getBoundingClientRect();
-      const running = document.getAnimations().filter((a) => a.playState === 'running' || a.playState === 'pending');
-      if (!running.length) return;
-      await Promise.all(running.map((a) => a.finished.catch(() => {})));
-    }
-    throw new Error('page never settled: animations still running');
-  });
+      const running = document.getAnimations().filter((x) => x.playState === 'running' || x.playState === 'pending');
+      await Promise.all(running.map((x) => x.finished.catch(() => {})));
+      await frame(); await frame();
+      const open = [...document.querySelectorAll('.modal-overlay.open')].map((m) => m.id).join(',');
+      return { open, quiet: running.length === 0 && document.getAnimations().every((x) => x.playState !== 'running' && x.playState !== 'pending') };
+    });
+    const key = JSON.stringify(state);
+    if (state.quiet && key === last) return;
+    last = key;
+  }
+  throw new Error('page never settled: modals or animations kept changing');
 }
 
 maybe('signed-in app rendered on phones', () => {
@@ -86,7 +96,7 @@ maybe('signed-in app rendered on phones', () => {
         await ctx.route('**/api/**', (r) => r.fulfill({ json: r.request().url().includes('/auth/me') ? user(role) : generic }));
         await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
         const page = await ctx.newPage();
-        await page.goto(`${base}/app.html`);
+        await page.goto(`${base}/app.html`, { timeout: 90000 });
         await page.waitForFunction(() => typeof nav === 'function' && document.documentElement.classList.contains('fm-authed'), null, { timeout: 15000 });
         await settle(page);
         const problems = [];
@@ -129,7 +139,7 @@ maybe('signed-in app rendered on phones', () => {
     await ctx.route('**/api/**', (r) => r.fulfill({ json: r.request().url().includes('/auth/me') ? user('pt') : generic }));
     await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
     const page = await ctx.newPage();
-    await page.goto(`${base}/app.html`);
+    await page.goto(`${base}/app.html`, { timeout: 90000 });
     await page.waitForFunction(() => typeof nav === 'function' && document.documentElement.classList.contains('fm-authed'), null, { timeout: 15000 });
     const short = [];
     for (const v of VIEWS.pt) {
