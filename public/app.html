@@ -275,7 +275,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-bubble.assistant code{font-family:'IBM Plex Mono',monospace;font-size:.78rem;background:var(--paper2);padding:1px 5px;border-radius:3px}
 .chat-meta{font-size:.65rem;color:var(--mute2);margin-top:2px;align-self:flex-start;padding-left:4px}
 .chat-meta.user{align-self:flex-end;padding-right:4px}
-.allergen-warning{margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #b91c1c;background:#fef2f2;color:#991b1b;font-size:.8rem;font-weight:700;line-height:1.4}
+.allergen-warning{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #b91c1c;background:#fef2f2;color:#991b1b;font-size:.8rem;font-weight:700;line-height:1.4}
 .allergen-badge{display:inline-block;padding:1px 6px;border-radius:4px;background:#b91c1c;color:#fff;font-size:.68rem;font-weight:700}
 .mp-safe-notice{display:block;margin:10px 0 14px;padding:12px 14px;border-left:4px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:.92rem;font-weight:600;line-height:1.45}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
@@ -2221,7 +2221,7 @@ function openEditMealPlan(planId) {
  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
  let warnEl = document.getElementById('edit-mp-allergen');
  if (!warnEl) { warnEl = document.createElement('div'); warnEl.id = 'edit-mp-allergen'; list.insertAdjacentElement('beforebegin', warnEl); }
- warnEl.innerHTML = allergenBadgeHtml(p.allergenWarnings);
+ warnEl.innerHTML = allergenBadgeHtml(p.allergenWarnings, true);
  openModal('modal-edit-meal-plan');
 }
 
@@ -4355,10 +4355,10 @@ async function saveGeneratedWorkoutPlan() {
 }
 
 // Persistent red badge for saved meals that clash with the user's saved allergies or diet (#127a).
-function allergenBadgeHtml(warnings) {
+function allergenBadgeHtml(warnings, alert) {
  const w = Array.isArray(warnings) ? warnings : [];
  if (!w.length) return '';
- return `<div class="allergen-warning" role="alert">⚠ Allergen warning: ${w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ')}</div>`;
+ return `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>⚠ Allergen warning: ${w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ')}</div>`;
 }
 
 // Meals the user typed are saved as typed; if they clash with saved allergies or diet, say so in red.

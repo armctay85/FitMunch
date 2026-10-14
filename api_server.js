@@ -1646,8 +1646,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     // #127a: filtered users (or an unreadable profile) get a fixed tip that names no foods. No AI, no credit.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
-    if (insightUnread || dietGuard.savedFilters(insightProfile).length) {
-      return res.json({ success: true, insight: dietGuard.SAFE_TIP, provider: null });
+    const insightFilters = dietGuard.savedFilters(insightProfile);
+    if (insightUnread || insightFilters.length) {
+      const insight = dietGuard.safeInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein });
+      return res.json({ success: true, insight, provider: null });
     }
 
     if (!aiClient.hasProvider()) {
@@ -1843,14 +1845,17 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const ctxObj = context && typeof context === 'object' ? context : {};
     const filters = dietGuard.combineFilters(profile, [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)]);
     const guarded = profileUnread || filters.length > 0;
-    const safeReply = () => dietGuard.safeCoachReply({
+    const safeOpts = {
       filters,
       calories: (profile && profile.targetCalories) || ctxObj.targetCalories,
       protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
-    }).reply;
+    };
     const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
-    if (guarded && dietGuard.isFoodTalk(intent, latestUser)) {
-      return res.json({ success: true, reply: safeReply(), source: 'builder', provider: null });
+    // Filtered users never reach the AI: food questions get checked recipes, everything else food-free guidance.
+    if (guarded) {
+      return dietGuard.isFoodTalk(intent, latestUser)
+        ? res.json({ success: true, reply: dietGuard.safeCoachReply(safeOpts).reply, source: 'builder', provider: null })
+        : res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
@@ -1878,12 +1883,8 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const finalSystem = personal
       ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
       : system;
-    const guardedSystem = guarded
-      ? `${finalSystem}\n\nThis user has diet or allergy filters. Do not suggest meals, recipes or foods; point them to Meal Plans for checked meals.`
-      : finalSystem;
-
     const r = await aiClient.chat({
-      system: guardedSystem,
+      system: finalSystem,
       messages: safeMessages,
       maxTokens: CHAT_MAX_TOKENS,
       temperature: 0.6,
@@ -1898,14 +1899,6 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
 
-    // An unreadable profile screens against every allergen group (fail closed).
-    const screen = filters.length ? filters : ['vegan', 'gluten free', 'nut free', 'soy free', 'sesame free', 'fish free'];
-    if (guarded && dietGuard.replyUnsafe(r.text, screen)) {
-      // The AI named a food this user can't have: serve checked recipes instead and refund the credit.
-      let remaining = gate.remaining;
-      try { if (await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'chat' }) && typeof remaining === 'number') remaining += 1; } catch (_) { /* best effort */ }
-      return res.json({ success: true, reply: safeReply(), source: 'builder', provider: null, remaining });
-    }
     res.locals.aiAnswered = true;
     return res.json({
       success: true,
@@ -2070,6 +2063,10 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     // #127a: filtered users get no food advice from the AI; unsafe lines are dropped below.
     const reviewFilters = dietGuard.savedFilters(profile);
     const reviewGuarded = reviewUnread || reviewFilters.length > 0;
+    if (reviewGuarded) {
+      // Fixed, food-free review with one checked meal. No AI, no credit.
+      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+    }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed && gate.unavailable) {
@@ -2108,8 +2105,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
     ].filter(Boolean).join('\n');
 
-    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.'
-      + (reviewGuarded ? ' This user has diet or allergy filters: never name a food, meal, snack or recipe.' : '');
+    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.';
     const prompt = `Here is the user's last 7 days of real logged data:
 
 ${dataBlock}
@@ -2136,7 +2132,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     res.locals.aiAnswered = true;
     res.json({
       success: true,
-      review: reviewGuarded ? dietGuard.safeReview(r.data, reviewFilters) : r.data,
+      review: r.data,
       stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
       provider: r.provider,
       remaining: gate.remaining,

@@ -29,7 +29,7 @@ jest.mock('./server/storage.js', () => {
   return {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u1', email: 'me@example.com', subscriptionTier: 'premium', settings: { aiDataConsent: true } })),
-    getProfile: jest.fn(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: ['no pork'], allergies: '["peanuts"]' })),
+    getProfile: jest.fn(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: [], allergies: '[]' })),
   };
 });
 
@@ -57,8 +57,7 @@ describe('Coach context', () => {
     expect(opts.system).toContain('Goal: lose fat');
     expect(opts.system).toContain('Daily targets: 2100 kcal, 170 g protein');
     expect(opts.system).not.toContain('9999');
-    expect(opts.system).toContain('Diet: no pork');
-    expect(opts.system).toContain('Allergies: peanuts');
+    // Diet and allergy lines aren't asserted here: users with filters never reach the AI (#127a).
     expect(opts.system).toContain('Today so far: 1200 kcal, 80 g protein');
     expect(opts.system).toContain('Latest plan: Christmas cut, 7 days (day 1: Greek yoghurt oats; Chicken rice bowl)');
     expect(opts.system).not.toMatch(/me@example\.com|u1/);
@@ -129,8 +128,8 @@ describe('Coach QA r1', () => {
   it('M2: two users never see each other\u2019s plan or profile; every plan query is keyed on the JWT user', async () => {
     const storage = require('./server/storage.js');
     const profiles = {
-      'user-a': { age: 31, weight: 70, allergies: '["peanut"]' },
-      'user-b': { age: 52, weight: 99, allergies: '["shellfish"]' },
+      'user-a': { age: 31, weight: 70 },
+      'user-b': { age: 52, weight: 99 },
     };
     storage.getProfile.mockImplementation(async (id) => profiles[id]);
     const plans = { 'user-a': 'A-PLAN', 'user-b': 'B-PLAN' };
@@ -145,13 +144,13 @@ describe('Coach QA r1', () => {
         const sys = aiClient.chat.mock.calls[0][0].system;
         expect(sys).toContain(`Latest plan: ${plans[me]}`);
         expect(sys).not.toContain(plans[other]);
-        expect(sys).not.toMatch(other === 'user-b' ? /shellfish|52 y/ : /peanut|31 y/);
+        expect(sys).not.toMatch(other === 'user-b' ? /52 y/ : /31 y/);
         const planQs = pgCalls.filter((q) => /meal_plans/.test(q.sql));
         expect(planQs.length).toBeGreaterThan(0);
         for (const q of planQs) expect(q.params).toEqual([me]);
       }
     } finally {
-      storage.getProfile.mockImplementation(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: ['no pork'], allergies: '["peanuts"]' }));
+      storage.getProfile.mockImplementation(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: [], allergies: '[]' }));
     }
   });
 

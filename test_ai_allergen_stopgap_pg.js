@@ -167,38 +167,9 @@ maybe('#127a on real Postgres', () => {
     expect(aiClient.chat).not.toHaveBeenCalled();
   });
 
-  it('M1: gluten free asking about teriyaki gets checked recipes; an AI reply naming teriyaki is replaced', async () => {
-    const q = await ask(GF, 'Is teriyaki chicken ok?');
-    expect(q.body.source).toBe('builder');
-    expect(aiClient.chat).not.toHaveBeenCalled();
-    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Three sets, then refuel with teriyaki chicken.', provider: 'mock' });
-    const w = await ask(GF, 'How many sets of squats?', { intent: 'workout' });
-    expect(aiClient.chat).toHaveBeenCalled();
-    expect(w.body.source).toBe('builder');
-    expect(w.body.reply).not.toMatch(/teriyaki/i);
-    expect(dietGuard.textBreaksFilters(w.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['gluten free'])).toBe(false);
-  });
-
   it('M2: a no-filter user sending null-ish filters still reaches the AI', async () => {
     await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: [null, 'null', 'undefined', ''] });
     expect(aiClient.chatJson).toHaveBeenCalled();
-  });
-
-  it('M3: weekly review for a peanut allergy has no peanut butter; a no-filter user gets it unchanged', async () => {
-    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PEANUT));
-    expect(r.status).toBe(200);
-    expect(JSON.stringify(r.body.review)).not.toMatch(/peanut/i);
-    expect(r.body.review.focus).toEqual(['Train 3 times']);
-    const g = await request(app).get('/api/ai/weekly-review').set('Authorization', as(GF));
-    expect(JSON.stringify(g.body.review)).not.toMatch(/teriyaki/i);
-    const p = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
-    expect(JSON.stringify(p.body.review)).toMatch(/peanut butter/);
-  });
-
-  it('S1: insight for a peanut allergy is the fixed safe tip', async () => {
-    const r = await request(app).post('/api/ai/insight').set('Authorization', as(PEANUT)).send({ todayCalories: 800, todayProtein: 20 });
-    expect(r.body.insight).toBe(dietGuard.SAFE_TIP);
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
 
   it('S3: allergies stored as an object count', async () => {
@@ -240,20 +211,6 @@ maybe('#127a on real Postgres', () => {
     expect(aiClient.chat).not.toHaveBeenCalled();
   });
 
-  it('r3 M1: a brand in an AI training reply is replaced (dairy free: Milo; gluten free: Up&Go); workout-only replies are kept', async () => {
-    await pool.query(`update user_profiles set dietary_preferences='["dairy free"]'::jsonb where user_id=$1`, [PLAIN]);
-    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Three sets, then grab a Milo.', provider: 'mock' });
-    const d = await ask(PLAIN, 'How many sets of squats?', { intent: 'workout' });
-    expect(d.body.source).toBe('builder');
-    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Neck an Up&Go on the way home.', provider: 'mock' });
-    const g = await ask(GF, 'How many sets of squats?', { intent: 'workout' });
-    expect(g.body.source).toBe('builder');
-    const keep = 'Foam roll your quads, then wrap up your session. Go nuts on the stairs.';
-    aiClient.chat.mockResolvedValueOnce({ ok: true, text: keep, provider: 'mock' });
-    const w = await ask(GF, 'How many sets of squats?', { intent: 'workout' });
-    expect(w.body.reply).toBe(keep);
-  });
-
   it('r3 S1: a typed PB toast keeps a persistent allergen warning in the plan list', async () => {
     const meals = [{ name: 'PB toast', foods: [] }];
     await request(app).post('/api/meal-plans').set('Authorization', as(PEANUT)).send({ name: 'Typed', meals });
@@ -261,5 +218,46 @@ maybe('#127a on real Postgres', () => {
     const plan = r.body.plans.find((p) => p.name === 'Typed');
     expect(plan.meals).toEqual(meals);
     expect(plan.allergenWarnings).toEqual([{ meal: 'PB toast', contains: expect.arrayContaining(['nuts']) }]);
+  });
+
+  // ── r4 (Elite QA #135 r3): filtered users never reach the AI ──
+  const COMING = dietGuard.COMING_SOON;
+  const safeMealIn = (text, filters) => {
+    expect(engine.TEMPLATES.some((t) => text.includes(`${t.name} (`))).toBe(true);
+    expect(dietGuard.textBreaksFilters(text.replace(dietGuard.SAFE_NOTICE, ''), filters)).toBe(false);
+  };
+  it("r4: QA's leaks (dairy free and GF asking 'How many sets for squats?', GF teriyaki) make no AI call; replies name no food or brand beyond one checked meal", async () => {
+    await pool.query(`update user_profiles set dietary_preferences='["dairy free"]'::jsonb where user_id=$1`, [PLAIN]);
+    for (const [who, f] of [[PLAIN, 'dairy free'], [GF, 'gluten free']]) {
+      for (const q of ['How many sets for squats?', 'Is teriyaki chicken ok?', 'What do I grab before training?']) {
+        const r = await ask(who, q, { intent: 'workout' });
+        expect(r.status).toBe(200);
+        expect(r.body.reply).toContain(COMING);
+        expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go|teriyaki/i);
+        safeMealIn(r.body.reply, [f]);
+      }
+    }
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('r4: weekly review and insight are fixed for filtered users (no AI, safe meal, coming-soon line); no-filter users still reach the AI', async () => {
+    for (const [who, f] of [[PEANUT, 'nut free'], [GF, 'gluten free']]) {
+      const r = await request(app).get('/api/ai/weekly-review').set('Authorization', as(who));
+      expect(r.status).toBe(200);
+      expect(r.body.source).toBe('fixed');
+      expect(r.body.review.focus).toContain(COMING);
+      safeMealIn(JSON.stringify(r.body.review), [f]);
+      const i = await request(app).post('/api/ai/insight').set('Authorization', as(who)).send({ todayCalories: 800, targetCalories: 2000, targetProtein: 150 });
+      expect(i.body.insight).toContain(COMING);
+      safeMealIn(i.body.insight, [f]);
+    }
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    const p = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
+    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(JSON.stringify(p.body.review)).toMatch(/peanut butter/);
+    const c = await ask(PLAIN, 'How many sets for squats?', { intent: 'workout' });
+    expect(c.body.reply).toMatch(/MOCKAI/);
   });
 });
