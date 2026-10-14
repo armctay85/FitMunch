@@ -72,6 +72,7 @@ module.exports = {
     '**/test_ship_safety.js',
     '**/test_xss_escape.js',
     '**/test_stored_xss.js',
+    '**/test_xss_handlers.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

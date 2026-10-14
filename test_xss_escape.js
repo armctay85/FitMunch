@@ -90,3 +90,50 @@ describe('app.html static sweep', () => {
     expect(html.match(raw)).toBeNull();
   });
 });
+
+// Rows saved before the server strip landed are not cleaned, so the page
+// must escape every field it prints (Elite QA #113 r2 M1, M2).
+describe('legacy saved rows render inert', () => {
+  function extractAny(name) {
+    const start = html.search(new RegExp(`(?:async )?function ${name}\\(`));
+    let i = html.indexOf('{', start); let depth = 0;
+    for (; i < html.length; i++) {
+      if (html[i] === '{') depth++;
+      else if (html[i] === '}' && --depth === 0) return html.slice(start, i + 1);
+    }
+    throw new Error(name);
+  }
+  let api; let builder; let reply;
+  beforeAll(() => {
+    const src = ['escapeHtml', '_renderExList', 'loadMealPlans'].map(extractAny).join('\n')
+      + '\nreturn { _renderExList, loadMealPlans };';
+    builder = { day: 1, exercises: [] };
+    api = new Function('S', '_exBuilder', 'API', src)({}, builder, async () => reply);
+  });
+
+  test.each(PAYLOADS)('exercise builder list: sets, rest and id %s', (payload) => {
+    document.body.innerHTML = '<div id="ex-list"></div>';
+    window._removeExercise = jest.fn();
+    builder.exercises.length = 0;
+    builder.exercises.push({ _id: payload, day: 1, name: 'Squat', sets: payload, reps: '8', rest: payload });
+    api._renderExList();
+    const el = document.getElementById('ex-list');
+    expect(el.querySelector('img, script, svg, [onerror], [onload], [onmouseover]')).toBeNull();
+    expect(el.textContent).toContain(`${payload} sets`);
+    expect(el.textContent).toContain(`${payload}s rest`);
+    expect(el.firstElementChild.id).toBe('ex-item-NaN');
+    el.querySelector('button').click();
+    expect(window._removeExercise).toHaveBeenCalledWith(NaN);
+    expect(window.__pwned).toBe(0);
+  });
+
+  test.each(PAYLOADS)('saved meal plan summary: calories and protein %s', async (payload) => {
+    document.body.innerHTML = '<div id="meal-plans-grid"></div><div id="mp-saved-section"></div>';
+    reply = { plans: [{ id: 1, name: 'Old plan', meals: [{ name: 'Oats', mealType: 'breakfast', calories: payload, protein: payload }] }] };
+    await api.loadMealPlans();
+    const el = document.getElementById('meal-plans-grid');
+    expect(el.querySelector('img, script, svg, [onerror], [onload], [onmouseover]')).toBeNull();
+    expect(el.textContent).toContain(`Oats - ${payload} cal · P:${payload}g`);
+    expect(window.__pwned).toBe(0);
+  });
+});
