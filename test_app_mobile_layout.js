@@ -81,7 +81,7 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
   });
 
   it('Shopping Lists copy does not point at the retired shopper', () => {
-    expect(html).toContain('id="sl-sub">Your lists, ready for your next shop. Plan your shop with the list below.</div>');
+    expect(html).toContain('id="sl-sub">Your lists, ready for your next shop.</div>');
     expect(html).not.toMatch(/href="\/shopper"|Fitness Butler shopper/);
   });
 });

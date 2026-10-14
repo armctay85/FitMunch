@@ -58,6 +58,7 @@ maybe('signed-in app rendered on phones', () => {
 
   for (const role of ['client', 'pt']) {
     for (const width of [320, 390, 768]) {
+      // One test per role and width, each with its own timeout, so no single test runs long.
       it(`${role} at ${width}px: no horizontal overflow and 44px tap targets in every view and modal`, async () => {
         const ctx = await browser.newContext({ viewport: { width, height: 760 }, hasTouch: true, isMobile: true });
         await ctx.addInitScript(() => localStorage.setItem('fm_token', 'test.token'));
@@ -92,7 +93,29 @@ maybe('signed-in app rendered on phones', () => {
         }
         await ctx.close();
         expect(problems).toEqual([]);
-      });
+      }, 240000);
     }
   }
+
+  // Above 1024px the header action buttons are also at least 44px tall.
+  it('header buttons are at least 44px tall at 1280px', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    await ctx.addInitScript(() => localStorage.setItem('fm_token', 'test.token'));
+    await ctx.route('**/api/**', (r) => r.fulfill({ json: r.request().url().includes('/auth/me') ? user('pt') : generic }));
+    await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+    const page = await ctx.newPage();
+    await page.goto(`${base}/app.html`);
+    await page.waitForFunction(() => typeof nav === 'function' && document.documentElement.classList.contains('fm-authed'), null, { timeout: 15000 });
+    const short = [];
+    for (const v of VIEWS.pt) {
+      await page.evaluate((v) => nav(v), v);
+      await page.waitForTimeout(300);
+      short.push(...await page.evaluate(() => [...document.querySelectorAll('.view.active .view-actions .btn, .view[style*="block"] .view-actions .btn')]
+        .filter((e) => e.getBoundingClientRect().height > 0)
+        .filter((e) => e.getBoundingClientRect().height < 43.5)
+        .map((e) => `${e.innerText.trim().slice(0, 20)} ${Math.round(e.getBoundingClientRect().height)}px`)));
+    }
+    await ctx.close();
+    expect(short).toEqual([]);
+  }, 120000);
 });

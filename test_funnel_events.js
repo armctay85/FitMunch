@@ -449,7 +449,7 @@ describe('funnel beacon and private viewer', () => {
     try {
       const res = await request(app)
         .get('/api/analytics/funnel')
-        .query({ key: 'test-key' });
+        .set('x-fm-analytics-key', 'test-key');
       expect(res.status).toBe(500);
       expect(res.body).toEqual({ success: false, error: 'Internal server error' });
       expectNoSql(res.body);
@@ -528,7 +528,10 @@ describe('read-only funnel key (FM_FUNNEL_READ_KEY)', () => {
   });
 
   it('does not open the private /funnel page or other routes', async () => {
-    expect((await request(app).get('/funnel').set('x-fm-funnel-key', READ)).status).toBe(401);
+    // The /funnel page is a shell with no data; the read key adds nothing to it.
+    const shell = await request(app).get('/funnel').set('x-fm-funnel-key', READ);
+    expect(shell.status).toBe(200);
+    expect(shell.text).not.toContain(READ);
     const post = await request(app).post('/api/analytics/funnel').set('x-fm-funnel-key', READ).send({});
     expect(post.status).not.toBe(200);
   });
@@ -538,5 +541,99 @@ describe('read-only funnel key (FM_FUNNEL_READ_KEY)', () => {
     expect(res.status).toBe(200);
     expect(res.body.events).toHaveLength(1);
     expect(res.body.steps).toHaveLength(5);
+  });
+});
+
+describe('funnel GET: shared limiter, header-only keys', () => {
+  const counters = require('./lib/shared-counters');
+  let prev;
+  beforeEach(() => {
+    prev = { full: process.env.FM_ANALYTICS_KEY, read: process.env.FM_FUNNEL_READ_KEY, max: process.env.FUNNEL_IP_MAX_PER_10_MIN };
+    process.env.FM_ANALYTICS_KEY = 'full-limit-test';
+    counters.resetSharedCountersForTests();
+  });
+  afterEach(() => {
+    for (const [k, v] of [['FM_ANALYTICS_KEY', prev.full], ['FM_FUNNEL_READ_KEY', prev.read], ['FUNNEL_IP_MAX_PER_10_MIN', prev.max]]) {
+      if (v == null) delete process.env[k]; else process.env[k] = v;
+    }
+    counters.setSharedCounterQueryForTests(null);
+    counters.resetSharedCountersForTests();
+  });
+
+  it('the full key in ?key= is refused; the header works', async () => {
+    expect((await request(app).get('/api/analytics/funnel').query({ key: 'full-limit-test' })).status).toBe(401);
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test')).status).toBe(200);
+  });
+
+  it('wrong keys hit 429 after the per-IP limit (no Retry-After guessing past it)', async () => {
+    process.env.FUNNEL_IP_MAX_PER_10_MIN = '3';
+    const codes = [];
+    for (let i = 0; i < 5; i++) codes.push((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', `wrong-${i}`)).status);
+    expect(codes).toEqual([401, 401, 401, 429, 429]);
+    const ok = await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test');
+    expect(ok.status).toBe(429);
+    expect(ok.headers['retry-after']).toBe('600');
+  });
+
+  it('rotating X-Forwarded-For does not dodge the limit: one counter key, 429 on the 21st', async () => {
+    delete process.env.FUNNEL_IP_MAX_PER_10_MIN; // default 20 per 10 min
+    expect(app.get('trust proxy')).toBeFalsy();
+    const spy = jest.spyOn(counters, 'hitRateCounter');
+    try {
+      const codes = [];
+      for (let i = 0; i < 21; i++) {
+        const res = await request(app).get('/api/analytics/funnel')
+          .set('X-Forwarded-For', `203.0.113.${i + 1}, 198.51.100.${i + 1}`)
+          .set('x-fm-analytics-key', `wrong-${i}`);
+        codes.push(res.status);
+      }
+      expect(codes.slice(0, 20)).toEqual(Array(20).fill(401));
+      expect(codes[20]).toBe(429);
+      const keys = new Set(spy.mock.calls.filter((c) => c[0] === 'analytics-funnel-ip').map((c) => c[1]));
+      expect(spy.mock.calls.filter((c) => c[0] === 'analytics-funnel-ip')).toHaveLength(21);
+      expect(keys.size).toBe(1);
+      expect([...keys][0]).not.toMatch(/203\.0\.113|198\.51\.100/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('fails closed: counter down => 503 even with the right key', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    counters.setSharedCounterQueryForTests(async () => { throw Object.assign(new Error('down'), { code: 'ECONNREFUSED' }); });
+    try {
+      const before = storage.getFunnelStats.mock.calls.length;
+      const res = await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'full-limit-test');
+      expect(res.status).toBe(503);
+      expect(storage.getFunnelStats.mock.calls.length).toBe(before);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('read key: env unset and a header of "undefined" => 401', async () => {
+    delete process.env.FM_FUNNEL_READ_KEY;
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-funnel-key', 'undefined')).status).toBe(401);
+  });
+
+  it('full key: env unset and a header of "undefined" => 401', async () => {
+    delete process.env.FM_ANALYTICS_KEY;
+    expect((await request(app).get('/api/analytics/funnel').set('x-fm-analytics-key', 'undefined')).status).toBe(401);
+  });
+
+  it('safeKeyEqual compares with crypto.timingSafeEqual (no ===)', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    const fn = src.slice(src.indexOf('function safeKeyEqual'), src.indexOf('\n}\n', src.indexOf('function safeKeyEqual')));
+    expect(fn).toMatch(/crypto\.timingSafeEqual\(a, b\)/);
+    expect(fn).not.toMatch(/===|!==/);
+  });
+
+  it('the private funnel page keeps the key in sessionStorage and sends it only as a header', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'private/funnel.html'), 'utf8');
+    expect(html).toContain("headers: { 'x-fm-analytics-key': key }");
+    expect(html).toMatch(/sessionStorage\.setItem\(KEY, key\)/);
+    expect(html).toMatch(/sessionStorage\.getItem\(KEY\)/);
+    expect(html).not.toMatch(/localStorage/);
+    expect(html).not.toMatch(/[?&]key=|URLSearchParams|location\.search/);
   });
 });

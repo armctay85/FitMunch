@@ -49,8 +49,11 @@
 </main>
 <script>
 (function () {
-  var params = new URLSearchParams(location.search);
-  if (params.get('key')) document.getElementById('key').value = params.get('key');
+  // The key lives in sessionStorage for this tab only and is sent as a header.
+  // It is never read from or written to the URL.
+  var KEY = 'fm_analytics_key';
+  var saved = sessionStorage.getItem(KEY);
+  if (saved) document.getElementById('key').value = saved;
   document.getElementById('load').onclick = async function () {
     var err = document.getElementById('err');
     var meta = document.getElementById('meta');
@@ -61,6 +64,7 @@
     var key = document.getElementById('key').value.trim();
     var days = document.getElementById('days').value || '14';
     if (!key) { err.textContent = 'Enter the analytics key.'; err.hidden = false; return; }
+    sessionStorage.setItem(KEY, key);
     function esc(value) {
       return String(value == null ? '' : value)
         .replace(/&/g, '&amp;')
@@ -69,8 +73,12 @@
         .replace(/"/g, '&quot;');
     }
     try {
-      var r = await fetch('/api/analytics/funnel?days=' + encodeURIComponent(days) + '&key=' + encodeURIComponent(key));
+      var r = await fetch('/api/analytics/funnel?days=' + encodeURIComponent(days), {
+        headers: { 'x-fm-analytics-key': key },
+        cache: 'no-store',
+      });
       var j = await r.json();
+      if (r.status === 401) sessionStorage.removeItem(KEY);
       if (!r.ok || !j.success) throw new Error(j.error || ('HTTP ' + r.status));
       meta.textContent = 'Last ' + j.days + ' days · ' + j.totalEvents + ' events · updated ' + new Date(j.asOf).toLocaleString();
       steps.textContent = (j.steps || []).map(function (row) {
