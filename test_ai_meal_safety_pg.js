@@ -140,6 +140,33 @@ maybe('r6: stand-ins that sit beside the dish, and English muffins, on real Post
   });
 });
 
+// r7: QA's r6 escapes through /generate on real Postgres.
+maybe('r7: names that only look like the egg-free dish, and English muffins, on real Postgres', () => {
+  it.each([
+    ['egg', 'dinner', meal('Tofu-style fried rice', ['White rice', 'Peas'], 700), /fried rice/i],
+    ['egg', 'dinner', meal('Tofu chicken fried rice', ['White rice', 'Chicken breast', 'Firm tofu'], 700), /fried rice/i],
+    ['egg', 'dinner', meal('Tofu special fried rice', ['White rice', 'Prawns', 'Firm tofu'], 700), /fried rice/i],
+    ['gluten', 'breakfast', meal('English style muffins', ['Almond flour', 'Blueberries'], 500), /muffin/i],
+    ['gluten', 'breakfast', meal('Muffin, English', ['Almond flour', 'Blueberries'], 500), /muffin/i],
+    ['gluten', 'breakfast', meal('English mini muffins', ['Almond flour', 'Blueberries'], 500), /muffin/i],
+  ])('%s allergy: the AI %s "%s" is swapped', async (allergy, slot, bad, re) => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
+    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
+    const res = await gen([]);
+    expect(res.status).toBe(200);
+    const monday = res.body.plan.days[0].meals[slot];
+    expect(monday.replacedForFilters).toBe(true);
+    expect(JSON.stringify(res.body.plan.days.map((d) => d.meals))).not.toMatch(re);
+  });
+  it('egg allergy: "No egg fried rice" is kept, not swapped', async () => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: ['egg'] });
+    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal('No egg fried rice', ['White rice', 'Peas', 'Carrot'], 700) }) });
+    const res = await gen([]);
+    expect(res.status).toBe(200);
+    expect(res.body.plan.days[0].meals.dinner.name).toBe('No egg fried rice');
+  });
+});
+
 // Every FSANZ PEAL label term (and its plural or alternate spelling) typed as an allergy, against an AI meal
 // that contains it. The meal must be swapped and the user told.
 const FSANZ = [

@@ -817,3 +817,53 @@ describe('r6: stand-ins must describe the dish, English muffins stay gluten, mor
     expect(worst).toBeLessThanOrEqual(0.12);
   });
 });
+
+describe('r7: the whole name must be the egg-free dish, any English muffin is gluten, brand pins', () => {
+  const lexicon = require('./lib/food-lexicon');
+  const probs = (meal, f) => safety.mealProblems(meal, safety.excludedFlags(f), safety.customTerms(f));
+  const EGG = { allergies: ['egg'] }; const GF = { dietary: ['gluten free'] };
+  it.each([
+    ['Tofu-style fried rice', ['White rice', 'Peas']],
+    ['Tofu chicken fried rice', ['White rice', 'Chicken breast', 'Firm tofu']],
+    ['Tofu special fried rice', ['White rice', 'Prawns', 'Firm tofu']],
+    ['Tofu fried rice', ['White rice', 'Peas']],
+    ['No egg egg fried rice', ['White rice', 'Peas']],
+  ])('%s stays egg-flagged', (name, ingredients) => {
+    expect(probs({ name, ingredients }, EGG)).toContain('eggs');
+  });
+  it.each([
+    ['Tofu fried rice', ['White rice', 'Firm tofu']],
+    ['No egg fried rice', ['White rice', 'Peas']],
+    ['Without egg chicken fried rice', ['White rice', 'Chicken breast']],
+    ['Fried rice (egg free)', ['White rice', 'Peas']],
+  ])('%s is egg free', (name, ingredients) => {
+    expect(probs({ name, ingredients }, EGG)).toBeNull();
+  });
+  it('an egg-free claim lifts eggs only: "Without egg chicken fried rice" is still meat for a vegan', () => {
+    expect(probs({ name: 'Without egg chicken fried rice', ingredients: ['White rice', 'Chicken breast'] }, { dietary: ['vegan'] })).toContain('meat');
+  });
+  it.each(['English style muffins', 'Muffin, English', 'English mini muffins'])('%s is gluten even with almond flour listed', (name) => {
+    expect(probs({ name, ingredients: ['Almond flour', 'Blueberries'] }, GF)).toContain('gluten');
+  });
+  it('the gluten-free flour list holds no wheat flour', () => {
+    for (const f of ['plain flour', 'self raising flour', 'wholemeal flour', 'bread flour', 'wheat flour', 'spelt flour', 'flour']) expect([f, safety.GF_FLOUR.test(f)]).toEqual([f, false]);
+    for (const f of ['almond flour', 'rice flour', 'gluten free flour', 'buckwheat flour']) expect([f, safety.GF_FLOUR.test(f)]).toEqual([f, true]);
+  });
+  it('Cheezels is on the lexicon in its own right (gluten and dairy, not unrecognised)', () => {
+    for (const w of ['Cheezels', 'Cheezel']) {
+      const { flags, unknown } = lexicon.scan(w);
+      expect([w, flags.has('gluten'), flags.has('dairy'), unknown]).toEqual([w, true, true, []]);
+    }
+  });
+  it.each([
+    ['Peters Drumstick', ['gluten', 'dairy', 'nuts']], ['Connoisseur', ['dairy']], ['Indomie', ['gluten', 'soy']], ['Indomie mi goreng', ['gluten', 'soy']],
+  ])('brand %s carries %j', (brand, flags) => {
+    const { flags: got, unknown } = lexicon.scan(brand);
+    for (const f of flags) expect([brand, f, got.has(f)]).toEqual([brand, f, true]);
+    expect(unknown).toEqual([]);
+  });
+  it('Peters Drumstick is not meat; a chicken drumstick is', () => {
+    expect(lexicon.scan('Peters Drumstick').flags.has('meat')).toBe(false);
+    expect(lexicon.scan('Chicken drumstick').flags.has('meat')).toBe(true);
+  });
+});
