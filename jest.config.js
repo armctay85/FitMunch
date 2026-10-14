@@ -38,6 +38,7 @@ module.exports = {
     '**/test_shopper.js',
     '**/test_coach_plan.js',
     '**/test_sanitize_plan.js',
+    '**/test_api_json_dates.js',
     '**/test_stripe_urls_unsanitized.js',
     '**/test_seo_ship_pack_1.js',
     '**/test_seo_pack_2.js',
