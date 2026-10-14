@@ -107,31 +107,34 @@ beforeEach(() => { pgCalls.length = 0; profile = {}; aiClient.chat.mockReset(); 
 
 describe('AI meal plans (POST /api/meal-plan/generate)', () => {
   const gen = (dietary) => request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ goal: 'maintain', days: 7, calories: 2000, protein: 120, dietary });
-  it.each(CASES)('replaces $label with a safe template meal for the same slot, close macros, totals recomputed', async (c) => {
+  // r8 (#135 merged): a user with any filter never reaches the AI; the week comes from the checked builder.
+  it.each(CASES)('a $label user gets the checked builder week, no AI call', async (c) => {
     profile = { allergies: c.allergies || [] };
     aiClient.chatJson.mockResolvedValue({ ok: true, data: aiPlan({ [c.slot]: c.bad }), provider: 'xai' });
     const res = await gen(c.dietary || []);
     expect(res.status).toBe(200);
-    expect(res.body.source).toMatch(/^ai/);
-    const monday = res.body.plan.days[0].meals[c.slot];
+    expect(res.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    assertSafe(res.body.plan.days, { dietary: c.dietary, allergies: c.allergies }, c.words);
+  });
+  // The AI-plan check itself (kept for when Coach can block anything it can't check): $label is swapped.
+  it.each(CASES)('enforcePlan replaces $label with a safe template meal for the same slot, close macros, totals recomputed', (c) => {
+    const { plan, replaced } = safety.enforcePlan(aiPlan({ [c.slot]: c.bad }), { dietary: c.dietary || [], allergies: c.allergies || [], calories: 2000, protein: 120 });
+    const monday = plan.days[0].meals[c.slot];
     expect(monday.replacedForFilters).toBe(true);
+    expect(replaced.length).toBeGreaterThan(0);
     expect(engine.TEMPLATES.some((t) => t.name === monday.name && t.slot === c.slot)).toBe(true);
     expect(Math.abs(monday.calories - (c.bad.calories || 0))).toBeLessThanOrEqual((c.bad.calories || 0) * 0.1);
-    assertSafe(res.body.plan.days, { dietary: c.dietary, allergies: c.allergies }, c.words);
-    expect(res.body.plan.notes.join(' ')).toMatch(/didn't fit your filters|couldn't check/);
-    // The other days' safe AI meals are untouched.
-    expect(res.body.plan.days[1].meals[c.slot].name).toBe(SAFE[c.slot]().name);
-    // The prompt names the filters and the hidden forms.
-    const prompt = aiClient.chatJson.mock.calls[0][0].messages[0].content;
-    for (const d of c.dietary || []) expect(prompt).toContain(d);
-    for (const a of c.allergies || []) expect(prompt).toContain(a);
-    expect(prompt).toMatch(/Never include, even as a sauce, oil, milk/);
+    assertSafe(plan.days, { dietary: c.dietary, allergies: c.allergies }, c.words);
+    expect(plan.days[1].meals[c.slot].name).toBe(SAFE[c.slot]().name);
+    const rules = safety.promptRules({ dietary: c.dietary || [], allergies: c.allergies || [] });
+    for (const d of c.dietary || []) expect(rules).toContain(d);
+    for (const a of c.allergies || []) expect(rules).toContain(a);
+    expect(rules).toMatch(/Never include, even as a sauce, oil, milk/);
   });
-  it('vegan + nut free prompt spells out whey, almond milk, pesto and satay', async () => {
-    aiClient.chatJson.mockResolvedValue({ ok: true, data: aiPlan({}), provider: 'xai' });
-    await gen(['vegan', 'nut free']);
-    const prompt = aiClient.chatJson.mock.calls[0][0].messages[0].content;
-    expect(prompt).toMatch(/whey/); expect(prompt).toMatch(/almond milk/); expect(prompt).toMatch(/pesto/); expect(prompt).toMatch(/satay/);
+  it('vegan + nut free prompt rules spell out whey, almond milk, pesto and satay', () => {
+    const rules = safety.promptRules({ dietary: ['vegan', 'nut free'] });
+    expect(rules).toMatch(/whey/); expect(rules).toMatch(/almond milk/); expect(rules).toMatch(/pesto/); expect(rules).toMatch(/satay/);
   });
   it.each([
     ['garbage text', { ok: true, data: 'not json at all {{', provider: 'xai' }],
@@ -152,11 +155,12 @@ describe('AI meal plans (POST /api/meal-plan/generate)', () => {
     assertSafe(res.body.plan.days, { dietary: ['vegan'], allergies: ['soy'] }, /tofu|tempeh|edamame|soy/i);
     for (const d of res.body.plan.days) for (const m of Object.values(d.meals)) for (const s of m.swaps || []) expect(safety.mealProblems(s, safety.excludedFlags({ dietary: ['vegan'], allergies: ['soy'] }))).toBeNull();
   });
-  it('remembers the chosen filters on the profile so Coach and saved plans use them', async () => {
+  it('a filtered request never writes the profile (#135: the guarded route only reads saved filters)', async () => {
     storage.createOrUpdateProfile.mockClear();
-    aiClient.chatJson.mockResolvedValue({ ok: true, data: aiPlan({}), provider: 'xai' });
-    await gen(['nut free', 'vegan']);
-    expect(storage.createOrUpdateProfile).toHaveBeenCalledWith(expect.any(String), { dietaryPreferences: ['nut free', 'vegan'] });
+    const res = await gen(['nut free', 'vegan']);
+    expect(res.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
 });
 
@@ -165,30 +169,30 @@ describe('saved plans (POST and PUT /api/meal-plans)', () => {
     const call = pgCalls.find((c) => /^\s*(INSERT INTO|UPDATE) meal_plans/i.test(c.sql));
     return JSON.parse(call.params[/^\s*INSERT/i.test(call.sql) ? 4 : 3]);
   };
-  // Saved plans are the user's own (typed or edited): kept exactly as entered, with a warning on unsafe meals.
-  it.each(CASES)('$label is kept as entered on save, with an allergen warning', async (c) => {
+  // Saved plans are the user's own (typed or edited): stored exactly as entered; one warning system marks unsafe
+  // meals in the response (banner summary) and on every read (per meal).
+  it.each(CASES)('$label is stored exactly as entered; the save response warns once', async (c) => {
     profile = { dietaryPreferences: c.dietary || [], allergies: c.allergies || [] };
     const days = aiPlan({ [c.slot]: c.bad }).days;
     const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'My week', meals: days });
     expect(res.status).toBe(200);
-    const saved = stored();
-    const { allergenWarning, ...kept } = saved[0].meals[c.slot];
-    expect(kept).toEqual(c.bad);
-    expect(allergenWarning.message).toMatch(/may not fit your filters/);
-    expect(allergenWarning.allergens.length > 0 || allergenWarning.unrecognised).toBe(true);
-    expect(saved[1].meals[c.slot].allergenWarning).toBeUndefined();
+    expect(stored()).toEqual(days);
+    const named = safety.mealProblems(c.bad, safety.excludedFlags(c), safety.customTerms(c)).filter((x) => !/ingredient|unreadable/.test(x));
+    const w = res.body.allergenWarnings;
+    if (named.length) expect(w).toEqual([{ meal: c.bad.name, contains: expect.arrayContaining([named[0].replace(/^allergy: /, '')]) }]);
+    else expect(w).toEqual([]); // a meal we can't read names no allergen: no banner (the plan view still says "Unrecognised")
+    expect(w.filter((x) => x.meal === c.bad.name).length).toBeLessThanOrEqual(1);
   });
-  it('an edit (PUT) keeps the meal, names the allergen, and recomputes a stale warning', async () => {
+  it('an edit (PUT) stores the meal as entered, drops a stale warning, and names the allergen in the response', async () => {
     profile = { dietaryPreferences: ['nut free'] };
     const days = aiPlan({ breakfast: CASES[0].bad }).days;
     days[1].meals.lunch = { ...days[1].meals.lunch, allergenWarning: { message: 'stale' } };
     const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth).send({ meals: days });
     expect(res.status).toBe(200);
     const saved = stored();
-    expect(saved[0].meals.breakfast.name).toBe('Berry smoothie');
-    expect(saved[0].meals.breakfast.allergenWarning.allergens).toEqual(['nuts']);
-    expect(saved[0].meals.breakfast.allergenWarning.message).toMatch(/^Contains nuts/);
+    expect(saved[0].meals.breakfast).toEqual(CASES[0].bad);
     expect(saved[1].meals.lunch.allergenWarning).toBeUndefined();
+    expect(res.body.allergenWarnings).toEqual([{ meal: 'Berry smoothie', contains: ['nuts'] }]);
   });
 });
 
@@ -198,7 +202,7 @@ describe('Coach chat (POST /api/ai/chat)', () => {
     return request(app).post('/api/ai/chat').set('Authorization', `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET)}`)
       .send({ messages: [{ role: 'user', content: 'What should I eat tonight?' }], context });
   };
-  it.each([
+  const CHAT = [
     [{ dietaryPreferences: ['nut free'] }, 'Try a chicken satay bowl tonight. Drink plenty of water.', /satay/i],
     [{ dietaryPreferences: ['nut free'] }, 'Blend banana with almond milk.\nOr pasta with pesto.', /almond|pesto/i],
     [{ dietaryPreferences: ['gluten free'] }, 'Overnight oats are great. A beef stir-fry with soy sauce works too.', /oats|soy sauce/i],
@@ -206,23 +210,29 @@ describe('Coach chat (POST /api/ai/chat)', () => {
     [{ allergies: ['shellfish'] }, 'Grill some garlic prawns with rice.', /prawn/i],
     [{ dietaryPreferences: ['vegan'] }, 'Have a whey shake after training.', /whey/i],
     [{ dietaryPreferences: ['egg free'] }, 'Make a tuna sandwich with mayo.', /mayo/i],
-  ])('strips the unsafe suggestion for %j and adds a safe alternative', async (p, text, words) => {
+  ];
+  // r8 (#135 merged): filtered users never reach the AI in Coach; they get checked recipes.
+  it.each(CHAT)('%j: no AI call, a checked reply with none of the unsafe food', async (p, text, words) => {
     profile = p;
     const res = await chat(text);
     expect(res.status).toBe(200);
-    expect(res.body.reply.split('I removed a suggestion')[0]).not.toMatch(words);
-    expect(res.body.reply).toMatch(/I removed a suggestion that didn't fit your filters/);
-    expect(res.body.reply).toMatch(/A safe (?:\w+ )?option: /);
-    const opts = aiClient.chat.mock.calls[0][0];
-    expect(opts.system).toMatch(/Food rules for this user \(always follow\)/);
-    for (const d of p.dietaryPreferences || []) expect(opts.system).toContain(d);
-    for (const a of p.allergies || []) expect(opts.system).toContain(a);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(res.body.provider).toBeNull();
+    expect(res.body.reply).not.toMatch(words);
   });
-  it('filters sent in the chat context count too, and a safe reply is unchanged', async () => {
+  // The reply check itself, kept for when Coach can block anything it can't check.
+  it.each(CHAT)('enforceText strips the unsafe suggestion for %j and adds a safe alternative', (p, text, words) => {
+    const r = safety.enforceText(text, { dietary: p.dietaryPreferences || [], allergies: p.allergies || [] });
+    expect(r.text.split('I removed a suggestion')[0]).not.toMatch(words);
+    expect(r.text).toMatch(/I removed a suggestion that didn't fit your filters/);
+    expect(r.text).toMatch(/A safe (?:\w+ )?option: /);
+  });
+  it('filters sent in the chat context count too: no AI call', async () => {
     profile = {};
     const res = await chat('Grill chicken with rice and broccoli.', { dietary: ['nut free'] });
-    expect(res.body.reply).toBe('Grill chicken with rice and broccoli.');
-    expect(aiClient.chat.mock.calls[0][0].system).toContain('nut free');
+    expect(res.status).toBe(200);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(res.body.reply).not.toMatch(/peanut|almond|cashew|satay|pesto/i);
   });
   it('no filters: the reply is untouched', async () => {
     const res = await chat('Have a satay chicken bowl.');
@@ -232,22 +242,22 @@ describe('Coach chat (POST /api/ai/chat)', () => {
 
 describe('insight and weekly review', () => {
   const u1 = `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET)}`;
-  it('an insight that suggests an unsafe food is replaced by the built-in tip, and the prompt has the filters', async () => {
+  it('a filtered user gets the fixed tip: no AI call, no unsafe food', async () => {
     profile = { dietaryPreferences: ['nut free'] };
     aiClient.chat.mockResolvedValue({ ok: true, text: 'Grab a handful of almonds for protein.', provider: 'xai' });
     const res = await request(app).post('/api/ai/insight').set('Authorization', u1).send({});
     expect(res.status).toBe(200);
     expect(res.body.insight).not.toMatch(/almond/i);
-    expect(aiClient.chat.mock.calls[0][0].system).toContain('nut free');
+    expect(aiClient.chat).not.toHaveBeenCalled();
   });
-  it('weekly review strings are checked', async () => {
+  it('a filtered user gets the fixed weekly review: no AI call, no unsafe food', async () => {
     profile = { allergies: ['peanuts'], dietaryPreferences: ['gluten free'] };
-    aiClient.chatJson.mockResolvedValue({ ok: true, data: { headline: 'Solid week', wins: ['Logged 5 days'], focus: ['Add peanut butter toast at breakfast.', 'Drink more water.'], score: 7 }, provider: 'xai' });
+    aiClient.chatJson.mockResolvedValue({ ok: true, data: { headline: 'Solid week', wins: ['Logged 5 days'], focus: ['Add peanut butter toast at breakfast.'], score: 7 }, provider: 'xai' });
     const res = await request(app).get('/api/ai/weekly-review').set('Authorization', u1);
     expect(res.status).toBe(200);
+    expect(res.body.source).toBe('fixed');
     expect(JSON.stringify(res.body.review)).not.toMatch(/peanut|toast/i);
-    expect(res.body.review.focus).toContain('Drink more water.');
-    expect(aiClient.chatJson.mock.calls[0][0].system).toMatch(/peanuts/);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 });
 
@@ -380,30 +390,30 @@ describe('r2 M1: saved plus sent filters, never shrunk, saved only after consent
   it('a saved gluten free + sesame free user who ticks nothing gets neither, and the saved list is untouched', async () => {
     profile = { dietaryPreferences: ['gluten free', 'sesame free'] };
     storage.createOrUpdateProfile.mockClear();
-    aiClient.chatJson.mockResolvedValue({ ok: true, data: aiPlan({ dinner: meal('Ricotta and spinach pasta', [{ item: 'Pasta', qty: '100g' }, { item: 'Ricotta', qty: '80g' }], 700), lunch: meal('Hummus plate', [{ item: 'Hummus', qty: '80g' }, { item: 'Rice', qty: '150g' }], 600) }), provider: 'xai' });
     const res = await gen({ dietary: [] });
     expect(res.status).toBe(200);
-    assertSafe(res.body.plan.days, { dietary: ['gluten free', 'sesame free'] }, /pasta|hummus/i);
-    const prompt = aiClient.chatJson.mock.calls[0][0].messages[0].content;
-    expect(prompt).toContain('gluten free'); expect(prompt).toContain('sesame free');
+    expect(res.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    assertSafe(res.body.plan.days, { dietary: ['gluten free', 'sesame free'] }, /pasta|hummus|tahini|bread/i);
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
-  it('a new filter is added to the saved ones, never replacing them', async () => {
+  it('a new filter applies on top of the saved ones (both honoured), and the profile is not rewritten', async () => {
     profile = { dietaryPreferences: ['gluten free'] };
     storage.createOrUpdateProfile.mockClear();
-    aiClient.chatJson.mockResolvedValue({ ok: true, data: aiPlan({}), provider: 'xai' });
-    await gen({ dietary: ['nut free'] });
-    expect(storage.createOrUpdateProfile).toHaveBeenCalledWith(expect.any(String), { dietaryPreferences: ['gluten free', 'nut free'] });
+    const res = await gen({ dietary: ['nut free'] });
+    expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'nut free']));
+    assertSafe(res.body.plan.days, { dietary: ['gluten free', 'nut free'] });
+    expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
-  it('nothing is saved when consent is refused or the usage check fails', async () => {
+  it('an unfiltered user still needs consent and usage for the AI week', async () => {
     profile = {};
     storage.createOrUpdateProfile.mockClear();
     storage.getUserById.mockResolvedValueOnce({ id: 'u1', settings: { aiDataConsent: false } });
-    const denied = await gen({ dietary: ['nut free'] });
+    const denied = await gen({ dietary: [] });
     expect(denied.status).toBeGreaterThanOrEqual(400);
     const usage = require('./lib/ai-usage');
     usage.checkAndConsume.mockResolvedValueOnce({ allowed: false, limit: 3, used: 3 });
-    const capped = await gen({ dietary: ['nut free'] });
+    const capped = await gen({ dietary: [] });
     expect(capped.status).toBe(429);
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
@@ -445,31 +455,35 @@ describe('r2 S1/S3: chat dishes and prompt text', () => {
 
 describe('r2 S2: manual, edited and old plans are kept as entered, with warnings', () => {
   const lastSaved = () => { const call = pgCalls.filter((c) => /^\s*(INSERT INTO|UPDATE) meal_plans/i.test(c.sql)).pop(); return JSON.parse(call.params[/^\s*INSERT/i.test(call.sql) ? 4 : 3]); };
-  it('a manual plan (flat list of meals with foods) is kept, with a shellfish warning', async () => {
+  it('a manual plan (flat list of meals with foods) is stored as entered, with a shellfish warning in the response', async () => {
     profile = { allergies: ['shellfish'] };
     const mine = { name: 'Prawn satay', type: 'dinner', foods: [{ name: 'Prawns' }, { name: 'Rice' }], calories: 600, protein: 40 };
     const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [mine] });
     expect(res.status).toBe(200);
-    const [saved] = lastSaved();
-    const { allergenWarning, ...kept } = saved;
-    expect(kept).toEqual(mine);
-    expect(allergenWarning.allergens).toEqual(['shellfish']);
+    expect(lastSaved()).toEqual([mine]);
+    expect(res.body.allergenWarnings).toEqual([{ meal: 'Prawn satay', contains: ['shellfish'] }]);
   });
-  it('day form with a list of meals is kept on edit; an unknown word gives "Unrecognised ingredients"', async () => {
+  it('day form with a list of meals is stored and read back as entered; the checker marks an unknown word "Unrecognised ingredients"', async () => {
     profile = { dietaryPreferences: ['gluten free'] };
     const toast = { name: 'Toast', slot: 'breakfast', ingredients: ['sourdough', 'avocado'], calories: 400, protein: 15 };
     const odd = { name: 'Nan special', slot: 'lunch', ingredients: ['zorblax', 'rice'], calories: 500, protein: 20 };
-    const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth).send({ meals: [{ day: 'Monday', meals: [toast, odd] }] });
+    const sent = [{ day: 'Monday', meals: [toast, odd] }];
+    const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth).send({ meals: sent });
     expect(res.status).toBe(200);
-    const [day] = lastSaved();
-    expect(day.meals).toHaveLength(2);
-    expect(day.meals[0].name).toBe('Toast');
-    expect(day.meals[0].allergenWarning.allergens).toEqual(['gluten']);
-    expect(day.meals[1].ingredients).toEqual(['zorblax', 'rice']);
-    expect(day.meals[1].allergenWarning).toMatchObject({ allergens: [], unrecognised: true });
-    expect(day.meals[1].allergenWarning.message).toMatch(/^Unrecognised ingredients/);
+    expect(lastSaved()).toEqual(sent);
+    expect(res.body.allergenWarnings).toEqual([{ meal: 'Toast', contains: ['gluten'] }]);
+    const pg = require('pg');
+    const spy = jest.spyOn(pg.Pool.prototype, 'query').mockImplementationOnce(async () => ({ rows: [{ id: 1, name: 'Mine', meals: sent }] }));
+    const list = await request(app).get('/api/meal-plans').set('Authorization', auth);
+    spy.mockRestore();
+    // Read back: meals exactly as stored, one banner entry (the unreadable meal names no allergen, so no banner).
+    expect(list.body.plans[0].meals).toEqual(sent);
+    expect(list.body.plans[0].allergenWarnings).toEqual([{ meal: 'Toast', contains: ['gluten'] }]);
+    const w = safety.enforceSavedMeals(sent, { dietary: ['gluten free'] }).meals[0].meals[1].allergenWarning;
+    expect(w).toMatchObject({ allergens: [], unrecognised: true });
+    expect(w.message).toMatch(/^Unrecognised ingredients/);
   });
-  it('old saved plans are listed as they are, with a warning added', async () => {
+  it('old saved plans are listed as they are, with the warning in allergenWarnings', async () => {
     profile = { dietaryPreferences: ['nut free'] };
     const pg = require('pg');
     const spy = jest.spyOn(pg.Pool.prototype, 'query').mockImplementationOnce(async () => ({ rows: [{ id: 9, name: 'Old', meals: JSON.stringify([{ day: 'Monday', meals: { lunch: { name: 'Pesto pasta', ingredients: ['pesto', 'rice'], calories: 600, protein: 30 } } }]) }] }));
@@ -481,7 +495,8 @@ describe('r2 S2: manual, edited and old plans are kept as entered, with warnings
     expect(typeof meals).toBe('string');
     const lunch = JSON.parse(meals)[0].meals.lunch;
     expect(lunch.name).toBe('Pesto pasta');
-    expect(lunch.allergenWarning.allergens).toContain('nuts');
+    expect(lunch.allergenWarning).toBeUndefined();
+    expect(res.body.plans[0].allergenWarnings).toEqual([{ meal: 'Pesto pasta', contains: ['nuts'] }]);
   });
   it('AI-written plans are still swapped, never just warned', async () => {
     const r = safety.enforcePlan({ days: [{ meals: { lunch: { name: 'Pesto pasta', ingredients: ['pesto', 'rice'], calories: 600, protein: 30 } } }] }, { dietary: ['nut free'] });
@@ -490,20 +505,23 @@ describe('r2 S2: manual, edited and old plans are kept as entered, with warnings
   });
   it('the app shows the warning on saved plan cards and plan days', () => {
     const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
-    expect(html).toMatch(/planAllergenWarnings\(meals\)/);
+    expect(html).toContain('const warnBadge = allergenBadgeHtml(p.allergenWarnings);');
     expect(html).toMatch(/meal\.allergenWarning\.message/);
+    // r8: one warning per meal on the card (the banner), not a second per-meal list under it.
+    expect(html).not.toMatch(/planAllergenWarnings|warnHtml/);
   });
 });
 
 describe('r2 S4: the insight fallback', () => {
   const u1 = `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET)}`;
-  it('an unsafe AI tip is replaced by the built-in tip, not served', async () => {
+  it('an unsafe AI tip is never served to a filtered user (fixed tip, no AI)', async () => {
     profile = { dietaryPreferences: ['nut free'] };
     aiClient.chat.mockResolvedValue({ ok: true, text: 'Have a peanut butter sandwich.', provider: 'xai' });
     const res = await request(app).post('/api/ai/insight').set('Authorization', u1).send({});
     expect(res.status).toBe(200);
     expect(res.body.insight).not.toMatch(/peanut|removed/i);
     expect(res.body.insight.length).toBeGreaterThan(10);
+    expect(aiClient.chat).not.toHaveBeenCalled();
   });
 });
 
@@ -865,5 +883,46 @@ describe('r7: the whole name must be the egg-free dish, any English muffin is gl
   it('Peters Drumstick is not meat; a chicken drumstick is', () => {
     expect(lexicon.scan('Peters Drumstick').flags.has('meat')).toBe(false);
     expect(lexicon.scan('Chicken drumstick').flags.has('meat')).toBe(true);
+  });
+});
+
+describe('r8: one saved-meal warning system after the #135 merge', () => {
+  const lastSaved = () => { const call = pgCalls.filter((c) => /^\s*(INSERT INTO|UPDATE) meal_plans/i.test(c.sql)).pop(); return JSON.parse(call.params[/^\s*INSERT/i.test(call.sql) ? 4 : 3]); };
+  it('"Tofu scramble on wholegrain toast" warns gluten under gluten free, never eggs or dairy; the smoothie template warns nothing', async () => {
+    profile = { dietaryPreferences: ['vegan', 'gluten free', 'egg free'], allergies: [] };
+    const meals = [{ name: 'Tofu scramble on wholegrain toast', foods: [] }, { name: 'Soy milk, tofu and banana smoothie', foods: [] }];
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Checked', meals });
+    expect(res.status).toBe(200);
+    expect(res.body.allergenWarnings).toEqual([{ meal: 'Tofu scramble on wholegrain toast', contains: ['gluten'] }]);
+    expect(lastSaved()).toEqual(meals);
+  });
+  it('without gluten free, the checked tofu scramble warns nothing', async () => {
+    profile = { dietaryPreferences: ['vegan', 'egg free'], allergies: [] };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Checked', meals: [{ name: 'Tofu scramble on wholegrain toast', foods: [] }] });
+    expect(res.body.allergenWarnings).toEqual([]);
+  });
+  it('a template name with a description naming an allergen still warns for it', () => {
+    const w = safety.enforceSavedMeals([{ name: 'Tofu scramble on wholegrain toast', description: 'with a fried egg' }], { dietary: ['egg free'] }).meals[0].allergenWarning;
+    expect(w.allergens).toContain('eggs');
+  });
+  it('each meal is warned once: GET lists one banner entry per unsafe meal, and the card has no second per-meal list', async () => {
+    profile = { allergies: ['peanut', 'crustacea'] };
+    const meals = [{ name: 'Satay prawn noodles', foods: [] }, { name: 'PB toast', foods: [] }, { name: 'Rice bowl' }];
+    const pg = require('pg');
+    const spy = jest.spyOn(pg.Pool.prototype, 'query').mockImplementationOnce(async () => ({ rows: [{ id: 1, name: 'Typed', meals }] }));
+    const list = await request(app).get('/api/meal-plans').set('Authorization', auth);
+    spy.mockRestore();
+    const w = list.body.plans[0].allergenWarnings;
+    expect(w.map((x) => x.meal)).toEqual(['Satay prawn noodles', 'PB toast']);
+    expect(w[0].contains).toEqual(expect.arrayContaining(['nuts', 'shellfish']));
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+    expect(html.match(/allergenBadgeHtml\(p\.allergenWarnings\)/g)).toHaveLength(1);
+  });
+  it('the guarded builder week also passes the ingredient check for a typed custom allergy (lupin, kiwi)', async () => {
+    profile = { allergies: ['kiwi'] };
+    const res = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ goal: 'maintain', days: 7, calories: 2000, protein: 120, dietary: [] });
+    expect(res.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(JSON.stringify(res.body.plan.days)).not.toMatch(/kiwi/i);
   });
 });

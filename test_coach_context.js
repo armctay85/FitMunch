@@ -29,7 +29,7 @@ jest.mock('./server/storage.js', () => {
   return {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u1', email: 'me@example.com', subscriptionTier: 'premium', settings: { aiDataConsent: true } })),
-    getProfile: jest.fn(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: ['no pork'], allergies: '["peanuts"]' })),
+    getProfile: jest.fn(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: [], allergies: '[]' })),
   };
 });
 
@@ -47,7 +47,8 @@ describe('Coach context', () => {
   it('system prompt carries the user\u2019s own numbers and plan, no email; options are tuned for speed', async () => {
     aiClient.chat.mockClear();
     const history = Array.from({ length: 12 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'x'.repeat(2000) }));
-    history.push({ role: 'user', content: 'What should I eat tonight?' });
+    // A peanut-allergy user's food questions are answered from checked recipes (#127a), so this asks a non-food one.
+    history.push({ role: 'user', content: 'How should I warm up for squats?' });
     const r = await request(app).post('/api/ai/chat').set('Authorization', `Bearer ${token}`)
       .send({ messages: history, context: { todayCalories: 1200, todayProtein: 80, targetCalories: 9999 } });
     expect(r.status).toBe(200);
@@ -56,14 +57,13 @@ describe('Coach context', () => {
     expect(opts.system).toContain('Goal: lose fat');
     expect(opts.system).toContain('Daily targets: 2100 kcal, 170 g protein');
     expect(opts.system).not.toContain('9999');
-    expect(opts.system).toContain('Diet: no pork');
-    expect(opts.system).toContain('Allergies: peanuts');
+    // Diet and allergy lines aren't asserted here: users with filters never reach the AI (#127a).
     expect(opts.system).toContain('Today so far: 1200 kcal, 80 g protein');
     expect(opts.system).toContain('Latest plan: Christmas cut, 7 days (day 1: Greek yoghurt oats; Chicken rice bowl)');
     expect(opts.system).not.toMatch(/me@example\.com|u1/);
     expect(opts.messages.length).toBeLessThanOrEqual(16);
     for (const m of opts.messages.slice(0, -1)) expect(m.content.length).toBeLessThanOrEqual(1200);
-    expect(opts.messages[opts.messages.length - 1].content).toBe('What should I eat tonight?');
+    expect(opts.messages[opts.messages.length - 1].content).toBe('How should I warm up for squats?');
     expect(opts.maxTokens).toBe(350);
     expect(opts.budgetMs).toBe(12000);
   });
@@ -97,7 +97,8 @@ describe('Coach QA r1', () => {
 
   it('M1: the newest message keeps up to 4,000 chars; earlier turns are cut to 1,200', async () => {
     aiClient.chat.mockClear();
-    const long = `${'q'.repeat(3000)} END-OF-QUESTION`;
+    // Training questions: this profile has filters, so food questions get checked recipes instead (#127a).
+    const long = `squats ${'q'.repeat(3000)} END-OF-QUESTION`;
     const r = await chatAs('u1', { messages: [{ role: 'user', content: 'a'.repeat(3000) }, { role: 'assistant', content: 'b'.repeat(3000) }, { role: 'user', content: long }] });
     expect(r.status).toBe(200);
     const msgs = aiClient.chat.mock.calls[0][0].messages;
@@ -105,7 +106,7 @@ describe('Coach QA r1', () => {
     expect(msgs[0].content).toHaveLength(1200);
     expect(msgs[1].content).toHaveLength(1200);
     aiClient.chat.mockClear();
-    await chatAs('u1', { messages: [{ role: 'user', content: 'z'.repeat(9000) }] });
+    await chatAs('u1', { messages: [{ role: 'user', content: `squats ${'z'.repeat(9000)}` }] });
     expect(aiClient.chat.mock.calls[0][0].messages[0].content).toHaveLength(4000);
   });
 
@@ -115,20 +116,20 @@ describe('Coach QA r1', () => {
     for (let i = 0; i < 20; i += 1) {
       history.push({ role: 'user', content: `u${i}` }, { role: 'assistant', content: `a${i}` }, { role: 'user', content: '   ' });
     }
-    history.push({ role: 'user', content: 'last' });
+    history.push({ role: 'user', content: 'last squats set' });
     await chatAs('u1', { messages: history });
     const msgs = aiClient.chat.mock.calls[0][0].messages;
     expect(msgs).toHaveLength(16);
     expect(msgs.every((m) => m.content.trim())).toBe(true);
-    expect(msgs[msgs.length - 1].content).toBe('last');
+    expect(msgs[msgs.length - 1].content).toBe('last squats set');
     expect(msgs[0].content).toBe('a12');
   });
 
   it('M2: two users never see each other\u2019s plan or profile; every plan query is keyed on the JWT user', async () => {
     const storage = require('./server/storage.js');
     const profiles = {
-      'user-a': { age: 31, weight: 70, allergies: '["peanut"]' },
-      'user-b': { age: 52, weight: 99, allergies: '["shellfish"]' },
+      'user-a': { age: 31, weight: 70 },
+      'user-b': { age: 52, weight: 99 },
     };
     storage.getProfile.mockImplementation(async (id) => profiles[id]);
     const plans = { 'user-a': 'A-PLAN', 'user-b': 'B-PLAN' };
@@ -138,29 +139,29 @@ describe('Coach QA r1', () => {
       for (const [me, other] of [['user-a', 'user-b'], ['user-b', 'user-a']]) {
         aiClient.chat.mockClear();
         pgCalls.length = 0;
-        const r = await chatAs(me, { messages: [{ role: 'user', content: 'hi' }], context: { userId: other } });
+        const r = await chatAs(me, { messages: [{ role: 'user', content: 'squats?' }], context: { userId: other } });
         expect(r.status).toBe(200);
         const sys = aiClient.chat.mock.calls[0][0].system;
         expect(sys).toContain(`Latest plan: ${plans[me]}`);
         expect(sys).not.toContain(plans[other]);
-        expect(sys).not.toMatch(other === 'user-b' ? /shellfish|52 y/ : /peanut|31 y/);
+        expect(sys).not.toMatch(other === 'user-b' ? /52 y/ : /31 y/);
         const planQs = pgCalls.filter((q) => /meal_plans/.test(q.sql));
         expect(planQs.length).toBeGreaterThan(0);
         for (const q of planQs) expect(q.params).toEqual([me]);
       }
     } finally {
-      storage.getProfile.mockImplementation(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: ['no pork'], allergies: '["peanuts"]' }));
+      storage.getProfile.mockImplementation(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: [], allergies: '[]' }));
     }
   });
 
   it('S2: a trainer-assigned active plan wins; a PT\u2019s plans built for clients are skipped', async () => {
     planRows = (sql) => (/plan_assignments pa JOIN meal_plans/.test(sql) ? [{ name: 'PT-ASSIGNED', meals: {} }] : [{ name: 'OWN', meals: {} }]);
     aiClient.chat.mockClear();
-    await chatAs('client-1', { messages: [{ role: 'user', content: 'hi' }] });
+    await chatAs('client-1', { messages: [{ role: 'user', content: 'squats?' }] });
     expect(aiClient.chat.mock.calls[0][0].system).toContain('Latest plan: PT-ASSIGNED');
     planRows = (sql) => (/plan_assignments pa JOIN meal_plans/.test(sql) ? [] : [{ name: 'OWN', meals: {} }]);
     aiClient.chat.mockClear(); pgCalls.length = 0;
-    await chatAs('pt-1', { messages: [{ role: 'user', content: 'hi' }] });
+    await chatAs('pt-1', { messages: [{ role: 'user', content: 'squats?' }] });
     expect(aiClient.chat.mock.calls[0][0].system).toContain('Latest plan: OWN');
     const own = pgCalls.find((q) => /FROM meal_plans mp WHERE mp\.user_id = \$1/.test(q.sql));
     expect(own.sql).toMatch(/NOT EXISTS \(SELECT 1 FROM plan_assignments pa WHERE pa\.plan_id = mp\.id AND pa\.pt_id = \$1/);
@@ -194,7 +195,7 @@ describe('ai-client budget aborts the losing request (S3, L1)', () => {
     delete process.env.ANTHROPIC_API_KEY;
     try {
       const t0 = Date.now();
-      const r = await real.chat({ messages: [{ role: 'user', content: 'hi' }], budgetMs: real.MIN_ATTEMPT_MS + 300, route: '/ai/chat' });
+      const r = await real.chat({ messages: [{ role: 'user', content: 'squats?' }], budgetMs: real.MIN_ATTEMPT_MS + 300, route: '/ai/chat' });
       expect(Date.now() - t0).toBeLessThan(real.MIN_ATTEMPT_MS + 2000);
       expect(r).toMatchObject({ ok: false, error: 'timeout' });
       expect(destroyed).toEqual(['ABORT_ERR']);

@@ -74,51 +74,64 @@ beforeEach(async () => {
 });
 afterAll(async () => { if (pool) await pool.end(); });
 
+// r8 (#135 merged): a user with any filter never reaches the AI; the week comes from the checked builder.
+const expectBuilderWeek = (res, words) => {
+  expect(res.status).toBe(200);
+  expect(res.body.source).toBe('builder');
+  expect(aiClient.chatJson).not.toHaveBeenCalled();
+  if (words) expect(JSON.stringify(res.body.plan.days)).not.toMatch(words);
+};
+// The AI-plan check itself, against the filters read from the real saved profile.
+const enforceWithSaved = async (plan) => require('./lib/meal-safety').enforcePlan(plan, { ...require('./lib/meal-safety').profileFilters(await storage.getProfile(U)), calories: 2000, protein: 120 });
+
 maybe('AI meal plans on real Postgres', () => {
-  it('saved gluten free + sesame free + peanut allergy, nothing ticked: no pasta, hummus or peanut butter, saved filters kept', async () => {
-    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({
+  it('saved gluten free + sesame free + peanut allergy, nothing ticked: builder week, no pasta, hummus or peanut butter, saved filters kept', async () => {
+    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal('Ricotta and spinach pasta', ['Pasta', 'Ricotta', 'Spinach'], 700) }) });
+    const res = await gen([]);
+    expectBuilderWeek(res, /pasta|hummus|tahini|peanut/i);
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
+    const { plan, replaced } = await enforceWithSaved(week({
       dinner: meal('Ricotta and spinach pasta', ['Pasta', 'Ricotta', 'Spinach'], 700),
       lunch: meal('Hummus plate', ['Hummus', 'Rice'], 600),
       snack: { ...meal('Apple slices', ['Apple'], 200), ingredients: [{ item: 'Apple', qty: '2 tbsp peanut butter' }] },
-    }) });
-    const res = await gen([]);
-    expect(res.status).toBe(200);
-    expect(JSON.stringify(res.body.plan)).not.toMatch(/pasta|hummus|peanut/i);
-    expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
-    expect(aiClient.chatJson.mock.calls[0][0].messages[0].content).toMatch(/gluten free[\s\S]*sesame free|sesame free[\s\S]*gluten free/);
+    }));
+    expect(replaced.length).toBe(3);
+    expect(JSON.stringify(plan)).not.toMatch(/pasta|hummus|peanut/i);
   });
-  it('a new filter is added, never replacing the saved ones', async () => {
-    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({}) });
-    await gen(['nut free']);
-    await new Promise((r) => setTimeout(r, 200)); // the profile write is not awaited by the route
-    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'nut free']);
-  });
-  it('consent refused: 403-style refusal and the saved filters are unchanged', async () => {
-    await storage.setAIDataConsent(U, false);
+  it('a new filter applies on top of the saved ones; the guarded route never rewrites the profile', async () => {
     const res = await gen(['nut free']);
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expectBuilderWeek(res);
+    expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'sesame free', 'nut free']));
     await new Promise((r) => setTimeout(r, 200));
     expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
   });
-  it('a saved plan with prawn satay and peanut butter toast is stored as entered, with warnings; an old row gets one on read', async () => {
+  it('consent refused: a filtered user still gets the builder week (no AI, nothing sent), saved filters unchanged', async () => {
+    await storage.setAIDataConsent(U, false);
+    const res = await gen(['nut free']);
+    expectBuilderWeek(res);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
+  });
+  it('a saved plan with prawn satay and peanut butter toast is stored exactly as entered; warnings once in the response and on read', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: ['shellfish free'], allergies: ['peanuts'] });
     const satay = meal('Prawn satay', ['Prawns', 'Rice'], 700);
     const toast = { name: 'Toast', foods: [{ name: 'Toast' }, { name: 'Peanut butter' }] };
-    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ day: 'Monday', meals: { dinner: satay } }, toast] });
+    const sent = [{ day: 'Monday', meals: { dinner: satay } }, toast];
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: sent });
     expect(res.status).toBe(200);
     const row = (await pool.query('select meals from meal_plans where user_id=$1', [U])).rows[0].meals;
-    const { allergenWarning: w1, ...dinner } = row[0].meals.dinner;
-    expect(dinner).toEqual(satay);
-    expect(w1.allergens).toEqual(expect.arrayContaining(['shellfish', 'nuts']));
-    const { allergenWarning: w2, ...t } = row[1];
-    expect(t).toEqual(toast);
-    expect(w2.allergens).toContain('nuts');
+    expect(row).toEqual(sent);
+    expect(res.body.allergenWarnings).toEqual([
+      { meal: 'Prawn satay', contains: expect.arrayContaining(['shellfish', 'nuts']) },
+      { meal: 'Toast', contains: ['nuts'] },
+    ]);
     await pool.query("insert into meal_plans(user_id, name, meals) values ($1, 'Old', $2)", [U, JSON.stringify([{ day: 'Monday', meals: { lunch: meal('Garlic prawns', ['Prawns', 'Rice'], 600) } }])]);
     const list = await request(app).get('/api/meal-plans').set('Authorization', auth);
     expect(list.status).toBe(200);
-    const old = list.body.plans.find((p) => p.name === 'Old').meals[0].meals.lunch;
-    expect(old.name).toBe('Garlic prawns');
-    expect(old.allergenWarning.allergens).toContain('shellfish');
+    const oldPlan = list.body.plans.find((p) => p.name === 'Old');
+    expect(oldPlan.meals[0].meals.lunch.name).toBe('Garlic prawns');
+    expect(oldPlan.meals[0].meals.lunch.allergenWarning).toBeUndefined();
+    expect(oldPlan.allergenWarnings).toEqual([{ meal: 'Garlic prawns', contains: ['shellfish'] }]);
   });
 });
 
@@ -128,15 +141,13 @@ maybe('r6: stand-ins that sit beside the dish, and English muffins, on real Post
     ['egg', 'dinner', meal('Chicken fried rice with tofu', ['White rice', 'Chicken breast', 'Firm tofu', 'Peas'], 700), /fried rice/i],
     ['egg', 'dinner', meal('Fried rice with a side of tofu', ['White rice', 'Firm tofu', 'Peas'], 700), /fried rice/i],
     ['gluten', 'breakfast', meal('English muffin with almond flour', ['Almond flour', 'Banana'], 500), /english muffin/i],
-  ])('%s allergy: the AI %s is swapped and the user told', async (allergy, slot, bad, re) => {
+  ])('%s allergy: the %s builder week has no AI call and none of it; the AI check swaps it', async (allergy, slot, bad, re) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
-    const res = await gen([]);
-    expect(res.status).toBe(200);
-    const monday = res.body.plan.days[0].meals[slot];
-    expect(monday.name).not.toMatch(re);
-    expect(monday.replacedForFilters).toBe(true);
-    expect(JSON.stringify(res.body.plan.days.map((d) => d.meals))).not.toMatch(re);
+    expectBuilderWeek(await gen([]), re);
+    const { plan } = await enforceWithSaved(week({ [slot]: bad }));
+    expect(plan.days[0].meals[slot].replacedForFilters).toBe(true);
+    expect(JSON.stringify(plan.days.map((d) => d.meals))).not.toMatch(re);
   });
 });
 
@@ -149,21 +160,19 @@ maybe('r7: names that only look like the egg-free dish, and English muffins, on 
     ['gluten', 'breakfast', meal('English style muffins', ['Almond flour', 'Blueberries'], 500), /muffin/i],
     ['gluten', 'breakfast', meal('Muffin, English', ['Almond flour', 'Blueberries'], 500), /muffin/i],
     ['gluten', 'breakfast', meal('English mini muffins', ['Almond flour', 'Blueberries'], 500), /muffin/i],
-  ])('%s allergy: the AI %s "%s" is swapped', async (allergy, slot, bad, re) => {
+  ])('%s allergy: the %s "%s" never reaches the user; the AI check swaps it', async (allergy, slot, bad, re) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
-    const res = await gen([]);
-    expect(res.status).toBe(200);
-    const monday = res.body.plan.days[0].meals[slot];
-    expect(monday.replacedForFilters).toBe(true);
-    expect(JSON.stringify(res.body.plan.days.map((d) => d.meals))).not.toMatch(re);
+    expectBuilderWeek(await gen([]), new RegExp(bad.name.replace(/[^a-z ]/gi, '.'), 'i'));
+    const { plan } = await enforceWithSaved(week({ [slot]: bad }));
+    expect(plan.days[0].meals[slot].replacedForFilters).toBe(true);
+    expect(JSON.stringify(plan.days.map((d) => d.meals))).not.toMatch(re);
   });
-  it('egg allergy: "No egg fried rice" is kept, not swapped', async () => {
+  it('egg allergy: the AI check keeps "No egg fried rice" (not over-blocked)', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: ['egg'] });
-    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal('No egg fried rice', ['White rice', 'Peas', 'Carrot'], 700) }) });
-    const res = await gen([]);
-    expect(res.status).toBe(200);
-    expect(res.body.plan.days[0].meals.dinner.name).toBe('No egg fried rice');
+    const { plan, replaced } = await enforceWithSaved(week({ dinner: meal('No egg fried rice', ['White rice', 'Peas', 'Carrot'], 700) }));
+    expect(replaced).toEqual([]);
+    expect(plan.days[0].meals.dinner.name).toBe('No egg fried rice');
   });
 });
 
@@ -196,14 +205,16 @@ const FSANZ = [
   ['lupin', 'Lupin rice bowl', ['Lupin flakes', 'White rice']],
 ];
 maybe('every FSANZ allergen term typed as an allergy, on real Postgres', () => {
-  it.each(FSANZ)('allergy "%s": the AI meal "%s" is swapped and the plan says so', async (term, name, items) => {
+  it.each(FSANZ)('allergy "%s": no AI call and "%s" is never served; the AI check swaps it and says so', async (term, name, items) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [term] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal(name, items, 700) }) });
     const res = await gen([]);
-    expect(res.status).toBe(200);
+    expectBuilderWeek(res);
     const served = JSON.stringify(res.body.plan.days);
     expect(served).not.toContain(name);
     for (const i of items.filter((x) => !/^(?:White rice|Tomato|Carrot|Garlic)$/.test(x))) expect(served.toLowerCase()).not.toContain(i.toLowerCase());
-    expect(res.body.plan.notes.join(' ')).toMatch(/replaced with a safe meal/);
+    const { plan } = await enforceWithSaved(week({ dinner: meal(name, items, 700) }));
+    expect(JSON.stringify(plan.days)).not.toContain(name);
+    expect(plan.notes.join(' ')).toMatch(/replaced with a safe meal/);
   });
 });

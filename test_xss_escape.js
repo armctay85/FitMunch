@@ -105,7 +105,7 @@ describe('legacy saved rows render inert', () => {
   }
   let api; let builder; let reply;
   beforeAll(() => {
-    const src = ['escapeHtml', '_renderExList', 'loadMealPlans'].map(extractAny).join('\n')
+    const src = ['escapeHtml', 'allergenBadgeHtml', 'planMetaHtml', '_renderExList', 'loadMealPlans'].map(extractAny).join('\n')
       + '\nreturn { _renderExList, loadMealPlans };';
     builder = { day: 1, exercises: [] };
     api = new Function('S', '_exBuilder', 'API', src)({}, builder, async () => reply);
@@ -124,6 +124,16 @@ describe('legacy saved rows render inert', () => {
     expect(el.firstElementChild.id).toBe('ex-item-NaN');
     el.querySelector('button').click();
     expect(window._removeExercise).toHaveBeenCalledWith(NaN);
+    expect(window.__pwned).toBe(0);
+  });
+
+  test.each(PAYLOADS)('saved meal plan allergen badge %s', async (payload) => {
+    document.body.innerHTML = '<div id="meal-plans-grid"></div><div id="mp-saved-section"></div>';
+    reply = { plans: [{ id: 1, name: 'P', meals: [{ name: payload, mealType: 'lunch' }], allergenWarnings: [{ meal: payload, contains: [payload] }] }] };
+    await api.loadMealPlans();
+    const el = document.getElementById('meal-plans-grid');
+    expect(el.querySelector('img, script, svg, [onerror], [onload], [onmouseover]')).toBeNull();
+    expect(el.querySelector('.allergen-warning')).not.toBeNull();
     expect(window.__pwned).toBe(0);
   });
 
