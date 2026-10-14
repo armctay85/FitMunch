@@ -123,12 +123,35 @@ maybe('#127a on real Postgres', () => {
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
-  it('saved gluten free + sent nut free -> both apply, saved list unchanged', async () => {
+  it('saved gluten free + sent nut free -> both apply, and nut free is added to the saved list', async () => {
     const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(GF)).send({ calories: 2000, protein: 150, days: 7, dietary: ['nut free'] });
     expect(r.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'nut free']));
     expect(servedGroups(r.body.plan)).not.toContain('gluten');
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
-    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free', 'nut free']);
+  });
+
+  it('hotfix: tick a filter on the meal plan page, generate -> saved to the profile; Coach and weekly review make 0 AI calls', async () => {
+    const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: ['nut free'] });
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
+    expect((await profileOf(PLAIN)).allergies).toEqual([]);
+    // A later chat sends no filters: the saved profile alone must keep it off the AI.
+    const c = await request(app).post('/api/ai/chat').set('Authorization', as(PLAIN)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
+    expect(c.status).toBe(200);
+    expect(c.body.provider).toBeNull();
+    expect(JSON.stringify(c.body)).not.toMatch(/MOCKAI|peanut/i);
+    const w = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
+    expect(w.body.source).toBe('fixed');
+    expect(JSON.stringify(w.body)).not.toMatch(/MOCKAI|peanut/i);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    // Generating again with nothing ticked never removes the saved filter.
+    await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: [] });
+    expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 
   it('peanut allergy -> no peanut butter or satay in plans, onboarding week or Coach', async () => {

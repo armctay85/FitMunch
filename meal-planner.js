@@ -108,6 +108,19 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
+/**
+ * Save ticked diet/allergy filters to the profile, merged with what is stored (never removing any).
+ * Only called after the profile was read, so an unread profile is never overwritten. Best effort.
+ */
+async function rememberFilters(userId, profile, sent) {
+  const before = planEngine.normaliseDiet(dietGuard.listOf(profile && profile.dietaryPreferences));
+  const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !before.includes(d));
+  if (!added.length) return;
+  try {
+    await require('./server/storage.js').createOrUpdateProfile(userId, { dietaryPreferences: [...before, ...added] });
+  } catch (_) { /* the plan is still built from the merged filters */ }
+}
+
 router.post('/generate', requireAuth, async (req, res) => {
   const input = planInput(req.body);
   if (input.error) return res.status(400).json({ success: false, error: input.error });
@@ -120,7 +133,8 @@ router.post('/generate', requireAuth, async (req, res) => {
     return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
-  // Saved filters are only read here; this route never writes the profile.
+  // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
+  // weekly review see them too and stay off the AI (live hotfix after #135).
   const filteredPlan = (dietary) => {
     input.dietary = dietary.slice(0, 16);
     return res.json({
@@ -133,7 +147,9 @@ router.post('/generate', requireAuth, async (req, res) => {
   };
   if (input.dietary.length) {
     let saved = null;
-    try { saved = await require('./server/storage.js').getProfile(req.user.userId); } catch (_) { /* sent filters still apply */ }
+    let read = false;
+    try { saved = await require('./server/storage.js').getProfile(req.user.userId); read = true; } catch (_) { /* sent filters still apply */ }
+    if (read) await rememberFilters(req.user.userId, saved, input.dietary);
     return filteredPlan(dietGuard.combineFilters(saved, input.dietary));
   }
   try {

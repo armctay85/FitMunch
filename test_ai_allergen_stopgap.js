@@ -115,7 +115,9 @@ describe('meal plan generation', () => {
     expect(servedGroups(r.body.plan)).not.toEqual(expect.arrayContaining(['dairy']));
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
     expect(aiClient.chatJson).not.toHaveBeenCalled();
-    expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
+    // Hotfix: ticked filters are saved (merged, never shrunk) so Coach and the weekly review see them.
+    expect(storage.createOrUpdateProfile).toHaveBeenCalledTimes(1);
+    expect(storage.createOrUpdateProfile.mock.calls[0][1]).toEqual({ dietaryPreferences: ['dairy free', 'nut free'] });
   });
 
   it('builderOnly (onboarding) also applies saved filters', async () => {
