@@ -70,7 +70,15 @@ function planInput(body) {
   if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
-  const dietary = planEngine.normaliseDiet(dietGuard.listOf(b.dietary)).slice(0, 8);
+  // merge: #135 drops null-ish entries first; #125 then rejects anything else that isn't a known filter name.
+  const rawDiet = Array.isArray(b.dietary) ? b.dietary.filter((d) => !(d === null || d === undefined || (typeof d === 'string' && ['', 'null', 'undefined', 'none'].includes(d.trim().toLowerCase())))) : b.dietary;
+  if (rawDiet !== undefined && rawDiet !== null && (!Array.isArray(rawDiet) || rawDiet.some((d) => typeof d !== 'string'))) {
+    return { error: 'Dietary filters must be a list of names.' };
+  }
+  const dietary = planEngine.normaliseDiet(rawDiet || []);
+  const unknown = dietary.filter((d) => !planEngine.DIET_FILTERS.includes(d));
+  if (unknown.length) return { error: `Unknown dietary filter: ${unknown.slice(0, 3).join(', ').slice(0, 80)}.` };
+  if (dietary.length > 12) return { error: 'Too many dietary filters.' };
   return { calories, protein, days, goal, dietary };
 }
 

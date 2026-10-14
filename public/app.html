@@ -406,7 +406,7 @@ html.fm-authed #app-gate{display:none}
 .ob-curve{margin:0 0 12px;border:1px solid #dfe6df;border-radius:10px;padding:10px 12px;background:#fff}
 .ob-curve svg{display:block;width:100%;height:auto}
 .ob-curve figcaption{font-size:.74rem;color:#3f4a45;line-height:1.45;margin-top:6px}
-.ob-est{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c2d12;background:#ffedd5;border-radius:4px;padding:2px 6px;margin-right:6px}
+.ob-est{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c2d12;background:#ffedd5;border-radius:4px;padding:2px 6px;margin-right:6px}
 .ob-meal-body{flex:1;min-width:0}
 .ob-swap{font:inherit;min-height:44px;min-width:64px;padding:0 12px;border:1px solid #b9cbbd;border-radius:8px;background:#fff;color:#14532d;font-weight:700;font-size:.8rem;cursor:pointer;align-self:center}
 .ob-swap[aria-expanded="true"]{background:#ecfdf3;border-color:#15803d}
@@ -684,6 +684,10 @@ html.fm-authed #app-gate{display:none}
  <button class="diet-tag" data-val="high protein" onclick="toggleDietTag(this)">💪 High protein</button>
  <button class="diet-tag" data-val="low carb" onclick="toggleDietTag(this)">⬇️ Low carb</button>
  <button class="diet-tag" data-val="nut free" onclick="toggleDietTag(this)">🥜 Nut free</button>
+ <button class="diet-tag" data-val="egg free" onclick="toggleDietTag(this)">🥚 Egg free</button>
+ <button class="diet-tag" data-val="sesame free" onclick="toggleDietTag(this)">🌱 Sesame free</button>
+ <button class="diet-tag" data-val="soy free" onclick="toggleDietTag(this)">🫘 Soy free</button>
+ <button class="diet-tag" data-val="shellfish free" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
  </div>
  </div>
  <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="mp-gen-btn" onclick="generateMealPlan()">
@@ -1593,7 +1597,7 @@ html.fm-authed #app-gate{display:none}
  <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
  <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
  <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
- <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option></select></div>
+ <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option><option value="nut_free">Nut free</option><option value="sesame_free">Sesame free</option><option value="soy_free">Soy free</option><option value="shellfish_free">Shellfish free</option></select></div>
  <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
  <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
  </div>
@@ -3541,7 +3545,7 @@ function obRenderCurve(proj) {
  const cap = document.createElement('figcaption');
  const est = document.createElement('span'); est.className = 'ob-est'; est.textContent = 'Estimate';
  const rate = proj.direction === 'lose' ? 'about 0.5% of body weight a week, at most 0.9 kg' : 'about 0.25% of body weight a week, at most 0.35 kg';
- cap.append(est, `${first} kg to ${last} kg by about ${when} (${proj.weeks} weeks) at ${rate}. A steady pace, not a promise: real weeks go up and down.`);
+ cap.append(est, ' ', `${first} kg to ${last} kg by about ${when} (${proj.weeks} weeks) at ${rate}. A steady pace, not a promise: real weeks go up and down.`);
  fig.append(svg, cap); fig.style.display = '';
 }
 function obRenderHeader(plan, tg) {
@@ -3573,6 +3577,8 @@ function obMealRow(d, slot, m, onSwap) {
  });
  btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(open)); list.hidden = !open; };
  row.appendChild(btn); body.appendChild(list);
+ } else if (Array.isArray(m.swaps)) {
+ const none = document.createElement('div'); none.className = 'ob-meal-meta ob-noswap'; none.textContent = 'No swap fits this meal under your filters.'; body.appendChild(none);
  }
  return row;
 }

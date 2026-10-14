@@ -197,7 +197,7 @@ describe('swaps are instant: builder only, no AI client', () => {
 // three swaps. Fails loudly, naming each meal and diet that falls short, and above all any that get none.
 describe('swap coverage: at least 3 swaps for every meal under every diet', () => {
   const DIETS = [[], ['vegetarian'], ['vegan'], ['pescatarian'], ['gluten free'], ['dairy free'], ['egg free'], ['nut free'],
-    ['high protein'], ['low carb'], ['gluten free', 'dairy free'], ['vegan', 'gluten free'], ['vegetarian', 'gluten free'], ['vegan', 'nut free']];
+    ['high protein'], ['low carb'], ['gluten free', 'dairy free'], ['vegan', 'gluten free'], ['vegetarian', 'gluten free'], ['vegan', 'nut free'], ['sesame free'], ['soy free'], ['shellfish free'], ['gluten free', 'soy free'], ['vegan', 'soy free'], ['vegetarian', 'soy free']];
   const TARGETS = [{ calories: 1500, protein: 100 }, { calories: 1600, protein: 110 }, { calories: 1800, protein: 90 }, { calories: 2000, protein: 150 },
     { calories: 2400, protein: 160 }, { calories: 2850, protein: 140 }, { calories: 3000, protein: 200 }];
   for (const dietary of DIETS) {
@@ -419,4 +419,30 @@ describe('goal weight bounds (client and server share validGoalWeight)', () => {
     expect(html).toMatch(/await API\('\/progress\/log'[\s\S]{0,300}await API\('\/user\/goal-weight', \{ method:'POST', body: JSON\.stringify\(\{ goalWeightKg: OB\.goalKg \}\)/);
   });
 
+});
+
+// EQA #125 S4: vegan + soy free (with or without low carb) leaves no meal without a swap, on the coverage
+// targets and on a wider calorie/protein grid; the UI says so plainly if a meal ever has none.
+describe('vegan + soy free swaps', () => {
+  const GRID = [];
+  for (const calories of [1400, 1500, 1600, 1800, 2000, 2200, 2400, 2500, 2800, 2850, 3000]) for (const protein of [undefined, 90, 100, 120, 150, 200]) GRID.push({ calories, protein });
+  for (const dietary of [['vegan', 'soy free'], ['vegan', 'soy free', 'low carb']]) {
+    it(`${dietary.join(' + ')}: no meal has zero swaps across ${GRID.length} targets`, () => {
+      const zero = [];
+      for (const t of GRID) {
+        const plan = engine.withSwaps(engine.buildPlan({ ...t, days: 7, dietary }), dietary, t.calories);
+        for (const d of plan.days) for (const s of engine.SLOTS) {
+          const m = d.meals[s];
+          if (!m.swaps.length) zero.push(`${t.calories}/${t.protein} ${d.day} ${s} ${m.name}`);
+          for (const a of m.swaps) expect([a.name, engine.flagsOf(engine.TEMPLATES.find((x) => x.name === a.name)).some((f) => ['soy', 'dairy', 'eggs', 'meat', 'fish'].includes(f))]).toEqual([a.name, false]);
+        }
+      }
+      expect(zero).toEqual([]);
+    });
+  }
+  it('the week view shows "No swap fits" instead of a dead Swap button when a meal has no swaps', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+    const fn = html.slice(html.indexOf('function obMealRow'), html.indexOf('function obRenderDay'));
+    expect(fn).toContain('No swap fits this meal under your filters.');
+  });
 });
