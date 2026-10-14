@@ -110,27 +110,28 @@ const DOLLAR = '(?:\\$|&#0*36;|&#x0*24;|&dollar;|＄)';
 const CODE = '(?:AUD|USD|NZD|EUR|GBP)';
 const MONEY = new RegExp([
   `(?:\\b[A-Z]{1,3})?${DOLLAR}\\s?\\d[\\d,]*(?:\\.\\d+)?`,
-  '&#0*36;|&#x0*24;|&dollar;|＄|[€£]|&euro;|&pound;',
+  '&#0*36;|&#x0*24;|&dollar;|＄|[€£¢]|&euro;|&pound;|&cent;',
   `\\b${CODE}\\s?\\d[\\d,]*(?:\\.\\d+)?`,
   `\\b\\d[\\d,]*(?:\\.\\d+)?\\s?(?:${CODE}|dollars?|bucks|cents?|per kg|per kilo(?:gram)?s?|\\/kg)\\b`,
-  '(?<![#\\w.])\\d+c\\b',
+  '(?<![#\\w.])\\d+(?:\\.\\d+)?c\\b',
   '\\b\\d[\\d,]*(?:\\.\\d+)?\\s?\\$(?![{\\w])',
-  `\\b${NUM_WORD}(?:[\\s-]+${NUM_WORD})*\\s+(?:dollars?|bucks|cents?)\\b`,
+  `\\b${NUM_WORD}(?:[\\s-]+${NUM_WORD})*[\\s-]+(?:dollars?|bucks|cents?)\\b`,
   '\\bper kilo(?:gram)?s?\\b',
   '\\btenners?\\b',
 ].join('|'), 'gi');
 // Only two $N shapes are code, and each is skipped only where it is code (EQA #137 r1 M):
-// - a back-reference inside the replacement argument of a .replace( call: x.replace(/a/, '<b>$1</b>');
+// - a single-digit back-reference inside the replacement argument of a .replace( call: x.replace(/a/, '<b>$1</b>');
 // - an =$N placeholder inside a string that starts with a SQL keyword: SELECT ... WHERE id=$1.
 // Anything else, like 'Chicken <b>$9</b> a week.', 'price = $7 tub' or a bare '$9', is scanned.
 const REPLACE_ARG = /\.replace\(\s*(?:\/(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n[])+\/[a-z]*|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|[\w.]+)\s*,\s*(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 const SQL_LED = /^\s*['"`(]*\s*(?:SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER)\s/i;
 // A where-clause fragment handed to a query builder ('user_id=$1', '(pt_id=$1 OR client_id=$1)') is SQL
-// only when the whole string is column=$N terms joined by OR/AND, with no other words.
-const SQL_TERM = '\\(?\\s*[a-z_][a-z0-9_.]*\\s?=\\s?\\$\\d+(?:::[a-z]+)?\\s*\\)?';
+// only when the whole string is column=$N terms joined by OR/AND, with no other words, and every column
+// is id-style (id, or a name ending in _id). EQA #137 r2 M1: 'price=$9 OR x=$1' and '(cost=$5)' are copy.
+const SQL_TERM = '\\(?\\s*(?:[a-z_][a-z0-9_]*\\.)?(?:id|[a-z0-9_]*_id)\\s?=\\s?\\$\\d+(?:::[a-z]+)?\\s*\\)?';
 const SQL_PREDICATE = new RegExp(`^${SQL_TERM}(?:\\s+(?:OR|AND)\\s+${SQL_TERM})*$`, 'i');
 function stripCode(line) {
-  let out = line.replace(REPLACE_ARG, (m, q, arg) => m.slice(0, m.length - arg.length - 1) + arg.replace(/\$\d/g, '') + q);
+  let out = line.replace(REPLACE_ARG, (m, q, arg) => m.slice(0, m.length - arg.length - 1) + arg.replace(/\$\d(?![\d.,])/g, '') + q);
   if (SQL_LED.test(out) || SQL_PREDICATE.test(out)) out = out.replace(/=\s?\$\d(?![\d.,])/g, '=');
   return out;
 }
@@ -247,6 +248,28 @@ describe('no budget, cost or saving promises in served customer copy', () => {
       expect(moneyHits(`Chicken thighs, ${s} this week.`).length).toBeGreaterThan(0);
     });
   }
+  // EQA #137 r2 M1: only id-style columns count as a where-clause fragment.
+  for (const s of ['price=$9 OR x=$1', '(cost=$5)', '(price=$9)', 'total=$9 AND user_id=$1', 'cost = $5 OR id=$2']) {
+    it(`catches the non-id SQL-shaped amount: ${s}`, () => expect(moneyHits(s).length).toBeGreaterThan(0));
+  }
+  it('still skips id-style where-clause fragments', () => {
+    for (const s of ['(pt_id=$1 OR client_id=$1)', 'id=$1', 'user_id=$1::text', 'm.user_id=$1 AND id=$2']) expect([s, moneyHits(s)]).toEqual([s, []]);
+  });
+  // EQA #137 r2 S1: in a .replace( argument only a lone $N back-reference is skipped, not the start of a price.
+  it('catches a price inside a .replace( argument', () => {
+    expect(moneyHits("x.replace(/a/, 'Chicken $12.50')")).toEqual(['$12.50']);
+    expect(moneyHits("x.replace(/a/, '$1 for $1.50')")).toEqual(['$1.50']);
+    expect(moneyHits("x.replace(/a/, '$1 now 12c')")).toEqual(['12c']);
+  });
+  // EQA #137 r2 S2, S3, L.
+  for (const s of ['50¢', '¢50', '12.50c', '&#36;9', '&cent;50', 'five-dollar meals']) {
+    it(`catches ${s}`, () => {
+      expect(moneyHits(s).length).toBeGreaterThan(0);
+      expect(moneyHits(`Chicken thighs, ${s} this week.`).length).toBeGreaterThan(0);
+    });
+  }
+  it('&#36;9 is detected as one amount', () => expect(moneyHits('&#36;9')).toEqual(['&#36;9']));
+
   it('the receipt model instruction is an exact exception, not a prefix', () => {
     const src = fs.readFileSync(path.join(__dirname, 'receipt-scanner.js'), 'utf8');
     const prompt = stringLiterals(src).find((l) => l.text.startsWith('This is a supermarket receipt photo.')).text;
