@@ -1514,6 +1514,7 @@ async function safePlanRows(userId, rows) {
 // only check. allergenWarnings (the card banner, edit modal and save toast) is a summary read off those same
 // per-meal warnings, so each meal is judged once, by the ingredient-aware check ("Tofu scramble on wholegrain
 // toast" is gluten for gluten free, never eggs or dairy).
+const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
 function mealWarnings(meals) {
   let m0 = meals;
   if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { return []; } }
@@ -1524,9 +1525,11 @@ function mealWarnings(meals) {
     const w = v.allergenWarning;
     if (w && typeof w === 'object') {
       const groups = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
-      // A name with nothing we can read ("Rice bowl", "Mum's special") names no allergen, so it gets no banner.
       const contains = [...new Set(groups)];
-      if (contains.length) out.push({ meal: String(v.name || v.mealName || v.title || 'Meal').slice(0, 80), contains });
+      const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
+      if (contains.length) out.push({ meal, contains });
+      // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
+      else if (w.unrecognised) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
     }
     for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
   };

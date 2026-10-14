@@ -123,12 +123,12 @@ maybe('#127a on real Postgres', () => {
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
-  it('saved gluten free + sent nut free -> both apply, saved list unchanged', async () => {
+  it('saved gluten free + sent nut free -> both apply, nut free added to the saved list (r9 M2: remember on the guarded route)', async () => {
     const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(GF)).send({ calories: 2000, protein: 150, days: 7, dietary: ['nut free'] });
     expect(r.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'nut free']));
     expect(servedGroups(r.body.plan)).not.toContain('gluten');
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
-    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free', 'nut free']);
   });
 
   it('peanut allergy -> no peanut butter or satay in plans, onboarding week or Coach', async () => {

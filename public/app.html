@@ -281,6 +281,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-meta.user{align-self:flex-end;padding-right:4px}
 .allergen-warning{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #b91c1c;background:#fef2f2;color:#991b1b;font-size:.8rem;font-weight:700;line-height:1.4}
 .allergen-badge{display:inline-block;padding:1px 6px;border-radius:4px;background:#b91c1c;color:#fff;font-size:.68rem;font-weight:700}
+.allergen-note{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:.8rem;font-weight:500;line-height:1.4}
+.allergen-note-badge{display:inline-block;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:#334155;font-size:.68rem;font-weight:600}
 .mp-safe-notice{display:block;margin:10px 0 14px;padding:12px 14px;border-left:4px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:.92rem;font-weight:600;line-height:1.45}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
@@ -2272,7 +2274,7 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div tabindex="0" role="region" aria-label="Meals in this plan" style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
  const warnBadge = allergenBadgeHtml(p.allergenWarnings);
@@ -4380,10 +4382,15 @@ async function saveGeneratedWorkoutPlan() {
 
 // Persistent red badge for saved meals that clash with the user's saved allergies or diet (#127a).
 function allergenBadgeHtml(warnings, alert) {
- const w = Array.isArray(warnings) ? warnings : [];
- if (!w.length) return '';
- return `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>⚠ Allergen warning: ${w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ')}</div>`;
+ const all = Array.isArray(warnings) ? warnings : [];
+ const w = all.filter(x => !x.unchecked);
+ const notes = all.filter(x => x.unchecked);
+ const warn = w.length ? `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>⚠ Allergen warning: ${w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ')}</div>` : '';
+ // Meals we couldn't read get a calm note (no alarm colour, no role=alert).
+ const note = notes.length ? `<div class="allergen-note">${notes.slice(0, 6).map(x => escapeHtml(x.meal)).join(', ')}: ${escapeHtml(UNCHECKED_NOTE)}</div>` : '';
+ return warn + note;
 }
+const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
 
 // The goal and calories row; hidden on typed plans with no goal or calories (EQA #135 r4 S5).
 function planMetaHtml(p, goalLabel) {
@@ -4395,15 +4402,19 @@ function planMetaHtml(p, goalLabel) {
 
 // Meals the user typed are saved as typed; if they clash with saved allergies or diet, say so in red.
 function showAllergenWarnings(r) {
- const w = r && Array.isArray(r.allergenWarnings) ? r.allergenWarnings : [];
- if (!w.length) return false;
- toast('Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '. Check against your allergies and diet.', 'error');
- return true;
+ const all = r && Array.isArray(r.allergenWarnings) ? r.allergenWarnings : [];
+ const w = all.filter(x => !x.unchecked);
+ if (w.length) {
+  toast('Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '. Check against your allergies and diet.', 'error');
+  return true;
+ }
+ if (all.length) { toast(UNCHECKED_NOTE, 'note'); return true; }
+ return false;
 }
 
 function toast(msg, type='success') {
  const t = document.createElement('div');
- t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${type==='error'?'#ef4444':type==='warn'?'#f59e0b':'#16a34a'};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;
+ t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${type==='error'?'#ef4444':type==='warn'?'#f59e0b':type==='note'?'#475569':'#16a34a'};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;
  t.textContent = msg;
  document.body.appendChild(t);
  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3000);

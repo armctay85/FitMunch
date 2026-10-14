@@ -142,8 +142,10 @@ function safePlan(plan, input) {
 /** Swap options go through the same check (allergies from the profile aren't builder filters). */
 function safeSwaps(plan, input) {
   const excluded = mealSafety.excludedFlags(input);
-  if (!excluded.size) return plan;
-  return { ...plan, days: plan.days.map((d) => ({ ...d, meals: Object.fromEntries(Object.entries(d.meals).map(([k, m]) => [k, Array.isArray(m.swaps) ? { ...m, swaps: m.swaps.filter((x) => !mealSafety.mealProblems(x, excluded)) } : m])) })) };
+  // r9: typed allergies with no flag ("banana", "lupin") are checked on swaps too.
+  const terms = mealSafety.customTerms(input);
+  if (!excluded.size && !terms.size) return plan;
+  return { ...plan, days: plan.days.map((d) => ({ ...d, meals: Object.fromEntries(Object.entries(d.meals).map(([k, m]) => [k, Array.isArray(m.swaps) ? { ...m, swaps: m.swaps.filter((x) => !mealSafety.mealProblems(x, excluded, terms)) } : m])) })) };
 }
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -169,7 +171,10 @@ router.post('/generate', requireAuth, async (req, res) => {
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
   // Saved filters are only read here; this route never writes the profile.
-  const filteredPlan = (dietary) => {
+  const filteredPlan = async (dietary) => {
+    // r9 (same fix as the main hotfix): newly ticked filters are saved, so Coach and saved plans use them. No AI
+    // call is made, so no consent or usage check applies.
+    await remember();
     input.dietary = dietary.slice(0, 16);
     return res.json({
       success: true,
@@ -184,7 +189,7 @@ router.post('/generate', requireAuth, async (req, res) => {
   if (input.dietary.length) {
     let saved = null;
     try { saved = await require('./server/storage.js').getProfile(req.user.userId); } catch (_) { /* sent filters still apply */ }
-    return filteredPlan(dietGuard.combineFilters(saved, input.dietary));
+    return await filteredPlan(dietGuard.combineFilters(saved, input.dietary));
   }
   try {
     let gate = null;
@@ -209,7 +214,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     // If they can't be read, fail closed: builder only.
     let saved;
     try { saved = dietGuard.savedFilters(await require('./server/storage.js').getProfile(req.user.userId)); } catch (_) { saved = null; }
-    if (saved === null || saved.length) return filteredPlan(saved || []);
+    if (saved === null || saved.length) return await filteredPlan(saved || []);
     if (hasAi) {
       // Free-tier gating — plan generation is a heavyweight AI call.
       const tier = await userTier(req.user.userId);

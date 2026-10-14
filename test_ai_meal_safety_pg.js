@@ -98,19 +98,17 @@ maybe('AI meal plans on real Postgres', () => {
     expect(replaced.length).toBe(3);
     expect(JSON.stringify(plan)).not.toMatch(/pasta|hummus|peanut/i);
   });
-  it('a new filter applies on top of the saved ones; the guarded route never rewrites the profile', async () => {
+  it('a new filter applies on top of the saved ones and is added to the profile, never replacing them (r9 M2)', async () => {
     const res = await gen(['nut free']);
     expectBuilderWeek(res);
     expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'sesame free', 'nut free']));
-    await new Promise((r) => setTimeout(r, 200));
-    expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'nut free']);
   });
-  it('consent refused: a filtered user still gets the builder week (no AI, nothing sent), saved filters unchanged', async () => {
+  it('consent refused: a filtered user still gets the builder week (no AI, nothing sent); the ticked filter is saved on FitMunch only', async () => {
     await storage.setAIDataConsent(U, false);
     const res = await gen(['nut free']);
     expectBuilderWeek(res);
-    await new Promise((r) => setTimeout(r, 200));
-    expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'nut free']);
   });
   it('a saved plan with prawn satay and peanut butter toast is stored exactly as entered; warnings once in the response and on read', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: ['shellfish free'], allergies: ['peanuts'] });
@@ -173,6 +171,33 @@ maybe('r7: names that only look like the egg-free dish, and English muffins, on 
     const { plan, replaced } = await enforceWithSaved(week({ dinner: meal('No egg fried rice', ['White rice', 'Peas', 'Carrot'], 700) }));
     expect(replaced).toEqual([]);
     expect(plan.days[0].meals.dinner.name).toBe('No egg fried rice');
+  });
+});
+
+// r9 on real Postgres: the calm note for an unreadable typed meal, and remember() on the guarded route.
+maybe('r9: unreadable typed meals and remembered filters, on real Postgres', () => {
+  const NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
+  it('egg allergy: a typed "Arancini" (no ingredients) is stored as typed and gets the calm note on save and on read', async () => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: ['egg'] });
+    const meals = [{ name: 'Arancini', foods: [] }];
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Typed', meals });
+    expect(res.status).toBe(200);
+    expect(res.body.allergenWarnings).toEqual([{ meal: 'Arancini', contains: [], unchecked: true, note: NOTE }]);
+    expect((await pool.query("select meals from meal_plans where user_id=$1 and name='Typed'", [U])).rows[0].meals).toEqual(meals);
+    const list = await request(app).get('/api/meal-plans').set('Authorization', auth);
+    expect(list.body.plans.find((p) => p.name === 'Typed').allergenWarnings).toEqual([{ meal: 'Arancini', contains: [], unchecked: true, note: NOTE }]);
+  });
+  it('tick nut free, generate: the profile saves it, and Coach chat then makes 0 AI calls', async () => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [] });
+    const res = await gen(['nut free']);
+    expectBuilderWeek(res);
+    expect(await savedDiet()).toEqual(['nut free']);
+    aiClient.chat.mockReset();
+    aiClient.chat.mockResolvedValue({ ok: true, text: 'Try a satay bowl.', provider: 'mock' });
+    const c = await request(app).post('/api/ai/chat').set('Authorization', auth).send({ messages: [{ role: 'user', content: 'What should I eat tonight?' }] });
+    expect(c.status).toBe(200);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(c.body.reply).not.toMatch(/satay/i);
   });
 });
 
