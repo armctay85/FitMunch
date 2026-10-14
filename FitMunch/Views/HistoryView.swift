@@ -444,7 +444,7 @@ private struct DateRangePicker: View {
 }
 
 /// Export sheet for data export
-private struct ExportSheet: View {
+struct ExportSheet: View {
     let data: String
     @Environment(\.dismiss) private var dismiss
     @State private var shareSheet = false

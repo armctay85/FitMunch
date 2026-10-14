@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Settings screen for user preferences and app management
@@ -9,6 +10,7 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
+    @State private var exportCSV: String?
     @ObservedObject private var premium = PremiumManager.shared
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
@@ -216,7 +218,7 @@ struct SettingsView: View {
                 // Data section
                 Section("Data") {
                     Button("Export Data") {
-                        // Premium history export lives on History tab for now.
+                        exportCSV = mealExportCSV()
                     }
                     .foregroundStyle(Theme.brandGreen)
                     .disabled(!premium.isPremium)
@@ -314,7 +316,28 @@ struct SettingsView: View {
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .sheet(isPresented: Binding(
+                get: { exportCSV != nil },
+                set: { if !$0 { exportCSV = nil } }
+            )) {
+                if let exportCSV {
+                    ExportSheet(data: exportCSV)
+                }
+            }
         }
+    }
+
+    /// Every on-device meal, not a shop price. Commas in names are spaces so each meal stays one row.
+    private func mealExportCSV() -> String {
+        let descriptor = FetchDescriptor<Meal>(sortBy: [SortDescriptor(\.date, order: .forward)])
+        let meals = (try? modelContext.fetch(descriptor)) ?? []
+        var csv = "Date,Meal Name,Calories,Protein (g),Carbs (g),Fats (g)\n"
+        for meal in meals {
+            let dateString = Constants.dateFormatter.string(from: meal.date)
+            let name = meal.name.replacingOccurrences(of: ",", with: " ")
+            csv += "\(dateString),\(name),\(meal.totalCalories),\(meal.totalProtein),\(meal.totalCarbs),\(meal.totalFats)\n"
+        }
+        return csv
     }
 }
 
