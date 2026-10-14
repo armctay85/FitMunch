@@ -62,12 +62,11 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
-    /// Toggle notifications
-    func toggleNotifications() {
-        notificationsEnabled.toggle()
+    /// The toggle binding already stored the new value. Do not flip it again.
+    func setNotificationsEnabled(_ enabled: Bool) {
+        notificationsEnabled = enabled
         savePreferences()
-        
-        if notificationsEnabled {
+        if enabled {
             requestNotificationPermission()
         }
     }
@@ -86,9 +85,9 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
-    /// Toggle metric units
-    func toggleMetricUnits() {
-        useMetricUnits.toggle()
+    /// The toggle binding already stored the new value. Do not flip it again.
+    func setMetricUnits(_ enabled: Bool) {
+        useMetricUnits = enabled
         savePreferences()
     }
     
