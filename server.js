@@ -7,7 +7,7 @@ const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
-const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const { attachApiJsonSanitizer, sendStripeJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
@@ -537,7 +537,7 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
       })
     );
 
-    res.json({
+    sendStripeJson(res, {
       success: true,
       url: result.url,
       id: result.id
@@ -762,7 +762,7 @@ app.post('/api/quick-checkout', async (req, res) => {
       })
     );
     const { TRIAL_USED_COPY } = require('./server/email.js');
-    return res.json({
+    return sendStripeJson(res, {
       success: true,
       url: result.url,
       id: result.id,
@@ -830,7 +830,7 @@ app.post('/api/checkout', async (req, res) => {
       });
     });
 
-    res.json(checkoutJson(result));
+    sendStripeJson(res, checkoutJson(result));
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
@@ -924,7 +924,7 @@ app.post('/api/coach/checkout', async (req, res) => {
           message: result.message,
         });
       }
-      return res.json({ success: true, ...checkoutJson(result) });
+      return sendStripeJson(res, { success: true, ...checkoutJson(result) });
     }
 
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -945,7 +945,7 @@ app.post('/api/coach/checkout', async (req, res) => {
         cancelPath: coachBilling.COACH_CANCEL_PATH,
       })
     );
-    return res.json({ success: true, url: result.url, id: result.id });
+    return sendStripeJson(res, { success: true, url: result.url, id: result.id });
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
@@ -1255,7 +1255,7 @@ app.post('/api/billing-portal', async (req, res) => {
       },
       { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
-    res.json({ success: true, url: portal.url });
+    sendStripeJson(res, { success: true, url: portal.url });
   } catch (e) {
     if (sendAuthError(e, res)) return;
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
