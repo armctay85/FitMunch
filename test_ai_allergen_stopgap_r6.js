@@ -70,7 +70,7 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
   });
   it('50 items of 100 characters still save', async () => {
     const ok = new Array(50).fill('p'.repeat(100));
-    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ok, dietaryPreferences: ['vegan'] });
+    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ok, dietaryPreferences: ['vegan'], profileUpdatedAt: new Date().toISOString() });
     expect(r.status).toBe(200);
     expect(storage.createOrUpdateProfile).toHaveBeenCalledTimes(1);
   });
@@ -242,7 +242,7 @@ describe('r2 lows', () => {
   it('the 100 limit counts code points: 100 emoji save, 101 do not', async () => {
     expect(dietGuard.wellFormedFilters(['🥜'.repeat(100)])).toBe(true);
     expect(dietGuard.wellFormedFilters(['🥜'.repeat(101)])).toBe(false);
-    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['🥜'.repeat(60)] });
+    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['🥜'.repeat(60)], profileUpdatedAt: new Date().toISOString() });
     expect(r.status).toBe(200);
   });
   it.each([['a text list of objects', '[{"name":"peanut"}]'], ['deeply nested text', `${'['.repeat(2000)}${']'.repeat(2000)}`], ['a text object with nested values', '{"peanut":{"severe":true}}'], ['a text number', '7']])(
@@ -313,5 +313,27 @@ describe('r3', () => {
     expect(msg).not.toContain('.;');
     show({ allergenWarnings: [{ meal: 'Satay chicken', contains: ['nuts'] }] });
     expect(msg).toBe('Allergen warning: Satay chicken contains nuts. Check against your allergies and diet.');
+  });
+});
+
+// ── r4 (Elite QA #140 r3 S2): planFilters on both /generate paths ──
+describe('r4: unknown filters are dropped before the cut of 16, on both /generate paths', () => {
+  const JUNK16 = Array.from({ length: 16 }, (_, i) => `junk ${i}`);
+  it('planFilters keeps fish free behind 16 junk items (unsorted input)', () => {
+    expect(dietGuard.planFilters([...JUNK16, 'fish free'])).toEqual(['fish free']);
+  });
+  it.each([[true], [false]])('builderOnly=%s: unsorted combined filters still give a fish-free plan', async (builderOnly) => {
+    account({ dietaryPreferences: [], allergies: [] });
+    const spy = jest.spyOn(dietGuard, 'combineFilters').mockReturnValue([...JUNK16, 'fish free']);
+    try {
+      const r = await request(app).post('/api/meal-plan/generate').set('Authorization', token)
+        .send({ calories: 2000, protein: 150, days: 7, dietary: ['nut free'], builderOnly });
+      expect(r.status).toBe(200);
+      const items = [];
+      for (const d of r.body.plan.days) for (const m of Object.values(d.meals)) for (const i of m.ingredients || []) items.push([i.item || i.name]);
+      expect(require('./lib/meal-plan-engine').allergensOf(items)).not.toContain('fish');
+      if (!builderOnly) expect(r.body.dietary).toEqual(['fish free']);
+    } finally { spy.mockRestore(); }
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 });

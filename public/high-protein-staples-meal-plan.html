@@ -25,7 +25,7 @@
 .ln-shot img{display:block;width:auto;max-width:min(360px,90vw);height:auto;border-radius:18px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
 .ln-try{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:14px 0}
 .ln-try label{display:flex;flex-direction:column;font-weight:700;font-size:.9rem;gap:4px}
-.ln-try input{width:120px;padding:10px;font:inherit;border:1px solid #9aa9a1;border-radius:10px}
+.ln-try input{width:120px;min-height:44px;box-sizing:border-box;padding:10px;font:inherit;border:1px solid #9aa9a1;border-radius:10px}
 .ln-try-out li{margin:4px 0}
 @media (max-width:760px){.ln-shot{grid-template-columns:1fr}}
 </style>
@@ -63,7 +63,7 @@
   </div>
 </header>
 
-<section class="ln-section" style="padding-top:0"><div class="ln-inner ln-shot">
+<section class="ln-section" style="padding-top:24px"><div class="ln-inner ln-shot">
 <img src="/assets/fm-app-week.webp" alt="FitMunch app showing a planned Wednesday at 2005 cal and 148g protein, with a breakfast swap list open" width="1122" height="1617" loading="lazy" decoding="async"/>
 <div><h2>Try it: split your protein across the day</h2>
 <p>Enter your daily protein target. This splits it over 4 meals and shows how much of each staple covers one meal, using the protein values in the table below.</p>
