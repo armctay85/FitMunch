@@ -234,13 +234,6 @@ struct SettingsView: View {
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
                             .foregroundColor(.secondary)
                     }
-                    
-                    HStack {
-                        Text("Build Date")
-                        Spacer()
-                        Text("March 2025")
-                            .foregroundColor(.secondary)
-                    }
                 }
                 
                 // Account section
