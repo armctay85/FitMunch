@@ -430,3 +430,35 @@ describe('Elite QA #88 r2 S2: macro check boundary (4P+4C+9F within ±15%)', () 
     expect(engine.normaliseAiPlan(planWith(ratio), { calories: 2500, days: 7 })).toEqual({ ok: false, reason: 'meal_macros_mismatch' });
   });
 });
+
+describe('builder lands every day within ±5% for every diet, style and target', () => {
+  const TARGETS = [[1500, 100], [1600, 110], [1800, 90], [2000, 150], [2400, 160], [2850, 140], [3000, 200]];
+  const DIETS = ['vegetarian', 'vegan', 'pescatarian', 'gluten free', 'dairy free', 'nut free', 'egg free'];
+  const STYLES = [[], ['high protein'], ['low carb']];
+  const combos = STYLES.flatMap((s) => [s, ...DIETS.map((d) => [...s, d])]);
+
+  test('the low carb week at 2850 kcal / 140 g protein is on target (was 2625 kcal, 7.9% under)', () => {
+    const plan = engine.buildPlan({ calories: 2850, protein: 140, days: 7, dietary: ['low carb'] });
+    for (const d of plan.days) expect(within5(d.dailyTotals.calories, 2850)).toBe(true);
+    expect(engine.everyDayOnTarget(plan, 2850)).toBe(true);
+  });
+
+  test('no target, diet or style combination has a day off target', () => {
+    const off = [];
+    for (const [calories, protein] of TARGETS) {
+      for (const dietary of combos) {
+        const plan = engine.buildPlan({ calories, protein, days: 7, dietary });
+        for (const d of plan.days) {
+          if (!within5(d.dailyTotals.calories, calories)) off.push(`${calories}/${protein} ${dietary.join('+') || 'none'} ${d.day} ${d.dailyTotals.calories}`);
+        }
+      }
+    }
+    expect(off).toEqual([]);
+  });
+
+  test('the #87 hero day (Wednesday at 2000/150) is unchanged', () => {
+    const wed = engine.buildPlan({ calories: 2000, protein: 150, days: 7, dietary: [] }).days[2];
+    expect(wed.day).toBe('Wednesday');
+    expect(wed.dailyTotals).toMatchObject({ calories: 2005, protein: 148 });
+  });
+});
