@@ -7,7 +7,7 @@ jest.mock('pg', () => ({
       pgCalls.push({ sql, params });
       if (planRows) return Promise.resolve({ rows: planRows(sql, params) || [] });
       if (/FROM meal_plans/.test(sql) && !/plan_assignments pa JOIN/.test(sql)) {
-        return Promise.resolve({ rows: [{ name: 'Christmas cut', meals: { days: [{ meals: { breakfast: { name: 'Greek yoghurt oats' }, lunch: { name: 'Chicken rice bowl' } } }, {}, {}, {}, {}, {}, {}] } }] });
+        return Promise.resolve({ rows: [{ name: 'Christmas cut', meals: { days: [{ meals: { breakfast: { name: 'Greek yoghurt oats', ingredients: ['Greek yoghurt', 'Rolled oats'] }, lunch: { name: 'Chicken rice bowl', ingredients: ['Chicken breast', 'White rice'] } } }, {}, {}, {}, {}, {}, {}] } }] });
       }
       return Promise.resolve({ rows: [] });
     }
