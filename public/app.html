@@ -879,7 +879,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" data-coach-card="coach-39">
  <div class="card-body">
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Coach Solo</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$39<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$39<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients. 14-day trial.</div>
  <button class="btn btn-ghost2 coach-select" style="display:block;width:100%;min-height:44px" data-coach-plan="coach-39" onclick="startCheckout('coach-39', this)">Select</button>
  </div>
@@ -887,7 +887,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" data-coach-card="coach-79">
  <div class="card-body">
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Coach Pro</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$79<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$79<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients. 14-day trial.</div>
  <button class="btn btn-ghost2 coach-select" style="display:block;width:100%;min-height:44px" data-coach-plan="coach-79" onclick="startCheckout('coach-79', this)">Select</button>
  </div>
@@ -899,7 +899,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" style="border:1px solid var(--leaf)">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Premium</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li><strong>Unlimited</strong> AI coach chat</li>
  <li><strong>Unlimited</strong> meal and workout plans</li>
@@ -3925,6 +3925,8 @@ async function loadCoachBilling() {
  if (!isPt) return;
  const title = document.querySelector('#view-billing .view-title');
  if (title) title.textContent = 'Billing';
+ const sub = document.querySelector('#view-billing .view-sub');
+ if (sub) sub.textContent = 'Coach plans for trainers. 14-day trial. Manage or cancel any time.';
  const statusEl = document.getElementById('billing-coach-status');
  const manage = document.getElementById('billing-coach-manage');
  try {
@@ -3953,7 +3955,7 @@ async function openBillingPortal(button) {
  if (button) button.disabled = true;
  billingPortalInFlight = (async () => {
  try {
- const r = await API('/billing-portal', { method: 'POST', body: '{}' });
+ const r = await API('/billing-portal', { method: 'POST', body: JSON.stringify({ returnTo: 'app' }) });
  if (r && r.url) { window.location.href = r.url; return; }
  toast('Billing portal unavailable. Please try again.', 'error');
  } catch (e) {

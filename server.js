@@ -1245,12 +1245,15 @@ app.post('/api/billing-portal', async (req, res) => {
     if (!customerId) return res.status(400).json({ error: 'No billing account for this user.' });
 
     const origin = checkoutOrigin(req);
+    // In-app opens return to Billing in the app; other callers keep /pricing.
+    const inApp = req.body && req.body.returnTo === 'app';
+    const returnPath = inApp ? '/app.html#billing' : '/pricing';
     const portal = await stripe.billingPortal.sessions.create(
       {
         customer: customerId,
-        return_url: `${origin}/pricing`,
+        return_url: `${origin}${returnPath}`,
       },
-      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId]) }
+      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
     res.json({ success: true, url: portal.url });
   } catch (e) {
