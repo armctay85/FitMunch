@@ -486,7 +486,19 @@ footer{
 @media(prefers-reduced-motion:reduce){
   .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
+.demo-items{list-style:none;margin:0;padding:6px 0 0;font-size:.86rem;columns:2;column-gap:18px}
+.demo-items li{padding:5px 0;border-bottom:1px dashed var(--line);break-inside:avoid}
+.receipt.scored .demo-items{display:none}
+.demo-reasons{list-style:none;margin:10px 0 14px;padding:0;font-size:.86rem;line-height:1.45}
+.demo-reasons li{padding:6px 0 6px 22px;position:relative}
+.demo-reasons li::before{content:'+';position:absolute;left:4px;font-weight:800;color:#1f9d4a}
+.demo-reasons li.bad::before{content:'\2212';color:#c0392b}
+.demo-cta{display:flex;align-items:center;justify-content:center;text-align:center}
+.demo-own{margin-top:12px;font-size:.9rem}
+.demo-own a{color:inherit}
+.demo-error{font-size:.9rem;color:#ffb4a8;margin-top:12px}
 </style>
+<noscript><style>.receipt{opacity:1;transform:none}</style></noscript>
 </head>
 <body>
 <a class="skip" href="#loop">Skip to how FitMunch works</a>
@@ -660,30 +672,31 @@ footer{
 <section class="proof" id="proof">
   <div class="proof-inner">
     <div class="proof-copy">
-      <h2>One haul. Clear numbers.</h2>
-      <p>Worked example, not a live scan of your trolley. A sample supermarket shop scored 92 with 987g protein.</p>
-      <a class="btn btn-leaf" href="#first-scan" data-fm-track="proof_scan_mine">Score your own shop</a>
+      <h2>Try a sample receipt.</h2>
+      <p>No sign-up. One tap scores a sample shop with the same maths as your own scans. No AI, nothing uploaded.</p>
+      <button type="button" class="btn btn-leaf" id="demo-run" data-fm-track="demo_sample_run">Score the sample receipt</button>
+      <p class="demo-error" id="demo-error" role="alert" hidden>Could not score the sample right now. Try again in a moment.</p>
+      <p class="demo-own"><a href="#first-scan" data-fm-track="proof_scan_mine">Or score your own shop</a></p>
     </div>
-    <div class="receipt" id="proof-device" aria-label="Example haul score from the supermarket">
+    <div class="receipt" id="proof-device" aria-live="polite" aria-label="Sample receipt and its haul score">
       <div class="device-top">
-        <span class="device-store">SUPERMARKET</span>
-        <span>22 items</span>
+        <span class="device-store">SAMPLE RECEIPT</span>
+        <span id="demo-count">10 items</span>
       </div>
-      <div class="haul">
-        <div>
-          <div class="score-n" data-count="92">0</div>
-          <div class="haul-label">HAUL SCORE</div>
+      <ol class="demo-items" id="demo-items">
+        <li>Chicken breast 1kg</li><li>Free range eggs x12</li><li>Greek yoghurt 1kg</li><li>Brown rice 1kg</li><li>Rolled oats 750g</li>
+        <li>Broccoli 500g</li><li>Baby spinach 120g</li><li>Bananas 1kg</li><li>Chocolate biscuits</li><li>Cola 10 pack</li>
+      </ol>
+      <div class="demo-result" id="demo-result" hidden>
+        <div class="haul">
+          <div>
+            <div class="score-n" id="demo-score">0</div>
+            <div class="haul-label">HAUL SCORE <span id="demo-grade"></span></div>
+          </div>
+          <div class="haul-meta"><strong id="demo-protein"></strong>Sample receipt, not your shop</div>
         </div>
-        <div class="haul-meta">
-          <strong data-count-protein="987">0g protein</strong>
-          Worked example, not your live shop
-        </div>
-      </div>
-      <div class="rows">
-        <div class="row"><span>Chicken breast 1kg</span><span class="row-val">220g</span></div>
-        <div class="row"><span>Free range eggs x12</span><span class="row-val">72g</span></div>
-        <div class="row"><span>Protein milk 2L</span><span class="row-val">100g</span></div>
-        <div class="row"><span>Greek yoghurt 1kg</span><span class="row-val">90g</span></div>
+        <ul class="demo-reasons" id="demo-reasons"></ul>
+        <a class="btn btn-leaf demo-cta" href="/login.html?plan=premium#register" data-fm-track="demo_sample_trial">Start the 14-day trial</a>
       </div>
     </div>
   </div>
@@ -804,38 +817,64 @@ try {
   io.observe(document.getElementById('loop-rail'));
 })();
 
-(function haulScoreMotion() {
-  const device = document.getElementById('proof-device');
-  const score = document.querySelector('[data-count]');
-  const protein = document.querySelector('[data-count-protein]');
-  if (!device || !score || !protein) return;
+(function sampleReceiptDemo() {
+  const btn = document.getElementById('demo-run');
+  const out = document.getElementById('demo-result');
+  if (!btn || !out) return;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const run = () => {
-    device.classList.add('in');
-    if (reduced) {
-      score.textContent = score.getAttribute('data-count');
-      protein.textContent = protein.getAttribute('data-count-protein') + 'g protein';
-      return;
+  // Reveal the sample receipt as soon as it scrolls into view (or at once),
+  // so the item list is visible before the tap.
+  const device = document.getElementById('proof-device');
+  if (device) {
+    const reveal = () => device.classList.add('in');
+    if (reduced || !('IntersectionObserver' in window)) reveal();
+    else {
+      const io = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) { reveal(); io.disconnect(); }
+      }, { threshold: 0.15 });
+      io.observe(device);
     }
-    const target = Number(score.getAttribute('data-count') || 0);
-    const pTarget = Number(protein.getAttribute('data-count-protein') || 0);
+  }
+  const scoreEl = document.getElementById('demo-score');
+  const err = document.getElementById('demo-error');
+  const countUp = (target) => {
+    if (reduced) { scoreEl.textContent = String(target); return; }
     const start = performance.now();
-    const dur = 1100;
     const tick = (now) => {
-      const t = Math.min(1, (now - start) / dur);
-      const e = 1 - Math.pow(1 - t, 3);
-      score.textContent = String(Math.round(target * e));
-      protein.textContent = Math.round(pTarget * e) + 'g protein';
+      const t = Math.min(1, (now - start) / 900);
+      scoreEl.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 3))));
       if (t < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   };
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some(e => e.isIntersecting)) { run(); io.disconnect(); }
-    }, { threshold: 0.35 });
-    io.observe(device);
-  } else run();
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Scoring...';
+    err.hidden = true;
+    try {
+      const r = await fetch('/api/receipt/demo', { headers: { accept: 'application/json' } });
+      const d = await r.json();
+      if (!r.ok || !d || !d.success) throw new Error('demo');
+      document.getElementById('demo-grade').textContent = '· ' + d.grade;
+      document.getElementById('demo-protein').textContent = d.protein + 'g protein in this shop';
+      const ul = document.getElementById('demo-reasons');
+      ul.textContent = '';
+      (d.reasons || []).forEach((x) => {
+        const li = document.createElement('li');
+        li.className = x.tone === 'bad' ? 'bad' : 'good';
+        li.textContent = x.text;
+        ul.appendChild(li);
+      });
+      document.getElementById('proof-device').classList.add('in', 'scored');
+      out.hidden = false;
+      countUp(Number(d.haulScore) || 0);
+      btn.textContent = 'Scored';
+    } catch (_) {
+      err.hidden = false;
+      btn.disabled = false;
+      btn.textContent = 'Score the sample receipt';
+    }
+  });
 })();
 </script>
 <script src="/js/fm-item-name.js" defer></script>

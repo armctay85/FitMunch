@@ -27,6 +27,7 @@ module.exports = {
     '**/test_server_api.js',
     '**/test_checkout_session_privacy.js',
     '**/test_trust_bar.js',
+    '**/test_sample_receipt_demo.js',
     '**/test_meal_plan_owner_pg.js',
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',
