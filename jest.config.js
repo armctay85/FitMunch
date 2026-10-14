@@ -96,6 +96,7 @@ module.exports = {
     '**/test_stored_xss.js',
     '**/test_xss_handlers.js',
     '**/test_ai_allergen_stopgap_r6.js',
+    '**/test_ai_allergen_stopgap_r6_pg.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

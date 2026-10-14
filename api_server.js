@@ -134,9 +134,8 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
     delete profileData.userId; // ignore body userId — use token
     // #127a: filters must be a string or a list of strings; any other shape would hide an allergy.
     for (const k of ['allergies', 'dietaryPreferences']) {
-      if (!dietGuard.wellFormedFilters(profileData[k])) {
-        return res.status(400).json({ success: false, error: 'Allergies and diet filters must be a list of words, like ["peanut"].' });
-      }
+      const filterError = dietGuard.filterSaveError(profileData[k]);
+      if (filterError) return res.status(400).json({ success: false, error: filterError });
     }
     await createOrUpdateProfile(req.user.userId, profileData);
     res.json({ success: true });
@@ -1495,6 +1494,8 @@ function mealWarnings(meals, filters) {
     const groups = require('./lib/diet-guard').brokenGroups(JSON.stringify(m), filters);
     if (groups.length) out.push({ meal: String(m.name || m.title || 'Meal').slice(0, 80), contains: groups });
   }
+  // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
+  if (require('./lib/diet-guard').unreadable(filters)) out.unshift({ meal: '', contains: [], notice: require('./lib/diet-guard').UNREADABLE_NOTICE });
   return out.slice(0, 50);
 }
 async function typedMealWarnings(userId, meals) {
@@ -2302,6 +2303,7 @@ router.post('/pt-leads', async (req, res) => {
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }

@@ -64,6 +64,7 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     for (const k of ['allergies', 'dietaryPreferences']) {
       const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ [k]: bad });
       expect(r.status).toBe(400);
+      expect(r.body.error).toBe(dietGuard.CAP_ERROR);
     }
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
@@ -79,21 +80,18 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
     expect(t).toBeLessThan(3000); // includes parsing the 9 MB body itself
   });
-  it('listOf stops reading after 50 items and fails closed', () => {
+  it('listOf keeps every item within the character budget, and fails closed past it', () => {
     const list = new Array(60).fill('vegan');
     list[55] = 'peanut';
     const out = dietGuard.listOf(list);
-    expect(out).toHaveLength(51);
-    expect(out[50]).toBe(dietGuard.UNREADABLE);
-    expect(dietGuard.listOf(new Array(50).fill('vegan'))).not.toContain(dietGuard.UNREADABLE);
-    // An item past 50 is never read: its getter would throw.
-    const trap = new Array(51).fill('vegan');
-    Object.defineProperty(trap, 50, { get() { throw new Error('read past the cap'); } });
-    expect(() => dietGuard.listOf(trap)).not.toThrow();
+    expect(out).toHaveLength(60);
+    expect(out).toContain('peanut');
+    expect(out).not.toContain(dietGuard.UNREADABLE);
     const obj = {};
     for (let i = 0; i < 60; i += 1) obj[`k${i}`] = true;
-    expect(dietGuard.listOf(obj)).toHaveLength(51);
-    expect(dietGuard.listOf('x'.repeat(10000))).toEqual([dietGuard.UNREADABLE]);
+    expect(dietGuard.listOf(obj)).toHaveLength(60);
+    expect(dietGuard.listOf('x'.repeat(dietGuard.MAX_FILTER_SCAN + 1))).toEqual([dietGuard.UNREADABLE]);
+    expect(dietGuard.listOf(new Array(1e6).fill('zzzz')).pop()).toBe(dietGuard.UNREADABLE);
   });
   it('a stored 1M-item list is read in well under the old 1.4 s, and still guards', () => {
     const p = { allergies: HUGE(), dietaryPreferences: JSON.stringify(HUGE()) };
@@ -114,7 +112,8 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     let l; let tl;
     try { [l, tl] = await ms(() => request(app).get('/api/meal-plans').set('Authorization', token)); } finally { spy.mockRestore(); }
     expect(l.status).toBe(200);
-    expect(l.body.plans[0].allergenWarnings[0].contains).toContain('nuts');
+    expect(l.body.plans[0].allergenWarnings[0].notice).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(l.body.plans[0].allergenWarnings[1].contains).toContain('nuts');
     expect([tc, ti, tl].every((t) => t < 500)).toBe(true);
     expect(ins.status).toBeLessThan(500);
   });
@@ -184,5 +183,82 @@ describe('L2 + L3: UI', () => {
     expect(html).toContain('<span class="mp-gen-icon" style="font-size:28px;line-height:1;flex-shrink:0" aria-hidden="true">🤖</span>');
     expect(html).toContain('<div class="mp-gen-grid" style="display:grid;grid-template-columns:1fr 1fr;');
     expect(html).toMatch(/@media\(max-width:360px\)\{#mp-generator \.mp-gen-grid\{grid-template-columns:1fr!important\}/);
+  });
+});
+
+// ── r2 (Elite QA #140 r1) ──
+describe('r2 M1: items past 50 are still scanned for allergens', () => {
+  const JUNK = Array.from({ length: 50 }, (_, i) => `junk ${i}`);
+  it("50 junk + 'peanut' and 50 junk + 'nut free' both give nut free, ahead of the junk", () => {
+    expect(dietGuard.savedFilters({ allergies: [...JUNK, 'peanut'] })[0]).toBe('nut free');
+    expect(dietGuard.savedFilters({ dietaryPreferences: [...JUNK, 'nut free'] })[0]).toBe('nut free');
+    expect(dietGuard.combineFilters({}, [...JUNK, 'peanut'])[0]).toBe('nut free');
+    expect(dietGuard.savedFilters({ allergies: JSON.stringify([...JUNK, 'sesame']) })).toContain('sesame free');
+  });
+  it('nothing past 50 is dropped; a list within the budget is not unreadable', () => {
+    const f = dietGuard.listOf([...JUNK, 'more junk', 'peanut']);
+    expect(f).toHaveLength(52);
+    expect(f.slice(50)).toEqual(['more junk', 'peanut']);
+    expect(f).not.toContain(dietGuard.UNREADABLE);
+  });
+  it("past the character budget every '... free' filter applies", () => {
+    const f = dietGuard.savedFilters({ allergies: new Array(1e6).fill('zzzz') });
+    expect(f.slice(0, 8)).toEqual(dietGuard.ALL_FREE);
+    expect(dietGuard.unreadable(f)).toBe(true);
+    expect(dietGuard.savedFilters({ allergies: 'x'.repeat(dietGuard.MAX_FILTER_SCAN + 1) })).toEqual(expect.arrayContaining(dietGuard.ALL_FREE));
+    expect(dietGuard.safeCoachReply({ filters: f }).reply.startsWith(dietGuard.UNREADABLE_NOTICE)).toBe(true);
+    expect(dietGuard.safeTrainingReply({ filters: f }).startsWith(dietGuard.UNREADABLE_NOTICE)).toBe(true);
+  });
+  it('malformed shapes fail closed in content too', () => {
+    expect(dietGuard.savedFilters({ allergies: [{ name: 'peanut' }] })).toEqual(expect.arrayContaining(dietGuard.ALL_FREE));
+  });
+});
+
+describe('r2 S1: the 3 surviving mutants', () => {
+  it('a stored 500-character item is read as 100 characters', () => {
+    expect(dietGuard.listOf(['x'.repeat(500)])).toEqual(['x'.repeat(100)]);
+    expect(dietGuard.listOf(['🥜'.repeat(500)])[0]).toBe('🥜'.repeat(100));
+  });
+  it('/generate with 51 valid names returns "Too many dietary filters."', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    const r = await request(app).post('/api/meal-plan/generate').set('Authorization', token)
+      .send({ calories: 2000, protein: 150, days: 7, dietary: new Array(51).fill('vegan') });
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('Too many dietary filters.');
+  });
+  it('the chat-context reader reads the first 50 items only', () => {
+    const coachListOf = require('./api_server')._coachListOf;
+    const trap = new Array(60).fill('vegan');
+    Object.defineProperty(trap, 50, { get() { throw new Error('read past the cap'); } });
+    expect(() => coachListOf(trap)).not.toThrow();
+    expect(coachListOf(['x'.repeat(300)])).toEqual(['x'.repeat(100)]);
+  });
+});
+
+describe('r2 lows', () => {
+  it.each(['arnottstimtam', 'maccasbrekkie', 'subwaysub', 'oportochicken'])('glued brand %s warns for gluten free', (meal) => {
+    expect(dietGuard.brokenGroups(meal, ['gluten free'])).toContain('gluten');
+  });
+  it('the 100 limit counts code points: 100 emoji save, 101 do not', async () => {
+    expect(dietGuard.wellFormedFilters(['🥜'.repeat(100)])).toBe(true);
+    expect(dietGuard.wellFormedFilters(['🥜'.repeat(101)])).toBe(false);
+    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['🥜'.repeat(60)] });
+    expect(r.status).toBe(200);
+  });
+  it.each([['a text list of objects', '[{"name":"peanut"}]'], ['deeply nested text', `${'['.repeat(2000)}${']'.repeat(2000)}`], ['a text object with nested values', '{"peanut":{"severe":true}}'], ['a text number', '7']])(
+    'saving %s returns 400', async (_l, bad) => {
+      const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: bad });
+      expect(r.status).toBe(400);
+      expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
+    });
+  it('text lists of words still save', () => {
+    for (const ok of ['peanut', 'peanut, milk', '["peanut"]', '{"peanut":true}', '']) expect([ok, dietGuard.wellFormedFilters(ok)]).toEqual([ok, true]);
+  });
+  it('the typed-meal scroll box is focusable and labelled; the badge shows the unreadable notice', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+    expect(html).toContain('<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||\'this plan\')}"');
+    // eslint-disable-next-line no-new-func
+    const badge = new Function('escapeHtml', `${html.match(/function allergenBadgeHtml[\s\S]*?\n\}/)[0]}; return allergenBadgeHtml;`)((x) => String(x));
+    expect(badge([{ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE }])).toContain(dietGuard.UNREADABLE_NOTICE);
   });
 });

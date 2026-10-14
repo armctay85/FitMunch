@@ -129,7 +129,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       success: true,
       plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories),
       source: 'builder',
-      notice: dietGuard.PLAN_NOTICE,
+      notice: dietGuard.unreadable(dietary) ? `${dietGuard.UNREADABLE_NOTICE} ${dietGuard.PLAN_NOTICE}` : dietGuard.PLAN_NOTICE,
       dietary: input.dietary,
     });
   };
