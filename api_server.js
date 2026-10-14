@@ -90,10 +90,54 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
   }
 });
 
+// Meal and plan names longer than this are refused at input with a 400.
+const MAX_NAME_LENGTH = 200;
+const NAME_TOO_LONG = `Names must be ${MAX_NAME_LENGTH} characters or fewer.`;
+// Every field that holds a name: meal, plan, food and favourite names.
+const NAME_KEYS = ['name', 'mealName', 'title', 'foodName', 'food_name'];
+/**
+ * True if a name anywhere in the body (meals as a list or an object of slots, foods, items, nested
+ * favourite data) is over the cap.
+ */
+function nameTooLong(body) {
+  const long = (v) => typeof v === 'string' && v.length > MAX_NAME_LENGTH;
+  const check = (o, depth) => {
+    if (!o || typeof o !== 'object' || depth > 6) return false;
+    if (Array.isArray(o)) return o.some((x) => check(x, depth + 1));
+    if (NAME_KEYS.some((k) => long(o[k]))) return true;
+    return Object.values(o).some((x) => x && typeof x === 'object' && check(x, depth + 1));
+  };
+  return check(body, 0);
+}
+/**
+ * Names saved before the cap are cut to it on read, so the app never sends an over-long legacy name back
+ * and an edit isn't refused for a name the user didn't touch.
+ */
+function capNames(value, depth = 0) {
+  if (!value || typeof value !== 'object' || depth > 8) return value;
+  if (Array.isArray(value)) return value.map((x) => capNames(x, depth + 1));
+  if (value instanceof Date) return value;
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (NAME_KEYS.includes(k) && typeof v === 'string' && v.length > MAX_NAME_LENGTH) out[k] = v.slice(0, MAX_NAME_LENGTH);
+    else if (typeof v === 'string' && (k === 'meals' || k === 'item_data') && v.length && /^[[{]/.test(v.trim())) {
+      // Stored as JSON text: cap inside it and keep it as text.
+      try { out[k] = JSON.stringify(capNames(JSON.parse(v), depth + 1)); } catch (_) { out[k] = v; }
+    } else out[k] = capNames(v, depth + 1);
+  }
+  return out;
+}
+
 router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
     const profileData = { ...req.body };
     delete profileData.userId; // ignore body userId — use token
+    // #127a: filters must be a string or a list of strings; any other shape would hide an allergy.
+    for (const k of ['allergies', 'dietaryPreferences']) {
+      if (!dietGuard.wellFormedFilters(profileData[k])) {
+        return res.status(400).json({ success: false, error: 'Allergies and diet filters must be a list of words, like ["peanut"].' });
+      }
+    }
     await createOrUpdateProfile(req.user.userId, profileData);
     res.json({ success: true });
   } catch (error) {
@@ -105,6 +149,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 // Meal Logging API routes
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
@@ -122,7 +167,7 @@ router.get('/meals/daily/:userId/:date', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     const meals = await getMealLogsByDate(req.params.userId, new Date(req.params.date));
-    res.json({ success: true, meals });
+    res.json({ success: true, meals: capNames(meals) });
   } catch (error) {
     console.error('Error fetching daily meals:', error);
     sendApiError(res, error);
@@ -171,12 +216,46 @@ router.get('/workouts/history/:userId', authMiddleware, async (req, res) => {
 });
 
 // Progress Tracking API routes
+// Only these columns are written; user id comes from the token, never the body. Weight 25-400 kg,
+// body fat 2-75%, measurements 1-400 cm, and the date no more than a day ahead.
+const PROGRESS_MEASUREMENTS = ['waist', 'chest', 'hips', 'arms', 'thighs', 'neck'];
+function progressInput(body) {
+  const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const out = {};
+  const num = (v, lo, hi, label) => {
+    if (v === undefined || v === null || v === '') return { value: null };
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < lo || v > hi) return { error: `${label} must be a number from ${lo} to ${hi}.` };
+    return { value: v };
+  };
+  const w = num(b.weight, 25, 400, 'Weight (kg)'); if (w.error) return w; if (w.value !== null) out.weight = w.value;
+  const bf = num(b.bodyFatPercentage, 2, 75, 'Body fat (%)'); if (bf.error) return bf; if (bf.value !== null) out.bodyFatPercentage = bf.value;
+  if (b.measurements !== undefined && b.measurements !== null) {
+    if (typeof b.measurements !== 'object' || Array.isArray(b.measurements)) return { error: 'Measurements must be an object.' };
+    const m = {};
+    for (const k of PROGRESS_MEASUREMENTS) {
+      const r = num(b.measurements[k], 1, 400, `${k[0].toUpperCase()}${k.slice(1)} (cm)`); if (r.error) return r; if (r.value !== null) m[k] = r.value;
+    }
+    out.measurements = m;
+  }
+  if (b.notes !== undefined && b.notes !== null) {
+    if (typeof b.notes !== 'string') return { error: 'Notes must be text.' };
+    out.notes = b.notes.slice(0, 1000);
+  }
+  if (b.date !== undefined && b.date !== null && b.date !== '') {
+    const d = new Date(b.date);
+    if (typeof b.date !== 'string' && typeof b.date !== 'number') return { error: 'Date is not valid.' };
+    if (Number.isNaN(d.getTime()) || d.getFullYear() < 1900) return { error: 'Date is not valid.' };
+    if (d.getTime() > Date.now() + 24 * 3600 * 1000) return { error: 'Date can be at most a day ahead.' };
+    out.date = d;
+  }
+  return { value: out };
+}
+
 router.post('/progress/log', authMiddleware, async (req, res) => {
   try {
-    const progressData = { ...req.body };
-    delete progressData.userId; // ignore body userId — use token
-    if (progressData.date) progressData.date = new Date(progressData.date);
-    const progress = await logProgress(req.user.userId, progressData);
+    const progressData = progressInput(req.body);
+    if (progressData.error) return res.status(400).json({ success: false, error: progressData.error });
+    const progress = await logProgress(req.user.userId, progressData.value);
     res.json({ success: true, progress });
   } catch (error) {
     console.error('Error logging progress:', error);
@@ -1047,7 +1126,7 @@ router.post('/user/goal-weight', authMiddleware, async (req, res) => {
     if (g !== null && g !== undefined && g !== '') {
       const w = await _pool.query(
         `SELECT weight FROM (
-           SELECT weight, 0 AS src, date FROM progress_logs WHERE user_id=$1 AND weight IS NOT NULL
+           SELECT weight, 0 AS src, date FROM progress_logs WHERE user_id=$1 AND weight IS NOT NULL AND date <= now()
            UNION ALL SELECT weight, 1 AS src, updated_at AS date FROM user_profiles WHERE user_id=$1 AND weight IS NOT NULL
          ) x ORDER BY src, date DESC LIMIT 1`,
         [req.user.userId]
@@ -1360,7 +1439,7 @@ router.delete('/shopping-list/:id', authMiddleware, async (req, res) => {
 router.get('/favourites', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, favourites: r.rows });
+    res.json({ success: true, favourites: capNames(r.rows) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1372,6 +1451,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
     const itemType = b.itemType || b.type || b.item_type;
     const itemId = b.itemId != null ? b.itemId : b.item_id;
     const itemData = stripNames(b.itemData || b.item_data || b.data || {});
+    if (nameTooLong(itemData)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     if (!itemType || itemId == null || itemId === '') {
       return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
     }
@@ -1397,26 +1477,54 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
 
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
 
+/**
+ * #127a: meals the user typed are saved as typed, never replaced. If they name a food the user's saved
+ * diet or allergy filters exclude, the response carries a warning per meal so the app can show it.
+ */
+async function savedFiltersFor(userId) {
+  try { return require('./lib/diet-guard').savedFilters(await getProfile(userId)); } catch (_) { return []; }
+}
+function mealWarnings(meals, filters) {
+  if (!filters.length) return [];
+  let m0 = meals;
+  if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = []; } }
+  const list = Array.isArray(m0) ? m0 : (m0 && Array.isArray(m0.days) ? m0.days.flatMap((d) => Object.values((d && d.meals) || {})) : []);
+  const out = [];
+  for (const m of list) {
+    if (!m || typeof m !== 'object') continue;
+    const groups = require('./lib/diet-guard').brokenGroups(JSON.stringify(m), filters);
+    if (groups.length) out.push({ meal: String(m.name || m.title || 'Meal').slice(0, 80), contains: groups });
+  }
+  return out.slice(0, 50);
+}
+async function typedMealWarnings(userId, meals) {
+  return mealWarnings(meals, await savedFiltersFor(userId));
+}
+
 router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, plans: r.rows });
+    // #127a: saved meals keep a persistent allergen warning against the user's current saved filters.
+    const filters = await savedFiltersFor(req.user.userId);
+    res.json({ success: true, plans: capNames(r.rows).map((p) => ({ ...p, allergenWarnings: mealWarnings(p.meals, filters) })) });
   } catch (err) { sendApiError(res, err); }
 });
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
-    res.json({ success: true, plan: r.rows[0] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: await typedMealWarnings(req.user.userId, meals) });
   } catch (err) { sendApiError(res, err); }
 });
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
@@ -1437,7 +1545,7 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
        calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
-    res.json({ success: true, plan: r.rows[0] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? await typedMealWarnings(req.user.userId, meals) : [] });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1496,6 +1604,7 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
 // deterministic coach tip if no provider is configured or the provider errors.
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
+const dietGuard = require('./lib/diet-guard');
 
 function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCalories, targetProtein }) {
   const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
@@ -1514,7 +1623,7 @@ function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCal
     return `You're at ${calPct}% of your calorie target and ${protPct}% of your protein goal for today. Front-loading food earlier in the day tends to reduce evening snacking — try fitting in a balanced meal soon.`;
   }
   if (protPct < 50 && calPct > 60) {
-    return `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without blowing your calorie budget.`;
+    return `Calories are on track but protein is lagging at ${protPct}% of your ${targetProtein}g target. Try adding a high-protein snack (Greek yoghurt, cottage cheese, or a protein shake) to close the gap without going over your calorie target.`;
   }
   if (calPct > 110) {
     return goal === 'muscle_gain'
@@ -1561,6 +1670,14 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
     const fallback = heuristicInsight(facts);
+    // #127a: filtered users (or an unreadable profile) get a fixed tip that names no foods. No AI, no credit.
+    let insightProfile; let insightUnread = false;
+    try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
+    const insightFilters = dietGuard.savedFilters(insightProfile);
+    if (insightUnread || insightFilters.length) {
+      const insight = dietGuard.safeInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein });
+      return res.json({ success: true, insight, provider: null });
+    }
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
@@ -1717,12 +1834,13 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Load profile + tier for context and gating.
     let tier = 'free';
     let profile = null;
+    let profileUnread = false;
     try {
       const user = await getUserById(req.user.userId);
       const denied = consentResponse(user && user.settings);
       if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
-      profile = await getProfile(req.user.userId).catch(() => null);
+      profile = await getProfile(req.user.userId).catch(() => { profileUnread = true; return null; });
     } catch (_) {
       return res.status(503).json({
         success: false,
@@ -1747,6 +1865,24 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Validate before any credit is charged: there must be a user message.
     if (!safeMessages.some((m) => m.role === 'user')) {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
+    }
+
+    // #127a: any saved or sent diet/allergy filter -> meals come from the ingredient-checked
+    // builder only, never the AI. Saved filters are read, never written. Unreadable profile fails closed.
+    const ctxObj = context && typeof context === 'object' ? context : {};
+    const filters = dietGuard.combineFilters(profile, [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)]);
+    const guarded = profileUnread || filters.length > 0;
+    const safeOpts = {
+      filters,
+      calories: (profile && profile.targetCalories) || ctxObj.targetCalories,
+      protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
+    };
+    const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
+    // Filtered users never reach the AI: food questions get checked recipes, everything else food-free guidance.
+    if (guarded) {
+      return dietGuard.isFoodTalk(intent, latestUser)
+        ? res.json({ success: true, reply: dietGuard.safeCoachReply(safeOpts).reply, source: 'builder', provider: null })
+        : res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
@@ -1774,7 +1910,6 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     const finalSystem = personal
       ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
       : system;
-
     const r = await aiClient.chat({
       system: finalSystem,
       messages: safeMessages,
@@ -1847,9 +1982,6 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
 // ── AI WORKOUT PLAN GENERATION ────────────────────────────────────────────────
 router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
   try {
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
     const {
       goal = 'general_fitness',
       level = 'intermediate',
@@ -1860,16 +1992,25 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     } = req.body || {};
 
     let tier = 'free';
+    let wpProfile = null; let wpUnread = false;
     try {
       const user = await getUserById(req.user.userId);
       const denied = consentResponse(user && user.settings);
       if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
+      wpProfile = await getProfile(req.user.userId).catch(() => { wpUnread = true; return null; });
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
+    }
+    // #127a: filtered users (or an unreadable profile) get a fixed, food-free program. No AI, no credit (EQA #135 r4 S2).
+    if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
+      return res.json({ success: true, plan: dietGuard.safeWorkoutPlan({ daysPerWeek, level }), source: 'fixed', provider: null });
+    }
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
@@ -1933,10 +2074,8 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
+  let reviewUnread = false;
   try {
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
     let tier = 'free';
     let profile = null;
     try {
@@ -1944,12 +2083,23 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       const denied = consentResponse(user && user.settings);
       if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
-      profile = await getProfile(req.user.userId).catch(() => null);
+      profile = await getProfile(req.user.userId).catch(() => { reviewUnread = true; return null; });
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
+    }
+    // #127a: filtered users get no food advice from the AI; unsafe lines are dropped below.
+    const reviewFilters = dietGuard.savedFilters(profile);
+    const reviewGuarded = reviewUnread || reviewFilters.length > 0;
+    if (reviewGuarded) {
+      // Fixed, food-free review with one checked meal. No AI, no credit.
+      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+    }
+    // Filtered users need no AI, so this check comes after their fixed review (EQA #135 r4 L2).
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });

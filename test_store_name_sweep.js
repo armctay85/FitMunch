@@ -36,11 +36,11 @@ describe('store-name sweep: served HTML/JS and email templates', () => {
     expect(files.map(firstHit).filter(Boolean)).toEqual([]);
   });
 
-  test('meal planner empty states and budget pages name no chain', () => {
+  test('meal planner empty states and the staples page name no chain', () => {
     const app = fs.readFileSync(path.join(ROOT, 'public/app.html'), 'utf8');
     expect(app).not.toMatch(/Woolies\s*\/\s*Coles|Woolies or Coles|Shop Woolies|Shop Coles/i);
     expect(app).toContain('No meal plan yet');
-    for (const f of ['budget-meal-planner.html', 'budget-meal-plan.html', 'coach.html']) {
+    for (const f of ['high-protein-staples-meal-plan.html', 'coach.html']) {
       expect(firstHit(path.join(ROOT, 'public', f))).toBeNull();
     }
     expect(fs.readFileSync(path.join(ROOT, 'public/coach.html'), 'utf8')).not.toContain('id="coach-store"');

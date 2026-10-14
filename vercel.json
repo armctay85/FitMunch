@@ -66,6 +66,26 @@
       "source": "/butler",
       "destination": "/app.html#shopping",
       "statusCode": 301
+    },
+    {
+      "source": "/budget-meal-plan",
+      "destination": "/high-protein-staples-meal-plan",
+      "statusCode": 301
+    },
+    {
+      "source": "/budget-meal-plan.html",
+      "destination": "/high-protein-staples-meal-plan",
+      "statusCode": 301
+    },
+    {
+      "source": "/budget-meal-planner",
+      "destination": "/high-protein-staples-meal-plan",
+      "statusCode": 301
+    },
+    {
+      "source": "/budget-meal-planner.html",
+      "destination": "/high-protein-staples-meal-plan",
+      "statusCode": 301
     }
   ],
   "rewrites": [
@@ -189,24 +209,6 @@
       ]
     },
     {
-      "source": "/budget-meal-plan.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/budget-meal-planner.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
       "source": "/checkout/success",
       "headers": [
         {
@@ -298,6 +300,15 @@
     },
     {
       "source": "/high-protein-shopping-list.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        }
+      ]
+    },
+    {
+      "source": "/high-protein-staples-meal-plan.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
