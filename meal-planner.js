@@ -70,7 +70,7 @@ function planInput(body) {
   if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
-  const dietary = planEngine.normaliseDiet(b.dietary).slice(0, 8);
+  const dietary = planEngine.normaliseDiet(dietGuard.listOf(b.dietary)).slice(0, 8);
   return { calories, protein, days, goal, dietary };
 }
 

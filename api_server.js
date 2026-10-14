@@ -1397,6 +1397,25 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
 
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
 
+/**
+ * #127a: meals the user typed are saved as typed, never replaced. If they name a food the user's saved
+ * diet or allergy filters exclude, the response carries a warning per meal so the app can show it.
+ */
+async function typedMealWarnings(userId, meals) {
+  let profile = null;
+  try { profile = await getProfile(userId); } catch (_) { return []; }
+  const filters = require('./lib/diet-guard').savedFilters(profile);
+  if (!filters.length) return [];
+  const list = Array.isArray(meals) ? meals : (meals && Array.isArray(meals.days) ? meals.days.flatMap((d) => Object.values((d && d.meals) || {})) : []);
+  const out = [];
+  for (const m of list) {
+    if (!m || typeof m !== 'object') continue;
+    const groups = require('./lib/diet-guard').brokenGroups(JSON.stringify(m), filters);
+    if (groups.length) out.push({ meal: String(m.name || m.title || 'Meal').slice(0, 80), contains: groups });
+  }
+  return out.slice(0, 50);
+}
+
 router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
@@ -1411,7 +1430,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
-    res.json({ success: true, plan: r.rows[0] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: await typedMealWarnings(req.user.userId, meals) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1437,7 +1456,7 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
        calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
-    res.json({ success: true, plan: r.rows[0] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? await typedMealWarnings(req.user.userId, meals) : [] });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1562,6 +1581,12 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
     const fallback = heuristicInsight(facts);
+    // #127a: filtered users (or an unreadable profile) get a fixed tip that names no foods. No AI, no credit.
+    let insightProfile; let insightUnread = false;
+    try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
+    if (insightUnread || dietGuard.savedFilters(insightProfile).length) {
+      return res.json({ success: true, insight: dietGuard.SAFE_TIP, provider: null });
+    }
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
@@ -1811,7 +1836,9 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
 
-    if (guarded && dietGuard.textBreaksFilters(r.text, filters)) {
+    // An unreadable profile screens against every allergen group (fail closed).
+    const screen = filters.length ? filters : ['vegan', 'gluten free', 'nut free', 'soy free', 'sesame free', 'fish free'];
+    if (guarded && dietGuard.textBreaksFilters(r.text, screen)) {
       // The AI named a food this user can't have: serve checked recipes instead and refund the credit.
       let remaining = gate.remaining;
       try { if (await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'chat' }) && typeof remaining === 'number') remaining += 1; } catch (_) { /* best effort */ }
@@ -1959,6 +1986,7 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
+  let reviewUnread = false;
   try {
     if (!aiClient.hasProvider()) {
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
@@ -1970,13 +1998,16 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       const denied = consentResponse(user && user.settings);
       if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
-      profile = await getProfile(req.user.userId).catch(() => null);
+      profile = await getProfile(req.user.userId).catch(() => { reviewUnread = true; return null; });
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
+    // #127a: filtered users get no food advice from the AI; unsafe lines are dropped below.
+    const reviewFilters = dietGuard.savedFilters(profile);
+    const reviewGuarded = reviewUnread || reviewFilters.length > 0;
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed && gate.unavailable) {
@@ -2015,7 +2046,8 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
     ].filter(Boolean).join('\n');
 
-    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.';
+    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.'
+      + (reviewGuarded ? ' This user has diet or allergy filters: never name a food, meal, snack or recipe.' : '');
     const prompt = `Here is the user's last 7 days of real logged data:
 
 ${dataBlock}
@@ -2042,7 +2074,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     res.locals.aiAnswered = true;
     res.json({
       success: true,
-      review: r.data,
+      review: reviewGuarded ? dietGuard.safeReview(r.data, reviewFilters) : r.data,
       stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
       provider: r.provider,
       remaining: gate.remaining,

@@ -98,7 +98,8 @@ describe('Coach QA r1', () => {
 
   it('M1: the newest message keeps up to 4,000 chars; earlier turns are cut to 1,200', async () => {
     aiClient.chat.mockClear();
-    const long = `${'q'.repeat(3000)} END-OF-QUESTION`;
+    // Training questions: this profile has filters, so food questions get checked recipes instead (#127a).
+    const long = `squats ${'q'.repeat(3000)} END-OF-QUESTION`;
     const r = await chatAs('u1', { messages: [{ role: 'user', content: 'a'.repeat(3000) }, { role: 'assistant', content: 'b'.repeat(3000) }, { role: 'user', content: long }] });
     expect(r.status).toBe(200);
     const msgs = aiClient.chat.mock.calls[0][0].messages;
@@ -106,7 +107,7 @@ describe('Coach QA r1', () => {
     expect(msgs[0].content).toHaveLength(1200);
     expect(msgs[1].content).toHaveLength(1200);
     aiClient.chat.mockClear();
-    await chatAs('u1', { messages: [{ role: 'user', content: 'z'.repeat(9000) }] });
+    await chatAs('u1', { messages: [{ role: 'user', content: `squats ${'z'.repeat(9000)}` }] });
     expect(aiClient.chat.mock.calls[0][0].messages[0].content).toHaveLength(4000);
   });
 
@@ -116,12 +117,12 @@ describe('Coach QA r1', () => {
     for (let i = 0; i < 20; i += 1) {
       history.push({ role: 'user', content: `u${i}` }, { role: 'assistant', content: `a${i}` }, { role: 'user', content: '   ' });
     }
-    history.push({ role: 'user', content: 'last' });
+    history.push({ role: 'user', content: 'last squats set' });
     await chatAs('u1', { messages: history });
     const msgs = aiClient.chat.mock.calls[0][0].messages;
     expect(msgs).toHaveLength(16);
     expect(msgs.every((m) => m.content.trim())).toBe(true);
-    expect(msgs[msgs.length - 1].content).toBe('last');
+    expect(msgs[msgs.length - 1].content).toBe('last squats set');
     expect(msgs[0].content).toBe('a12');
   });
 
@@ -139,7 +140,7 @@ describe('Coach QA r1', () => {
       for (const [me, other] of [['user-a', 'user-b'], ['user-b', 'user-a']]) {
         aiClient.chat.mockClear();
         pgCalls.length = 0;
-        const r = await chatAs(me, { messages: [{ role: 'user', content: 'hi' }], context: { userId: other } });
+        const r = await chatAs(me, { messages: [{ role: 'user', content: 'squats?' }], context: { userId: other } });
         expect(r.status).toBe(200);
         const sys = aiClient.chat.mock.calls[0][0].system;
         expect(sys).toContain(`Latest plan: ${plans[me]}`);
@@ -157,11 +158,11 @@ describe('Coach QA r1', () => {
   it('S2: a trainer-assigned active plan wins; a PT\u2019s plans built for clients are skipped', async () => {
     planRows = (sql) => (/plan_assignments pa JOIN meal_plans/.test(sql) ? [{ name: 'PT-ASSIGNED', meals: {} }] : [{ name: 'OWN', meals: {} }]);
     aiClient.chat.mockClear();
-    await chatAs('client-1', { messages: [{ role: 'user', content: 'hi' }] });
+    await chatAs('client-1', { messages: [{ role: 'user', content: 'squats?' }] });
     expect(aiClient.chat.mock.calls[0][0].system).toContain('Latest plan: PT-ASSIGNED');
     planRows = (sql) => (/plan_assignments pa JOIN meal_plans/.test(sql) ? [] : [{ name: 'OWN', meals: {} }]);
     aiClient.chat.mockClear(); pgCalls.length = 0;
-    await chatAs('pt-1', { messages: [{ role: 'user', content: 'hi' }] });
+    await chatAs('pt-1', { messages: [{ role: 'user', content: 'squats?' }] });
     expect(aiClient.chat.mock.calls[0][0].system).toContain('Latest plan: OWN');
     const own = pgCalls.find((q) => /FROM meal_plans mp WHERE mp\.user_id = \$1/.test(q.sql));
     expect(own.sql).toMatch(/NOT EXISTS \(SELECT 1 FROM plan_assignments pa WHERE pa\.plan_id = mp\.id AND pa\.pt_id = \$1/);
@@ -195,7 +196,7 @@ describe('ai-client budget aborts the losing request (S3, L1)', () => {
     delete process.env.ANTHROPIC_API_KEY;
     try {
       const t0 = Date.now();
-      const r = await real.chat({ messages: [{ role: 'user', content: 'hi' }], budgetMs: real.MIN_ATTEMPT_MS + 300, route: '/ai/chat' });
+      const r = await real.chat({ messages: [{ role: 'user', content: 'squats?' }], budgetMs: real.MIN_ATTEMPT_MS + 300, route: '/ai/chat' });
       expect(Date.now() - t0).toBeLessThan(real.MIN_ATTEMPT_MS + 2000);
       expect(r).toMatchObject({ ok: false, error: 'timeout' });
       expect(destroyed).toEqual(['ABORT_ERR']);

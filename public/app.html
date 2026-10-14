@@ -275,6 +275,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-bubble.assistant code{font-family:'IBM Plex Mono',monospace;font-size:.78rem;background:var(--paper2);padding:1px 5px;border-radius:3px}
 .chat-meta{font-size:.65rem;color:var(--mute2);margin-top:2px;align-self:flex-start;padding-left:4px}
 .chat-meta.user{align-self:flex-end;padding-right:4px}
+.mp-safe-notice{display:block;margin:10px 0 14px;padding:12px 14px;border-left:4px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:.92rem;font-weight:600;line-height:1.45}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .goals-nudge span{font-size:.75rem;color:#4b5a52}
@@ -628,7 +629,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ MEAL PLANS - AI-POWERED ══ -->
 <div class="view" id="view-meal-plans">
  <div class="view-header">
- <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">AI builds your weekly plan in seconds. You eat. Simple.</div></div>
+ <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">Your weekly plan in seconds, built to your targets. You eat. Simple.</div></div>
  </div>
  <div class="scroll-body">
 
@@ -639,7 +640,7 @@ html.fm-authed #app-gate{display:none}
  <span style="font-size:28px">🤖</span>
  <div>
  <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly meal plan</div>
- <div style="font-size:.75rem;color:#166534">FitMunch AI · takes up to about a minute · common Australian supermarket ingredients</div>
+ <div style="font-size:.75rem;color:#166534">Takes up to about a minute · common Australian supermarket ingredients · diet and allergy filters use FitMunch's checked recipes</div>
  </div>
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -1609,7 +1610,7 @@ html.fm-authed #app-gate{display:none}
  <div id="ob-step-3" style="display:none">
  <p class="ob-head" id="ob-head"></p>
  <figure class="ob-curve" id="ob-curve" style="display:none"></figure>
- <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px" id="ob-week-note"></p>
+ <p style="font-size:.9rem;color:#1f2937;font-weight:600;line-height:1.45;margin-bottom:10px" id="ob-week-note" role="status"></p>
  <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
  <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
  </div>
@@ -2220,7 +2221,7 @@ async function saveEditedMealPlan() {
  const meals = _collectMealItems('emp');
  const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
  closeModal('modal-edit-meal-plan');
- if (r.success) { loadMealPlans(); toast('Plan updated ✓'); }
+ if (r.success) { loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓'); }
  else toast('Failed to save', 'error');
 }
 
@@ -2296,7 +2297,7 @@ async function saveMealPlan() {
  closeModal('modal-mealplan');
  _mpItemCount = 0;
  document.getElementById('mp-meal-list').innerHTML = '';
- if (r.success) { S.mealPlans.push(r.plan); loadMealPlans(); toast('Meal plan created ✓'); }
+ if (r.success) { S.mealPlans.push(r.plan); loadMealPlans(); if (!showAllergenWarnings(r)) toast('Meal plan created ✓'); }
  else toast('Failed to create plan', 'error');
 }
 
@@ -3633,7 +3634,7 @@ async function onboardBuildWeek() {
  try {
  if (!consented) { await local(); return; }
  const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.', r); }
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
  finally {
@@ -3695,7 +3696,7 @@ async function generateMealPlan() {
  const cals = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
  const prot = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
  const budget = parseInt(document.getElementById('mp-budget-sel').value) || 120;
- const dietary = [...document.querySelectorAll('.diet-tag.active')].map(b => b.dataset.val);
+ const dietary = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
 
  // Pre-fill from goals if blank
  if (!document.getElementById('mp-cals-sel').value && S.goals?.targetCalories) document.getElementById('mp-cals-sel').value = S.goals.targetCalories;
@@ -3715,7 +3716,9 @@ async function generateMealPlan() {
  S_activePlan = r.plan;
  S_activePlan.notice = r.notice || '';
  renderMealPlan(r.plan);
- toast(r.source === 'builder' ? 'Meal plan ready (built from our food database)' : 'Meal plan ready! 🎉');
+ // The notice explains a checked-recipe plan; no toast over it on small screens.
+ if (!r.notice) toast('Meal plan ready! 🎉');
+ else { const n = document.getElementById('mp-plan-notice'); if (n && n.scrollIntoView) n.scrollIntoView({ block: 'nearest' }); }
  } catch(err) {
  toast('Could not generate plan: ' + err.message, 'error');
  } finally {
@@ -3733,7 +3736,8 @@ function renderMealPlan(plan) {
  if (!noticeEl) {
  noticeEl = document.createElement('div');
  noticeEl.id = 'mp-plan-notice';
- noticeEl.className = 'goals-nudge';
+ noticeEl.className = 'mp-safe-notice';
+ noticeEl.setAttribute('role', 'status');
  document.getElementById('mp-plan-summary').insertAdjacentElement('afterend', noticeEl);
  }
  const noticeLines = [plan.notice, ...(plan.notes || [])].filter(Boolean);
@@ -4335,6 +4339,14 @@ async function saveGeneratedWorkoutPlan() {
  } else {
  toast('Failed to save program', 'error');
  }
+}
+
+// Meals the user typed are saved as typed; if they clash with saved allergies or diet, say so in red.
+function showAllergenWarnings(r) {
+ const w = r && Array.isArray(r.allergenWarnings) ? r.allergenWarnings : [];
+ if (!w.length) return false;
+ toast('Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '. Check against your allergies and diet.', 'error');
+ return true;
 }
 
 function toast(msg, type='success') {

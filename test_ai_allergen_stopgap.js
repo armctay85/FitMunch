@@ -208,3 +208,144 @@ describe('diet-guard', () => {
     expect(dietGuard.textBreaksFilters('Grilled chicken with rice', ['gluten free', 'nut free'])).toBe(false);
   });
 });
+
+// ── r2 (Elite QA #135 r1) ─────────────────────────────────────────────────────
+describe('r2 M1: filtered Coach gives recipes unless clearly not about food', () => {
+  it.each([
+    'Give me a dessert idea', 'What should I have tonight?', 'Any ideas for brekkie?', 'Suggest a smoothie',
+    'What do I make for tea?', 'hmm', 'Something sweet?',
+  ])('%s -> checked recipes, no AI', async (q) => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    const r = await chat(q);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it.each(['How many sets of squats?', 'How do I reset my password?', 'How much sleep do I need?'])('%s -> AI (non-food allow-list)', async (q) => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Foam roll your quads, then wrap up your session. Go nuts on the stairs.', provider: 'mock' });
+    const r = await chat(q, { intent: 'workout' });
+    expect(aiClient.chat).toHaveBeenCalled();
+    expect(r.body.reply).toMatch(/^Foam roll/); // S2: workout copy isn't replaced
+  });
+  it('nutrition intent is always food, even for a training-sounding question', async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    const r = await chat('How many sets of squats?', { intent: 'nutrition' });
+    expect(r.body.source).toBe('builder');
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it('the guarded system prompt tells the AI not to suggest foods', async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Three sets of eight.', provider: 'mock' });
+    await chat('How many sets of squats?', { intent: 'workout' });
+    expect(aiClient.chat.mock.calls[0][0].system).toMatch(/Do not suggest meals, recipes or foods/);
+  });
+  it('an unreadable profile fails closed in Coach', async () => {
+    account(new Error('db down'));
+    // A workout question still reaches the AI with the no-foods rule, and its reply is screened.
+    const r = await chat('How many sets of squats?', { intent: 'workout' });
+    expect(r.status).toBe(200);
+    expect(aiClient.chat.mock.calls[0][0].system).toMatch(/Do not suggest meals/);
+    // A food question never reaches the AI.
+    aiClient.chat.mockClear();
+    const f = await chat('dinner?');
+    expect(f.body.source).toBe('builder');
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['nut free', 'Try baklava or dukkah'], ['gluten free', 'teriyaki chicken with sourdough'], ['gluten free', 'gnocchi, naan or brioche'],
+    ['dairy free', 'paneer korma, gelato'], ['egg free', 'pavlova or carbonara'], ['shellfish free', 'paella'], ['fish free', 'a dash of worcestershire'],
+    ['fish free', 'prawn skewers'], ['nut free', 'peanuts'], ['nut free', 'almonds'], ['egg free', 'eggs'], ['nut free', 'two satays'], ['egg free', 'mini pavlovas'],
+  ])('reply check: %s catches "%s"', (f, text) => {
+    expect(dietGuard.textBreaksFilters(text, [f])).toBe(true);
+  });
+  it.each(['Foam roll your quads', 'Wrap up your session', 'Go nuts on the stairs', 'Bun up your hair', 'pie chart', 'egg-timer intervals', 'stomach bug', 'Fish for compliments', 'roll out your back'])(
+    'S2: no over-match on "%s"', (text) => {
+      expect(dietGuard.textBreaksFilters(text, ['gluten free', 'nut free', 'egg free', 'fish free', 'dairy free'])).toBe(false);
+    });
+});
+
+describe('r2 M2: null-ish filters are dropped', () => {
+  it('[null, "null", "undefined", ""] with no saved filters still reaches the AI', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    const r = await generate({ dietary: [null, 'null', 'undefined', '', 'None'] });
+    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(JSON.stringify(r.body)).not.toMatch(/Not applied/);
+  });
+  it('the web plan screen reads only its own diet buttons', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+    expect(html).toContain("querySelectorAll('#dietary-tags .diet-tag.active[data-val]')");
+    expect(html).not.toMatch(/querySelectorAll\('\.diet-tag\.active'\)/);
+    expect(html).not.toContain('AI builds your weekly plan');
+  });
+});
+
+describe('r2 M3 + S1: weekly review and insight', () => {
+  const review = () => request(app).get('/api/ai/weekly-review').set('Authorization', token);
+  it('peanut allergy: unsafe review lines are dropped, safe ones kept', async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    aiClient.chatJson.mockResolvedValueOnce({ ok: true, provider: 'mock', data: { headline: 'Peanut butter week!', wins: ['Logged 5 days', 'Ate satay twice'], focus: ['Add a peanut butter snack for protein'], score: 7 } });
+    const r = await review();
+    expect(JSON.stringify(r.body.review)).not.toMatch(/peanut|satay/i);
+    expect(r.body.review.wins).toEqual(['Logged 5 days']);
+    expect(r.body.review.focus).toEqual([dietGuard.SAFE_TIP]);
+    expect(aiClient.chatJson.mock.calls[0][0].system).toMatch(/never name a food/);
+  });
+  it('no filters: review unchanged', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    const data = { headline: 'h', wins: ['Ate satay'], focus: ['f'], score: 5 };
+    aiClient.chatJson.mockResolvedValueOnce({ ok: true, provider: 'mock', data });
+    expect((await review()).body.review).toEqual(data);
+  });
+  it('insight: filtered users get the fixed safe tip, no AI', async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    const r = await request(app).post('/api/ai/insight').set('Authorization', token).send({ todayCalories: 900, todayProtein: 20 });
+    expect(r.body.insight).toBe(dietGuard.SAFE_TIP);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+});
+
+describe('r2 M4: builder hard-excludes shellfish, fish, soy and sesame', () => {
+  const words = {
+    'shellfish free': /prawn|shrimp|crab|lobster|mussel|oyster|squid|calamari|octopus|scallop/i,
+    'fish free': /fish|salmon|tuna|barramundi|prawn|sardine|cod\b|snapper/i,
+    'soy free': /tofu|tempeh|edamame|\bsoy|miso/i,
+    'sesame free': /sesame|tahini|hummus/i,
+  };
+  it.each(Object.keys(words))('%s: no matching meal or swap across targets', (f) => {
+    for (const diet of [[f], ['vegan', f], ['vegetarian', f], ['gluten free', 'nut free', f]]) {
+      for (const calories of [1300, 2000, 3200]) for (const protein of [60, 150, 250]) {
+        const plan = engine.withSwaps(engine.buildPlan({ calories, protein, days: 7, dietary: diet }), diet, calories);
+        expect(JSON.stringify(plan.days)).not.toMatch(words[f]);
+        expect(JSON.stringify(plan.notes || [])).not.toMatch(/Not applied/);
+      }
+    }
+  });
+});
+
+describe('r2 S3 + mappings', () => {
+  it('allergies stored as an object or JSON string count', () => {
+    expect(dietGuard.combineFilters({ allergies: { peanut: true, soy: false } }, [])).toEqual(['nut free']);
+    expect(dietGuard.combineFilters({ allergies: '["fish"]' }, [])).toEqual(['fish free']);
+    expect(dietGuard.combineFilters({ allergies: 'shellfish' }, [])).toEqual(['shellfish free']);
+  });
+  it('object allergies route to the builder', async () => {
+    account({ dietaryPreferences: null, allergies: { peanut: true } });
+    const r = await generate();
+    expect(r.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+  });
+});
+
+describe('typed meals are never replaced; they carry a warning', () => {
+  it('POST /meal-plans saves as typed and warns', async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
+    const { Pool } = require('pg');
+    const spy = jest.spyOn(Pool.prototype, 'query').mockImplementation(async (_sql, params) => ({ rows: [{ id: 1, meals: params && params[4] }] }));
+    const meals = [{ name: 'Prawn satay', foods: [{ name: 'Satay sauce' }] }, { name: 'Rice bowl', foods: [] }];
+    const r = await request(app).post('/api/meal-plans').set('Authorization', token).send({ name: 'Mine', meals });
+    spy.mockRestore();
+    expect(JSON.parse(r.body.plan.meals)).toEqual(meals);
+    expect(r.body.allergenWarnings).toEqual([{ meal: 'Prawn satay', contains: ['nuts'] }]);
+  });
+});

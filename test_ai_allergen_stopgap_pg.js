@@ -32,7 +32,9 @@ jest.mock('./lib/ai-client', () => {
     ...actual,
     hasProvider: jest.fn(() => true),
     chat: jest.fn(async () => ({ ok: true, text: 'MOCKAI: peanut butter on toast, then a satay pasta bowl.', provider: 'mock', model: 'm' })),
-    chatJson: jest.fn(async () => ({ ok: true, json: plan, text: JSON.stringify(plan), provider: 'mock' })),
+    chatJson: jest.fn(async (opts) => (opts && opts.route === '/ai/weekly-review'
+      ? { ok: true, provider: 'mock', data: { headline: 'Solid week', wins: ['Logged 6 days', 'Teriyaki chicken twice'], focus: ['Add a peanut butter snack for protein', 'Train 3 times'], score: 7 } }
+      : { ok: true, json: plan, data: plan, text: JSON.stringify(plan), provider: 'mock' })),
   };
 });
 
@@ -43,7 +45,7 @@ jest.mock('./lib/ai-usage', () => {
 });
 
 const SCHEMA = `
-drop table if exists user_profiles, users cascade;
+drop table if exists meal_plans, plan_assignments, user_profiles, users cascade;
 create table users(id uuid primary key, email varchar(255) not null unique, name text not null, password_hash text not null,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(), last_login_at timestamptz,
   email_verified boolean default false, subscription_tier varchar(50) default 'free', subscription_expires_at timestamptz,
@@ -52,6 +54,9 @@ create table user_profiles(id serial primary key, user_id uuid not null referenc
   age integer, gender varchar(20), activity_level varchar(50), fitness_goal varchar(100), dietary_preferences jsonb default '[]'::jsonb,
   allergies jsonb default '[]'::jsonb, target_calories integer default 2000, target_steps integer default 10000, target_protein integer,
   target_carbs integer, target_fat integer, updated_at timestamptz not null default now());
+create table meal_plans(id serial primary key, user_id uuid, name text, description text, goal_type text, meals jsonb, is_active boolean,
+  total_calories int, total_protein int, total_carbs int, total_fat int, created_at timestamptz default now(), updated_at timestamptz);
+create table plan_assignments(id serial primary key, pt_id uuid, client_id uuid, plan_type text, plan_id int, active boolean default true, assigned_at timestamptz default now());
 `;
 
 const express = require('express');
@@ -147,5 +152,77 @@ maybe('#127a on real Postgres', () => {
     expect(aiClient.chatJson).toHaveBeenCalled();
     const c = await request(app).post('/api/ai/chat').set('Authorization', as(PLAIN)).send({ messages: [{ role: 'user', content: 'dinner idea?' }] });
     expect(c.body.reply).toMatch(/MOCKAI/);
+  });
+
+  // ── r2 (Elite QA #135 r1) ──
+  const ask = (who, content, extra = {}) => request(app).post('/api/ai/chat').set('Authorization', as(who)).send({ messages: [{ role: 'user', content }], ...extra });
+
+  it('M1: peanut allergy asking for dessert, brekkie, tea or a smoothie gets checked recipes, never the AI', async () => {
+    for (const q of ['Give me a dessert idea', 'Any ideas for brekkie?', 'What should I have tonight?', 'Suggest a smoothie', 'What do I make for tea?']) {
+      const r = await ask(PEANUT, q);
+      expect(r.status).toBe(200);
+      expect(r.body.source).toBe('builder');
+      expect(JSON.stringify(r.body)).not.toMatch(/MOCKAI|peanut|satay|baklava/i);
+    }
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('M1: gluten free asking about teriyaki gets checked recipes; an AI reply naming teriyaki is replaced', async () => {
+    const q = await ask(GF, 'Is teriyaki chicken ok?');
+    expect(q.body.source).toBe('builder');
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Three sets, then refuel with teriyaki chicken.', provider: 'mock' });
+    const w = await ask(GF, 'How many sets of squats?', { intent: 'workout' });
+    expect(aiClient.chat).toHaveBeenCalled();
+    expect(w.body.source).toBe('builder');
+    expect(w.body.reply).not.toMatch(/teriyaki/i);
+    expect(dietGuard.textBreaksFilters(w.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['gluten free'])).toBe(false);
+  });
+
+  it('M2: a no-filter user sending null-ish filters still reaches the AI', async () => {
+    await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: [null, 'null', 'undefined', ''] });
+    expect(aiClient.chatJson).toHaveBeenCalled();
+  });
+
+  it('M3: weekly review for a peanut allergy has no peanut butter; a no-filter user gets it unchanged', async () => {
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PEANUT));
+    expect(r.status).toBe(200);
+    expect(JSON.stringify(r.body.review)).not.toMatch(/peanut/i);
+    expect(r.body.review.focus).toEqual(['Train 3 times']);
+    const g = await request(app).get('/api/ai/weekly-review').set('Authorization', as(GF));
+    expect(JSON.stringify(g.body.review)).not.toMatch(/teriyaki/i);
+    const p = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
+    expect(JSON.stringify(p.body.review)).toMatch(/peanut butter/);
+  });
+
+  it('S1: insight for a peanut allergy is the fixed safe tip', async () => {
+    const r = await request(app).post('/api/ai/insight').set('Authorization', as(PEANUT)).send({ todayCalories: 800, todayProtein: 20 });
+    expect(r.body.insight).toBe(dietGuard.SAFE_TIP);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('S3: allergies stored as an object count', async () => {
+    await pool.query(`update user_profiles set allergies='{"peanut":true}'::jsonb where user_id=$1`, [PLAIN]);
+    const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7 });
+    expect(r.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+  });
+
+  it('M4: shellfish, fish and soy allergies get no prawns, fish or tofu in the plan', async () => {
+    for (const [allergy, re] of [['shellfish', /prawn|shrimp|crab|mussel|squid/i], ['fish', /fish|salmon|tuna|barramundi|prawn/i], ['soy', /tofu|tempeh|edamame|\bsoy/i]]) {
+      await pool.query('update user_profiles set allergies=$2::jsonb, dietary_preferences=$3::jsonb where user_id=$1', [PLAIN, JSON.stringify([allergy]), JSON.stringify(allergy === 'soy' ? ['vegan'] : [])]);
+      const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7 });
+      expect(r.body.source).toBe('builder');
+      expect(JSON.stringify(r.body.plan.days)).not.toMatch(re);
+    }
+  });
+
+  it('typed meals are saved as typed, with an allergen warning', async () => {
+    const meals = [{ name: 'Prawn satay', foods: [{ name: 'Satay sauce', calories: 300 }] }];
+    const r = await request(app).post('/api/meal-plans').set('Authorization', as(PEANUT)).send({ name: 'Mine', meals });
+    expect(r.status).toBe(200);
+    expect(r.body.allergenWarnings).toEqual([{ meal: 'Prawn satay', contains: ['nuts'] }]);
+    const row = (await pool.query('select meals from meal_plans where id=$1', [r.body.plan.id])).rows[0];
+    expect(row.meals).toEqual(meals);
   });
 });
