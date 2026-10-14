@@ -11,6 +11,7 @@ const aiClient = require('./lib/ai-client');
 const aiUsage  = require('./lib/ai-usage');
 const { sendApiError } = require('./lib/public-error');
 const planEngine = require('./lib/meal-plan-engine');
+const mealSafety = require('./lib/meal-safety');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -73,14 +74,15 @@ function planInput(body) {
   return { calories, protein, days, goal, dietary };
 }
 
-function planPrompt({ goal, calories, protein, days, dietary }, retryReason) {
+function planPrompt({ goal, calories, protein, days, dietary, allergies = [] }, retryReason) {
   const goalLabel = {
     lose_weight: 'lose weight / fat loss',
     muscle_gain: 'build muscle / bulking',
     maintain: 'maintain weight',
     general_fitness: 'general fitness and health',
   }[goal];
-  const dietaryNote = dietary.length ? `Dietary requirements: ${dietary.join(', ')}.` : 'No special dietary requirements.';
+  const rules = mealSafety.promptRules({ dietary, allergies });
+  const dietaryNote = rules || 'No special dietary requirements.';
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].slice(0, days).join(', ');
   return `You are a nutritionist creating a meal plan for a person in Australia.
 
@@ -97,14 +99,50 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
+// The user's stored diet filters and allergies, merged with the request's. A lookup failure keeps the
+// request's filters; every plan below still goes through the allergen check.
+async function storedFilters(userId) {
+  try {
+    const { getProfile } = require('./server/storage.js');
+    return mealSafety.profileFilters(await getProfile(userId));
+  } catch (_) { return null; }
+}
+
+function rememberFilters(userId, dietary, stored) {
+  const before = stored ? planEngine.normaliseDiet(stored.dietary) : null;
+  if (before && before.length === dietary.length && before.every((d) => dietary.includes(d))) return;
+  try {
+    const { createOrUpdateProfile } = require('./server/storage.js');
+    Promise.resolve(createOrUpdateProfile(userId, { dietaryPreferences: dietary })).catch(() => {});
+  } catch (_) { /* best effort */ }
+}
+
+/** Every plan leaves this route through the ingredient-derived allergen and diet check. */
+function safePlan(plan, input) {
+  return mealSafety.enforcePlan(plan, input).plan;
+}
+
+/** Swap options go through the same check (allergies from the profile aren't builder filters). */
+function safeSwaps(plan, input) {
+  const excluded = mealSafety.excludedFlags(input);
+  if (!excluded.size) return plan;
+  return { ...plan, days: plan.days.map((d) => ({ ...d, meals: Object.fromEntries(Object.entries(d.meals).map(([k, m]) => [k, Array.isArray(m.swaps) ? { ...m, swaps: m.swaps.filter((x) => !mealSafety.mealProblems(x, excluded)) } : m])) })) };
+}
+
 router.post('/generate', requireAuth, async (req, res) => {
-  const input = planInput(req.body);
-  if (input.error) return res.status(400).json({ success: false, error: input.error });
+  const parsed = planInput(req.body);
+  if (parsed.error) return res.status(400).json({ success: false, error: parsed.error });
+  // The filters sent with this request are the user's latest choice; with none sent, the stored ones apply.
+  // Allergies always come from the profile. The choice is remembered so Coach chat and saved plans use it.
+  const stored = await storedFilters(req.user.userId);
+  const sent = Array.isArray(req.body && req.body.dietary);
+  const input = { ...parsed, dietary: sent ? parsed.dietary : mealSafety.mergeFilters(stored).dietary, allergies: mealSafety.mergeFilters(stored).allergies };
+  if (sent) rememberFilters(req.user.userId, parsed.dietary, stored);
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
-    return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
+    return res.json({ success: true, plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input), source: 'builder' });
   }
   try {
     let gate = null;
@@ -168,7 +206,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     }
     res.json({
       success: true,
-      plan: result.plan,
+      plan: safePlan(result.plan, input),
       source: result.source,
       notice: result.source === 'builder' ? BUILDER_NOTICE : undefined,
       provider: result.provider || undefined,
@@ -178,7 +216,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     // Last resort: never leave the user with a 500 for a plan.
     try {
       console.error('[meal-planner] generate failed, serving built plan:', err && err.message);
-      return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder', notice: BUILDER_NOTICE });
+      return res.json({ success: true, plan: safePlan(planEngine.buildPlan(input), input), source: 'builder', notice: BUILDER_NOTICE });
     } catch (_) {
       return res.status(503).json({ success: false, error: "We couldn't build your plan right now. Please try again in a minute." });
     }

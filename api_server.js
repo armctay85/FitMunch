@@ -1395,6 +1395,17 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
   } catch (err) { sendApiError(res, err); }
 });
 
+/** The user's stored diet filters and allergies; empty on a lookup failure. */
+async function userFilters(userId) {
+  try { return mealSafety.profileFilters(await getProfile(userId)); } catch (_) { return { dietary: [], allergies: [] }; }
+}
+/** A saved plan in day form ([{ day, meals: { slot: meal } }]) goes through the allergen check before it's stored. */
+async function safeSavedMeals(userId, meals) {
+  if (!Array.isArray(meals) || !meals.some((d) => d && typeof d === 'object' && d.meals && typeof d.meals === 'object' && !Array.isArray(d.meals))) return meals;
+  const filters = await userFilters(userId);
+  return mealSafety.enforcePlan({ days: meals }, filters).plan.days;
+}
+
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
 
 router.get('/meal-plans', authMiddleware, async (req, res) => {
@@ -1406,7 +1417,8 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    const meals = await safeSavedMeals(req.user.userId, sentMeals);
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
@@ -1417,7 +1429,8 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    const meals = await safeSavedMeals(req.user.userId, sentMeals);
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
     if (meals && Array.isArray(meals)) {
@@ -1494,6 +1507,7 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
 // ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
 // LLM-backed when OPENAI_API_KEY (or ANTHROPIC_API_KEY) is set. Falls back to the
 // deterministic coach tip if no provider is configured or the provider errors.
+const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 
@@ -1559,6 +1573,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       });
     }
 
+    const filters = await userFilters(req.user.userId);
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
     const fallback = heuristicInsight(facts);
 
@@ -1584,7 +1599,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       'Speak directly to the user in 1-3 short sentences, max ~55 words.',
       'Be specific, practical, and kind. No medical claims. Use Australian spelling and foods.',
       'Never include a greeting or the user\'s name. Never mention that you are an AI.',
-    ].join(' ');
+      mealSafety.promptRules(filters),
+    ].filter(Boolean).join(' ');
     const prompt = [
       `Goal: ${goal}.`,
       `Today so far: ${todayCalories} kcal (${calPct}% of ${targetCalories}), ${todayProtein}g protein (${protPct}% of ${targetProtein}).`,
@@ -1605,9 +1621,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
     }
     res.locals.aiAnswered = true;
+    const tip = mealSafety.enforceText(r.text.trim(), { ...filters, alternative: false });
     return res.json({
       success: true,
-      insight: r.text.trim(),
+      insight: tip.removed.length ? fallback : tip.text,
       provider: r.provider,
       model: r.model,
       remaining: gate.remaining,
@@ -1771,9 +1788,12 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Personal context from the account itself (profile, targets, latest plan,
     // today's log), not just what the browser sends. Compact, one line each.
     const personal = await buildCoachContext(req.user.userId, profile, context).catch(() => '');
+    const filters = mealSafety.mergeFilters(mealSafety.profileFilters(profile), { dietary: Array.isArray(context && context.dietary) ? context.dietary : [], allergies: Array.isArray(context && context.allergies) ? context.allergies : [] });
+    const rules = mealSafety.promptRules(filters);
+    const withRules = rules ? `${system}\n\n--- Food rules for this user (always follow) ---\n${rules}` : system;
     const finalSystem = personal
-      ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
-      : system;
+      ? `${withRules}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
+      : withRules;
 
     const r = await aiClient.chat({
       system: finalSystem,
@@ -1792,9 +1812,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
 
     res.locals.aiAnswered = true;
+    // Food suggestions in the reply go through the allergen check before the user sees them.
+    const checked = mealSafety.enforceText(r.text.trim(), filters);
     return res.json({
       success: true,
-      reply: r.text.trim(),
+      reply: checked.text,
       provider: r.provider,
       model: r.model,
       usage: r.usage || null,
@@ -1989,7 +2011,9 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
     ].filter(Boolean).join('\n');
 
-    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.';
+    const reviewFilters = mealSafety.profileFilters(profile);
+    const reviewRules = mealSafety.promptRules(reviewFilters);
+    const system = `You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.${reviewRules ? `\n${reviewRules}` : ''}`;
     const prompt = `Here is the user's last 7 days of real logged data:
 
 ${dataBlock}
@@ -2016,7 +2040,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     res.locals.aiAnswered = true;
     res.json({
       success: true,
-      review: r.data,
+      review: mealSafety.enforceJsonText(r.data, reviewFilters).value,
       stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
       provider: r.provider,
       remaining: gate.remaining,
