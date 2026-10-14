@@ -206,10 +206,23 @@ describe('claim-resend replies at one fixed time', () => {
       const stripe = stripeWith({ customers: [], sessions: [] });
       stripe.customers.list = jest.fn(() => new Promise(() => {}));
       app._private.setStripeForTests(stripe);
-      const { res, ms } = await timed(PAYER);
-      expect(res.body.message).toBe(guestClaim.RESEND_GENERIC_REPLY);
-      expect(ms).toBeLessThan(350);
-      expect(send).not.toHaveBeenCalled();
+      // Same flake class as the match/miss test: measure the handler's own
+      // reply window, not the client wall clock under a loaded suite.
+      const windows = [];
+      app._private.setClaimResendObserverForTests((w) => windows.push(w));
+      try {
+        const { res, ms } = await timed(PAYER);
+        expect(res.body.message).toBe(guestClaim.RESEND_GENERIC_REPLY);
+        expect(windows).toHaveLength(1);
+        expect(windows[0].windowMs).toBe(300);
+        expect(windows[0].replyMs).toBeGreaterThanOrEqual(298);
+        expect(windows[0].replyMs).toBeLessThan(350);
+        // Loose client bound only: the oracle is the server window above.
+        expect(ms).toBeLessThan(800);
+        expect(send).not.toHaveBeenCalled();
+      } finally {
+        app._private.setClaimResendObserverForTests(null);
+      }
     });
   });
 });

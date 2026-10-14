@@ -36,7 +36,8 @@ const userProfiles = pgTable('user_profiles', {
   targetProtein: integer('target_protein'),
   targetCarbs: integer('target_carbs'),
   targetFat: integer('target_fat'),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  // timestamptz: the profileUpdatedAt token must round-trip in any session timezone (EQA #142 S1).
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Meal logs - Track daily nutrition

@@ -71,6 +71,8 @@ function planInput(body) {
   if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
+  // Stop before reading an oversized list (EQA #135 r5 S1): at most 50 items.
+  if (Array.isArray(b.dietary) && b.dietary.length > dietGuard.MAX_FILTERS) return { error: 'Too many dietary filters.' };
   // merge: #135 drops null-ish entries first; #125 then rejects anything else that isn't a known filter name.
   const rawDiet = Array.isArray(b.dietary) ? b.dietary.filter((d) => !(d === null || d === undefined || (typeof d === 'string' && ['', 'null', 'undefined', 'none'].includes(d.trim().toLowerCase())))) : b.dietary;
   if (rawDiet !== undefined && rawDiet !== null && (!Array.isArray(rawDiet) || rawDiet.some((d) => typeof d !== 'string'))) {
@@ -110,28 +112,48 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
-// The user's stored diet filters and allergies. Null when no database is configured; throws when the
-// lookup fails, so the route can stop instead of planning without the user's allergies.
-async function storedFilters(userId) {
-  if (!process.env.DATABASE_URL) return null; // no database configured: nothing is stored
-  const { getProfile } = require('./server/storage.js');
-  return mealSafety.profileFilters(await getProfile(userId));
+/** A saved diet that reads (via listOf, so strings too) as only known filter words; else null. */
+function cleanDietList(v) {
+  const words = dietGuard.listOf(v);
+  return planEngine.normaliseDiet(words).every((d) => planEngine.DIET_FILTERS.includes(d)) ? words : null;
+}
+/**
+ * Saved allergies with the tick appended, never dropping what was saved: a readable value (list,
+ * string, flag object) is stored as its words; an odd value is kept as the first element.
+ */
+function allergiesWith(v, added) {
+  const words = dietGuard.listOf(v);
+  if (!words.includes(dietGuard.UNREADABLE)) return [...words, ...added];
+  return [...(Array.isArray(v) ? v : [v]), ...added];
 }
 
 /**
- * Add the request's filters to the saved ones. Never removes a saved filter: this route only adds, so a
- * plan made with nothing ticked can't wipe what chat, saved plans and insights rely on. Called only after
- * the consent and usage checks pass.
+ * The profile patch that saves the ticked filters, or null only when nothing new was ticked.
+ * - a saved diet that reads as known filter words ('vegan', ['Gluten Free'], 'none', {}) gets the tick;
+ * - any other saved diet ([{name}], 'peanut-free diet', ['Paleo']) is kept as it is, and the tick always
+ *   goes into allergies, which every reader also counts as filters (EQA #142 M1).
  */
-async function rememberFilters(userId, sentDietary, stored) {
-  if (!process.env.DATABASE_URL) return;
-  const before = stored ? planEngine.normaliseDiet(stored.dietary) : [];
-  const added = planEngine.normaliseDiet(sentDietary).filter((d) => planEngine.DIET_FILTERS.includes(d) && !before.includes(d));
-  if (!added.length) return;
+function filterPatch(stored, sent) {
+  const p = stored || {};
+  // Readable saved filters only: an unreadable list's ALL_FREE expansion must not count as saved (QA).
+  const have = planEngine.normaliseDiet([...dietGuard.listOf(p.dietaryPreferences), ...dietGuard.allergyDiets(p.allergies)]);
+  const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !have.includes(d));
+  if (!added.length) return null;
+  const diet = cleanDietList(p.dietaryPreferences);
+  if (diet) return { dietaryPreferences: [...diet, ...added] };
+  return { allergies: allergiesWith(p.allergies, added) };
+}
+
+/**
+ * Save ticked filters to the profile (merged, never shrunk) in one locked transaction, so Coach,
+ * the weekly review and insights see them too. Skipped when the profile couldn't be read. Best effort:
+ * a failed write still serves the checked plan.
+ */
+async function rememberFilters(userId, sent) {
+  if (!planEngine.normaliseDiet(sent).length) return;
   try {
-    const { createOrUpdateProfile } = require('./server/storage.js');
-    await createOrUpdateProfile(userId, { dietaryPreferences: [...before, ...added] });
-  } catch (_) { /* best effort: the plan is still made from the merged filters */ }
+    await require('./server/storage.js').mergeProfileFilters(userId, (stored) => filterPatch(stored, sent));
+  } catch (_) { /* the plan is still built from the merged filters */ }
 }
 
 /** Every plan leaves this route through the ingredient-derived allergen and diet check. */
@@ -152,44 +174,45 @@ router.post('/generate', requireAuth, async (req, res) => {
   const parsed = planInput(req.body);
   if (parsed.error) return res.status(400).json({ success: false, error: parsed.error });
   // Plan from the saved filters plus the ones sent: a saved filter always applies, even with nothing ticked.
-  // Allergies come from the profile. New filters are saved only once the consent and usage checks pass.
-  let stored;
-  try { stored = await storedFilters(req.user.userId); } catch (_) {
-    return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+  // Allergies come from the profile. The profile is read once; if it can't be read, stop rather than plan
+  // without the user's allergies. Ticked filters are saved with main's locked mergeProfileFilters.
+  // An unfiltered AI request reads it only after the consent check (below).
+  let profile = null; let profileRead = false;
+  const early = (req.body && req.body.builderOnly === true) || parsed.dietary.length > 0;
+  if (early) try { profile = await require('./server/storage.js').getProfile(req.user.userId); profileRead = true; } catch (_) {
+    if (process.env.DATABASE_URL) return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
   }
+  const stored = mealSafety.profileFilters(profile);
   const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary });
-  const input = { ...parsed, dietary: merged.dietary.slice(0, 12), allergies: merged.allergies };
-  const remember = () => rememberFilters(req.user.userId, parsed.dietary, stored);
+  const input = { ...parsed, dietary: parsed.dietary, allergies: merged.allergies };
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
-    await remember(); // no AI call, so no consent or usage check applies
-    // Saved filters always apply too (read only, never written).
-    try { input.dietary = dietGuard.combineFilters(await require('./server/storage.js').getProfile(req.user.userId), input.dietary).slice(0, 16); } catch (_) { /* sent filters still apply */ }
+    // Saved filters always apply too; ticked ones are saved first (onboarding, EQA #141 M2). No AI call,
+    // so no consent or usage check applies.
+    if (profileRead) await rememberFilters(req.user.userId, input.dietary);
+    input.dietary = dietGuard.planFilters(dietGuard.combineFilters(profile, input.dietary));
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input), source: 'builder' });
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
-  // Saved filters are only read here; this route never writes the profile.
-  const filteredPlan = async (dietary) => {
-    // r9 (same fix as the main hotfix): newly ticked filters are saved, so Coach and saved plans use them. No AI
-    // call is made, so no consent or usage check applies.
-    await remember();
-    input.dietary = dietary.slice(0, 16);
+  // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
+  // weekly review see them too and stay off the AI (live hotfix after #135).
+  const filteredPlan = (dietary) => {
+    input.dietary = dietGuard.planFilters(dietary);
     return res.json({
       success: true,
       // r8: the builder week also goes through #127's ingredient check (meals and swaps), so a typed allergy
       // with no builder filter (lupin, kiwi) is honoured too.
       plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input),
       source: 'builder',
-      notice: dietGuard.PLAN_NOTICE,
+      notice: dietGuard.unreadable(dietary) ? `${dietGuard.UNREADABLE_NOTICE} ${dietGuard.PLAN_NOTICE}` : dietGuard.PLAN_NOTICE,
       dietary: input.dietary,
     });
   };
   if (input.dietary.length) {
-    let saved = null;
-    try { saved = await require('./server/storage.js').getProfile(req.user.userId); } catch (_) { /* sent filters still apply */ }
-    return await filteredPlan(dietGuard.combineFilters(saved, input.dietary));
+    if (profileRead) await rememberFilters(req.user.userId, input.dietary);
+    return filteredPlan(dietGuard.combineFilters(profile, input.dietary));
   }
   try {
     let gate = null;
@@ -213,7 +236,16 @@ router.post('/generate', requireAuth, async (req, res) => {
     // Saved filters, read after the consent check and before any usage is charged.
     // If they can't be read, fail closed: builder only.
     let saved;
-    try { saved = dietGuard.savedFilters(await require('./server/storage.js').getProfile(req.user.userId)); } catch (_) { saved = null; }
+    try {
+      profile = await require('./server/storage.js').getProfile(req.user.userId);
+      saved = dietGuard.savedFilters(profile);
+      // Typed allergies from the profile go into the AI meal check too (#127).
+      input.allergies = mealSafety.profileFilters(profile).allergies;
+    } catch (_) {
+      // #127: never plan without the user's allergies when a database is configured.
+      if (process.env.DATABASE_URL) return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+      saved = null;
+    }
     if (saved === null || saved.length) return await filteredPlan(saved || []);
     if (hasAi) {
       // Free-tier gating — plan generation is a heavyweight AI call.
@@ -233,7 +265,6 @@ router.post('/generate', requireAuth, async (req, res) => {
       }
       aiUsage.refundSmokeOnFailure(gate, res);
     }
-    await remember();
 
     let lastReason = '';
     const callAi = gate ? (attempt, signal) => aiClient.chatJson({
@@ -359,6 +390,7 @@ router.get('/generate', (_req, res) => res.json({
 }));
 
 module.exports = router;
+module.exports.filterPatch = filterPatch;
 // Read by the store-name sweep test.
 router.AI_PROMPTS = { planPrompt };
 router.planInput = planInput;

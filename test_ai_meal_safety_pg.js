@@ -102,13 +102,21 @@ maybe('AI meal plans on real Postgres', () => {
     const res = await gen(['nut free']);
     expectBuilderWeek(res);
     expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'sesame free', 'nut free']));
-    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'nut free']);
+    // The saved peanut allergy already counts as nut free (main's filterPatch, EQA #140 r3 M1): nothing is added or lost.
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
+    expect((await storage.getProfile(U)).allergies).toEqual(['peanuts']);
+  });
+  it('a filter not covered by the saved ones (egg free) is added to the profile, never replacing them (r9 M2)', async () => {
+    const res = await gen(['egg free']);
+    expectBuilderWeek(res);
+    expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'sesame free', 'nut free', 'egg free']));
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'egg free']);
   });
   it('consent refused: a filtered user still gets the builder week (no AI, nothing sent); the ticked filter is saved on FitMunch only', async () => {
     await storage.setAIDataConsent(U, false);
-    const res = await gen(['nut free']);
+    const res = await gen(['egg free']);
     expectBuilderWeek(res);
-    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'nut free']);
+    expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'egg free']);
   });
   it('a saved plan with prawn satay and peanut butter toast is stored exactly as entered; warnings once in the response and on read', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: ['shellfish free'], allergies: ['peanuts'] });

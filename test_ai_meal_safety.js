@@ -30,14 +30,20 @@ jest.mock('./lib/ai-usage', () => ({
 let profile = {};
 jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
-  return {
+  const m = {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u1', email: 'me@example.com', subscriptionTier: 'premium', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(async () => profile),
     createOrUpdateProfile: jest.fn(async () => {}),
+    // main's locked merge (#142): the patch filterPatch builds is what gets written.
+    mergeProfileFilters: jest.fn(async (id, patchOf) => {
+      const patch = patchOf(profile);
+      if (patch) await m.createOrUpdateProfile(id, patch);
+    }),
     getMealLogsForPeriod: jest.fn(async () => []),
     getWorkoutLogsForPeriod: jest.fn(async () => []),
   };
+  return m;
 });
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';

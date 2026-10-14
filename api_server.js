@@ -134,11 +134,30 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
     delete profileData.userId; // ignore body userId — use token
     // #127a: filters must be a string or a list of strings; any other shape would hide an allergy.
     for (const k of ['allergies', 'dietaryPreferences']) {
-      if (!dietGuard.wellFormedFilters(profileData[k])) {
-        return res.status(400).json({ success: false, error: 'Allergies and diet filters must be a list of words, like ["peanut"].' });
-      }
+      const filterError = dietGuard.filterSaveError(profileData[k]);
+      if (filterError) return res.status(400).json({ success: false, error: filterError });
     }
-    await createOrUpdateProfile(req.user.userId, profileData);
+    // A form may send the profile's updatedAt it loaded; if filters are saved and the profile changed
+    // since (a generate added a ticked filter), 409 instead of silently dropping it (EQA #141 r2 M1).
+    const ifUpdatedAt = profileData.profileUpdatedAt;
+    delete profileData.profileUpdatedAt;
+    const sendsFilters = 'dietaryPreferences' in profileData || 'allergies' in profileData;
+    const iso = typeof ifUpdatedAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(ifUpdatedAt) && !Number.isNaN(Date.parse(ifUpdatedAt));
+    if (ifUpdatedAt != null && !iso) {
+      return res.status(400).json({ success: false, error: 'profileUpdatedAt must be an ISO date, like the profile\'s updatedAt.' });
+    }
+    // A save that sends filters must say which profile version it edits (EQA #142 S5).
+    if (sendsFilters && ifUpdatedAt == null) {
+      return res.status(400).json({ success: false, error: "Saving allergies or diet needs the profile's updatedAt as profileUpdatedAt." });
+    }
+    try {
+      await createOrUpdateProfile(req.user.userId, profileData, sendsFilters ? { ifUpdatedAt } : {});
+    } catch (err) {
+      if (err && err.code === 'PROFILE_STALE') {
+        return res.status(409).json({ success: false, stale: true, error: 'Your profile changed since this page loaded. Reload it and try again.' });
+      }
+      throw err;
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving profile:', error);
@@ -1497,8 +1516,8 @@ function safeInsight(tip, filters) {
   return r.removed.length ? 'Keep logging today. Pick a meal from your plan that fits your filters and your protein target.' : tip;
 }
 /** Old saved rows are checked again when they're read, against the filters the user has now. */
-async function safePlanRows(userId, rows) {
-  const filters = await userFilters(userId);
+async function safePlanRows(userId, rows, known) {
+  const filters = known || await userFilters(userId);
   // Meals stored as JSON text stay text, so the row keeps the shape it was saved in.
   const keepShape = (orig, meals) => (typeof orig === 'string' && typeof meals !== 'string' ? JSON.stringify(meals) : meals);
   return rows.map((row) => (row && row.meals != null ? { ...row, meals: keepShape(row.meals, mealSafety.enforceSavedMeals(row.meals, filters).meals) } : row));
@@ -1515,9 +1534,9 @@ async function safePlanRows(userId, rows) {
 // per-meal warnings, so each meal is judged once, by the ingredient-aware check ("Tofu scramble on wholegrain
 // toast" is gluten for gluten free, never eggs or dairy).
 const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
-function mealWarnings(meals) {
+function mealWarnings(meals, filters) {
   let m0 = meals;
-  if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { return []; } }
+  if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = null; } }
   const out = [];
   const walk = (v, depth) => {
     if (!v || typeof v !== 'object' || depth > 6 || out.length >= 50) return;
@@ -1534,6 +1553,8 @@ function mealWarnings(meals) {
     for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
   };
   walk(m0, 0);
+  // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
+  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: require('./lib/diet-guard').UNREADABLE_NOTICE });
   return out.slice(0, 50);
 }
 
@@ -1543,8 +1564,9 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
     // Meals are returned as stored (typed meals are the user's own); the warnings come from the same per-meal
     // check, run against the filters the user has now, and are listed once per meal in allergenWarnings.
     const rows = capNames(r.rows);
-    const checked = await safePlanRows(req.user.userId, rows);
-    res.json({ success: true, plans: rows.map((p, i) => ({ ...p, allergenWarnings: mealWarnings(checked[i] && checked[i].meals) })) });
+    const filters = await userFilters(req.user.userId);
+    const checked = await safePlanRows(req.user.userId, rows, filters);
+    res.json({ success: true, plans: rows.map((p, i) => ({ ...p, allergenWarnings: mealWarnings(checked[i] && checked[i].meals, filters) })) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1560,7 +1582,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked) });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked, await userFilters(req.user.userId)) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1591,7 +1613,7 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
        calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked) : [] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, await userFilters(req.user.userId)) : [] });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1814,8 +1836,9 @@ const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', main
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
 const listOf = (v) => {
   let x = v;
-  if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
-  return Array.isArray(x) ? x.map((s) => String(s).trim()).filter(Boolean).slice(0, 6) : [];
+  if (typeof x === 'string') { if (x.length > 6000) return []; try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+  // Read at most 50 items (EQA #135 r5 S1); only the first 6 reach the prompt.
+  return Array.isArray(x) ? x.slice(0, 50).map((s) => String(s).trim().slice(0, 100)).filter(Boolean).slice(0, 6) : [];
 };
 
 /**
@@ -2363,6 +2386,7 @@ router.post('/pt-leads', async (req, res) => {
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }
