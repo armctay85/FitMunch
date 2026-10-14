@@ -12,6 +12,10 @@ final class NetworkMonitor: ObservableObject {
 
     private init() {
         let args = ProcessInfo.processInfo.arguments
+        if args.contains(AuditLaunch.offline) {
+            isOnline = false
+            return
+        }
         if args.contains("-AppStoreScreenshots") || args.contains("-ReviewGuards") {
             return
         }

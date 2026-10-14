@@ -20,9 +20,15 @@ on:
       - "project.yml"
       - ".github/workflows/ios-uitest.yml"
   workflow_dispatch:
+    inputs:
+      screen_audit:
+        description: Run the build 11 screen audit on 6.9in and 6.5in simulators
+        type: boolean
+        default: false
 
 jobs:
   uitest:
+    if: github.event_name != 'workflow_dispatch' || inputs.screen_audit != true
     runs-on: macos-26
     timeout-minutes: 60
 
@@ -294,5 +300,140 @@ jobs:
         with:
           name: ios-uitest-screenshots-build-10
           path: artifacts/ios-uitest/screenshots/
+          if-no-files-found: warn
+          retention-days: 14
+
+  screen-audit:
+    if: github.event_name == 'workflow_dispatch' && inputs.screen_audit == true
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/ensure-storekit-scheme.py
+
+      - name: Audit 6.9in and 6.5in simulators
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/audit-2026-10-15
+          rm -rf /tmp/fitmunch-audit-2026-10-15
+          xcrun simctl list devices available | tee artifacts/audit-2026-10-15/simulators.txt
+
+          udid_for() {
+            xcrun simctl list devices available \
+              | grep -F "$1 (" \
+              | head -1 \
+              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
+              | head -1
+          }
+
+          latest_runtime() {
+            xcrun simctl list runtimes available \
+              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
+              | tail -1
+          }
+
+          ensure_device() {
+            local name="$1"
+            local type="$2"
+            local udid
+            udid="$(udid_for "$name" || true)"
+            if [[ -z "$udid" ]]; then
+              local runtime
+              runtime="$(latest_runtime)"
+              test -n "$runtime"
+              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
+            fi
+            echo "$udid"
+          }
+
+          PRO_NAME="iPhone 17 Pro Max"
+          PRO_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
+          if [[ -z "${PRO_UDID:-}" ]]; then
+            PRO_NAME="iPhone 16 Pro Max"
+            PRO_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
+          fi
+          ELEVEN_UDID="$(ensure_device "iPhone 11 Pro Max" "iPhone 11 Pro Max")"
+          echo "pro=$PRO_NAME $PRO_UDID" | tee artifacts/audit-2026-10-15/destinations.txt
+          echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID" | tee -a artifacts/audit-2026-10-15/destinations.txt
+
+          DERIVED="$RUNNER_TEMP/DerivedDataAudit"
+
+          run_audit() {
+            local name="$1"
+            local udid="$2"
+            local folder="$3"
+            local with_storekit="$4"
+            echo "$folder" > /tmp/fitmunch-audit-device
+            bash scripts/set-simulator-region-au.sh "$udid"
+            local bundle="artifacts/audit-2026-10-15/${folder}.xcresult"
+            rm -rf "$bundle"
+            local args=(
+              xcodebuild test
+              -project FitMunch.xcodeproj
+              -scheme FitMunch
+              -destination "platform=iOS Simulator,id=$udid"
+              -derivedDataPath "$DERIVED"
+              -only-testing:FitMunchUITests/Build11ScreenAuditUITests
+              -testLanguage en
+              -testRegion AU
+              -parallel-testing-enabled NO
+              -resultBundlePath "$bundle"
+              CODE_SIGNING_ALLOWED=NO
+              CODE_SIGNING_REQUIRED=NO
+              CODE_SIGN_IDENTITY=-
+            )
+            if [[ "$with_storekit" == "yes" ]]; then
+              args+=(-only-testing:FitMunchTests/StoreKitLifecycleTests)
+            fi
+            set +e
+            "${args[@]}" | tee "artifacts/audit-2026-10-15/${folder}.log"
+            local rc=${PIPESTATUS[0]}
+            set -e
+            echo "$name exit=$rc" | tee -a artifacts/audit-2026-10-15/destinations.txt
+            return 0
+          }
+
+          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "yes"
+          run_audit "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-6.5in" "no"
+
+          mkdir -p artifacts/audit-2026-10-15/screens
+          if [[ -d /tmp/fitmunch-audit-2026-10-15 ]]; then
+            cp -R /tmp/fitmunch-audit-2026-10-15/. artifacts/audit-2026-10-15/screens/
+          fi
+          grep 'AUDIT_STOREKIT ' artifacts/audit-2026-10-15/iphone-6.9in.log > artifacts/audit-2026-10-15/storekit.txt || true
+          grep 'AUDIT_SCREEN ' artifacts/audit-2026-10-15/*.log > artifacts/audit-2026-10-15/screens.txt || true
+          find artifacts/audit-2026-10-15/screens -type f | sort | tee artifacts/audit-2026-10-15/files.txt
+          test -d artifacts/audit-2026-10-15/screens/iphone-6.9in
+          test -d artifacts/audit-2026-10-15/screens/iphone-6.5in
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitmunch-audit-2026-10-15
+          path: artifacts/audit-2026-10-15/
           if-no-files-found: warn
           retention-days: 14
