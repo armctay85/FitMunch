@@ -69,7 +69,9 @@ describe('SEO pack 4: generic shopping list, budget and AI landers', () => {
       expect(html).toContain('14-day trial, then A$19.99 a month');
       expect(html).toContain('Start the 14-day trial');
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
-      expect(html.split('Prices vary by store and week').length - 1).toBe(1);
+      // The staples page lists foods, not priced products, so it carries the pack-size line instead (EQA #121 r2 S2).
+      const disclaimer = page.route === '/high-protein-staples-meal-plan' ? 'Pack sizes vary by store.' : 'Prices vary by store and week';
+      expect(html.split(disclaimer).length - 1).toBe(1);
       expect(html).toContain('FitMunch never places or pays for your supermarket order');
       // Wilson's rule: no store names in titles, slugs or copy.
       expect(html).not.toMatch(/woolworths|woolies|coles|aldi|\bIGA\b|costco|harris farm/i);

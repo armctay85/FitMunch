@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const app = require('./server.js');
 
@@ -74,18 +76,47 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     expect(res.text).not.toContain('href="/shopper"');
   });
 
-  it('the staples page lists items in title case', async () => {
+  it('the staples page lists items in lower case, as foods not products (EQA #121 r2 S2)', async () => {
     const res = await request(app).get('/high-protein-staples-meal-plan').expect(200);
     const items = [...res.text.matchAll(/<li>([^<]+) <em>/g)].map((m) => m[1]);
     const rows = [...res.text.matchAll(/<td data-label="Staple">([^<]+)<\/td>/g)].map((m) => m[1]);
     expect(items.length).toBeGreaterThanOrEqual(5);
     expect(rows.length).toBeGreaterThanOrEqual(5);
-    const small = new Set(['in', 'and', 'of', 'with']);
     for (const name of [...items, ...rows]) {
       for (const w of name.replace(/,/g, '').split(' ')) {
-        if (!small.has(w)) expect([name, w[0]]).toEqual([name, w[0].toUpperCase()]);
+        if (w !== 'Greek') expect([name, w]).toEqual([name, w.toLowerCase()]);
       }
     }
+    expect(res.text).toContain('Pack sizes vary by store.');
+    expect(res.text).not.toContain('Prices vary by store');
+  });
+
+  it('the staples page wraps its content in one <main>, uses the #15803d CTA and shows the real app shot', async () => {
+    const html = (await request(app).get('/high-protein-staples-meal-plan').expect(200)).text;
+    expect(html.match(/<main\b/g)).toHaveLength(1);
+    const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+    expect(main).toContain('<h1>');
+    expect(main).toContain('fm-convert');
+    expect(html.indexOf('</nav>')).toBeLessThan(html.indexOf('<main'));
+    expect(html.indexOf('</main>')).toBeLessThan(html.indexOf('<footer'));
+    expect(html).toMatch(/\.ln-staples \.fm-btn-leaf,\.ln-staples \.fm-nav-cta\{background:#15803d/);
+    expect(html).toContain('<body class="fm-body ln-staples">');
+    expect(html).toMatch(/<img src="\/assets\/fm-app-week\.webp" alt="[^"]+" width="1122" height="1617"/);
+    expect(fs.existsSync(path.join(__dirname, 'public/assets/fm-app-week.webp'))).toBe(true);
+    expect(html).toMatch(/<label for="ln-try-g">[^<]*<input id="ln-try-g"/);
+    expect(html).not.toMatch(/\son(?:submit|click|input)=/);
+  });
+
+  it('the staples try-it splits the protein target over 4 meals using the table values', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/high-protein-staples-meal-plan.html'), 'utf8');
+    const js = html.match(/<script>\n\(function\(\)\{var f=([\s\S]*?)<\/script>/)[0].replace(/^<script>|<\/script>$/g, '');
+    const els = {};
+    const mk = (id) => (els[id] = els[id] || { id, value: '', textContent: '', innerHTML: '', kids: [], appendChild(c) { this.kids.push(c); }, addEventListener() {} });
+    mk('ln-try-g').value = '160';
+    const document = { getElementById: mk, createElement: () => ({ textContent: '' }) };
+    new Function('document', js)(document);
+    expect(els['ln-try-head'].textContent).toBe('About 40g protein per meal. That is roughly:');
+    expect(els['ln-try-out'].kids.map((k) => k.textContent)).toEqual(['180g chicken breast', '160g tuna in springwater', '240g firm tofu', '310g eggs', '440g Greek yoghurt']);
   });
 
   for (const from of ['/budget-meal-plan', '/budget-meal-plan.html', '/budget-meal-planner', '/budget-meal-planner.html']) {

@@ -45,7 +45,6 @@ const ALLOWED_DOLLARS = new Set([
 const PRICE_LINE = 'Prices vary by store and week.';
 const PRICE_LINE_PAGES = [
   'public/index.html',
-  'public/high-protein-staples-meal-plan.html',
   'public/for-pts.html',
   'public/supermarket-meal-planner.html',
   'public/grocery-meal-planner.html',

@@ -90,7 +90,43 @@ const COST_PROMISES = [
   ['per week $', /\bper (?:week|day|meal|serve)\b[^.<]{0,6}\$\s?\d/i],
   ['$ per gram of protein', /\$\s?\/\s?\d*\s?g\b|\$\d[\d.]*\s*(?:per|\/)\s*\d*\s?g(?:rams?)?\s+(?:of\s+)?protein/i],
   ['affordable / bargain / frugal', /\b(?:affordable|bargains?|frugal|economical|value for money|price[- ]conscious|low[- ]cost|inexpensive)\b/i],
+  ['save heaps / save big', /\bsav(?:e|es|ing)\s+(?:heaps|big|lots|a lot|a bundle|a fortune|more)\b/i],
+  ['half the cost', /\b(?:half|a fraction|a third|a quarter)\s+(?:of\s+)?(?:the\s+)?(?:cost|price)\b/i],
+  ['pay less', /\bpay(?:s|ing)?\s+less\b/i],
+  ['best value', /\b(?:best|great|good|better|top)\s+value\b/i],
+  ['costs under / from', /\bcosts?\s+(?:under|from|just|only|about|around)\b/i],
 ];
+
+// Every $ or AUD amount is banned except the exact plan prices (Free $0, Premium A$19.99 a month or
+// A$149.99 a year, Coach A$39 and A$79). EQA #121 r2 S1.
+const PLAN_PRICES = new Set(['$0', 'A$19.99', 'A$149.99', 'A$39', 'A$79']);
+const MONEY = /(?:\bA\$|(?<![=\w])\$|\bAUD\s?)\s?\d[\d,]*(?:\.\d+)?|\b\d[\d,]*(?:\.\d+)?\s?(?:AUD|dollars?|bucks)\b/gi;
+function moneyHits(line) {
+  // Regex replacement back-references ('<code>$1</code>') are code, not prices.
+  if (/\.replace\(/.test(line)) return [];
+  return [...line.matchAll(MONEY)].map((m) => m[0].replace(/,$/, '')).filter((x) => !PLAN_PRICES.has(x));
+}
+
+// Server-side customer text: receipt scan findings, coach tips and chat, emails, AI prompts.
+// Only string literals are scanned (comments and identifiers like budgetMs are code).
+const SERVER_TEXT = [
+  'lib/receipt-scan-core.js', 'lib/sample-receipt-demo.js', 'lib/coach-plan.js', 'lib/coach-pdf.js',
+  'lib/coach-png.js', 'lib/meal-plan-engine.js', 'lib/password-reset.js', 'lib/email-verify.js',
+  'server/email.js', 'api_server.js', 'meal-planner.js', 'coach-api.js',
+];
+function stringLiterals(src) {
+  const out = [];
+  const re = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
+  for (const m of src.matchAll(re)) {
+    if (m[0].startsWith('/')) continue;
+    const line = src.slice(0, m.index).split('\n').length;
+    const text = m[0].slice(1, -1);
+    // SQL placeholders ($1) are not prices.
+    if (/\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE|VALUES|RETURNING)\b/.test(text)) continue;
+    out.push({ line, text });
+  }
+  return out;
+}
 
 function servedFiles(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -125,11 +161,26 @@ describe('no budget, cost or saving promises in served customer copy', () => {
     });
   }
 
+  it('no served file shows a $ or AUD amount other than the plan prices', () => {
+    const hits = [];
+    for (const f of files) {
+      fs.readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+        for (const h of moneyHits(line)) hits.push(`${path.relative(root, f)}:${i + 1}: ${h}`);
+      });
+    }
+    expect(hits).toEqual([]);
+  });
+
   it('the patterns catch the copy they are meant to', () => {
     const caught = (s) => COST_PROMISES.some(([, re]) => re.test(s));
     for (const s of ['Budget meal plan', 'cheap protein', 'Save $40 a week', 'save money on groceries', 'Costs less than takeaway',
       'Spend less each shop', 'cut your grocery bill', '$45 a week', 'per week $60', '$/25g protein', 'Affordable high protein',
-      'big savings']) expect([s, caught(s)]).toEqual([s, true]);
+      'big savings', 'Costs under $50', 'Save heaps', 'Half the cost of meal kits', 'Pay less at the checkout',
+      'Best value']) expect([s, caught(s)]).toEqual([s, true]);
+    for (const s of ['Chicken breast 1kg $12', 'Costs under $50', 'From $5', 'AUD 60 weekly shop', 'A$12.50 tub', '60 AUD',
+      'A$20 a month']) expect([s, moneyHits(s).length > 0]).toEqual([s, true]);
+    for (const s of ['14-day trial, then A$19.99 a month', 'A$149.99 a year', 'Coach A$39', 'A$79 a month', '$0 forever',
+      '1kg chicken breast', 'Pack sizes vary by store.']) expect([s, moneyHits(s)]).toEqual([s, []]);
     for (const s of ['Prices vary by store and week.', '14-day trial, then A$19.99 a month', 'FitMunch does not show supermarket prices',
       '3 days per week', 'Save your plan', 'Saved to your lists']) expect([s, caught(s)]).toEqual([s, false]);
   });
@@ -151,5 +202,58 @@ describe('no $0 revenue placeholder in app.html', () => {
     const zeros = [...app.matchAll(/\$0(?![\d.,])/g)].map((m) => app.slice(m.index, m.index + 120));
     expect(zeros).toHaveLength(1);
     expect(zeros[0]).toMatch(/^\$0<span[^>]*> forever<\/span>/);
+  });
+});
+
+describe('no budget, cost or saving promises in server-side customer text', () => {
+  const texts = SERVER_TEXT.map((rel) => ({ rel, lits: stringLiterals(fs.readFileSync(path.join(__dirname, rel), 'utf8')) }));
+
+  it('reads every server source and finds its strings', () => {
+    for (const { rel, lits } of texts) expect([rel, lits.length > 0]).toEqual([rel, true]);
+  });
+
+  it('the scan finding for a balanced basket names no budget swap', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'lib/receipt-scan-core.js'), 'utf8');
+    expect(src).toContain("Next shop can focus on variety.'");
+  });
+
+  for (const [label, re] of COST_PROMISES) {
+    it(`no server string says ${label}`, () => {
+      const hits = [];
+      for (const { rel, lits } of texts) for (const l of lits) if (re.test(l.text)) hits.push(`${rel}:${l.line}: ${l.text.slice(0, 100)}`);
+      expect(hits).toEqual([]);
+    });
+  }
+
+  it('no server string shows a $ or AUD amount other than the plan prices', () => {
+    const hits = [];
+    for (const { rel, lits } of texts) for (const l of lits) for (const h of moneyHits(l.text)) hits.push(`${rel}:${l.line}: ${h}`);
+    expect(hits).toEqual([]);
+  });
+
+  it('the literal scanner sees strings, not comments or identifiers', () => {
+    const lits = stringLiterals("// budget comment\nconst budgetMs = 5; /* cheap */ const t = 'Save heaps'; const u = `From $5`; q('SELECT * FROM t WHERE id=$1');");
+    expect(lits.map((l) => l.text)).toEqual(['Save heaps', 'From $5']);
+  });
+});
+
+describe('layout after the budget field and revenue metric were removed (EQA #121 r2 S3, S5)', () => {
+  const app = fs.readFileSync(path.join(__dirname, 'public', 'app.html'), 'utf8');
+  it('Meal Planner calories and protein sit in a 2-column grid', () => {
+    const i = app.indexOf('id="mp-cals-sel"');
+    const grid = app.lastIndexOf('<div style="display:grid', i);
+    expect(app.slice(grid, i)).toMatch(/^<div style="display:grid;grid-template-columns:1fr 1fr;gap/);
+    expect(app.slice(grid, app.indexOf('id="mp-prot-sel"'))).not.toMatch(/<\/div>\s*<\/div>\s*<\/div>/);
+  });
+  it('the trainer dashboard metrics row is 3 columns for its 3 metrics', () => {
+    const row = app.match(/<div class="metrics-row metrics-row-3">([\s\S]*?)\n <\/div>/)[1];
+    expect(row.match(/class="metric"/g)).toHaveLength(3);
+    expect(row).toContain('id="m-clients"');
+    expect(app).toMatch(/\.metrics-row\.metrics-row-3\{grid-template-columns:repeat\(3,1fr\) !important\}/);
+  });
+  it('the coach tip says calorie target, not calorie budget', () => {
+    const api = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    expect(api).not.toMatch(/calorie budget/i);
+    expect(api).toContain('without going over your calorie target.');
   });
 });
