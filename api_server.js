@@ -1376,7 +1376,7 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
       [planId, req.user.userId]
     );
     if (!plan.rows[0]) return res.status(404).json({ error: 'Meal plan not found' });
-    const meals = plan.rows[0].meals || [];
+    const meals = (await safePlanRows(req.user.userId, [plan.rows[0]]))[0].meals || [];
 
     const CATEGORIES = {
       meat: ['chicken','beef','pork','turkey','lamb','fish','salmon','tuna','barramundi','prawn','shrimp'],
@@ -1508,59 +1508,125 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
   } catch (err) { sendApiError(res, err); }
 });
 
+/** The user's stored diet filters and allergies. Throws on a lookup failure (callers fail closed). */
+// The one profile read for saved-meal warnings (r8: the same read #135's guards use; no DATABASE_URL shortcut,
+// so a mocked or real profile is always honoured).
+async function userFilters(userId) {
+  // Warnings only: an unreadable profile gives no warning rather than a failed save or list (as #135's did).
+  // guard: main's diet-guard filters (savedFilters), so typed-meal warnings are never weaker than main's (EQA #127 r10 M1).
+  try {
+    const profile = await getProfile(userId);
+    return { ...mealSafety.profileFilters(profile), guard: require('./lib/diet-guard').savedFilters(profile) };
+  } catch (_) { return { dietary: [], allergies: [], guard: [] }; }
+}
+/**
+ * A saved, manual or edited plan in any stored shape (day form with meals as an object or list, a flat list
+ * of manual meals, or { days }) goes through the allergen check before it's stored or served.
+ */
+async function safeSavedMeals(userId, meals) {
+  if (meals == null) return meals;
+  const filters = await userFilters(userId);
+  return mealSafety.enforceSavedMeals(meals, filters).meals;
+}
+/** A tip that names an excluded food becomes a food-free tip. */
+function safeInsight(tip, filters) {
+  const r = mealSafety.enforceText(tip, { ...filters, alternative: false });
+  return r.removed.length ? 'Keep logging today. Pick a meal from your plan that fits your filters and your protein target.' : tip;
+}
+/** Old saved rows are checked again when they're read, against the filters the user has now. */
+async function safePlanRows(userId, rows, known) {
+  const filters = known || await userFilters(userId);
+  // Meals stored as JSON text stay text, so the row keeps the shape it was saved in.
+  const keepShape = (orig, meals) => (typeof orig === 'string' && typeof meals !== 'string' ? JSON.stringify(meals) : meals);
+  return rows.map((row) => (row && row.meals != null ? { ...row, meals: keepShape(row.meals, mealSafety.enforceSavedMeals(row.meals, filters).meals) } : row));
+}
+
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
 
 /**
  * #127a: meals the user typed are saved as typed, never replaced. If they name a food the user's saved
  * diet or allergy filters exclude, the response carries a warning per meal so the app can show it.
  */
-async function savedFiltersFor(userId) {
-  try { return require('./lib/diet-guard').savedFilters(await getProfile(userId)); } catch (_) { return []; }
-}
+// One warning system (r8): the per-meal allergenWarning that safeSavedMeals / safePlanRows put on each meal is the
+// only check. allergenWarnings (the card banner, edit modal and save toast) is a summary read off those same
+// per-meal warnings, so each meal is judged once, by the ingredient-aware check ("Tofu scramble on wholegrain
+// toast" is gluten for gluten free, never eggs or dairy).
+const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
 function mealWarnings(meals, filters) {
-  if (!filters.length) return [];
+  const dg = require('./lib/diet-guard');
   let m0 = meals;
-  if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = []; } }
-  const list = Array.isArray(m0) ? m0 : (m0 && Array.isArray(m0.days) ? m0.days.flatMap((d) => Object.values((d && d.meals) || {})) : []);
+  if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = null; } }
+  const guard = (filters && Array.isArray(filters.guard)) ? filters.guard : [];
+  const noWarning = (k, x) => (k === 'allergenWarning' ? undefined : x);
+  // Meals to judge: every meal #127's check put a warning on, plus main's list of meals (#127a), so a meal
+  // main would flag is always judged by both checks.
+  const seen = new Set(); const meals2 = [];
+  const add = (v) => { if (v && typeof v === 'object' && !Array.isArray(v) && !seen.has(v) && meals2.length < 200) { seen.add(v); meals2.push(v); } };
+  const walk = (v, depth) => {
+    if (!v || typeof v !== 'object' || depth > 6) return;
+    if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
+    if (v.allergenWarning && typeof v.allergenWarning === 'object') add(v);
+    for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
+  };
+  walk(m0, 0);
+  // Main's list (a flat list, or { days }), with a day form's meals read as meals, never the day itself.
+  const top = Array.isArray(m0) ? m0 : (m0 && Array.isArray(m0.days) ? m0.days : []);
+  const mealsOf = (d) => (d && typeof d === 'object' && d.meals && typeof d.meals === 'object' ? Object.values(d.meals) : [d]);
+  top.flatMap(mealsOf).forEach(add);
   const out = [];
-  for (const m of list) {
-    if (!m || typeof m !== 'object') continue;
-    const groups = require('./lib/diet-guard').brokenGroups(JSON.stringify(m), filters);
-    if (groups.length) out.push({ meal: String(m.name || m.title || 'Meal').slice(0, 80), contains: groups });
+  for (const v of meals2) {
+    const w = (v.allergenWarning && typeof v.allergenWarning === 'object') ? v.allergenWarning : {};
+    const ours = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
+    // Main's check on the same meal: any hit from either side is red.
+    const mains = guard.length ? dg.brokenGroups(JSON.stringify(v, noWarning), guard) : [];
+    const contains = [...new Set([...ours, ...mains])];
+    const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
+    if (contains.length) out.push({ meal, contains });
+    // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
+    // Past the read budget some typed foods were never read, so any meal not flagged is unchecked too (r10 M2).
+    else if (w.unrecognised || (filters && filters.pastBudget)) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
   }
   // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
-  if (require('./lib/diet-guard').unreadable(filters)) out.unshift({ meal: '', contains: [], notice: require('./lib/diet-guard').UNREADABLE_NOTICE });
+  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.UNREADABLE_NOTICE });
   return out.slice(0, 50);
-}
-async function typedMealWarnings(userId, meals) {
-  return mealWarnings(meals, await savedFiltersFor(userId));
 }
 
 router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    // #127a: saved meals keep a persistent allergen warning against the user's current saved filters.
-    const filters = await savedFiltersFor(req.user.userId);
-    res.json({ success: true, plans: capNames(r.rows).map((p) => ({ ...p, allergenWarnings: mealWarnings(p.meals, filters) })) });
+    // Meals are returned as stored (typed meals are the user's own); the warnings come from the same per-meal
+    // check, run against the filters the user has now, and are listed once per meal in allergenWarnings.
+    const rows = capNames(r.rows);
+    const filters = await userFilters(req.user.userId);
+    const checked = await safePlanRows(req.user.userId, rows, filters);
+    res.json({ success: true, plans: rows.map((p, i) => ({ ...p, allergenWarnings: mealWarnings(checked[i] && checked[i].meals, filters) })) });
   } catch (err) { sendApiError(res, err); }
 });
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
     if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    // Typed meals are stored exactly as entered, less any stale allergenWarning the app sent back (r8: one
+    // warning system, computed on save and again on every read against the filters the user has then).
+    const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
+    const checked = await safeSavedMeals(req.user.userId, sentMeals);
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: await typedMealWarnings(req.user.userId, meals) });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked, await userFilters(req.user.userId)) });
   } catch (err) { sendApiError(res, err); }
 });
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
     if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
+    // Typed meals are stored exactly as entered, less any stale allergenWarning the app sent back (r8: one
+    // warning system, computed on save and again on every read against the filters the user has then).
+    const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
+    const checked = await safeSavedMeals(req.user.userId, sentMeals);
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
     if (meals && Array.isArray(meals)) {
@@ -1580,7 +1646,7 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
        calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? await typedMealWarnings(req.user.userId, meals) : [] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, await userFilters(req.user.userId)) : [] });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1637,6 +1703,7 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
 // ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
 // LLM-backed when OPENAI_API_KEY (or ANTHROPIC_API_KEY) is set. Falls back to the
 // deterministic coach tip if no provider is configured or the provider errors.
+const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
@@ -1704,7 +1771,6 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
 
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
-    const fallback = heuristicInsight(facts);
     // #127a: filtered users (or an unreadable profile) get a fixed tip that names no foods. No AI, no credit.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
@@ -1713,6 +1779,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       const insight = dietGuard.safeInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein });
       return res.json({ success: true, insight, provider: null });
     }
+    // Same profile read as the guard above (no second lookup): only unfiltered users get here.
+    const filters = mealSafety.profileFilters(insightProfile);
+    // The built-in tip goes through the same check as the AI one.
+    const fallback = safeInsight(heuristicInsight(facts), filters);
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
@@ -1736,7 +1806,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       'Speak directly to the user in 1-3 short sentences, max ~55 words.',
       'Be specific, practical, and kind. No medical claims. Use Australian spelling and foods.',
       'Never include a greeting or the user\'s name. Never mention that you are an AI.',
-    ].join(' ');
+      mealSafety.promptRules(filters),
+    ].filter(Boolean).join(' ');
     const prompt = [
       `Goal: ${goal}.`,
       `Today so far: ${todayCalories} kcal (${calPct}% of ${targetCalories}), ${todayProtein}g protein (${protPct}% of ${targetProtein}).`,
@@ -1757,9 +1828,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
     }
     res.locals.aiAnswered = true;
+    const tip = mealSafety.enforceText(r.text.trim(), { ...filters, alternative: false });
     return res.json({
       success: true,
-      insight: r.text.trim(),
+      insight: tip.removed.length ? fallback : tip.text,
       provider: r.provider,
       model: r.model,
       remaining: gate.remaining,
@@ -1837,7 +1909,7 @@ async function buildCoachContext(userId, profile, context = {}) {
   const diet = listOf(p.dietaryPreferences);
   if (diet.length) lines.push(`Diet: ${diet.join(', ')}`);
   const allergies = listOf(p.allergies);
-  if (allergies.length) lines.push(`Allergies: ${allergies.join(', ')}`);
+  if (allergies.length) lines.push(`Allergies: ${allergies.map(mealSafety.promptSafe).filter(Boolean).map((a) => a.slice(0, 40)).slice(0, 10).join(', ')}`);
   if (Number.isFinite(Number(ctx.todayCalories))) {
     lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
   }
@@ -1847,8 +1919,10 @@ async function buildCoachContext(userId, profile, context = {}) {
     if (plan) {
       let meals = plan.meals;
       if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { meals = null; } }
+      meals = mealSafety.enforceSavedMeals(meals, mealSafety.profileFilters(p)).meals;
       const days = meals && Array.isArray(meals.days) ? meals.days : [];
-      const first = days[0] && days[0].meals ? Object.values(days[0].meals).map((m) => m && (m.name || m.title)).filter(Boolean).slice(0, 4) : [];
+      // Meals with an allergen warning are left out of what Coach is told about the plan.
+      const first = days[0] && days[0].meals ? Object.values(days[0].meals).filter((m) => m && !m.allergenWarning).map((m) => m.name || m.title).filter(Boolean).slice(0, 4) : [];
       lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
     }
   } catch (_) { /* plan context is optional */ }
@@ -1943,9 +2017,13 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Personal context from the account itself (profile, targets, latest plan,
     // today's log), not just what the browser sends. Compact, one line each.
     const personal = await buildCoachContext(req.user.userId, profile, context).catch(() => '');
+    const aiFilters = mealSafety.mergeFilters(mealSafety.profileFilters(profile), { dietary: Array.isArray(context && context.dietary) ? context.dietary : [], allergies: Array.isArray(context && context.allergies) ? context.allergies : [] });
+    const rules = mealSafety.promptRules(aiFilters);
+    const withRules = rules ? `${system}\n\n--- Food rules for this user (always follow) ---\n${rules}` : system;
     const finalSystem = personal
-      ? `${system}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
-      : system;
+      ? `${withRules}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
+      : withRules;
+
     const r = await aiClient.chat({
       system: finalSystem,
       messages: safeMessages,
@@ -1963,9 +2041,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
 
     res.locals.aiAnswered = true;
+    // Food suggestions in the reply go through the allergen check before the user sees them.
+    const checked = mealSafety.enforceText(r.text.trim(), aiFilters);
     return res.json({
       success: true,
-      reply: r.text.trim(),
+      reply: checked.text,
       provider: r.provider,
       model: r.model,
       usage: r.usage || null,
@@ -2175,7 +2255,9 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
     ].filter(Boolean).join('\n');
 
-    const system = 'You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.';
+    const reviewAiFilters = mealSafety.profileFilters(profile);
+    const reviewRules = mealSafety.promptRules(reviewAiFilters);
+    const system = `You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.${reviewRules ? `\n${reviewRules}` : ''}`;
     const prompt = `Here is the user's last 7 days of real logged data:
 
 ${dataBlock}
@@ -2202,7 +2284,7 @@ If very little data was logged, be encouraging about starting and make "focus" a
     res.locals.aiAnswered = true;
     res.json({
       success: true,
-      review: r.data,
+      review: mealSafety.enforceJsonText(r.data, reviewAiFilters).value,
       stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
       provider: r.provider,
       remaining: gate.remaining,

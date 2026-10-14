@@ -365,7 +365,7 @@ describe('typed meals are never replaced; they carry a warning', () => {
     const r = await request(app).post('/api/meal-plans').set('Authorization', token).send({ name: 'Mine', meals });
     spy.mockRestore();
     expect(JSON.parse(r.body.plan.meals)).toEqual(meals);
-    expect(r.body.allergenWarnings).toEqual([{ meal: 'Prawn satay', contains: ['nuts'] }]);
+    expect(r.body.allergenWarnings).toEqual([{ meal: 'Prawn satay', contains: ['nuts'] }, { meal: 'Rice bowl', contains: [], unchecked: true, note: "We couldn't check this meal against your allergies, so check the ingredients." }]); // r9: an unreadable typed meal gets a calm note
   });
 });
 
@@ -400,7 +400,7 @@ describe('r3 S1: persistent allergen badge', () => {
     const spy = jest.spyOn(Pool.prototype, 'query').mockResolvedValue({ rows: [{ id: 1, meals: [{ name: 'PB toast', foods: [] }, { name: 'Rice bowl' }] }] });
     const r = await request(app).get('/api/meal-plans').set('Authorization', token);
     spy.mockRestore();
-    expect(r.body.plans[0].allergenWarnings).toEqual([{ meal: 'PB toast', contains: expect.arrayContaining(['nuts']) }]);
+    expect(r.body.plans[0].allergenWarnings).toEqual([{ meal: 'PB toast', contains: expect.arrayContaining(['nuts']) }, { meal: 'Rice bowl', contains: [], unchecked: true, note: "We couldn't check this meal against your allergies, so check the ingredients." }]); // r9: calm note for the unreadable one
   });
   it('the plan list and plan view render the badge', () => {
     const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
