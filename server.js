@@ -1026,8 +1026,14 @@ const CLAIM_RESEND_IP_WINDOW_MS = 15 * 60 * 1000;
 const CLAIM_RESEND_WINDOW_MS = 3000;
 function claimResendWindowMs() {
   const raw = process.env.CLAIM_RESEND_WINDOW_MS;
-  if (raw != null && raw !== '' && Number.isFinite(Number(raw))) return Math.max(0, Number(raw));
-  return process.env.NODE_ENV === 'test' ? 0 : CLAIM_RESEND_WINDOW_MS;
+  const isTest = process.env.NODE_ENV === 'test';
+  if (raw != null && raw !== '' && Number.isFinite(Number(raw))) {
+    const n = Math.max(0, Number(raw));
+    // Production never drops the reply window (CLAIM_RESEND_WINDOW_MS=0 would
+    // otherwise remove the fixed-time reply and reopen a timing oracle).
+    return isTest ? n : Math.max(500, n);
+  }
+  return isTest ? 0 : CLAIM_RESEND_WINDOW_MS;
 }
 // Per-IP limit, shared across instances through Postgres (memory when there
 // is no database). See lib/shared-counters.js.
@@ -1363,6 +1369,8 @@ function setStripeForTests(next) {
 }
 
 function setClaimResendObserverForTests(fn) {
+  // No-op outside tests so a mistaken require cannot install a production observer.
+  if (process.env.NODE_ENV !== 'test') return;
   claimResendObserver = typeof fn === 'function' ? fn : null;
 }
 

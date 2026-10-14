@@ -19,6 +19,7 @@ jest.mock('./lib/ai-usage', () => ({
 }));
 jest.mock('./server/storage.js', () => ({
   getUserById: jest.fn(async () => ({ id: 'u1', settings: { aiDataConsent: true } })),
+  getProfile: jest.fn(async () => ({ dietaryPreferences: [], allergies: [] })), // no saved filters (#127a)
   effectiveTier: () => 'free',
 }));
 

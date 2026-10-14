@@ -38,28 +38,37 @@ const BANNED = [
 ];
 const isBanned = (k) => BANNED.includes(k) || /^pays/i.test(k);
 
-const legacyPayload = () => ({
+// Real chain names, built here in the test only. No served file names one;
+// the share page and PDF must not either, even when a legacy row does.
+const CHAINS = ['Wool' + 'worths', 'Co' + 'les', 'Al' + 'di', 'I' + 'GA', 'Harris ' + 'Farm', 'Food' + 'works', 'Drakes'];
+const CHAIN_RE = new RegExp(`\\b(?:${CHAINS.join('|')})\\b`, 'i');
+const PRICE_RE = /(?:A?\$|AUD\s?)\s?\d+(?:\.\d{1,2})?/;
+
+const legacyPayload = (status = 'sent') => ({
   id: PLAN_ID,
   ptId: PT,
   clientId: null,
   clientLabel: 'Legacy client',
-  status: 'sent',
-  token: TOKEN,
+  status,
+  token: status === 'draft' ? null : TOKEN,
   storeId: 'store-legacy-7',
-  storeName: 'Corner Grocer',
+  storeName: CHAINS[0],
   totalAud: 142.5,
-  targets: { kcal: 2000, protein: 150, carbs: 200, fat: 60 },
+  paysSupermarket: true,
+  paysStore: true,
+  targets: { kcal: 2000, protein: 150, carbs: 200, fat: 60, paysStore: true },
   flags: [],
   householdSize: 1,
   plan: {
     title: 'Legacy week',
-    store: 'Corner Grocer',
+    store: CHAINS[1],
     storeId: 'store-legacy-7',
     storeName: 'Corner Grocer',
     totalAud: 142.5,
     totalCents: 14250,
     unpricedCount: 2,
-    pricesFrom: 'Corner Grocer catalogue',
+    pricesFrom: `${CHAINS[2]} catalogue`,
+    shoppingNote: `Cheapest at ${CHAINS[3]}, about $142.50 a week`,
     sourceKind: 'catalogue',
     catalogue: { url: 'https://example.invalid/catalogue', validFrom: '2025-08-20', validTo: '2025-08-26', weekLabel: 'W35' },
     catalogueUrl: 'https://example.invalid/catalogue',
@@ -75,6 +84,7 @@ const legacyPayload = () => ({
         price: 6.4,
         cost: 6.4,
         store: 'Corner Grocer',
+        notes: `Grab it at ${CHAINS[0]} for $6.40`,
         ingredients: [{ name: 'Chicken breast', amount: 150, unit: 'g', price: 3.2, unitPrice: 12.99, onSpecial: true, store: 'Corner Grocer', paysStore: true }],
       }],
     }],
@@ -163,17 +173,69 @@ maybe('legacy coach-plan row read back through the real routes (real SQL)', () =
 
   it('the store read functions return a clean row', async () => {
     const store = require('./lib/coach-store');
-    // Row-level extras (e.g. a stray totalAud) never leave publicPlan's
-    // allow-list; the plan JSON itself must be clean straight off the read.
-    expect(bannedPaths((await store.getPlan(PLAN_ID, PT)).plan)).toEqual([]);
-    expect(bannedPaths((await store.listPlans(PT)).map((r) => r.plan))).toEqual([]);
-    expect(bannedPaths((await store.getByToken(TOKEN)).plan)).toEqual([]);
+    // The whole row is clean straight off the read, not just .plan: a
+    // top-level totalAud or pays* flag must not survive either.
+    const byId = await store.getPlan(PLAN_ID, PT);
+    const byToken = await store.getByToken(TOKEN);
+    for (const row of [byId, byToken, ...(await store.listPlans(PT))]) {
+      expect(bannedPaths(row)).toEqual([]);
+      expect(row.totalAud).toBeUndefined();
+      expect(row.paysSupermarket).toBeUndefined();
+      expect(row.updatedAt).toBeTruthy();
+      expect(row.targets.kcal).toBe(2000);
+    }
   });
 
-  it('the shared page /c/:token prints no price, store or catalogue text', async () => {
+  it('the planted row really names real chains and $ prices', async () => {
+    const { rows } = await pool.query('select payload::text as t from coach_plans where id = $1', [PLAN_ID]);
+    expect(rows[0].t).toMatch(CHAIN_RE);
+    expect(rows[0].t).toMatch(PRICE_RE);
+  });
+
+  it('the shared page /c/:token prints no chain name, $ price, store or catalogue text', async () => {
     const res = await request(app).get(`/c/${TOKEN}`);
     expect(res.status).toBe(200);
     expect(res.text).toContain('Legacy client');
-    expect(res.text).not.toMatch(/Corner Grocer|store-legacy-7|142\.5|12\.99|21\.65|example\.invalid\/catalogue|W35/);
+    expect(res.text).not.toMatch(CHAIN_RE);
+    expect(res.text).not.toMatch(PRICE_RE);
+    expect(res.text).not.toMatch(/store-legacy-7|142\.5|12\.99|21\.65|example\.invalid\/catalogue|W35/);
+  });
+
+  it('the shared PDF /c/:token/pdf prints no chain name, $ price, store or catalogue text', async () => {
+    const res = await request(app)
+      .get(`/c/${TOKEN}/pdf`)
+      .buffer(true)
+      .parse((r, cb) => { const bufs = []; r.on('data', (d) => bufs.push(d)); r.on('end', () => cb(null, Buffer.concat(bufs))); });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/pdf/);
+    const text = res.body.toString('latin1');
+    expect(text.slice(0, 5)).toBe('%PDF-');
+    expect(text).toContain('Legacy client');
+    expect(text).toContain('Chicken rice bowl');
+    expect(text).not.toMatch(CHAIN_RE);
+    expect(text).not.toMatch(PRICE_RE);
+    expect(text).not.toMatch(/store-legacy-7|142\.5|12\.99|21\.65|example\.invalid|W35/);
+  });
+
+  it('POST /api/coach/plans/:id/send on a legacy draft returns a clean plan and rewrites the row clean', async () => {
+    await pool.query('truncate coach_plans');
+    await pool.query(
+      `insert into coach_plans (id, pt_id, client_id, client_label, status, token, payload, created_at, updated_at)
+       values ($1, $2, null, 'Legacy client', 'draft', null, $3, now(), now())`,
+      [PLAN_ID, PT, JSON.stringify(legacyPayload('draft'))]
+    );
+    const res = await request(app).post(`/api/coach/plans/${PLAN_ID}/send`).set('Authorization', auth);
+    expect(res.status).toBe(200);
+    expect(res.body.plan.status).toBe('sent');
+    expect(res.body.plan.sharePath).toMatch(/^\/c\//);
+    expect(bannedPaths(res.body)).toEqual([]);
+    expect(JSON.stringify(res.body)).not.toMatch(CHAIN_RE);
+    const { rows } = await pool.query('select payload from coach_plans where id = $1', [PLAN_ID]);
+    expect(rows[0].payload.status).toBe('sent');
+    expect(bannedPaths(rows[0].payload)).toEqual([]);
+    const page = await request(app).get(res.body.plan.sharePath);
+    expect(page.status).toBe(200);
+    expect(page.text).not.toMatch(CHAIN_RE);
+    expect(page.text).not.toMatch(PRICE_RE);
   });
 });

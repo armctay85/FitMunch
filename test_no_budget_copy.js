@@ -18,6 +18,7 @@ jest.mock('./lib/ai-usage', () => ({
 }));
 jest.mock('./server/storage.js', () => ({
   getUserById: jest.fn(async () => ({ id: 'u1', settings: { aiDataConsent: true } })),
+  getProfile: jest.fn(async () => ({ dietaryPreferences: [], allergies: [] })), // no saved filters (#127a)
   effectiveTier: () => 'free',
 }));
 
@@ -58,9 +59,11 @@ describe('meal-plan API ignores budget', () => {
   it('the AI prompt is identical with or without budget', async () => {
     const prompts = [];
     aiClient.chatJson.mockImplementation(async (o) => { prompts.push(o.messages[0].content); return { ok: false, error: 'x' }; });
-    await post(base);
+    // No diet filters: filtered users get the checked builder and never an AI prompt (#127a).
+    const noFilters = { ...base, dietary: [] };
+    await post(noFilters);
     const n = prompts.length;
-    await post({ ...base, budget: 50 });
+    await post({ ...noFilters, budget: 50 });
     expect(n).toBeGreaterThan(0);
     expect(prompts.slice(n)).toEqual(prompts.slice(0, n));
     for (const p of prompts) expect(p).not.toMatch(/budget/i);
