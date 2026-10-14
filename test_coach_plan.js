@@ -45,6 +45,8 @@ describe('Coach plan builder', () => {
     expect(plan.catalogue).toBeUndefined();
     expect(plan.storeId).toBeUndefined();
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
+    expect(plan.honesty).not.toHaveProperty('paysSupermarket');
+    expect(Object.keys(plan).filter((k) => /^pays/i.test(k))).toEqual([]);
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
     expect(plan.honesty.pricesFrom).toBeUndefined();
