@@ -1,35 +1,129 @@
 'use strict';
-// Allergen tags on every builder meal template are checked against allergens DERIVED from the
-// ingredients, never read back from the tags. Oats and oat milk count as gluten: oats are not sold
-// as gluten free in Australia. Tamari counts only if labelled with wheat.
+// Allergen tags on every builder meal template must match the allergens DERIVED from the ingredient
+// names exactly: nothing missing, nothing extra. Names are matched as whole words anywhere in the name.
+// Oats and oat milk count as gluten (oats are not sold as gluten free in Australia); tamari only if
+// labelled with wheat. Plant milks, coconut yoghurt and nut butters are not dairy.
 const engine = require('./lib/meal-plan-engine');
 
-const ALLERGENS = [
-  ['gluten', /^(Seitan|Wholegrain bread|Sourdough|White bread|Bread|Pasta|Spaghetti|Rolled oats|Oat|Oats|Oatmeal|Weetbix|Wheat|Couscous|Barley|Rye|Malt|Soy sauce|Tamari.*with wheat)/i],
-  ['nuts', /^(Peanut|Almond|Cashew|Walnut|Pecan|Hazelnut|Pistachio|Macadamia)/i],
-  ['dairy', /^(Whey|Casein|Greek yoghurt|Chobani|Cottage|Ricotta|Cheddar|Cheese|Skim milk|Full cream milk|Protein milk|Milk|Butter|Cream|Yoghurt)/i],
-  ['eggs', /^(Egg|Scrambled eggs)/i],
-  ['soy', /^(Firm tofu|Tofu|Tempeh|Edamame|Soy)/i],
-  ['fish', /^(Salmon|Tuna|Barramundi|Prawns|Fish|Shrimp|Crab|Lobster|Mussels|Oysters|Squid)/i],
-  ['meat', /^(Chicken|Beef|Lamb|Pork|Turkey|Bacon|Ham)/i],
-];
-const derived = (items) => [...new Set(items.flatMap(([food]) => ALLERGENS.filter(([, re]) => re.test(food)).map(([f]) => f)))];
+const of = (name) => engine.allergensOf([[name, 10]]);
+
+describe('ingredient allergen derivation', () => {
+  it.each([
+    ['Overnight oats', 'gluten'], ['Oat milk', 'gluten'], ['Rolled oats (dry)', 'gluten'], ['Barley (cooked)', 'gluten'],
+    ['Rye bread', 'gluten'], ['Malt extract', 'gluten'], ['Light soy sauce', 'gluten'], ['Tamari (with wheat)', 'gluten'],
+    ['Low fat milk', 'dairy'], ['Vanilla yoghurt', 'dairy'], ['Skim milk', 'dairy'], ['Greek yoghurt (plain, low fat)', 'dairy'],
+    ['Toasted sesame oil', 'sesame'], ['Hulled tahini', 'sesame'], ['Classic hummus', 'sesame'],
+    ['Light soy sauce', 'soy'], ['Soy milk', 'soy'], ['Firm tofu', 'soy'], ['White miso', 'soy'],
+    ['Prawns (cooked)', 'shellfish'], ['Prawns (cooked)', 'fish'], ['Raw king prawns', 'shellfish'], ['Mussels', 'shellfish'],
+    ['Eggs (whole)', 'eggs'], ['Egg whites', 'eggs'], ['Peanut butter (natural)', 'nuts'], ['Raw almonds', 'nuts'],
+  ])('%s contains %s', (name, allergen) => expect(of(name)).toContain(allergen));
+
+  it.each([
+    ['Soy milk', 'dairy'], ['Oat milk', 'dairy'], ['Almond milk (unsweetened)', 'dairy'], ['Coconut milk', 'dairy'],
+    ['Rice milk', 'dairy'], ['Coconut yoghurt with pea protein (vanilla)', 'dairy'], ['Peanut butter (natural)', 'dairy'],
+    ['Tamari (wheat free)', 'gluten'], ['Buckwheat', 'gluten'], ['Coconut', 'nuts'], ['Rice cakes (plain)', 'gluten'],
+    ['Eggplant', 'eggs'], ['Hamburger bun', 'meat'], ['Salmon fillet', 'shellfish'],
+  ])('%s does not contain %s', (name, allergen) => expect(of(name)).not.toContain(allergen));
+});
 
 describe('meal template allergen tags', () => {
   it('every template carries every allergen its ingredients have', () => {
     const missing = [];
-    for (const t of engine.TEMPLATES) for (const a of derived(t.items)) if (!t.flags.includes(a)) missing.push(`${t.name}: ${a}`);
+    for (const t of engine.TEMPLATES) for (const a of engine.allergensOf(t.items)) if (!t.flags.includes(a)) missing.push(`${t.name}: ${a}`);
     expect(missing).toEqual([]);
   });
-  it('oat milk, oats, barley, rye, malt and soy sauce count as gluten; tamari only with wheat', () => {
-    for (const f of ['Oat milk', 'Rolled oats (dry)', 'Oatmeal (cooked)', 'Barley (cooked)', 'Rye bread', 'Malt extract', 'Soy sauce']) expect([f, derived([[f, 10]]).includes('gluten')]).toEqual([f, true]);
-    expect(derived([['Tamari (wheat free)', 10]])).not.toContain('gluten');
-    expect(derived([['Tamari (with wheat)', 10]])).toContain('gluten');
+  it('no template carries a tag its ingredients do not justify', () => {
+    const extra = [];
+    for (const t of engine.TEMPLATES) {
+      const derived = engine.allergensOf(t.items);
+      for (const f of t.flags) if (!derived.includes(f)) extra.push(`${t.name}: ${f}`);
+    }
+    expect(extra).toEqual([]);
+  });
+  it('filtering uses tags derived at load time, so an untagged template is still filtered', () => {
+    for (const t of engine.TEMPLATES) expect(engine.flagsOf(t)).toEqual(expect.arrayContaining(engine.allergensOf(t.items)));
+    const ghost = { slot: 'snack', name: 'Untagged', flags: [], items: [['Toasted sesame oil', 5], ['Light soy sauce', 10], ['Prawns (cooked)', 100]] };
+    expect(engine.flagsOf(ghost)).toEqual(expect.arrayContaining(['sesame', 'soy', 'gluten', 'shellfish', 'fish']));
   });
   it('a gluten-free week never includes oat milk or oats', () => {
     for (const calories of [1600, 2000, 2400]) {
       const text = JSON.stringify(engine.buildPlan({ calories, protein: 120, days: 7, dietary: ['gluten free'] })).toLowerCase();
       expect(text).not.toMatch(/oat milk|oats|berry chia pudding/);
     }
+  });
+});
+
+describe('sesame-free, soy-free and shellfish-free weeks', () => {
+  const names = (plan) => plan.days.flatMap((d) => Object.values(d.meals)).flatMap((m) => [m.name, ...(m.ingredients || []).map((i) => i.item || i.name || '')]);
+  it.each([['sesame free', 'sesame'], ['soy free', 'soy'], ['shellfish free', 'shellfish']])('%s weeks contain no %s', (diet, allergen) => {
+    for (const calories of [1400, 2000, 2800, 3600]) for (const extra of [[], ['vegetarian'], ['vegan'], ['gluten free']]) {
+      const plan = engine.buildPlan({ calories, protein: 120, days: 7, dietary: [diet, ...extra] });
+      expect(plan.notes || []).not.toEqual(expect.arrayContaining([expect.stringMatching(/Not applied/)]));
+      const meals = plan.days.flatMap((d) => Object.values(d.meals));
+      const byName = new Map(engine.TEMPLATES.map((t) => [t.name, t]));
+      for (const m of meals) {
+        const t = byName.get(m.name);
+        expect([m.name, t ? engine.flagsOf(t).includes(allergen) : false]).toEqual([m.name, false]);
+      }
+      expect(engine.allergensOf(names(plan).map((n) => [n, 1]))).not.toContain(allergen);
+    }
+  });
+  it('the mango bowl gives about 20 g protein at its base amounts', () => {
+    const t = engine.TEMPLATES.find((x) => x.name === 'Mango, banana and coconut yoghurt bowl');
+    const { FOODS } = require('./food-db');
+    const p = t.items.reduce((s, [n, g]) => s + FOODS.find((f) => f.name === n).p * g / 100, 0);
+    expect(p).toBeGreaterThanOrEqual(18);
+    expect(p).toBeLessThanOrEqual(23);
+  });
+});
+
+describe('dietary filter coverage and validation', () => {
+  const BASES = [[], ['vegan'], ['vegetarian'], ['pescatarian'], ['gluten free'], ['dairy free'], ['egg free'], ['nut free'], ['high protein'], ['low carb']];
+  const sweep = (dietary) => {
+    let built = 0; let onTarget = 0;
+    for (let calories = 1200; calories <= 4500; calories += 150) for (const p of [60, 100, 150, 200]) {
+      const protein = Math.min(p, Math.floor((calories * 0.35) / 4));
+      const plan = engine.buildPlan({ calories, protein, days: 7, dietary });
+      if (plan.days.length === 7 && plan.days.every((d) => Object.keys(d.meals).length === 4)) built += 1;
+      if (engine.everyDayOnTarget(plan, calories)) onTarget += 1;
+    }
+    return { built, onTarget };
+  };
+  it.each(['sesame free', 'soy free', 'shellfish free'])('%s builds a full week everywhere and hits calories as often as the same week without it', (f) => {
+    for (const base of BASES) {
+      const without = sweep(base); const withIt = sweep([f, ...base]);
+      expect([f, base, withIt.built]).toEqual([f, base, 92]);
+      expect([f, base, withIt.onTarget]).toEqual([f, base, without.onTarget]);
+    }
+  });
+  it('every filter the builder knows is listed, including the three new ones', () => {
+    expect(engine.DIET_FILTERS).toEqual(expect.arrayContaining(['sesame free', 'soy free', 'shellfish free', 'nut free', 'egg free', 'gluten free', 'dairy free']));
+  });
+  it('the app offers sesame, soy and shellfish free in Meal Plans and onboarding', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+    for (const v of ['sesame free', 'soy free', 'shellfish free']) {
+      expect(html).toContain(`data-val="${v}"`);
+      expect(html).toContain(`<option value="${v.replace(' ', '_')}">`);
+    }
+  });
+
+  describe('POST /api/meal-plan/generate', () => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'allergen-test-secret';
+    const request = require('supertest');
+    const jwt = require('jsonwebtoken');
+    const app = require('./server');
+    const tok = () => jwt.sign({ userId: '00000000-0000-4000-8000-0000000000ab' }, process.env.JWT_SECRET);
+    const post = (dietary) => request(app).post('/api/meal-plan/generate').set('Authorization', `Bearer ${tok()}`)
+      .send({ builderOnly: true, goal: 'maintain', days: 7, calories: 2000, protein: 120, dietary });
+    it.each([['sesame_free'], ['Soy-Free'], ['shellfish free']])('accepts %s', async (d) => {
+      const res = await post([d, 'vegetarian']);
+      expect(res.status).toBe(200);
+      expect(res.body.plan.days).toHaveLength(7);
+    });
+    it.each([[['halal']], ['soy free'], [[1]], [[['soy free']]], [{ a: 'soy free' }]])('rejects %j with 400', async (d) => {
+      const res = await post(d);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
   });
 });

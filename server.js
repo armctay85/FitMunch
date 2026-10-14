@@ -330,7 +330,7 @@ app.get('/best-personal-trainer-software-australia', (req, res) => res.redirect(
 app.get('/receipt-nutrition-scanner', (req, res) => res.sendFile('receipt-nutrition-scanner.html', { root: 'public' }));
 app.get('/receipt-to-meal-plan', (req, res) => res.redirect(301, '/receipt-nutrition-scanner'));
 app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planner-australia.html', { root: 'public' }));
-app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
+app.get('/high-protein-staples-meal-plan', (req, res) => res.sendFile('high-protein-staples-meal-plan.html', { root: 'public' }));
 app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { root: 'public' }));
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
 // Shopper retired: page and old aliases 301 to the in-app shopping list.
@@ -347,12 +347,14 @@ for (const [from, to] of [
   ['/woolworths-meal-planner', '/supermarket-meal-planner'],
   ['/coles-meal-planner', '/grocery-meal-planner'],
   ['/pt-client-meal-plans-woolworths', '/pt-client-meal-plans'],
+  // FitMunch doesn't plan to a price (Wilson, PR 121): both budget landers became the staples page.
+  ['/budget-meal-plan', '/high-protein-staples-meal-plan'],
+  ['/budget-meal-planner', '/high-protein-staples-meal-plan'],
 ]) {
   app.get([from, `${from}.html`], (req, res) => res.redirect(301, to + (req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '')));
 }
 app.get('/meal-prep-shopping-list', (req, res) => res.sendFile('meal-prep-shopping-list.html', { root: 'public' }));
 app.get('/high-protein-shopping-list', (req, res) => res.sendFile('high-protein-shopping-list.html', { root: 'public' }));
-app.get('/budget-meal-plan', (req, res) => res.sendFile('budget-meal-plan.html', { root: 'public' }));
 app.get('/ai-meal-plan-shopping-list', (req, res) => res.sendFile('ai-meal-plan-shopping-list.html', { root: 'public' }));
 // FitMunch Coach landers. Trial CTA is /for-pts#coach until Coach checkout exists.
 app.get('/meal-plan-software-personal-trainers', (req, res) => res.sendFile('meal-plan-software-personal-trainers.html', { root: 'public' }));
