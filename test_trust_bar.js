@@ -137,7 +137,6 @@ describe('Trust bar 5: web app, not store', () => {
 
 describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
   const surfaces = [
-    ['/', ['92', '987']],
     ['/haul-teardown', ['92', '987']],
     ['/receipt-nutrition-scanner', ['92', '987']],
     ['/pricing', ['92']],
@@ -149,6 +148,16 @@ describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
       expect(res.text).toContain(token);
     }
     expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
+    expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+  });
+});
+
+describe('Trust bar 6b: homepage proof is a labelled sample receipt, not a claimed real shop', () => {
+  it('homepage offers the no-sign-up sample receipt demo', async () => {
+    const res = await request(app).get('/').expect(200);
+    expect(res.text).toContain('id="demo-run"');
+    expect(res.text).toContain('SAMPLE RECEIPT');
+    expect(res.text).toContain('/api/receipt/demo');
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
   });
 });
@@ -209,13 +218,12 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(fold).toContain('class="trial-bar"');
     expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then A$19.99 a month');
     expect(fold).toContain('Card on file');
-    expect(hero).toContain('Your body wrote the trolley.');
-    expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
+    expect(hero).toContain('Your week of meals, planned to your macros.');
+    expect(hero).toContain('Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.');
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/login.html?plan=premium#register"');
     expect(hero).not.toContain('href="/pricing"');
-    expect(hero).toContain('Approve this trolley');
-    expect(hero).toContain('Not a shop charge');
+    expect(hero).toContain('src="/assets/fm-app-week.webp"');
     expect(hero).not.toContain('$19.99');
     expect(hero).not.toMatch(/photograph your receipt/i);
     expect(hero).not.toMatch(/viewfinder|getUserMedia|capture=/i);
