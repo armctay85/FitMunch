@@ -90,6 +90,23 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
   }
 });
 
+// Meal and plan names longer than this are refused at input with a 400.
+const MAX_NAME_LENGTH = 200;
+const NAME_TOO_LONG = `Names must be ${MAX_NAME_LENGTH} characters or fewer.`;
+/** True if a meal or plan name, or a name inside its meals or foods, is over the cap. */
+function nameTooLong(body) {
+  const long = (v) => typeof v === 'string' && v.length > MAX_NAME_LENGTH;
+  const check = (o, depth) => {
+    if (!o || typeof o !== 'object' || depth > 3) return false;
+    if (long(o.name) || long(o.mealName) || long(o.title)) return true;
+    for (const key of ['meals', 'foods', 'items']) {
+      if (Array.isArray(o[key]) && o[key].some((x) => check(x, depth + 1))) return true;
+    }
+    return false;
+  };
+  return check(body, 0);
+}
+
 router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
     const profileData = { ...req.body };
@@ -105,6 +122,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 // Meal Logging API routes
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
@@ -171,12 +189,46 @@ router.get('/workouts/history/:userId', authMiddleware, async (req, res) => {
 });
 
 // Progress Tracking API routes
+// Only these columns are written; user id comes from the token, never the body. Weight 25-400 kg,
+// body fat 2-75%, measurements 1-400 cm, and the date no more than a day ahead.
+const PROGRESS_MEASUREMENTS = ['waist', 'chest', 'hips', 'arms', 'thighs', 'neck'];
+function progressInput(body) {
+  const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const out = {};
+  const num = (v, lo, hi, label) => {
+    if (v === undefined || v === null || v === '') return { value: null };
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < lo || v > hi) return { error: `${label} must be a number from ${lo} to ${hi}.` };
+    return { value: v };
+  };
+  const w = num(b.weight, 25, 400, 'Weight (kg)'); if (w.error) return w; if (w.value !== null) out.weight = w.value;
+  const bf = num(b.bodyFatPercentage, 2, 75, 'Body fat (%)'); if (bf.error) return bf; if (bf.value !== null) out.bodyFatPercentage = bf.value;
+  if (b.measurements !== undefined && b.measurements !== null) {
+    if (typeof b.measurements !== 'object' || Array.isArray(b.measurements)) return { error: 'Measurements must be an object.' };
+    const m = {};
+    for (const k of PROGRESS_MEASUREMENTS) {
+      const r = num(b.measurements[k], 1, 400, `${k[0].toUpperCase()}${k.slice(1)} (cm)`); if (r.error) return r; if (r.value !== null) m[k] = r.value;
+    }
+    out.measurements = m;
+  }
+  if (b.notes !== undefined && b.notes !== null) {
+    if (typeof b.notes !== 'string') return { error: 'Notes must be text.' };
+    out.notes = b.notes.slice(0, 1000);
+  }
+  if (b.date !== undefined && b.date !== null && b.date !== '') {
+    const d = new Date(b.date);
+    if (typeof b.date !== 'string' && typeof b.date !== 'number') return { error: 'Date is not valid.' };
+    if (Number.isNaN(d.getTime()) || d.getFullYear() < 1900) return { error: 'Date is not valid.' };
+    if (d.getTime() > Date.now() + 24 * 3600 * 1000) return { error: 'Date can be at most a day ahead.' };
+    out.date = d;
+  }
+  return { value: out };
+}
+
 router.post('/progress/log', authMiddleware, async (req, res) => {
   try {
-    const progressData = { ...req.body };
-    delete progressData.userId; // ignore body userId — use token
-    if (progressData.date) progressData.date = new Date(progressData.date);
-    const progress = await logProgress(req.user.userId, progressData);
+    const progressData = progressInput(req.body);
+    if (progressData.error) return res.status(400).json({ success: false, error: progressData.error });
+    const progress = await logProgress(req.user.userId, progressData.value);
     res.json({ success: true, progress });
   } catch (error) {
     console.error('Error logging progress:', error);
@@ -1047,7 +1099,7 @@ router.post('/user/goal-weight', authMiddleware, async (req, res) => {
     if (g !== null && g !== undefined && g !== '') {
       const w = await _pool.query(
         `SELECT weight FROM (
-           SELECT weight, 0 AS src, date FROM progress_logs WHERE user_id=$1 AND weight IS NOT NULL
+           SELECT weight, 0 AS src, date FROM progress_logs WHERE user_id=$1 AND weight IS NOT NULL AND date <= now()
            UNION ALL SELECT weight, 1 AS src, updated_at AS date FROM user_profiles WHERE user_id=$1 AND weight IS NOT NULL
          ) x ORDER BY src, date DESC LIMIT 1`,
         [req.user.userId]
@@ -1372,6 +1424,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
     const itemType = b.itemType || b.type || b.item_type;
     const itemId = b.itemId != null ? b.itemId : b.item_id;
     const itemData = stripNames(b.itemData || b.item_data || b.data || {});
+    if (nameTooLong(itemData)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     if (!itemType || itemId == null || itemId === '') {
       return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
     }
@@ -1431,6 +1484,7 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const meals = await safeSavedMeals(req.user.userId, sentMeals);
     const r = await _pool.query(
@@ -1443,6 +1497,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const meals = await safeSavedMeals(req.user.userId, sentMeals);
     // Compute totals from meals if provided
