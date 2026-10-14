@@ -277,6 +277,16 @@ struct SettingsView: View {
                         .cornerRadius(16)
                 }
             }
+            .alert("Purchases", isPresented: Binding(
+                get: { viewModel.noticeMessage != nil },
+                set: { if !$0 { viewModel.noticeMessage = nil } }
+            )) {
+                Button("OK") {
+                    viewModel.noticeMessage = nil
+                }
+            } message: {
+                Text(viewModel.noticeMessage ?? "")
+            }
             .alert("Error", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
                 set: { if !$0 { viewModel.errorMessage = nil } }
