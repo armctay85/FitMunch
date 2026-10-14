@@ -430,10 +430,6 @@ private enum AuditLaunchArgument {
     static let coachLoading = "-AuditCoachLoading"
 }
 
-private enum ScreenshotLaunchArgument {
-    static let flag = "-AppStoreScreenshots"
-}
-
 private enum AIBlocked {
     static let coach = "Coach stays off until you allow it in Me, Privacy."
     static let scan = "Receipt scan stays off until you allow it in Me, Privacy."
