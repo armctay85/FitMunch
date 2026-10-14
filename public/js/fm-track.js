@@ -12,7 +12,6 @@
     '/': 'home',
     '/ai-meal-planner-australia': 'ai-meal-planner-australia',
     '/budget-meal-planner': 'budget-meal-planner',
-    '/shopper': 'shopper',
     '/receipt-nutrition-scanner': 'receipt-nutrition-scanner',
     '/haul-teardown': 'haul-teardown',
     '/supermarket-meal-planner': 'supermarket-meal-planner',
