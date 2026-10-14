@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Settings screen for user preferences and app management
@@ -310,7 +311,7 @@ struct SettingsView: View {
             .alert("Reset Data", isPresented: $showResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
-                    // This would reset all user data
+                    resetLocalLogs()
                 }
             } message: {
                 Text("This will delete all your meal logs and reset the app to its initial state. This action cannot be undone.")
@@ -321,6 +322,25 @@ struct SettingsView: View {
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
+        }
+    }
+
+    /// Deletes on-device meal and training logs. The account stays signed in.
+    private func resetLocalLogs() {
+        do {
+            for meal in try modelContext.fetch(FetchDescriptor<Meal>()) {
+                modelContext.delete(meal)
+            }
+            for food in try modelContext.fetch(FetchDescriptor<FoodItem>()) {
+                modelContext.delete(food)
+            }
+            for log in try modelContext.fetch(FetchDescriptor<WorkoutLog>()) {
+                modelContext.delete(log)
+            }
+            try modelContext.save()
+            UserDefaults.standard.removeObject(forKey: "completedWorkoutDays")
+        } catch {
+            viewModel.errorMessage = "Couldn't reset your logs. Try again."
         }
     }
 }
