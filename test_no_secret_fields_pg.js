@@ -112,7 +112,8 @@ beforeAll(async () => {
   const { Pool } = require('pg');
   pool = new Pool({ connectionString: URL });
   await pool.query('drop schema if exists public cascade; create schema public;');
-  await require('./lib/db-migrate').ensureSchema();
+  // The production DDL, run on this pool (db-migrate's own pool needs SSL, which the CI service lacks).
+  await pool.query(require('./lib/db-migrate').DDL);
   request = require('supertest');
   const jwt = require('jsonwebtoken');
   sign = (userId, role) => `Bearer ${jwt.sign({ userId, role, email: role === 'pt' ? 'pt@example.test' : 'client@example.test' }, process.env.JWT_SECRET)}`;
