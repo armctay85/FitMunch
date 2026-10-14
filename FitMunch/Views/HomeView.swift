@@ -5,7 +5,6 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: HomeViewModel
-    @ObservedObject private var network = NetworkMonitor.shared
     @State private var showLogMeal = false
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
@@ -227,9 +226,7 @@ struct HomeView: View {
                 }
             }
 
-            if viewModel.meals.isEmpty && !network.isOnline {
-                OfflineNotice(prominent: true)
-            } else if viewModel.meals.isEmpty {
+            if viewModel.meals.isEmpty {
                 ContentUnavailableView {
                     Label("No meals logged today", systemImage: "fork.knife")
                 } description: {
