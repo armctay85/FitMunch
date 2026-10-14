@@ -137,24 +137,53 @@ describe('claim-resend replies at one fixed time', () => {
       // Warm up supertest's server and the require cache so the first
       // measured request isn't paying start-up cost.
       await ask('warmup@example.com');
+      // The oracle an attacker can use is the server's reply time, so measure
+      // the handler's own window (start of handler to reply, hrtime). The
+      // supertest round trip also counts a fresh listen/connect per request,
+      // middleware and event-loop lag in the jest worker, which swing by
+      // tens of ms under a loaded full-suite run and have nothing to do with
+      // whether an email matched.
+      const windows = [];
+      app._private.setClaimResendObserverForTests((w) => windows.push(w));
       const hits = [];
       const misses = [];
-      for (let i = 0; i < 2; i += 1) {
-        hits.push(await timed(i ? PAYER : 'Guest.Payer@Example.com'));
-        misses.push(await timed(`nobody${i}@example.com`));
+      try {
+        const run = async (bucket, email) => {
+          const before = windows.length;
+          const t = await timed(email);
+          expect(windows.length).toBe(before + 1);
+          bucket.push({ ...t, server: windows[before].replyMs });
+        };
+        for (let i = 0; i < 2; i += 1) {
+          await run(hits, i ? PAYER : 'Guest.Payer@Example.com');
+          await run(misses, `nobody${i}@example.com`);
+        }
+        await run(misses, 'not-an-email');
+      } finally {
+        app._private.setClaimResendObserverForTests(null);
       }
-      misses.push(await timed('not-an-email'));
       for (const { res } of [...hits, ...misses]) {
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ success: true, message: guestClaim.RESEND_GENERIC_REPLY });
       }
       expect(send).toHaveBeenCalledTimes(2);
-      const all = [...hits, ...misses].map((x) => x.ms);
-      if (process.env.FM_TIMING_LOG) console.log('claim-resend timing', JSON.stringify({ hits: hits.map((x) => x.ms), misses: misses.map((x) => x.ms) }));
-      expect(Math.min(...all)).toBeGreaterThanOrEqual(495);
-      const avg = (xs) => xs.reduce((a, b) => a + b.ms, 0) / xs.length;
+      if (process.env.FM_TIMING_LOG) {
+        console.log('claim-resend timing', JSON.stringify({
+          server: { hits: hits.map((x) => x.server), misses: misses.map((x) => x.server) },
+          roundTrip: { hits: hits.map((x) => x.ms), misses: misses.map((x) => x.ms) },
+        }));
+      }
+      const server = [...hits, ...misses].map((x) => x.server);
+      // Every reply waits out the full window, match or miss (server clock
+      // and client clock both, so a reply can never come back early).
+      for (const w of windows) expect(w.windowMs).toBe(500);
+      expect(Math.min(...server)).toBeGreaterThanOrEqual(498);
+      expect(Math.min(...[...hits, ...misses].map((x) => x.ms))).toBeGreaterThanOrEqual(495);
+      // A match (slow Stripe + 120ms send) and a miss reply within 50ms of
+      // each other, on average and at the extremes.
+      const avg = (xs) => xs.reduce((a, b) => a + b.server, 0) / xs.length;
       expect(Math.abs(avg(hits) - avg(misses))).toBeLessThan(50);
-      expect(Math.max(...all) - Math.min(...all)).toBeLessThan(50);
+      expect(Math.max(...server) - Math.min(...server)).toBeLessThan(50);
     });
   });
 
