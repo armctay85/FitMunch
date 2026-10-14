@@ -219,6 +219,10 @@ async function createOrUpdateProfile(userId, profileData, opts = {}) {
     const stale = row && opts.ifUpdatedAt != null && !(await client.query(
       "select date_trunc('milliseconds', $2::timestamptz) = date_trunc('milliseconds', updated_at) as same from user_profiles where id = $1",
       [row.id, opts.ifUpdatedAt])).rows[0].same;
+    // A filter save must name the version it edits once a row exists (EQA #142 follow-up).
+    if (row && opts.requireVersion && opts.ifUpdatedAt == null) {
+      const err = new Error('Profile version required'); err.code = 'PROFILE_VERSION_REQUIRED'; throw err;
+    }
     if (stale) {
       const err = new Error('Profile changed since it was loaded'); err.code = 'PROFILE_STALE'; throw err;
     }

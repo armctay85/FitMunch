@@ -80,6 +80,29 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
     expect(t).toBeLessThan(3000); // includes parsing the 9 MB body itself
   });
+  it('#140 L: a non-string entry fails closed and the readable entries beside it still count', () => {
+    expect(dietGuard.listOf([{ x: 1 }, 'peanut'])).toEqual([dietGuard.UNREADABLE, 'peanut']);
+    expect(dietGuard.listOf([1, null, 'peanut', [2]])).toEqual([dietGuard.UNREADABLE, 'peanut']);
+  });
+
+  it('#140 L: the loop stops at the budget for non-string entries', () => {
+    const list = [...new Array(dietGuard.MAX_FILTER_SCAN + 1).fill(7), 'peanut'];
+    expect(dietGuard.listOf(list)).toEqual([dietGuard.UNREADABLE]);
+    // Just inside the budget, the entry after them is still read.
+    expect(dietGuard.listOf([...new Array(dietGuard.MAX_FILTER_SCAN - 6).fill(7), 'peanut'])).toEqual([dietGuard.UNREADABLE, 'peanut']);
+  });
+
+  it('#140 L: a 2M-key object stops at the character budget, fails closed, and is quick', () => {
+    const obj = {};
+    for (let i = 0; i < 2e6; i += 1) obj[`k${i}`] = true;
+    const t = Date.now();
+    const out = dietGuard.listOf(obj);
+    const ms = Date.now() - t;
+    expect(out[out.length - 1]).toBe(dietGuard.UNREADABLE);
+    expect(out.length).toBeLessThan(dietGuard.MAX_FILTER_SCAN);
+    expect(ms).toBeLessThan(1500);
+  }, 30000);
+
   it('listOf keeps every item within the character budget, and fails closed past it', () => {
     const list = new Array(60).fill('vegan');
     list[55] = 'peanut';
