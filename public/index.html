@@ -472,6 +472,16 @@ footer{
   .plan:last-child{border-bottom:0}
   .trust-inner{grid-template-columns:1fr 1fr}
 }
+/* Phones and tablets: the hero shot fits above the fold. The photo is square and smaller,
+   and the app card is cropped from the top to the space left, with a fade instead of a hard cut. */
+@media(max-width:859px){
+  .hero-shot{max-width:30rem}
+  .hero-food{width:60%;aspect-ratio:1/1}
+  .hero-app{margin-top:-48%;aspect-ratio:auto;height:clamp(150px,calc(100svh - 523px),460px);-webkit-mask-image:linear-gradient(#000 80%,transparent);mask-image:linear-gradient(#000 80%,transparent)}
+}
+@media(min-width:600px) and (max-width:859px){
+  .hero-app{height:clamp(150px,calc(100svh - 614px),460px)}
+}
 @media(max-width:520px){
   .loop-rail{grid-template-columns:1fr}
   .step:nth-child(odd){padding-right:0}
@@ -532,8 +542,8 @@ footer{
       </div>
     </div>
     <figure class="hero-shot">
-      <img class="hero-food" src="/assets/fm-hero-mealprep.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="1400" height="933" fetchpriority="high"/>
-      <img class="hero-app" src="/assets/fm-app-week.webp" alt="FitMunch first week built for 82kg, cutting to 78kg: Wednesday at 2005 cal and 148g protein, with Veggie Omelette with Potatoes for breakfast and its Swap list open showing three alternatives" width="1122" height="1617"/>
+      <img class="hero-food" src="/assets/fm-hero-mealprep-web.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="900" height="600" decoding="async"/>
+      <img class="hero-app" src="/assets/fm-app-week.webp" alt="FitMunch first week built for 82kg, cutting to 78kg: Wednesday at 2005 cal and 148g protein, with Veggie Omelette with Potatoes for breakfast and its Swap list open showing three alternatives" width="1122" height="1617" fetchpriority="high"/>
       <figcaption>Your first week: built for 82kg cutting to 78kg, at 2,000 kcal and 150g protein, with Swap open on breakfast.</figcaption>
     </figure>
   </div>
@@ -589,7 +599,7 @@ footer{
         <p>Receipt-first week plans from the supermarket, in AUD and grams.</p>
       </article>
       <article class="lander-card">
-        <a href="/budget-meal-planner">Budget high-protein weeks</a>
+        <a href="/high-protein-staples-meal-plan">High protein staples meal plan</a>
         <p>Plan a high-protein week, then score the haul.</p>
       </article>
       <article class="lander-card">
@@ -753,7 +763,7 @@ footer{
       <a href="#loop">How it works</a>
       <a href="#pricing">Pricing</a>
       <a href="/ai-meal-planner-australia">AI meal planner</a>
-      <a href="/budget-meal-planner">Budget planner</a>
+      <a href="/high-protein-staples-meal-plan">High protein staples meal plan</a>
       <a href="/haul-teardown">Haul teardown</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
       <a href="/for-pts.html">For trainers</a>

@@ -25,7 +25,7 @@ describe('copy hygiene', () => {
   test('meal plan timing is not understated', () => {
     const app = read('app.html');
     expect(app).not.toMatch(/~\s*15 seconds|about 30 seconds/);
-    expect(app).toContain('FitMunch AI · takes up to about a minute · common Australian supermarket ingredients');
+    expect(app).toContain('Takes up to about a minute · common Australian supermarket ingredients');
     expect(app).toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
   });
   test('no dead fmNotifications hook in script.js', () => {

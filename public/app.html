@@ -87,6 +87,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .card-body{padding:14px}
 
 .metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.metrics-row.metrics-row-3{grid-template-columns:repeat(3,1fr) !important}
 .metric{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:none;transition:border-color .18s,transform .18s}
 .metric:hover{transform:translateY(-1px);box-shadow:none;border-color:var(--leaf)}
 .metric-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:6px}
@@ -115,6 +116,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .phase-maintain{background:rgba(31,157,74,.1);color:var(--leaf2)}
 
 .plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:480px){.plan-grid{grid-template-columns:1fr}}
 .plan-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;cursor:pointer;transition:border-color .15s}
 .plan-card:hover{border-color:var(--leaf);box-shadow:none}
 .plan-card-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:4px}
@@ -275,6 +277,9 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-bubble.assistant code{font-family:'IBM Plex Mono',monospace;font-size:.78rem;background:var(--paper2);padding:1px 5px;border-radius:3px}
 .chat-meta{font-size:.65rem;color:var(--mute2);margin-top:2px;align-self:flex-start;padding-left:4px}
 .chat-meta.user{align-self:flex-end;padding-right:4px}
+.allergen-warning{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #b91c1c;background:#fef2f2;color:#991b1b;font-size:.8rem;font-weight:700;line-height:1.4}
+.allergen-badge{display:inline-block;padding:1px 6px;border-radius:4px;background:#b91c1c;color:#fff;font-size:.68rem;font-weight:700}
+.mp-safe-notice{display:block;margin:10px 0 14px;padding:12px 14px;border-left:4px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:.92rem;font-weight:600;line-height:1.45}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .goals-nudge span{font-size:.75rem;color:#4b5a52}
@@ -405,7 +410,7 @@ html.fm-authed #app-gate{display:none}
 .ob-curve{margin:0 0 12px;border:1px solid #dfe6df;border-radius:10px;padding:10px 12px;background:#fff}
 .ob-curve svg{display:block;width:100%;height:auto}
 .ob-curve figcaption{font-size:.74rem;color:#3f4a45;line-height:1.45;margin-top:6px}
-.ob-est{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c2d12;background:#ffedd5;border-radius:4px;padding:2px 6px;margin-right:6px}
+.ob-est{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c2d12;background:#ffedd5;border-radius:4px;padding:2px 6px;margin-right:6px}
 .ob-meal-body{flex:1;min-width:0}
 .ob-swap{font:inherit;min-height:44px;min-width:64px;padding:0 12px;border:1px solid #b9cbbd;border-radius:8px;background:#fff;color:#14532d;font-weight:700;font-size:.8rem;cursor:pointer;align-self:center}
 .ob-swap[aria-expanded="true"]{background:#ecfdf3;border-color:#15803d}
@@ -502,11 +507,10 @@ html.fm-authed #app-gate{display:none}
  <div class="scroll-body">
 
  <!-- Metrics -->
- <div class="metrics-row">
+ <div class="metrics-row metrics-row-3">
  <div class="metric"><div class="metric-label">Active Clients</div><div class="metric-value mv-green" id="m-clients">0</div><div class="metric-sub">in your roster</div></div>
  <div class="metric"><div class="metric-label">Logged Today</div><div class="metric-value mv-blue" id="m-logged">0</div><div class="metric-sub">clients active</div></div>
  <div class="metric"><div class="metric-label">Need Check-in</div><div class="metric-value mv-amber" id="m-checkin">0</div><div class="metric-sub">3+ days quiet</div></div>
- <div class="metric"><div class="metric-label">This Month</div><div class="metric-value mv-purple" id="m-month">$0</div><div class="metric-sub">subscription revenue</div></div>
  </div>
 
  <!-- Feature tiles -->
@@ -628,7 +632,7 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ MEAL PLANS - AI-POWERED ══ -->
 <div class="view" id="view-meal-plans">
  <div class="view-header">
- <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">AI builds your weekly plan in seconds. You eat. Simple.</div></div>
+ <div><div class="view-title">🧠 Meal Planner</div><div class="view-sub">Your weekly plan in seconds, built to your targets. You eat. Simple.</div></div>
  </div>
  <div class="scroll-body">
 
@@ -639,12 +643,12 @@ html.fm-authed #app-gate{display:none}
  <span style="font-size:28px">🤖</span>
  <div>
  <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly meal plan</div>
- <div style="font-size:.75rem;color:#166534">FitMunch AI · takes up to about a minute · common Australian supermarket ingredients</div>
+ <div style="font-size:.75rem;color:#166534">Takes up to about a minute · common Australian supermarket ingredients · diet and allergy filters use FitMunch's checked recipes</div>
  </div>
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
- <label class="form-label">My goal</label>
+ <label class="form-label" for="mp-goal-sel">My goal</label>
  <select id="mp-goal-sel" class="form-select">
  <option value="lose_weight">Lose weight</option>
  <option value="muscle_gain">💪 Build muscle</option>
@@ -653,14 +657,14 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Days to plan</label>
+ <label class="form-label" for="mp-days-sel">Days to plan</label>
  <select id="mp-days-sel" class="form-select">
  <option value="5">5 days (Mon–Fri)</option>
  <option value="7" selected>7 days (full week)</option>
  </select>
  </div>
  </div>
- <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
  <div class="form-field">
  <label class="form-label">Daily calories</label>
  <input type="number" id="mp-cals-sel" class="form-input" placeholder="2000" min="1200" max="5000"/>
@@ -668,10 +672,6 @@ html.fm-authed #app-gate{display:none}
  <div class="form-field">
  <label class="form-label">Protein (g/day)</label>
  <input type="number" id="mp-prot-sel" class="form-input" placeholder="150" min="50" max="400"/>
- </div>
- <div class="form-field">
- <label class="form-label">Weekly budget ($)</label>
- <input type="number" id="mp-budget-sel" class="form-input" placeholder="120" min="50" max="300"/>
  </div>
  </div>
  <div class="form-field" style="margin-bottom:16px">
@@ -683,6 +683,10 @@ html.fm-authed #app-gate{display:none}
  <button class="diet-tag" data-val="high protein" onclick="toggleDietTag(this)">💪 High protein</button>
  <button class="diet-tag" data-val="low carb" onclick="toggleDietTag(this)">⬇️ Low carb</button>
  <button class="diet-tag" data-val="nut free" onclick="toggleDietTag(this)">🥜 Nut free</button>
+ <button class="diet-tag" data-val="egg free" onclick="toggleDietTag(this)">🥚 Egg free</button>
+ <button class="diet-tag" data-val="sesame free" onclick="toggleDietTag(this)">🌱 Sesame free</button>
+ <button class="diet-tag" data-val="soy free" onclick="toggleDietTag(this)">🫘 Soy free</button>
+ <button class="diet-tag" data-val="shellfish free" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
  </div>
  </div>
  <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="mp-gen-btn" onclick="generateMealPlan()">
@@ -695,7 +699,7 @@ html.fm-authed #app-gate{display:none}
  <div id="mp-loading" style="display:none;text-align:center;padding:48px 20px">
  <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
  <div style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is writing your meal plan…</div>
- <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and budget. Usually 10–20 seconds.</div>
+ <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and targets. Usually 10–20 seconds.</div>
  </div>
 
  <!-- Plan output -->
@@ -747,7 +751,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
- <label class="form-label">My goal</label>
+ <label class="form-label" for="wpg-goal">My goal</label>
  <select id="wpg-goal" class="form-select">
  <option value="muscle_gain">💪 Build muscle</option>
  <option value="lose_weight">Lose fat</option>
@@ -756,7 +760,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Experience</label>
+ <label class="form-label" for="wpg-level">Experience</label>
  <select id="wpg-level" class="form-select">
  <option value="beginner">Beginner</option>
  <option value="intermediate" selected>Intermediate</option>
@@ -766,7 +770,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
- <label class="form-label">Days per week</label>
+ <label class="form-label" for="wpg-days">Days per week</label>
  <select id="wpg-days" class="form-select">
  <option value="2">2 days</option>
  <option value="3" selected>3 days</option>
@@ -776,7 +780,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Equipment</label>
+ <label class="form-label" for="wpg-equipment">Equipment</label>
  <select id="wpg-equipment" class="form-select">
  <option value="gym" selected>Full gym</option>
  <option value="home">Home (dumbbells/bands)</option>
@@ -784,7 +788,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Session length</label>
+ <label class="form-label" for="wpg-minutes">Session length</label>
  <select id="wpg-minutes" class="form-select">
  <option value="30">30 min</option>
  <option value="45">45 min</option>
@@ -1368,10 +1372,10 @@ html.fm-authed #app-gate{display:none}
  <div class="modal">
  <div class="modal-title">Assign Plan to Client<button class="modal-close" onclick="closeModal('modal-assign')">✕</button></div>
  <div class="form-row">
- <div class="form-field"><label class="form-label">Plan Type</label>
+ <div class="form-field"><label class="form-label" for="assign-type">Plan Type</label>
  <select class="form-select" id="assign-type"><option value="meal">Meal Plan</option><option value="workout">Workout Plan</option></select></div>
  </div>
- <div class="form-field" style="margin-top:10px"><label class="form-label">Select Plan</label>
+ <div class="form-field" style="margin-top:10px"><label class="form-label" for="assign-plan-select">Select Plan</label>
  <select class="form-select" id="assign-plan-select"><option>Loading…</option></select></div>
  <div class="modal-actions">
  <button class="btn btn-ghost2" onclick="closeModal('modal-assign')">Cancel</button>
@@ -1383,9 +1387,9 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-mealplan" onclick="closeOnOverlay(event)">
  <div class="modal" style="max-width:520px;width:95vw">
  <div class="modal-title">New Meal Plan<button class="modal-close" onclick="closeModal('modal-mealplan')">✕</button></div>
- <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" placeholder="e.g. 12-week deficit plan"/></div>
+ <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" maxlength="200" placeholder="e.g. 12-week deficit plan"/></div>
  <div class="form-row">
- <div class="form-field"><label class="form-label">Goal</label>
+ <div class="form-field"><label class="form-label" for="mp-goal">Goal</label>
  <select class="form-select" id="mp-goal"><option value="weight_loss">Weight Loss</option><option value="maintenance">Maintenance</option><option value="muscle_gain">Muscle Gain</option></select></div>
  <div class="form-field"><label class="form-label">Daily Calories</label><input class="form-input" id="mp-cals" type="number" placeholder="1800"/></div>
  </div>
@@ -1423,7 +1427,7 @@ html.fm-authed #app-gate{display:none}
  <div class="modal-title">New Workout Plan<button class="modal-close" onclick="closeModal('modal-workoutplan')">✕</button></div>
  <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="wp-name" placeholder="e.g. 5-day PPL program"/></div>
  <div class="form-row">
- <div class="form-field"><label class="form-label">Level</label>
+ <div class="form-field"><label class="form-label" for="wp-level">Level</label>
  <select class="form-select" id="wp-level"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
  <div class="form-field"><label class="form-label">Days/Week</label><input class="form-input" id="wp-freq" type="number" placeholder="4" min="1" max="7"/></div>
  </div>
@@ -1459,7 +1463,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-generate-shopping" onclick="closeOnOverlay(event)">
  <div class="modal">
  <div class="modal-title">Generate Shopping List<button class="modal-close" onclick="closeModal('modal-generate-shopping')">✕</button></div>
- <div class="form-field" style="margin-bottom:10px"><label class="form-label">From Meal Plan</label>
+ <div class="form-field" style="margin-bottom:10px"><label class="form-label" for="gen-plan-select">From Meal Plan</label>
  <select class="form-select" id="gen-plan-select"><option>Loading…</option></select></div>
  <div class="form-field"><label class="form-label">List Name</label><input class="form-input" id="gen-list-name" placeholder="Leave blank for auto-name"/></div>
  <div class="modal-actions">
@@ -1476,7 +1480,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Smart food search -->
  <div class="form-field" style="position:relative;margin-bottom:4px">
  <label class="form-label">Search food <span style="color:var(--green2);font-weight:700"> - macros auto-fill ✨</span></label>
- <input class="form-input" id="lm-search" placeholder="e.g. chicken breast, oats, banana…"
+ <input class="form-input" id="lm-search" maxlength="200" placeholder="e.g. chicken breast, oats, banana…"
  oninput="foodSearchInput(this.value)" onkeydown="foodSearchKey(event)" autocomplete="off"/>
  <div id="lm-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;max-height:240px;overflow-y:auto"></div>
  </div>
@@ -1485,7 +1489,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Meal + serving -->
  <div class="form-row" style="margin-bottom:10px">
  <div class="form-field">
- <label class="form-label">Meal</label>
+ <label class="form-label" for="lm-meal">Meal</label>
  <select class="form-select" id="lm-meal">
  <option value="breakfast">Breakfast</option>
  <option value="lunch" selected>Lunch</option>
@@ -1513,7 +1517,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Manual food name (hidden when food selected from search) -->
  <div class="form-field" id="lm-manual-name-row">
  <label class="form-label">Food name <span style="color:var(--text3);font-weight:400">(or type above to search)</span></label>
- <input class="form-input" id="lm-food" placeholder="e.g. Chicken breast"/>
+ <input class="form-input" id="lm-food" maxlength="200" placeholder="e.g. Chicken breast"/>
  </div>
 
  <div class="modal-actions">
@@ -1592,7 +1596,7 @@ html.fm-authed #app-gate{display:none}
  <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
  <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
  <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
- <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option></select></div>
+ <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option><option value="nut_free">Nut free</option><option value="sesame_free">Sesame free</option><option value="soy_free">Soy free</option><option value="shellfish_free">Shellfish free</option></select></div>
  <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
  <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
  </div>
@@ -1609,7 +1613,7 @@ html.fm-authed #app-gate{display:none}
  <div id="ob-step-3" style="display:none">
  <p class="ob-head" id="ob-head"></p>
  <figure class="ob-curve" id="ob-curve" style="display:none"></figure>
- <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px" id="ob-week-note"></p>
+ <p style="font-size:.9rem;color:#1f2937;font-weight:600;line-height:1.45;margin-bottom:10px" id="ob-week-note" role="status"></p>
  <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
  <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
  </div>
@@ -1864,7 +1868,7 @@ function nav(id) {
 }
 
 // ── MODAL HELPERS ─────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('open'); }
+function openModal(id) { const el = document.getElementById(id); el.classList.add('open'); const err = el.querySelector('.modal-err'); if (err) err.remove(); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function closeOnOverlay(e) { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); }
 function openInviteModal() { openModal('modal-invite'); }
@@ -2161,7 +2165,7 @@ function _mealRowHtml(idx, item, containerId) {
  return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" maxlength="200" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
  <div><label style="font-size:.7rem;color:var(--text3)">Meal Time</label><select class="form-select" aria-label="Meal time" style="padding:4px 6px;font-size:.78rem" data-field="mealType">${opts}</select></div>
  </div>
  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
@@ -2212,16 +2216,29 @@ function openEditMealPlan(planId) {
  else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType||'lunch'}))));
  }
  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
+ let warnEl = document.getElementById('edit-mp-allergen');
+ if (!warnEl) { warnEl = document.createElement('div'); warnEl.id = 'edit-mp-allergen'; list.insertAdjacentElement('beforebegin', warnEl); }
+ warnEl.innerHTML = allergenBadgeHtml(p.allergenWarnings, true);
  openModal('modal-edit-meal-plan');
 }
+
+// A refused save keeps the form open with the server's message (e.g. a name over 200 characters).
+function showModalError(id, msg) {
+ const modal = document.querySelector('#' + id + ' .modal'); if (!modal) return;
+ let p = modal.querySelector('.modal-err');
+ if (!p) { p = document.createElement('p'); p.className = 'modal-err'; p.setAttribute('role', 'alert'); p.style.cssText = 'color:#b91c1c;font-size:.8rem;margin:8px 0 0'; modal.appendChild(p); }
+ p.textContent = msg;
+}
+function clearModalError(id) { const p = document.querySelector('#' + id + ' .modal-err'); if (p) p.remove(); }
 
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
  const meals = _collectMealItems('emp');
  const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+ if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
+ clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
- if (r.success) { loadMealPlans(); toast('Plan updated ✓'); }
- else toast('Failed to save', 'error');
+ loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓');
 }
 
 // ── Meal Plan List ────────────────────────────────────────────────────────────
@@ -2252,12 +2269,14 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ const warnBadge = allergenBadgeHtml(p.allergenWarnings);
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
- <div class="plan-card-meta">${goalLabel} · ${escapeHtml(p.total_calories||' - ')} cal/day</div>
+ ${warnBadge}
+ ${planMetaHtml(p, goalLabel)}
  ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${escapeHtml(p.description)}</div>` : ''}
  ${mealSummary}
  <div class="plan-card-footer">
@@ -2293,11 +2312,12 @@ async function saveMealPlan() {
  totalCalories: parseInt(document.getElementById('mp-cals').value)||meals.reduce((s,m)=>s+m.calories,0)||0,
  meals,
  })});
+ if (!r.success) { showModalError('modal-mealplan', r.error || 'Failed to create plan'); return; }
+ clearModalError('modal-mealplan');
  closeModal('modal-mealplan');
  _mpItemCount = 0;
  document.getElementById('mp-meal-list').innerHTML = '';
- if (r.success) { S.mealPlans.push(r.plan); loadMealPlans(); toast('Meal plan created ✓'); }
- else toast('Failed to create plan', 'error');
+ S.mealPlans.push(r.plan); loadMealPlans(); if (!showAllergenWarnings(r)) toast('Meal plan created ✓');
 }
 
 async function deleteMealPlan(id, e) {
@@ -2637,6 +2657,7 @@ async function toggleFav(itemType, itemId, itemData) {
  } else {
  const r = await API('/favourites', { method:'POST', body: JSON.stringify({ itemType, itemId: String(itemId), itemData }) });
  if (r.success && r.favourite) S.favourites.push(r.favourite);
+ else if (!r.success) toast(r.error || "Couldn't save that favourite", 'error');
  }
 }
 async function removeFav(type, id) {
@@ -2964,10 +2985,11 @@ async function logMealEntry() {
  servingSize: (document.getElementById('lm-serving-g').value ? document.getElementById('lm-serving-g').value + 'g' : ''),
  };
  const r = await API('/meals/log', { method:'POST', body: JSON.stringify(body) });
+ if (!r.success) { showModalError('modal-log-meal', r.error || 'Failed to log meal'); return; }
+ clearModalError('modal-log-meal');
  closeModal('modal-log-meal');
  resetMealModal();
- if (r.success) { toast('✅ Logged: ' + foodName + ' - ' + body.calories + ' cal'); loadTodayMeals(); }
- else toast('Failed to log meal', 'error');
+ toast('✅ Logged: ' + foodName + ' - ' + body.calories + ' cal'); loadTodayMeals();
 }
 
 // ── WORKOUT LOG ───────────────────────────────────────────────────────────────
@@ -3540,7 +3562,7 @@ function obRenderCurve(proj) {
  const cap = document.createElement('figcaption');
  const est = document.createElement('span'); est.className = 'ob-est'; est.textContent = 'Estimate';
  const rate = proj.direction === 'lose' ? 'about 0.5% of body weight a week, at most 0.9 kg' : 'about 0.25% of body weight a week, at most 0.35 kg';
- cap.append(est, `${first} kg to ${last} kg by about ${when} (${proj.weeks} weeks) at ${rate}. A steady pace, not a promise: real weeks go up and down.`);
+ cap.append(est, ' ', `${first} kg to ${last} kg by about ${when} (${proj.weeks} weeks) at ${rate}. A steady pace, not a promise: real weeks go up and down.`);
  fig.append(svg, cap); fig.style.display = '';
 }
 function obRenderHeader(plan, tg) {
@@ -3572,6 +3594,8 @@ function obMealRow(d, slot, m, onSwap) {
  });
  btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(open)); list.hidden = !open; };
  row.appendChild(btn); body.appendChild(list);
+ } else if (Array.isArray(m.swaps)) {
+ const none = document.createElement('div'); none.className = 'ob-meal-meta ob-noswap'; none.textContent = 'No swap fits this meal under your filters.'; body.appendChild(none);
  }
  return row;
 }
@@ -3633,7 +3657,7 @@ async function onboardBuildWeek() {
  try {
  if (!consented) { await local(); return; }
  const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, 'Your week, planned to your targets.', r); }
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
  finally {
@@ -3694,8 +3718,7 @@ async function generateMealPlan() {
  const days = parseInt(document.getElementById('mp-days-sel').value) || 7;
  const cals = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
  const prot = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
- const budget = parseInt(document.getElementById('mp-budget-sel').value) || 120;
- const dietary = [...document.querySelectorAll('.diet-tag.active')].map(b => b.dataset.val);
+ const dietary = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
 
  // Pre-fill from goals if blank
  if (!document.getElementById('mp-cals-sel').value && S.goals?.targetCalories) document.getElementById('mp-cals-sel').value = S.goals.targetCalories;
@@ -3707,7 +3730,7 @@ async function generateMealPlan() {
  document.getElementById('mp-gen-btn').disabled = true;
 
  try {
- const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, budget, dietary }) });
+ const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, dietary }) });
  if (!r.success) {
  if (maybeUpgrade(r)) return;
  throw new Error(r.error || 'Generation failed');
@@ -3715,7 +3738,9 @@ async function generateMealPlan() {
  S_activePlan = r.plan;
  S_activePlan.notice = r.notice || '';
  renderMealPlan(r.plan);
- toast(r.source === 'builder' ? 'Meal plan ready (built from our food database)' : 'Meal plan ready! 🎉');
+ // The notice explains a checked-recipe plan; no toast over it on small screens.
+ if (!r.notice) toast('Meal plan ready! 🎉');
+ else { const n = document.getElementById('mp-plan-notice'); if (n && n.scrollIntoView) n.scrollIntoView({ block: 'nearest' }); }
  } catch(err) {
  toast('Could not generate plan: ' + err.message, 'error');
  } finally {
@@ -3733,7 +3758,8 @@ function renderMealPlan(plan) {
  if (!noticeEl) {
  noticeEl = document.createElement('div');
  noticeEl.id = 'mp-plan-notice';
- noticeEl.className = 'goals-nudge';
+ noticeEl.className = 'mp-safe-notice';
+ noticeEl.setAttribute('role', 'status');
  document.getElementById('mp-plan-summary').insertAdjacentElement('afterend', noticeEl);
  }
  const noticeLines = [plan.notice, ...(plan.notes || [])].filter(Boolean);
@@ -4247,12 +4273,14 @@ async function loadWeeklyReview() {
  throw new Error(r.error || 'failed');
  }
  const rev = r.review || {};
+ // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
+ const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
  body.innerHTML = `
  <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
- <div style="width:54px;height:54px;border-radius:50%;background:${score>=7?'rgba(31,157,74,.08)':score>=4?'#fffbeb':'#fef2f2'};border:2px solid ${score>=7?'rgba(31,157,74,.28)':score>=4?'#fde68a':'#fecaca'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+ ${hasScore ? `<div style="width:54px;height:54px;border-radius:50%;background:${score>=7?'rgba(31,157,74,.08)':score>=4?'#fffbeb':'#fef2f2'};border:2px solid ${score>=7?'rgba(31,157,74,.28)':score>=4?'#fde68a':'#fecaca'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
  <span style="font-size:1.05rem;font-weight:900;color:${score>=7?'#16a34a':score>=4?'#d97706':'#dc2626'}">${escapeHtml(score)}<span style="font-size:.6rem;color:var(--text3)">/10</span></span>
- </div>
+ </div>` : ''}
  <div style="flex:1;min-width:220px">
  <div style="font-size:.88rem;font-weight:800;margin-bottom:8px">${escapeHtml(rev.headline || 'Your week in review')}</div>
  ${(rev.wins||[]).map(w => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">✅ ${escapeHtml(w)}</div>`).join('')}
@@ -4335,6 +4363,29 @@ async function saveGeneratedWorkoutPlan() {
  } else {
  toast('Failed to save program', 'error');
  }
+}
+
+// Persistent red badge for saved meals that clash with the user's saved allergies or diet (#127a).
+function allergenBadgeHtml(warnings, alert) {
+ const w = Array.isArray(warnings) ? warnings : [];
+ if (!w.length) return '';
+ return `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>⚠ Allergen warning: ${w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ')}</div>`;
+}
+
+// The goal and calories row; hidden on typed plans with no goal or calories (EQA #135 r4 S5).
+function planMetaHtml(p, goalLabel) {
+ const parts = [];
+ if (p.goal_type) parts.push(escapeHtml(goalLabel));
+ if (Number(p.total_calories) > 0) parts.push(`${escapeHtml(p.total_calories)} cal/day`);
+ return parts.length ? `<div class="plan-card-meta">${parts.join(' · ')}</div>` : '';
+}
+
+// Meals the user typed are saved as typed; if they clash with saved allergies or diet, say so in red.
+function showAllergenWarnings(r) {
+ const w = r && Array.isArray(r.allergenWarnings) ? r.allergenWarnings : [];
+ if (!w.length) return false;
+ toast('Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '. Check against your allergies and diet.', 'error');
+ return true;
 }
 
 function toast(msg, type='success') {
