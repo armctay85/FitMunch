@@ -476,7 +476,10 @@ describe('r2 S2: manual, edited and old plans are kept as entered, with warnings
     const res = await request(app).get('/api/meal-plans').set('Authorization', auth);
     spy.mockRestore();
     expect(res.status).toBe(200);
-    const lunch = res.body.plans[0].meals[0].meals.lunch;
+    // Stored as JSON text, returned as JSON text (the app parses either).
+    const { meals } = res.body.plans[0];
+    expect(typeof meals).toBe('string');
+    const lunch = JSON.parse(meals)[0].meals.lunch;
     expect(lunch.name).toBe('Pesto pasta');
     expect(lunch.allergenWarning.allergens).toContain('nuts');
   });

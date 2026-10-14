@@ -1491,7 +1491,9 @@ function safeInsight(tip, filters) {
 /** Old saved rows are checked again when they're read, against the filters the user has now. */
 async function safePlanRows(userId, rows) {
   const filters = await userFilters(userId);
-  return rows.map((row) => (row && row.meals != null ? { ...row, meals: mealSafety.enforceSavedMeals(row.meals, filters).meals } : row));
+  // Meals stored as JSON text stay text, so the row keeps the shape it was saved in.
+  const keepShape = (orig, meals) => (typeof orig === 'string' && typeof meals !== 'string' ? JSON.stringify(meals) : meals);
+  return rows.map((row) => (row && row.meals != null ? { ...row, meals: keepShape(row.meals, mealSafety.enforceSavedMeals(row.meals, filters).meals) } : row));
 }
 
 // ── MEAL PLANS (CRUD) ─────────────────────────────────────────────────────────
