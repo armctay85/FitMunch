@@ -2,6 +2,7 @@
 // This module provides API endpoints for the FitMunch app
 
 const { stripMarkup, stripNames } = require('./lib/strip-markup');
+const { publicUser, publicProfile } = require('./lib/public-user');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -83,7 +84,7 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     const profile = await getProfile(req.params.userId);
-    res.json({ success: true, profile });
+    res.json({ success: true, profile: publicProfile(profile) });
   } catch (error) {
     console.error('Error fetching profile:', error);
     sendApiError(res, error);
@@ -1303,7 +1304,7 @@ router.get('/clients/:clientId', authMiddleware, async (req, res) => {
     const plans = await _pool.query(
       'SELECT * FROM plan_assignments WHERE client_id=$1 AND active=TRUE', [req.params.clientId]
     );
-    res.json({ success: true, client: user, profile, meals, workouts, progress, assignments: plans.rows });
+    res.json({ success: true, client: publicUser(user), profile: publicProfile(profile), meals, workouts, progress, assignments: plans.rows });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -2332,7 +2333,10 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
     // PT info
     const ptRow = await _pool.query('SELECT u.name, u.email FROM pt_clients pc JOIN users u ON u.id=pc.pt_id WHERE pc.client_id=$1', [req.user.userId]);
     res.json({
-      success: true, user, profile,
+      success: true,
+      // Allowlisted: the raw row carries password_hash, stripe_customer_id and settings (launch audit D1).
+      user: publicUser(user, { subscriptionTier: user ? effectiveTier(user) : 'free' }),
+      profile: publicProfile(profile),
       mealPlan: mealAssignment,
       workoutPlan: workoutAssignment,
       shoppingLists: lists.rows,

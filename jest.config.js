@@ -31,6 +31,7 @@ module.exports = {
     '**/test_trust_bar.js',
     '**/test_sample_receipt_demo.js',
     '**/test_meal_plan_owner_pg.js',
+    '**/test_no_secret_fields_pg.js',
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',
     '**/test_allergen_tags.js',
