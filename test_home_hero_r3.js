@@ -8,10 +8,10 @@ describe('homepage hero r3', () => {
     expect(m).toBeTruthy();
     expect(m[1]).toMatch(/\.hero h1\{font-size:clamp\(2\.5rem,4\.9vw,3\.35rem\)/);
   });
-  test('hero shows a real Meal Planner render next to our own food photo, not a text card', () => {
+  test('hero shows a real first-week render next to our own food photo, not a text card', () => {
     const hero = html.split('<header class="hero">')[1].split('</header>')[0];
     expect(hero).toMatch(/<img class="hero-food" src="\/assets\/fm-hero-mealprep\.webp" alt="[^"]+"/);
-    expect(hero).toMatch(/<img class="hero-app" src="\/assets\/fm-app-week\.webp" alt="FitMunch Meal Planner[^"]+"/);
+    expect(hero).toMatch(/<img class="hero-app" src="\/assets\/fm-app-week\.webp" alt="FitMunch first week[^"]+"/);
     expect(hero).not.toMatch(/phone-list|Sample week|unsplash|pexels|shutterstock|istock/i);
     for (const f of ['fm-hero-mealprep.webp', 'fm-app-week.webp']) expect(fs.existsSync(path.join(__dirname, 'public', 'assets', f))).toBe(true);
   });
