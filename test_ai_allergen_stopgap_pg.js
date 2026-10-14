@@ -225,4 +225,41 @@ maybe('#127a on real Postgres', () => {
     const row = (await pool.query('select meals from meal_plans where id=$1', [r.body.plan.id])).rows[0];
     expect(row.meals).toEqual(meals);
   });
+
+  // ── r3 (Elite QA #135 r2) ──
+  it("r3 M1: QA's 4 training-framed asks get checked recipes for dairy-free and gluten-free users", async () => {
+    await pool.query(`update user_profiles set dietary_preferences='["dairy free"]'::jsonb, allergies='[]'::jsonb where user_id=$1`, [PLAIN]);
+    for (const who of [PLAIN, GF]) {
+      for (const q of ['Best thing to smash after the gym?', 'What do I grab before training?', 'what should I neck after squats', 'What helps recovery after a run?']) {
+        const r = await ask(who, q, { intent: 'workout' });
+        expect(r.status).toBe(200);
+        expect(r.body.source).toBe('builder');
+        expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
+      }
+    }
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('r3 M1: a brand in an AI training reply is replaced (dairy free: Milo; gluten free: Up&Go); workout-only replies are kept', async () => {
+    await pool.query(`update user_profiles set dietary_preferences='["dairy free"]'::jsonb where user_id=$1`, [PLAIN]);
+    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Three sets, then grab a Milo.', provider: 'mock' });
+    const d = await ask(PLAIN, 'How many sets of squats?', { intent: 'workout' });
+    expect(d.body.source).toBe('builder');
+    aiClient.chat.mockResolvedValueOnce({ ok: true, text: 'Neck an Up&Go on the way home.', provider: 'mock' });
+    const g = await ask(GF, 'How many sets of squats?', { intent: 'workout' });
+    expect(g.body.source).toBe('builder');
+    const keep = 'Foam roll your quads, then wrap up your session. Go nuts on the stairs.';
+    aiClient.chat.mockResolvedValueOnce({ ok: true, text: keep, provider: 'mock' });
+    const w = await ask(GF, 'How many sets of squats?', { intent: 'workout' });
+    expect(w.body.reply).toBe(keep);
+  });
+
+  it('r3 S1: a typed PB toast keeps a persistent allergen warning in the plan list', async () => {
+    const meals = [{ name: 'PB toast', foods: [] }];
+    await request(app).post('/api/meal-plans').set('Authorization', as(PEANUT)).send({ name: 'Typed', meals });
+    const r = await request(app).get('/api/meal-plans').set('Authorization', as(PEANUT));
+    const plan = r.body.plans.find((p) => p.name === 'Typed');
+    expect(plan.meals).toEqual(meals);
+    expect(plan.allergenWarnings).toEqual([{ meal: 'PB toast', contains: expect.arrayContaining(['nuts']) }]);
+  });
 });

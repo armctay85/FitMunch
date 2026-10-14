@@ -1435,12 +1435,14 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
  * #127a: meals the user typed are saved as typed, never replaced. If they name a food the user's saved
  * diet or allergy filters exclude, the response carries a warning per meal so the app can show it.
  */
-async function typedMealWarnings(userId, meals) {
-  let profile = null;
-  try { profile = await getProfile(userId); } catch (_) { return []; }
-  const filters = require('./lib/diet-guard').savedFilters(profile);
+async function savedFiltersFor(userId) {
+  try { return require('./lib/diet-guard').savedFilters(await getProfile(userId)); } catch (_) { return []; }
+}
+function mealWarnings(meals, filters) {
   if (!filters.length) return [];
-  const list = Array.isArray(meals) ? meals : (meals && Array.isArray(meals.days) ? meals.days.flatMap((d) => Object.values((d && d.meals) || {})) : []);
+  let m0 = meals;
+  if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = []; } }
+  const list = Array.isArray(m0) ? m0 : (m0 && Array.isArray(m0.days) ? m0.days.flatMap((d) => Object.values((d && d.meals) || {})) : []);
   const out = [];
   for (const m of list) {
     if (!m || typeof m !== 'object') continue;
@@ -1449,11 +1451,16 @@ async function typedMealWarnings(userId, meals) {
   }
   return out.slice(0, 50);
 }
+async function typedMealWarnings(userId, meals) {
+  return mealWarnings(meals, await savedFiltersFor(userId));
+}
 
 router.get('/meal-plans', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, plans: r.rows });
+    // #127a: saved meals keep a persistent allergen warning against the user's current saved filters.
+    const filters = await savedFiltersFor(req.user.userId);
+    res.json({ success: true, plans: r.rows.map((p) => ({ ...p, allergenWarnings: mealWarnings(p.meals, filters) })) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1872,7 +1879,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 
     // An unreadable profile screens against every allergen group (fail closed).
     const screen = filters.length ? filters : ['vegan', 'gluten free', 'nut free', 'soy free', 'sesame free', 'fish free'];
-    if (guarded && dietGuard.textBreaksFilters(r.text, screen)) {
+    if (guarded && dietGuard.replyUnsafe(r.text, screen)) {
       // The AI named a food this user can't have: serve checked recipes instead and refund the credit.
       let remaining = gate.remaining;
       try { if (await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'chat' }) && typeof remaining === 'number') remaining += 1; } catch (_) { /* best effort */ }
