@@ -26,6 +26,7 @@ module.exports = {
     '**/test_trust_bar.js',
     '**/test_meal_plan_owner_pg.js',
     '**/test_onboarding_targets.js',
+    '**/test_allergen_tags.js',
     '**/test_onboard_rendered.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',
