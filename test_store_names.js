@@ -32,9 +32,10 @@ describe('no store names on any public page (app.html and coach.html included, n
     expect(hit && hit[0]).toBeFalsy();
   });
 
-  it('the dead app_fixes.js is gone', () => {
+  it('app_fixes.js (dead, unserved, store price data) is deleted', () => {
     expect(fs.existsSync(path.join(__dirname, 'app_fixes.js'))).toBe(false);
   });
+
 
   it('the dead supermarket_api.js mock is gone', () => {
     expect(fs.existsSync(path.join(__dirname, 'supermarket_api.js'))).toBe(false);
@@ -174,5 +175,60 @@ describe('homepage phone list layout (QA r3)', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
     expect(html).toContain('.phone-list li{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #ece6db}');
     expect(html).not.toMatch(/\.phone-list b\b/);
+  });
+});
+
+// Ported from #103's test_store_name_sweep.js (Elite QA #107 r? S1).
+describe('store-name sweep: email, AI prompts and coach-api', () => {
+  const CHAIN = /woolworths|woolies|\bcoles\b|\baldi\b|\bIGA\b|costco|harris farm|foodworks/i;
+  const COMMERCE_KEY = /^(totalAud|totalCents|lineAud|unitAud|onSpecial|priced|unpricedCount|catalogue|pricesFrom|sourceKind|storeId|storeName|store|paysWoolworths|paysColes|paysAldi)$/;
+  const COMMERCE_VALUE = /au-public-specials|\bw35\b|public_specials_catalogue/i;
+  const keysIn = (v, out = []) => {
+    if (Array.isArray(v)) v.forEach((x) => keysIn(x, out));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { if (COMMERCE_KEY.test(k)) out.push(k); keysIn(x, out); }
+    return out;
+  };
+
+  it('server/email.js (including line 80) names no chain', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'server/email.js'), 'utf8');
+    expect(src.split('\n')[79]).not.toMatch(CHAIN);
+    expect(src.match(CHAIN)).toBeNull();
+  });
+
+  it('every AI prompt constant loads and names no chain', () => {
+    const chat = require('./api_server').AI_PROMPTS;
+    const prompts = {
+      CHAT_GLOBAL_RULES: chat.CHAT_GLOBAL_RULES,
+      ...Object.fromEntries(Object.entries(chat.CHAT_INTENTS).map(([k, v]) => [`CHAT_INTENTS.${k}`, v])),
+      VISION_PROMPT: require('./receipt-scanner').AI_PROMPTS.VISION_PROMPT,
+      planPrompt: require('./meal-planner').AI_PROMPTS.planPrompt({ goal: 'maintain', calories: 2000, protein: 150, days: 7, dietary: [] }),
+    };
+    for (const [name, text] of Object.entries(prompts)) {
+      expect(typeof text).toBe('string');
+      expect([name, text.match(CHAIN)]).toEqual([name, null]);
+    }
+  });
+
+  it('coach plans, the saved row and the coach-api response carry no chain, price, special or catalogue', async () => {
+    const { buildCoachPlan } = require('./lib/coach-plan');
+    const coachStore = require('./lib/coach-store');
+    for (const storeId of [undefined, 'woolworths', 'coles', 'aldi']) {
+      const plan = buildCoachPlan({ kcal: 2200, protein: 160, carbs: 220, fat: 70, storeId });
+      expect(keysIn(plan)).toEqual([]);
+      expect(JSON.stringify(plan)).not.toMatch(CHAIN);
+      expect(JSON.stringify(plan)).not.toMatch(COMMERCE_VALUE);
+    }
+    const row = await coachStore.createPlan({ ptId: 'sn-pt', clientId: 'sn-c', clientLabel: 'S', plan: buildCoachPlan({ kcal: 2000, protein: 150, carbs: 200, fat: 60 }) });
+    const saved = await coachStore.getPlan(row.id, 'sn-pt');
+    const body = await coachStore.withAdherence(saved);
+    for (const v of [saved, body]) {
+      expect(keysIn(v)).toEqual([]);
+      expect(JSON.stringify(v)).not.toMatch(CHAIN);
+      expect(JSON.stringify(v)).not.toMatch(COMMERCE_VALUE);
+    }
+    const { api } = require('./coach-api');
+    const res = { json: (b) => b };
+    api.stack[0].handle({}, res, () => {});
+    expect(JSON.stringify(res.json({ storeName: 'Woolworths', paysColes: false }))).not.toMatch(CHAIN);
   });
 });
