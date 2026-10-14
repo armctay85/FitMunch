@@ -185,15 +185,16 @@ maybe('r7: names that only look like the egg-free dish, and English muffins, on 
 // r9 on real Postgres: the calm note for an unreadable typed meal, and remember() on the guarded route.
 maybe('r9: unreadable typed meals and remembered filters, on real Postgres', () => {
   const NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
-  it('egg allergy: a typed "Arancini" (no ingredients) is stored as typed and gets the calm note on save and on read', async () => {
-    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: ['egg'] });
-    const meals = [{ name: 'Arancini', foods: [] }];
+  // r10 M1: main's dish list knows Arancini has egg, so this pin now uses a dish nobody can read.
+  it('lupin allergy: a typed "Mum\'s special" (no ingredients) is stored as typed and gets the calm note on save and on read', async () => {
+    await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: ['lupin'] });
+    const meals = [{ name: "Mum's special", foods: [] }];
     const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Typed', meals });
     expect(res.status).toBe(200);
-    expect(res.body.allergenWarnings).toEqual([{ meal: 'Arancini', contains: [], unchecked: true, note: NOTE }]);
+    expect(res.body.allergenWarnings).toEqual([{ meal: "Mum's special", contains: [], unchecked: true, note: NOTE }]);
     expect((await pool.query("select meals from meal_plans where user_id=$1 and name='Typed'", [U])).rows[0].meals).toEqual(meals);
     const list = await request(app).get('/api/meal-plans').set('Authorization', auth);
-    expect(list.body.plans.find((p) => p.name === 'Typed').allergenWarnings).toEqual([{ meal: 'Arancini', contains: [], unchecked: true, note: NOTE }]);
+    expect(list.body.plans.find((p) => p.name === 'Typed').allergenWarnings).toEqual([{ meal: "Mum's special", contains: [], unchecked: true, note: NOTE }]);
   });
   it('tick nut free, generate: the profile saves it, and Coach chat then makes 0 AI calls', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [] });

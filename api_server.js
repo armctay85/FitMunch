@@ -1499,7 +1499,11 @@ router.delete('/favourites/:type/:itemId', authMiddleware, async (req, res) => {
 // so a mocked or real profile is always honoured).
 async function userFilters(userId) {
   // Warnings only: an unreadable profile gives no warning rather than a failed save or list (as #135's did).
-  try { return mealSafety.profileFilters(await getProfile(userId)); } catch (_) { return { dietary: [], allergies: [] }; }
+  // guard: main's diet-guard filters (savedFilters), so typed-meal warnings are never weaker than main's (EQA #127 r10 M1).
+  try {
+    const profile = await getProfile(userId);
+    return { ...mealSafety.profileFilters(profile), guard: require('./lib/diet-guard').savedFilters(profile) };
+  } catch (_) { return { dietary: [], allergies: [], guard: [] }; }
 }
 /**
  * A saved, manual or edited plan in any stored shape (day form with meals as an object or list, a flat list
@@ -1535,26 +1539,41 @@ async function safePlanRows(userId, rows, known) {
 // toast" is gluten for gluten free, never eggs or dairy).
 const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
 function mealWarnings(meals, filters) {
+  const dg = require('./lib/diet-guard');
   let m0 = meals;
   if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = null; } }
-  const out = [];
+  const guard = (filters && Array.isArray(filters.guard)) ? filters.guard : [];
+  const noWarning = (k, x) => (k === 'allergenWarning' ? undefined : x);
+  // Meals to judge: every meal #127's check put a warning on, plus main's list of meals (#127a), so a meal
+  // main would flag is always judged by both checks.
+  const seen = new Set(); const meals2 = [];
+  const add = (v) => { if (v && typeof v === 'object' && !Array.isArray(v) && !seen.has(v) && meals2.length < 200) { seen.add(v); meals2.push(v); } };
   const walk = (v, depth) => {
-    if (!v || typeof v !== 'object' || depth > 6 || out.length >= 50) return;
+    if (!v || typeof v !== 'object' || depth > 6) return;
     if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
-    const w = v.allergenWarning;
-    if (w && typeof w === 'object') {
-      const groups = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
-      const contains = [...new Set(groups)];
-      const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
-      if (contains.length) out.push({ meal, contains });
-      // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
-      else if (w.unrecognised) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
-    }
+    if (v.allergenWarning && typeof v.allergenWarning === 'object') add(v);
     for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
   };
   walk(m0, 0);
+  // Main's list (a flat list, or { days }), with a day form's meals read as meals, never the day itself.
+  const top = Array.isArray(m0) ? m0 : (m0 && Array.isArray(m0.days) ? m0.days : []);
+  const mealsOf = (d) => (d && typeof d === 'object' && d.meals && typeof d.meals === 'object' ? Object.values(d.meals) : [d]);
+  top.flatMap(mealsOf).forEach(add);
+  const out = [];
+  for (const v of meals2) {
+    const w = (v.allergenWarning && typeof v.allergenWarning === 'object') ? v.allergenWarning : {};
+    const ours = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
+    // Main's check on the same meal: any hit from either side is red.
+    const mains = guard.length ? dg.brokenGroups(JSON.stringify(v, noWarning), guard) : [];
+    const contains = [...new Set([...ours, ...mains])];
+    const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
+    if (contains.length) out.push({ meal, contains });
+    // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
+    // Past the read budget some typed foods were never read, so any meal not flagged is unchecked too (r10 M2).
+    else if (w.unrecognised || (filters && filters.pastBudget)) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
+  }
   // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
-  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: require('./lib/diet-guard').UNREADABLE_NOTICE });
+  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.UNREADABLE_NOTICE });
   return out.slice(0, 50);
 }
 

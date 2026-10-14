@@ -957,9 +957,10 @@ describe('r9: calm note for unreadable typed meals, swaps honour typed allergies
     expect(res.body.plan.days.some((d) => Object.values(d.meals).some((m) => (m.swaps || []).length > 0))).toBe(true);
   });
   it('an unreadable typed meal gets the calm note in the save response, for any filter', async () => {
-    profile = { allergies: ['egg'] };
-    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ name: 'Arancini', foods: [] }] });
-    expect(res.body.allergenWarnings).toEqual([{ meal: 'Arancini', contains: [], unchecked: true, note: UNCHECKED }]);
+    // r10 M1: main's dish list knows Arancini has egg, so an egg allergy is red; a filter it doesn't hit stays calm.
+    profile = { allergies: ['lupin'] };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ name: "Mum's special", foods: [] }] });
+    expect(res.body.allergenWarnings).toEqual([{ meal: "Mum's special", contains: [], unchecked: true, note: UNCHECKED }]);
   });
   it('no filters: an unreadable typed meal gets no note', async () => {
     profile = {};
@@ -1003,6 +1004,8 @@ describe('r10: badge and toast rendering for the note, PB2, E. muffin', () => {
     const src = [
       grab(/function allergenBadgeHtml\(warnings, alert\) \{[\s\S]*?\n\}\n/),
       grab(/const UNCHECKED_NOTE = .*;\n/),
+      grab(/const UNCHECKED_NOTE_MANY = .*;\n/),
+      grab(/function uncheckedNote\(n\) \{.*\}\n/),
       grab(/function noteToastText\(notes\) \{.*\}\n/),
       grab(/function showAllergenWarnings\(r\) \{[\s\S]*?\n\}\n/),
     ].join('\n');
@@ -1014,6 +1017,14 @@ describe('r10: badge and toast rendering for the note, PB2, E. muffin', () => {
   };
   const RED = { meal: 'Prawn satay', contains: ['nuts'] };
   const NOTE = { meal: 'Arancini', contains: [], unchecked: true, note: UNCHECKED };
+  it('two unchecked meals: the note and the toast say "these meals" (r10 L)', () => {
+    const { allergenBadgeHtml, showAllergenWarnings, toasts } = loadUi();
+    const two = [NOTE, { ...NOTE, meal: "Mum's special" }];
+    expect(allergenBadgeHtml(two)).toContain('these meals');
+    expect(allergenBadgeHtml([NOTE])).toContain('this meal');
+    showAllergenWarnings({ allergenWarnings: two });
+    expect(toasts.find((t) => t.type === 'note').msg).toMatch(/^Arancini, Mum(&#39;|')s special: We couldn't check these meals/);
+  });
   it('note only: a grey note naming the meal, no red banner and no role=alert', () => {
     const { allergenBadgeHtml } = loadUi();
     for (const alert of [false, true]) {
@@ -1057,5 +1068,72 @@ describe('r10: badge and toast rendering for the note, PB2, E. muffin', () => {
   });
   it('a plain blueberry muffin with almond flour is still fine for gluten free', () => {
     expect(safety.mealProblems({ name: 'Blueberry muffin', ingredients: ['Almond flour', 'Blueberries'] }, safety.excludedFlags({ dietary: ['gluten free'] }))).toBeNull();
+  });
+});
+
+// EQA #127 r10 S1: every early 503 (the profile can't be read, a database is configured) stops before any
+// planning, AI call or usage charge.
+describe('r10 S1: a failed profile read stops /generate with 503 on all five paths', () => {
+  const aiUsage = require('./lib/ai-usage');
+  const cases = [
+    ['builderOnly with a ticked filter', { builderOnly: true, dietary: ['nut free'] }],
+    ['builderOnly with nothing ticked', { builderOnly: true, dietary: [] }],
+    ['a ticked filter', { dietary: ['vegan'] }],
+    ['two ticked filters', { dietary: ['gluten free', 'egg free'] }],
+    ['nothing ticked (the AI path, after consent)', { dietary: [] }],
+  ];
+  it.each(cases)('%s -> 503, 0 AI calls, no credit, no plan', async (_n, body) => {
+    aiClient.chatJson.mockReset(); aiUsage.checkAndConsume.mockClear();
+    storage.getProfile.mockRejectedValueOnce(new Error('db down'));
+    const spy = jest.spyOn(engine, 'buildPlan');
+    const res = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ days: 7, calories: 2000, protein: 120, ...body });
+    const built = spy.mock.calls.length; spy.mockRestore();
+    expect(res.status).toBe(503);
+    expect(res.body.plan).toBeUndefined();
+    expect(built).toBe(0);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+});
+
+// EQA #127 r10 S2: the plan card's meal list marks a meal we couldn't check.
+describe('r10 S2: the Not checked badge on the plan card', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+  it('the meal list shows a calm "Not checked" badge for an unchecked meal, separate from the red badge', () => {
+    const line = html.split('\n').find((l) => l.includes('allergen-badge') && l.includes('i.name'));
+    expect(line).toBeTruthy();
+    expect(line).toMatch(/w\.unchecked\)\s*\?\s*'<span class="allergen-note-badge"[^']*'\s*\+\s*escapeHtml\(UNCHECKED_NOTE\)\s*\+\s*'">Not checked<\/span> '/);
+    expect(line).toMatch(/!w\.unchecked&&!w\.notice\)\s*\?\s*'<span class="allergen-badge"/);
+  });
+  it('the calm note is plural for two or more meals', () => {
+    expect(html).toContain("We couldn't check these meals against your allergies, so check the ingredients.");
+    expect(html).toMatch(/function uncheckedNote\(n\) \{ return n > 1 \? UNCHECKED_NOTE_MANY : UNCHECKED_NOTE; \}/);
+    expect(html).toMatch(/escapeHtml\(uncheckedNote\(notes\.length\)\)/);
+  });
+});
+
+// EQA #127 r10 L: every distinct typed item is read, once, and the reading is cached.
+describe('r10 L: typed allergies past an unreadable entry', () => {
+  const words = (n) => Array.from({ length: n }, (_, i) => `qzz${i}food`);
+  it('item #17 and #40 after a non-string entry are still checked (no cap of 16)', () => {
+    const f = safety.profileFilters({ allergies: [{ x: 1 }, ...words(15), 'banana', ...words(22), 'mango'] });
+    expect(f.unreadable).toBe(true);
+    expect(f.pastBudget).toBeUndefined();
+    expect(f.allergies).toEqual(expect.arrayContaining(['banana', 'mango']));
+    const terms = safety.customTerms(f);
+    expect(terms.has('banana')).toBe(true);
+    expect(terms.has('mango')).toBe(true);
+  });
+  it('duplicates are read as one item', () => {
+    expect(safety.profileFilters({ allergies: [{ x: 1 }, ...new Array(5000).fill('kiwi')] }).allergies).toEqual(['kiwi']);
+    expect(safety.profileFilters({ allergies: new Array(5000).fill('kiwi') }).allergies).toEqual(['kiwi']);
+  });
+  it('each distinct typed item is scanned once; the second check hits the cache', () => {
+    const f = { allergies: words(30).map((w) => `${w} r10cache`) };
+    const s0 = safety.allergyScans();
+    safety.excludedFlags(f); safety.customTerms(f);
+    expect(safety.allergyScans() - s0).toBe(30);
+    safety.excludedFlags(f); safety.customTerms(f);
+    expect(safety.allergyScans() - s0).toBe(30);
   });
 });

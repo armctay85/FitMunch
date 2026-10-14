@@ -4390,11 +4390,13 @@ function allergenBadgeHtml(warnings, alert) {
  const notes = all.filter(x => x.unchecked);
  // The unreadable-list notice (main #140) and red warnings share the alert box; unchecked meals get a calm note.
  const warn = (notices.length || w.length) ? `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>${notices.map(x => '⚠ ' + escapeHtml(x.notice) + '<br>').join('')}${w.length ? '⚠ Allergen warning: ' + w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ') : ''}</div>` : '';
- const note = notes.length ? `<div class="allergen-note">${notes.slice(0, 6).map(x => escapeHtml(x.meal)).join(', ')}: ${escapeHtml(UNCHECKED_NOTE)}</div>` : '';
+ const note = notes.length ? `<div class="allergen-note">${notes.slice(0, 6).map(x => escapeHtml(x.meal)).join(', ')}: ${escapeHtml(uncheckedNote(notes.length))}</div>` : '';
  return warn + note;
 }
 const UNCHECKED_NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
-function noteToastText(notes) { return notes.slice(0, 3).map(x => x.meal).join(', ') + (notes.length > 3 ? ' and more' : '') + ': ' + UNCHECKED_NOTE; }
+const UNCHECKED_NOTE_MANY = "We couldn't check these meals against your allergies, so check the ingredients.";
+function uncheckedNote(n) { return n > 1 ? UNCHECKED_NOTE_MANY : UNCHECKED_NOTE; }
+function noteToastText(notes) { return notes.slice(0, 3).map(x => x.meal).join(', ') + (notes.length > 3 ? ' and more' : '') + ': ' + uncheckedNote(notes.length); }
 
 // The goal and calories row; hidden on typed plans with no goal or calories (EQA #135 r4 S5).
 function planMetaHtml(p, goalLabel) {

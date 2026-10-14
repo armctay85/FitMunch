@@ -36,6 +36,7 @@ module.exports = {
     '**/test_allergen_tags.js',
     '**/test_ai_meal_safety.js',
     '**/test_ai_meal_safety_pg.js',
+    '**/test_ai_meal_safety_r10_pg.js',
     '**/test_ai_allergen_stopgap.js',
     '**/test_ai_allergen_stopgap_pg.js',
     '**/test_progress_log_pg.js',
