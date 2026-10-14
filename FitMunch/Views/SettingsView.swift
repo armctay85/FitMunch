@@ -122,12 +122,12 @@ struct SettingsView: View {
                     
                     Toggle("Notifications", isOn: $viewModel.notificationsEnabled)
                         .onChange(of: viewModel.notificationsEnabled) { _, newValue in
-                            viewModel.toggleNotifications()
+                            viewModel.setNotificationsEnabled(newValue)
                         }
                     
                     Toggle("Metric Units", isOn: $viewModel.useMetricUnits)
                         .onChange(of: viewModel.useMetricUnits) { _, newValue in
-                            viewModel.toggleMetricUnits()
+                            viewModel.setMetricUnits(newValue)
                         }
                 }
 
