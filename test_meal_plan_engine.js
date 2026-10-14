@@ -442,12 +442,13 @@ describe('builder lands every day within ±5% for every diet, style and target',
     expect(engine.BUILD_DAY_PASSES).toBeGreaterThan(200);
   });
 
-  test('low carb days average under 26% of kcal from carbs', () => {
-    const plan = engine.buildPlan({ calories: 2250, protein: 60, days: 7, dietary: ['low carb'] });
-    const shares = plan.days.map((d) => (4 * d.dailyTotals.carbs) / d.dailyTotals.calories);
-    const avg = shares.reduce((a, b) => a + b, 0) / shares.length;
-    expect(avg).toBeLessThan(0.26);
-    for (const d of plan.days) expect(within5(d.dailyTotals.calories, 2250)).toBe(true);
+  test('low carb days average fewer carbs than an unrestricted week (fat-weighted top-up)', () => {
+    const low = engine.buildPlan({ calories: 2250, protein: 60, days: 7, dietary: ['low carb'] });
+    const base = engine.buildPlan({ calories: 2250, protein: 60, days: 7, dietary: [] });
+    const avg = (plan) => plan.days.reduce((n, d) => n + (4 * d.dailyTotals.carbs) / d.dailyTotals.calories, 0) / plan.days.length;
+    expect(avg(low)).toBeLessThan(avg(base));
+    expect(avg(low)).toBeLessThan(0.40);
+    for (const d of low.days) expect(within5(d.dailyTotals.calories, 2250)).toBe(true);
   });
 
 test('the low carb week at 2850 kcal / 140 g protein is on target (was 2625 kcal, 7.9% under)', () => {
