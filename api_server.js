@@ -90,6 +90,23 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
   }
 });
 
+// Meal and plan names longer than this are refused at input with a 400.
+const MAX_NAME_LENGTH = 200;
+const NAME_TOO_LONG = `Names must be ${MAX_NAME_LENGTH} characters or fewer.`;
+/** True if a meal or plan name, or a name inside its meals or foods, is over the cap. */
+function nameTooLong(body) {
+  const long = (v) => typeof v === 'string' && v.length > MAX_NAME_LENGTH;
+  const check = (o, depth) => {
+    if (!o || typeof o !== 'object' || depth > 3) return false;
+    if (long(o.name) || long(o.mealName) || long(o.title)) return true;
+    for (const key of ['meals', 'foods', 'items']) {
+      if (Array.isArray(o[key]) && o[key].some((x) => check(x, depth + 1))) return true;
+    }
+    return false;
+  };
+  return check(body, 0);
+}
+
 router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
     const profileData = { ...req.body };
@@ -105,6 +122,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 // Meal Logging API routes
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
@@ -1406,6 +1424,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
     const itemType = b.itemType || b.type || b.item_type;
     const itemId = b.itemId != null ? b.itemId : b.item_id;
     const itemData = stripNames(b.itemData || b.item_data || b.data || {});
+    if (nameTooLong(itemData)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     if (!itemType || itemId == null || itemId === '') {
       return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
     }
@@ -1466,6 +1485,7 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
@@ -1477,6 +1497,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
