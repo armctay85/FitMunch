@@ -46,6 +46,8 @@ jest.mock('./lib/ai-usage', () => {
 });
 
 const SCHEMA = `
+-- Fresh tables even on a reused test database (EQA #140 r2 L3).
+drop table if exists meal_plans, plan_assignments, user_profiles, pt_clients, workout_plans, shopping_lists, users cascade;
 create table if not exists users(id uuid primary key, email varchar(255) not null unique, name text not null, password_hash text not null,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(), last_login_at timestamptz,
   email_verified boolean default false, subscription_tier varchar(50) default 'free', subscription_expires_at timestamptz,
@@ -163,6 +165,20 @@ maybe('#140 r2 M1 on real Postgres: item #51 is still read', () => {
     expect(l.body.plans[0].allergenWarnings[0]).toEqual({ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE });
     expect(l.body.plans[0].allergenWarnings).toEqual(expect.arrayContaining([{ meal: 'Satay chicken', contains: expect.arrayContaining(['nuts']) }]));
     expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['16 junk diet items plus a fish allergy', Array.from({ length: 16 }, (_, i) => `junk diet ${i}`), ['fish']],
+    ['60 junk allergy items plus fish', [], [...Array.from({ length: 60 }, (_, i) => `junk allergy ${i}`), 'fish']],
+  ])('r3 M1: %s -> /generate serves no fish', async (_l, diet, allergies) => {
+    await profile(diet, allergies);
+    const g = await request(app).post('/api/meal-plan/generate').set('Authorization', as(U)).send({ calories: 2000, protein: 150, days: 7 });
+    expect(g.status).toBe(200);
+    expect(g.body.dietary).toContain('fish free');
+    expect(servedGroups(g.body.plan)).not.toContain('fish');
+    expect(servedGroups(g.body.plan)).not.toContain('shellfish');
+    const w = await request(app).post('/api/meal-plan/generate').set('Authorization', as(U)).send({ calories: 2000, protein: 150, days: 7, builderOnly: true });
+    expect(w.body.plan && servedGroups(w.body.plan)).not.toContain('fish');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
   it('a stored 1M-item list keeps chat, generate and the plan list under 500 ms', async () => {
     await profile([], new Array(1e6).fill('zzzz'));

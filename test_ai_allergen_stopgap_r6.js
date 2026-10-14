@@ -262,3 +262,56 @@ describe('r2 lows', () => {
     expect(badge([{ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE }])).toContain(dietGuard.UNREADABLE_NOTICE);
   });
 });
+
+// ── r3 (Elite QA #140 r2) ──
+describe('r3', () => {
+  it('M1: every "... free" filter is known and junk never pushes one out of the builder input', () => {
+    const junk = Array.from({ length: 40 }, (_, i) => `junk ${i}`);
+    const f = dietGuard.savedFilters({ dietaryPreferences: junk, allergies: ['fish'] });
+    expect(f[0]).toBe('fish free');
+    const all = dietGuard.savedFilters({ dietaryPreferences: junk, allergies: ['fish', 'peanut', 'milk', 'egg', 'soy', 'sesame', 'prawn', 'wheat'] });
+    expect(dietGuard.planFilters(all)).toEqual(expect.arrayContaining(dietGuard.ALL_FREE));
+    expect(dietGuard.planFilters(all).some((d) => d.startsWith('junk'))).toBe(false);
+  });
+  it('S1a: a stored 200k-key object is read under 500 ms and fails closed with the notice', async () => {
+    const obj = {};
+    for (let i = 0; i < 200000; i += 1) obj[`allergy-${i}`] = true;
+    const t = Date.now();
+    const f = dietGuard.savedFilters({ allergies: obj });
+    expect(Date.now() - t).toBeLessThan(500);
+    expect(dietGuard.unreadable(f)).toBe(true);
+    account({ dietaryPreferences: [], allergies: obj });
+    const { Pool } = require('pg');
+    const spy = jest.spyOn(Pool.prototype, 'query').mockResolvedValue({ rows: [{ id: 1, meals: [{ name: 'Satay chicken', foods: [] }] }] });
+    let l; const t2 = Date.now();
+    try { l = await request(app).get('/api/meal-plans').set('Authorization', token); } finally { spy.mockRestore(); }
+    expect(Date.now() - t2).toBeLessThan(500);
+    expect(l.body.plans[0].allergenWarnings[0].notice).toBe(dietGuard.UNREADABLE_NOTICE);
+  });
+  it('S1c: a string over 20k characters is never parsed', () => {
+    const big = JSON.stringify(new Array(200000).fill('peanut'));
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      const t = Date.now();
+      expect(dietGuard.listOf(big)).toEqual([dietGuard.UNREADABLE]);
+      expect(Date.now() - t).toBeLessThan(50);
+      expect(spy).not.toHaveBeenCalled();
+    } finally { spy.mockRestore(); }
+  });
+  it('L1: the notice sits on its own line, with no ".;" joiner; the toast says "check" once', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+    // eslint-disable-next-line no-new-func
+    const badge = new Function('escapeHtml', `${html.match(/function allergenBadgeHtml[\s\S]*?\n\}/)[0]}; return allergenBadgeHtml;`)((x) => String(x));
+    const out = badge([{ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE }, { meal: 'Satay chicken', contains: ['nuts'] }]);
+    expect(out).not.toContain('.;');
+    expect(out).toContain(`${dietGuard.UNREADABLE_NOTICE}<br>⚠ Allergen warning: Satay chicken contains nuts`);
+    let msg = '';
+    // eslint-disable-next-line no-new-func
+    const show = new Function('toast', `${html.match(/function showAllergenWarnings[\s\S]*?\n\}/)[0]}; return showAllergenWarnings;`)((m) => { msg = m; });
+    show({ allergenWarnings: [{ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE }, { meal: 'Satay chicken', contains: ['nuts'] }] });
+    expect((msg.match(/check/gi) || []).length).toBe(1);
+    expect(msg).not.toContain('.;');
+    show({ allergenWarnings: [{ meal: 'Satay chicken', contains: ['nuts'] }] });
+    expect(msg).toBe('Allergen warning: Satay chicken contains nuts. Check against your allergies and diet.');
+  });
+});

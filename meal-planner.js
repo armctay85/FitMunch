@@ -117,14 +117,14 @@ router.post('/generate', requireAuth, async (req, res) => {
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
     // Saved filters always apply too (read only, never written).
-    try { input.dietary = dietGuard.combineFilters(await require('./server/storage.js').getProfile(req.user.userId), input.dietary).slice(0, 16); } catch (_) { /* sent filters still apply */ }
+    try { input.dietary = dietGuard.planFilters(dietGuard.combineFilters(await require('./server/storage.js').getProfile(req.user.userId), input.dietary)); } catch (_) { /* sent filters still apply */ }
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
   // Saved filters are only read here; this route never writes the profile.
   const filteredPlan = (dietary) => {
-    input.dietary = dietary.slice(0, 16);
+    input.dietary = dietGuard.planFilters(dietary);
     return res.json({
       success: true,
       plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories),
