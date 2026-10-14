@@ -412,3 +412,21 @@ describe('Elite QA #88 r1 fixes', () => {
     expect(JSON.stringify(res.body)).not.toMatch(/woolworths|coles|price|Url/i);
   });
 });
+
+describe('Elite QA #88 r2 S2: macro check boundary (4P+4C+9F within ±15%)', () => {
+  // One dinner at 1000 kcal whose macros add to `ratio` x 1000; every other meal is exact.
+  const exact = (cal) => ({ protein: cal / 16, carbs: (cal - 4 * (cal / 16) - 9 * (cal / 40)) / 4, fat: cal / 40 });
+  const planWith = (ratio) => {
+    const p = aiPlan([500, 500, 1000, 500]);
+    for (const d of p.days) for (const k of engine.SLOTS) Object.assign(d.meals[k], exact(d.meals[k].calories));
+    const kcal = 1000 * ratio;
+    Object.assign(p.days[3].meals.dinner, { calories: 1000, protein: 50, fat: 30, carbs: (kcal - 200 - 270) / 4 });
+    return p;
+  };
+  it.each([1.0, 1.14, 0.86, 1.149, 0.851])('macros at %sx calories pass', (ratio) => {
+    expect(engine.normaliseAiPlan(planWith(ratio), { calories: 2500, days: 7 }).ok).toBe(true);
+  });
+  it.each([1.16, 0.84, 1.151, 0.849, 1.5])('macros at %sx calories -> meal_macros_mismatch', (ratio) => {
+    expect(engine.normaliseAiPlan(planWith(ratio), { calories: 2500, days: 7 })).toEqual({ ok: false, reason: 'meal_macros_mismatch' });
+  });
+});

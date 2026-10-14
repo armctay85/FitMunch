@@ -791,9 +791,8 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ PT: SHOPPING LISTS ══ -->
 <div class="view" id="view-shopping-lists">
  <div class="view-header">
- <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for Woolies or Coles. The Fitness Butler shopper drafts a week trolley. Prices vary by store and week.</div></div>
+ <div><div class="view-title">🛒 Shopping Lists</div><div class="view-sub" id="sl-sub">Your lists, ready for your next shop. Prices vary by store and week.</div></div>
  <div class="view-actions">
- <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
  <button class="btn btn-ghost2 btn-sm" onclick="nav('meal-plans')" title="Generate from AI plan">+ From AI plan</button>
  <button class="btn btn-green btn-sm" onclick="openModal('modal-manual-list')">+ Manual list</button>
  </div>
@@ -811,12 +810,6 @@ html.fm-authed #app-gate{display:none}
  </div>
  </div>
  <div style="display:flex;gap:6px">
- <a id="sl-woolies-link" href="https://www.woolworths.com.au" target="_blank" style="text-decoration:none">
- <button class="btn btn-ghost2 btn-sm">🟢 Shop Woolies</button>
- </a>
- <a id="sl-coles-link" href="https://www.coles.com.au" target="_blank" style="text-decoration:none">
- <button class="btn btn-ghost2 btn-sm">🔴 Shop Coles</button>
- </a>
  <button class="btn btn-green btn-sm" onclick="saveAiList()">💾 Save list</button>
  </div>
  </div>
@@ -855,7 +848,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" data-coach-card="coach-39">
  <div class="card-body">
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Coach Solo</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$39<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$39<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Up to 10 clients. 14-day trial.</div>
  <button class="btn btn-ghost2 coach-select" style="display:block;width:100%;min-height:44px" data-coach-plan="coach-39" onclick="startCheckout('coach-39', this)">Select</button>
  </div>
@@ -863,7 +856,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" data-coach-card="coach-79">
  <div class="card-body">
  <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Coach Pro</div>
- <div style="font-size:1.3rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$79<span style="font-size:.78rem;font-weight:500;color:var(--text2)"> a month</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$79<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <div style="font-size:.75rem;color:var(--text2);margin:8px 0">Unlimited clients. 14-day trial.</div>
  <button class="btn btn-ghost2 coach-select" style="display:block;width:100%;min-height:44px" data-coach-plan="coach-79" onclick="startCheckout('coach-79', this)">Select</button>
  </div>
@@ -875,7 +868,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" style="border:1px solid var(--leaf)">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Premium</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)">/mo AUD</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li><strong>Unlimited</strong> AI coach chat</li>
  <li><strong>Unlimited</strong> meal and workout plans</li>
@@ -986,7 +979,7 @@ html.fm-authed #app-gate{display:none}
  <div style="padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:8px">
  <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--green2)">📸 Start here</div>
  <div style="font-size:1.02rem;font-weight:800;color:#14532d;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Scan your first receipt</div>
- <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your Woolies or Coles receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
+ <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your grocery receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
  <button class="btn btn-green" style="align-self:flex-start;margin-top:6px" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
  </div>
  <img src="/assets/fm-receipt-scan.webp" alt="" loading="lazy" style="width:100%;height:100%;min-height:170px;object-fit:cover;display:block"/>
@@ -1016,7 +1009,7 @@ html.fm-authed #app-gate{display:none}
  <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein Woolies shop for the week')">Build me a high-protein Woolies shop</button>
+ <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein shop for the week')">Build me a high-protein shop</button>
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('I keep snacking at 9pm. How do I stop?')">I keep snacking at 9pm. How do I stop?</button>
  </div>
  </div>
@@ -1172,9 +1165,8 @@ html.fm-authed #app-gate{display:none}
 <!-- ══ CLIENT: SHOPPING LIST ══ -->
 <div class="view" id="view-portal-shopping">
  <div class="view-header">
- <div><div class="view-title">Shopping List</div><div class="view-sub">Generated from your assigned meal plan. Or open the Fitness Butler shopper for a week trolley.</div></div>
+ <div><div class="view-title">Shopping List</div><div class="view-sub">Generated from your assigned meal plan.</div></div>
  <div class="view-actions">
- <a class="btn btn-ghost2 btn-sm" href="/shopper" style="text-decoration:none">Fitness Butler shopper</a>
  </div>
  </div>
  <div class="scroll-body" id="portal-shopping-body">
@@ -1208,7 +1200,7 @@ html.fm-authed #app-gate{display:none}
  style="border:2px dashed rgba(31,157,74,.28);border-radius:10px;padding:24px 20px;text-align:center;background:rgba(31,157,74,.08);transition:all .15s">
  <div style="font-size:32px;margin-bottom:8px">📸</div>
  <div style="font-size:.88rem;font-weight:700;color:var(--green2);margin-bottom:4px">Scan your supermarket receipt</div>
- <div style="font-size:.75rem;color:var(--text3);margin-bottom:14px">JPG or PNG preferred (HEIC may need a retake). Max ~20MB original. Woolies, Coles, Aldi, IGA.</div>
+ <div style="font-size:.75rem;color:var(--text3);margin-bottom:14px">JPG or PNG preferred (HEIC may need a retake). Max ~20MB original. Any supermarket receipt.</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button type="button" class="btn btn-green" style="width:100%" onclick="openReceiptCamera(event)">📷 Take a photo</button>
  <button type="button" class="btn btn-ghost2" style="width:100%" onclick="openReceiptLibrary(event)">🖼 Choose from library</button>
@@ -1250,7 +1242,7 @@ html.fm-authed #app-gate{display:none}
  <div id="scan-empty" class="receipt-empty-panel">
  <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));border:1px solid rgba(31,157,74,.28);display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:14px">🧾</div>
  <div style="font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Your macro breakdown appears here</div>
- <div style="font-size:.78rem;color:var(--text3);line-height:1.55;max-width:280px;margin:0 auto 14px">Take a photo or choose a Woolies / Coles / Aldi / IGA / Costco receipt. We'll score the haul and list protein, calories, carbs and fat.</div>
+ <div style="font-size:.78rem;color:var(--text3);line-height:1.55;max-width:280px;margin:0 auto 14px">Take a photo or choose a supermarket receipt. We'll score the haul and list protein, calories, carbs and fat.</div>
  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
  <button type="button" class="btn btn-green btn-sm" onclick="openReceiptCamera(event)">📷 Take photo</button>
  <button type="button" class="btn btn-ghost2 btn-sm" onclick="openReceiptLibrary(event)">🖼 Library</button>
@@ -1525,7 +1517,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-manual-list" onclick="closeOnOverlay(event)">
  <div class="modal">
  <div class="modal-title">New Shopping List<button class="modal-close" onclick="closeModal('modal-manual-list')">✕</button></div>
- <div class="form-field"><label class="form-label">List name</label><input class="form-input" id="manual-list-name" placeholder="e.g. Woolies Sunday run"/></div>
+ <div class="form-field"><label class="form-label">List name</label><input class="form-input" id="manual-list-name" placeholder="e.g. Sunday shop"/></div>
  <div class="form-field" style="margin-top:10px"><label class="form-label">Items (one per line)</label>
  <textarea class="form-input" id="manual-list-items" rows="6" placeholder="Chicken breast 1kg&#10;Oats 750g&#10;Greek yoghurt&#10;Broccoli 2x&#10;Eggs dozen"></textarea>
  </div>
@@ -1781,6 +1773,8 @@ async function boot() {
  document.getElementById('sidebar-pt').style.display = 'flex';
  setupPT();
  }
+ // Deep link: /app.html#shopping opens the shopping list.
+ if (location.hash === '#shopping') setTimeout(() => nav(S.role === 'client' ? 'portal-shopping' : 'shopping-lists'), 0);
  } catch { logout(); }
 }
 
@@ -2213,7 +2207,7 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${i.calories||0} cal · P:${i.protein||0}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
  return `<div class="plan-card">
@@ -2274,15 +2268,15 @@ function _exerciseRowHtml(idx, ex, containerId) {
  return `<div id="exrow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
  <button onclick="document.getElementById('exrow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:40px 1fr;gap:6px;margin-bottom:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Day</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" max="7" value="${ex.day||1}" data-field="day"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Exercise Name</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Squat" value="${ex.name||''}" data-field="name"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Day</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" max="7" value="${Number(ex.day)||1}" data-field="day"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Exercise Name</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Squat" value="${escapeHtml(ex.name||'')}" data-field="name"/></div>
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
- <div><label style="font-size:.7rem;color:var(--text3)">Sets</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" value="${ex.sets||3}" data-field="sets"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Reps</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. 8 or 8-12" value="${ex.reps||''}" data-field="reps"/></div>
- <div><label style="font-size:.7rem;color:var(--text3)">Rest (sec)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${ex.rest||90}" data-field="rest"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Sets</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="1" value="${Number(ex.sets)||3}" data-field="sets"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Reps</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. 8 or 8-12" value="${escapeHtml(ex.reps||'')}" data-field="reps"/></div>
+ <div><label style="font-size:.7rem;color:var(--text3)">Rest (sec)</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" type="number" min="0" value="${Number(ex.rest)||(ex.rest===0?0:90)}" data-field="rest"/></div>
  </div>
- ${ex.notes !== undefined ? `<div style="margin-top:6px"><label style="font-size:.7rem;color:var(--text3)">Notes</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. use barbell, go slow" value="${ex.notes||''}" data-field="notes"/></div>` : ''}
+ ${ex.notes !== undefined ? `<div style="margin-top:6px"><label style="font-size:.7rem;color:var(--text3)">Notes</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. use barbell, go slow" value="${escapeHtml(ex.notes||'')}" data-field="notes"/></div>` : ''}
  </div>`;
 }
 
@@ -2345,19 +2339,19 @@ async function loadWorkoutPlans() {
  const dayGroups = {};
  exs.forEach(e => { if (!dayGroups[e.day]) dayGroups[e.day]=[]; dayGroups[e.day].push(e); });
  const exHtml = Object.keys(dayGroups).sort((a,b)=>a-b).map(d =>
- `<div style="margin-top:8px"><div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:3px">Day ${d}</div>${
- dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(e.name)} - ${e.sets}×${e.reps||'reps'}${e.rest?' · '+e.rest+'s rest':''}</div>`).join('')
+ `<div style="margin-top:8px"><div style="font-size:.7rem;font-weight:700;color:var(--accent);margin-bottom:3px">Day ${escapeHtml(d)}</div>${
+ dayGroups[d].map(e=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(e.name)} - ${escapeHtml(e.sets)}×${escapeHtml(e.reps||'reps')}${e.rest?' · '+escapeHtml(e.rest)+'s rest':''}</div>`).join('')
  }</div>`
  ).join('');
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
- <div class="plan-card-meta">${p.level||'intermediate'} · ${p.frequency||3} days/week</div>
+ <div class="plan-card-meta">${escapeHtml(p.level||'intermediate')} · ${escapeHtml(p.frequency||3)} days/week</div>
  ${p.description ? `<div style="font-size:.75rem;color:var(--text3);margin-top:4px">${escapeHtml(p.description)}</div>` : ''}
  ${exs.length ? `<div style="margin-top:8px;max-height:160px;overflow-y:auto">${exHtml}</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No exercises yet - tap below to add.</div>`}
  <div class="plan-card-footer" style="flex-wrap:wrap;gap:6px">
  <span class="tag tag-blue">Workout</span>
- <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${p.id},&quot;${(p.name||'Plan').replace(/"/g,'')}&quot;,${p.frequency||3})">💪 Exercises</button>
- <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${p.id}, event)">✕</button>
+ <button class="btn btn-ghost2 btn-sm" onclick="openExerciseBuilder(${Number(p.id)},${escapeHtml(JSON.stringify(String(p.name||'Plan')))},${Number(p.frequency)||3})">💪 Exercises</button>
+ <button class="btn btn-red btn-sm" style="margin-left:auto" onclick="deleteWorkoutPlan(${Number(p.id)}, event)">✕</button>
  </div>
  </div>`;
  }).join('');
@@ -2430,13 +2424,13 @@ function _renderExList() {
  return;
  }
  el.innerHTML = dayExs.map(e =>
- `<div id="ex-item-${e._id}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
+ `<div id="ex-item-${Number(e._id)}" style="display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:6px">
  <div style="flex:1;min-width:0">
  <div style="font-weight:600;font-size:.85rem;color:var(--text1)">${escapeHtml(e.name)}</div>
- <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${e.sets||3} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + e.rest + 's rest' : ''}</div>
+ <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${escapeHtml(e.sets||3)} sets × ${escapeHtml(e.reps||' - ')}${e.rest ? ' · ' + escapeHtml(e.rest) + 's rest' : ''}</div>
  ${e.notes ? `<div style="font-size:.7rem;color:var(--text3);font-style:italic;margin-top:2px">${escapeHtml(e.notes)}</div>` : ''}
  </div>
- <button onclick="_removeExercise(${e._id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
+ <button onclick="_removeExercise(${Number(e._id)})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;line-height:1;padding:0;flex-shrink:0">✕</button>
  </div>`
  ).join('');
 }
@@ -2514,7 +2508,7 @@ function renderShoppingLists(lists, targetId) {
  const el = document.getElementById(targetId);
  if (!el) return;
  if (!lists.length) {
- el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build a Woolies/Coles ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
+ el.innerHTML = `<div class="empty-state"><div class="ei">🛒</div><div class="et">No shopping lists yet</div><div class="es">Generate a meal plan first - we'll build the ingredient list.</div><button class="btn btn-green ea" onclick="nav('meal-plans')">Build meal plan →</button></div>`;
  return;
  }
  el.innerHTML = lists.map(list => `
@@ -2727,7 +2721,7 @@ function renderPortalPlan() {
  <div class="portal-plan-meta">${escapeHtml(mealPlan.total_calories||0)} calories/day target</div>
  <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('portal-shopping')">🛒 View Shopping List</button></div>
  </div>`;
- } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with Woolies/Coles foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
+ } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
  <div class="portal-plan-name">${escapeHtml(workoutPlan.workout_plan_name||'Workout Plan')}</div>
@@ -3223,7 +3217,7 @@ function clearReceipt() {
  document.getElementById('receipt-drop-zone').style.display = '';
  document.getElementById('scan-results').style.display = 'none';
  document.getElementById('scan-empty').style.display = '';
- document.getElementById('scan-empty').innerHTML = '<div style="font-size:36px;margin-bottom:12px">🧾</div><div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div><div style="font-size:.78rem;color:var(--text3)">Works with Woolworths, Coles, Aldi, IGA, Costco</div>';
+ document.getElementById('scan-empty').innerHTML = '<div style="font-size:36px;margin-bottom:12px">🧾</div><div style="font-size:.88rem;font-weight:600;color:var(--text2);margin-bottom:4px">Upload a receipt to get started</div><div style="font-size:.78rem;color:var(--text3)">Works with any supermarket receipt</div>';
  document.getElementById('share-card').style.display = 'none';
  const logBox = document.getElementById('scan-log-meals-box');
  if (logBox) logBox.style.display = 'none';
@@ -3982,6 +3976,8 @@ async function loadCoachBilling() {
  if (!isPt) return;
  const title = document.querySelector('#view-billing .view-title');
  if (title) title.textContent = 'Billing';
+ const sub = document.querySelector('#view-billing .view-sub');
+ if (sub) sub.textContent = 'Coach plans for trainers. 14-day trial. Manage or cancel any time.';
  const statusEl = document.getElementById('billing-coach-status');
  const manage = document.getElementById('billing-coach-manage');
  try {
@@ -4010,7 +4006,7 @@ async function openBillingPortal(button) {
  if (button) button.disabled = true;
  billingPortalInFlight = (async () => {
  try {
- const r = await API('/billing-portal', { method: 'POST', body: '{}' });
+ const r = await API('/billing-portal', { method: 'POST', body: JSON.stringify({ returnTo: 'app' }) });
  if (r && r.url) { window.location.href = r.url; return; }
  toast('Billing portal unavailable. Please try again.', 'error');
  } catch (e) {

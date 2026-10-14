@@ -105,8 +105,8 @@
       });
       days.appendChild(block);
     });
-    const shopping = (plan.plan && plan.plan.shopping) || { lines: [], storeName: '' };
-    $('coach-store-heading').textContent = plain(shopping.storeName, 'Store') + ' draft list';
+    const shopping = (plan.plan && plan.plan.shopping) || { lines: [] };
+    $('coach-store-heading').textContent = 'Draft list';
     const list = $('coach-list');
     list.replaceChildren();
     (shopping.lines || []).forEach((line) => {
@@ -217,7 +217,6 @@
           fat: Number($('coach-fat').value),
           flags: flags(),
           householdSize: Number($('coach-household').value),
-          storeId: $('coach-store').value,
           source: 'manual',
         }),
       });

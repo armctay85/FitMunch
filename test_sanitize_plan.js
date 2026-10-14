@@ -172,7 +172,6 @@ describe('sanitizePlan', () => {
     expect(clean.priceNote).toBe(CURRENT_NOTE);
     expect(clean.shopping.lines).toEqual([
       {
-        store: 'Coles',
         name: 'Chicken breast 1kg',
         aisle: 'Meat',
         packs: 2,
@@ -196,7 +195,10 @@ describe('sanitizePlan', () => {
   it('leaves a new-style list item unchanged', () => {
     const stored = freshPlan();
     const clean = sanitizePlan(stored);
-    expect(clean.shopping.lines).toEqual(stored.shopping.lines);
+    expect(clean.shopping.lines).toEqual(stored.shopping.lines.map(({ store: _s, ...rest }) => rest));
+    expect(clean.storeId).toBeUndefined();
+    expect(clean.shopping.storeId).toBeUndefined();
+    expect(clean.shopping.storeName).toBeUndefined();
     expect(clean.days[0].meals[0].ingredients).toEqual(stored.days[0].meals[0].ingredients);
     expect(clean.priceNote).toBe(CURRENT_NOTE);
   });
@@ -337,10 +339,12 @@ describe('saved coach plans on the share page and PDF', () => {
     expect(pdfText).toContain('1000');
     forbidden(pdfText);
 
+    // Read back through the store, an old row is cleaned too.
     const stored = await store.getPlan(sent.id, sent.ptId);
-    expect(stored.plan.priceNote).toBe(OLD_NOTE);
-    expect(stored.plan.shopping.totalAud).toBe(36.8);
-    expect(stored.plan.catalogue.id).toBe(CATALOGUE.id);
+    expect(stored.plan.priceNote).toBe(CURRENT_NOTE);
+    expect(stored.plan.shopping.totalAud).toBeUndefined();
+    expect(stored.plan.catalogue).toBeUndefined();
+    expect(stored.storeId).toBeUndefined();
   });
 
   it('renders a new-style plan with the same items, aisles and amounts', async () => {
@@ -425,8 +429,8 @@ describe('saved coach plans on the share page and PDF', () => {
       expect(json).not.toContain('Estimated from public');
     }
     const stored = await store.getPlan(row.id, row.ptId);
-    expect(stored.plan.priceNote).toBe(OLD_NOTE);
-    expect(stored.plan.shopping.totalAud).toBe(36.8);
+    expect(stored.plan.priceNote).toBe(CURRENT_NOTE);
+    expect(stored.plan.shopping.totalAud).toBeUndefined();
   });
 });
 
