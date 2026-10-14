@@ -76,6 +76,8 @@ function planInput(body) {
   const unknown = dietary.filter((d) => !planEngine.DIET_FILTERS.includes(d));
   if (unknown.length) return { error: `Unknown dietary filter: ${unknown.slice(0, 3).join(', ').slice(0, 80)}.` };
   if (dietary.length > 12) return { error: 'Too many dietary filters.' };
+  // Only these fields reach the builder and the AI prompt. FitMunch doesn't plan to a price, so a
+  // `budget` (or any other extra field) from an older client is dropped here.
   return { calories, protein, days, goal, dietary };
 }
 
@@ -273,3 +275,4 @@ router.get('/generate', (_req, res) => res.json({
 module.exports = router;
 // Read by the store-name sweep test.
 router.AI_PROMPTS = { planPrompt };
+router.planInput = planInput;
