@@ -134,9 +134,8 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
     delete profileData.userId; // ignore body userId — use token
     // #127a: filters must be a string or a list of strings; any other shape would hide an allergy.
     for (const k of ['allergies', 'dietaryPreferences']) {
-      if (!dietGuard.wellFormedFilters(profileData[k])) {
-        return res.status(400).json({ success: false, error: 'Allergies and diet filters must be a list of words, like ["peanut"].' });
-      }
+      const filterError = dietGuard.filterSaveError(profileData[k]);
+      if (filterError) return res.status(400).json({ success: false, error: filterError });
     }
     // A form may send the profile's updatedAt it loaded; if filters are saved and the profile changed
     // since (a generate added a ticked filter), 409 instead of silently dropping it (EQA #141 r2 M1).
@@ -1515,6 +1514,8 @@ function mealWarnings(meals, filters) {
     const groups = require('./lib/diet-guard').brokenGroups(JSON.stringify(m), filters);
     if (groups.length) out.push({ meal: String(m.name || m.title || 'Meal').slice(0, 80), contains: groups });
   }
+  // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
+  if (require('./lib/diet-guard').unreadable(filters)) out.unshift({ meal: '', contains: [], notice: require('./lib/diet-guard').UNREADABLE_NOTICE });
   return out.slice(0, 50);
 }
 async function typedMealWarnings(userId, meals) {
@@ -1782,8 +1783,9 @@ const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', main
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
 const listOf = (v) => {
   let x = v;
-  if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
-  return Array.isArray(x) ? x.map((s) => String(s).trim()).filter(Boolean).slice(0, 6) : [];
+  if (typeof x === 'string') { if (x.length > 6000) return []; try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+  // Read at most 50 items (EQA #135 r5 S1); only the first 6 reach the prompt.
+  return Array.isArray(x) ? x.slice(0, 50).map((s) => String(s).trim().slice(0, 100)).filter(Boolean).slice(0, 6) : [];
 };
 
 /**
@@ -2321,6 +2323,7 @@ router.post('/pt-leads', async (req, res) => {
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }

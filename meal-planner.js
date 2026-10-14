@@ -70,6 +70,8 @@ function planInput(body) {
   if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
+  // Stop before reading an oversized list (EQA #135 r5 S1): at most 50 items.
+  if (Array.isArray(b.dietary) && b.dietary.length > dietGuard.MAX_FILTERS) return { error: 'Too many dietary filters.' };
   // merge: #135 drops null-ish entries first; #125 then rejects anything else that isn't a known filter name.
   const rawDiet = Array.isArray(b.dietary) ? b.dietary.filter((d) => !(d === null || d === undefined || (typeof d === 'string' && ['', 'null', 'undefined', 'none'].includes(d.trim().toLowerCase())))) : b.dietary;
   if (rawDiet !== undefined && rawDiet !== null && (!Array.isArray(rawDiet) || rawDiet.some((d) => typeof d !== 'string'))) {
@@ -131,7 +133,8 @@ function allergiesWith(v, added) {
  */
 function filterPatch(stored, sent) {
   const p = stored || {};
-  const have = dietGuard.savedFilters(p);
+  // Readable saved filters only: an unreadable list's ALL_FREE expansion must not count as saved (QA).
+  const have = planEngine.normaliseDiet([...dietGuard.listOf(p.dietaryPreferences), ...dietGuard.allergyDiets(p.allergies)]);
   const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !have.includes(d));
   if (!added.length) return null;
   const diet = cleanDietList(p.dietaryPreferences);
@@ -161,7 +164,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     try {
       const profile = await require('./server/storage.js').getProfile(req.user.userId);
       await rememberFilters(req.user.userId, input.dietary);
-      input.dietary = dietGuard.combineFilters(profile, input.dietary).slice(0, 16);
+      input.dietary = dietGuard.planFilters(dietGuard.combineFilters(profile, input.dietary));
     } catch (_) { /* sent filters still apply */ }
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     return res.json({ success: true, plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories), source: 'builder' });
@@ -170,12 +173,12 @@ router.post('/generate', requireAuth, async (req, res) => {
   // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
   // weekly review see them too and stay off the AI (live hotfix after #135).
   const filteredPlan = (dietary) => {
-    input.dietary = dietary.slice(0, 16);
+    input.dietary = dietGuard.planFilters(dietary);
     return res.json({
       success: true,
       plan: planEngine.withSwaps(planEngine.buildPlan(input), input.dietary, input.calories),
       source: 'builder',
-      notice: dietGuard.PLAN_NOTICE,
+      notice: dietGuard.unreadable(dietary) ? `${dietGuard.UNREADABLE_NOTICE} ${dietGuard.PLAN_NOTICE}` : dietGuard.PLAN_NOTICE,
       dietary: input.dietary,
     });
   };
