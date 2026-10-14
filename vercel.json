@@ -46,6 +46,26 @@
       "source": "/try",
       "destination": "/#proof",
       "statusCode": 301
+    },
+    {
+      "source": "/shopper",
+      "destination": "/app.html#shopping",
+      "statusCode": 301
+    },
+    {
+      "source": "/shopper.html",
+      "destination": "/app.html#shopping",
+      "statusCode": 301
+    },
+    {
+      "source": "/fitness-butler",
+      "destination": "/app.html#shopping",
+      "statusCode": 301
+    },
+    {
+      "source": "/butler",
+      "destination": "/app.html#shopping",
+      "statusCode": 301
     }
   ],
   "rewrites": [
@@ -390,15 +410,6 @@
     },
     {
       "source": "/refund.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        }
-      ]
-    },
-    {
-      "source": "/shopper.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

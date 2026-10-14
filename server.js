@@ -7,7 +7,7 @@ const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/public-error');
-const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const { attachApiJsonSanitizer, sendStripeJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
@@ -308,7 +308,7 @@ app.use('/api/receipt', receiptScanner);
 const mealPlanner = require('./meal-planner');
 app.use('/api/meal-plan', mealPlanner);
 
-// Fitness Butler shopper (public specials, draft trolley, takeaway checkout)
+// Shopper API retired: every endpoint answers 410 Gone.
 const shopperApi = require('./shopper');
 app.use('/api/shopper', shopperApi);
 
@@ -333,9 +333,10 @@ app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planne
 app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
 app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { root: 'public' }));
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
-app.get('/shopper', (req, res) => res.sendFile('shopper.html', { root: 'public' }));
-app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
-app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
+// Shopper retired: page and old aliases 301 to the in-app shopping list.
+for (const route of ['/shopper', '/shopper.html', '/fitness-butler', '/butler']) {
+  app.get(route, (req, res) => res.redirect(301, '/app.html#shopping'));
+}
 // /demo retired: the homepage worked example (#proof) replaces it.
 app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#proof'));
 // SEO pack 2 landers (new routes only)
@@ -536,7 +537,7 @@ app.post('/api/stripe/checkout-sessions', checkoutSessionsLimiter, async (req, r
       })
     );
 
-    res.json({
+    sendStripeJson(res, {
       success: true,
       url: result.url,
       id: result.id
@@ -761,7 +762,7 @@ app.post('/api/quick-checkout', async (req, res) => {
       })
     );
     const { TRIAL_USED_COPY } = require('./server/email.js');
-    return res.json({
+    return sendStripeJson(res, {
       success: true,
       url: result.url,
       id: result.id,
@@ -829,7 +830,7 @@ app.post('/api/checkout', async (req, res) => {
       });
     });
 
-    res.json(checkoutJson(result));
+    sendStripeJson(res, checkoutJson(result));
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
@@ -923,7 +924,7 @@ app.post('/api/coach/checkout', async (req, res) => {
           message: result.message,
         });
       }
-      return res.json({ success: true, ...checkoutJson(result) });
+      return sendStripeJson(res, { success: true, ...checkoutJson(result) });
     }
 
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -944,7 +945,7 @@ app.post('/api/coach/checkout', async (req, res) => {
         cancelPath: coachBilling.COACH_CANCEL_PATH,
       })
     );
-    return res.json({ success: true, url: result.url, id: result.id });
+    return sendStripeJson(res, { success: true, url: result.url, id: result.id });
   } catch (err) {
     if (sendAuthError(err, res)) return;
     if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
@@ -1253,14 +1254,17 @@ app.post('/api/billing-portal', async (req, res) => {
     if (!customerId) return res.status(400).json({ error: 'No billing account for this user.' });
 
     const origin = checkoutOrigin(req);
+    // In-app opens return to Billing in the app; other callers keep /pricing.
+    const inApp = req.body && req.body.returnTo === 'app';
+    const returnPath = inApp ? '/app.html#billing' : '/pricing';
     const portal = await stripe.billingPortal.sessions.create(
       {
         customer: customerId,
-        return_url: `${origin}/pricing`,
+        return_url: `${origin}${returnPath}`,
       },
-      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId]) }
+      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
-    res.json({ success: true, url: portal.url });
+    sendStripeJson(res, { success: true, url: portal.url });
   } catch (e) {
     if (sendAuthError(e, res)) return;
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });

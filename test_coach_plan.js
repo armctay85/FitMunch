@@ -37,17 +37,17 @@ describe('Coach plan builder', () => {
       expect(day.kcal).toBeLessThan(2600);
       expect(day.meals.length).toBeGreaterThan(2);
     }
-    expect(plan.shopping.storeName).toBe('Woolworths');
     expect(plan.shopping.lines.length).toBeGreaterThan(5);
-    expect(plan.shopping.lines.every((line) => line.priced && line.lineAud > 0)).toBe(true);
-    const cents = plan.shopping.lines.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
-    expect(plan.shopping.totalCents).toBe(cents);
-    expect(plan.shopping.note).toBe('Prices vary by store and week.');
-    expect(plan.priceNote).toBe(coach.PRICE_NOTE);
+    // Coach plans carry no prices, totals, specials, catalogue or store id.
+    expect(Object.keys(plan.shopping)).toEqual(['lines']);
+    for (const line of plan.shopping.lines) expect(Object.keys(line).sort()).toEqual(['aisle', 'amount', 'name', 'packs', 'unit']);
+    expect(plan.priceNote).toBeUndefined();
+    expect(plan.catalogue).toBeUndefined();
+    expect(plan.storeId).toBeUndefined();
     expect(plan.dietitianLine).toBe('See a dietitian for medical nutrition.');
     expect(plan.honesty.trolleyApi).toBe(false);
     expect(plan.honesty.ordersPlaced).toBe(false);
-    expect(plan.honesty.pricesFrom).toBe('public_specials_catalogue');
+    expect(plan.honesty.pricesFrom).toBeUndefined();
   });
 
   it('drops animal foods for a vegan plan and scales the household list', () => {
@@ -58,17 +58,15 @@ describe('Coach plan builder', () => {
     }
     const one = coach.buildCoachPlan(base);
     const two = coach.buildCoachPlan({ ...base, householdSize: 2 });
-    expect(two.shopping.totalCents).toBeGreaterThan(one.shopping.totalCents);
+    const packs = (p) => p.shopping.lines.reduce((n, l) => n + (Number(l.packs) || 0), 0);
+    expect(packs(two)).toBeGreaterThan(packs(one));
   });
 
-  it('prices only the chosen store and leaves Aldi gaps unpriced', () => {
+  it('any store choice gives the same unpriced list with no store id', () => {
     const aldi = coach.buildCoachPlan({ ...base, storeId: 'aldi' });
-    expect(aldi.shopping.storeId).toBe('aldi');
-    expect(aldi.shopping.unpricedCount).toBeGreaterThan(0);
-    expect(aldi.shopping.lines.some((line) => line.priced === false && line.lineAud == null)).toBe(true);
-    const priced = aldi.shopping.lines.filter((line) => line.priced);
-    const cents = priced.reduce((sum, line) => sum + Math.round(line.lineAud * 100), 0);
-    expect(aldi.shopping.totalCents).toBe(cents);
+    expect(aldi.shopping.storeId).toBeUndefined();
+    expect(aldi.storeId).toBeUndefined();
+    expect(JSON.stringify(aldi)).not.toMatch(/lineAud|unitAud|onSpecial|totalAud|totalCents|unpriced|au-public-specials|priced/);
   });
 
   it('reads adherence and targets from meal logs', () => {
@@ -198,10 +196,16 @@ describe('Coach plan HTTP', () => {
       })
       .expect(201);
     expect(created.body.plan.status).toBe('draft');
+    // Real coach-api response and the saved row: no store, price, total, special or catalogue.
+    const leak = (v) => JSON.stringify(v).match(/"(totalAud|totalCents|lineAud|unitAud|onSpecial|priced|unpricedCount|catalogue|pricesFrom|sourceKind|storeId|storeName|store)"|au-public-specials|\bw35\b|woolworths|\bcoles\b|\baldi\b/i);
+    expect(leak(created.body)).toBeNull();
+    const savedRow = await require('./lib/coach-store').getPlan(created.body.plan.id, created.body.plan.ptId);
+    expect(leak(savedRow)).toBeNull();
     expect(created.body.plan.adherence.daysLogged).toBe(4);
     expect(created.body.gate.hook).toBe('coach.clientCountGate');
     expect(created.body.gate.installed).toBe(false);
-    expect(created.body.plan.plan.shopping.storeName).toBe('Coles');
+    expect(created.body.plan.plan.shopping.storeName).toBeUndefined();
+    expect(created.body.plan.storeId).toBeUndefined();
     expect(created.body.plan.plan.priceNote).toBe('Prices vary by store and week.');
     expect(created.body.plan.plan.catalogue).toBeUndefined();
     expect(JSON.stringify(created.body.plan.plan)).not.toContain('2026-08-25');
@@ -222,7 +226,7 @@ describe('Coach plan HTTP', () => {
     expect(share.text).not.toContain(priceEstimateNote(CATALOGUE));
     expect(share.text).not.toContain('2026-08-25');
     expect(share.text).toContain('See a dietitian for medical nutrition.');
-    expect(share.text).toContain('Coles draft list');
+    expect(share.text).toContain('Supermarket draft list');
     expect(share.text).not.toContain('Coles total');
     expect(share.headers['x-robots-tag']).toBe('noindex');
 
@@ -300,8 +304,7 @@ describe('Coach plan HTTP', () => {
     expect(read('lib/coach-plan.js')).not.toMatch(/require\(['"]stripe['"]\)/);
     expect(read('coach-api.js')).not.toMatch(/require\(['"]stripe['"]\)/);
     const home = await request(app).get('/').expect(200);
-    expect(home.text).toContain('<h1>Your body wrote the trolley.</h1>');
-    const shopper = await request(app).get('/shopper').expect(200);
-    expect(shopper.text).toContain('$19.99 a month');
+    expect(home.text).toContain('<h1>Your week of meals, planned to your macros.</h1>');
+    await request(app).get('/shopper').expect(301).expect('Location', '/app.html#shopping');
   });
 });

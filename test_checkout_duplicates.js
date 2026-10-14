@@ -539,6 +539,35 @@ describe('checkout entry guards', () => {
   });
 });
 
+describe('Stripe urls and ids are not touched by the API sanitizer', () => {
+  const ID = 'cs_live_GrokXaIgeminiOpenAI';
+  const URL = 'https://checkout.stripe.com/c/pay/cs_live_GrokXaIgeminiOpenAI#fidXAIanthropic';
+  const PORTAL = 'https://billing.stripe.com/p/session/live_GROKgemini42';
+  beforeEach(() => {
+    const raw = fake.rawRequest.getMockImplementation();
+    fake.rawRequest.mockImplementation(async (...a) => {
+      const out = await raw(...a);
+      if (out && out.url) return { ...out, url: URL, id: ID };
+      return out;
+    });
+    fake.billingPortal.sessions.create.mockImplementation(async () => ({ url: PORTAL }));
+  });
+  test('/api/checkout', async () => {
+    const res = await post().expect(200);
+    expect(res.body.url).toBe(URL);
+    expect(res.body.id).toBe(ID);
+  });
+  test('/api/quick-checkout', async () => {
+    const res = await request(app).post('/api/quick-checkout').send({ email: 'steph@example.com', plan: 'premium' }).expect(200);
+    expect(res.body.url).toBe(URL);
+    expect(res.body.id).toBe(ID);
+  });
+  test('/api/billing-portal', async () => {
+    const res = await request(app).post('/api/billing-portal').set('Authorization', `Bearer ${tokenFor('u1')}`).send({}).expect(200);
+    expect(res.body.url).toBe(PORTAL);
+  });
+});
+
 describe('billing portal auth', () => {
   test('logged out is 401 and ignores a customer id in the body', async () => {
     const res = await request(app).post('/api/billing-portal')
@@ -1827,5 +1856,60 @@ describe('#83 follow-ups', () => {
         counters.setSharedCounterQueryForTests(null);
       }
     }
+  });
+});
+
+describe('#98 lows: limiter attached at the route', () => {
+  const counters = require('./lib/shared-counters');
+  const body = (i) => ({
+    priceId: PRICE_IDS.premium,
+    customerId: 'cus_existing',
+    successUrl: 'https://www.fitmunch.com.au/app.html?subscribed=1',
+    cancelUrl: 'https://www.fitmunch.com.au/pricing',
+    nonce: `lim98-${i}`,
+  });
+  test('11 guest checkout-sessions from one IP: the 11th is 429 (default limit 10)', async () => {
+    const prev = process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR;
+    delete process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR;
+    counters.resetSharedCountersForTests();
+    try {
+      const codes = [];
+      for (let i = 0; i < 11; i++) {
+        codes.push((await request(app).post('/api/stripe/checkout-sessions').set('Idempotency-Key', `lim98-${i}`).send(body(i))).status);
+      }
+      expect(codes.slice(0, 10).every((c) => c === 200)).toBe(true);
+      expect(codes[10]).toBe(429);
+    } finally {
+      process.env.CHECKOUT_SESSIONS_IP_MAX_PER_HOUR = prev == null ? '100000' : prev;
+      counters.resetSharedCountersForTests();
+    }
+  });
+  test('route-level: counter returns 0 hits => 503 with Retry-After 60, no Stripe call', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    counters.setSharedCounterQueryForTests(async () => ({ rows: [{ hits: 0 }] }));
+    try {
+      const res = await request(app).post('/api/stripe/checkout-sessions').send(body('zero'));
+      expect(res.status).toBe(503);
+      expect(res.headers['retry-after']).toBe('60');
+      expect(fake.S.sessions).toHaveLength(0);
+      expect(fake.S.customers).toHaveLength(0);
+    } finally {
+      counters.setSharedCounterQueryForTests(null);
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('#92 low: portal return_url', () => {
+  test.each([
+    [{ returnTo: 'app' }, 'https://www.fitmunch.com.au/app.html#billing'],
+    [{}, 'https://www.fitmunch.com.au/pricing'],
+  ])('body %j returns to %s', async (body, url) => {
+    const res = await request(app).post('/api/billing-portal')
+      .set('Authorization', `Bearer ${tokenFor('u1')}`)
+      .set('Origin', 'https://www.fitmunch.com.au')
+      .send(body);
+    expect(res.status).toBe(200);
+    expect(fake.S.portals[0].return_url).toBe(url);
   });
 });

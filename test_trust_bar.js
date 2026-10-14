@@ -105,7 +105,7 @@ describe('Trust bar 4: one Stripe trial story', () => {
   });
 
   it('public legal and marketing pages do not invent a post-charge refund window', async () => {
-    const pages = ['/refund', '/terms', '/pricing', '/for-pts', '/', '/login.html', '/success.html', '/shopper'];
+    const pages = ['/refund', '/terms', '/pricing', '/for-pts', '/', '/login.html', '/success.html'];
     for (const route of pages) {
       const res = await request(app).get(route).expect(200);
       expect(res.text).not.toContain('14-day refund window');
@@ -209,13 +209,12 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(fold).toContain('class="trial-bar"');
     expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then A$19.99 a month');
     expect(fold).toContain('Card on file');
-    expect(hero).toContain('Your body wrote the trolley.');
-    expect(hero).toContain('FitMunch is the daily health engine. Commit to the week. We plan the meals, the training, and the shop.');
+    expect(hero).toContain('Your week of meals, planned to your macros.');
+    expect(hero).toContain('Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.');
     expect(hero).toContain('Start the 14-day trial');
     expect(hero).toContain('href="/login.html?plan=premium#register"');
     expect(hero).not.toContain('href="/pricing"');
-    expect(hero).toContain('Approve this trolley');
-    expect(hero).toContain('Not a shop charge');
+    expect(hero).toContain('src="/assets/fm-app-week.webp"');
     expect(hero).not.toContain('$19.99');
     expect(hero).not.toMatch(/photograph your receipt/i);
     expect(hero).not.toMatch(/viewfinder|getUserMedia|capture=/i);
