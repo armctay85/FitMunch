@@ -176,10 +176,15 @@ describe('meal plan generation', () => {
 
   it('#142 S5/L2: a filter save needs an ISO profileUpdatedAt; other saves do not', async () => {
     const save = (body) => request(app).post('/api/user/profile').set('Authorization', token).send(body);
+    // Storage says whether a row exists; it rejects a missing version only then (#142 follow-up).
+    const required = Object.assign(new Error('Profile version required'), { code: 'PROFILE_VERSION_REQUIRED' });
     for (const body of [{ dietaryPreferences: [] }, { allergies: ['peanut'] }, { dietaryPreferences: ['vegan'], weight: 70 }]) {
+      storage.createOrUpdateProfile.mockRejectedValueOnce(required);
       expect((await save(body)).status).toBe(400);
+      expect(storage.createOrUpdateProfile).toHaveBeenLastCalledWith(expect.any(String), expect.any(Object), { ifUpdatedAt: undefined, requireVersion: true });
     }
-    for (const bad of [true, 0, 1760000000000, '2026-10-15', 'Thu Oct 15 2026', 'nope', {}]) {
+    storage.createOrUpdateProfile.mockClear();
+    for (const bad of [true, 0, 1760000000000, '2026-10-15', 'Thu Oct 15 2026', 'nope', {}, '2026-02-30T00:00:00Z', '2026-10-15T24:00:00Z']) {
       expect([bad, (await save({ dietaryPreferences: [], profileUpdatedAt: bad })).status]).toEqual([bad, 400]);
     }
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
@@ -559,7 +564,7 @@ describe('r5 S1: malformed filter shapes fail closed', () => {
   it('well-formed filters still save; empty filters still reach the AI', async () => {
     const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['peanut'], dietaryPreferences: 'vegan', profileUpdatedAt: '2026-10-15T00:00:00.000Z' });
     expect(r.status).toBe(200);
-    expect(storage.createOrUpdateProfile.mock.calls[0][2]).toEqual({ ifUpdatedAt: '2026-10-15T00:00:00.000Z' });
+    expect(storage.createOrUpdateProfile.mock.calls[0][2]).toEqual({ ifUpdatedAt: '2026-10-15T00:00:00.000Z', requireVersion: true });
     for (const empty of [[], [''], ['null'], 'none', null, [null], {}]) {
       jest.clearAllMocks();
       account({ dietaryPreferences: empty, allergies: [] });

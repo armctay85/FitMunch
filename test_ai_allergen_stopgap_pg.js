@@ -366,6 +366,36 @@ maybe('#127a on real Postgres', () => {
     expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
   });
 
+  // ── #142 follow-up ──
+  it('#142 fu: with no profile row yet, a filter save without profileUpdatedAt saves (exactly 1 row)', async () => {
+    await pool.query('delete from user_profiles where user_id=$1', [PLAIN]);
+    const r = await save(PLAIN, { allergies: ['peanut'], dietaryPreferences: ['vegan'], weight: 71 });
+    expect(r.status).toBe(200);
+    const rows = (await pool.query('select dietary_preferences d, allergies a, weight from user_profiles where user_id=$1', [PLAIN])).rows;
+    expect(rows).toEqual([{ d: ['vegan'], a: ['peanut'], weight: 71 }]);
+    // Once the row exists, the next filter save must name the version again.
+    expect((await save(PLAIN, { allergies: [] })).status).toBe(400);
+    expect((await profileOf(PLAIN)).allergies).toEqual(['peanut']);
+  });
+
+  it('#142 fu: an impossible calendar date in profileUpdatedAt is a 400, not a 500, and writes nothing', async () => {
+    for (const bad of ['2026-02-30T00:00:00Z', '2026-13-01T00:00:00Z', '2026-04-31T00:00:00Z', '2026-10-15T24:00:00Z', '2026-10-15T10:60:00Z', '2026-10-15T10:00:00+15:00', '2025-02-29T00:00:00Z']) {
+      expect([bad, (await save(GF, { dietaryPreferences: [], profileUpdatedAt: bad })).status]).toEqual([bad, 400]);
+    }
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect((await save(GF, { dietaryPreferences: ['gluten free'], profileUpdatedAt: await updatedAt(GF) })).status).toBe(200);
+  });
+
+  it('#142 fu: odd keys like constructor and __proto__ in the body are ignored safely', async () => {
+    for (const body of [{ constructor: 5 }, { constructor: { prototype: { x: 1 } } }, JSON.parse('{"__proto__":{"allergies":[]},"weight":72}'), { toString: 5, hasOwnProperty: 1 }]) {
+      const r = await save(GF, body);
+      expect([JSON.stringify(body), r.status]).toEqual([JSON.stringify(body), 200]);
+    }
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect(({}).constructor).toBe(Object);
+    expect(Object.prototype.allergies).toBeUndefined();
+  });
+
   it('#142 S2: a profile save whose DB connection is killed mid-transaction does not crash, and later saves succeed', async () => {
     const holder = await pool.connect();
     try {

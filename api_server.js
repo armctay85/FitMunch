@@ -128,6 +128,20 @@ function capNames(value, depth = 0) {
   return out;
 }
 
+// A real calendar date-time in ISO form. Date.parse rolls '2026-02-30' over to March, and Postgres
+// then rejects it, so the parts are checked here to return a 400, not a 500.
+const ISO_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](\d{2}):(\d{2}))$/;
+function isRealIsoDate(value) {
+  const m = typeof value === 'string' && ISO_DATE_TIME.exec(value);
+  if (!m) return false;
+  const [y, mo, d, h, mi, sec] = m.slice(1, 7).map(Number);
+  const day = new Date(Date.UTC(y, mo - 1, d));
+  if (y < 1 || day.getUTCFullYear() !== y || day.getUTCMonth() !== mo - 1 || day.getUTCDate() !== d) return false;
+  if (h > 23 || mi > 59 || sec > 59) return false;
+  if (m[7] !== undefined && (Number(m[7]) > 14 || Number(m[8]) > 59)) return false;
+  return true;
+}
+
 router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
     const profileData = { ...req.body };
@@ -142,17 +156,17 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
     const ifUpdatedAt = profileData.profileUpdatedAt;
     delete profileData.profileUpdatedAt;
     const sendsFilters = 'dietaryPreferences' in profileData || 'allergies' in profileData;
-    const iso = typeof ifUpdatedAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(ifUpdatedAt) && !Number.isNaN(Date.parse(ifUpdatedAt));
-    if (ifUpdatedAt != null && !iso) {
+    if (ifUpdatedAt != null && !isRealIsoDate(ifUpdatedAt)) {
       return res.status(400).json({ success: false, error: 'profileUpdatedAt must be an ISO date, like the profile\'s updatedAt.' });
     }
-    // A save that sends filters must say which profile version it edits (EQA #142 S5).
-    if (sendsFilters && ifUpdatedAt == null) {
-      return res.status(400).json({ success: false, error: "Saving allergies or diet needs the profile's updatedAt as profileUpdatedAt." });
-    }
+    // A save that sends filters must say which profile version it edits (EQA #142 S5), unless the user
+    // has no profile row yet: then there is no version to send. Storage checks this under the lock.
     try {
-      await createOrUpdateProfile(req.user.userId, profileData, sendsFilters ? { ifUpdatedAt } : {});
+      await createOrUpdateProfile(req.user.userId, profileData, sendsFilters ? { ifUpdatedAt, requireVersion: true } : {});
     } catch (err) {
+      if (err && err.code === 'PROFILE_VERSION_REQUIRED') {
+        return res.status(400).json({ success: false, error: "Saving allergies or diet needs the profile's updatedAt as profileUpdatedAt." });
+      }
       if (err && err.code === 'PROFILE_STALE') {
         return res.status(409).json({ success: false, stale: true, error: 'Your profile changed since this page loaded. Reload it and try again.' });
       }
