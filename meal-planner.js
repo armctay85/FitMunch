@@ -70,6 +70,8 @@ function planInput(body) {
   if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
+  // Stop before reading an oversized list (EQA #135 r5 S1): at most 50 items.
+  if (Array.isArray(b.dietary) && b.dietary.length > dietGuard.MAX_FILTERS) return { error: 'Too many dietary filters.' };
   // merge: #135 drops null-ish entries first; #125 then rejects anything else that isn't a known filter name.
   const rawDiet = Array.isArray(b.dietary) ? b.dietary.filter((d) => !(d === null || d === undefined || (typeof d === 'string' && ['', 'null', 'undefined', 'none'].includes(d.trim().toLowerCase())))) : b.dietary;
   if (rawDiet !== undefined && rawDiet !== null && (!Array.isArray(rawDiet) || rawDiet.some((d) => typeof d !== 'string'))) {

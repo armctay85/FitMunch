@@ -1762,8 +1762,9 @@ const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', main
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
 const listOf = (v) => {
   let x = v;
-  if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
-  return Array.isArray(x) ? x.map((s) => String(s).trim()).filter(Boolean).slice(0, 6) : [];
+  if (typeof x === 'string') { if (x.length > 6000) return []; try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+  // Read at most 50 items (EQA #135 r5 S1); only the first 6 reach the prompt.
+  return Array.isArray(x) ? x.slice(0, 50).map((s) => String(s).trim().slice(0, 100)).filter(Boolean).slice(0, 6) : [];
 };
 
 /**

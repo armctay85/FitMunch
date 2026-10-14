@@ -146,6 +146,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .form-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .form-input{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:.82rem;color:var(--ink);outline:none;transition:border-color .15s;font-family:inherit}
 .form-input:focus{border-color:var(--leaf)}
+/* Meal plan generator at 320px: goal and days stack so "7 days (full week)" isn't cut off (EQA #135 r5 L3). */
+@media(max-width:360px){#mp-generator .mp-gen-grid{grid-template-columns:1fr!important}#mp-generator .form-select{width:100%;min-width:0}}
 .form-select{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:.82rem;color:var(--ink);outline:none;font-family:inherit}
 
 .meal-section{margin-bottom:16px}
@@ -640,13 +642,13 @@ html.fm-authed #app-gate{display:none}
  <div class="card" id="mp-generator" style="margin-bottom:16px;border:2px solid rgba(31,157,74,.28);background:linear-gradient(135deg,rgba(31,157,74,.08),#fff)">
  <div class="card-body" style="padding:20px">
  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
- <span style="font-size:28px">🤖</span>
- <div>
+ <span class="mp-gen-icon" style="font-size:28px;line-height:1;flex-shrink:0" aria-hidden="true">🤖</span>
+ <div style="min-width:0">
  <div style="font-size:.95rem;font-weight:800;color:#14532d">Generate my weekly meal plan</div>
  <div style="font-size:.75rem;color:#166534">Takes up to about a minute · common Australian supermarket ingredients · diet and allergy filters use FitMunch's checked recipes</div>
  </div>
  </div>
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+ <div class="mp-gen-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
  <label class="form-label" for="mp-goal-sel">My goal</label>
  <select id="mp-goal-sel" class="form-select">
@@ -2269,7 +2271,7 @@ async function loadMealPlans() {
  const mealSummary = items.length ? `<div style="margin-top:8px;max-height:120px;overflow-y:auto">${
  ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
  `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
  const warnBadge = allergenBadgeHtml(p.allergenWarnings);
