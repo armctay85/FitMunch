@@ -539,6 +539,35 @@ describe('checkout entry guards', () => {
   });
 });
 
+describe('Stripe urls and ids are not touched by the API sanitizer', () => {
+  const ID = 'cs_live_GrokXaIgeminiOpenAI';
+  const URL = 'https://checkout.stripe.com/c/pay/cs_live_GrokXaIgeminiOpenAI#fidXAIanthropic';
+  const PORTAL = 'https://billing.stripe.com/p/session/live_GROKgemini42';
+  beforeEach(() => {
+    const raw = fake.rawRequest.getMockImplementation();
+    fake.rawRequest.mockImplementation(async (...a) => {
+      const out = await raw(...a);
+      if (out && out.url) return { ...out, url: URL, id: ID };
+      return out;
+    });
+    fake.billingPortal.sessions.create.mockImplementation(async () => ({ url: PORTAL }));
+  });
+  test('/api/checkout', async () => {
+    const res = await post().expect(200);
+    expect(res.body.url).toBe(URL);
+    expect(res.body.id).toBe(ID);
+  });
+  test('/api/quick-checkout', async () => {
+    const res = await request(app).post('/api/quick-checkout').send({ email: 'steph@example.com', plan: 'premium' }).expect(200);
+    expect(res.body.url).toBe(URL);
+    expect(res.body.id).toBe(ID);
+  });
+  test('/api/billing-portal', async () => {
+    const res = await request(app).post('/api/billing-portal').set('Authorization', `Bearer ${tokenFor('u1')}`).send({}).expect(200);
+    expect(res.body.url).toBe(PORTAL);
+  });
+});
+
 describe('billing portal auth', () => {
   test('logged out is 401 and ignores a customer id in the body', async () => {
     const res = await request(app).post('/api/billing-portal')

@@ -304,7 +304,7 @@ describe('Coach plan HTTP', () => {
     expect(read('lib/coach-plan.js')).not.toMatch(/require\(['"]stripe['"]\)/);
     expect(read('coach-api.js')).not.toMatch(/require\(['"]stripe['"]\)/);
     const home = await request(app).get('/').expect(200);
-    expect(home.text).toContain('<h1>Your body wrote the trolley.</h1>');
+    expect(home.text).toContain('<h1>Your week of meals, planned to your macros.</h1>');
     await request(app).get('/shopper').expect(301).expect('Location', '/app.html#shopping');
   });
 });
