@@ -64,3 +64,29 @@ describe('trainer Billing', () => {
     expect(app).toContain('Current plan');
   });
 });
+
+describe('#92 r2 lows and shoulds', () => {
+  const app = read('app.html');
+  test('old-price regex is case-insensitive (lowercase fixtures are caught)', () => {
+    const re = /\$59(\.99)?\b|\$99\b(?!\.)|PT Starter|PT Pro/i;
+    expect('pt pro plan').toMatch(re);
+    expect('pt starter').toMatch(re);
+  });
+  test('trainer Billing sets its own subtitle', () => {
+    expect(app).toContain("'Coach plans for trainers. 14-day trial. Manage or cancel any time.'");
+  });
+  test('Coach and Premium prices share the billing-price style and one format', () => {
+    const billing = app.slice(app.indexOf('id="view-billing"'), app.indexOf('<!-- ══ HOME'));
+    for (const amt of ['A$39', 'A$79', 'A$19.99']) {
+      expect(billing).toMatch(new RegExp(`<div class="billing-price"[^>]*font-size:1\\.8rem[^>]*>${amt.replace('$', '\\$')}<span[^>]*> a month</span>`));
+    }
+    expect(billing).not.toContain('/mo AUD');
+  });
+  test('in-app portal opens ask to return to Billing', () => {
+    expect(app).toContain("API('/billing-portal', { method: 'POST', body: JSON.stringify({ returnTo: 'app' }) })");
+  });
+  test('no store names anywhere in app.html, no store buttons or badges', () => {
+    expect(app).not.toMatch(/Woolies|Woolworths|Coles|Aldi|\bIGA\b|Costco|woolworths\.com\.au|coles\.com\.au/i);
+    expect(app).not.toMatch(/sl-woolies-link|sl-coles-link|Works with Woolworths/);
+  });
+});

@@ -264,3 +264,5 @@ router.get('/generate', (_req, res) => res.json({
 }));
 
 module.exports = router;
+// Read by the store-name sweep test.
+router.AI_PROMPTS = { planPrompt };

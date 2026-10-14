@@ -45,8 +45,6 @@ const ALLOWED_DOLLARS = new Set([
 const PRICE_LINE = 'Prices vary by store and week.';
 const PRICE_LINE_PAGES = [
   'public/index.html',
-  'public/app.html',
-  'public/shopper.html',
   'public/budget-meal-planner.html',
   'public/for-pts.html',
   'public/supermarket-meal-planner.html',
@@ -173,6 +171,8 @@ describe('public price and claim ban', () => {
     }
     const coachHtml = fs.readFileSync(path.join(__dirname, 'public', 'coach.html'), 'utf8');
     const coachJs = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-coach.js'), 'utf8');
+    // The signed-in app makes no price reference at all (EQA #85 r2 L2).
+    if (fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8').includes(PRICE_LINE)) found.push('public/app.html should not mention prices');
     if (coachHtml.includes(PRICE_LINE)) found.push('public/coach.html still has a fixed price line');
     if (coachJs.split(PRICE_LINE).length - 1 !== 1) found.push('public/js/fm-coach.js must fill the price line once');
     expect(found).toEqual([]);
@@ -269,10 +269,10 @@ describe('public price and claim ban', () => {
   });
 
   it('keeps the same claims out of public shopper JSON and a coach share fixture', async () => {
-    const week = await request(app).get('/api/shopper/week').expect(200);
-    const draft = await request(app).post('/api/shopper/draft').send({}).expect(200);
-    const approved = await request(app).post('/api/shopper/approve').send({}).expect(200);
-    const info = await request(app).get('/api/shopper').expect(200);
+    const week = await request(app).get('/api/shopper/week').expect(410);
+    const draft = await request(app).post('/api/shopper/draft').send({}).expect(410);
+    const approved = await request(app).post('/api/shopper/approve').send({}).expect(410);
+    const info = await request(app).get('/api/shopper').expect(410);
     const plan = coach.buildCoachPlan({
       kcal: 2000,
       protein: 140,

@@ -308,7 +308,7 @@ app.use('/api/receipt', receiptScanner);
 const mealPlanner = require('./meal-planner');
 app.use('/api/meal-plan', mealPlanner);
 
-// Fitness Butler shopper (public specials, draft trolley, takeaway checkout)
+// Shopper API retired: every endpoint answers 410 Gone.
 const shopperApi = require('./shopper');
 app.use('/api/shopper', shopperApi);
 
@@ -333,9 +333,10 @@ app.get('/ai-meal-planner-australia', (req, res) => res.sendFile('ai-meal-planne
 app.get('/budget-meal-planner', (req, res) => res.sendFile('budget-meal-planner.html', { root: 'public' }));
 app.get('/haul-teardown', (req, res) => res.sendFile('haul-teardown.html', { root: 'public' }));
 app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-teardown'));
-app.get('/shopper', (req, res) => res.sendFile('shopper.html', { root: 'public' }));
-app.get('/fitness-butler', (req, res) => res.redirect(301, '/shopper'));
-app.get('/butler', (req, res) => res.redirect(301, '/shopper'));
+// Shopper retired: page and old aliases 301 to the in-app shopping list.
+for (const route of ['/shopper', '/shopper.html', '/fitness-butler', '/butler']) {
+  app.get(route, (req, res) => res.redirect(301, '/app.html#shopping'));
+}
 // /demo retired: the homepage worked example (#proof) replaces it.
 app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#proof'));
 // SEO pack 2 landers (new routes only)
@@ -1244,12 +1245,15 @@ app.post('/api/billing-portal', async (req, res) => {
     if (!customerId) return res.status(400).json({ error: 'No billing account for this user.' });
 
     const origin = checkoutOrigin(req);
+    // In-app opens return to Billing in the app; other callers keep /pricing.
+    const inApp = req.body && req.body.returnTo === 'app';
+    const returnPath = inApp ? '/app.html#billing' : '/pricing';
     const portal = await stripe.billingPortal.sessions.create(
       {
         customer: customerId,
-        return_url: `${origin}/pricing`,
+        return_url: `${origin}${returnPath}`,
       },
-      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId]) }
+      { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
     res.json({ success: true, url: portal.url });
   } catch (e) {
