@@ -1,21 +1,23 @@
 'use strict';
 // Stripe Checkout / Billing Portal urls and ids carry long random parts that hit a provider
-// word by chance (measured on main: 862 of 100,000 checkouts, about 1 in 116), and the /api
-// sanitizer then broke the url or id. Stripe responses now bypass the sanitizer.
+// word by chance (Elite QA measured 1,060 of 100,000 bodies on main, about 1 in 94), and the
+// /api sanitizer then broke the url or id. Only the top-level url and id, in their exact
+// Stripe shapes, skip the scrub; every other key is still sanitized. The allowlist runs inside
+// the /api res.json wrapper, so a new Stripe route using plain res.json is covered too.
 const crypto = require('crypto');
-const fs = require('fs');
 const express = require('express');
 const request = require('supertest');
-const { attachApiJsonSanitizer, sendStripeJson, sanitizeApiJson } = require('./lib/sanitize-api-json');
+const { attachApiJsonSanitizer, sendStripeJson, sanitizeApiJson, sanitizeApiBody } = require('./lib/sanitize-api-json');
 
 const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const rand = (n) => Array.from(crypto.randomBytes(n), (b) => A[b % 62]).join('');
 function stripeValues() {
-  const id = `cs_live_${rand(58)}`;
+  const mode = Math.random() < 0.5 ? 'live' : 'test';
+  const id = `cs_${mode}_${rand(58)}`;
   return {
     id,
     url: `https://checkout.stripe.com/c/pay/${id}#${crypto.randomBytes(90).toString('base64url')}`,
-    portal: `https://billing.stripe.com/p/session/live_${rand(64)}`,
+    portal: `https://billing.stripe.com/p/session/${mode}_${rand(64)}`,
   };
 }
 const PROVIDER = /gemini|openai|grok|anthropic|xai/i;
@@ -28,21 +30,35 @@ const router = express.Router();
 router.use(attachApiJsonSanitizer);
 router.post('/checkout', (req, res) => sendStripeJson(res, { success: true, url: current.url, id: current.id }));
 router.post('/billing-portal', (req, res) => sendStripeJson(res, { success: true, url: current.portal }));
+// A future Stripe route that forgets sendStripeJson and uses plain res.json.
+router.post('/new-stripe-route', (req, res) => res.json({ success: true, url: current.url, id: current.id }));
+// A Stripe body that later grows a user-supplied field.
+router.post('/checkout-with-extra', (req, res) => sendStripeJson(res, {
+  success: true,
+  url: current.url,
+  id: current.id,
+  planLabel: 'Grok coach plan by OpenAI',
+  user: { name: 'Gemini Fan', note: 'xAI' },
+  message: 'Answered by Anthropic',
+}));
 router.post('/other', (req, res) => res.json({ success: true, note: `Answered by Grok ${current.id}` }));
+router.post('/fake-url', (req, res) => res.json({
+  url: 'https://evil.example/grok',
+  id: 'sub_GrokOpenAI123',
+  nested: { url: 'https://checkout.stripe.com/c/pay/cs_live_GrokABC' },
+}));
 app.use('/api', router);
 
 describe('Stripe urls and ids leave the API unaltered', () => {
-  it('10,000 random Stripe-shaped values pass sendStripeJson byte-for-byte (and many would have been altered)', () => {
+  it('10,000 random Stripe-shaped bodies keep url and id byte-for-byte (and many would have been altered)', () => {
     let wouldAlter = 0;
     let altered = 0;
     for (let i = 0; i < 10000; i += 1) {
       const v = stripeValues();
-      const body = { success: true, url: v.url, id: v.id, portal: v.portal };
-      if (JSON.stringify(sanitizeApiJson(body)) !== JSON.stringify(body)) wouldAlter += 1;
-      let sent;
-      const res = { jsonUnsanitized: (b) => { sent = b; }, json: (b) => { sent = sanitizeApiJson(b); } };
-      sendStripeJson(res, body);
-      if (JSON.stringify(sent) !== JSON.stringify(body)) altered += 1;
+      for (const body of [{ success: true, url: v.url, id: v.id }, { success: true, url: v.portal }]) {
+        if (JSON.stringify(sanitizeApiJson(body)) !== JSON.stringify(body)) wouldAlter += 1;
+        if (JSON.stringify(sanitizeApiBody(body)) !== JSON.stringify(body)) altered += 1;
+      }
     }
     expect(wouldAlter).toBeGreaterThan(20);
     expect(altered).toBe(0);
@@ -62,25 +78,62 @@ describe('Stripe urls and ids leave the API unaltered', () => {
     }
   });
 
+  it('a new Stripe route using plain res.json is covered at runtime, no source scan needed', async () => {
+    current = { id: 'cs_test_OpenAIgrokGEMINI99', url: 'https://checkout.stripe.com/c/pay/cs_test_OpenAIgrok#xAIgemini' };
+    const r = await request(app).post('/api/new-stripe-route');
+    expect(r.body).toEqual({ success: true, url: current.url, id: current.id });
+  });
+
+  it('an extra user field in a Stripe body is still scrubbed; only url and id are exempt', async () => {
+    current = { id: 'cs_live_GrokOpenAI42', url: 'https://checkout.stripe.com/c/pay/cs_live_GrokOpenAI42#gemini' };
+    const r = await request(app).post('/api/checkout-with-extra');
+    expect(r.body.url).toBe(current.url);
+    expect(r.body.id).toBe(current.id);
+    const { url, id, ...rest } = r.body;
+    expect(JSON.stringify(rest)).not.toMatch(PROVIDER);
+    expect(r.body.planLabel).toBe('coach plan by');
+    expect(r.body.user.name).toBe('Fan');
+    expect(r.body.success).toBe(true);
+  });
+
+  it('a non-Stripe url, a non-checkout id and a nested url are all still sanitized', async () => {
+    const r = await request(app).post('/api/fake-url');
+    expect(JSON.stringify(r.body)).not.toMatch(PROVIDER);
+  });
+
   it('every other response is still sanitized', async () => {
     current = stripeValues();
     const r = await request(app).post('/api/other');
     expect(r.body.note).not.toMatch(PROVIDER);
   });
 
-  it('a non-/api response has no bypass and json is untouched', () => {
+  it('a non-/api response is not wrapped and json is untouched', () => {
     const res = { json: jest.fn() };
     attachApiJsonSanitizer({ originalUrl: '/pricing' }, res, () => {});
-    expect(res.jsonUnsanitized).toBeUndefined();
+    expect(res.apiJsonSanitized).toBeUndefined();
     sendStripeJson(res, { url: 'x' });
     expect(res.json).toHaveBeenCalledWith({ url: 'x' });
   });
 
-  it('every Stripe url/id response in server.js goes through sendStripeJson', () => {
-    const src = fs.readFileSync(require.resolve('./server.js'), 'utf8');
-    expect((src.match(/sendStripeJson\(res, /g) || []).length).toBe(6);
-    expect(src).not.toMatch(/res\.json\(\{[^}]*url: (result|portal)\.url/);
-    expect(src).not.toMatch(/res\.json\(\s*\{\s*success: true,\s*url: result\.url/);
-    expect(src).not.toMatch(/res\.json\((\{ success: true, \.\.\.)?checkoutJson/);
+  it('attaching twice wraps res.json only once (the wrap-once flag)', () => {
+    const orig = jest.fn((b) => b);
+    const res = { json: orig };
+    attachApiJsonSanitizer({ originalUrl: '/api/x' }, res, () => {});
+    const wrapped = res.json;
+    expect(res.apiJsonSanitized).toBe(true);
+    attachApiJsonSanitizer({ originalUrl: '/api/x' }, res, () => {});
+    // Without the flag the second attach would wrap the wrapper again.
+    expect(res.json).toBe(wrapped);
+    res.json({ ok: 1 });
+    expect(orig).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the real server: Stripe checkout and portal urls come back exact', () => {
+  it('server.js /api routes use the same runtime allowlist', () => {
+    // Any /api route in server.js gets the wrapper from attachApiJsonSanitizer, which is the
+    // only place the allowlist lives, so there is no per-route call to count.
+    const src = require('fs').readFileSync(require.resolve('./server.js'), 'utf8');
+    expect(src).toMatch(/app\.use\(attachApiJsonSanitizer\)/);
   });
 });

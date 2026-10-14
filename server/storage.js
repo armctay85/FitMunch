@@ -172,6 +172,36 @@ async function createOrUpdateProfile(userId, profileData) {
   }
 }
 
+/**
+ * Atomically merge into a profile's dietary_preferences. In one transaction, under a per-user
+ * advisory lock, the row is read FOR UPDATE and merge(stored) decides the new list (null = no write).
+ * Concurrent merges serialise; a concurrent profile save waits for the row lock. Returns true if written.
+ */
+async function mergeDietaryPreferences(userId, merge) {
+  await ensureSchema();
+  await ensureUserExists(userId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("select pg_advisory_xact_lock(hashtext('fm-profile:' || $1::text))", [String(userId)]);
+    const { rows } = await client.query('select id, dietary_preferences from user_profiles where user_id = $1 order by id limit 1 for update', [userId]);
+    const next = merge(rows.length ? rows[0].dietary_preferences : null);
+    if (!Array.isArray(next)) { await client.query('ROLLBACK'); return false; }
+    if (rows.length) {
+      await client.query('update user_profiles set dietary_preferences = $2::jsonb, updated_at = now() where id = $1', [rows[0].id, JSON.stringify(next)]);
+    } else {
+      await client.query('insert into user_profiles(user_id, dietary_preferences) values ($1, $2::jsonb)', [userId, JSON.stringify(next)]);
+    }
+    await client.query('COMMIT');
+    return true;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* connection already gone */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function getProfile(userId) {
   await ensureSchema();
   const [profile] = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId));
@@ -351,6 +381,7 @@ async function withStripeCustomerLock(lockKey, fn) {
 // Export all functions and database instance
 module.exports = {
   db,
+  mergeDietaryPreferences,
   createUser,
   getUserByEmail,
   getUserById,

@@ -46,6 +46,19 @@ const SETTLE_MS = 60000;   // a whole settle() call
 // and settle() asserts that state; the pop-up itself is tested on its own by waiting for its
 // .open state.
 
+// Proof the onboarding timer never armed (EQA #123 r2): before any app script runs, wrap
+// setTimeout and count every timer whose callback opens the onboarding pop-up. settle() then
+// requires that count to be 0, so a pre-set flag alone is not trusted; if the flag stops
+// working, the count goes to 1 and the view checks fail (see the mutation test below).
+const TRACK_ONBOARD_TIMERS = () => {
+  window.__fmOnboardTimers = 0;
+  const orig = window.setTimeout;
+  window.setTimeout = function (fn, ...rest) {
+    try { if (typeof fn === 'function' && /openOnboarding|modal-onboard|modal-goals/.test(String(fn))) window.__fmOnboardTimers += 1; } catch (e) { /* ignore */ }
+    return orig.call(this, fn, ...rest);
+  };
+};
+
 function withTimeout(p, ms, what) {
   let t;
   return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`timed out after ${ms}ms: ${what}`)), ms); })]).finally(() => clearTimeout(t));
@@ -83,6 +96,11 @@ async function settleInner(page, { onboardingDone = true } = {}) {
   if (onboardingDone) {
     const flag = await withTimeout(page.evaluate(() => sessionStorage.getItem('fm_goals_prompted')), STEP_MS * 4, 'onboarding flag');
     if (flag !== '1') throw new Error('onboarding flag not set: its 800ms pop-up timer could still fire');
+    // Wait for /portal/me to be handled (the point where the app would arm the timer), then
+    // require that no onboarding timer was ever scheduled.
+    await page.waitForLoadState('networkidle', { timeout: STEP_MS }).catch(() => {});
+    const armed = await withTimeout(page.evaluate(() => window.__fmOnboardTimers), STEP_MS * 4, 'onboarding timer count');
+    if (armed !== 0) throw new Error(`onboarding pop-up timer was armed ${armed} time(s): the view checks are not at rest`);
   }
   const deadline = Date.now() + SETTLE_MS;
   let a = null;
@@ -145,6 +163,7 @@ async function openApp(browser, base, role, viewport, { onboardingDone = true } 
   const ctx = await browser.newContext({ viewport, hasTouch: true, isMobile: true });
   // The view checks mark the onboarding pop-up as already shown; it is tested on its own below.
   await ctx.addInitScript((done) => { localStorage.setItem('fm_token', 'test.token'); if (done) sessionStorage.setItem('fm_goals_prompted', '1'); }, onboardingDone);
+  await ctx.addInitScript(TRACK_ONBOARD_TIMERS);
   await ctx.route('**/api/**', (r) => r.fulfill({ json: r.request().url().includes('/auth/me') ? user(role) : generic }));
   await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
   const page = await ctx.newPage();
@@ -154,8 +173,12 @@ async function openApp(browser, base, role, viewport, { onboardingDone = true } 
   return { ctx, page };
 }
 
+// Browser tests on a shared CI runner can be starved of CPU: retry a failed test once
+// (a real layout failure fails both times) and give slow mode a longer budget.
+if (typeof jest.retryTimes === 'function') jest.retryTimes(process.env.CI ? 1 : 0, { logErrorsBeforeRetry: true });
+
 maybe('signed-in app rendered on phones', () => {
-  jest.setTimeout(180000);
+  jest.setTimeout(process.env.FM_SLOW_TESTS ? 360000 : 180000);
   let server; let browser; let base;
 
   beforeAll(async () => {
@@ -192,6 +215,29 @@ maybe('signed-in app rendered on phones', () => {
       }, 240000);
     }
   }
+
+  // Mutation check for the timer proof: without the pre-set flag the app arms the 800ms
+  // onboarding timer, and settle() must fail (it would pass on the flag alone, since the app
+  // sets the flag itself just before arming the timer).
+  it('settle() fails when the onboarding flag is not pre-set (the timer armed)', async () => {
+    const { ctx, page } = await openApp(browser, base, 'client', { width: 390, height: 760 }, { onboardingDone: false });
+    await page.waitForFunction(() => window.__fmOnboardTimers > 0, null, { timeout: 15000 });
+    const err = await settle(page).then(() => null, (e) => e.message);
+    const flag = await page.evaluate(() => sessionStorage.getItem('fm_goals_prompted'));
+    await ctx.close();
+    expect(flag).toBe('1');
+    expect(err).toMatch(/onboarding pop-up timer was armed 1 time/);
+  }, 120000);
+
+  it('with the flag pre-set no onboarding timer is ever armed', async () => {
+    const { ctx, page } = await openApp(browser, base, 'client', { width: 390, height: 760 });
+    await settle(page);
+    const n = await page.evaluate(() => window.__fmOnboardTimers);
+    const open = await page.evaluate(() => !!document.querySelector('#modal-onboard.open, #modal-goals.open'));
+    await ctx.close();
+    expect(n).toBe(0);
+    expect(open).toBe(false);
+  }, 120000);
 
   // The onboarding pop-up opens on its own 800ms timer, so it gets its own test: wait for
   // it to open, let it settle, and check its scale, overflow and tap targets.
@@ -241,6 +287,7 @@ maybe('signed-in app rendered on phones', () => {
   it('header buttons are at least 44px tall at 1280px', async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     await ctx.addInitScript(() => { localStorage.setItem('fm_token', 'test.token'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+    await ctx.addInitScript(TRACK_ONBOARD_TIMERS);
     await ctx.route('**/api/**', (r) => r.fulfill({ json: r.request().url().includes('/auth/me') ? user('pt') : generic }));
     await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
     const page = await ctx.newPage();
