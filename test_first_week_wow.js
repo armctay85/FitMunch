@@ -249,7 +249,7 @@ const ALLERGENS = [
   ['nuts', /^(Peanut|Almond|Cashew|Walnut|Pecan|Hazelnut|Pistachio|Macadamia)/i],
   ['dairy', /^(Whey|Casein|Greek yoghurt|Chobani|Cottage|Ricotta|Cheddar|Cheese|Skim milk|Full cream milk|Protein milk|Coffee with full cream|Milk|Butter|Cream|Yoghurt)/i],
   ['eggs', /^(Egg|Scrambled eggs)/i],
-  ['gluten', /^(Seitan|Wholegrain bread|Sourdough|White bread|Bread|Pasta|Spaghetti|Rolled oats|Oatmeal|Weetbix|Wheat|Couscous|Barley)/i],
+  ['gluten', /^(Seitan|Wholegrain bread|Sourdough|White bread|Bread|Pasta|Spaghetti|Rolled oats|Oat|Oats|Oatmeal|Weetbix|Wheat|Couscous|Barley|Rye|Malt|Soy sauce|Tamari.*with wheat)/i],
   ['soy', /^(Firm tofu|Tofu|Tempeh|Edamame|Soy)/i],
   ['fish', /^(Salmon|Tuna|Barramundi|Prawns|Fish|Shrimp|Crab|Lobster|Mussels|Oysters|Squid)/i],
   ['meat', /^(Chicken|Beef|Lamb|Pork|Turkey|Bacon|Ham)/i],
@@ -260,6 +260,34 @@ describe('allergens derived from ingredients', () => {
     const missing = [];
     for (const t of engine.TEMPLATES) for (const a of derived(t.items)) if (!t.flags.includes(a)) missing.push(`${t.name}: ${a}`);
     expect(missing).toEqual([]);
+  });
+  it('oat milk and oats are gluten in the test rules AND at runtime in the engine', () => {
+    for (const f of ['Oat milk', 'Rolled oats (dry)', 'Oatmeal (cooked)', 'Barley', 'Rye bread', 'Malt extract', 'Soy sauce']) {
+      expect([f, derived([[f, 10]]).includes('gluten')]).toEqual([f, true]);
+      expect([f, engine.allergensOf([[f, 10]]).includes('gluten')]).toEqual([f, true]);
+    }
+    expect(engine.allergensOf([['Tamari (wheat free)', 10]])).not.toContain('gluten');
+    expect(engine.allergensOf([['Almond milk (unsweetened)', 10]])).toEqual(['nuts']);
+    // The engine's runtime rules find at least everything the test rules find, on every template.
+    for (const t of engine.TEMPLATES) for (const a of derived(t.items)) expect([t.name, engine.flagsOf(t).includes(a)]).toEqual([t.name, true]);
+  });
+  it('filtering and swaps use derived allergens at runtime: an UNTAGGED oat-milk or almond meal never reaches GF or nut-free weeks', () => {
+    const plant = { slot: 'breakfast', name: 'Untagged oat and almond test bowl', swapOnly: true, flags: [], items: [['Oat milk', 250], ['Almond butter', 20], ['Banana', 120]] };
+    const builder = { slot: 'breakfast', name: 'Untagged oat builder test bowl', flags: [], items: [['Oat milk', 250], ['Chia seeds', 30], ['Mango', 150]] };
+    engine.TEMPLATES.push(plant, builder);
+    try {
+      for (const dietary of [['gluten free'], ['nut free']]) {
+        for (const t of [{ calories: 1600, protein: 90 }, { calories: 2400, protein: 110 }]) {
+          const plan = engine.withSwaps(engine.buildPlan({ ...t, days: 7, dietary }), dietary, t.calories);
+          const text = JSON.stringify(plan);
+          expect(text).not.toContain(plant.name);
+          if (dietary[0] === 'gluten free') expect(text).not.toContain(builder.name);
+        }
+      }
+      // Without the filter the same meals are eligible, so the test can tell.
+      const any = JSON.stringify(engine.withSwaps(engine.buildPlan({ calories: 1600, protein: 70, days: 7 }), [], 1600));
+      expect(any.includes(plant.name) || any.includes(builder.name)).toBe(true);
+    } finally { engine.TEMPLATES.splice(engine.TEMPLATES.indexOf(plant), 1); engine.TEMPLATES.splice(engine.TEMPLATES.indexOf(builder), 1); }
   });
   it('the nut rule catches almond milk and tree nuts (guards the regex itself)', () => {
     expect(derived([['Almond milk (unsweetened)', 100]])).toEqual(['nuts']);
@@ -336,6 +364,9 @@ describe('goal weight bounds (client and server share validGoalWeight)', () => {
     expect(wow.validGoalWeight('34.9', 50).ok).toBe(false);
     expect(wow.validGoalWeight('300.1', 250).ok).toBe(false);
     expect(wow.validGoalWeight('70', '').ok).toBe(false);
+    expect(wow.validGoalWeight([80], 82).ok).toBe(false);
+    expect(wow.validGoalWeight({ kg: 80 }, 82).ok).toBe(false);
+    expect(wow.validGoalWeight(true, 82).ok).toBe(false);
   });
   it('the form checks it, shows the inline error and hides the curve when the goal is unreachable', () => {
     const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
@@ -346,17 +377,46 @@ describe('goal weight bounds (client and server share validGoalWeight)', () => {
     expect(curve).toContain("if (!proj || !proj.reached) { fig.style.display = 'none'; return; }");
     expect(html).toContain("API('/user/goal-weight'");
   });
-  it('the server refuses bad goal weights with 400 before touching the database', async () => {
+  it('the server rejects arrays and non-numbers, and checks 40% against the STORED weight, not the request', async () => {
     const request = require('supertest');
     const jwt = require('jsonwebtoken');
+    const { Pool } = require('pg');
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'jest-only-session-secret-0123456789abcdef';
     const app = require('./server');
     const tok = jwt.sign({ userId: '00000000-0000-4000-8000-0000000000ad' }, process.env.JWT_SECRET);
-    for (const body of [{ goalWeightKg: 5, weightKg: 82 }, { goalWeightKg: 1e6, weightKg: 82 }, { goalWeightKg: 'abc', weightKg: 82 }, { goalWeightKg: 80, weightKg: 150 }, { goalWeightKg: 70 }]) {
-      const res = await request(app).post('/api/user/goal-weight').set('Authorization', `Bearer ${tok}`).send(body);
-      expect([JSON.stringify(body), res.status]).toEqual([JSON.stringify(body), 400]);
-    }
-    const anon = await request(app).post('/api/user/goal-weight').send({ goalWeightKg: 78, weightKg: 82 });
+    let stored = 150; const writes = [];
+    const spy = jest.spyOn(Pool.prototype, 'query').mockImplementation(async (sql, params) => {
+      if (/SELECT weight FROM/.test(sql)) return { rows: stored === null ? [] : [{ weight: stored }] };
+      if (/UPDATE users SET settings/.test(sql)) { writes.push(params); return { rows: [] }; }
+      return { rows: [] };
+    });
+    try {
+      const post = (body) => request(app).post('/api/user/goal-weight').set('Authorization', `Bearer ${tok}`).send(body);
+      for (const body of [{ goalWeightKg: [80] }, { goalWeightKg: '80' }, { goalWeightKg: 'abc' }, { goalWeightKg: { kg: 80 } }, { goalWeightKg: true }, [80]]) {
+        expect([JSON.stringify(body), (await post(body)).status]).toEqual([JSON.stringify(body), 400]);
+      }
+      // Stored 150 kg: 80 is 47% below. A request claiming weightKg 82 must not get it through.
+      expect((await post({ goalWeightKg: 80, weightKg: 82 })).status).toBe(400);
+      expect((await post({ goalWeightKg: 5 })).status).toBe(400);
+      expect((await post({ goalWeightKg: 1e6 })).status).toBe(400);
+      expect(writes).toEqual([]);
+      expect((await post({ goalWeightKg: 120 })).status).toBe(200);
+      expect(writes).toEqual([[120, '00000000-0000-4000-8000-0000000000ad']]);
+      stored = null;
+      const none = await post({ goalWeightKg: 78 });
+      expect(none.status).toBe(400);
+      expect(none.body.error).toMatch(/current weight/);
+      expect((await post({ goalWeightKg: null })).status).toBe(200); // clears it
+    } finally { spy.mockRestore(); }
+    const anon = await request(app).post('/api/user/goal-weight').send({ goalWeightKg: 78 });
     expect(anon.status).toBe(401);
   });
+  it('the Swap button only shows when a meal has options', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+    const fn = html.slice(html.indexOf('function obMealRow'), html.indexOf('function obRenderDay'));
+    expect(fn).toContain('if (Array.isArray(m.swaps) && m.swaps.length) {');
+    expect(fn).not.toContain('No close swap');
+    expect(html).toMatch(/await API\('\/progress\/log'[\s\S]{0,300}await API\('\/user\/goal-weight', \{ method:'POST', body: JSON\.stringify\(\{ goalWeightKg: OB\.goalKg \}\)/);
+  });
+
 });

@@ -1029,14 +1029,33 @@ router.get('/auth/export', authMiddleware, exportLimiter, async (req, res) => {
   }
 });
 
-// POST /api/user/goal-weight {goalWeightKg, weightKg}: saves the onboarding goal weight to
+// POST /api/user/goal-weight {goalWeightKg}: saves the onboarding goal weight to
 // users.settings.goalWeightKg so the first-week curve survives a reload. Same bounds as the form:
-// 35-300 kg and within 40% of the current weight. A blank goal clears it.
+// 35-300 kg and within 40% of the stored current weight. A number only (no arrays or strings). Null clears it.
 router.post('/user/goal-weight', authMiddleware, async (req, res) => {
   try {
     const { validGoalWeight } = require('./public/js/fm-week-wow');
-    const b = req.body || {};
-    const v = validGoalWeight(b.goalWeightKg, b.weightKg);
+    const b = req.body;
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return res.status(400).json({ success: false, error: 'Goal weight must be a number in kg.' });
+    const g = b.goalWeightKg;
+    if (g !== null && g !== undefined && g !== '' && (typeof g !== 'number' || !Number.isFinite(g))) {
+      return res.status(400).json({ success: false, error: 'Goal weight must be a number in kg.' });
+    }
+    // The 40% check runs against the weight we have stored (latest progress log, else the profile),
+    // never a weight sent in this request.
+    let current = null;
+    if (g !== null && g !== undefined && g !== '') {
+      const w = await _pool.query(
+        `SELECT weight FROM (
+           SELECT weight, 0 AS src, date FROM progress_logs WHERE user_id=$1 AND weight IS NOT NULL
+           UNION ALL SELECT weight, 1 AS src, updated_at AS date FROM user_profiles WHERE user_id=$1 AND weight IS NOT NULL
+         ) x ORDER BY src, date DESC LIMIT 1`,
+        [req.user.userId]
+      );
+      current = w.rows[0] ? Number(w.rows[0].weight) : null;
+      if (!(current > 0)) return res.status(400).json({ success: false, error: 'Log your current weight first.' });
+    }
+    const v = validGoalWeight(g === '' ? null : g, current);
     if (!v.ok) return res.status(400).json({ success: false, error: v.error });
     if (v.value === null) {
       await _pool.query(`UPDATE users SET settings = COALESCE(settings,'{}'::jsonb) - 'goalWeightKg' WHERE id=$1`, [req.user.userId]);

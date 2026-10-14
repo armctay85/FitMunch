@@ -63,7 +63,8 @@
    * Otherwise a number 35-300 kg and within 40% of the current weight.
    */
   function validGoalWeight(goalKg, weightKg) {
-    if (goalKg === null || goalKg === undefined || String(goalKg).trim() === '') return { ok: true, value: null };
+    if (goalKg === null || goalKg === undefined || (typeof goalKg === 'string' && goalKg.trim() === '')) return { ok: true, value: null };
+    if (typeof goalKg !== 'number' && typeof goalKg !== 'string') return { ok: false, error: 'Goal weight must be a number in kg.' };
     const g = typeof goalKg === 'number' ? goalKg : (/^\s*\d+(\.\d+)?\s*$/.test(String(goalKg)) ? Number(goalKg) : NaN);
     if (!Number.isFinite(g) || g < GOAL_MIN_KG || g > GOAL_MAX_KG) return { ok: false, error: 'Goal weight must be 35-300 kg.' };
     const w = num(weightKg);

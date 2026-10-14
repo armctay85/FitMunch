@@ -367,7 +367,6 @@ html.fm-authed #app-gate{display:none}
 .ob-swaps[hidden]{display:none}
 .ob-swaps button{font:inherit;width:100%;min-height:44px;text-align:left;padding:6px 10px;border:1px solid #dfe6df;border-radius:8px;background:#f7faf7;color:#11180f;font-size:.8rem;line-height:1.3;cursor:pointer}
 .ob-swaps button span{display:block;font-size:.72rem;color:#3f4a45}
-.ob-swaps .ob-none{font-size:.76rem;color:#3f4a45;padding:4px 0}
 </style>
 <script>
 (function () {
@@ -3514,13 +3513,13 @@ function obMealRow(d, slot, m, onSwap) {
  const meta = document.createElement('div'); meta.className = 'ob-meal-meta';
  meta.textContent = [m.calories ? m.calories + ' kcal' : '', m.protein ? m.protein + 'g protein' : '', m.prepMins ? m.prepMins + ' min' : ''].filter(Boolean).join(' · ');
  body.append(k, n, meta); row.append(ic, body);
- if (Array.isArray(m.swaps)) {
+ // No Swap button when there is nothing to swap to.
+ if (Array.isArray(m.swaps) && m.swaps.length) {
  const listId = `ob-sw-${String(d.day || '').toLowerCase()}-${slot}`;
  const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ob-swap'; btn.textContent = 'Swap';
  btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', listId);
  btn.setAttribute('aria-label', `Swap ${d.day || ''} ${label.toLowerCase()}: ${obTitle(m.name)}`);
  const list = document.createElement('ul'); list.className = 'ob-swaps'; list.id = listId; list.hidden = true;
- if (!m.swaps.length) { const li = document.createElement('li'); li.className = 'ob-none'; li.textContent = 'No close swap for this meal in your diet.'; list.appendChild(li); }
  m.swaps.forEach((a, i) => {
  const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button';
  b.textContent = obTitle(a.name); const sub = document.createElement('span'); sub.textContent = `${a.calories} kcal · ${a.protein}g protein`; b.appendChild(sub);
@@ -3570,9 +3569,9 @@ async function onboardBuildWeek() {
  const fitnessGoal = OB.input.goal;
  try {
  await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein }) });
- // Keep the goal weight so the curve comes back after a reload.
- try { await API('/user/goal-weight', { method:'POST', body: JSON.stringify({ goalWeightKg: OB.goalKg, weightKg: OB.input.weightKg }) }); if (S.user) S.user.goalWeightKg = OB.goalKg; } catch (_) { /* optional */ }
  if (OB.input.weightKg) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight: parseFloat(OB.input.weightKg) }) });
+ // Keep the goal weight so the curve comes back after a reload. The server checks it against the weight just logged.
+ try { await API('/user/goal-weight', { method:'POST', body: JSON.stringify({ goalWeightKg: OB.goalKg }) }); if (S.user) S.user.goalWeightKg = OB.goalKg; } catch (_) { /* optional */ }
  S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }

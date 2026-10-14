@@ -148,7 +148,7 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
     });
   }
 
-  it('320px: a bad goal weight shows the inline error and stays on step 1; a saved goal is prefilled after reload', async () => {
+  it('320px: no Swap button without options; a bad goal weight shows the inline error and stays on step 1; a saved goal is prefilled after reload', async () => {
     const ctx = await browser.newContext({ viewport: { width: 320, height: 844 }, hasTouch: true });
     await ctx.addInitScript(() => localStorage.setItem('fm_token', 't.t'));
     await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
@@ -160,6 +160,14 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
       await p.evaluate(() => { document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open')); openOnboarding(); });
     };
     await open();
+    // A meal with no swap options gets no Swap button; one with options does.
+    const btns = await p.evaluate(() => {
+      const d = { day: 'Monday', meals: {} };
+      const none = obMealRow(d, 'snack', { name: 'Plain test snack', calories: 150, protein: 5, swaps: [] }, () => {});
+      const some = obMealRow(d, 'snack', { name: 'Plain test snack', calories: 150, protein: 5, swaps: [{ name: 'Other snack', calories: 150, protein: 5 }] }, () => {});
+      return [none.querySelectorAll('.ob-swap').length, some.querySelectorAll('.ob-swap').length];
+    });
+    expect(btns).toEqual([0, 1]);
     await p.fill('#ob-age', '34'); await p.selectOption('#ob-sex', 'male'); await p.fill('#ob-height', '180'); await p.fill('#ob-weight', '82');
     for (const bad of ['5', '1000000', '40']) {
       await p.fill('#ob-goal-weight', bad);
