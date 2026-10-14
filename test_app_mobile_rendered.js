@@ -37,6 +37,27 @@ const VIEWS = {
 };
 const MODALS = ['modal-log-meal', 'modal-mealplan', 'modal-generate-shopping', 'modal-goals', 'modal-invite', 'modal-assign', 'modal-log-workout', 'modal-manual-list'];
 
+
+// Waits until the page is at rest before anything is measured: every stylesheet loaded,
+// web fonts ready, two layout frames, and no CSS transition or animation still running.
+// Modals open with transform:scale(.96) -> 1 over .2s, so a 44px target measured mid-
+// transition reads 42px. Under a busy parallel jest run a fixed sleep wasn't always enough.
+async function settle(page) {
+  await page.evaluate(async () => {
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+    await Promise.all([...document.querySelectorAll('link[rel=stylesheet]')].map((l) => (l.sheet ? null : new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); }))));
+    await document.fonts.ready;
+    for (let i = 0; i < 20; i += 1) {
+      await frame(); await frame();
+      void document.body.getBoundingClientRect();
+      const running = document.getAnimations().filter((a) => a.playState === 'running' || a.playState === 'pending');
+      if (!running.length) return;
+      await Promise.all(running.map((a) => a.finished.catch(() => {})));
+    }
+    throw new Error('page never settled: animations still running');
+  });
+}
+
 maybe('signed-in app rendered on phones', () => {
   jest.setTimeout(180000);
   let server; let browser; let base;
@@ -67,13 +88,17 @@ maybe('signed-in app rendered on phones', () => {
         const page = await ctx.newPage();
         await page.goto(`${base}/app.html`);
         await page.waitForFunction(() => typeof nav === 'function' && document.documentElement.classList.contains('fm-authed'), null, { timeout: 15000 });
+        await settle(page);
         const problems = [];
         for (const t of [...VIEWS[role].map((v) => ({ v })), ...MODALS.map((m) => ({ m }))]) {
           await page.evaluate((t) => {
             document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open'));
             if (t.v) nav(t.v); else openModal(t.m);
           }, t);
-          await page.waitForTimeout(600);
+          await settle(page);
+          // An open modal must be at its final size before tap targets are measured.
+          const scale = await page.evaluate(() => { const m = document.querySelector('.modal-overlay.open .modal'); return m ? new DOMMatrix(getComputedStyle(m).transform).a : 1; });
+          if (scale !== 1) problems.push(`${t.v || t.m}: modal measured at scale ${scale}`);
           const r = await page.evaluate(() => {
             const vw = innerWidth;
             const vis = (e) => { const b = e.getBoundingClientRect(); const s = getComputedStyle(e); return b.width > 0 && b.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && b.bottom > 0 && b.top < innerHeight * 3; };
@@ -109,7 +134,7 @@ maybe('signed-in app rendered on phones', () => {
     const short = [];
     for (const v of VIEWS.pt) {
       await page.evaluate((v) => nav(v), v);
-      await page.waitForTimeout(300);
+      await settle(page);
       short.push(...await page.evaluate(() => [...document.querySelectorAll('.view.active .view-actions .btn, .view[style*="block"] .view-actions .btn')]
         .filter((e) => e.getBoundingClientRect().height > 0)
         .filter((e) => e.getBoundingClientRect().height < 43.5)
