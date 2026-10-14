@@ -6,6 +6,7 @@ module.exports = {
     '**/test_home_hero_r3.js',
     '**/test_home_hero_alt.js',
     '**/test_home_hero_rendered.js',
+    '**/test_home_hero_shoulds.js',
     '**/test_trainer_prices_copy.js',
     '**/test_jest_testmatch_guard.js',
     '**/test_item_name_case.js',
