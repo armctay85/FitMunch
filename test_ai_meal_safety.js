@@ -165,21 +165,30 @@ describe('saved plans (POST and PUT /api/meal-plans)', () => {
     const call = pgCalls.find((c) => /^\s*(INSERT INTO|UPDATE) meal_plans/i.test(c.sql));
     return JSON.parse(call.params[/^\s*INSERT/i.test(call.sql) ? 4 : 3]);
   };
-  it.each(CASES)('$label never reaches the database on save', async (c) => {
+  // Saved plans are the user's own (typed or edited): kept exactly as entered, with a warning on unsafe meals.
+  it.each(CASES)('$label is kept as entered on save, with an allergen warning', async (c) => {
     profile = { dietaryPreferences: c.dietary || [], allergies: c.allergies || [] };
     const days = aiPlan({ [c.slot]: c.bad }).days;
     const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'My week', meals: days });
     expect(res.status).toBe(200);
     const saved = stored();
-    expect(saved[0].meals[c.slot].replacedForFilters).toBe(true);
-    assertSafe(saved, { dietary: c.dietary, allergies: c.allergies }, c.words);
+    const { allergenWarning, ...kept } = saved[0].meals[c.slot];
+    expect(kept).toEqual(c.bad);
+    expect(allergenWarning.message).toMatch(/may not fit your filters/);
+    expect(allergenWarning.allergens.length > 0 || allergenWarning.unrecognised).toBe(true);
+    expect(saved[1].meals[c.slot].allergenWarning).toBeUndefined();
   });
-  it('an edit (PUT) that adds an unsafe AI meal is checked too', async () => {
+  it('an edit (PUT) keeps the meal, names the allergen, and recomputes a stale warning', async () => {
     profile = { dietaryPreferences: ['nut free'] };
     const days = aiPlan({ breakfast: CASES[0].bad }).days;
+    days[1].meals.lunch = { ...days[1].meals.lunch, allergenWarning: { message: 'stale' } };
     const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth).send({ meals: days });
     expect(res.status).toBe(200);
-    assertSafe(stored(), { dietary: ['nut free'] }, /almond/i);
+    const saved = stored();
+    expect(saved[0].meals.breakfast.name).toBe('Berry smoothie');
+    expect(saved[0].meals.breakfast.allergenWarning.allergens).toEqual(['nuts']);
+    expect(saved[0].meals.breakfast.allergenWarning.message).toMatch(/^Contains nuts/);
+    expect(saved[1].meals.lunch.allergenWarning).toBeUndefined();
   });
 });
 
@@ -434,28 +443,52 @@ describe('r2 S1/S3: chat dishes and prompt text', () => {
   });
 });
 
-describe('r2 S2: manual, edited and old plans', () => {
+describe('r2 S2: manual, edited and old plans are kept as entered, with warnings', () => {
   const lastSaved = () => { const call = pgCalls.filter((c) => /^\s*(INSERT INTO|UPDATE) meal_plans/i.test(c.sql)).pop(); return JSON.parse(call.params[/^\s*INSERT/i.test(call.sql) ? 4 : 3]); };
-  it('a manual plan (flat list of meals with foods) is checked on save', async () => {
+  it('a manual plan (flat list of meals with foods) is kept, with a shellfish warning', async () => {
     profile = { allergies: ['shellfish'] };
-    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ name: 'Prawn satay', type: 'dinner', foods: [{ name: 'Prawns' }, { name: 'Rice' }], calories: 600, protein: 40 }] });
+    const mine = { name: 'Prawn satay', type: 'dinner', foods: [{ name: 'Prawns' }, { name: 'Rice' }], calories: 600, protein: 40 };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [mine] });
     expect(res.status).toBe(200);
-    expect(JSON.stringify(lastSaved())).not.toMatch(/prawn|satay/i);
+    const [saved] = lastSaved();
+    const { allergenWarning, ...kept } = saved;
+    expect(kept).toEqual(mine);
+    expect(allergenWarning.allergens).toEqual(['shellfish']);
   });
-  it('day form with a list of meals is checked on edit', async () => {
+  it('day form with a list of meals is kept on edit; an unknown word gives "Unrecognised ingredients"', async () => {
     profile = { dietaryPreferences: ['gluten free'] };
-    const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth).send({ meals: [{ day: 'Monday', meals: [{ name: 'Toast', slot: 'breakfast', ingredients: ['sourdough', 'avocado'], calories: 400, protein: 15 }] }] });
+    const toast = { name: 'Toast', slot: 'breakfast', ingredients: ['sourdough', 'avocado'], calories: 400, protein: 15 };
+    const odd = { name: 'Nan special', slot: 'lunch', ingredients: ['zorblax', 'rice'], calories: 500, protein: 20 };
+    const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth).send({ meals: [{ day: 'Monday', meals: [toast, odd] }] });
     expect(res.status).toBe(200);
-    expect(JSON.stringify(lastSaved())).not.toMatch(/sourdough|toast/i);
+    const [day] = lastSaved();
+    expect(day.meals).toHaveLength(2);
+    expect(day.meals[0].name).toBe('Toast');
+    expect(day.meals[0].allergenWarning.allergens).toEqual(['gluten']);
+    expect(day.meals[1].ingredients).toEqual(['zorblax', 'rice']);
+    expect(day.meals[1].allergenWarning).toMatchObject({ allergens: [], unrecognised: true });
+    expect(day.meals[1].allergenWarning.message).toMatch(/^Unrecognised ingredients/);
   });
-  it('old saved plans are checked again when listed', async () => {
+  it('old saved plans are listed as they are, with a warning added', async () => {
     profile = { dietaryPreferences: ['nut free'] };
     const pg = require('pg');
     const spy = jest.spyOn(pg.Pool.prototype, 'query').mockImplementationOnce(async () => ({ rows: [{ id: 9, name: 'Old', meals: JSON.stringify([{ day: 'Monday', meals: { lunch: { name: 'Pesto pasta', ingredients: ['pesto', 'rice'], calories: 600, protein: 30 } } }]) }] }));
     const res = await request(app).get('/api/meal-plans').set('Authorization', auth);
     spy.mockRestore();
     expect(res.status).toBe(200);
-    expect(JSON.stringify(res.body.plans)).not.toMatch(/pesto/i);
+    const lunch = res.body.plans[0].meals[0].meals.lunch;
+    expect(lunch.name).toBe('Pesto pasta');
+    expect(lunch.allergenWarning.allergens).toContain('nuts');
+  });
+  it('AI-written plans are still swapped, never just warned', async () => {
+    const r = safety.enforcePlan({ days: [{ meals: { lunch: { name: 'Pesto pasta', ingredients: ['pesto', 'rice'], calories: 600, protein: 30 } } }] }, { dietary: ['nut free'] });
+    expect(r.replaced).toHaveLength(1);
+    expect(JSON.stringify(r.plan)).not.toMatch(/pesto|allergenWarning/i);
+  });
+  it('the app shows the warning on saved plan cards and plan days', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+    expect(html).toMatch(/planAllergenWarnings\(meals\)/);
+    expect(html).toMatch(/meal\.allergenWarning\.message/);
   });
 });
 

@@ -1732,7 +1732,8 @@ async function buildCoachContext(userId, profile, context = {}) {
       if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { meals = null; } }
       meals = mealSafety.enforceSavedMeals(meals, mealSafety.profileFilters(p)).meals;
       const days = meals && Array.isArray(meals.days) ? meals.days : [];
-      const first = days[0] && days[0].meals ? Object.values(days[0].meals).map((m) => m && (m.name || m.title)).filter(Boolean).slice(0, 4) : [];
+      // Meals with an allergen warning are left out of what Coach is told about the plan.
+      const first = days[0] && days[0].meals ? Object.values(days[0].meals).filter((m) => m && !m.allergenWarning).map((m) => m.name || m.title).filter(Boolean).slice(0, 4) : [];
       lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
     }
   } catch (_) { /* plan context is optional */ }

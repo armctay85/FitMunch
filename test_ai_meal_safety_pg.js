@@ -100,15 +100,24 @@ maybe('AI meal plans on real Postgres', () => {
     await new Promise((r) => setTimeout(r, 200));
     expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
   });
-  it('a saved plan with prawn satay and peanut butter never reaches the row; an old row is cleaned on read', async () => {
+  it('a saved plan with prawn satay and peanut butter toast is stored as entered, with warnings; an old row gets one on read', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: ['shellfish free'], allergies: ['peanuts'] });
-    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ day: 'Monday', meals: { dinner: meal('Prawn satay', ['Prawns', 'Rice'], 700) } }, { name: 'Toast', foods: [{ name: 'Toast' }, { name: 'Peanut butter' }] }] });
+    const satay = meal('Prawn satay', ['Prawns', 'Rice'], 700);
+    const toast = { name: 'Toast', foods: [{ name: 'Toast' }, { name: 'Peanut butter' }] };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Mine', meals: [{ day: 'Monday', meals: { dinner: satay } }, toast] });
     expect(res.status).toBe(200);
-    const row = (await pool.query('select meals from meal_plans where user_id=$1', [U])).rows[0];
-    expect(JSON.stringify(row.meals)).not.toMatch(/prawn|satay|peanut/i);
+    const row = (await pool.query('select meals from meal_plans where user_id=$1', [U])).rows[0].meals;
+    const { allergenWarning: w1, ...dinner } = row[0].meals.dinner;
+    expect(dinner).toEqual(satay);
+    expect(w1.allergens).toEqual(expect.arrayContaining(['shellfish', 'nuts']));
+    const { allergenWarning: w2, ...t } = row[1];
+    expect(t).toEqual(toast);
+    expect(w2.allergens).toContain('nuts');
     await pool.query("insert into meal_plans(user_id, name, meals) values ($1, 'Old', $2)", [U, JSON.stringify([{ day: 'Monday', meals: { lunch: meal('Garlic prawns', ['Prawns', 'Rice'], 600) } }])]);
     const list = await request(app).get('/api/meal-plans').set('Authorization', auth);
     expect(list.status).toBe(200);
-    expect(JSON.stringify(list.body.plans)).not.toMatch(/prawn/i);
+    const old = list.body.plans.find((p) => p.name === 'Old').meals[0].meals.lunch;
+    expect(old.name).toBe('Garlic prawns');
+    expect(old.allergenWarning.allergens).toContain('shellfish');
   });
 });

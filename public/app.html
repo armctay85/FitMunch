@@ -218,6 +218,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .frmcal{background:rgba(196,122,18,.12);color:#92400e}
 .frmpro{background:rgba(47,111,237,.1);color:#1e40af}
 .diet-tag{padding:5px 12px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-size:.72rem;font-weight:600;cursor:pointer;color:var(--mute);transition:all .15s;-webkit-tap-highlight-color:transparent;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.allergen-warn{font-size:.75rem;line-height:1.4;color:#7c2d12;background:#ffedd5;border:1px solid #fdba74;border-radius:6px;padding:6px 8px;margin-top:6px}
 .diet-tag.active{background:var(--leaf);color:#fff;border-color:var(--leaf)}
 .mp-day-tab{flex-shrink:0;padding:6px 14px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-size:.75rem;font-weight:700;cursor:pointer;color:var(--mute);transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .mp-day-tab.active{background:var(--leaf);color:#fff;border-color:var(--leaf)}
@@ -2259,10 +2260,13 @@ async function loadMealPlans() {
  items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal · P:${escapeHtml(i.protein||0)}g</div>`).join('')
  }</div>`).join('')
  }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ const warnings = planAllergenWarnings(meals);
+ const warnHtml = warnings.length ? `<div class="allergen-warn" role="alert" style="margin-top:8px">${warnings.map(w => `<div>⚠️ <strong>${escapeHtml(w.name)}</strong>: ${escapeHtml(w.message)}</div>`).join('')}</div>` : '';
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
  <div class="plan-card-meta">${goalLabel} · ${escapeHtml(p.total_calories||' - ')} cal/day</div>
  ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${escapeHtml(p.description)}</div>` : ''}
+ ${warnHtml}
  ${mealSummary}
  <div class="plan-card-footer">
  <span class="tag tag-green">Meal Plan</span>
@@ -2272,6 +2276,19 @@ async function loadMealPlans() {
  </div>
  </div>`;
  }).join('');
+}
+
+// Meals you typed or edited are kept as entered; the server marks any that may not fit your filters.
+function planAllergenWarnings(meals) {
+ const out = [];
+ const walk = (v, depth) => {
+ if (!v || typeof v !== 'object' || depth > 6) return;
+ if (Array.isArray(v)) { v.forEach(x => walk(x, depth + 1)); return; }
+ if (v.allergenWarning && v.allergenWarning.message) out.push({ name: v.name || v.title || 'A meal', message: v.allergenWarning.message });
+ for (const [k, x] of Object.entries(v)) if (k !== 'allergenWarning') walk(x, depth + 1);
+ };
+ walk(meals, 0);
+ return out;
 }
 
 async function buildListFromSaved(planId) {
@@ -3808,6 +3825,7 @@ function renderPlanDay(day) {
  ${meal.prepMins?`<span class="meal-macro meal-m-time">${escapeHtml(meal.prepMins)} min</span>`:''}
  </div>
  ${ings?`<div class="meal-ings">🛒 ${ings}</div>`:''}
+ ${meal.allergenWarning && meal.allergenWarning.message ? `<div class="allergen-warn" role="alert">⚠️ ${escapeHtml(meal.allergenWarning.message)}</div>` : ''}
  </div>`;
  }
  el.innerHTML = html;
