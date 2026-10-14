@@ -190,21 +190,6 @@
       "count": 3
     },
     {
-      "file": "public/js/fm-shopper.js",
-      "id": "specials",
-      "count": 2
-    },
-    {
-      "file": "public/js/fm-shopper.js",
-      "id": "catalogue",
-      "count": 20
-    },
-    {
-      "file": "public/js/fm-shopper.js",
-      "id": "cheapest",
-      "count": 1
-    },
-    {
       "file": "public/macro-meal-planner.html",
       "id": "specials",
       "count": 11
@@ -305,16 +290,6 @@
       "count": 5
     },
     {
-      "file": "public/shopper.html",
-      "id": "specials",
-      "count": 6
-    },
-    {
-      "file": "public/shopper.html",
-      "id": "catalogue",
-      "count": 6
-    },
-    {
       "file": "public/supermarket-meal-planner.html",
       "id": "specials",
       "count": 12
@@ -365,7 +340,6 @@
     "css/fm-coach.css",
     "css/fm-lander.css",
     "css/fm-shell.css",
-    "css/fm-shopper.css",
     "css/fm-tokens-auth.css",
     "css/fm-tokens.css",
     "family-meal-plan.html",
@@ -386,8 +360,9 @@
     "js/fm-claim.js",
     "js/fm-coach.js",
     "js/fm-first-scan.js",
+    "js/fm-item-name.js",
     "js/fm-identity.js",
-    "js/fm-shopper.js",
+    "js/fm-targets.js",
     "js/fm-storage.js",
     "js/fm-track.js",
     "login.html",
@@ -402,7 +377,6 @@
     "refund.html",
     "robots.txt",
     "script.js",
-    "shopper.html",
     "sitemap.xml",
     "success.html",
     "support.html",

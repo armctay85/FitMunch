@@ -337,18 +337,22 @@ describe('Elite QA #88 r1 fixes', () => {
     const low = engine.buildPlan({ calories: 2000, protein: 100, days: 7, dietary: ['low carb'] });
     const carbs = (p) => p.days.reduce((n, d) => n + d.dailyTotals.carbs, 0);
     expect(carbs(low)).toBeLessThan(carbs(base) * 0.85);
+    // Plant proteins now reach 150 g on 2000 kcal, so no note; an impossible target still gets one.
     const vegan = engine.buildPlan({ calories: 2000, protein: 150, days: 7, dietary: ['vegan'] });
-    expect(vegan.notes[0]).toMatch(/^Protein averages \d+ g a day against your 150 g target\. Tofu, tempeh or legumes would close the gap\.$/);
+    expect(Math.abs(vegan.avgDailyProtein - 150)).toBeLessThanOrEqual(15);
+    expect(vegan.notes).toBeUndefined();
+    const short = engine.buildPlan({ calories: 1500, protein: 300, days: 7, dietary: ['vegan'] });
+    expect(short.notes[0]).toMatch(/^Protein averages \d+ g a day against your 300 g target\. Tofu, tempeh or legumes would close the gap\.$/);
   });
 
   it('S4: diet names are normalised, and vegan excludes meat, fish, dairy and eggs', () => {
     expect(engine.normaliseDiet(['Gluten-Free', 'dairy_free', ' VEGAN ', 'gluten free'])).toEqual(['gluten free', 'dairy free', 'vegan']);
     const gfdf = JSON.stringify(engine.buildPlan({ calories: 2100, protein: 120, days: 7, dietary: ['gluten-free', 'dairy-free'] })).toLowerCase();
-    for (const banned of ['bread', 'pasta', 'oats', 'yoghurt', 'skim milk', 'whey', 'ricotta', 'cottage']) expect(gfdf).not.toContain(banned);
+    for (const banned of ['bread', 'pasta', 'oats', 'greek yoghurt', 'skim milk', 'whey', 'ricotta', 'cottage']) expect(gfdf).not.toContain(banned);
     const vegan = engine.buildPlan({ calories: 2100, protein: 80, days: 7, dietary: ['vegan'] });
     expectEveryDayOnTarget(vegan, 2100);
     const text = JSON.stringify(vegan).toLowerCase();
-    for (const banned of ['chicken', 'beef', 'salmon', 'tuna', 'barramundi', 'egg', 'yoghurt', 'whey', 'cheese', 'ricotta', 'skim milk']) expect(text).not.toContain(banned);
+    for (const banned of ['chicken', 'beef', 'salmon', 'tuna', 'barramundi', 'egg', 'greek yoghurt', 'whey', 'cheese', 'ricotta', 'skim milk']) expect(text).not.toContain(banned);
     for (const t of engine.TEMPLATES) {
       if (t.items.some(([f]) => /^Egg/.test(f))) expect(t.flags).toContain('eggs');
     }
@@ -406,5 +410,23 @@ describe('Elite QA #88 r1 fixes', () => {
     appSrv.use('/api/meal-plan', require('./meal-planner'));
     const res = await request(appSrv).post('/api/meal-plan/shopping').set('Authorization', `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET)}`).send({ plan: engine.buildPlan({ calories: 2000, protein: 120, days: 7 }) });
     expect(JSON.stringify(res.body)).not.toMatch(/woolworths|coles|price|Url/i);
+  });
+});
+
+describe('Elite QA #88 r2 S2: macro check boundary (4P+4C+9F within ±15%)', () => {
+  // One dinner at 1000 kcal whose macros add to `ratio` x 1000; every other meal is exact.
+  const exact = (cal) => ({ protein: cal / 16, carbs: (cal - 4 * (cal / 16) - 9 * (cal / 40)) / 4, fat: cal / 40 });
+  const planWith = (ratio) => {
+    const p = aiPlan([500, 500, 1000, 500]);
+    for (const d of p.days) for (const k of engine.SLOTS) Object.assign(d.meals[k], exact(d.meals[k].calories));
+    const kcal = 1000 * ratio;
+    Object.assign(p.days[3].meals.dinner, { calories: 1000, protein: 50, fat: 30, carbs: (kcal - 200 - 270) / 4 });
+    return p;
+  };
+  it.each([1.0, 1.14, 0.86, 1.149, 0.851])('macros at %sx calories pass', (ratio) => {
+    expect(engine.normaliseAiPlan(planWith(ratio), { calories: 2500, days: 7 }).ok).toBe(true);
+  });
+  it.each([1.16, 0.84, 1.151, 0.849, 1.5])('macros at %sx calories -> meal_macros_mismatch', (ratio) => {
+    expect(engine.normaliseAiPlan(planWith(ratio), { calories: 2500, days: 7 })).toEqual({ ok: false, reason: 'meal_macros_mismatch' });
   });
 });

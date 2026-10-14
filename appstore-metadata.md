@@ -1,71 +1,60 @@
 # FitMunch App Store Metadata
 
+Source of truth for the App Store listing. Every claim here must match the
+current iOS binary. `test_app_store_copy.js` blocks claims the app does not
+deliver. Paste into App Store Connect by hand; nothing here is published
+automatically.
+
 ## APP NAME
-FitMunch: Meal & Nutrition Tracker
+FitMunch: Meal Plans & Macros
 
 ## SUBTITLE
-Track meals, hit macros, reach goals
+Protein targets, receipt scans
 
 ## KEYWORDS
-nutrition,fitness,meal tracker,macros,calorie counter,weight loss,health,diet,food log,protein,carbs,fats,meal planning,fitness app,health tracker,nutrition app,meal diary,food diary,meal logging,progress tracking
+calorie,counter,grocery,nutrition,diet,weight loss,food log,workout,coach,prep,fitness,tracker
+
+## PROMOTIONAL TEXT
+Plan a week of meals to your calorie and protein targets, then scan a grocery receipt for item macros and a haul score.
 
 ## DESCRIPTION
-FitMunch makes meal tracking simple and effective. Log your meals, track macros, and stay on top of your nutrition goals—all in one beautiful app.
+FitMunch plans your meals around your goal, helps you log what you eat, and scores your grocery shop.
 
-**Track Every Meal**
-Log breakfast, lunch, dinner, and snacks with our intuitive interface. Search foods from our extensive database or add custom entries.
+**Plan your week**
+Set your goal, calorie and protein targets. FitMunch drafts a week of meals built to your targets, with calories, protein and prep time for each.
 
-**Hit Your Macros**
-See real-time totals for calories, protein, carbs, and fats. Set personalized goals and track your progress throughout the day.
+**Log meals and hit your macros**
+Log breakfast, lunch, dinner and snacks. See calories, protein, carbs and fat against your daily targets as you go.
 
-**Stay Consistent**
-View your meal history, monitor trends, and build healthy habits. Perfect for weight loss, muscle gain, or maintaining a balanced diet.
+**Scan your receipt**
+Take a photo of a grocery receipt. FitMunch reads the items, estimates their macros, gives the shop a haul score. Scores are estimates, not medical advice.
 
-**Premium Features (Subscription)**
-• Unlimited daily meal logging
-• Full historical data with advanced charts
-• Premium food database with recipes
-• Data export (CSV/JSON)
-• Personalized macro recommendations
-• No ads, just pure tracking
+**Coach and workout plans**
+Ask Coach about meals, training or your progress. Pick gym or home and your level for a weekly workout plan you can tick off.
 
-**Why FitMunch?**
-• Clean, intuitive design that's easy to use daily
-• Privacy-focused—your data stays on your device
-• Syncs with Apple Health for comprehensive tracking
-• Built for real people with real fitness goals
+**AI and your data**
+Meal plans, Coach, receipt scans, insights and the weekly review use AI providers. FitMunch asks before any of your data is sent, and you can turn AI features off at any time under Me, Privacy. Your account data is stored on FitMunch servers so it is there when you sign in. See the privacy policy for details.
 
-**Perfect For**
-• Weight loss journeys
-• Muscle building and fitness tracking
-• Managing specific diets (keto, low-carb, high-protein)
-• Anyone wanting to understand their eating habits better
-• Fitness enthusiasts tracking macros
-
-**Subscription Details**
-FitMunch offers auto-renewing subscriptions:
+**Subscription**
+FitMunch Premium is an auto-renewing subscription:
 • Monthly: A$19.99
-• Annual: A$149.99 (best value)
+• Annual: A$149.99
+Eligible new subscribers get a free trial; the length and the date you will be charged are shown before you confirm.
 
-Payment will be charged to your iTunes Account at confirmation of purchase. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your Account Settings after purchase.
+Payment is charged to your Apple ID at confirmation of purchase. The subscription renews automatically unless turned off at least 24 hours before the end of the current period. Manage or cancel any time in your Apple ID account settings.
 
-**Privacy & Support**
-We take your privacy seriously. All data is stored locally on your device. Read our full privacy policy at [PRIVACY_URL].
+Privacy: https://www.fitmunch.com.au/privacy
+Terms: https://www.fitmunch.com.au/terms
+Support: support@fitmunch.com.au
 
-Need help? Contact our support team at [SUPPORT_URL].
-
----
-
-Download FitMunch today and take control of your nutrition journey!
-
-## PROMO TEXT
-Special launch offer! Get 7 days free trial of premium features. Track unlimited meals, access full history, and unlock personalized insights.
+## WHAT'S NEW
+Bug fixes and improvements.
 
 ## SUPPORT URL
-https://fitmunch.com.au/support
+https://www.fitmunch.com.au/support
 
 ## PRIVACY POLICY URL
-https://fitmunch.com.au/privacy
+https://www.fitmunch.com.au/privacy
 
 ## PRIMARY CATEGORY
 Health & Fitness

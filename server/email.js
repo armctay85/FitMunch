@@ -77,7 +77,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
     ? `<ol style="margin:0;padding-left:20px;color:#0c1210;line-height:1.8">
         <li><a href="${dashboardUrl}" style="color:#1f9d4a;font-weight:600">Open your dashboard</a></li>
         <li>Invite clients and assign a meal plan</li>
-        <li>Have them scan a Woolies or Coles receipt</li>
+        <li>Have them scan their supermarket receipt</li>
       </ol>`
     : `<ol style="margin:0;padding-left:20px;color:#0c1210;line-height:1.8">
         <li><a href="${dashboardUrl}" style="color:#1f9d4a;font-weight:600">Open your dashboard</a></li>

@@ -1,6 +1,7 @@
 // FitMunch API Server
 // This module provides API endpoints for the FitMunch app
 
+const { stripMarkup, stripNames } = require('./lib/strip-markup');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -104,7 +105,7 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 // Meal Logging API routes
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
-    const mealData = { ...req.body };
+    const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
     if (mealData.date) mealData.date = new Date(mealData.date);
     const meal = await logMeal(req.user.userId, mealData);
@@ -295,11 +296,40 @@ function funnelReadKeyValid(req) {
   return safeKeyEqual(provided, expected);
 }
 
-router.get('/analytics/funnel', async (req, res) => {
+// Per-IP limit on the funnel GET, shared across instances via Postgres
+// (lib/shared-counters, atomic upsert). Fails closed: if the counter is down,
+// the request is refused. Counts every attempt, so key guessing hits 429.
+const FUNNEL_WINDOW_MS = 10 * 60 * 1000;
+function funnelMaxPerWindow() {
+  const n = Number(process.env.FUNNEL_IP_MAX_PER_10_MIN);
+  return Number.isFinite(n) && n > 0 ? n : 20;
+}
+async function funnelLimiter(req, res, next) {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  const { ipKeyGenerator } = require('express-rate-limit');
+  let hits;
+  try {
+    hits = await hitRateCounter('analytics-funnel-ip', ipKeyGenerator(req.ip || 'unknown'), { windowMs: FUNNEL_WINDOW_MS, failClosed: true });
+  } catch (err) {
+    console.error('[analytics-funnel] rate counter unavailable', err && err.code ? err.code : 'Error');
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', '60');
+    return res.status(503).json({ success: false, error: 'Try again shortly.' });
+  }
+  if (hits > funnelMaxPerWindow()) {
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', String(FUNNEL_WINDOW_MS / 1000));
+    return res.status(429).json({ success: false, error: 'Too many requests' });
+  }
+  return next();
+}
+
+router.get('/analytics/funnel', funnelLimiter, async (req, res) => {
   try {
     const expected = process.env.FM_ANALYTICS_KEY;
-    const provided = req.query.key || req.headers['x-fm-analytics-key'];
-    const fullAccess = Boolean(expected && provided && safeKeyEqual(provided, expected));
+    // Header only: a key in the query string lands in access and CDN logs.
+    const provided = req.headers['x-fm-analytics-key'];
+    const fullAccess = Boolean(expected && typeof provided === 'string' && provided && safeKeyEqual(provided, expected));
     const readOnly = !fullAccess && funnelReadKeyValid(req);
     if (!fullAccess && !readOnly) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -839,7 +869,11 @@ router.get('/coach/billing-status', async (req, res) => {
     }
     if (!decoded || !decoded.userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
     if (decoded.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
-    const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [decoded.userId]);
+    // Role from the users row too, so a demoted trainer with an unexpired token is refused.
+    const userRow = await _pool.query('SELECT settings, role FROM users WHERE id=$1', [decoded.userId]);
+    if (!userRow.rows[0] || userRow.rows[0].role !== 'pt') {
+      return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    }
     const coach = readCoachBilling(userRow.rows[0] && userRow.rows[0].settings);
     const countRow = await _pool.query(
       `SELECT COUNT(*)::int AS n FROM pt_clients WHERE pt_id=$1 AND COALESCE(status, 'active') = 'active'`,
@@ -1010,11 +1044,26 @@ router.post('/auth/ai-consent', authMiddleware, async (req, res) => {
 
 // ── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 // A plan id from a request body: a positive integer or its digits as a string.
+// Capped at the Postgres int4 max so 1e20 or 9999999999 is a 400, not a 500.
+const PG_INT_MAX = 2147483647;
 function positiveIntId(v) {
-  if (typeof v === 'number' && Number.isInteger(v) && v > 0) return v;
-  if (typeof v === 'string' && /^[1-9]\d{0,9}$/.test(v)) return Number(v);
+  if (typeof v === 'number' && Number.isInteger(v) && v > 0 && v <= PG_INT_MAX) return v;
+  if (typeof v === 'string' && /^[1-9]\d{0,9}$/.test(v) && Number(v) <= PG_INT_MAX) return Number(v);
   return null;
 }
+// A user id in a path: a UUID (users.id) or a positive int id.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function validUserIdParam(v) { return typeof v === 'string' && (UUID_RE.test(v) || positiveIntId(v) !== null); }
+
+// Reject malformed path ids before any query runs (400, never a pg 500).
+router.param('id', (req, res, next, v) => {
+  if (positiveIntId(v) === null) return res.status(400).json({ success: false, error: 'Invalid id' });
+  next();
+});
+router.param('clientId', (req, res, next, v) => {
+  if (!validUserIdParam(v)) return res.status(400).json({ success: false, error: 'Invalid client id' });
+  next();
+});
 
 function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
@@ -1198,11 +1247,11 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
     const { aggregateShoppingList } = require('./lib/meal-plan-engine');
     const items = aggregateShoppingList({ days: planDays })
-      .map((i) => ({ name: i.name, qty: i.qty, unit: '', category: categorise(i.name), checked: false }))
+      .map((i) => ({ name: stripMarkup(i.name), qty: stripMarkup(i.qty), unit: '', category: categorise(String(i.name || '')), checked: false }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
-      [req.user.userId, planId, String(name || `${plan.rows[0].name} — Shopping List`).slice(0, 120), JSON.stringify(items)]
+      [req.user.userId, planId, stripMarkup(String(name || `${plan.rows[0].name} — Shopping List`)).slice(0, 120), JSON.stringify(items)]
     );
     res.json({ success: true, list: list.rows[0] });
   } catch (err) { sendApiError(res, err); }
@@ -1211,7 +1260,7 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
 // GET /api/shopping-list — get all shopping lists for user
 router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
-    const { name, items = [] } = req.body;
+    const { name, items = [] } = stripNames(req.body || {});
     const result = await _pool.query(
       `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
       [req.user.userId, name || 'My List', JSON.stringify(items)]
@@ -1239,7 +1288,7 @@ router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
 // PATCH /api/shopping-list/:id — update items (check/uncheck) or complete
 router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
-    const { items, completed } = req.body;
+    const { items, completed } = stripNames(req.body || {});
     const sets = [];
     const vals = [];
     let i = 1;
@@ -1279,7 +1328,7 @@ router.post('/favourites', authMiddleware, async (req, res) => {
     const b = req.body || {};
     const itemType = b.itemType || b.type || b.item_type;
     const itemId = b.itemId != null ? b.itemId : b.item_id;
-    const itemData = b.itemData || b.item_data || b.data || {};
+    const itemData = stripNames(b.itemData || b.item_data || b.data || {});
     if (!itemType || itemId == null || itemId === '') {
       return res.status(400).json({ success: false, error: 'itemType and itemId are required' });
     }
@@ -1314,7 +1363,7 @@ router.get('/meal-plans', authMiddleware, async (req, res) => {
 
 router.post('/meal-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
@@ -1325,7 +1374,7 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
 
 router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = req.body;
+    const { name, description, goalType, meals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Compute totals from meals if provided
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
     if (meals && Array.isArray(meals)) {
@@ -1367,7 +1416,7 @@ router.get('/workout-plans', authMiddleware, async (req, res) => {
 
 router.post('/workout-plans', authMiddleware, async (req, res) => {
   try {
-    const { name, description, level, frequency, workouts } = req.body;
+    const { name, description, level, frequency, workouts } = stripNames(req.body || {});
     const r = await _pool.query(
       'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
       [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
@@ -1378,7 +1427,7 @@ router.post('/workout-plans', authMiddleware, async (req, res) => {
 
 router.put('/workout-plans/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, level, frequency, workouts } = req.body;
+    const { name, description, level, frequency, workouts } = stripNames(req.body || {});
     const r = await _pool.query(
       `UPDATE workout_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
        level=COALESCE($3,level), frequency=COALESCE($4,frequency),
@@ -1528,7 +1577,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 
 // ── AI CHAT (conversational coach) ────────────────────────────────────────────
 const CHAT_INTENTS = Object.freeze(Object.assign(Object.create(null), {
-  nutrition: 'You are FitMunch, an Australian nutrition coach. Help the user plan meals, hit macros, build a shopping list from everyday foods, and troubleshoot cravings or dieting plateaus. Use Australian spelling and products.',
+  nutrition: 'You are FitMunch, an Australian nutrition coach. Help the user plan meals, hit macros, build a shopping list from everyday foods (say \'shop at your supermarket\' and never name a supermarket chain), and troubleshoot cravings or dieting plateaus. Use Australian spelling and products.',
   workout: 'You are FitMunch, an Australian strength and conditioning coach. Help the user plan sessions, pick accessories, manage fatigue, and fix form cues. Keep advice practical for home or gym users.',
   progress: 'You are FitMunch, an Australian progress coach. Read the user\'s recent numbers, explain what they mean, and suggest one concrete change for next week. No medical claims.',
   general: 'You are FitMunch, an Australian fitness and nutrition coach. Answer the user clearly and specifically.',
@@ -2037,113 +2086,6 @@ router.post('/referral/claim', authMiddleware, async (req, res) => {
   } catch (err) { sendApiError(res, err); }
 });
 
-// POST /api/shopping-list/budget — generate shopping list from nutritional targets + budget
-// Advertised feature: "150g protein/day on $80/week → here's what to buy"
-router.post('/shopping-list/budget', authMiddleware, async (req, res) => {
-  try {
-    const { protein = 150, calories = 2200, budget = 80, days = 7 } = req.body;
-
-    // AU supermarket staples with approx Woolies/Coles prices (AUD)
-    const STAPLES = [
-      { name: 'Chicken breast (1kg)', price: 9.00, proteinPer100g: 22, calsPer100g: 110, grams: 1000, category: 'meat' },
-      { name: 'Beef mince 500g', price: 7.00, proteinPer100g: 21, calsPer100g: 153, grams: 500, category: 'meat' },
-      { name: 'Eggs (12 pack)', price: 6.00, proteinPer100g: 13, calsPer100g: 155, grams: 660, category: 'dairy' },
-      { name: 'Greek yoghurt (1kg)', price: 5.50, proteinPer100g: 9, calsPer100g: 59, grams: 1000, category: 'dairy' },
-      { name: 'Cottage cheese 500g', price: 4.00, proteinPer100g: 11, calsPer100g: 98, grams: 500, category: 'dairy' },
-      { name: 'Canned tuna (4 pack)', price: 5.00, proteinPer100g: 27, calsPer100g: 116, grams: 400, category: 'meat' },
-      { name: 'Rolled oats 1kg', price: 3.50, proteinPer100g: 13, calsPer100g: 389, grams: 1000, category: 'grains' },
-      { name: 'Brown rice 2kg', price: 4.50, proteinPer100g: 8, calsPer100g: 370, grams: 2000, category: 'grains' },
-      { name: 'Sweet potato 1kg', price: 4.00, proteinPer100g: 2, calsPer100g: 86, grams: 1000, category: 'vegetables' },
-      { name: 'Broccoli (bunch)', price: 2.50, proteinPer100g: 3, calsPer100g: 34, grams: 400, category: 'vegetables' },
-      { name: 'Spinach 250g bag', price: 3.00, proteinPer100g: 3, calsPer100g: 23, grams: 250, category: 'vegetables' },
-      { name: 'Banana bunch (~6)', price: 2.80, proteinPer100g: 1, calsPer100g: 89, grams: 600, category: 'fruit' },
-      { name: 'Olive oil 500mL', price: 7.00, proteinPer100g: 0, calsPer100g: 884, grams: 500, category: 'pantry' },
-      { name: 'Whey protein 1kg', price: 35.00, proteinPer100g: 75, calsPer100g: 380, grams: 1000, category: 'supplements' },
-      { name: 'Milk 2L', price: 3.20, proteinPer100g: 3.4, calsPer100g: 65, grams: 2000, category: 'dairy' },
-      { name: 'Almonds 500g', price: 9.00, proteinPer100g: 21, calsPer100g: 579, grams: 500, category: 'pantry' },
-      { name: 'Peanut butter 375g', price: 4.50, proteinPer100g: 25, calsPer100g: 588, grams: 375, category: 'pantry' },
-      { name: 'Frozen mixed veg 1kg', price: 3.50, proteinPer100g: 3, calsPer100g: 70, grams: 1000, category: 'vegetables' },
-      { name: 'Salmon portions 500g', price: 14.00, proteinPer100g: 20, calsPer100g: 208, grams: 500, category: 'meat' },
-    ];
-
-    const dailyProtein = protein;
-    const dailyCalories = calories;
-    const weeklyBudget = budget;
-
-    // Score each item by protein per dollar (higher = better value)
-    const scored = STAPLES.map(item => ({
-      ...item,
-      totalProtein: (item.proteinPer100g / 100) * item.grams,
-      totalCalories: (item.calsPer100g / 100) * item.grams,
-      proteinPerDollar: ((item.proteinPer100g / 100) * item.grams) / item.price,
-    })).sort((a, b) => b.proteinPerDollar - a.proteinPerDollar);
-
-    // Greedy selection: always include high-protein staples first
-    const selected = [];
-    let totalCost = 0;
-    let weeklyProtein = 0;
-    let weeklyCalories = 0;
-
-    // Always include eggs and at least one protein source
-    const mustHave = ['Chicken breast (1kg)', 'Eggs (12 pack)', 'Rolled oats 1kg'];
-    mustHave.forEach(name => {
-      const item = scored.find(i => i.name === name);
-      if (item && totalCost + item.price <= weeklyBudget) {
-        selected.push(item);
-        totalCost += item.price;
-        weeklyProtein += item.totalProtein;
-        weeklyCalories += item.totalCalories;
-      }
-    });
-
-    // Fill remaining budget with best value items
-    for (const item of scored) {
-      if (selected.find(s => s.name === item.name)) continue;
-      if (totalCost + item.price > weeklyBudget * 1.05) continue; // 5% over budget tolerance
-      selected.push(item);
-      totalCost += item.price;
-      weeklyProtein += item.totalProtein;
-      weeklyCalories += item.totalCalories;
-      if (selected.length >= 12) break;
-    }
-
-    const dailyAvgProtein = Math.round(weeklyProtein / days);
-    const dailyAvgCalories = Math.round(weeklyCalories / days);
-    const meetsProtein = dailyAvgProtein >= dailyProtein * 0.85;
-    const meetsCalories = dailyAvgCalories >= dailyCalories * 0.75;
-
-    // Save as a shopping list
-    const pool = _pool;
-    const listItems = selected.map(i => ({
-      name: i.name,
-      price: i.price,
-      category: i.category,
-      protein: Math.round(i.totalProtein),
-      calories: Math.round(i.totalCalories),
-      checked: false,
-    }));
-    const saved = await pool.query(
-      `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
-      [req.user.userId, `${protein}g protein / $${budget} budget — ${new Date().toLocaleDateString('en-AU')}`, JSON.stringify(listItems)]
-    );
-
-    res.json({
-      success: true,
-      list: saved.rows[0],
-      items: listItems,
-      summary: {
-        totalCost: Math.round(totalCost * 100) / 100,
-        dailyProtein: dailyAvgProtein,
-        dailyCalories: dailyAvgCalories,
-        meetsProteinTarget: meetsProtein,
-        meetsCalorieTarget: meetsCalories,
-        message: meetsProtein
-          ? `✅ Hits ~${dailyAvgProtein}g protein/day on $${Math.round(totalCost * 100) / 100}/week`
-          : `⚠️ ~${dailyAvgProtein}g protein/day — add whey protein to hit ${dailyProtein}g target`,
-      }
-    });
-  } catch (err) { sendApiError(res, err); }
-});
 
 // PT lead capture — no auth required, public endpoint
 router.post('/pt-leads', async (req, res) => {
@@ -2166,4 +2108,6 @@ router.post('/pt-leads', async (req, res) => {
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  // Read by the store-name sweep test.
+  router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }

@@ -459,6 +459,7 @@ describe('Coach checkout trial', () => {
     ['wrong currency', { currency: 'usd' }],
     ['yearly', { recurring: { interval: 'year', interval_count: 1 } }],
     ['archived', { active: false }],
+    ['every 3 months', { recurring: { interval: 'month', interval_count: 3 } }],
   ])('a Coach price that does not match (%s) => 503, generic message, no checkout', async (_l, bad) => {
     mockStripe.prices.retrieve.mockImplementationOnce(async (id) => ({
       id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 }, unit_amount: 3900, ...bad,
@@ -510,21 +511,19 @@ describe('Coach checkout trial', () => {
       expect(res.status).toBe(400);
       expect(mockStripe.rawRequest).not.toHaveBeenCalled();
     });
-    test('trainer with a live price that does not verify (4900) => 400, no session', async () => {
-      mockStripe.prices.retrieve.mockImplementationOnce(async (id) => ({
-        id, active: true, currency: 'aud', recurring: { interval: 'month', interval_count: 1 }, unit_amount: 4900,
-      }));
+    test.each([[COACH_39], [COACH_79]])('a signed-in trainer with %s => 400, zero Stripe calls (use /api/coach/checkout)', async (price) => {
       const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
-      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_39));
+      const before = calls();
+      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(price));
       expect(res.status).toBe(400);
-      expect(mockStripe.rawRequest).not.toHaveBeenCalled();
-      expect(mockStripe.customers.create).not.toHaveBeenCalled();
+      expect(res.body).toEqual({ success: false, message: 'Unknown FitMunch price.' });
+      expect(calls()).toBe(before);
     });
-    test('trainer with a verified Coach price passes the gate', async () => {
-      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
-      const res = await request(app).post('/api/stripe/checkout-sessions').set('Authorization', `Bearer ${t}`).send(body(COACH_79));
+    test('a guest Premium price still passes, with no Coach price lookup', async () => {
+      const before = mockStripe.prices.retrieve.mock.calls.length;
+      const res = await request(app).post('/api/stripe/checkout-sessions').send(body(PRICE_IDS.premium));
       expect(res.status).not.toBe(400);
-      expect(mockStripe.prices.retrieve).toHaveBeenCalledWith(COACH_79);
+      expect(mockStripe.prices.retrieve.mock.calls.length).toBe(before);
     });
   });
 
@@ -606,9 +605,8 @@ describe('Coach checkout trial', () => {
     expect(res.text).toContain('id="upgrade-btn"');
     expect(res.text).not.toMatch(/gtag\(|googletagmanager|fbq\(|plausible|posthog|segment\.com|mixpanel/i);
     const home = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8');
-    const shopper = fs.readFileSync(path.join(__dirname, 'public/shopper.html'), 'utf8');
     expect(home).not.toContain('/coach/upgrade');
-    expect(shopper).not.toContain('/api/coach/checkout');
+    expect(fs.existsSync(path.join(__dirname, 'public/shopper.html'))).toBe(false);
   });
 });
 
@@ -671,5 +669,44 @@ describe('GET /api/coach/billing-status', () => {
     const t = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
     const res = await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${t}`);
     expect(res.status).toBe(403);
+  });
+  test.each([
+    ['garbage token', 'Bearer not-a-jwt'],
+    ['HS512 with the real secret', () => `Bearer ${jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret(), { algorithm: 'HS512' })}`],
+    ['alg none', () => `Bearer ${jwt.sign({ userId: 'pt-1', role: 'pt' }, null, { algorithm: 'none' })}`],
+    ['expired', () => `Bearer ${jwt.sign({ userId: 'pt-1', role: 'pt', exp: Math.floor(Date.now() / 1000) - 60 }, jwtSecret())}`],
+  ])('%s => 401', async (_l, auth) => {
+    const header = typeof auth === 'function' ? auth() : auth;
+    const res = await request(app).get('/api/coach/billing-status').set('Authorization', header);
+    expect(res.status).toBe(401);
+  });
+  test('a trainer token for a user no longer pt in the database => 403', async () => {
+    const { Pool } = require('pg');
+    const spy = jest.spyOn(Pool.prototype, 'query').mockImplementation(async (sql) => (
+      /FROM users/.test(sql) ? { rows: [{ settings: {}, role: 'client' }] } : { rows: [{ n: 0 }] }
+    ));
+    try {
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
+      const res = await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${t}`);
+      expect(res.status).toBe(403);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+  test('a current trainer gets plan, tier, client count and the 10 cap', async () => {
+    const { Pool } = require('pg');
+    const spy = jest.spyOn(Pool.prototype, 'query').mockImplementation(async (sql) => (
+      /FROM users/.test(sql)
+        ? { rows: [{ role: 'pt', settings: { coach: { tier: 'active', plan: 'coach-39', priceId: COACH_39 } } }] }
+        : { rows: [{ n: 7 }] }
+    ));
+    try {
+      const t = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
+      const res = await request(app).get('/api/coach/billing-status').set('Authorization', `Bearer ${t}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ success: true, plan: 'coach-39', tier: 'active', activeClientCount: 7, limit: 10 });
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

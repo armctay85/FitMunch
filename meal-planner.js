@@ -100,6 +100,11 @@ Return ONLY valid JSON, no markdown:
 router.post('/generate', requireAuth, async (req, res) => {
   const input = planInput(req.body);
   if (input.error) return res.status(400).json({ success: false, error: input.error });
+  // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
+  // credit, so no AI consent is needed. Used by onboarding without consent.
+  if (req.body && req.body.builderOnly === true) {
+    return res.json({ success: true, plan: planEngine.buildPlan(input), source: 'builder' });
+  }
   try {
     let gate = null;
     if (aiClient.hasProvider()) {
@@ -259,3 +264,5 @@ router.get('/generate', (_req, res) => res.json({
 }));
 
 module.exports = router;
+// Read by the store-name sweep test.
+router.AI_PROMPTS = { planPrompt };
