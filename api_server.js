@@ -143,11 +143,16 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
     const ifUpdatedAt = profileData.profileUpdatedAt;
     delete profileData.profileUpdatedAt;
     const sendsFilters = 'dietaryPreferences' in profileData || 'allergies' in profileData;
-    if (ifUpdatedAt != null && Number.isNaN(new Date(ifUpdatedAt).getTime())) {
-      return res.status(400).json({ success: false, error: 'profileUpdatedAt must be a date.' });
+    const iso = typeof ifUpdatedAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(ifUpdatedAt) && !Number.isNaN(Date.parse(ifUpdatedAt));
+    if (ifUpdatedAt != null && !iso) {
+      return res.status(400).json({ success: false, error: 'profileUpdatedAt must be an ISO date, like the profile\'s updatedAt.' });
+    }
+    // A save that sends filters must say which profile version it edits (EQA #142 S5).
+    if (sendsFilters && ifUpdatedAt == null) {
+      return res.status(400).json({ success: false, error: "Saving allergies or diet needs the profile's updatedAt as profileUpdatedAt." });
     }
     try {
-      await createOrUpdateProfile(req.user.userId, profileData, sendsFilters && ifUpdatedAt != null ? { ifUpdatedAt } : {});
+      await createOrUpdateProfile(req.user.userId, profileData, sendsFilters ? { ifUpdatedAt } : {});
     } catch (err) {
       if (err && err.code === 'PROFILE_STALE') {
         return res.status(409).json({ success: false, stale: true, error: 'Your profile changed since this page loaded. Reload it and try again.' });

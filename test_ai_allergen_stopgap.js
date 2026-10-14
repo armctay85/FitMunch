@@ -162,10 +162,29 @@ describe('meal plan generation', () => {
     for (const empty of ['none', '', '[]', {}, ['none'], { 'nut free': false }, null, [''], [null]]) {
       expect([empty, f(P(empty), ['nut free'])]).toEqual([empty, { dietaryPreferences: ['nut free'] }]);
     }
-    for (const odd of [[{ name: 'gluten free' }], { gluten: { severe: true } }, 'peanut-free diet', ['peanut-free diet'], ['Paleo'], 'vegan']) {
+    // Plain strings read through listOf (EQA #142 M1).
+    expect(f(P('vegan'), ['nut free'])).toEqual({ dietaryPreferences: ['vegan', 'nut free'] });
+    expect(f(P('gluten free', 'sesame'), ['nut free'])).toEqual({ dietaryPreferences: ['gluten free', 'nut free'] });
+    for (const odd of [[{ name: 'gluten free' }], { gluten: { severe: true } }, 'peanut-free diet', ['peanut-free diet'], ['Paleo']]) {
       expect([odd, f(P(odd, ['kiwi']), ['nut free'])]).toEqual([odd, { allergies: ['kiwi', 'nut free'] }]);
-      expect([odd, f(P(odd, [{ severe: 'egg' }]), ['nut free'])]).toEqual([odd, null]);
+      expect([odd, f(P(odd, 'sesame'), ['nut free'])]).toEqual([odd, { allergies: ['sesame', 'nut free'] }]);
+      // Both odd: the tick is still written, and the odd allergy value is kept, never dropped.
+      expect([odd, f(P(odd, [{ severe: 'egg' }]), ['nut free'])]).toEqual([odd, { allergies: [{ severe: 'egg' }, 'nut free'] }]);
+      expect([odd, f(P(odd, { egg: { severe: true } }), ['nut free'])]).toEqual([odd, { allergies: [{ egg: { severe: true } }, 'nut free'] }]);
     }
+  });
+
+  it('#142 S5/L2: a filter save needs an ISO profileUpdatedAt; other saves do not', async () => {
+    const save = (body) => request(app).post('/api/user/profile').set('Authorization', token).send(body);
+    for (const body of [{ dietaryPreferences: [] }, { allergies: ['peanut'] }, { dietaryPreferences: ['vegan'], weight: 70 }]) {
+      expect((await save(body)).status).toBe(400);
+    }
+    for (const bad of [true, 0, 1760000000000, '2026-10-15', 'Thu Oct 15 2026', 'nope', {}]) {
+      expect([bad, (await save({ dietaryPreferences: [], profileUpdatedAt: bad })).status]).toEqual([bad, 400]);
+    }
+    expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
+    expect((await save({ weight: 70 })).status).toBe(200);
+    expect((await save({ dietaryPreferences: [], profileUpdatedAt: '2026-10-15T11:00:00.123+11:00' })).status).toBe(200);
   });
 
   it('builderOnly (onboarding) also applies saved filters', async () => {
@@ -538,8 +557,9 @@ describe('r5 S1: malformed filter shapes fail closed', () => {
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
   it('well-formed filters still save; empty filters still reach the AI', async () => {
-    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['peanut'], dietaryPreferences: 'vegan' });
+    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['peanut'], dietaryPreferences: 'vegan', profileUpdatedAt: '2026-10-15T00:00:00.000Z' });
     expect(r.status).toBe(200);
+    expect(storage.createOrUpdateProfile.mock.calls[0][2]).toEqual({ ifUpdatedAt: '2026-10-15T00:00:00.000Z' });
     for (const empty of [[], [''], ['null'], 'none', null, [null], {}]) {
       jest.clearAllMocks();
       account({ dietaryPreferences: empty, allergies: [] });
@@ -645,4 +665,51 @@ describe('r5 S5 + L', () => {
       expect((await request(app).get('/api/ai/weekly-review').set('Authorization', token)).status).toBe(503);
     } finally { aiClient.hasProvider.mockReturnValue(true); }
   });
+});
+
+// ── #142 S2: inProfileTx destroys a client that errored, never pooling it ──
+describe('#142 S2: profile transaction client errors', () => {
+const { EventEmitter } = require('events');
+const { pool, inProfileTx } = jest.requireActual('./server/storage.js').__profileTx;
+
+function fakeClient({ failRollback = false } = {}) {
+  const c = new EventEmitter();
+  c.query = jest.fn(async (q) => {
+    if (failRollback && q === 'ROLLBACK') throw new Error('rollback failed');
+    return { rows: [] };
+  });
+  c.release = jest.fn();
+  return c;
+}
+
+afterEach(() => { if (pool.connect.mockRestore) pool.connect.mockRestore(); });
+
+it('a connection error event mid-transaction does not throw, and the client is released with the error', async () => {
+  const c = fakeClient();
+  jest.spyOn(pool, 'connect').mockResolvedValue(c);
+  const boom = new Error('terminating connection due to administrator command');
+  await inProfileTx('u1', async () => { c.emit('error', boom); throw boom; }).catch(() => {});
+  expect(c.release).toHaveBeenCalledWith(boom);
+  expect(c.listenerCount('error')).toBe(0);
+});
+
+it('an error event even on a transaction that commits still destroys the client', async () => {
+  const c = fakeClient();
+  jest.spyOn(pool, 'connect').mockResolvedValue(c);
+  const boom = new Error('socket hang up');
+  await inProfileTx('u1', async () => { c.emit('error', boom); return { value: 1 }; }).catch(() => {});
+  expect(c.release).toHaveBeenCalledWith(boom);
+});
+
+it('a failed ROLLBACK destroys the client; a healthy one goes back to the pool', async () => {
+  const bad = fakeClient({ failRollback: true });
+  jest.spyOn(pool, 'connect').mockResolvedValueOnce(bad);
+  await expect(inProfileTx('u1', async () => { throw new Error('x'); })).rejects.toThrow('x');
+  expect(bad.release.mock.calls[0][0]).toBeInstanceOf(Error);
+  const ok = fakeClient();
+  pool.connect.mockResolvedValueOnce(ok);
+  await inProfileTx('u1', async () => ({ value: 1 }));
+  expect(ok.release).toHaveBeenCalledWith(undefined);
+  expect(ok.query.mock.calls.map((x) => x[0])).toEqual(['BEGIN', expect.stringContaining('pg_advisory_xact_lock($1, hashtext($2::text))'), expect.stringContaining('for update'), 'COMMIT']);
+});
 });

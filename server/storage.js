@@ -164,6 +164,10 @@ const lockProfile = (client, userId) => client.query('select pg_advisory_xact_lo
 async function inProfileTx(userId, fn) {
   const client = await pool.connect();
   let broken = null;
+  // A backend killed mid-transaction emits 'error' on the checked-out client; without a listener
+  // Node crashes. The broken client is then destroyed, never returned to the pool (EQA #142 S2).
+  const onError = (e) => { broken = broken || e || new Error('connection error'); };
+  client.on('error', onError);
   try {
     await client.query('BEGIN');
     await lockProfile(client, userId);
@@ -175,6 +179,7 @@ async function inProfileTx(userId, fn) {
     try { await client.query('ROLLBACK'); } catch (e) { broken = e; }
     throw err;
   } finally {
+    client.off('error', onError);
     client.release(broken || undefined);
   }
 }
@@ -188,7 +193,7 @@ const PROFILE_COLUMNS = {
 const JSON_COLUMNS = new Set(['dietary_preferences', 'allergies']);
 
 async function writeProfileRow(client, userId, row, patch) {
-  const cols = Object.keys(patch).filter((k) => PROFILE_COLUMNS[k] && patch[k] !== undefined);
+  const cols = Object.keys(patch).filter((k) => Object.hasOwn(PROFILE_COLUMNS, k) && patch[k] !== undefined);
   const vals = cols.map((k) => (JSON_COLUMNS.has(PROFILE_COLUMNS[k]) ? JSON.stringify(patch[k]) : patch[k]));
   const cast = (k, i) => `$${i + 2}${JSON_COLUMNS.has(PROFILE_COLUMNS[k]) ? '::jsonb' : ''}`;
   if (row) {
@@ -210,7 +215,11 @@ async function createOrUpdateProfile(userId, profileData, opts = {}) {
   await ensureSchema();
   await ensureUserExists(userId);
   return inProfileTx(userId, async (client, row) => {
-    if (row && opts.ifUpdatedAt != null && new Date(row.updated_at).getTime() !== new Date(opts.ifUpdatedAt).getTime()) {
+    // Compared in SQL at millisecond precision (JSON dates carry ms; Postgres stores µs).
+    const stale = row && opts.ifUpdatedAt != null && !(await client.query(
+      "select date_trunc('milliseconds', $2::timestamptz) = date_trunc('milliseconds', updated_at) as same from user_profiles where id = $1",
+      [row.id, opts.ifUpdatedAt])).rows[0].same;
+    if (stale) {
       const err = new Error('Profile changed since it was loaded'); err.code = 'PROFILE_STALE'; throw err;
     }
     await writeProfileRow(client, userId, row, profileData || {});
@@ -414,6 +423,8 @@ async function withStripeCustomerLock(lockKey, fn) {
 // Export all functions and database instance
 module.exports = {
   db,
+  // Test seam only: lets a test hand inProfileTx a fake client (EQA #142 S2).
+  __profileTx: { pool, inProfileTx },
   mergeProfileFilters,
   createUser,
   getUserByEmail,

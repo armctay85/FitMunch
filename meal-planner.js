@@ -108,37 +108,35 @@ Return ONLY valid JSON, no markdown:
 {"planName":"string","summary":"one sentence","days":[{"day":"Monday","meals":{"breakfast":{"name":"string","ingredients":[{"item":"string","qty":"150g"}],"calories":0,"protein":0,"carbs":0,"fat":0,"prepMins":0},"lunch":{},"dinner":{},"snack":{}}}]}`;
 }
 
-/** A saved filter value that is a clean list of known filter words (or a single one). */
+/** A saved diet that reads (via listOf, so strings too) as only known filter words; else null. */
 function cleanDietList(v) {
-  if (v == null) return [];
-  const arr = typeof v === 'string' ? null : v;
-  if (!Array.isArray(arr) || !arr.every((d) => typeof d === 'string')) return null;
-  return planEngine.normaliseDiet(arr).every((d) => planEngine.DIET_FILTERS.includes(d)) ? arr : null;
+  const words = dietGuard.listOf(v);
+  return planEngine.normaliseDiet(words).every((d) => planEngine.DIET_FILTERS.includes(d)) ? words : null;
 }
-/** A saved allergy value that is a clean list of words. */
-function cleanWordList(v) {
-  if (v == null) return [];
-  return Array.isArray(v) && v.every((d) => typeof d === 'string' && d.trim()) ? v : null;
+/**
+ * Saved allergies with the tick appended, never dropping what was saved: a readable value (list,
+ * string, flag object) is stored as its words; an odd value is kept as the first element.
+ */
+function allergiesWith(v, added) {
+  const words = dietGuard.listOf(v);
+  if (!words.includes(dietGuard.UNREADABLE)) return [...words, ...added];
+  return [...(Array.isArray(v) ? v : [v]), ...added];
 }
 
 /**
- * The profile patch that saves the ticked filters, or null for no write (nothing new was ticked, or
- * neither saved list can be extended safely). Never removes or rewrites a saved value:
- * - an empty-looking saved diet ('none', '', '[]', {}, ['none'], {x:false}) counts as [] (EQA #141 r2 M2);
- * - an odd but non-empty saved diet ([{name}], 'peanut-free diet', ['Paleo']) is kept as it is, and the
- *   tick goes into allergies, which every reader also counts as filters;
- * - if allergies are odd too, nothing is written.
+ * The profile patch that saves the ticked filters, or null only when nothing new was ticked.
+ * - a saved diet that reads as known filter words ('vegan', ['Gluten Free'], 'none', {}) gets the tick;
+ * - any other saved diet ([{name}], 'peanut-free diet', ['Paleo']) is kept as it is, and the tick always
+ *   goes into allergies, which every reader also counts as filters (EQA #142 M1).
  */
 function filterPatch(stored, sent) {
   const p = stored || {};
   const have = dietGuard.savedFilters(p);
   const added = planEngine.normaliseDiet(sent).filter((d) => planEngine.DIET_FILTERS.includes(d) && !have.includes(d));
   if (!added.length) return null;
-  const diet = dietGuard.listOf(p.dietaryPreferences).length ? cleanDietList(p.dietaryPreferences) : [];
+  const diet = cleanDietList(p.dietaryPreferences);
   if (diet) return { dietaryPreferences: [...diet, ...added] };
-  const allergies = dietGuard.listOf(p.allergies).length ? cleanWordList(p.allergies) : [];
-  if (allergies) return { allergies: [...allergies, ...added] };
-  return null;
+  return { allergies: allergiesWith(p.allergies, added) };
 }
 
 /**
