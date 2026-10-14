@@ -132,6 +132,12 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
     const profileData = { ...req.body };
     delete profileData.userId; // ignore body userId — use token
+    // #127a: filters must be a string or a list of strings; any other shape would hide an allergy.
+    for (const k of ['allergies', 'dietaryPreferences']) {
+      if (!dietGuard.wellFormedFilters(profileData[k])) {
+        return res.status(400).json({ success: false, error: 'Allergies and diet filters must be a list of words, like ["peanut"].' });
+      }
+    }
     await createOrUpdateProfile(req.user.userId, profileData);
     res.json({ success: true });
   } catch (error) {
@@ -1976,9 +1982,6 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
 // ── AI WORKOUT PLAN GENERATION ────────────────────────────────────────────────
 router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
   try {
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
     const {
       goal = 'general_fitness',
       level = 'intermediate',
@@ -1989,16 +1992,25 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     } = req.body || {};
 
     let tier = 'free';
+    let wpProfile = null; let wpUnread = false;
     try {
       const user = await getUserById(req.user.userId);
       const denied = consentResponse(user && user.settings);
       if (denied) return res.status(denied.status).json(denied.body);
       tier = effectiveTier(user);
+      wpProfile = await getProfile(req.user.userId).catch(() => { wpUnread = true; return null; });
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
+    }
+    // #127a: filtered users (or an unreadable profile) get a fixed, food-free program. No AI, no credit (EQA #135 r4 S2).
+    if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
+      return res.json({ success: true, plan: dietGuard.safeWorkoutPlan({ daysPerWeek, level }), source: 'fixed', provider: null });
+    }
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
@@ -2064,9 +2076,6 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
     let tier = 'free';
     let profile = null;
     try {
@@ -2087,6 +2096,10 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     if (reviewGuarded) {
       // Fixed, food-free review with one checked meal. No AI, no credit.
       return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+    }
+    // Filtered users need no AI, so this check comes after their fixed review (EQA #135 r4 L2).
+    if (!aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });

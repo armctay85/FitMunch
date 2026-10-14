@@ -391,11 +391,11 @@ describe('r4: fixed replies for filtered users', () => {
     aiClient.chatJson.mockResolvedValueOnce({ ok: true, provider: 'mock', data });
     expect((await request(app).get('/api/ai/weekly-review').set('Authorization', token)).body.review).toEqual(data);
   });
-  it.each([['filters', { dietaryPreferences: [], allergies: ['peanut'] }], ['read error', new Error('db down')]])('insight (%s): fixed tip with a safe meal and coming-soon line, no AI', async (_l, prof) => {
+  it.each([['filters', { dietaryPreferences: [], allergies: ['peanut'] }], ['read error', new Error('db down')]])('insight (%s): fixed tip with a safe meal, no coming-soon line on the tile, no AI', async (_l, prof) => {
     account(prof);
     const r = await request(app).post('/api/ai/insight').set('Authorization', token).send({ todayCalories: 900, targetCalories: 2000, targetProtein: 150 });
     expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(r.body.insight).toContain(COMING);
+    expect(r.body.insight).not.toContain(COMING);
     expect(r.body.insight).toContain(dietGuard.SAFE_TIP);
     expectSafeMeal(r.body.insight, ['nut free']);
   });
@@ -404,7 +404,7 @@ describe('r4: fixed replies for filtered users', () => {
       for (const [calories, protein] of [[1300, 60], [2000, 150], [3500, 250]]) {
         const o = { filters, calories, protein };
         for (const text of [dietGuard.safeCoachReply(o).reply, dietGuard.safeTrainingReply(o), dietGuard.safeInsight(o), JSON.stringify(dietGuard.safeWeeklyReview(o))]) {
-          expect(text).toContain(COMING);
+          if (text !== dietGuard.safeInsight(o)) expect(text).toContain(COMING);
           expectSafeMeal(text, filters);
           expect(text).not.toMatch(/woolworths|coles|aldi|grok|openai|anthropic|gemini/i);
         }
@@ -428,5 +428,171 @@ describe('r4: typed-meal warnings', () => {
     expect(html).toMatch(/\.allergen-warning\{overflow-wrap:anywhere/);
     expect(html).toContain('allergenBadgeHtml(p.allergenWarnings, true)');
     expect(html).toContain('const warnBadge = allergenBadgeHtml(p.allergenWarnings);');
+  });
+});
+
+// ── r5 (Elite QA #135 r4) ─────────────────────────────────────────────────────
+const FSANZ_SHELLFISH = ['crustacea', 'crustacean', 'crustaceans', 'bivalve', 'bivalves', 'mollusc', 'molluscs', 'mollusk', 'mollusks', 'mollusca',
+  'cephalopod', 'cephalopods', 'gastropod', 'gastropods', 'shellfish'];
+const SHELLFISH_FOODS = ['prawn', 'shrimp', 'crab', 'lobster', 'Moreton Bay bugs', 'yabbies', 'marron', 'crayfish', 'oysters', 'mussels', 'scallops',
+  'clams', 'pipis', 'squid', 'calamari', 'octopus', 'cuttlefish', 'snails', 'abalone'];
+describe('r5 M1: FSANZ shellfish terms map on both paths', () => {
+  it.each([...FSANZ_SHELLFISH, ...SHELLFISH_FOODS])('allergy "%s" maps to shellfish free (Coach mapping)', (a) => {
+    expect(dietGuard.allergyDiets([a])).toEqual(['shellfish free']);
+  });
+  it.each(FSANZ_SHELLFISH)('typed allergy "%s" warns on every named shellfish food (typed-meal path)', (a) => {
+    const filters = dietGuard.combineFilters({ allergies: [a] });
+    for (const food of SHELLFISH_FOODS) expect([food, dietGuard.brokenGroups(`${food} with rice`, filters)]).toEqual([food, ['shellfish']]);
+    // A typed meal naming the FSANZ term itself warns too.
+    expect(dietGuard.brokenGroups(`${a} platter`, filters)).toEqual(['shellfish']);
+  });
+  it("'Satay prawn noodles' for peanut + crustacea warns about nuts and shellfish; Coach has no 'Not applied'", async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut', 'crustacea'] });
+    const { Pool } = require('pg');
+    const spy = jest.spyOn(Pool.prototype, 'query').mockImplementation(async (_sql, params) => ({ rows: [{ id: 1, meals: params && params[4] }] }));
+    const r = await request(app).post('/api/meal-plans').set('Authorization', token).send({ name: 'Mine', meals: [{ name: 'Satay prawn noodles', foods: [] }] });
+    spy.mockRestore();
+    expect(r.body.allergenWarnings).toEqual([{ meal: 'Satay prawn noodles', contains: expect.arrayContaining(['nuts', 'shellfish']) }]);
+    const c = await chat('Dinner idea?', { intent: 'nutrition' });
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(c.body.reply).not.toMatch(/Not applied/i);
+    expect(c.body.reply).not.toMatch(/prawn|shrimp|crab|lobster|oyster|mussel|scallop|squid|calamari|octopus/i);
+  });
+  it("'mollus' alone maps (kills the mapping mutant)", () => {
+    expect(dietGuard.allergyDiets(['Mollusca'])).toEqual(['shellfish free']);
+    expect(dietGuard.allergyDiets(['molluscan'])).toEqual(['shellfish free']);
+  });
+});
+
+describe('r5 S1: malformed filter shapes fail closed', () => {
+  const BAD = [[{ name: 'peanut' }], [['peanut']], { list: ['peanut'] }, 7, [7], true, [true]];
+  it.each(BAD.map((b) => [JSON.stringify(b), b]))('saved %s counts as a filter and blocks the AI', async (_l, bad) => {
+    account({ dietaryPreferences: [], allergies: bad });
+    const r = await chat('How many sets for squats?', { intent: 'workout' });
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.source).toBe('fixed');
+    account({ dietaryPreferences: bad, allergies: [] });
+    await chat('How many sets for squats?', { intent: 'workout' });
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it.each(BAD.map((b) => [JSON.stringify(b), b]))('sent context %s blocks the AI', async (_l, bad) => {
+    account({ dietaryPreferences: [], allergies: [] });
+    await chat('How many sets for squats?', { intent: 'workout', context: { allergies: bad } });
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it.each(BAD.map((b) => [JSON.stringify(b), b]))('saving %s returns 400 and writes nothing', async (_l, bad) => {
+    for (const k of ['allergies', 'dietaryPreferences']) {
+      const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ [k]: bad });
+      expect(r.status).toBe(400);
+    }
+    expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
+  });
+  it('well-formed filters still save; empty filters still reach the AI', async () => {
+    const r = await request(app).post('/api/user/profile').set('Authorization', token).send({ allergies: ['peanut'], dietaryPreferences: 'vegan' });
+    expect(r.status).toBe(200);
+    for (const empty of [[], [''], ['null'], 'none', null, [null], {}]) {
+      jest.clearAllMocks();
+      account({ dietaryPreferences: empty, allergies: [] });
+      await chat('How many sets for squats?', { intent: 'workout' });
+      expect([JSON.stringify(empty), aiClient.chat.mock.calls.length]).toEqual([JSON.stringify(empty), 1]);
+    }
+  });
+});
+
+describe('r5 S2: workout plan for filtered users', () => {
+  const wp = (body = {}) => request(app).post('/api/ai/workout-plan').set('Authorization', token).send({ daysPerWeek: 4, focus: 'bulk with peanut butter shakes', ...body });
+  it.each([['filters', { dietaryPreferences: [], allergies: ['peanut'] }], ['read error', new Error('db down')]])('%s: fixed food-free plan, no AI, no credit', async (_l, prof) => {
+    account(prof);
+    const r = await wp();
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    expect(r.body.plan.frequency).toBe(4);
+    expect(new Set(r.body.plan.workouts.map((w) => w.day))).toEqual(new Set([1, 2, 3, 4]));
+    const text = JSON.stringify(r.body.plan);
+    expect(text).not.toMatch(/peanut|shake/i);
+    expect(lexiconFlags(text)).toEqual([]);
+  });
+  it('no filters: the AI is still asked', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    aiClient.chatJson.mockResolvedValueOnce({ ok: true, provider: 'mock', data: { planName: 'p', workouts: [{ day: 1, name: 'Squat' }] } });
+    const r = await wp();
+    expect(aiClient.chatJson).toHaveBeenCalledTimes(1);
+    expect(r.body.plan.planName).toBe('p');
+  });
+});
+function lexiconFlags(text) { return [...require('./lib/food-lexicon-127a').scan(text).flags]; }
+
+describe('r5 S3: checked meals never warn for a filter they fit', () => {
+  it('every checked template passes the warnings for every filter it fits', () => {
+    const bad = [];
+    for (const d of engine.DIET_FILTERS) for (const slot of engine.SLOTS) for (const t of engine.swapTemplatesFor(slot, [d])) {
+      const saved = JSON.stringify({ name: t.name, foods: (t.items || []).map(([name, grams]) => ({ name, grams })) });
+      for (const text of [t.name, saved]) { const g = dietGuard.brokenGroups(text, [d]); if (g.length) bad.push(`${d} | ${t.name} | ${g}`); }
+    }
+    expect(bad).toEqual([]);
+  });
+  it("'Tofu scramble' isn't eggs and a soy milk smoothie isn't dairy, but real eggs and milk still warn", () => {
+    expect(dietGuard.brokenGroups('Tofu scramble on wholegrain toast', ['egg free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('Soy milk, tofu and banana smoothie', ['vegan', 'gluten free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('Scrambled eggs and tofu', ['egg free'])).toEqual(['eggs']);
+    expect(dietGuard.brokenGroups('Banana smoothie', ['dairy free'])).toEqual(['dairy']);
+    expect(dietGuard.brokenGroups('Soy milk smoothie with yoghurt', ['dairy free'])).toEqual(['dairy']);
+  });
+});
+
+describe('r5 S4: surviving mutants', () => {
+  it("'flour' is a carrier word: almond flour is nuts, not gluten", () => {
+    expect(dietGuard.brokenGroups('almond flour pancakes base', ['gluten free']).includes('gluten')).toBe(true); // pancakes are gluten
+    expect(dietGuard.brokenGroups('almond flour', ['gluten free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('almond flour', ['nut free'])).toEqual(['nuts']);
+  });
+  it('weekly review: an unreadable profile fails closed (no AI, no credit)', async () => {
+    account(new Error('db down'));
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+});
+
+describe('r5 S5 + L', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+  it('saved-plan cards are one column at 480px and below', () => {
+    expect(html).toMatch(/@media\(max-width:480px\)\{\.plan-grid\{grid-template-columns:1fr\}\}/);
+  });
+  it("typed plans with no goal or calories don't show 'Goal · - cal/day'", () => {
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('escapeHtml', `${html.match(/function planMetaHtml[\s\S]*?\n\}/)[0]}; return planMetaHtml;`)((x) => String(x));
+    expect(fn({}, 'Goal')).toBe('');
+    expect(fn({ total_calories: 0 }, 'Goal')).toBe('');
+    expect(fn({ goal_type: 'weight_loss', total_calories: 1800 }, 'Weight loss')).toBe('<div class="plan-card-meta">Weight loss · 1800 cal/day</div>');
+    expect(fn({ total_calories: 1800 }, 'Goal')).toBe('<div class="plan-card-meta">1800 cal/day</div>');
+    expect(html).not.toContain("escapeHtml(p.total_calories||' - ')} cal/day");
+  });
+  it.each([['Big M', 'dairy free', 'dairy'], ['Yoplait', 'dairy free', 'dairy'], ['Shapes', 'gluten free', 'gluten'], ["Domino's", 'gluten free', 'gluten'], ['🥜 handful', 'nut free', 'nuts']])(
+    'typed %s warns for %s', (meal, f, g) => {
+      expect(dietGuard.brokenGroups(meal, [f])).toContain(g);
+    });
+  it('the fixed weekly review has no score and the UI hides a missing one', async () => {
+    account({ dietaryPreferences: ['gluten free'], allergies: [] });
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+    expect(r.body.review.score).toBeNull();
+    expect(html).toContain('${hasScore ? `<div style="width:54px');
+  });
+  it('with no AI provider, filtered users still get the fixed weekly review and workout plan (no 503)', async () => {
+    aiClient.hasProvider.mockReturnValue(false);
+    try {
+      account({ dietaryPreferences: ['gluten free'], allergies: [] });
+      const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+      expect(r.status).toBe(200);
+      expect(r.body.source).toBe('fixed');
+      const w = await request(app).post('/api/ai/workout-plan').set('Authorization', token).send({});
+      expect(w.status).toBe(200);
+      account({ dietaryPreferences: [], allergies: [] });
+      expect((await request(app).get('/api/ai/weekly-review').set('Authorization', token)).status).toBe(503);
+    } finally { aiClient.hasProvider.mockReturnValue(true); }
   });
 });

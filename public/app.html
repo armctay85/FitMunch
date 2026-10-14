@@ -116,6 +116,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .phase-maintain{background:rgba(31,157,74,.1);color:var(--leaf2)}
 
 .plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:480px){.plan-grid{grid-template-columns:1fr}}
 .plan-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;cursor:pointer;transition:border-color .15s}
 .plan-card:hover{border-color:var(--leaf);box-shadow:none}
 .plan-card-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:4px}
@@ -2275,7 +2276,7 @@ async function loadMealPlans() {
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
  ${warnBadge}
- <div class="plan-card-meta">${goalLabel} · ${escapeHtml(p.total_calories||' - ')} cal/day</div>
+ ${planMetaHtml(p, goalLabel)}
  ${p.description ? `<div style="font-size:.72rem;color:var(--text3);margin-top:4px;line-height:1.4">${escapeHtml(p.description)}</div>` : ''}
  ${mealSummary}
  <div class="plan-card-footer">
@@ -4272,12 +4273,14 @@ async function loadWeeklyReview() {
  throw new Error(r.error || 'failed');
  }
  const rev = r.review || {};
+ // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
+ const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
  body.innerHTML = `
  <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
- <div style="width:54px;height:54px;border-radius:50%;background:${score>=7?'rgba(31,157,74,.08)':score>=4?'#fffbeb':'#fef2f2'};border:2px solid ${score>=7?'rgba(31,157,74,.28)':score>=4?'#fde68a':'#fecaca'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+ ${hasScore ? `<div style="width:54px;height:54px;border-radius:50%;background:${score>=7?'rgba(31,157,74,.08)':score>=4?'#fffbeb':'#fef2f2'};border:2px solid ${score>=7?'rgba(31,157,74,.28)':score>=4?'#fde68a':'#fecaca'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
  <span style="font-size:1.05rem;font-weight:900;color:${score>=7?'#16a34a':score>=4?'#d97706':'#dc2626'}">${escapeHtml(score)}<span style="font-size:.6rem;color:var(--text3)">/10</span></span>
- </div>
+ </div>` : ''}
  <div style="flex:1;min-width:220px">
  <div style="font-size:.88rem;font-weight:800;margin-bottom:8px">${escapeHtml(rev.headline || 'Your week in review')}</div>
  ${(rev.wins||[]).map(w => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">✅ ${escapeHtml(w)}</div>`).join('')}
@@ -4367,6 +4370,14 @@ function allergenBadgeHtml(warnings, alert) {
  const w = Array.isArray(warnings) ? warnings : [];
  if (!w.length) return '';
  return `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>⚠ Allergen warning: ${w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ')}</div>`;
+}
+
+// The goal and calories row; hidden on typed plans with no goal or calories (EQA #135 r4 S5).
+function planMetaHtml(p, goalLabel) {
+ const parts = [];
+ if (p.goal_type) parts.push(escapeHtml(goalLabel));
+ if (Number(p.total_calories) > 0) parts.push(`${escapeHtml(p.total_calories)} cal/day`);
+ return parts.length ? `<div class="plan-card-meta">${parts.join(' · ')}</div>` : '';
 }
 
 // Meals the user typed are saved as typed; if they clash with saved allergies or diet, say so in red.

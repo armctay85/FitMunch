@@ -249,7 +249,8 @@ maybe('#127a on real Postgres', () => {
       expect(r.body.review.focus).toContain(COMING);
       safeMealIn(JSON.stringify(r.body.review), [f]);
       const i = await request(app).post('/api/ai/insight').set('Authorization', as(who)).send({ todayCalories: 800, targetCalories: 2000, targetProtein: 150 });
-      expect(i.body.insight).toContain(COMING);
+      expect(i.body.insight).not.toContain(COMING);
+      expect(r.body.review.score).toBeNull();
       safeMealIn(i.body.insight, [f]);
     }
     expect(aiClient.chat).not.toHaveBeenCalled();
@@ -259,5 +260,53 @@ maybe('#127a on real Postgres', () => {
     expect(JSON.stringify(p.body.review)).toMatch(/peanut butter/);
     const c = await ask(PLAIN, 'How many sets for squats?', { intent: 'workout' });
     expect(c.body.reply).toMatch(/MOCKAI/);
+  });
+
+  // ── r5 (Elite QA #135 r4) ──
+  it("r5 M1: peanut + crustacea: typed 'Satay prawn noodles' warns nuts and shellfish; Coach has no 'Not applied'; every FSANZ term maps", async () => {
+    await pool.query(`update user_profiles set allergies='["peanut","crustacea"]'::jsonb where user_id=$1`, [PLAIN]);
+    const s = await request(app).post('/api/meal-plans').set('Authorization', as(PLAIN)).send({ name: 'Typed', meals: [{ name: 'Satay prawn noodles', foods: [] }] });
+    expect(s.body.allergenWarnings).toEqual([{ meal: 'Satay prawn noodles', contains: expect.arrayContaining(['nuts', 'shellfish']) }]);
+    const g = await request(app).get('/api/meal-plans').set('Authorization', as(PLAIN));
+    expect(g.body.plans.find((p) => p.name === 'Typed').allergenWarnings[0].contains).toEqual(expect.arrayContaining(['nuts', 'shellfish']));
+    const c = await ask(PLAIN, 'Dinner idea?', { intent: 'nutrition' });
+    expect(c.body.reply).not.toMatch(/Not applied/i);
+    for (const term of ['crustacea', 'crustaceans', 'bivalves', 'molluscs', 'mollusks', 'cephalopods', 'gastropods']) {
+      await pool.query(`update user_profiles set allergies=$2::jsonb where user_id=$1`, [PLAIN, JSON.stringify([term])]);
+      const r = await request(app).post('/api/meal-plans').set('Authorization', as(PLAIN)).send({ name: term, meals: [{ name: 'Garlic prawns, mussels and squid', foods: [] }] });
+      expect([term, r.body.allergenWarnings[0] && r.body.allergenWarnings[0].contains]).toEqual([term, ['shellfish']]);
+      const q = await ask(PLAIN, 'Lunch idea?', { intent: 'nutrition' });
+      expect([term, /Not applied/i.test(q.body.reply)]).toEqual([term, false]);
+    }
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('r5 S1: malformed saved filters fail closed (no AI); saving them is a 400', async () => {
+    for (const bad of [[{ name: 'peanut' }], [['peanut']], 7]) {
+      await pool.query(`update user_profiles set allergies=$2::jsonb where user_id=$1`, [PLAIN, JSON.stringify(bad)]);
+      const r = await ask(PLAIN, 'How many sets for squats?', { intent: 'workout' });
+      expect(r.body.source).toBe('fixed');
+      const w = await request(app).post('/api/user/profile').set('Authorization', as(PLAIN)).send({ allergies: bad });
+      expect(w.status).toBe(400);
+    }
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect((await profileOf(PLAIN)).allergies).toEqual(7);
+  });
+
+  it('r5 S2: workout plan for a filtered user is fixed and food-free, no AI, no credit', async () => {
+    const r = await request(app).post('/api/ai/workout-plan').set('Authorization', as(PEANUT)).send({ daysPerWeek: 3, focus: 'bulk with peanut butter shakes' });
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
+    expect(JSON.stringify(r.body.plan)).not.toMatch(/peanut|shake|MOCKAI/i);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('r5 S3: a saved checked template never warns for a filter it fits', async () => {
+    await pool.query(`update user_profiles set dietary_preferences='["vegan","gluten free","egg free"]'::jsonb, allergies='[]'::jsonb where user_id=$1`, [PLAIN]);
+    const meals = [{ name: 'Tofu scramble on wholegrain toast', foods: [] }, { name: 'Soy milk, tofu and banana smoothie', foods: [] }];
+    const r = await request(app).post('/api/meal-plans').set('Authorization', as(PLAIN)).send({ name: 'Checked', meals });
+    // Tofu scramble is on wholegrain toast, so gluten free honestly warns; eggs and dairy must not.
+    expect(JSON.stringify(r.body.allergenWarnings)).not.toMatch(/eggs|dairy/);
   });
 });
