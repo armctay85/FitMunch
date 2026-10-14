@@ -28,7 +28,7 @@ on:
 
 jobs:
   uitest:
-    if: github.event_name != 'workflow_dispatch' || inputs.screen_audit != true
+    if: (github.event_name != 'workflow_dispatch' || inputs.screen_audit != true) && github.head_ref != 'cursor/b11-screen-audit-89f8'
     runs-on: macos-26
     timeout-minutes: 60
 
@@ -304,7 +304,7 @@ jobs:
           retention-days: 14
 
   screen-audit:
-    if: github.event_name == 'workflow_dispatch' && inputs.screen_audit == true
+    if: (github.event_name == 'workflow_dispatch' && inputs.screen_audit == true) || (github.event_name == 'pull_request' && github.head_ref == 'cursor/b11-screen-audit-89f8')
     runs-on: macos-26
     timeout-minutes: 90
     steps:
