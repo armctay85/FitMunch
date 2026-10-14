@@ -651,8 +651,6 @@ describe('r4: FSANZ allergy terms, brands, dish words, inline lists, declared ke
     expect(probs({ name: 'Lentil and tempeh bolognese', ingredients: ['Lentils', 'Tempeh', 'Pasta', 'Tomato'] }, { dietary: ['vegan'] })).toBeNull();
     expect(probs({ name: 'Tofu scramble', ingredients: ['Firm tofu', 'Spinach'] }, { dietary: ['egg free'] })).toBeNull();
     expect(probs({ name: 'Tofu berry smoothie', ingredients: ['Firm tofu', 'Banana', 'Soy milk'] }, { dietary: ['dairy free'] })).toBeNull();
-    expect(probs({ name: 'Vegetable fried rice', ingredients: ['White rice', 'Corn', 'Carrot'] }, { dietary: ['egg free'] })).toBeNull();
-    expect(probs({ name: 'Egg white and spinach muffins', ingredients: ['Egg whites', 'Spinach'] }, { dietary: ['gluten free'] })).toBeNull();
     expect(probs({ name: 'Beef bolognese', ingredients: ['Lentils', 'Pasta'] }, { dietary: ['vegan'] })).toContain('meat');
     expect(probs({ name: 'Scrambled eggs', ingredients: ['Tofu'] }, { dietary: ['egg free'] })).toContain('eggs');
     expect(probs({ name: 'Banana smoothie', ingredients: ['Banana'] }, { dietary: ['dairy free'] })).toContain('dairy');
@@ -665,8 +663,13 @@ describe('r4: FSANZ allergy terms, brands, dish words, inline lists, declared ke
       if ([...engine.flagsOf(t)].some((x) => e.has(x))) continue;
       const shape = { name: t.name, ingredients: t.items.map(([i]) => i.replace(/\s*\(.*?\)/g, '')) };
       if (safety.mealProblems(shape, e)) bad.push(`${f}: ${t.name}`);
+      // Served shape (exact template ingredients) is never blocked.
+      const served = { name: t.name, ingredients: t.items.map(([i, g]) => ({ item: engine.displayName(i), qty: `${g}g` })) };
+      if (safety.mealProblems(served, e)) bad.push(`served ${f}: ${t.name}`);
     }
-    expect(bad).toEqual([]);
+    // r5: fried rice and muffins carry egg and gluten unless a stand-in is named, so these two are held back in
+    // AI shape on purpose (the builder serves them in their own shape, which is checked above).
+    expect(bad.sort()).toEqual(['egg free: Vegetable fried rice with corn', 'gluten free: Egg white and spinach muffins', 'vegan: Vegetable fried rice with corn']);
   });
   it('inline numbered lists are cut item by item and renumbered; follow-ons are dropped', () => {
     const f = { dietary: ['nut free'] };
@@ -687,5 +690,71 @@ describe('r4: FSANZ allergy terms, brands, dish words, inline lists, declared ke
       expect(r.replaced.length).toBe(3);
       expect(r.plan.notes.join(' ')).toMatch(/replaced/);
     } else throw new Error(n.reason);
+  });
+});
+
+describe('r5: dish words need a real stand-in, name-only warnings, brands, label words, varied replacements', () => {
+  const lexicon = require('./lib/food-lexicon');
+  const probs = (m, o) => safety.mealProblems(m, safety.excludedFlags(o), safety.customTerms(o));
+  it('QA attack cases: fried rice and muffins keep their allergen when the AI leaves it off the list', () => {
+    expect(probs({ name: 'Chicken fried rice', ingredients: ['Rice', 'Chicken', 'Peas'] }, { allergies: ['egg'] })).toContain('eggs');
+    expect(probs({ name: 'Blueberry muffin', ingredients: ['Egg whites', 'Blueberries', 'Sugar'] }, { allergies: ['gluten'] })).toContain('gluten');
+    expect(probs({ name: 'Vegetable fried rice', ingredients: ['White rice', 'Corn', 'Carrot'] }, { dietary: ['egg free'] })).toContain('eggs');
+    expect(probs({ name: 'Egg white and spinach muffins', ingredients: ['Egg whites', 'Spinach'] }, { dietary: ['gluten free'] })).toContain('gluten');
+  });
+  it('a stated stand-in still lifts them: tofu or "egg-free" fried rice, a named gluten-free flour in muffins', () => {
+    expect(probs({ name: 'Tofu fried rice', ingredients: ['Rice', 'Firm tofu', 'Peas'] }, { allergies: ['egg'] })).toBeNull();
+    expect(probs({ name: 'Egg-free fried rice', ingredients: ['Rice', 'Peas'] }, { allergies: ['egg'] })).toBeNull();
+    expect(probs({ name: 'Blueberry muffin', ingredients: ['Rice flour', 'Blueberries', 'Eggs'] }, { dietary: ['gluten free'] })).toBeNull();
+    expect(probs({ name: 'Blueberry muffin', ingredients: ['Almond flour', 'Blueberries'] }, { dietary: ['gluten free'] })).toBeNull();
+    expect(probs({ name: 'Blueberry muffin', ingredients: ['Almond flour', 'Blueberries'] }, { dietary: ['nut free'] })).toContain('nuts');
+    expect(probs({ name: 'Blueberry muffin', ingredients: ['Rice flour', 'Plain flour'] }, { dietary: ['gluten free'] })).toContain('gluten');
+  });
+  it('a typed meal with only a name says which allergen it names; nothing named falls back to unrecognised', () => {
+    const { meals } = safety.enforceSavedMeals([{ name: 'Garlic prawns' }, { name: 'Peanut satay' }, { name: 'Mum special' }], { allergies: ['crustacea', 'peanut'] });
+    expect(meals[0].allergenWarning).toMatchObject({ allergens: ['shellfish'], unrecognised: false });
+    expect(meals[0].allergenWarning.message).toMatch(/^Contains shellfish/);
+    expect(meals[1].allergenWarning).toMatchObject({ allergens: ['nuts'], unrecognised: false });
+    expect(meals[2].allergenWarning).toMatchObject({ allergens: [], unrecognised: true });
+  });
+  // One assertion per brand on the lexicon itself, so dropping any brand fails.
+  const BRANDS = [
+    ['Up&Go', ['dairy', 'soy']], ['Musashi', ['dairy', 'soy']], ['Chobani', ['dairy']], ['Yoplait', ['dairy']], ['Big M', ['dairy']],
+    ['Coco Pops', ['gluten']], ['Mars bar', ['nuts']], ['Bega', ['dairy']], ['Bega peanut butter', ['nuts']], ['Rokeby protein', ['dairy']],
+    ['Shapes', ['gluten']], ['Twisties', ['gluten', 'dairy']], ["Arnott's Scotch Finger", ['gluten', 'dairy']], ['Freddo frog', ['dairy']],
+    ['Caramello Koala', ['dairy']], ['Sustagen', ['dairy']], ['Milo', ['gluten', 'dairy']], ["Allen's lollies", ['gluten']], ['Snakes Alive', ['gluten']],
+  ];
+  it.each(BRANDS)('brand %s carries %j', (brand, flags) => {
+    const { flags: got, unknown } = lexicon.scan(brand);
+    for (const f of flags) expect([brand, f, got.has(f)]).toEqual([brand, f, true]);
+    expect(unknown).toEqual([]);
+  });
+  it('Zooper Dooper is a known food with no allergen (not unrecognised, not dairy)', () => {
+    const { flags, unknown } = lexicon.scan('Zooper Dooper');
+    expect([...flags]).toEqual([]);
+    expect(unknown).toEqual([]);
+  });
+  // Each FSANZ label word is pinned to its group on the label-word list alone, without the lexicon or near-miss path.
+  const LABEL = [
+    ['crustacea', 'shellfish'], ['crustacean', 'shellfish'], ['crustaceans', 'shellfish'], ['bivalves', 'shellfish'], ['bivalve', 'shellfish'],
+    ['molluscs', 'shellfish'], ['mollusks', 'shellfish'], ['cephalopods', 'shellfish'], ['snails', 'shellfish'], ['abalone', 'shellfish'],
+    ['tree nuts', 'nuts'], ['peanut', 'nuts'], ['cereals containing gluten', 'gluten'], ['wheat', 'gluten'], ['fish', 'fish'], ['egg', 'eggs'],
+    ['milk', 'dairy'], ['sesame', 'sesame'], ['soy', 'soy'], ['soybeans', 'soy'],
+  ];
+  it.each(LABEL)('label word "%s" is in the %s group', (term, group) => {
+    expect(safety.allergyWordGroups(term)).toEqual(new Set([group]));
+  });
+  it('replacements rotate among the closest safe meals, all safe', () => {
+    const ex = safety.excludedFlags({ dietary: ['nut free', 'dairy free', 'gluten free'] });
+    const names = new Set();
+    for (let seed = 0; seed < 8; seed += 1) {
+      const m = safety.safeReplacement('lunch', 600, 40, ex, new Set(), seed);
+      expect(safety.mealProblems(m, ex)).toBeNull();
+      expect(Math.abs(m.calories - 600) / 600).toBeLessThan(0.2);
+      names.add(m.name);
+    }
+    expect(names.size).toBeGreaterThan(1);
+    const r = safety.enforcePlan({ days: [0, 1, 2].map(() => ({ meals: { lunch: { name: 'Satay', ingredients: ['Peanuts'], calories: 600, protein: 40 } } })) }, { dietary: ['nut free'] });
+    expect(new Set(r.plan.days.map((d) => d.meals.lunch.name)).size).toBeGreaterThan(1);
   });
 });
