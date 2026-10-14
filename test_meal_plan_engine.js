@@ -1,4 +1,5 @@
 'use strict';
+const { FOODS: FOOD_DB } = require('./food-db');
 
 /**
  * Meal plan: every day within ±5% of the calorie target, the AI output is
@@ -18,6 +19,7 @@ jest.mock('./lib/ai-usage', () => ({
 }));
 jest.mock('./server/storage.js', () => ({
   getUserById: jest.fn(async () => ({ id: 'u1', settings: { aiDataConsent: true } })),
+  getProfile: jest.fn(async () => ({ dietaryPreferences: [], allergies: [] })), // no saved filters (#127a)
   effectiveTier: () => 'free',
 }));
 
@@ -437,7 +439,139 @@ describe('builder lands every day within ±5% for every diet, style and target',
   const STYLES = [[], ['high protein'], ['low carb']];
   const combos = STYLES.flatMap((s) => [s, ...DIETS.map((d) => [...s, d])]);
 
-  test('the low carb week at 2850 kcal / 140 g protein is on target (was 2625 kcal, 7.9% under)', () => {
+  test('BUILD_DAY_PASSES stays above 200 so hard days can finish', () => {
+    expect(engine.BUILD_DAY_PASSES).toBeGreaterThan(200);
+  });
+
+  // Behaviour, not the constant: 4200 kcal / 40 g gluten free starts ~200 g over on protein and
+  // needs about 300 passes of 5 g trims. Capped at 200 it is left far short; at the default it lands.
+  test('the pass cap: a 300-pass day lands at the default cap and misses at 200', () => {
+    const opts = { calories: 4200, protein: 40, dietary: ['gluten free'] };
+    const full = engine.buildDay(0, opts, new Map());
+    expect(full.passes).toBeGreaterThan(200);
+    expect(full.passes).toBeLessThanOrEqual(engine.BUILD_DAY_PASSES);
+    expect(Math.abs(full.dailyTotals.calories - 4200)).toBeLessThanOrEqual(4200 * 0.005);
+    expect(full.dailyTotals.protein).toBeLessThanOrEqual(40);
+    const capped = engine.buildDay(0, opts, new Map(), { maxPasses: 200 });
+    expect(capped.passes).toBe(200);
+    expect(within5(capped.dailyTotals.calories, 4200)).toBe(false);
+    // The cap is a hard stop.
+    expect(engine.buildDay(0, opts, new Map(), { maxPasses: 3 }).passes).toBe(3);
+  });
+
+  test('early exit: a day already in the 0.5% band with protein at or under target is left alone', () => {
+    let inBand = 0;
+    for (const [calories, protein] of [[2000, 100], [2500, 140], [1800, 120], [3000, 160]]) {
+      for (const dietary of [[], ['low carb'], ['vegan']]) {
+        const plan = engine.buildPlan({ calories, protein, days: 7, dietary });
+        for (const d of plan.days) {
+          if (d.passes === 0) inBand += 1;
+          // Whatever the pass count, a settled day sits in the band it exits on.
+          expect(Math.abs(d.dailyTotals.calories - calories)).toBeLessThanOrEqual(calories * 0.005 + 1);
+        }
+      }
+    }
+    expect(inBand).toBeGreaterThan(0);
+    // Built twice, a day is identical: the exit leaves it rather than nudging it 5 g at a time.
+    const a = engine.buildDay(2, { calories: 2000, protein: 100, dietary: [] }, new Map());
+    const b = engine.buildDay(2, { calories: 2000, protein: 100, dietary: [] }, new Map(), { maxPasses: a.passes + 50 });
+    expect(b.dailyTotals).toEqual(a.dailyTotals);
+    expect(b.passes).toBe(a.passes);
+  });
+
+  // EQA #132 r1 M: every low carb day across the targets QA sweeps is under 26% carbs.
+  test('low carb: every day in the sweep is under 26% of calories from carbs', () => {
+    const shares = [];
+    for (let calories = 1200; calories <= 4200; calories += 300) {
+      for (let protein = 60; protein <= 260; protein += 40) {
+        if (protein * 4 > calories * 0.45) continue;
+        const plan = engine.buildPlan({ calories, protein, days: 7, dietary: ['low carb'] });
+        for (const d of plan.days) {
+          shares.push((4 * d.dailyTotals.carbs) / d.dailyTotals.calories);
+          expect(within5(d.dailyTotals.calories, calories)).toBe(true);
+          expect(d.dailyTotals.protein).toBeLessThanOrEqual(protein);
+          expect(d.dailyTotals.protein).toBeGreaterThanOrEqual(protein * 0.9);
+        }
+      }
+    }
+    expect(engine.LOW_CARB_SHARE).toBe(0.26);
+    expect(Math.max(...shares)).toBeLessThan(0.26);
+    expect(shares.reduce((a, b) => a + b, 0) / shares.length).toBeLessThan(0.23);
+    // Trimmed to 22%; the fat-first top-up keeps settling from adding carbs back (22.6% without it).
+    expect(Math.max(...shares)).toBeLessThanOrEqual(0.225);
+    for (const d of engine.buildPlan({ calories: 4200, protein: 200, days: 7, dietary: ['low carb'] }).days) {
+      expect((4 * d.dailyTotals.carbs) / d.dailyTotals.calories).toBeLessThanOrEqual(0.225);
+    }
+  });
+
+  test('low carb is under 26% with no protein target too, and with other diet filters', () => {
+    for (const dietary of [['low carb'], ['low carb', 'vegetarian'], ['low carb', 'dairy free']]) {
+      for (const protein of [undefined, 100]) {
+        const plan = engine.buildPlan({ calories: 2250, protein, days: 7, dietary });
+        for (const d of plan.days) expect([dietary.join('+'), protein, (4 * d.dailyTotals.carbs) / d.dailyTotals.calories < 0.26]).toEqual([dietary.join('+'), protein, true]);
+      }
+    }
+  });
+
+  // Pins the low-carb top-up weights (fat +9, carbs -32, protein -8 per kcal) and the default.
+  test('topUpScore weights', () => {
+    const f = { cal: 100, p: 2, c: 3, f: 4 };
+    expect(engine.topUpScore(f, true)).toBeCloseTo((36 - 96 - 16) / 100, 10);
+    expect(engine.topUpScore({ cal: 100, p: 0, c: 0, f: 1 }, true)).toBeCloseTo(0.09, 10);
+    expect(engine.topUpScore({ cal: 100, p: 0, c: 1, f: 0 }, true)).toBeCloseTo(-0.32, 10);
+    expect(engine.topUpScore({ cal: 100, p: 1, c: 0, f: 0 }, true)).toBeCloseTo(-0.08, 10);
+    expect(engine.topUpScore({ cal: 200, p: 0, c: 0, f: 2 }, true)).toBeCloseTo(0.09, 10);
+    expect(engine.topUpScore(f, false)).toBeCloseTo(-0.02, 10);
+    expect(engine.topUpScore({ cal: 200, p: 10, c: 9, f: 9 }, false)).toBeCloseTo(-0.05, 10);
+  });
+
+  test('trimCarbs swaps starch for fat calorie for calorie and puts the protein back', () => {
+    const picked = {
+      breakfast: { name: 'b', items: [['Rolled oats (dry)', 80], ['Banana', 120]] },
+      lunch: { name: 'l', items: [['Chicken breast (raw)', 150], ['White rice (cooked)', 250]] },
+      dinner: { name: 'd', items: [['Salmon fillet', 150], ['White potato (boiled)', 300]] },
+      snack: { name: 's', items: [['Apple', 150]] },
+    };
+    const before = JSON.parse(JSON.stringify(picked));
+    const totals = () => {
+      const t = { calories: 0, protein: 0, carbs: 0 };
+      for (const s of Object.keys(picked)) for (const [n, g] of picked[s].items) {
+        const food = FOOD_DB.find((x) => x.name === n);
+        t.calories += (food.cal * g) / 100; t.protein += (food.p * g) / 100; t.carbs += (food.c * g) / 100;
+      }
+      return t;
+    };
+    const t0 = totals();
+    engine.trimCarbs(picked, 0.22, totals);
+    const t1 = totals();
+    expect((4 * t1.carbs) / t1.calories).toBeLessThanOrEqual(0.22);
+    expect(Math.abs(t1.calories - t0.calories)).toBeLessThan(t0.calories * 0.02);
+    expect(Math.abs(t1.protein - t0.protein)).toBeLessThan(3);
+    expect(picked.dinner.items.some(([n]) => n === 'Olive oil')).toBe(true);
+    // Plain starch goes before protein-bearing carbs: the rice is cut, the lentils are kept.
+    const mixed = { breakfast: { items: [['Eggs (whole)', 100]] }, lunch: { items: [['Lentils (cooked)', 300], ['White rice (cooked)', 200], ['Chicken breast (raw)', 100]] }, dinner: { items: [['Salmon fillet', 100]] }, snack: { items: [['Almonds', 20]] } };
+    const mt = () => {
+      const t = { calories: 0, protein: 0, carbs: 0 };
+      for (const sl of Object.keys(mixed)) for (const [n, g] of mixed[sl].items) {
+        const food = FOOD_DB.find((x) => x.name === n);
+        t.calories += (food.cal * g) / 100; t.protein += (food.p * g) / 100; t.carbs += (food.c * g) / 100;
+      }
+      return t;
+    };
+    const share0 = (4 * mt().carbs) / mt().calories;
+    expect(share0).toBeGreaterThan(0.3);
+    engine.trimCarbs(mixed, 0.3, mt);
+    expect(mixed.lunch.items[0]).toEqual(['Lentils (cooked)', 300]);
+    expect(mixed.lunch.items[1][1]).toBeLessThan(200);
+    // Nothing to trim: left exactly as it was.
+    const lean = { breakfast: { items: [['Eggs (whole)', 100]] }, lunch: { items: [['Chicken breast (raw)', 100]] }, dinner: { items: [['Salmon fillet', 100]] }, snack: { items: [['Almonds', 20]] } };
+    const copy = JSON.parse(JSON.stringify(lean));
+    engine.trimCarbs(lean, 0.22, () => ({ calories: 1000, protein: 50, carbs: 10 }));
+    expect(lean).toEqual(copy);
+    expect(picked.lunch.items[1][1]).toBeLessThan(before.lunch.items[1][1]);
+  });
+
+test('the low carb week at 2850 kcal / 140 g protein is on target (was 2625 kcal, 7.9% under)', () => {
     const plan = engine.buildPlan({ calories: 2850, protein: 140, days: 7, dietary: ['low carb'] });
     for (const d of plan.days) expect(within5(d.dailyTotals.calories, 2850)).toBe(true);
     expect(engine.everyDayOnTarget(plan, 2850)).toBe(true);
