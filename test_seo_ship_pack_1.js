@@ -34,7 +34,7 @@ describe('SEO ship pack 1: homepage lander links', () => {
 
     expect(body).toContain('id="plan-from-here"');
     expect(body).toMatch(/<a href="\/ai-meal-planner-australia">AI meal planner Australia<\/a>/);
-    expect(body).toMatch(/<a href="\/budget-meal-planner">Budget high-protein weeks<\/a>/);
+    expect(body).toMatch(/<a href="\/budget-meal-planner">High-protein staples weeks<\/a>/);
     expect(body).toMatch(/<a href="\/receipt-nutrition-scanner">Receipt nutrition \/ haul score<\/a>/);
     expect(body).toContain('href="/haul-teardown"');
 

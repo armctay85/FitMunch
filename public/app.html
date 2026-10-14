@@ -492,7 +492,6 @@ html.fm-authed #app-gate{display:none}
  <div class="metric"><div class="metric-label">Active Clients</div><div class="metric-value mv-green" id="m-clients">0</div><div class="metric-sub">in your roster</div></div>
  <div class="metric"><div class="metric-label">Logged Today</div><div class="metric-value mv-blue" id="m-logged">0</div><div class="metric-sub">clients active</div></div>
  <div class="metric"><div class="metric-label">Need Check-in</div><div class="metric-value mv-amber" id="m-checkin">0</div><div class="metric-sub">3+ days quiet</div></div>
- <div class="metric"><div class="metric-label">This Month</div><div class="metric-value mv-purple" id="m-month">$0</div><div class="metric-sub">subscription revenue</div></div>
  </div>
 
  <!-- Feature tiles -->
@@ -655,10 +654,6 @@ html.fm-authed #app-gate{display:none}
  <label class="form-label">Protein (g/day)</label>
  <input type="number" id="mp-prot-sel" class="form-input" placeholder="150" min="50" max="400"/>
  </div>
- <div class="form-field">
- <label class="form-label">Weekly budget ($)</label>
- <input type="number" id="mp-budget-sel" class="form-input" placeholder="120" min="50" max="300"/>
- </div>
  </div>
  <div class="form-field" style="margin-bottom:16px">
  <label class="form-label">Dietary requirements <span style="color:var(--text3);font-weight:400">(optional)</span></label>
@@ -681,7 +676,7 @@ html.fm-authed #app-gate{display:none}
  <div id="mp-loading" style="display:none;text-align:center;padding:48px 20px">
  <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
  <div style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is writing your meal plan…</div>
- <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and budget. Usually 10–20 seconds.</div>
+ <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and targets. Usually 10–20 seconds.</div>
  </div>
 
  <!-- Plan output -->
@@ -3599,7 +3594,6 @@ async function generateMealPlan() {
  const days = parseInt(document.getElementById('mp-days-sel').value) || 7;
  const cals = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
  const prot = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
- const budget = parseInt(document.getElementById('mp-budget-sel').value) || 120;
  const dietary = [...document.querySelectorAll('.diet-tag.active')].map(b => b.dataset.val);
 
  // Pre-fill from goals if blank
@@ -3612,7 +3606,7 @@ async function generateMealPlan() {
  document.getElementById('mp-gen-btn').disabled = true;
 
  try {
- const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, budget, dietary }) });
+ const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, dietary }) });
  if (!r.success) {
  if (maybeUpgrade(r)) return;
  throw new Error(r.error || 'Generation failed');

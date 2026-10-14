@@ -70,6 +70,8 @@ function planInput(body) {
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
   const dietary = planEngine.normaliseDiet(b.dietary).slice(0, 8);
+  // Only these fields reach the builder and the AI prompt. FitMunch doesn't plan to a price, so a
+  // `budget` (or any other extra field) from an older client is dropped here.
   return { calories, protein, days, goal, dietary };
 }
 
@@ -266,3 +268,4 @@ router.get('/generate', (_req, res) => res.json({
 module.exports = router;
 // Read by the store-name sweep test.
 router.AI_PROMPTS = { planPrompt };
+router.planInput = planInput;
