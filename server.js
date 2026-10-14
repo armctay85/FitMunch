@@ -1043,9 +1043,13 @@ async function claimResendLimiter(req, res, next) {
   }
   return next();
 }
+// Test-only observer of the handler's own reply window (see
+// test_guest_claim_r5.js). Null in production; never affects the reply.
+let claimResendObserver = null;
 app.post('/api/stripe/claim-resend', claimResendLimiter, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const started = Date.now();
+  const startedHr = process.hrtime.bigint();
   const windowMs = claimResendWindowMs();
   const { resendGuestClaimLink, RESEND_GENERIC_REPLY } = require('./lib/guest-claim');
   try {
@@ -1059,6 +1063,11 @@ app.post('/api/stripe/claim-resend', claimResendLimiter, async (req, res) => {
   }
   const wait = windowMs - (Date.now() - started);
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  if (claimResendObserver) {
+    try {
+      claimResendObserver({ windowMs, replyMs: Number(process.hrtime.bigint() - startedHr) / 1e6 });
+    } catch (_) { /* test hook only */ }
+  }
   return res.status(200).json({ success: true, message: RESEND_GENERIC_REPLY });
 });
 
@@ -1347,8 +1356,13 @@ function setStripeForTests(next) {
   require('./lib/guest-claim').resetGuestClaimsForTests();
 }
 
+function setClaimResendObserverForTests(fn) {
+  claimResendObserver = typeof fn === 'function' ? fn : null;
+}
+
 module.exports = app;
 module.exports._private = {
+  setClaimResendObserverForTests,
   rateLimitKey,
   subscriptionTierUpdateFromStripe,
   setStripeForTests,
