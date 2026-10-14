@@ -386,7 +386,8 @@ describe('r6: linear scrub, original text untouched, more invisibles, loop', () 
       const res = await request(app).get('/api/meal-plans').set('Authorization', auth());
       expect(Date.now() - t).toBeLessThan(LIMIT_MS);
       expect(res.status).toBe(200);
-      expect(res.body.plans[0].name).toBe('bowl');
+      // Legacy names are cut to the 200 cap on read, then scrubbed.
+      expect(res.body.plans[0].name.length).toBeLessThanOrEqual(200);
       expect(JSON.stringify(res.body)).not.toMatch(PROVIDER);
     });
 
@@ -403,6 +404,13 @@ describe('r6: linear scrub, original text untouched, more invisibles, loop', () 
       ['put', '/api/meal-plans/1', { name: 'x'.repeat(201) }],
       ['post', '/api/meals/log', { name: 'x'.repeat(201), calories: 100 }],
       ['post', '/api/favourites', { itemType: 'meal', itemId: 'm1', itemData: { name: 'x'.repeat(201) } }],
+      ['post', '/api/meals/log', { foodName: 'x'.repeat(201), calories: 100 }],
+      ['post', '/api/meals/log', { food_name: 'x'.repeat(201), calories: 100 }],
+      ['post', '/api/meal-plans', { name: 'ok', meals: { breakfast: { name: 'y'.repeat(201) } } }],
+      ['put', '/api/meal-plans/1', { meals: { mon: { lunch: { name: 'y'.repeat(201) } } } }],
+      ['post', '/api/meal-plans', { name: 'ok', meals: { breakfast: { foods: [{ foodName: 'z'.repeat(201) }] } } }],
+      ['post', '/api/favourites', { itemType: 'plan', itemId: 'p1', itemData: { meals: [{ items: [{ name: 'x'.repeat(201) }] }] } }],
+      ['post', '/api/favourites', { itemType: 'meal', itemId: 'm2', itemData: { a: { b: { c: { title: 'x'.repeat(201) } } } } }],
     ])('%s %s rejects a name over 200 characters with a 400', async (method, path, body) => {
       const res = await request(app)[method](path).set('Authorization', auth()).send(body);
       expect(res.status).toBe(400);
@@ -413,6 +421,59 @@ describe('r6: linear scrub, original text untouched, more invisibles, loop', () 
       rows['INSERT INTO meal_plans'] = [{ id: 3, name: 'x'.repeat(200) }];
       const res = await request(app).post('/api/meal-plans').set('Authorization', auth()).send({ name: 'x'.repeat(200) });
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('#114 follow-up: legacy names and accented provider names', () => {
+    const app = express();
+    app.use(express.json({ limit: '2mb' }));
+    app.use(attachApiJsonSanitizer);
+    app.use('/api', require('./api_server'));
+    const auth = () => `Bearer ${jwt.sign({ userId: USER, role: 'client' }, jwtSecret(), { expiresIn: '1h' })}`;
+    beforeEach(() => { rows = {}; });
+
+    it('GET /meal-plans cuts legacy names (plan, object-form and JSON-text meals) to 200', async () => {
+      rows['SELECT * FROM meal_plans WHERE user_id=$1'] = [
+        { id: 1, user_id: USER, name: 'p'.repeat(500), meals: { breakfast: { name: 'b'.repeat(300) } } },
+        { id: 2, user_id: USER, name: 'ok', meals: JSON.stringify([{ name: 'm'.repeat(300), foods: [{ foodName: 'f'.repeat(300) }] }]) },
+      ];
+      const res = await request(app).get('/api/meal-plans').set('Authorization', auth());
+      expect(res.status).toBe(200);
+      const [a, b] = res.body.plans;
+      expect(a.name).toBe('p'.repeat(200));
+      expect(a.meals.breakfast.name).toBe('b'.repeat(200));
+      expect(typeof b.meals).toBe('string');
+      const meals = JSON.parse(b.meals);
+      expect(meals[0].name).toBe('m'.repeat(200));
+      expect(meals[0].foods[0].foodName).toBe('f'.repeat(200));
+    });
+
+    it('GET /favourites cuts legacy names inside item data', async () => {
+      rows['SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC'] = [
+        { id: 1, user_id: USER, item_type: 'meal', item_data: { name: 'n'.repeat(250), items: [{ name: 'i'.repeat(250) }] } },
+      ];
+      const res = await request(app).get('/api/favourites').set('Authorization', auth());
+      expect(res.body.favourites[0].item_data.name).toBe('n'.repeat(200));
+      expect(res.body.favourites[0].item_data.items[0].name).toBe('i'.repeat(200));
+    });
+
+    it('a legacy plan read back and saved unchanged is accepted', async () => {
+      rows['SELECT * FROM meal_plans WHERE user_id=$1'] = [{ id: 1, user_id: USER, name: 'p'.repeat(500), meals: [{ name: 'm'.repeat(400) }] }];
+      const got = await request(app).get('/api/meal-plans').set('Authorization', auth());
+      const plan = got.body.plans[0];
+      const res = await request(app).put('/api/meal-plans/1').set('Authorization', auth()).send({ name: plan.name, meals: plan.meals });
+      expect(res.status).not.toBe(400);
+    });
+
+    it.each(['Grók', 'Gro\u0301k', 'GRÓK', 'Gêmini', 'Grōk', 'Grȯk'])('%s is scrubbed', (w) => {
+      const out = JSON.stringify(sanitizeApiJson({ name: `${w} bowl` }));
+      expect(out).not.toMatch(PROVIDER);
+      expect(JSON.parse(out).name).toBe('bowl');
+    });
+
+    it('ordinary accented food names are unchanged', () => {
+      const names = ['Café latte', 'Crème brûlée', 'Jalapeño poppers', 'Açaí bowl', 'Pâté on toast'];
+      for (const n of names) expect(sanitizeApiJson({ name: n }).name).toBe(n);
     });
   });
 });
