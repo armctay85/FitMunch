@@ -1707,7 +1707,7 @@ const S = {
  inviteLink: null,
  todayMeals: [],
  mealsDate: new Date().toISOString().split('T')[0],
- };
+};
 
 // AI routes run only after the account has said Allow (enforced server-side too).
 const AI_PATHS = ['/ai/chat', '/ai/weekly-review', '/ai/workout-plan', '/meal-plan/generate'];
@@ -1770,7 +1770,7 @@ const API = async (path, opts={}) => {
  if (!builderOnly && AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
  return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
- };
+};
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 function showErr(msg) { console.error('[FitMunch]', msg); }
