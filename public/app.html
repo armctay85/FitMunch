@@ -3576,6 +3576,8 @@ function obMealRow(d, slot, m, onSwap) {
  });
  btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; btn.setAttribute('aria-expanded', String(open)); list.hidden = !open; };
  row.appendChild(btn); body.appendChild(list);
+ } else if (Array.isArray(m.swaps)) {
+ const none = document.createElement('div'); none.className = 'ob-meal-meta ob-noswap'; none.textContent = 'No swap fits this meal under your filters.'; body.appendChild(none);
  }
  return row;
 }
