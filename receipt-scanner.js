@@ -372,6 +372,39 @@ router.get('/first-scan', (_req, res) => res.json({
 }));
 
 // Preview and dev only. Production 404s. Key required. Five calls per 10 minutes per IP.
+// Homepage "try a sample receipt": deterministic scoring of a bundled sample.
+// No auth, no AI, no credit. Light per-IP limit; cacheable.
+// Shared across instances via Postgres (lib/shared-counters, atomic upsert),
+// failing closed like the other public limiters.
+const DEMO_WINDOW_MS = 60 * 1000;
+function demoMax() {
+  const n = Number(process.env.RECEIPT_DEMO_IP_MAX_PER_MIN);
+  return Number.isFinite(n) && n > 0 ? n : 30;
+}
+async function demoLimiter(req, res, next) {
+  const { hitRateCounter } = require('./lib/shared-counters');
+  let hits;
+  try {
+    hits = await hitRateCounter('receipt-demo-ip', sampleClientKey(req), { windowMs: DEMO_WINDOW_MS, failClosed: true });
+  } catch (err) {
+    console.error('[receipt-demo] rate counter unavailable', err && err.code ? err.code : 'Error');
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', '60');
+    return res.status(503).json({ success: false, error: 'Busy. Try again shortly.' });
+  }
+  if (hits > demoMax()) {
+    res.set('Cache-Control', 'no-store');
+    res.set('Retry-After', String(DEMO_WINDOW_MS / 1000));
+    return res.status(429).json({ success: false, error: 'Too many requests' });
+  }
+  return next();
+}
+router.get('/demo', demoLimiter, (_req, res) => {
+  const { sampleReceiptDemo } = require('./lib/sample-receipt-demo');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(sampleReceiptDemo());
+});
+
 router.get('/sample', sampleLimiter, sampleGate, async (_req, res) => {
   const configured = Boolean(process.env.GEMINI_API_KEY);
   const result = {

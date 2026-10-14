@@ -644,7 +644,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
- <label class="form-label">My goal</label>
+ <label class="form-label" for="mp-goal-sel">My goal</label>
  <select id="mp-goal-sel" class="form-select">
  <option value="lose_weight">Lose weight</option>
  <option value="muscle_gain">💪 Build muscle</option>
@@ -653,7 +653,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Days to plan</label>
+ <label class="form-label" for="mp-days-sel">Days to plan</label>
  <select id="mp-days-sel" class="form-select">
  <option value="5">5 days (Mon–Fri)</option>
  <option value="7" selected>7 days (full week)</option>
@@ -751,7 +751,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
- <label class="form-label">My goal</label>
+ <label class="form-label" for="wpg-goal">My goal</label>
  <select id="wpg-goal" class="form-select">
  <option value="muscle_gain">💪 Build muscle</option>
  <option value="lose_weight">Lose fat</option>
@@ -760,7 +760,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Experience</label>
+ <label class="form-label" for="wpg-level">Experience</label>
  <select id="wpg-level" class="form-select">
  <option value="beginner">Beginner</option>
  <option value="intermediate" selected>Intermediate</option>
@@ -770,7 +770,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
  <div class="form-field">
- <label class="form-label">Days per week</label>
+ <label class="form-label" for="wpg-days">Days per week</label>
  <select id="wpg-days" class="form-select">
  <option value="2">2 days</option>
  <option value="3" selected>3 days</option>
@@ -780,7 +780,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Equipment</label>
+ <label class="form-label" for="wpg-equipment">Equipment</label>
  <select id="wpg-equipment" class="form-select">
  <option value="gym" selected>Full gym</option>
  <option value="home">Home (dumbbells/bands)</option>
@@ -788,7 +788,7 @@ html.fm-authed #app-gate{display:none}
  </select>
  </div>
  <div class="form-field">
- <label class="form-label">Session length</label>
+ <label class="form-label" for="wpg-minutes">Session length</label>
  <select id="wpg-minutes" class="form-select">
  <option value="30">30 min</option>
  <option value="45">45 min</option>
@@ -1372,10 +1372,10 @@ html.fm-authed #app-gate{display:none}
  <div class="modal">
  <div class="modal-title">Assign Plan to Client<button class="modal-close" onclick="closeModal('modal-assign')">✕</button></div>
  <div class="form-row">
- <div class="form-field"><label class="form-label">Plan Type</label>
+ <div class="form-field"><label class="form-label" for="assign-type">Plan Type</label>
  <select class="form-select" id="assign-type"><option value="meal">Meal Plan</option><option value="workout">Workout Plan</option></select></div>
  </div>
- <div class="form-field" style="margin-top:10px"><label class="form-label">Select Plan</label>
+ <div class="form-field" style="margin-top:10px"><label class="form-label" for="assign-plan-select">Select Plan</label>
  <select class="form-select" id="assign-plan-select"><option>Loading…</option></select></div>
  <div class="modal-actions">
  <button class="btn btn-ghost2" onclick="closeModal('modal-assign')">Cancel</button>
@@ -1389,7 +1389,7 @@ html.fm-authed #app-gate{display:none}
  <div class="modal-title">New Meal Plan<button class="modal-close" onclick="closeModal('modal-mealplan')">✕</button></div>
  <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="mp-name" placeholder="e.g. 12-week deficit plan"/></div>
  <div class="form-row">
- <div class="form-field"><label class="form-label">Goal</label>
+ <div class="form-field"><label class="form-label" for="mp-goal">Goal</label>
  <select class="form-select" id="mp-goal"><option value="weight_loss">Weight Loss</option><option value="maintenance">Maintenance</option><option value="muscle_gain">Muscle Gain</option></select></div>
  <div class="form-field"><label class="form-label">Daily Calories</label><input class="form-input" id="mp-cals" type="number" placeholder="1800"/></div>
  </div>
@@ -1427,7 +1427,7 @@ html.fm-authed #app-gate{display:none}
  <div class="modal-title">New Workout Plan<button class="modal-close" onclick="closeModal('modal-workoutplan')">✕</button></div>
  <div class="form-field" style="margin-bottom:10px"><label class="form-label">Plan Name</label><input class="form-input" id="wp-name" placeholder="e.g. 5-day PPL program"/></div>
  <div class="form-row">
- <div class="form-field"><label class="form-label">Level</label>
+ <div class="form-field"><label class="form-label" for="wp-level">Level</label>
  <select class="form-select" id="wp-level"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
  <div class="form-field"><label class="form-label">Days/Week</label><input class="form-input" id="wp-freq" type="number" placeholder="4" min="1" max="7"/></div>
  </div>
@@ -1463,7 +1463,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-generate-shopping" onclick="closeOnOverlay(event)">
  <div class="modal">
  <div class="modal-title">Generate Shopping List<button class="modal-close" onclick="closeModal('modal-generate-shopping')">✕</button></div>
- <div class="form-field" style="margin-bottom:10px"><label class="form-label">From Meal Plan</label>
+ <div class="form-field" style="margin-bottom:10px"><label class="form-label" for="gen-plan-select">From Meal Plan</label>
  <select class="form-select" id="gen-plan-select"><option>Loading…</option></select></div>
  <div class="form-field"><label class="form-label">List Name</label><input class="form-input" id="gen-list-name" placeholder="Leave blank for auto-name"/></div>
  <div class="modal-actions">
@@ -1489,7 +1489,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Meal + serving -->
  <div class="form-row" style="margin-bottom:10px">
  <div class="form-field">
- <label class="form-label">Meal</label>
+ <label class="form-label" for="lm-meal">Meal</label>
  <select class="form-select" id="lm-meal">
  <option value="breakfast">Breakfast</option>
  <option value="lunch" selected>Lunch</option>
