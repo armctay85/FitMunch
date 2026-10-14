@@ -7,6 +7,7 @@ module.exports = {
     '**/test_jest_testmatch_guard.js',
     '**/test_item_name_case.js',
     '**/test_app.js',
+    '**/test_haul_score.js',
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
@@ -23,6 +24,8 @@ module.exports = {
     '**/test_server_api.js',
     '**/test_checkout_session_privacy.js',
     '**/test_trust_bar.js',
+    '**/test_onboarding_targets.js',
+    '**/test_onboard_rendered.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',
     '**/test_coach_plan.js',
