@@ -148,7 +148,7 @@ struct HistoryView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
     
@@ -236,7 +236,7 @@ struct HistoryView: View {
                 }
             }
             .padding()
-            .background(Color.gray.opacity(0.1))
+            .background(Color(.secondarySystemBackground))
             .cornerRadius(12)
         }
     }
@@ -351,7 +351,7 @@ private struct HistoryMealCard: View {
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
 }
@@ -475,7 +475,7 @@ private struct ExportSheet: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.gray.opacity(0.1))
+                            .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
                     }
                     .frame(height: 200)

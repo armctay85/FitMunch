@@ -13,7 +13,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<viewModel.totalSteps, id: \.self) { step in
                         Rectangle()
-                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : .gray.opacity(0.3))
+                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : Color(.tertiarySystemFill))
                             .frame(height: 4)
                             .cornerRadius(2)
                     }
@@ -181,7 +181,8 @@ struct OnboardingView: View {
                             }
                         }
                         .padding()
-                        .background(Color.gray.opacity(0.1))
+                        .frame(minHeight: 44)
+                        .background(Color(.secondarySystemBackground))
                         .cornerRadius(8)
                     }
                 }
@@ -255,7 +256,7 @@ private struct FeatureRow: View {
             Spacer()
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
 }
@@ -306,7 +307,7 @@ private struct PlanCard: View {
                 }
             }
             .padding()
-            .background(isSelected ? Theme.brandGreen.opacity(0.1) : Color.gray.opacity(0.1))
+            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
