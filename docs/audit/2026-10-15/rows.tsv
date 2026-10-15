@@ -43,7 +43,7 @@ Today	empty	iphone-6.9in	PASS	copy ok	iphone-6.9in/today-empty.png
 Today	log-meal	iphone-6.9in	PASS	copy ok	iphone-6.9in/today-log-meal.png
 Me	free	iphone-6.9in	PASS	copy ok	iphone-6.9in/me-top.png
 Settings	about	iphone-6.9in	FAIL	Build Date is hardcoded March 2025	iphone-6.9in/me-about.png
-Progress	empty	iphone-6.9in	FAIL	copy ok	iphone-6.9in/progress-empty.png
+Progress	empty	iphone-6.9in	PASS	copy ok	iphone-6.9in/progress-empty.png
 Auth	register	iphone-6.5in	PASS	copy ok	iphone-6.5in/auth-register.png
 Auth	sign-in	iphone-6.5in	PASS	copy ok	iphone-6.5in/auth-sign-in.png
 Auth	error	iphone-6.5in	FAIL	No error text within 12s. copy ok	iphone-6.5in/auth-error.png
@@ -89,4 +89,4 @@ Today	empty	iphone-6.5in	PASS	copy ok	iphone-6.5in/today-empty.png
 Today	log-meal	iphone-6.5in	PASS	copy ok	iphone-6.5in/today-log-meal.png
 Me	free	iphone-6.5in	PASS	copy ok	iphone-6.5in/me-top.png
 Settings	about	iphone-6.5in	PASS	copy ok	iphone-6.5in/me-about.png
-Progress	empty	iphone-6.5in	FAIL	copy ok	iphone-6.5in/progress-empty.png
+Progress	empty	iphone-6.5in	PASS	copy ok	iphone-6.5in/progress-empty.png
