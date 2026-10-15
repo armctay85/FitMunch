@@ -39,7 +39,7 @@ describe('Public Premium CTA', () => {
   it('login?plan=premium is email-first when signed out, and opens checkout straight after sign-in', async () => {
     const login = await request(app).get('/login.html?plan=premium').expect(200);
     expect(login.text).toContain('Start Premium trial');
-    expect(login.text).toContain('Start your 14-day free trial');
+    expect(login.text).toContain('Start the 14-day trial');
     expect(login.text).toContain("' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: '");
     // Wilson r2: straight to Stripe. Subscribers see the sign-in message;
     // a used trial is shown before the browser leaves for Stripe.
@@ -57,7 +57,7 @@ describe('Public Premium CTA', () => {
     expect(login.text).toContain("'14-day free trial, then ' + priceLine");
     expect(login.text).toContain("annualBilling ? 'A$149.99 a year' : 'A$19.99 a month'");
     expect(login.text).toContain('Stripe opens');
-    expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial')");
+    expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial')");
     expect(login.text).toMatch(/await fetch\('\/api\/quick-checkout'/);
     expect(login.text).toContain('if (emailFirst && !pendingClaim) return doEmailFirstTrial();');
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);

@@ -19,6 +19,7 @@ body{
 .logo-text span{color:inherit}
 .tab{border-radius:999px;min-height:44px;color:#9aafa4}
 .tab.active{background:#0f7a32;color:#fff}
+#email-first-note{color:#9aafa4;font-size:.75rem;line-height:1.45}
 .foot{color:#9aafa4}
 .foot a{color:#d7e7db;display:inline-flex;align-items:center;min-height:44px;padding:8px 4px}
 .btn{

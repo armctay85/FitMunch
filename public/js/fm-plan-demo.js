@@ -163,6 +163,15 @@
         trolleyEl.appendChild(li);
       });
     }
+    var totals = 'The sample day is ' + comma(plan.kcal) + ' kcal and ' + plan.protein + 'g protein.';
+    var lock = document.querySelector('.hero-lock');
+    if (lock) lock.textContent = totals + ' Pick another goal and the meals follow.';
+    var cap = document.querySelector('.hero-shot figcaption');
+    if (cap) {
+      cap.textContent = (goal === 'cut' && diet === 'classic')
+        ? 'Your first week: built for 82kg cutting to 78kg, at ' + comma(plan.kcal) + ' kcal and ' + plan.protein + 'g protein, with Swap open on breakfast.'
+        : 'Sample day at ' + comma(plan.kcal) + ' kcal and ' + plan.protein + 'g protein.';
+    }
   }
 
   function select(group, value, attr) {

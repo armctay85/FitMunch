@@ -331,7 +331,7 @@
  if (!trialNonce) trialNonce = 't_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
- let registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial') : 'Create Free Account';
+ let registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial') : 'Create Free Account';
  let pendingClaim = '';
  try {
   pendingClaim = String(window.__fmClaimToken || '');

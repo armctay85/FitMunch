@@ -47,7 +47,7 @@
 .fm-btn:hover{transform:translateY(-1px)}
 .fm-btn-leaf{background:var(--leaf);color:#fff;border:none}
 .fm-btn-leaf:hover{background:var(--leaf2)}
-.fm-btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.38)}
+.fm-btn-ghost{background:transparent;color:#fff;border-color:rgba(244,247,244,.85)}
 .fm-btn-ink{background:transparent;color:var(--ink);border-color:var(--line)}
 
 .fm-footer{

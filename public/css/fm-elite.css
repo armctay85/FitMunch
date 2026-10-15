@@ -51,7 +51,8 @@
 .brand{min-height:44px}
 .skip{min-height:44px;display:inline-flex;align-items:center}
 .nav-links a{min-height:44px;display:inline-flex;align-items:center;padding:10px 12px}
-.nav-cta{
+.nav-cta,
+.nav-links a.nav-cta{
   display:inline-flex;
   align-items:center;
   min-height:44px;
@@ -61,7 +62,12 @@
   background:#0f7a32;
   color:#fff;
 }
-.nav-cta:hover,.nav-cta:focus-visible{background:#0c6428;color:#fff}
+.nav-cta:hover,
+.nav-cta:focus,
+.nav-cta:focus-visible,
+.nav-links a.nav-cta:hover,
+.nav-links a.nav-cta:focus,
+.nav-links a.nav-cta:focus-visible{background:#0c6428;color:#fff}
 
 .fold .hero{
   flex:1 1 auto;
@@ -219,6 +225,7 @@
   font-weight:700;
   letter-spacing:-.02em;
   min-height:44px;
+  min-width:44px;
   padding:0 12px;
   border-radius:999px;
   cursor:pointer;
@@ -297,8 +304,10 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   border-radius:0;
   box-shadow:none;
   background:#0c1c14;
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 16%, #000 72%, transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0%, #000 16%, #000 72%, transparent 100%);
+  filter:blur(18px);
+  opacity:.4;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
 }
 .fold .hero-shot figcaption{
   margin:0;
@@ -470,7 +479,7 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
   .fold .hero{padding-left:12px;padding-right:12px}
   .fold .hero-kicker{letter-spacing:.04em;font-size:.75rem}
   .plan-live{padding:12px}
-  .goal-chip{padding:0 10px;font-size:.78rem}
+  .goal-chip{padding:0 12px;font-size:.78rem;min-width:44px;min-height:44px}
   .hero-hooks li{letter-spacing:0;font-size:.75rem}
   .bar{grid-template-columns:58px minmax(0,1fr) auto}
   .meal-name{font-size:.86rem}
