@@ -58,6 +58,8 @@ const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const engine = require('./lib/meal-plan-engine');
+const safety = require('./lib/meal-safety');
+const dietGuard = require('./lib/diet-guard');
 const coach = require('./lib/coach-plan');
 
 const USER = '00000000-0000-4000-8000-0000000f1111';
@@ -101,8 +103,33 @@ describe('typed allergens match ingredient names', () => {
     expect(engine.textHasTypedAllergen('Kiwifruit', 'kiwi')).toBe(true);
     expect(engine.textHasTypedAllergen('kiwi', 'kiwifruit')).toBe(true);
     expect(engine.textHasTypedAllergen('Butternut pumpkin', 'butter')).toBe(false);
+    expect(engine.textHasTypedAllergen('butter beans', 'butter')).toBe(false);
+    expect(engine.textHasTypedAllergen('cocoa butter', 'butter')).toBe(false);
+    expect(engine.textHasTypedAllergen('Salted butter', 'butter')).toBe(true);
     expect(engine.textHasTypedAllergen('Eggplant', 'egg')).toBe(false);
     expect(engine.textHasTypedAllergen('Eggs', 'egg')).toBe(true);
+  });
+
+  it('does not call soy milk smoothie or butternut risotto dairy, and egg still skips eggplant', () => {
+    expect([...safety.flagsInText('Soy milk smoothie')].sort()).toEqual(['soy']);
+    expect(safety.flagsInText('butternut risotto').has('dairy')).toBe(false);
+    expect([...safety.flagsInText('butternut risotto')]).toEqual([]);
+    expect(safety.flagsInText('cocoa butter').has('dairy')).toBe(false);
+    expect([...safety.flagsInText('butter beans')]).toEqual([]);
+    expect(safety.flagsInText('Banana smoothie').has('dairy')).toBe(true);
+    expect(safety.flagsInText('Soy milk smoothie with yoghurt').has('dairy')).toBe(true);
+    expect(safety.flagsInText('Oat milk smoothie').has('dairy')).toBe(false);
+    expect(safety.flagsInText('Oat milk smoothie').has('gluten')).toBe(true);
+    expect(safety.flagsInText('Almond milk smoothie').has('dairy')).toBe(false);
+    expect(safety.flagsInText('Almond milk smoothie').has('nuts')).toBe(true);
+    expect(safety.flagsInText('butter').has('dairy')).toBe(true);
+    expect(dietGuard.brokenGroups('Soy milk smoothie', ['dairy free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('butternut risotto', ['dairy free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('Soy milk smoothie with yoghurt', ['dairy free'])).toEqual(['dairy']);
+    const dairy = safety.excludedFlags({ dietary: ['dairy free'] });
+    expect(safety.mealProblems({ name: 'Soy milk smoothie', ingredients: ['Soy milk smoothie'] }, dairy)).toBeNull();
+    expect(safety.mealProblems({ name: 'Butternut risotto', ingredients: ['Butternut pumpkin', 'Rice'] }, dairy)).toBeNull();
+    expect(safety.mealProblems({ name: 'Banana smoothie', ingredients: ['Banana'] }, dairy)).toContain('dairy');
   });
 
   it('drops banana from meals and swaps, and does not say the filter was not applied', () => {
@@ -171,6 +198,17 @@ describe('saved filters can be replaced under the profile lock', () => {
     const build = html.slice(html.indexOf('async function onboardBuildWeek'), html.indexOf('// ── GOALS ONBOARDING'));
     expect(build).toContain('JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein })');
     expect(build.indexOf('JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein })')).toBeLessThan(build.indexOf('dietaryPreferences: diet'));
+    expect(build).not.toContain('const body = { dietaryPreferences: diet, allergies }');
+    expect(build).toContain('const allergySave = obAllergySave(allergies, prof && prof.profile && prof.profile.allergies)');
+    expect(build).toContain('if (allergySave) body.allergies = allergySave');
+    expect(build).toContain(".filter(s => s && String(s).trim())");
+    const helper = html.slice(html.indexOf('function obAllergySave'), html.indexOf('function rememberProfileFilters'));
+    const obAllergySave = new Function(`${html.slice(html.indexOf('function normFilterWord'), html.indexOf('function rememberProfileFilters'))}; return obAllergySave;`)();
+    expect(helper).toContain('if (!chips || !chips.length) return null');
+    expect(obAllergySave([], ['kiwi', 'peanut'])).toBeNull();
+    expect(obAllergySave(['peanut'], ['kiwi', 'Peanut'])).toEqual(['kiwi', 'Peanut']);
+    expect(obAllergySave(['milk'], ['kiwi'])).toEqual(['kiwi', 'milk']);
+    expect(obAllergySave(['peanut'], { peanut: { name: 'x' } })).toBeNull();
   });
 
   beforeEach(resetProfile);
@@ -223,6 +261,7 @@ describe('generate applies fish free and typed allergies', () => {
       builderOnly: true, goal: 'maintain', days: 7, calories: 2000, protein: 140, dietary: ['fish free'],
     });
     expect(r.status).toBe(200);
+    expect(r.body.notice).toBeUndefined();
     expect(r.body.plan.days).toHaveLength(7);
     expect(ingredientBlob(r.body.plan)).not.toMatch(FISH);
     expect(JSON.stringify(r.body)).not.toMatch(/Not applied/);
@@ -254,6 +293,10 @@ describe('generate applies fish free and typed allergies', () => {
         expect(r.status).toBe(200);
         expect(JSON.stringify(r.body.plan)).not.toMatch(new RegExp(fruit, 'i'));
         expect(JSON.stringify(r.body.plan.notes || [])).not.toMatch(/couldn't check/i);
+        if (body.builderOnly) {
+          expect(r.body.notice).toBe(dietGuard.UNREADABLE_NOTICE);
+          expect(String(r.body.notice).trim().length).toBeGreaterThan(0);
+        }
       }
     }
   });

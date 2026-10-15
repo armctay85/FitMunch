@@ -2419,6 +2419,7 @@ router.post('/pt-leads', async (req, res) => {
 // Export router for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports.__pool = _pool; // test seam: Postgres suites must end this pool
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };

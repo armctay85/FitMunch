@@ -338,6 +338,11 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
  .shop-cb.checked{box-shadow:none}
 }
+/* Desktop with a mouse: filter chips and the allergy field, Add and Save stay easy to hit. */
+@media (min-width: 1025px) and (pointer: fine) {
+ #dietary-tags .diet-tag,#saved-allergies .diet-tag,#ob-diet .diet-tag,#ob-allergies .diet-tag{min-height:40px;display:inline-flex;align-items:center}
+ #allergy-add,#mp-save-filters,button[onclick="addTypedAllergy()"]{min-height:40px}
+}
 /* Touch tablets and small laptops: same 44px tap targets as phones. */
 @media (pointer:coarse), (max-width:1024px) {
  .nav-logo{min-height:44px;display:flex;align-items:center}
@@ -3703,7 +3708,9 @@ async function onboardBuildWeek() {
  let updatedAt = null;
  const prof = await API('/user/profile/' + S.user.id);
  if (prof && prof.profile && prof.profile.updatedAt) updatedAt = prof.profile.updatedAt;
- const body = { dietaryPreferences: diet, allergies };
+ const body = { dietaryPreferences: diet };
+ const allergySave = obAllergySave(allergies, prof && prof.profile && prof.profile.allergies);
+ if (allergySave) body.allergies = allergySave;
  if (updatedAt) body.profileUpdatedAt = updatedAt;
  const saved = await API('/user/profile', { method:'POST', body: JSON.stringify(body) });
  if (saved && saved.stale) toast(saved.error || 'Your profile changed since this page loaded. Reload it and try again.', 'error');
@@ -3713,7 +3720,7 @@ async function onboardBuildWeek() {
  const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
  const local = async () => {
  const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : ''), r); }
+ if (b && b.success && b.plan) { const note = [NOTE_BUILDER, b.notice, ...(b.plan.notes || [])].filter(s => s && String(s).trim()).join(' '); S_activePlan = b.plan; onboardRenderWeek(b.plan, note, r); }
  else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
  };
  // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
@@ -3821,6 +3828,16 @@ function filterWords(v) {
  list.push(t);
  }
  return { ok: true, list };
+}
+// Ticked onboarding chips merge with allergies already saved (typed ones have no chip).
+// No chips, or a list we cannot read: return null so the save omits allergies and does not wipe them.
+function obAllergySave(chips, saved) {
+ if (!chips || !chips.length) return null;
+ const loaded = filterWords(saved);
+ if (!loaded.ok) return null;
+ const merged = loaded.list.slice();
+ for (const a of chips) if (!merged.some(x => normFilterWord(x) === normFilterWord(a))) merged.push(a);
+ return merged;
 }
 function rememberProfileFilters(profile) {
  const p = profile || {};

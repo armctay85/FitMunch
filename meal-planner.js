@@ -221,7 +221,11 @@ router.post('/generate', requireAuth, async (req, res) => {
     const combined = dietGuard.combineFilters(profile, input.dietary);
     input.dietary = dietGuard.planFilters(combined);
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
-    return res.json({ success: true, plan: builtPlan(input, combined), source: 'builder' });
+    const plan = builtPlan(input, combined);
+    const body = { success: true, plan, source: 'builder' };
+    // Only when the allergy list could not be read. An empty notice would show as a blank line.
+    if (dietGuard.unreadable(combined)) body.notice = dietGuard.UNREADABLE_NOTICE;
+    return res.json(body);
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
   // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
