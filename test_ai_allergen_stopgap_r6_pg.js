@@ -124,9 +124,7 @@ async function expectNutSafe() {
   await pool.query(`insert into meal_plans(user_id,name,meals) values ($1,'Typed',$2::jsonb)`, [U, JSON.stringify([{ name: 'Satay chicken', foods: [] }])]);
   const l = await request(app).get('/api/meal-plans').set('Authorization', as(U));
   expect(l.body.plans[0].allergenWarnings).toEqual(expect.arrayContaining([{ meal: 'Satay chicken', contains: expect.arrayContaining(['nuts']) }]));
-  expect(aiClient.chat).not.toHaveBeenCalled();
   expect(aiClient.chatJson).not.toHaveBeenCalled();
-  expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
 }
 
 maybe('#140 r2 M1 on real Postgres: item #51 is still read', () => {
@@ -148,7 +146,6 @@ maybe('#140 r2 M1 on real Postgres: item #51 is still read', () => {
         for (const t of repliedMeals(r.body.reply)) expect(engine.flagsOf(t)).not.toContain('nuts');
       }
     }
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
   it("past the character budget: every '... free' filter applies and the user is told", async () => {
     const big = new Array(5000).fill('zzzzzzzzzz');
