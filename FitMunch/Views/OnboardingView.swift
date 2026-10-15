@@ -13,7 +13,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<viewModel.totalSteps, id: \.self) { step in
                         Rectangle()
-                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : .gray.opacity(0.3))
+                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : Color(.tertiarySystemFill))
                             .frame(height: 4)
                             .cornerRadius(2)
                     }
@@ -265,7 +265,7 @@ private struct FeatureRow: View {
             Spacer()
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
 }

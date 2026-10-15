@@ -87,6 +87,8 @@ struct HomeView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.headline)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Previous day")
 
@@ -115,6 +117,8 @@ struct HomeView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.headline)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .disabled(viewModel.isToday)
             .accessibilityLabel("Next day")
