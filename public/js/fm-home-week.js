@@ -36,16 +36,28 @@
     };
   }
 
-  /** One stored meal: its foods list, or the meal itself. Non-objects yield nothing. */
-  function itemsFromMeal(m, fallbackType) {
-    if (!m || typeof m !== 'object' || Array.isArray(m)) return [];
+  /** One stored meal: object foods, or the meal itself when foods are strings (or there is no foods list).
+   * An array is one level of meals (an array of arrays is still a meal list). */
+  function itemsFromMeal(m, fallbackType, depth) {
+    const d = depth || 0;
+    if (!m || typeof m !== 'object' || d > 6) return [];
+    if (Array.isArray(m)) {
+      const out = [];
+      m.forEach((x) => { itemsFromMeal(x, fallbackType, d + 1).forEach((i) => out.push(i)); });
+      return out;
+    }
     if (Array.isArray(m.foods) && m.foods.length) {
       const type = m.mealType || m.slot || m.type || fallbackType || 'lunch';
       const out = [];
+      let sawString = false;
       m.foods.forEach((f) => {
+        if (typeof f === 'string' && f.trim()) { sawString = true; return; }
         if (f && typeof f === 'object' && !Array.isArray(f)) out.push(mealItem(f, f.mealType || f.slot || f.type || type));
       });
-      return out;
+      if (out.length) return out;
+      // String foods ('peanuts') are not lines of their own: the parent meal stays on the card
+      // and keeps those foods for the shopping list.
+      if (sawString) return [mealItem(m, type)];
     }
     if (m.name != null || m.mealType || m.slot || m.type || (Array.isArray(m.ingredients) && m.ingredients.length)) {
       return [mealItem(m, m.mealType || m.slot || m.type || fallbackType || 'lunch')];
@@ -111,6 +123,240 @@
     } catch (_) {
       return empty;
     }
+  }
+
+  function macroNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function cloneJson(v) {
+    try { return JSON.parse(JSON.stringify(v)); } catch (_) { return v; }
+  }
+
+  function atPath(root, path) {
+    let cur = root;
+    for (const p of String(path).split('.')) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  }
+
+  function deleteAtPath(root, path) {
+    const parts = String(path).split('.');
+    const key = parts.pop();
+    let parent = root;
+    for (const p of parts) {
+      if (parent == null || typeof parent !== 'object') return;
+      parent = parent[p];
+    }
+    if (parent == null || typeof parent !== 'object') return;
+    if (Array.isArray(parent) && /^\d+$/.test(key)) parent.splice(Number(key), 1);
+    else delete parent[key];
+  }
+
+  /**
+   * One form row per meal the edit screen can change, with a path back into the stored shape.
+   * A named meal is one row (its ingredients and foods stay on the object). A nameless meal
+   * whose foods are objects is one row per food.
+   */
+  function editMealRows(raw) {
+    let meals = raw;
+    if (typeof meals === 'string') {
+      try { meals = JSON.parse(meals); } catch (_) { return []; }
+    }
+    const rows = [];
+    const add = (meal, path, fallbackType) => {
+      if (!meal || typeof meal !== 'object' || Array.isArray(meal)) return;
+      const foods = Array.isArray(meal.foods) ? meal.foods : [];
+      const named = meal.name != null && String(meal.name).trim();
+      const objectFoods = [];
+      foods.forEach((f, j) => { if (f && typeof f === 'object' && !Array.isArray(f)) objectFoods.push([j, f]); });
+      if (!named && objectFoods.length && !(Array.isArray(meal.ingredients) && meal.ingredients.length)) {
+        objectFoods.forEach(([j, f]) => add(f, `${path}.foods.${j}`, meal.mealType || meal.slot || fallbackType));
+        return;
+      }
+      rows.push({
+        path,
+        name: meal.name != null ? String(meal.name) : '',
+        mealType: String(meal.mealType || meal.slot || meal.type || fallbackType || 'lunch').toLowerCase(),
+        calories: meal.calories,
+        protein: meal.protein,
+        carbs: meal.carbs,
+        fat: meal.fat,
+      });
+    };
+    const walkDay = (d, pathPrefix) => {
+      if (!d || typeof d !== 'object' || Array.isArray(d) || !d.meals || typeof d.meals !== 'object') return;
+      if (Array.isArray(d.meals)) {
+        d.meals.forEach((m, j) => add(m, `${pathPrefix}.meals.${j}`));
+        return;
+      }
+      const keys = Object.keys(d.meals);
+      const used = new Set();
+      SLOT_ORDER.forEach((slot) => {
+        const k = keys.find((x) => String(x).toLowerCase() === slot);
+        if (!k) return;
+        used.add(k);
+        add(d.meals[k], `${pathPrefix}.meals.${k}`, slot);
+      });
+      keys.forEach((k) => { if (!used.has(k)) add(d.meals[k], `${pathPrefix}.meals.${k}`, k); });
+    };
+    if (meals && typeof meals === 'object' && !Array.isArray(meals) && Array.isArray(meals.days)) {
+      meals.days.forEach((d, i) => walkDay(d, `days.${i}`));
+      return rows;
+    }
+    if (!Array.isArray(meals)) return [];
+    const dayish = meals.some((d) => d && typeof d === 'object' && !Array.isArray(d) && d.meals && typeof d.meals === 'object');
+    if (!dayish) {
+      meals.forEach((m, i) => add(m, String(i)));
+      return rows;
+    }
+    meals.forEach((d, i) => walkDay(d, String(i)));
+    return rows;
+  }
+
+  function blankMeal(e) {
+    return {
+      name: String(e.name || '').trim(),
+      mealType: String(e.mealType || 'lunch').toLowerCase(),
+      calories: macroNum(e.calories),
+      protein: macroNum(e.protein),
+      carbs: macroNum(e.carbs),
+      fat: macroNum(e.fat),
+    };
+  }
+
+  /**
+   * Patch the stored meals in place: name, meal type and macros from the form, everything else
+   * (ingredients, foods, swaps, the day shape) left as it was. Rows the user removed are dropped.
+   * Rows they added are appended. The original value is not mutated.
+   */
+  function applyMealEdits(source, edits) {
+    const meals = cloneJson(source);
+    const original = editMealRows(source);
+    const list = Array.isArray(edits) ? edits : [];
+    const submitted = new Map();
+    list.forEach((e) => { if (e && e.path) submitted.set(String(e.path), e); });
+    original.forEach((row) => {
+      const edit = submitted.get(row.path);
+      if (!edit) return;
+      const obj = atPath(meals, row.path);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+      obj.name = String(edit.name || '').trim();
+      obj.mealType = String(edit.mealType || obj.mealType || obj.slot || 'lunch').toLowerCase();
+      obj.calories = macroNum(edit.calories);
+      obj.protein = macroNum(edit.protein);
+      obj.carbs = macroNum(edit.carbs);
+      obj.fat = macroNum(edit.fat);
+    });
+    const missing = original.filter((row) => !submitted.has(row.path));
+    missing.sort((a, b) => {
+      const as = String(a.path).split('.');
+      const bs = String(b.path).split('.');
+      const n = Math.max(as.length, bs.length);
+      for (let i = 0; i < n; i++) {
+        const av = as[i]; const bv = bs[i];
+        if (av === bv) continue;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (/^\d+$/.test(av) && /^\d+$/.test(bv)) return Number(bv) - Number(av);
+        return av < bv ? 1 : -1;
+      }
+      return 0;
+    });
+    missing.forEach((row) => deleteAtPath(meals, row.path));
+    original.forEach((row) => {
+      const edit = submitted.get(row.path);
+      if (!edit) return;
+      const parts = String(row.path).split('.');
+      const key = parts.pop();
+      if (/^\d+$/.test(key)) return;
+      const parent = atPath(meals, parts.join('.'));
+      if (!parent || typeof parent !== 'object' || Array.isArray(parent) || parent[key] == null) return;
+      const next = String(edit.mealType || key).toLowerCase();
+      if (next === String(key).toLowerCase() || parent[next]) return;
+      parent[next] = parent[key];
+      delete parent[key];
+    });
+    const extras = list.filter((e) => e && !e.path && String(e.name || '').trim());
+    if (extras.length) {
+      let days = meals;
+      if (meals && typeof meals === 'object' && !Array.isArray(meals) && Array.isArray(meals.days)) days = meals.days;
+      if (Array.isArray(days)) {
+        const dayish = days.some((d) => d && typeof d === 'object' && !Array.isArray(d) && d.meals && typeof d.meals === 'object');
+        if (!dayish) extras.forEach((e) => days.push(blankMeal(e)));
+        else {
+          const last = [...days].reverse().find((d) => d && d.meals && typeof d.meals === 'object');
+          if (last) {
+            extras.forEach((e) => {
+              if (Array.isArray(last.meals)) last.meals.push(blankMeal(e));
+              else {
+                const slot = String(e.mealType || 'snack').toLowerCase();
+                let key = slot;
+                let n = 2;
+                while (last.meals[key]) { key = `${slot}-${n}`; n += 1; }
+                last.meals[key] = blankMeal(e);
+              }
+            });
+          }
+        }
+      }
+    }
+    return meals;
+  }
+
+  function mealMacros(m) {
+    const tot = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return tot;
+    const foods = Array.isArray(m.foods) ? m.foods.filter((f) => f && typeof f === 'object' && !Array.isArray(f)) : [];
+    const fromFoods = foods.some((f) => macroNum(f.calories) || macroNum(f.protein) || macroNum(f.carbs) || macroNum(f.fat));
+    (fromFoods ? foods : [m]).forEach((p) => {
+      tot.calories += macroNum(p.calories);
+      tot.protein += macroNum(p.protein);
+      tot.carbs += macroNum(p.carbs);
+      tot.fat += macroNum(p.fat);
+    });
+    return tot;
+  }
+
+  /**
+   * Calories and macros stored on the plan (the card says cal/day). A day-shaped week averages
+   * the days, each day summed from its meals, so a week is not stored as 0 and not as 7 days
+   * added together. A meal whose foods carry macros sums those foods. Otherwise the meal's own
+   * macros count, including an ingredient list with no foods array.
+   */
+  function planMacros(raw) {
+    const zero = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    const addInto = (tot, part) => {
+      tot.calories += part.calories;
+      tot.protein += part.protein;
+      tot.carbs += part.carbs;
+      tot.fat += part.fat;
+    };
+    let meals = raw;
+    if (typeof meals === 'string') { try { meals = JSON.parse(meals); } catch (_) { return zero; } }
+    if (meals && typeof meals === 'object' && !Array.isArray(meals) && Array.isArray(meals.days)) meals = meals.days;
+    if (!Array.isArray(meals) || !meals.length) return zero;
+    const dayish = meals.some((d) => d && typeof d === 'object' && !Array.isArray(d) && d.meals && typeof d.meals === 'object');
+    const round = (tot, n) => ({
+      calories: Math.round(tot.calories / n),
+      protein: Math.round(tot.protein / n),
+      carbs: Math.round(tot.carbs / n),
+      fat: Math.round(tot.fat / n),
+    });
+    if (!dayish) {
+      const tot = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      meals.forEach((m) => addInto(tot, mealMacros(m)));
+      return round(tot, 1);
+    }
+    const tot = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    meals.forEach((d) => {
+      if (!d || typeof d !== 'object' || Array.isArray(d) || !d.meals || typeof d.meals !== 'object') return;
+      (Array.isArray(d.meals) ? d.meals : Object.values(d.meals)).forEach((m) => addInto(tot, mealMacros(m)));
+    });
+    return round(tot, meals.length);
   }
 
   /** Today's day of the plan by weekday name, else the first day. */
@@ -248,7 +494,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, allergenPreview, flattenPlanMeals, formatCount, calorieTile, onboardingPlanId, loadFailure };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

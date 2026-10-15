@@ -212,9 +212,74 @@ describe('saved plan meals, both shapes', () => {
     expect(html).not.toMatch(/\.meals\.flatMap/);
     expect(fn('savedPlanMealsHtml')).toContain('FMHomeWeek.flattenPlanMeals');
     expect(fn('loadMealPlans')).toContain('savedPlanMealsHtml(p)');
-    expect(fn('openEditMealPlan')).toContain('FMHomeWeek.flattenPlanMeals');
+    expect(fn('openEditMealPlan')).toContain('FMHomeWeek.editMealRows');
+    expect(fn('saveEditedMealPlan')).toContain('FMHomeWeek.applyMealEdits');
+    expect(fn('saveEditedMealPlan')).toContain('FMHomeWeek.planMacros');
     expect(fn('buildListFromSaved')).toContain('FMHomeWeek.flattenPlanMeals');
     expect(fn('onboardBuildWeek')).toContain('await onboardSaveWeek(b.plan, fitnessGoal)');
+  });
+  it('string foods keep the parent meal on the card and in the shopping list', () => {
+    const raw = [{ day: 'Monday', meals: [{ name: 'Peanut sauce chicken', mealType: 'lunch', calories: 640, foods: ['peanuts'] }] }];
+    const r = hw.flattenPlanMeals(raw);
+    expect(r.days[0].meals).toHaveLength(1);
+    expect(r.days[0].meals[0].name).toBe('Peanut sauce chicken');
+    expect(r.days[0].meals[0].foods).toEqual(['peanuts']);
+    expect(r.items).toHaveLength(1);
+    const shop = engine.aggregateShoppingList({ days: r.days });
+    expect(shop.map((i) => i.name.toLowerCase())).toContain('peanuts');
+    const slot = hw.flattenPlanMeals([{ day: 'Monday', meals: { lunch: { name: 'Peanut sauce chicken', foods: ['peanuts'] } } }]);
+    expect(slot.days[0].meals[0].name).toBe('Peanut sauce chicken');
+  });
+  it('an array of meal arrays still lists the meals', () => {
+    const r = hw.flattenPlanMeals([[{ name: 'Oats', mealType: 'breakfast', calories: 300 }]]);
+    expect(r.items.map((i) => i.name)).toEqual(['Oats']);
+    expect(r.items[0].calories).toBe(300);
+  });
+  it('a non-array is empty because of the array guard alone', () => {
+    // some() and forEach() would otherwise be read as a meal list. Removing only
+    // `if (!Array.isArray(meals)) return empty;` lets this through.
+    const fake = {
+      some() { return false; },
+      forEach(cb) { cb({ name: 'Oats', mealType: 'breakfast', calories: 300 }); },
+    };
+    expect(hw.flattenPlanMeals(fake)).toEqual({ days: [], items: [] });
+  });
+});
+
+describe('editing a saved plan keeps the day shape', () => {
+  const src = [{
+    day: 'Monday',
+    dailyTotals: { calories: 480 },
+    meals: {
+      breakfast: { name: 'Monday bowl', calories: 480, protein: 22, carbs: 40, fat: 18, ingredients: [{ item: 'Peanuts', qty: '40g' }], swaps: ['rice cakes'] },
+      lunch: { name: 'Rice bowl', calories: 300, protein: 15, ingredients: [{ item: 'Rice', qty: '150g' }] },
+    },
+  }];
+  it('patches name and macros on the original meal and leaves ingredients', () => {
+    const rows = hw.editMealRows(src);
+    expect(rows.map((r) => r.path)).toEqual(['0.meals.breakfast', '0.meals.lunch']);
+    const saved = hw.applyMealEdits(src, [{ ...rows[0], calories: 510, protein: 24 }, rows[1]]);
+    expect(saved[0].day).toBe('Monday');
+    expect(saved[0].dailyTotals).toEqual({ calories: 480 });
+    expect(saved[0].meals.breakfast.ingredients).toEqual([{ item: 'Peanuts', qty: '40g' }]);
+    expect(saved[0].meals.breakfast.swaps).toEqual(['rice cakes']);
+    expect(saved[0].meals.breakfast.calories).toBe(510);
+    expect(saved[0].meals.lunch.ingredients).toEqual([{ item: 'Rice', qty: '150g' }]);
+    expect(src[0].meals.breakfast.calories).toBe(480);
+    expect(hw.planMacros(saved)).toEqual({ calories: 810, protein: 39, carbs: 40, fat: 18 });
+  });
+  it('sums a day-shaped week from the meals, and a food list from its foods', () => {
+    expect(hw.planMacros(src).calories).toBe(780);
+    expect(hw.planMacros({ days: src }).calories).toBe(780);
+    const week = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+    const daily = hw.planMacros(week.days);
+    expect(daily.calories).toBeGreaterThan(1700);
+    expect(daily.calories).toBeLessThan(2300);
+    expect(hw.planMacros([{ name: 'Bowl', calories: 999, foods: [{ name: 'Rice', calories: 200, protein: 4 }, { name: 'Chicken', calories: 150, protein: 30 }] }])).toEqual({ calories: 350, protein: 34, carbs: 0, fat: 0 });
+    const api = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    const put = api.slice(api.indexOf("router.put('/meal-plans/:id'"), api.indexOf("router.delete('/meal-plans/:id'"));
+    expect(put).toContain('planMacros');
+    expect(put).not.toMatch(/flatMap\(m => m\.foods/);
   });
 });
 

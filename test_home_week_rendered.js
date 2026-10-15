@@ -31,6 +31,30 @@ if (mustRun && !canRun) {
 }
 const maybe = canRun ? describe : describe.skip;
 
+// The same check the API uses: an ingredient "Peanuts 40g" is nuts; a name with no ingredients is unchecked.
+function allergenWarningsFor(meals) {
+  const mealSafety = require('./lib/meal-safety');
+  const NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
+  const checked = mealSafety.enforceSavedMeals(meals, { allergies: ['peanuts'] }).meals;
+  const out = [];
+  const seen = new Set();
+  const walk = (v, depth) => {
+    if (!v || typeof v !== 'object' || depth > 6) return;
+    if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
+    if (v.allergenWarning && typeof v.allergenWarning === 'object' && !seen.has(v)) {
+      seen.add(v);
+      const w = v.allergenWarning;
+      const contains = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
+      const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
+      if (contains.length) out.push({ meal, contains });
+      else if (w.unrecognised) out.push({ meal, contains: [], unchecked: true, note: NOTE });
+    }
+    Object.entries(v).forEach(([k, x]) => { if (k !== 'allergenWarning') walk(x, depth + 1); });
+  };
+  walk(checked, 0);
+  return out;
+}
+
 maybe('Save and build my week -> Home shows the week, the targets and a one-tap shopping list, rendered', () => {
   jest.setTimeout(120000);
   const engine = require('./lib/meal-plan-engine');
@@ -46,12 +70,27 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     app.post('/api/user/profile', (req, res) => { Object.assign(db.profile, req.body); db.profileSaves.push(req.body); res.json({ success: true }); });
     app.get('/api/user/profile/:id', (req, res) => res.json({ success: true, profile: db.profile }));
     app.post('/api/meal-plans', (req, res) => { db.posts = (db.posts || 0) + 1; const row = { id: (db.nextId = (db.nextId || db.plans.length) + 1), ...req.body, total_calories: req.body.totalCalories }; db.plans.unshift(row); res.json({ success: true, plan: row, allergenWarnings: [] }); });
-    app.put('/api/meal-plans/:id', (req, res) => { const row = db.plans.find((p) => String(p.id) === req.params.id); if (!row) return res.status(404).json({ success: false }); Object.assign(row, req.body); db.puts += 1; res.json({ success: true, plan: row, allergenWarnings: [] }); });
+    app.put('/api/meal-plans/:id', (req, res) => {
+      const row = db.plans.find((p) => String(p.id) === req.params.id);
+      if (!row) return res.status(404).json({ success: false });
+      db.lastPut = req.body;
+      if (db.recompute && req.body && req.body.meals != null) {
+        row.meals = req.body.meals;
+        const sums = hw.planMacros(req.body.meals);
+        row.total_calories = sums.calories;
+        row.total_protein = sums.protein;
+        row.total_carbs = sums.carbs;
+        row.total_fat = sums.fat;
+      } else Object.assign(row, req.body);
+      db.puts += 1;
+      const warnings = db.warningsFromMeals ? allergenWarningsFor(row.meals) : [];
+      res.json({ success: true, plan: row, allergenWarnings: warnings });
+    });
     app.get('/api/meal-plans', async (req, res) => {
       if (db.mealDelay) await new Promise((r) => setTimeout(r, db.mealDelay));
       if (db.mealStatus) return res.status(db.mealStatus).json({ success: false, error: 'unavailable' });
       if (db.noPlans) return res.json({ success: true });
-      res.json({ success: true, plans: db.plans.map((p) => ({ ...p, allergenWarnings: db.warnings || [] })) });
+      res.json({ success: true, plans: db.plans.map((p) => ({ ...p, allergenWarnings: db.warningsFromMeals ? allergenWarningsFor(p.meals) : (db.warnings || []) })) });
     });
     app.post('/api/meal-plan/generate', (req, res) => {
       const dietary = engine.normaliseDiet(req.body.dietary || []);
@@ -333,6 +372,22 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       const jsErrors = consoleErrors.filter((t) => !/Failed to load resource|net::ERR_|favicon/i.test(t));
       expect(jsErrors).toEqual([]);
       expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+      if (width === 1440) {
+        const buttons = await p.evaluate(() => {
+          const fine = matchMedia('(pointer: fine)').matches;
+          const wide = matchMedia('(min-width: 1025px)').matches;
+          const hs = [...document.querySelectorAll('#meal-plans-grid .plan-card-footer button')].map((b) => ({
+            text: (b.textContent || '').trim(),
+            h: b.getBoundingClientRect().height,
+            w: b.getBoundingClientRect().width,
+          }));
+          return { fine, wide, hs };
+        });
+        expect(buttons.fine).toBe(true);
+        expect(buttons.wide).toBe(true);
+        expect(buttons.hs.map((b) => b.text)).toEqual(['Edit Meals', '🛒', '✕']);
+        buttons.hs.forEach((b) => { expect(b.h).toBeGreaterThanOrEqual(40); });
+      }
       if (shots) {
         await p.locator('#mp-saved-section').scrollIntoViewIfNeeded();
         await p.locator('#meal-plans-grid .plan-card').screenshot({ path: `${shots}/meal-plans-card-${width}.png` });
@@ -341,4 +396,63 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       await ctx.close();
     });
   }
+
+  // Edit used to flatten the week and drop ingredients, so 'Peanuts 40g' stopped warning
+  // and the stored calories became 0. Save, then reload: the warning and the calories stay.
+  it('edit, save, reload: an ingredient-only nut warning and the calories survive', async () => {
+    const meals = [{
+      day: 'Monday',
+      meals: {
+        breakfast: { name: 'Monday bowl', calories: 480, protein: 22, carbs: 40, fat: 18, ingredients: ['Peanuts 40g'] },
+      },
+    }];
+    db = {
+      profile: { targetCalories: 2000, targetProtein: 130 }, profileSaves: [],
+      plans: [{ id: 3, name: 'Your first week', meals, total_calories: 480, goal_type: 'weight_loss' }],
+      puts: 0, shopping: 0, warningsFromMeals: true, recompute: true,
+    };
+    expect(allergenWarningsFor(meals)).toEqual([{ meal: 'Monday bowl', contains: ['nuts'] }]);
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, hasTouch: false });
+    await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+    await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+    const p = await ctx.newPage();
+    const pageErrors = [];
+    p.on('pageerror', (e) => pageErrors.push(String(e)));
+    await p.goto(`${base}/app.html`);
+    await p.waitForFunction(() => typeof nav === 'function' && S && S.user);
+    await p.evaluate(() => { document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open')); nav('meal-plans'); });
+    await p.waitForSelector('#meal-plans-grid .plan-card');
+    const before = await p.textContent('#meal-plans-grid .plan-card');
+    expect(before).toContain('Monday bowl');
+    expect(before).toContain('contains nuts');
+    expect(before).not.toMatch(/couldn't check/);
+    expect(before).toContain('480 cal/day');
+    await p.locator('#meal-plans-grid button', { hasText: 'Edit Meals' }).click();
+    await p.waitForSelector('#modal-edit-meal-plan.open #edit-mp-meals [data-field=name]');
+    expect(await p.inputValue('#edit-mp-meals [data-field=name]')).toBe('Monday bowl');
+    expect(await p.inputValue('#edit-mp-meals [data-field=path]')).toBe('0.meals.breakfast');
+    await p.fill('#edit-mp-meals [data-field=calories]', '510');
+    await p.locator('#modal-edit-meal-plan button', { hasText: 'Save Changes' }).click();
+    await p.waitForFunction(() => !document.getElementById('modal-edit-meal-plan').classList.contains('open'));
+    await p.waitForFunction(() => (document.querySelector('#meal-plans-grid .plan-card') || {}).textContent.includes('510'));
+    const saved = db.plans[0];
+    expect(saved.meals[0].day).toBe('Monday');
+    expect(saved.meals[0].meals.breakfast.name).toBe('Monday bowl');
+    expect(saved.meals[0].meals.breakfast.ingredients).toEqual(['Peanuts 40g']);
+    expect(saved.meals[0].meals.breakfast.calories).toBe(510);
+    expect(saved.total_calories).toBe(510);
+    expect(allergenWarningsFor(saved.meals)).toEqual([{ meal: 'Monday bowl', contains: ['nuts'] }]);
+    await p.reload();
+    await p.waitForFunction(() => typeof nav === 'function' && S && S.user);
+    await p.evaluate(() => { document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open')); nav('meal-plans'); });
+    await p.waitForSelector('#meal-plans-grid .plan-card');
+    const after = await p.textContent('#meal-plans-grid .plan-card');
+    expect(after).toContain('Monday bowl');
+    expect(after).toContain('contains nuts');
+    expect(after).toContain('510 cal');
+    expect(after).not.toMatch(/couldn't check/);
+    expect(after).not.toContain('Not checked');
+    expect(pageErrors).toEqual([]);
+    await ctx.close();
+  });
 });

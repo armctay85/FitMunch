@@ -123,6 +123,10 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .plan-card-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:4px}
 .plan-card-meta{font-size:.72rem;color:var(--mute2)}
 .plan-card-footer{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Desktop with a mouse: Meal Plans card actions are at least 40px. Touch keeps the 44px rule below. */
+@media (pointer:fine) and (min-width:1025px){
+ .plan-card-footer .btn{min-height:40px;box-sizing:border-box}
+}
 
 .shop-category{margin-bottom:16px}
 .shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
@@ -2197,7 +2201,8 @@ function copyInvite() {
 function _mealRowHtml(idx, item, containerId) {
  const types = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'];
  const opts = types.map(t=>`<option value="${t}" ${item.mealType===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
- return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
+ const path = item && item.path ? `<input type="hidden" data-field="path" value="${escapeHtml(item.path)}"/>` : '';
+ return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">${path}
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
  <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" maxlength="200" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
@@ -2215,6 +2220,7 @@ function _mealRowHtml(idx, item, containerId) {
 function _collectMealItems(containerId) {
  const rows = document.querySelectorAll(`[id^="mprow-${containerId}-"]`);
  return Array.from(rows).map(row => ({
+ path: row.querySelector('[data-field=path]')?.value||'',
  name: row.querySelector('[data-field=name]')?.value?.trim()||'',
  mealType: row.querySelector('[data-field=mealType]')?.value||'lunch',
  calories: parseFloat(row.querySelector('[data-field=calories]')?.value)||0,
@@ -2230,7 +2236,7 @@ function mpAddMealItem() {
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_mpItemCount++, {mealType:'breakfast'}, 'mp'));
 }
 
-let _editMpId = null, _editMpItemCount = 0;
+let _editMpId = null, _editMpItemCount = 0, _editMpSource = null;
 function editMpAddMealItem() {
  const list = document.getElementById('edit-mp-meals');
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, {mealType:'lunch'}, 'emp'));
@@ -2239,10 +2245,11 @@ function editMpAddMealItem() {
 function openEditMealPlan(planId) {
  const p = S.mealPlans.find(x=>x.id===planId); if (!p) return;
  _editMpId = planId; _editMpItemCount = 0;
+ _editMpSource = p.meals;
  document.getElementById('edit-mp-title').textContent = 'Edit: ' + p.name;
  const list = document.getElementById('edit-mp-meals');
  list.innerHTML = '';
- const items = FMHomeWeek.flattenPlanMeals(p.meals).items;
+ const items = FMHomeWeek.editMealRows(p.meals);
  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
  let warnEl = document.getElementById('edit-mp-allergen');
  if (!warnEl) { warnEl = document.createElement('div'); warnEl.id = 'edit-mp-allergen'; list.insertAdjacentElement('beforebegin', warnEl); }
@@ -2261,8 +2268,9 @@ function clearModalError(id) { const p = document.querySelector('#' + id + ' .mo
 
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
- const meals = _collectMealItems('emp');
- const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+ const meals = FMHomeWeek.applyMealEdits(_editMpSource, _collectMealItems('emp'));
+ const totals = FMHomeWeek.planMacros(meals);
+ const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals, totalCalories: totals.calories, totalProtein: totals.protein, totalCarbs: totals.carbs, totalFat: totals.fat }) });
  if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
  clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
@@ -2348,7 +2356,7 @@ async function buildListFromSaved(planId) {
 async function saveMealPlan() {
  const name = document.getElementById('mp-name').value.trim();
  if (!name) { toast('Plan name is required', 'error'); return; }
- const meals = _collectMealItems('mp');
+ const meals = _collectMealItems('mp').map(m => { const copy = Object.assign({}, m); delete copy.path; return copy; });
  const r = await API('/meal-plans', { method:'POST', body: JSON.stringify({
  name, description: document.getElementById('mp-desc').value.trim(),
  goalType: document.getElementById('mp-goal').value,
