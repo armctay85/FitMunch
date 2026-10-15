@@ -1771,20 +1771,24 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       });
     }
 
-    const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
     // An unreadable profile fails closed with no AI. A readable diet or allergy list gets a real tip, then a food check.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
+    const savedKcal = insightProfile && Number(insightProfile.targetCalories);
+    const savedProt = insightProfile && Number(insightProfile.targetProtein);
+    const insightCalories = Number.isFinite(savedKcal) && savedKcal > 0 ? savedKcal : targetCalories;
+    const insightProtein = Number.isFinite(savedProt) && savedProt > 0 ? savedProt : targetProtein;
+    const facts = { todayCalories, todayProtein, streak, goal, targetCalories: insightCalories, targetProtein: insightProtein };
     const insightFilters = dietGuard.savedFilters(insightProfile);
     if (insightUnread || dietGuard.unreadable(insightFilters)) {
-      const insight = dietGuard.safeInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein });
+      const insight = dietGuard.safeInsight({ filters: insightFilters, calories: insightCalories, protein: insightProtein });
       return res.json({ success: true, insight, provider: null });
     }
     const filters = mealSafety.profileFilters(insightProfile);
     const filteredInsight = insightFilters.length > 0;
-    // The built-in tip goes through the same check as the AI one. Filtered users get a checked meal that cites today's numbers.
+    // The built-in tip goes through the same check as the AI one. Filtered users get a checked meal that cites the saved targets.
     const fallback = filteredInsight
-      ? dietGuard.addressedInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein, todayCalories, todayProtein })
+      ? dietGuard.addressedInsight({ filters: insightFilters, calories: insightCalories, protein: insightProtein, todayCalories, todayProtein })
       : safeInsight(heuristicInsight(facts), filters);
 
     if (!aiClient.hasProvider()) {
@@ -1802,8 +1806,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-    const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
-    const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
+    const calPct = insightCalories > 0 ? Math.round((todayCalories / insightCalories) * 100) : 0;
+    const protPct = insightProtein > 0 ? Math.round((todayProtein / insightProtein) * 100) : 0;
     const system = [
       'You are FitMunch, an Australian nutrition and fitness coach.',
       'Speak directly to the user in 1-3 short sentences, max ~55 words.',
@@ -1815,32 +1819,32 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     ].filter(Boolean).join(' ');
     const prompt = [
       `Goal: ${goal}.`,
-      `Today so far: ${todayCalories} kcal (${calPct}% of ${targetCalories}), ${todayProtein}g protein (${protPct}% of ${targetProtein}).`,
+      `Today so far: ${todayCalories} kcal (${calPct}% of ${insightCalories}), ${todayProtein}g protein (${protPct}% of ${insightProtein}).`,
       `Logging streak: ${streak} day(s).`,
       filteredInsight ? `Diet and allergy filters: ${insightFilters.join(', ')}.` : '',
       'Write one concise coaching tip for right now.',
     ].filter(Boolean).join('\n');
 
-    const callInsight = (extra) => aiClient.chat({
+    const callInsight = (extra, budgetMs) => aiClient.chat({
       system: extra ? `${system}\n\n${extra}` : system,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 160,
       temperature: 0.7,
       route: '/ai/insight',
+      ...(budgetMs ? { budgetMs } : {}),
     });
 
     if (filteredInsight) {
-      let r = await callInsight();
-      let text = r.ok && r.text && dietGuard.replyVerified(r.text, insightFilters, filters) ? r.text.trim() : '';
-      if (!text) {
-        r = await callInsight(COACH_RETRY);
-        text = r.ok && r.text && dietGuard.replyVerified(r.text, insightFilters, filters) ? r.text.trim() : '';
+      const accept = (r) => !!(r && r.ok && r.text && dietGuard.replyVerified(r.text, insightFilters, filters));
+      const { result: r, verified } = await filteredModelAttempts(callInsight, accept);
+      if (!verified) {
+        await refundUnlessVerified(gate, req.user.userId, 'insight');
+        return res.json({ success: true, insight: fallback, provider: null, remaining: gate.remaining });
       }
-      if (!text) return res.json({ success: true, insight: fallback, provider: null, remaining: gate.remaining });
       res.locals.aiAnswered = true;
       return res.json({
         success: true,
-        insight: ensureCite(text, targetCalories, targetProtein),
+        insight: ensureCite(r.text.trim(), insightCalories, insightProtein),
         provider: r.provider,
         model: r.model,
         remaining: gate.remaining,
@@ -1979,8 +1983,8 @@ async function buildCoachContext(userId, profile, context = {}, filters, aiFilte
 }
 
 const COACH_CITE = 'Cite the user\'s daily calorie and protein targets in the answer, in digits (for example: at 2,100 kcal and 150 g protein).';
-const COACH_VERIFY = 'Name only foods you can verify against the user\'s diet and allergies. Do not name a brand. Do not name a food just to say to avoid it. If you are not sure a food is safe, leave it out.';
-const COACH_RETRY = 'Your last answer named a food that cannot be verified as safe for this user. Reply again. Name only plain foods that fit every diet and allergy listed. Do not name brands. Do not name a food in order to warn against it. Cite the calorie and protein targets.';
+const COACH_VERIFY = 'Name only foods you can verify against the user\'s diet and allergies. Do not name a brand. Do not name a food just to say to avoid it. If you are not sure a food is safe, leave it out. Reply in English using Latin letters only.';
+const COACH_RETRY = 'Your last answer named a food that cannot be verified as safe for this user, or it was not in English. Reply again in English using Latin letters only. Name only plain foods that fit every diet and allergy listed. Do not name brands. Do not name a food in order to warn against it. Cite the calorie and protein targets.';
 
 /** Prepend the user's targets when a checked reply does not already name the kcal number. */
 function ensureCite(text, calories, protein) {
@@ -1989,6 +1993,36 @@ function ensureCite(text, calories, protein) {
   const formatted = dietGuard.fmt(kcal);
   if (body.includes(formatted) || body.includes(String(kcal))) return body;
   return `At ${formatted} kcal and ${prot} g protein. ${body}`.trim();
+}
+
+const FILTERED_ATTEMPT_FLOOR_MS = Number(aiClient.MIN_ATTEMPT_MS) > 0 ? Number(aiClient.MIN_ATTEMPT_MS) : 2500;
+
+/**
+ * First reply and one retry share CHAT_BUDGET_MS. The retry is skipped when less than
+ * FILTERED_ATTEMPT_FLOOR_MS is left. A thrown provider call is a failed attempt, not a 500.
+ */
+async function filteredModelAttempts(call, accept) {
+  const started = Date.now();
+  const run = async (extra, budgetMs) => {
+    try {
+      return await call(extra, budgetMs);
+    } catch (_) {
+      return { ok: false, error: 'provider_error' };
+    }
+  };
+  let result = await run(undefined, CHAT_BUDGET_MS);
+  if (accept(result)) return { result, verified: true };
+  const left = CHAT_BUDGET_MS - (Date.now() - started);
+  if (left >= FILTERED_ATTEMPT_FLOOR_MS) {
+    result = await run(COACH_RETRY, left);
+    if (accept(result)) return { result, verified: true };
+  }
+  return { result, verified: false };
+}
+
+/** Give back the one credit unless the reply we serve was verified. Never throws. */
+async function refundUnlessVerified(gate, userId, feature) {
+  await aiUsage.refundAiCall(gate, { userId: String(userId), feature });
 }
 
 function chatAiFilters(profile, ctxObj) {
@@ -2075,6 +2109,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
     }
     if (!gate.allowed) {
+      // The builder uses no model call, so a filtered free user at the cap still gets an answer and is not charged.
+      if (filtered) {
+        const fb = dietGuard.addressedCoachReply(safeOpts);
+        return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, upgrade: true, limit: gate.limit, used: gate.used });
+      }
       return res.status(429).json({
         success: false,
         upgrade: true,
@@ -2096,27 +2135,23 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       ? `${cited}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
       : cited;
 
-    const callChat = (extra) => aiClient.chat({
+    const callChat = (extra, budgetMs = CHAT_BUDGET_MS) => aiClient.chat({
       system: extra ? `${finalSystem}\n\n${extra}` : finalSystem,
       messages: safeMessages,
       maxTokens: CHAT_MAX_TOKENS,
       temperature: 0.6,
       route: '/ai/chat',
-      budgetMs: CHAT_BUDGET_MS,
+      budgetMs,
     });
 
     if (filtered) {
-      let r = await callChat();
-      let text = r.ok && r.text && dietGuard.replyVerified(r.text, filters, aiFilters) ? r.text.trim() : '';
-      if (!text) {
-        r = await callChat(COACH_RETRY);
-        text = r.ok && r.text && dietGuard.replyVerified(r.text, filters, aiFilters) ? r.text.trim() : '';
-      }
-      if (text) {
+      const accept = (r) => !!(r && r.ok && r.text && dietGuard.replyVerified(r.text, filters, aiFilters));
+      const { result: r, verified } = await filteredModelAttempts(callChat, accept);
+      if (verified) {
         res.locals.aiAnswered = true;
         return res.json({
           success: true,
-          reply: ensureCite(text, safeOpts.calories, safeOpts.protein),
+          reply: ensureCite(r.text.trim(), safeOpts.calories, safeOpts.protein),
           provider: r.provider,
           model: r.model,
           usage: r.usage || null,
@@ -2124,6 +2159,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
           source: 'ai',
         });
       }
+      await refundUnlessVerified(gate, req.user.userId, 'chat');
       const fb = dietGuard.addressedCoachReply(safeOpts);
       return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining: gate.remaining });
     }
@@ -2348,6 +2384,9 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
     }
     if (!gate.allowed) {
+      if (filteredReview) {
+        return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, upgrade: true, limit: gate.limit, used: gate.used });
+      }
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited reviews.`,
@@ -2383,28 +2422,26 @@ Write a weekly review as JSON only, no markdown:
 }
 Cite the calorie and protein targets. Do not award a win for showing up, opening the app, or asking for a review.`;
 
-    const callReview = (extra) => aiClient.chatJson({
+    const callReview = (extra, budgetMs) => aiClient.chatJson({
       system: extra ? `${system}\n\n${extra}` : system,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1500,
       temperature: 0.7,
       route: '/ai/weekly-review',
+      ...(budgetMs ? { budgetMs } : {}),
     });
 
     if (filteredReview) {
-      let r = await callReview();
-      let data = r.ok && r.data && dietGuard.replyVerified(dietGuard.reviewText(r.data), reviewFilters, reviewAiFilters) ? r.data : null;
-      if (!data) {
-        r = await callReview(COACH_RETRY);
-        data = r.ok && r.data && dietGuard.replyVerified(dietGuard.reviewText(r.data), reviewFilters, reviewAiFilters) ? r.data : null;
-      }
-      if (!data) {
+      const accept = (r) => !!(r && r.ok && r.data && dietGuard.replyVerified(dietGuard.reviewText(r.data), reviewFilters, reviewAiFilters));
+      const { result: r, verified } = await filteredModelAttempts(callReview, accept);
+      if (!verified) {
+        await refundUnlessVerified(gate, req.user.userId, 'weekly_review');
         return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, remaining: gate.remaining });
       }
       res.locals.aiAnswered = true;
       return res.json({
         success: true,
-        review: dietGuard.polishReview(data, reviewOpts),
+        review: dietGuard.polishReview(r.data, reviewOpts),
         stats,
         provider: r.provider,
         remaining: gate.remaining,

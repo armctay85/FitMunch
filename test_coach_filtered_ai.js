@@ -79,6 +79,8 @@ beforeEach(() => {
   aiClient.hasProvider.mockReturnValue(true);
   aiUsage.checkAndConsume.mockClear();
   aiUsage.checkAndConsume.mockResolvedValue({ allowed: true, remaining: 8 });
+  aiUsage.refundAiCall.mockClear();
+  storage.getUserById.mockResolvedValue({ id: 'u1', email: 'me@example.com', name: 'Pat', subscriptionTier: 'premium', settings: { aiDataConsent: true } });
   profile();
 });
 
@@ -115,6 +117,7 @@ describe('filtered Coach prompt and a verified answer', () => {
     expect(r.body.reply).toBe(SAFE);
     expect(aiClient.chat).toHaveBeenCalledTimes(1);
     expect(dietGuard.replyIssues(r.body.reply, ['dairy free'])).toEqual([]);
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
   });
 });
 
@@ -151,6 +154,8 @@ describe('regenerate once, then a builder answer that still addresses the questi
     expect(r.body.reply).toMatch(/snack/i);
     expect(r.body.reply).not.toMatch(/Musashi|Milo|Chobani|Up ?& ?Go|coming soon/i);
     expect(dietGuard.textBreaksFilters(r.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['dairy free'])).toBe(false);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.objectContaining({ allowed: true }), { userId: 'u-filtered', feature: 'chat' });
   });
 
   it('a training question that still fails stays food-free and cites the targets', async () => {
@@ -220,6 +225,8 @@ describe('weekly review', () => {
     const r = await review();
     expect(aiClient.chatJson).toHaveBeenCalledTimes(2);
     expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.anything(), { userId: 'u-filtered', feature: 'weekly_review' });
     expect(r.body.source).toBe('fixed');
     expect(r.body.review.score).toBeGreaterThanOrEqual(4);
     expect(r.body.review.score).not.toBe(1);
@@ -242,6 +249,7 @@ describe('weekly review', () => {
     expect(r.body.review.score).toBe(7);
     expect(r.body.review.headline).toMatch(/2,100 kcal and 150 g protein/);
     expect(JSON.stringify(r.body.review)).not.toMatch(/peanut|milo|showed up/i);
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
   });
 });
 
@@ -291,5 +299,194 @@ describe('the filtered attack list still serves zero unsafe foods', () => {
     const bad = await chat('How many sets for squats?', { intent: 'workout' });
     expect(aiClient.chat).not.toHaveBeenCalled();
     expect(bad.body.reply).toContain(dietGuard.COMING_SOON);
+  });
+});
+
+describe('non-Latin replies are unverified', () => {
+  const scripts = [
+    ['Chinese', '请吃花生酱、牛奶、鸡蛋和面包', '花生酱'],
+    ['Japanese', 'ピーナッツとミルクと卵とパン', 'ピーナッツ'],
+    ['Korean', '땅콩버터와 우유와 계란과 빵', '땅콩'],
+    ['Hindi', 'मूंगफली और दूध और अंडा और ब्रेड', 'मूंगफली'],
+    ['Arabic', 'زبدة الفول السوداني وحليب وبيض وخبز', 'سوداني'],
+    ['Thai', 'ถั่วลิสงและนมและไข่และขนมปัง', 'ถั่วลิสง'],
+    ['Hebrew', 'בוטנים וחלב וביצה ולחם', 'בוטנים'],
+  ];
+  const filters = ['nut free', 'dairy free', 'egg free', 'gluten free', 'soy free'];
+
+  it.each(scripts)('%s names an allergen and is not verified', (name, text) => {
+    for (const f of filters) {
+      expect(dietGuard.replyIssues(text, [f])).toContain('unverified:nonlatin');
+      expect(dietGuard.replyVerified(text, [f])).toBe(false);
+    }
+    expect(dietGuard.brokenGroups(text, ['nut free'])).toContain('nuts');
+    expect(dietGuard.brokenGroups(text, ['dairy free'])).toContain('dairy');
+    expect(dietGuard.brokenGroups(text, ['egg free'])).toContain('eggs');
+    expect(dietGuard.brokenGroups(text, ['gluten free'])).toContain('gluten');
+  });
+
+  it.each(scripts)('a %s reply is not served', async (_name, text, needle) => {
+    say(text, text);
+    const r = await chat('Snack idea?');
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply).not.toContain(needle);
+    expect(r.body.provider).toBeNull();
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('mixed Latin and Chinese is unverified and is not served', async () => {
+    const mixed = 'chicken and 花生酱';
+    expect(dietGuard.replyVerified(mixed, ['nut free'])).toBe(false);
+    expect(dietGuard.replyIssues(mixed, ['nut free'])).toEqual(expect.arrayContaining(['unverified:nonlatin', 'excluded:nuts']));
+    say(mixed, mixed);
+    const r = await chat('Dinner idea?');
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply).not.toContain('花生');
+    expect(r.body.reply).not.toContain(mixed);
+  });
+
+  it('accented Latin still verifies, and a Cyrillic lookalike does not', () => {
+    const accented = 'At 2,100 kcal and 150 g protein, havé chicken, rice and broccoli after training.';
+    expect(dietGuard.replyVerified(accented, ['dairy free'])).toBe(true);
+    const lookalike = 'Аt 2,100 kcal and 150 g protein, have chicken, rice and broccoli after training.';
+    expect(dietGuard.replyIssues(lookalike, ['dairy free'])).toContain('unverified:nonlatin');
+  });
+});
+
+describe('a credit is only kept for a verified AI reply', () => {
+  it('a provider throw is a 200 builder answer and the credit is returned', async () => {
+    aiClient.chat.mockImplementation(async () => { throw new Error('provider rejected'); });
+    const r = await chat('Quick high-protein snack for the arvo?');
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.provider).toBeNull();
+    expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
+  });
+
+  it('a filtered free user at the monthly cap gets the builder and is not charged', async () => {
+    storage.getUserById.mockResolvedValue({ id: 'u1', email: 'me@example.com', name: 'Pat', subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    aiUsage.checkAndConsume.mockResolvedValue({ allowed: false, limit: 10, used: 10, upgrade: true });
+    const r = await chat('What is a good dinner tonight?');
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.upgrade).toBe(true);
+    expect(r.body.reply).toMatch(/You asked: What is a good dinner tonight\?/);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+  });
+
+  it('a filtered weekly review at the cap is the builder and is not charged', async () => {
+    logs = [0, 1, 2].map((n) => ({ date: new Date(Date.now() - n * 86400000), mealType: 'lunch', foodName: 'Chicken and rice', calories: 500, protein: 40 }));
+    aiUsage.checkAndConsume.mockResolvedValue({ allowed: false, limit: 10, used: 10, upgrade: true });
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
+    expect(r.body.review.score).toBeGreaterThanOrEqual(4);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+  });
+});
+
+describe('the retry shares one time budget', () => {
+  afterEach(() => { jest.restoreAllMocks(); });
+
+  it('the second call gets only the time that is left', async () => {
+    let t = 1_700_000_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => t);
+    let n = 0;
+    aiClient.chat.mockImplementation(async () => {
+      n += 1;
+      if (n === 1) t += 4000;
+      return { ok: true, text: n === 1 ? 'Have a Milo.' : SAFE, provider: 'mock', model: 'm' };
+    });
+    const r = await chat('Snack idea?');
+    expect(r.body.source).toBe('ai');
+    expect(aiClient.chat).toHaveBeenCalledTimes(2);
+    const first = aiClient.chat.mock.calls[0][0].budgetMs;
+    const second = aiClient.chat.mock.calls[1][0].budgetMs;
+    expect(first).toBe(12000);
+    expect(second).toBeLessThan(first);
+    expect(second).toBeGreaterThanOrEqual(2500);
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+  });
+
+  it('skips the retry when the first call uses the budget', async () => {
+    let t = 1_700_000_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => t);
+    aiClient.chat.mockImplementation(async () => {
+      t += 11000;
+      return { ok: true, text: 'Have a Milo.', provider: 'mock', model: 'm' };
+    });
+    const r = await chat('Snack idea?');
+    expect(aiClient.chat).toHaveBeenCalledTimes(1);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply).not.toMatch(/Milo/i);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fallbacks answer the question with the saved numbers', () => {
+  it('quotes a safe question and does not repeat a banned food', async () => {
+    say('Have a Milo.', 'Have a Chobani.');
+    const quoted = await chat('What is a good dinner tonight?');
+    expect(quoted.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
+    expect(quoted.body.reply).toMatch(/You asked: What is a good dinner tonight\?/);
+    expect(quoted.body.reply).toMatch(/[Dd]inner/);
+    const banned = await chat('Can I have Milo?');
+    expect(banned.body.reply).toMatch(/That does not fit your filters/);
+    expect(banned.body.reply).not.toMatch(/Milo/i);
+  });
+
+  it('an insight fallback cites the saved 2,150 kcal and 165 g, not the request defaults', async () => {
+    profile({ targetCalories: 2150, targetProtein: 165 });
+    const r = await request(app).post('/api/ai/insight').set('Authorization', token)
+      .send({ todayCalories: 400, todayProtein: 20, targetCalories: 2000, targetProtein: 150 });
+    expect(r.status).toBe(200);
+    expect(r.body.provider).toBeNull();
+    expect(r.body.insight).toMatch(/2,150 kcal and 165 g protein/);
+    expect(r.body.insight).not.toMatch(/2,000/);
+    expect(aiClient.chat.mock.calls[0][0].messages[0].content).toMatch(/2150/);
+    expect(aiClient.chat.mock.calls[0][0].messages[0].content).not.toMatch(/\b2000\b/);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.anything(), { userId: 'u-filtered', feature: 'insight' });
+  });
+});
+
+describe('lexicon gaps and natural prose', () => {
+  it('bars, granola, and generic protein fail closed, and named plant proteins do not', () => {
+    expect(dietGuard.brokenGroups('Musashi bar', ['nut free'])).toContain('nuts');
+    expect(dietGuard.brokenGroups('Mars protein bar', ['nut free'])).toContain('nuts');
+    expect(dietGuard.brokenGroups('granola', ['nut free'])).toContain('nuts');
+    expect(dietGuard.brokenGroups('protein powder', ['dairy free'])).toContain('dairy');
+    expect(dietGuard.brokenGroups('protein shake', ['dairy free'])).toContain('dairy');
+    expect(dietGuard.brokenGroups('plant protein shake', ['soy free'])).toContain('soy');
+    expect(dietGuard.brokenGroups('pea protein powder', ['dairy free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('pea protein powder', ['soy free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('rice protein shake', ['soy free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('soy protein shake', ['soy free'])).toContain('soy');
+    expect(dietGuard.brokenGroups('have some dairy', ['dairy free'])).toContain('dairy');
+    expect(dietGuard.replyIssues('Try zymbar with rice.', ['dairy free'])).toContain('unverified:zymbar');
+  });
+
+  it('nine realistic safe answers verify, and an unknown food still does not', () => {
+    const good = [
+      'At 2,100 kcal and 150 g protein, you are a little short today. Chicken, rice and broccoli at dinner gets you most of the way there without a huge portion.',
+      'You have room for about 700 kcal and 40 g protein tonight. A beef and sweet potato bowl from your plan fits, and it keeps dairy out.',
+      'Training went well. Eat within an hour: chicken and rice, then fruit if you are still hungry. That sits inside 2,100 kcal and 150 g protein.',
+      'Skip the shake. A tin of tuna on rice is the simpler snack and it fits a dairy free day at 2,100 kcal and 150 g protein.',
+      'Your logging streak is useful. Today is light on protein, so make lunch the bigger meal: beef and rice, not a sweet snack.',
+      'For breakfast, try rice cakes with banana. At 2,100 kcal that is a small start, so make lunch count.',
+      'You asked about recovery. Sleep and the next meal matter more than a product. Chicken and rice after training, at 2,100 kcal and 150 g protein.',
+      'A good week looks like three logged days and one session you can repeat. Keep dinner simple: beef, potato, vegetables.',
+      'If dinner is the gap, cook once and eat it twice. Chicken, rice and broccoli covers the protein without adding much else.',
+    ];
+    for (const text of good) expect(dietGuard.replyVerified(text, ['dairy free'])).toBe(true);
+    expect(dietGuard.replyVerified('Try zymbar with rice.', ['dairy free'])).toBe(false);
+    expect(dietGuard.replyVerified('Have a Musashi bar.', ['nut free'])).toBe(false);
+    expect(dietGuard.replyVerified('A plant protein shake.', ['soy free'])).toBe(false);
+    expect(dietGuard.replyVerified('At 2,100 kcal and 150 g protein, have pea protein powder.', ['dairy free'])).toBe(true);
   });
 });
