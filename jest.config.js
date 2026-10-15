@@ -107,6 +107,8 @@ module.exports = {
     '**/test_xss_escape.js',
     '**/test_stored_xss.js',
     '**/test_xss_handlers.js',
+    '**/test_diet_filter_gaps.js',
+    '**/test_diet_filter_onboarding_pg.js',
     '**/test_ai_allergen_stopgap_r6.js',
     '**/test_ai_allergen_stopgap_r6_pg.js',
   ],
