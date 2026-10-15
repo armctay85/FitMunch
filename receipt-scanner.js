@@ -330,9 +330,23 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
     aiUsage.refundSmokeOnFailure(gate, res);
     res.locals.aiAnswered = true;
 
+    let filters = null;
+    let filtersUnreadable = false;
+    try {
+      const { getProfile } = require('./server/storage.js');
+      const profile = await getProfile(req.user.userId);
+      const dg = require('./lib/diet-guard');
+      filters = dg.savedFilters(profile);
+      filtersUnreadable = dg.unreadable(filters);
+    } catch (_) {
+      filters = null;
+      filtersUnreadable = true;
+    }
     const payload = core.buildScanPayload(rawItems, {
       guest: false,
       scannerProvider: 'vision',
+      filters,
+      unreadable: filtersUnreadable,
     });
     console.info('[receipt-scan]', JSON.stringify({
       event: 'scan_success',

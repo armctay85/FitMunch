@@ -30,13 +30,49 @@ describe('summary of a saved plan', () => {
     const text = hw.summary({ name: 'x', meals: JSON.stringify(plan.days) });
     expect(text.days).toHaveLength(7);
     expect(hw.summary({ name: 'x', meals: { days: plan.days } }).days).toHaveLength(7);
+    expect(hw.summary({ name: 'x', meals: { planDays: plan.days } }).days).toHaveLength(7);
     const list = hw.summary({ name: 'x', meals: [{ day: 'Day 1', meals: [{ type: 'Dinner', name: 'b', calories: 500 }, { slot: 'breakfast', name: 'a', calories: 300 }] }] });
     expect(list.today.meals.map((m) => m.name)).toEqual(['a', 'b']);
     expect(list.today.calories).toBe(800);
   });
-  it('no card for an empty, unreadable or manual plan with no days', () => {
-    for (const meals of [[], '[', null, 5, [{ name: 'flat manual meal' }], { days: 'x' }]) expect(hw.summary({ meals })).toBeNull();
+  it('no card for an empty or unreadable plan with no name', () => {
+    for (const meals of [[], '[', null, 5, { days: 'x' }]) expect(hw.summary({ meals })).toBeNull();
     expect(hw.summary(null)).toBeNull();
+  });
+  it('a flat meal the Meal Planner lists is the same plan on Home', () => {
+    const s = hw.summary({ id: 3, name: 'Manual', meals: [{ name: 'flat manual meal', mealType: 'lunch', calories: 400, protein: 20 }] });
+    expect(s).not.toBeNull();
+    expect(s.name).toBe('Manual');
+    expect(s.today.meals.map((m) => m.name)).toEqual(['flat manual meal']);
+    expect(s.today.meals[0].slot).toBe('lunch');
+  });
+  it('summary and the listed-plan picker use flattenPlanMeals, not a second day parser', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');
+    const i = src.indexOf('function summary(');
+    const body = src.slice(i, src.indexOf('function pickListedPlan('));
+    expect(body).toContain('flattenPlanMeals(');
+    expect(body).not.toContain('planDays(');
+    const plan = engine.buildPlan({ calories: 1860, protein: 141, days: 7, dietary: [] });
+    const listed = hw.pickListedPlan([
+      { id: 1, name: 'Empty draft', meals: [] },
+      { id: 9, name: 'Your first week', meals: plan.days },
+    ]);
+    expect(listed.id).toBe(9);
+    expect(hw.summary(listed).name).toBe('Your first week');
+    expect(hw.summary(listed).days).toHaveLength(7);
+  });
+  it('skips a newer zero-meal day and reads planDays', () => {
+    const week = { id: 1, name: 'Your first week', meals: [{ day: 'Monday', meals: { lunch: { name: 'Bowl', calories: 400, protein: 20 } } }] };
+    const zero = { id: 3, name: 'Zero meals', meals: [{ day: 'Monday', meals: {} }] };
+    const newer = { id: 2, name: 'Newer empty', meals: [] };
+    const old = { id: 4, name: 'Old planDays', meals: { planDays: [{ day: 'Monday', meals: { lunch: { name: 'Rice bowl', calories: 500, protein: 30 } } }] } };
+    expect(hw.pickListedPlan([old, zero, newer, week]).name).toBe('Old planDays');
+    expect(hw.summary(old).today.meals.map((m) => m.name)).toEqual(['Rice bowl']);
+    expect(hw.pickListedPlan([zero, newer, week]).name).toBe('Your first week');
+    expect(hw.summary(hw.pickListedPlan([zero, newer, week])).days).toHaveLength(1);
+    expect(hw.pickListedPlan([zero, newer])).toBeNull();
+    expect(hw.summary(zero).days).toHaveLength(1);
+    expect(hw.summary(zero).today.meals).toEqual([]);
   });
 });
 
@@ -60,6 +96,20 @@ describe('calorie tile and load states', () => {
     expect(hw.loadFailure(200, { success: false, plans: [] }, false)).toBe('error');
     expect(hw.loadFailure(200, { success: true, plans: [] }, false)).toBe('empty');
     expect(hw.loadFailure(200, { success: true, plans: [{ id: 1 }] }, false)).toBe('ok');
+    expect(hw.loadFailure(304, null, false)).toBe('error');
+    expect(hw.loadFailure(0, null, true)).toBe('error');
+  });
+  it('304 with an empty body uses the last good list, and a 500 or abort does not', () => {
+    const cached = { success: true, plans: [{ id: 9, name: 'Your first week' }] };
+    expect(hw.plansFromResponse(304, '', false, cached)).toMatchObject({ kind: 'ok', fromCache: true, body: cached });
+    expect(hw.plansFromResponse(200, '', false, cached)).toMatchObject({ kind: 'ok', fromCache: true });
+    expect(hw.plansFromResponse(304, '', false, null).kind).toBe('refetch');
+    expect(hw.plansFromResponse(200, '   ', false, null).kind).toBe('refetch');
+    expect(hw.plansFromResponse(500, '{"success":false}', false, cached).kind).toBe('error');
+    expect(hw.plansFromResponse(0, '', true, cached).kind).toBe('error');
+    const ok = hw.plansFromResponse(200, JSON.stringify({ success: true, plans: [{ id: 1 }] }), false, null);
+    expect(ok).toMatchObject({ kind: 'ok', fromCache: false });
+    expect(hw.plansFromResponse(200, JSON.stringify({ success: true, plans: [] }), false, cached).kind).toBe('empty');
   });
   it('repeat onboarding reuses the Your first week row', () => {
     expect(hw.onboardingPlanId([{ id: 2, name: 'Older plan' }, { id: 9, name: 'Your first week' }])).toBe(9);
@@ -102,8 +152,23 @@ describe('app wiring', () => {
     expect(html).toMatch(/<div class="view active" id="view-portal-home">[\s\S]{0,400}<section class="hw-card" id="home-week"/);
     expect(html).toContain('<script src="/js/fm-home-week.js"></script>');
     const l = fn('loadHomeWeek');
-    expect(l).toContain("fetch('/api/meal-plans'");
-    expect(l).toContain('FMHomeWeek.loadFailure(status, r, failed)');
+    const read = fn('readMealPlans');
+    expect(read).toContain("fetch('/api/meal-plans'");
+    expect(read).toContain("once('no-store')");
+    expect(read).toContain("once('reload')");
+    expect(read).toContain('cache: cacheMode');
+    expect(read).toContain('FMHomeWeek.plansFromResponse');
+    expect(l).toContain('readMealPlans');
+    expect(l).toContain('FMHomeWeek.pickListedPlan');
+    expect(l).toContain("paintHomeMealCard('error')");
+    expect(l).toContain("paintHomeMealCard('empty')");
+    expect(fn('paintHomeMealCard')).toContain("Couldn't load your week, try again");
+    expect(fn('paintHomeMealCard')).toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
+    expect(fn('renderPortalPlan')).toContain('FMHomeWeek.pickListedPlan');
+    expect(fn('renderPortalPlan')).toContain('readMealPlans');
+    const portal = fn('renderPortalPlan');
+    expect(portal.indexOf('portal-plan-error')).toBeGreaterThan(-1);
+    expect(portal.indexOf('No meal plan yet')).toBeGreaterThan(portal.indexOf('portal-plan-error'));
     expect(l).toContain('FMHomeWeek.calorieTile');
     expect(l).toContain('buildAiShoppingList(S_homeWeek.shoppingPlan)');
     expect(l).not.toMatch(/innerHTML/); // plan text is the user's: textContent only
@@ -134,6 +199,8 @@ describe('app wiring', () => {
     expect(body).toContain('unchecked: true, note: UNCHECKED_NOTE');
     expect(body).toContain('notice: dg.UNREADABLE_NOTICE');
     expect(body).not.toMatch(/\bmessage\s*:/);
+    const get = src.slice(src.indexOf("router.get('/meal-plans'"), src.indexOf("router.get('/meal-plans'") + 500);
+    expect(get).toContain("res.set('Cache-Control', 'no-store')");
   });
 });
 

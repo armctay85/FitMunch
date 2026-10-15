@@ -1620,6 +1620,7 @@ function mealWarnings(meals, filters) {
 }
 
 router.get('/meal-plans', authMiddleware, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const r = await _pool.query('SELECT * FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
     // Meals are returned as stored (typed meals are the user's own); the warnings come from the same per-meal

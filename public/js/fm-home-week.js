@@ -103,7 +103,10 @@
       if (typeof meals === 'string') {
         try { meals = JSON.parse(meals); } catch (_) { return empty; }
       }
-      if (meals && typeof meals === 'object' && !Array.isArray(meals) && Array.isArray(meals.days)) meals = meals.days;
+      if (meals && typeof meals === 'object' && !Array.isArray(meals)) {
+        if (Array.isArray(meals.days)) meals = meals.days;
+        else if (Array.isArray(meals.planDays)) meals = meals.planDays;
+      }
       if (!Array.isArray(meals)) return empty;
       const dayish = meals.some((d) => d && typeof d === 'object' && !Array.isArray(d) && d.meals && typeof d.meals === 'object');
       if (!dayish) {
@@ -416,16 +419,73 @@
    */
   function loadFailure(status, body, failed) {
     const code = Number(status) || 0;
-    if (failed || code >= 500) return 'error';
+    if (failed || code >= 500 || code === 304) return 'error';
     if (!body || body.success !== true || !Array.isArray(body.plans)) return 'error';
     if (!body.plans.length) return 'empty';
     return 'ok';
   }
 
-  /** Everything the card shows, or null when there is no saved plan with meals. */
+  /**
+   * GET /meal-plans as text. 500 and an aborted read are errors (a previous body is not a substitute).
+   * 304 or an empty body uses the last successful body when we have one, otherwise the caller refetches.
+   * A refetch that is still 304 or empty is an error, never an empty plan list.
+   */
+  function plansFromResponse(status, rawText, failed, cache) {
+    const code = Number(status) || 0;
+    if (failed || code >= 500) return { kind: 'error', body: null };
+    const text = rawText == null ? '' : String(rawText);
+    const emptyBody = !text.trim();
+    if (code === 304 || emptyBody) {
+      if (cache && cache.success === true && Array.isArray(cache.plans)) {
+        return { kind: cache.plans.length ? 'ok' : 'empty', body: cache, fromCache: true };
+      }
+      return { kind: 'refetch', body: null };
+    }
+    let body;
+    try { body = JSON.parse(text); } catch (_) { return { kind: 'error', body: null }; }
+    const kind = loadFailure(code || 200, body, false);
+    return { kind, body, fromCache: false };
+  }
+
+  function mealCount(flat) {
+    const days = flat && Array.isArray(flat.days) ? flat.days : [];
+    const fromDays = days.reduce((n, d) => n + ((d && Array.isArray(d.meals) && d.meals.length) || 0), 0);
+    const items = flat && Array.isArray(flat.items) ? flat.items.length : 0;
+    return fromDays + (fromDays ? 0 : items);
+  }
+
+  /** Day list from flattenPlanMeals, the same reader Meal Planner uses. A flat list is one day of meals. */
+  function daysFromFlat(flat) {
+    const asMeal = (m) => ({ ...m, slot: String(m.mealType || m.slot || 'lunch').toLowerCase() });
+    const sortMeals = (meals) => meals.map(asMeal).sort((a, b) => (SLOT_ORDER.indexOf(a.slot) + 1 || 9) - (SLOT_ORDER.indexOf(b.slot) + 1 || 9));
+    if (flat.days.length) return flat.days.map((d) => ({ day: d.day, meals: sortMeals(d.meals) }));
+    if (flat.items.length) return [{ day: 'Your meals', meals: sortMeals(flat.items) }];
+    return [];
+  }
+
+  /**
+   * Everything the card shows. Uses flattenPlanMeals so a day-shaped week and a flat list
+   * are the same plan Meal Planner lists. A named row with no readable meals still counts,
+   * so Home and My Plan do not show the empty state for a plan that exists.
+   * Null only when there is no row, or a row with neither a name nor any meal.
+   */
   function summary(row, now) {
-    const days = planDays(row);
-    if (!days.length) return null;
+    if (!row || typeof row !== 'object') return null;
+    const flat = flattenPlanMeals(row.meals);
+    const days = daysFromFlat(flat);
+    const named = typeof row.name === 'string' && row.name.trim() ? row.name.trim() : '';
+    if (!days.length && !named) return null;
+    const name = named || 'Your week';
+    if (!days.length) {
+      return {
+        id: row.id,
+        name,
+        days: [],
+        average: { calories: 0, protein: 0 },
+        today: { day: '', meals: [], calories: 0, protein: 0 },
+        shoppingPlan: { planName: name, days: [] },
+      };
+    }
     const ti = todayIndex(days, now);
     const today = days[ti];
     const listed = days.map((d, i) => ({ day: d.day, short: String(d.day).slice(0, 3), today: i === ti, ...dayTotals(d) }));
@@ -436,12 +496,22 @@
     };
     return {
       id: row.id,
-      name: String(row.name || 'Your week'),
+      name,
       days: listed,
       average,
       today: { day: today.day, meals: today.meals.map((m) => ({ slot: m.slot, name: String(m.name || ''), calories: num(m.calories), protein: num(m.protein) })), ...dayTotals(today) },
-      shoppingPlan: { planName: String(row.name || 'Your week'), days: days.map((d) => ({ day: d.day, meals: d.meals })) },
+      shoppingPlan: { planName: name, days: days.map((d) => ({ day: d.day, meals: d.meals })) },
     };
+  }
+
+  /**
+   * Newest plan that has at least one meal. An empty meals object still makes a day, so days.length
+   * is not enough: a newer zero-meal day must not beat an older plan that has food.
+   * GET /meal-plans is newest first. A row with no meals is skipped, named or not.
+   */
+  function pickListedPlan(plans) {
+    const list = Array.isArray(plans) ? plans.filter((p) => p && typeof p === 'object') : [];
+    return list.find((p) => mealCount(flattenPlanMeals(p.meals)) > 0) || null;
   }
 
   /**
@@ -494,7 +564,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure, plansFromResponse };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));
