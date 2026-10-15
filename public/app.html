@@ -2315,7 +2315,7 @@ function clearModalError(id) { const p = document.querySelector('#' + id + ' .mo
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
  const meals = _collectMealItems('emp');
- const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+ const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals, userEdited: true }) });
  if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
  clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
