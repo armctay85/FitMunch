@@ -15,6 +15,7 @@ module.exports = {
     '**/test_app_select_names.js',
     '**/test_app.js',
     '**/test_haul_score.js',
+    '**/test_receipt_lines.js',
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
@@ -106,6 +107,8 @@ module.exports = {
     '**/test_xss_escape.js',
     '**/test_stored_xss.js',
     '**/test_xss_handlers.js',
+    '**/test_diet_filter_gaps.js',
+    '**/test_diet_filter_onboarding_pg.js',
     '**/test_ai_allergen_stopgap_r6.js',
     '**/test_ai_allergen_stopgap_r6_pg.js',
   ],

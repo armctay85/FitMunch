@@ -2694,6 +2694,7 @@ async function _endDbForTests() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports.__pool = _pool; // test seam: Postgres suites must end this pool
   module.exports._endDbForTests = _endDbForTests;
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
