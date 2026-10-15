@@ -4,13 +4,14 @@
   --fridge: #07130d;
   --fridge2: #0c1c14;
   --leaf: #1f9d4a;
-  --leaf2: #16803c;
+  /* Darker than --leaf so green text on cream and paper clears 4.5:1. */
+  --leaf2: #0c6428;
   --leaf-glow: rgba(31, 157, 74, 0.35);
   --paper: #eef2ee;
   --paper2: #e4ebe4;
   --ink: #0c1210;
   --mute: #5c6d64;
-  --mute2: #8a9a91;
+  --mute2: #54655c;
   --line: #cfd9d2;
 
   /* App shell aliases (mapped to cinema) */

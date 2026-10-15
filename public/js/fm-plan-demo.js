@@ -28,10 +28,10 @@
       plant: {
         kcal: 2000, protein: 130,
         meals: [
-          ['Breakfast', 'Tofu scramble and potatoes', '480 kcal · 32g protein'],
-          ['Lunch', 'Chickpea and rice bowl', '620 kcal · 28g protein'],
-          ['Dinner', 'Lentil tray and greens', '590 kcal · 36g protein'],
-          ['Snack', 'Soy yoghurt and berries', '310 kcal · 34g protein']
+          ['Breakfast', 'Tofu scramble and potatoes', '480 kcal · 38g protein'],
+          ['Lunch', 'Chickpea and rice bowl', '620 kcal · 36g protein'],
+          ['Dinner', 'Lentil tray and greens', '590 kcal · 44g protein'],
+          ['Snack', 'Soy yoghurt and berries', '310 kcal · 12g protein']
         ],
         trolley: ['Tofu', 'Potatoes', 'Chickpeas', 'Rice', 'Lentils', 'Greens', 'Soy yoghurt']
       }
@@ -62,8 +62,8 @@
         meals: [
           ['Breakfast', 'Tofu, oats and banana', '720 kcal · 38g protein'],
           ['Lunch', 'Tempeh rice bowl', '840 kcal · 46g protein'],
-          ['Dinner', 'Lentil pasta and greens', '820 kcal · 42g protein'],
-          ['Snack', 'Soy yoghurt and nuts', '420 kcal · 34g protein']
+          ['Dinner', 'Lentil pasta and greens', '820 kcal · 54g protein'],
+          ['Snack', 'Soy yoghurt and nuts', '420 kcal · 22g protein']
         ],
         trolley: ['Tofu', 'Rolled oats', 'Banana', 'Tempeh', 'Rice', 'Lentils', 'Pasta']
       }
@@ -92,10 +92,10 @@
       plant: {
         kcal: 2300, protein: 120,
         meals: [
-          ['Breakfast', 'Tofu and toast', '510 kcal · 26g protein'],
-          ['Lunch', 'Chickpea rice bowl', '680 kcal · 30g protein'],
-          ['Dinner', 'Lentil tray', '710 kcal · 34g protein'],
-          ['Snack', 'Soy yoghurt and berries', '400 kcal · 30g protein']
+          ['Breakfast', 'Tofu and toast', '510 kcal · 32g protein'],
+          ['Lunch', 'Chickpea rice bowl', '680 kcal · 36g protein'],
+          ['Dinner', 'Lentil tray', '710 kcal · 38g protein'],
+          ['Snack', 'Soy yoghurt and berries', '400 kcal · 14g protein']
         ],
         trolley: ['Tofu', 'Bread', 'Chickpeas', 'Rice', 'Lentils', 'Greens', 'Soy yoghurt']
       }
