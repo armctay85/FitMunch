@@ -21,6 +21,15 @@ const REAL_HAUL = [
   { name: 'Broccoli 500g', quantity: 500, unit: 'g', price: 4, category: 'vegetables' },
 ];
 
+afterAll(async () => {
+  const usage = require('./lib/ai-usage');
+  const migrate = require('./lib/db-migrate');
+  if (typeof usage._endPoolForTests === 'function') await usage._endPoolForTests();
+  if (typeof migrate._endPoolForTests === 'function') await migrate._endPoolForTests();
+  const pool = storage.__profileTx && storage.__profileTx.pool;
+  if (pool && typeof pool.end === 'function') await pool.end();
+});
+
 describe('tonightDinner is assembled only from read items', () => {
   it('names chicken, rice, and broccoli when those lines were read', () => {
     const dinner = core.tonightDinner(REAL_HAUL);
@@ -294,10 +303,13 @@ describe('POST /api/receipt/scan read failure', () => {
     process.env.GEMINI_API_KEY = 'test-key';
     receiptRouter._setVisionForTests(async () => ({
       ok: true,
+      provider: 'openai',
+      status: 200,
       text: 'No grocery lines in this photo.',
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
 
     const res = await request(app)
       .post('/api/receipt/scan')
@@ -309,8 +321,97 @@ describe('POST /api/receipt/scan read failure', () => {
       success: false,
       error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
     });
+    expect(res.body.scanDiag).toBeUndefined();
     expect(res.body.items).toBeUndefined();
     expect(consume).not.toHaveBeenCalled();
+    const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
+    expect(logged).toContain('"provider":"openai"');
+    expect(logged).toContain('"errorClass":"unreadable"');
+    expect(logged).not.toContain('u-scan-fail');
+  });
+
+  it('gives the smoke account the diagnostic when the text is not a receipt', async () => {
+    const previous = process.env.SMOKE_ACCOUNT_IDS;
+    process.env.SMOKE_ACCOUNT_IDS = 'u-scan-fail';
+    process.env.GEMINI_API_KEY = 'test-key';
+    receiptRouter._setVisionForTests(async () => ({
+      ok: true,
+      provider: 'openai',
+      status: 200,
+      text: 'This photo is a cat, not a receipt.',
+      diag: { counts: { openai: { '200': 1 } }, p50Ms: 140 },
+    }));
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+    try {
+      const res = await request(app)
+        .post('/api/receipt/scan')
+        .set('Authorization', `Bearer ${authToken()}`)
+        .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
+        .expect(422);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe("We couldn't read this receipt. Try again with a flat, well-lit photo.");
+      expect(res.body.scanDiag).toEqual({
+        provider: 'openai',
+        errorClass: 'unreadable',
+        status: 200,
+        counts: { openai: { '200': 1 } },
+        lastErrorClass: 'unreadable',
+        p50Ms: 140,
+      });
+      expect(JSON.stringify(res.body)).not.toMatch(/cat|GEMINI_API_KEY|sk-|imageBase64|Bearer/);
+      const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
+      expect(logged).toContain('"provider":"openai"');
+      expect(logged).toContain('"errorClass":"unreadable"');
+      expect(logged).not.toContain('u-scan-fail');
+    } finally {
+      if (previous == null) delete process.env.SMOKE_ACCOUNT_IDS;
+      else process.env.SMOKE_ACCOUNT_IDS = previous;
+    }
+  });
+
+  it.each([
+    ['X-User-Id header', (req) => req.set('X-User-Id', 'u-real-smoke'), 'file'],
+    ['X-Smoke-Account header', (req) => req.set('X-Smoke-Account', 'true'), 'file'],
+    ['body userId', (req) => req.send({ image: `data:image/png;base64,${TINY_PNG.toString('base64')}`, userId: 'u-real-smoke' }), 'json'],
+    ['body smoke true', (req) => req.send({ image: `data:image/png;base64,${TINY_PNG.toString('base64')}`, smoke: true }), 'json'],
+    ['JWT email claim', (req) => req.set('Authorization', `Bearer ${jwt.sign({ userId: 'u-scan-fail', email: 'smoke@fitmunch.com.au' }, process.env.JWT_SECRET)}`), 'file'],
+    ['JWT role claim', (req) => req.set('Authorization', `Bearer ${jwt.sign({ userId: 'u-scan-fail', role: 'smoke' }, process.env.JWT_SECRET)}`), 'file'],
+  ])('%s cannot open the smoke diagnostic', async (_label, spoof, kind) => {
+    const previous = process.env.SMOKE_ACCOUNT_IDS;
+    process.env.SMOKE_ACCOUNT_IDS = 'u-real-smoke';
+    process.env.GEMINI_API_KEY = 'test-key';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+    receiptRouter._setVisionForTests(async () => ({
+      ok: false,
+      code: 'unavailable',
+      error: 'provider_error',
+      provider: 'xai',
+      status: 402,
+      errorClass: 'payment_required',
+      diag: { counts: { xai: { '402': 1 } }, lastErrorClass: 'payment_required', p50Ms: 20 },
+    }));
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    try {
+      let req = request(app)
+        .post('/api/receipt/scan')
+        .set('Authorization', `Bearer ${authToken()}`);
+      req = spoof(req);
+      if (kind === 'file') {
+        req = req.attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' });
+      }
+      const res = await req.expect(503);
+      expect(res.body).toEqual({
+        success: false,
+        error: 'Scanning is unavailable right now.',
+      });
+      expect(res.body.scanDiag).toBeUndefined();
+      expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
+      expect(JSON.stringify(res.body)).not.toMatch(/payment_required|scanDiag/);
+    } finally {
+      if (previous == null) delete process.env.SMOKE_ACCOUNT_IDS;
+      else process.env.SMOKE_ACCOUNT_IDS = previous;
+    }
   });
 
   it('keeps a real gemini read and its share line', async () => {
@@ -426,5 +527,6 @@ describe('POST /api/receipt/first-scan unreadable receipts', () => {
     expect(res.status).toBe(422);
     expect(res.body.success).toBe(false);
     expect(res.body.haulScore).toBeUndefined();
+    expect(res.body.scanDiag).toBeUndefined();
   });
 });
