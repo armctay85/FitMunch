@@ -2,6 +2,10 @@ import SwiftUI
 import SwiftData
 
 /// Five tabs. iOS hides a sixth item behind More, so History lives on Me.
+extension Notification.Name {
+    static let fitMunchOpenPrivacy = Notification.Name("FitMunchOpenPrivacy")
+}
+
 enum AppTab: Hashable {
     case today
     case plan
@@ -15,11 +19,16 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage(Constants.UserDefaultsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
     @State private var selectedTab: AppTab = .today
+    @State private var privacyRequest = 0
 
     var body: some View {
         if hasCompletedOnboarding {
             mainTabs
                 .tint(Theme.brandGreen)
+                .onReceive(NotificationCenter.default.publisher(for: .fitMunchOpenPrivacy)) { _ in
+                    selectedTab = .me
+                    privacyRequest += 1
+                }
                 .onAppear {
                     ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
                 }
@@ -57,7 +66,7 @@ struct ContentView: View {
                     .accessibilityIdentifier("tab-coach")
             }
             Tab("Me", systemImage: "person.crop.circle.fill", value: AppTab.me) {
-                SettingsView()
+                SettingsView(privacyRequest: privacyRequest)
                     .accessibilityIdentifier("tab-me")
             }
         }
@@ -86,7 +95,7 @@ struct ContentView: View {
                 .accessibilityIdentifier("tab-coach")
                 .tag(AppTab.coach)
 
-            SettingsView()
+            SettingsView(privacyRequest: privacyRequest)
                 .tabItem { Label("Me", systemImage: "person.crop.circle.fill") }
                 .accessibilityIdentifier("tab-me")
                 .tag(AppTab.me)

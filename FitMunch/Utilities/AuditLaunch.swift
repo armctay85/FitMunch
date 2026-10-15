@@ -9,6 +9,7 @@ enum AuditLaunch {
     static let planLoading = "-AuditPlanLoading"
     static let scanLoading = "-AuditScanLoading"
     static let scanError = "-AuditScanError"
+    static let scanFinished = "-AuditScanFinished"
     static let todayLoading = "-AuditTodayLoading"
     static let todayError = "-AuditTodayError"
     static let coachLoading = "-AuditCoachLoading"
@@ -19,6 +20,7 @@ enum AuditLaunch {
     static var isPlanLoading: Bool { flag(planLoading) }
     static var isScanLoading: Bool { flag(scanLoading) }
     static var isScanError: Bool { flag(scanError) }
+    static var isScanFinished: Bool { flag(scanFinished) }
     static var isTodayLoading: Bool { flag(todayLoading) }
     static var isTodayError: Bool { flag(todayError) }
     static var isCoachLoading: Bool { flag(coachLoading) }

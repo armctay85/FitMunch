@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Settings screen for user preferences and app management
 struct SettingsView: View {
+    var privacyRequest: Int = 0
     @StateObject private var viewModel = SettingsViewModel()
     @EnvironmentObject private var auth: AuthManager
     @State private var showLogoutAlert = false
@@ -34,6 +35,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 Section {
                     NavigationLink {
@@ -175,6 +177,8 @@ struct SettingsView: View {
                         .accessibilityIdentifier("me-privacy-more")
                     }
                 }
+                .id("me-privacy")
+                .accessibilityIdentifier("me-privacy")
                 
                 // Subscription section
                 Section("Subscription") {
@@ -281,6 +285,10 @@ struct SettingsView: View {
             .floatingTabBarInset()
             .onAppear {
                 viewModel.loadPreferences()
+                revealPrivacy(proxy)
+            }
+            .onChange(of: privacyRequest) { _, _ in
+                revealPrivacy(proxy)
             }
             .overlay {
                 if viewModel.isLoading {
@@ -359,6 +367,15 @@ struct SettingsView: View {
             } message: {
                 Text(exportError ?? "")
             }
+            }
+        }
+    }
+
+    private func revealPrivacy(_ proxy: ScrollViewProxy) {
+        guard privacyRequest > 0 else { return }
+        privacyExpanded = true
+        DispatchQueue.main.async {
+            proxy.scrollTo("me-privacy", anchor: .center)
         }
     }
 
