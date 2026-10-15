@@ -21,6 +21,53 @@ function classifyCoach(status, body) {
   return { ok: false, status: status == null ? null : status, reason: `unexpected coach result ${status == null ? 'none' : status}` };
 }
 
+function safeToken(value) {
+  const s = String(value == null ? '' : value);
+  return /^[a-z0-9_]{1,40}$/i.test(s) ? s : '';
+}
+
+function countParts(counts) {
+  if (!counts || typeof counts !== 'object') return '';
+  const parts = [];
+  for (const provider of Object.keys(counts)) {
+    const name = safeToken(provider);
+    const bucket = counts[provider];
+    if (!name || !bucket || typeof bucket !== 'object') continue;
+    for (const status of Object.keys(bucket)) {
+      if (!/^(none|\d{3})$/.test(String(status))) continue;
+      const n = Number(bucket[status]);
+      if (!Number.isInteger(n) || n < 0) continue;
+      parts.push(`${name}:${status}=${n}`);
+    }
+  }
+  return parts.join(',');
+}
+
+/** Provider and error class from the smoke-only scanDiag. Secrets and free text are dropped. */
+function diagReason(payload) {
+  const diag = payload && payload.scanDiag;
+  if (!diag || typeof diag !== 'object') return null;
+  const provider = safeToken(diag.provider);
+  const errorClass = safeToken(diag.errorClass);
+  const lastErrorClass = safeToken(diag.lastErrorClass);
+  const p50 = Number(diag.p50Ms);
+  const p50Ms = Number.isFinite(p50) && p50 >= 0 && p50 < 600000 ? Math.round(p50) : null;
+  const counts = countParts(diag.counts);
+  const parts = [];
+  if (provider) parts.push(`provider=${provider}`);
+  if (errorClass) parts.push(`errorClass=${errorClass}`);
+  if (p50Ms != null) parts.push(`p50Ms=${p50Ms}`);
+  if (lastErrorClass) parts.push(`lastErrorClass=${lastErrorClass}`);
+  if (counts) parts.push(`counts=${counts}`);
+  if (!parts.length) return null;
+  return {
+    extra: ` ${parts.join(' ')}`,
+    provider: provider || undefined,
+    errorClass: errorClass || undefined,
+    diagLine: parts.join(' '),
+  };
+}
+
 function classifyScan(status, body) {
   const payload = body && typeof body === 'object' ? body : null;
   if (
@@ -29,7 +76,12 @@ function classifyScan(status, body) {
     && payload.success === false
     && payload.error === SCAN_UNAVAILABLE
   ) {
-    return { ok: false, status, reason: 'scan unavailable' };
+    const diag = diagReason(payload);
+    const out = { ok: false, status, reason: `scan unavailable${diag ? diag.extra : ''}` };
+    if (diag && diag.provider) out.provider = diag.provider;
+    if (diag && diag.errorClass) out.errorClass = diag.errorClass;
+    if (diag && diag.diagLine) out.diagLine = diag.diagLine;
+    return out;
   }
   if (status === 200 && payload && payload.success === true && Array.isArray(payload.items) && payload.items.length > 0) {
     if (payload.scannerProvider === 'fallback') return { ok: false, status, reason: 'fallback provider' };

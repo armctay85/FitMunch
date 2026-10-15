@@ -14,6 +14,7 @@ const core = require('./lib/receipt-scan-core');
 const crypto = require('crypto');
 const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const visionDiag = require('./lib/vision-diag');
 
 let visionOverride = null;
 function getVision() {
@@ -124,6 +125,22 @@ function extractImage(req) {
 
 const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. "price" is the line total paid for that line (unit price times quantity), not the unit price. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items, no totals, payment or discount lines. Parse quantity from name. Raw JSON only.';
 
+function visionFailure(visionResult) {
+  const unreadable = visionResult && visionResult.code === 'unreadable';
+  const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
+  failed.code = failed.message;
+  const diag = visionResult && visionResult.diag;
+  failed.scanDiag = visionDiag.publicView({
+    provider: visionResult && visionResult.provider,
+    errorClass: visionResult && visionResult.errorClass,
+    status: visionResult && visionResult.status,
+    counts: diag && diag.counts,
+    lastErrorClass: (diag && diag.lastErrorClass) || (visionResult && visionResult.errorClass) || null,
+    p50Ms: diag && diag.p50Ms,
+  });
+  return failed;
+}
+
 async function readReceiptItems(imageBase64, mimeType, route) {
   const visionResult = await getVision()({
     imageBase64,
@@ -132,10 +149,7 @@ async function readReceiptItems(imageBase64, mimeType, route) {
     route,
   });
   if (!visionResult || !visionResult.ok) {
-    const unreadable = visionResult && visionResult.code === 'unreadable';
-    const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
-    failed.code = failed.message;
-    throw failed;
+    throw visionFailure(visionResult);
   }
   try {
     return core.parseVisionItems(visionResult.text);
@@ -162,17 +176,23 @@ function hashUserId(userId) {
   return crypto.createHash('sha256').update(String(userId)).digest('hex');
 }
 
-function sendVisionFailure(res, err, event, userId) {
+function sendVisionFailure(res, err, event, userId, exposeDiag) {
   const unavailable = visionFailureCode(err) === 'unavailable';
+  const diag = visionDiag.publicView(err && err.scanDiag);
   console.info('[receipt-scan]', JSON.stringify({
     event,
     userId: hashUserId(userId),
+    provider: diag && diag.provider,
+    errorClass: diag && diag.errorClass,
   }));
   if (unavailable) res.set('Retry-After', '60');
-  return res.status(unavailable ? 503 : 422).json({
+  const body = {
     success: false,
     error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
-  });
+  };
+  // Smoke account only. Ordinary scans and guest first-scan stay on the public copy.
+  if (exposeDiag && diag) body.scanDiag = diag;
+  return res.status(unavailable ? 503 : 422).json(body);
 }
 
 router.get('/', requireAuth, (_req, res) => res.json({
@@ -228,11 +248,27 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
     } catch (visionErr) {
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
+      if (smoke && visionErr && visionErr.scanDiag) {
+        try {
+          const merged = await visionDiag.mergedSummary();
+          if (merged && merged.samples > 0) {
+            visionErr.scanDiag = visionDiag.publicView({
+              provider: visionErr.scanDiag.provider,
+              errorClass: visionErr.scanDiag.errorClass,
+              status: visionErr.scanDiag.status,
+              counts: merged.counts,
+              lastErrorClass: merged.lastErrorClass || visionErr.scanDiag.lastErrorClass,
+              p50Ms: merged.p50Ms != null ? merged.p50Ms : visionErr.scanDiag.p50Ms,
+            });
+          }
+        } catch (_) { /* the public error still goes out */ }
+      }
       return sendVisionFailure(
         res,
         visionErr,
         unavailable ? 'scan_unavailable' : 'scan_unreadable',
-        req.user?.userId || null
+        req.user?.userId || null,
+        smoke
       );
     }
 
@@ -333,7 +369,8 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
         res,
         visionErr,
         unavailable ? 'first_scan_unavailable' : 'first_scan_unreadable',
-        null
+        null,
+        false
       );
     }
 
