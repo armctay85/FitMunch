@@ -422,10 +422,38 @@
     return 'ok';
   }
 
-  /** Everything the card shows, or null when there is no saved plan with meals. */
+  /** Day list from flattenPlanMeals, the same reader Meal Planner uses. A flat list is one day of meals. */
+  function daysFromFlat(flat) {
+    const asMeal = (m) => ({ ...m, slot: String(m.mealType || m.slot || 'lunch').toLowerCase() });
+    const sortMeals = (meals) => meals.map(asMeal).sort((a, b) => (SLOT_ORDER.indexOf(a.slot) + 1 || 9) - (SLOT_ORDER.indexOf(b.slot) + 1 || 9));
+    if (flat.days.length) return flat.days.map((d) => ({ day: d.day, meals: sortMeals(d.meals) }));
+    if (flat.items.length) return [{ day: 'Your meals', meals: sortMeals(flat.items) }];
+    return [];
+  }
+
+  /**
+   * Everything the card shows. Uses flattenPlanMeals so a day-shaped week and a flat list
+   * are the same plan Meal Planner lists. A named row with no readable meals still counts,
+   * so Home and My Plan do not show the empty state for a plan that exists.
+   * Null only when there is no row, or a row with neither a name nor any meal.
+   */
   function summary(row, now) {
-    const days = planDays(row);
-    if (!days.length) return null;
+    if (!row || typeof row !== 'object') return null;
+    const flat = flattenPlanMeals(row.meals);
+    const days = daysFromFlat(flat);
+    const named = typeof row.name === 'string' && row.name.trim() ? row.name.trim() : '';
+    if (!days.length && !named) return null;
+    const name = named || 'Your week';
+    if (!days.length) {
+      return {
+        id: row.id,
+        name,
+        days: [],
+        average: { calories: 0, protein: 0 },
+        today: { day: '', meals: [], calories: 0, protein: 0 },
+        shoppingPlan: { planName: name, days: [] },
+      };
+    }
     const ti = todayIndex(days, now);
     const today = days[ti];
     const listed = days.map((d, i) => ({ day: d.day, short: String(d.day).slice(0, 3), today: i === ti, ...dayTotals(d) }));
@@ -436,12 +464,26 @@
     };
     return {
       id: row.id,
-      name: String(row.name || 'Your week'),
+      name,
       days: listed,
       average,
       today: { day: today.day, meals: today.meals.map((m) => ({ slot: m.slot, name: String(m.name || ''), calories: num(m.calories), protein: num(m.protein) })), ...dayTotals(today) },
-      shoppingPlan: { planName: String(row.name || 'Your week'), days: days.map((d) => ({ day: d.day, meals: d.meals })) },
+      shoppingPlan: { planName: name, days: days.map((d) => ({ day: d.day, meals: d.meals })) },
     };
+  }
+
+  /**
+   * The plan Meal Planner lists first that actually has meals, else the first named row.
+   * GET /meal-plans is newest first, the same order as the Meal Planner cards.
+   */
+  function pickListedPlan(plans) {
+    const list = Array.isArray(plans) ? plans.filter((p) => p && typeof p === 'object') : [];
+    const withMeals = list.find((p) => {
+      const flat = flattenPlanMeals(p.meals);
+      return flat.days.length > 0 || flat.items.length > 0;
+    });
+    if (withMeals) return withMeals;
+    return list.find((p) => typeof p.name === 'string' && p.name.trim()) || null;
   }
 
   /**
@@ -494,7 +536,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

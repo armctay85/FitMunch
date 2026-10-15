@@ -180,6 +180,38 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       expect(card.cta).toBe('none');
       expect(card.shopH).toBeGreaterThanOrEqual(44);
       expect(card.plan).not.toMatch(/No plan yet/);
+      expect(card.plan).toMatch(/Your first week/);
+      // My Plan reads the same saved row, at this width, not the trainer assignment.
+      await p.evaluate(() => nav('portal-plan'));
+      await p.waitForSelector('#portal-saved-plan');
+      const mine = await p.evaluate(() => ({
+        text: document.getElementById('portal-plan-body').textContent,
+        h: [...document.querySelectorAll('#portal-plan-body button')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height),
+      }));
+      expect(mine.text).toContain('Your first week');
+      expect(mine.text).not.toMatch(/No meal plan yet/);
+      expect(mine.text).not.toMatch(/No plan yet/);
+      const minTap = width >= 1000 ? 40 : 44;
+      for (const h of mine.h) expect(h).toBeGreaterThanOrEqual(minTap);
+      if (shots) await p.screenshot({ path: `${shots}/my-plan-${width}.png` });
+      await p.addScriptTag({ path: require.resolve('axe-core') });
+      const axeProblems = await p.evaluate(async () => {
+        const rules = ['button-name', 'image-alt', 'label', 'color-contrast', 'link-name', 'document-title'];
+        const view = document.getElementById('view-portal-plan');
+        const res = await window.axe.run(view, { runOnly: { type: 'rule', values: rules } });
+        return res.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+      });
+      expect(axeProblems).toEqual([]);
+      await p.evaluate(() => nav('portal-home'));
+      await p.waitForSelector('#home-week-name');
+      const homeAxe = await p.evaluate(async () => {
+        const rules = ['button-name', 'image-alt', 'label', 'color-contrast', 'link-name'];
+        const res = await window.axe.run(document.getElementById('view-portal-home'), { runOnly: { type: 'rule', values: rules } });
+        return res.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+      });
+      expect(homeAxe).toEqual([]);
+      const homeTap = await p.evaluate(() => [...document.querySelectorAll('#home-mealplan-btn, #home-week-shop, #home-mealplan button')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
+      for (const h of homeTap) expect(h).toBeGreaterThanOrEqual(minTap);
       expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       expect(await p.evaluate(() => { const b = document.getElementById('home-week'); return b.scrollWidth > b.clientWidth + 1; })).toBe(false);
       if (shots) await p.screenshot({ path: `${shots}/home-week-${width}.png` });
@@ -190,6 +222,56 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       expect(db.shopping).toBe(1);
       expect(await p.textContent('#sl-ai-name')).toBe('Your first week: shopping list');
       if (shots) await p.screenshot({ path: `${shots}/home-week-shopping-${width}.png` });
+      await ctx.close();
+    });
+  }
+
+  for (const width of [320, 390, 1440]) {
+    it(`${width}px: a scanned allergy line is marked contains and is not a pantry win`, async () => {
+      db = { profile: {}, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [] };
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+      await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+      await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+      const p = await ctx.newPage();
+      await p.goto(`${base}/app.html`);
+      await p.waitForFunction(() => typeof renderScanResults === 'function' && typeof nav === 'function');
+      const payload = require('./lib/receipt-scan-core').buildScanPayload([
+        { name: 'Almonds 200g', quantity: 200, unit: 'g', price: 6, category: 'pantry' },
+        { name: 'Firm tofu', quantity: 1, unit: 'each', price: 4.5, category: 'dairy' },
+        { name: 'Chicken breast 1kg', quantity: 1, unit: 'kg', price: 12, category: 'meat' },
+      ], { filters: ['nut free'] });
+      await p.evaluate((data) => { nav('receipt-scanner'); renderScanResults(data); }, payload);
+      await p.waitForSelector('#scan-items-list .allergen-badge');
+      const row = await p.evaluate(() => {
+        const labels = [...document.querySelectorAll('#scan-items-list label')];
+        const almond = labels.find((el) => /almond/i.test(el.textContent));
+        const tofu = labels.find((el) => /tofu/i.test(el.textContent));
+        const groups = [...document.querySelectorAll('#scan-items-list > div')].map((el) => el.textContent);
+        return {
+          badge: almond.querySelector('.allergen-badge').textContent,
+          checked: almond.querySelector('input').checked,
+          wins: document.getElementById('scan-wins').textContent,
+          tofuCal: tofu.textContent,
+          groups,
+        };
+      });
+      expect(row.badge).toBe('contains nuts');
+      expect(row.checked).toBe(false);
+      expect(row.wins.toLowerCase()).not.toMatch(/almond/);
+      expect(row.wins.toLowerCase()).toMatch(/chicken/);
+      expect(row.groups.join('\n').toLowerCase()).toMatch(/protein/);
+      expect(row.groups.join('\n').toLowerCase()).not.toMatch(/dairy[\s\S]*tofu|tofu[\s\S]*dairy/);
+      expect(row.tofuCal).not.toMatch(/\b25 cal\b/);
+      const minTap = width >= 1000 ? 40 : 44;
+      const taps = await p.evaluate(() => [...document.querySelectorAll('#view-receipt-scanner button')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
+      for (const h of taps) expect(h).toBeGreaterThanOrEqual(minTap);
+      await p.addScriptTag({ path: require.resolve('axe-core') });
+      const axeProblems = await p.evaluate(async () => {
+        const res = await window.axe.run(document.getElementById('view-receipt-scanner'), { runOnly: { type: 'rule', values: ['button-name', 'image-alt', 'label', 'color-contrast', 'link-name'] } });
+        return res.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+      });
+      expect(axeProblems).toEqual([]);
+      if (shots) await p.screenshot({ path: `${shots}/scan-allergy-${width}.png` });
       await ctx.close();
     });
   }

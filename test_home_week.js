@@ -34,9 +34,31 @@ describe('summary of a saved plan', () => {
     expect(list.today.meals.map((m) => m.name)).toEqual(['a', 'b']);
     expect(list.today.calories).toBe(800);
   });
-  it('no card for an empty, unreadable or manual plan with no days', () => {
-    for (const meals of [[], '[', null, 5, [{ name: 'flat manual meal' }], { days: 'x' }]) expect(hw.summary({ meals })).toBeNull();
+  it('no card for an empty or unreadable plan with no name', () => {
+    for (const meals of [[], '[', null, 5, { days: 'x' }]) expect(hw.summary({ meals })).toBeNull();
     expect(hw.summary(null)).toBeNull();
+  });
+  it('a flat meal the Meal Planner lists is the same plan on Home', () => {
+    const s = hw.summary({ id: 3, name: 'Manual', meals: [{ name: 'flat manual meal', mealType: 'lunch', calories: 400, protein: 20 }] });
+    expect(s).not.toBeNull();
+    expect(s.name).toBe('Manual');
+    expect(s.today.meals.map((m) => m.name)).toEqual(['flat manual meal']);
+    expect(s.today.meals[0].slot).toBe('lunch');
+  });
+  it('summary and the listed-plan picker use flattenPlanMeals, not a second day parser', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');
+    const i = src.indexOf('function summary(');
+    const body = src.slice(i, src.indexOf('function pickListedPlan('));
+    expect(body).toContain('flattenPlanMeals(');
+    expect(body).not.toContain('planDays(');
+    const plan = engine.buildPlan({ calories: 1860, protein: 141, days: 7, dietary: [] });
+    const listed = hw.pickListedPlan([
+      { id: 1, name: 'Empty draft', meals: [] },
+      { id: 9, name: 'Your first week', meals: plan.days },
+    ]);
+    expect(listed.id).toBe(9);
+    expect(hw.summary(listed).name).toBe('Your first week');
+    expect(hw.summary(listed).days).toHaveLength(7);
   });
 });
 
@@ -103,6 +125,10 @@ describe('app wiring', () => {
     expect(html).toContain('<script src="/js/fm-home-week.js"></script>');
     const l = fn('loadHomeWeek');
     expect(l).toContain("fetch('/api/meal-plans'");
+    expect(l).toContain("cache: 'no-store'");
+    expect(l).toContain('FMHomeWeek.pickListedPlan');
+    expect(fn('renderPortalPlan')).toContain('FMHomeWeek.pickListedPlan');
+    expect(fn('renderPortalPlan')).toContain("cache: 'no-store'");
     expect(l).toContain('FMHomeWeek.loadFailure(status, r, failed)');
     expect(l).toContain('FMHomeWeek.calorieTile');
     expect(l).toContain('buildAiShoppingList(S_homeWeek.shoppingPlan)');

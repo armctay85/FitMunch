@@ -93,7 +93,10 @@ maybe('onboarding modal rendered on phones and tablets', () => {
       expect(week.bars).toBe(14);
       expect(week.labels.slice(0, 4)).toEqual(['Breakfast', 'Lunch', 'Dinner', 'Snack']);
       for (const t of week.proteins) expect(Number(t.match(/Protein (\d+)g/)[1])).toBeLessThanOrEqual(protein);
-      expect(week.note).toMatch(/Turn on AI in Privacy/);
+      expect(week.note).toMatch(/Your first week is ready/);
+      expect(week.note).not.toMatch(/Turn on AI in Privacy/);
+      expect(await p.textContent('#privacy-ai-desc')).toMatch(/Turn on AI in Privacy for AI-written plans/);
+      if (process.env.ONBOARD_SHOTS) await p.screenshot({ path: `${process.env.ONBOARD_SHOTS}/onboard-week-${width}.png` });
       expect(week.consentShown).toBe(false);
       expect(week.overflow).toBe(false);
       await ctx.close();
