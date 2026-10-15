@@ -114,7 +114,17 @@ struct SettingsView: View {
                 } header: {
                     Text("Profile")
                 }
-                
+
+                Section("About") {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("me-about")
+
                 // Preferences section
                 Section("Preferences") {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
@@ -227,16 +237,6 @@ struct SettingsView: View {
                     
                     Button("Reset Data", role: .destructive) {
                         showResetAlert = true
-                    }
-                }
-                
-                // About section
-                Section("About") {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
-                            .foregroundColor(.secondary)
                     }
                 }
                 
