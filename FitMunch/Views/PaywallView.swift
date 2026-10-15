@@ -33,10 +33,10 @@ struct PaywallView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     headerSection
+                    benefitsSection
                     if plansLoadFailed {
                         emptyPlansSection
                     }
-                    benefitsSection
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
@@ -221,12 +221,15 @@ struct PaywallView: View {
                     .accessibilityIdentifier("paywall-renewal")
                 subscribeButton(plan)
             }
-            Button("Restore Purchases") {
-                Task { await restore() }
+            if !plansLoadFailed {
+                Button("Restore Purchases") {
+                    Task { await restore() }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("paywall-restore")
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
-            .accessibilityIdentifier("paywall-restore")
 
             HStack(spacing: 6) {
                 Button("Terms") {
