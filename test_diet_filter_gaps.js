@@ -196,8 +196,9 @@ describe('saved filters can be replaced under the profile lock', () => {
     expect(save).toContain('r.stale');
     expect(save).not.toContain('fitnessGoal');
     const build = html.slice(html.indexOf('async function onboardBuildWeek'), html.indexOf('// ── GOALS ONBOARDING'));
-    expect(build).toContain('JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein })');
-    expect(build.indexOf('JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein })')).toBeLessThan(build.indexOf('dietaryPreferences: diet'));
+    expect(build).toContain('JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein, targetCarbs: r.carbs, targetFat: r.fat })');
+    expect(build.indexOf('JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein, targetCarbs: r.carbs, targetFat: r.fat })')).toBeLessThan(build.indexOf('dietaryPreferences: diet'));
+    expect(build.slice(0, build.indexOf('dietaryPreferences: diet'))).not.toContain('profileUpdatedAt');
     expect(build).not.toContain('const body = { dietaryPreferences: diet, allergies }');
     expect(build).toContain('const allergySave = obAllergySave(allergies, prof && prof.profile && prof.profile.allergies)');
     expect(build).toContain('if (allergySave) body.allergies = allergySave');

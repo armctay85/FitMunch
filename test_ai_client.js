@@ -58,7 +58,15 @@ describe('lib/ai-client provider routing', () => {
     delete process.env.ANTHROPIC_API_KEY;
   }
 
-  afterEach(() => {
+  beforeEach(() => {
+    delete process.env.DATABASE_URL;
+  });
+
+  afterEach(async () => {
+    const usage = require('./lib/ai-usage');
+    const migrate = require('./lib/db-migrate');
+    if (typeof usage._endPoolForTests === 'function') await usage._endPoolForTests();
+    if (typeof migrate._endPoolForTests === 'function') await migrate._endPoolForTests();
     process.env = { ...ORIG };
     mockOpenaiCreate.mockClear();
     jest.restoreAllMocks();
@@ -130,18 +138,21 @@ describe('lib/ai-client provider routing', () => {
     const ai = require('./lib/ai-client');
     expect(ai.tryNext({ error: 'missing_key' })).toBe(true);
     expect(ai.tryNext({ error: 'missing_key', status: 401 })).toBe(true);
-    for (const status of [401, 403, 404, 408, 429, 500, 502, 503, 504, 599]) {
+    for (const status of [401, 402, 403, 404, 408, 413, 429, 500, 502, 503, 504, 599]) {
       expect(ai.tryNext({ status, error: 'provider_error' })).toBe(true);
     }
     expect(ai.tryNext({ error: 'provider_error' })).toBe(true);
     expect(ai.tryNext({ error: 'timeout' })).toBe(true);
+    expect(ai.tryNext({ status: 504, error: 'timeout' })).toBe(true);
+    expect(ai.tryNext({ status: 0, error: 'timeout' })).toBe(true);
     expect(ai.tryNext(null)).toBe(true);
     expect(ai.tryNext({ status: 400, error: 'provider_error' })).toBe(false);
     expect(ai.tryNext({ status: 400, error: 'content_refusal' })).toBe(false);
+    expect(ai.tryNext({ status: 400, error: 'timeout' })).toBe(false);
     expect(ai.tryNext({ error: 'content_refusal' })).toBe(false);
     expect(ai.tryNext({ refusal: true })).toBe(false);
-    expect(ai.tryNext({ status: 402, error: 'provider_error' })).toBe(false);
     expect(ai.tryNext({ status: 422, error: 'provider_error' })).toBe(false);
+    expect(ai.tryNext({ status: 422, error: 'content_refusal' })).toBe(false);
     expect(ai.tryNext({ ok: true, status: 200, text: '[]' })).toBe(false);
     expect(ai.tryNext({ ok: true, text: 'hello' })).toBe(false);
   });
@@ -430,6 +441,223 @@ describe('lib/ai-client provider routing', () => {
       mockOpenaiCreate.mockImplementation(previous);
     }
   }, 30000);
+
+  function visionAnswer(text) {
+    return {
+      status: 200,
+      body: { choices: [{ message: { content: text } }], usage: { prompt_tokens: 3, completion_tokens: 1 } },
+    };
+  }
+
+  async function closePools() {
+    const usage = require('./lib/ai-usage');
+    const migrate = require('./lib/db-migrate');
+    if (typeof usage._endPoolForTests === 'function') await usage._endPoolForTests();
+    if (typeof migrate._endPoolForTests === 'function') await migrate._endPoolForTests();
+  }
+
+  it.each([
+    ['402 payment', 402],
+    ['413 payload', 413],
+    ['500 server', 500],
+    ['503 unavailable', 503],
+  ])('vision falls through to OpenAI on %s', async (_label, status) => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-secret-key';
+    process.env.OPENAI_API_KEY = 'sk-secret-key';
+    delete process.env.DATABASE_URL;
+    jest.resetModules();
+    const migrate = require('./lib/db-migrate');
+    const poolSpy = jest.spyOn(migrate, 'getPool');
+    const ai = require('./lib/ai-client');
+    const diag = require('./lib/vision-diag');
+    const saved = [];
+    diag._setQueryForTests(async (sql, params) => {
+      saved.push({ sql, params });
+      if (/SELECT attempts/.test(sql)) return { rows: [{ attempts: [] }] };
+      return { rows: [] };
+    });
+    const { hosts, spy } = installHttps((opts) => {
+      if (opts.hostname === 'api.x.ai') {
+        return { status, body: { error: { type: 'billing_error', message: 'credit key sk-live-SHOULD-NOT-STORE image ' + 'A'.repeat(40) } } };
+      }
+      return visionAnswer('[{"name":"Milk 1L"}]');
+    });
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    try {
+      const result = await ai.vision({
+        imageBase64: 'IMAGE-SECRET-BYTES',
+        prompt: 'PROMPT-SECRET',
+        route: '/receipt/scan',
+      });
+      await diag.flush();
+      expect(result.ok).toBe(true);
+      expect(result.provider).toBe('openai');
+      expect(result.text).toContain('Milk 1L');
+      expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
+      expect(spy.mock.calls[0][0].timeout).toBe(ai.VISION_FIRST_TIMEOUT_MS);
+      expect(spy.mock.calls[0][0].timeout).toBe(12000);
+      expect(spy.mock.calls[1][0].timeout).toBe(20000);
+      const attempts = diag._attemptsForTests();
+      expect(attempts.map((row) => row.provider)).toEqual(['xai', 'openai']);
+      expect(attempts[0].errorClass).not.toBe('ok');
+      expect(JSON.stringify(attempts)).not.toMatch(/IMAGE-SECRET|PROMPT-SECRET|xai-secret|sk-secret|sk-live/);
+      expect(JSON.stringify(saved)).not.toMatch(/IMAGE-SECRET|PROMPT-SECRET|xai-secret|sk-secret|sk-live/);
+      expect(poolSpy).not.toHaveBeenCalled();
+      const view = result.diag ? null : diag.summary();
+      expect(view.counts.xai[String(status)]).toBe(1);
+      expect(view.counts.openai['200']).toBe(1);
+      expect(view.p50Ms).toEqual(expect.any(Number));
+    } finally {
+      diag._resetForTests();
+      poolSpy.mockRestore();
+      await closePools();
+    }
+  });
+
+  it('vision falls through when the first provider times out and gives OpenAI 20s', async () => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-secret-key';
+    process.env.OPENAI_API_KEY = 'sk-secret-key';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    const diag = require('./lib/vision-diag');
+    const { hosts, spy } = installHttps((opts) => {
+      if (opts.hostname === 'api.x.ai') return { timeout: true };
+      return visionAnswer('[{"name":"Oats"}]');
+    });
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    const result = await ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(result.ok).toBe(true);
+    expect(result.provider).toBe('openai');
+    expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
+    expect(spy.mock.calls[0][0].timeout).toBe(12000);
+    expect(spy.mock.calls[1][0].timeout).toBe(20000);
+    expect(diag._attemptsForTests()[0].errorClass).toBe('timeout');
+    expect(diag._attemptsForTests()[0].status).toBeNull();
+  });
+
+  it('a vision provider with nobody after it keeps the 20s timeout', async () => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-only';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    expect(ai.visionProviders()).toEqual(['xai']);
+    const { spy } = installHttps(() => visionAnswer('[{"name":"Oats"}]'));
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    const only = await ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(only.ok).toBe(true);
+    expect(only.provider).toBe('xai');
+    expect(spy.mock.calls[0][0].timeout).toBe(20000);
+  });
+
+  it('a hung first provider is cut at 12s and the fallback still has 20s', async () => {
+    jest.useFakeTimers();
+    try {
+      clearProviderKeys();
+      process.env.XAI_API_KEY = 'xai-test';
+      process.env.OPENAI_API_KEY = 'sk-test';
+      jest.resetModules();
+      const https = require('https');
+      const ai = require('./lib/ai-client');
+      const timeouts = [];
+      jest.spyOn(https, 'request').mockImplementation((opts, cb) => {
+        timeouts.push(opts.timeout);
+        const req = {
+          on() { return req; },
+          write() {},
+          end() {
+            if (opts.hostname === 'api.openai.com') {
+              const res = {
+                statusCode: 200,
+                on(event, fn) {
+                  if (event === 'data') fn(Buffer.from(JSON.stringify({ choices: [{ message: { content: '[{"name":"Rice"}]' } }] })));
+                  if (event === 'end') fn();
+                },
+              };
+              cb(res);
+            }
+          },
+          destroy(err) { req.destroyed = err; },
+          setTimeout() {},
+        };
+        return req;
+      });
+      jest.spyOn(console, 'info').mockImplementation(() => {});
+      const pending = ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+      await jest.advanceTimersByTimeAsync(11999);
+      expect(timeouts).toEqual([12000]);
+      await jest.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(result.ok).toBe(true);
+      expect(result.provider).toBe('openai');
+      expect(timeouts).toEqual([12000, 20000]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a 400 or a content refusal or an HTTP 422 stays on xAI and is unreadable', async () => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-test';
+    process.env.OPENAI_API_KEY = 'sk-test';
+    jest.resetModules();
+    const ai = require('./lib/ai-client');
+    const { hosts } = installHttps(() => ({
+      status: 422,
+      body: { error: { type: 'invalid_request_error', code: 'invalid_image', message: 'could not parse' } },
+    }));
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    const refused = await ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(refused).toMatchObject({
+      ok: false,
+      code: 'unreadable',
+      status: 422,
+      provider: 'xai',
+      errorClass: 'rejected',
+    });
+    expect(hosts).toEqual(['api.x.ai']);
+
+    jest.resetModules();
+    const ai2 = require('./lib/ai-client');
+    const diag = require('./lib/vision-diag');
+    diag._resetForTests();
+    installHttps(() => ({
+      status: 200,
+      body: { choices: [{ finish_reason: 'content_filter', message: { content: '', refusal: 'no' } }] },
+    }));
+    const blocked = await ai2.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+    expect(blocked).toMatchObject({ ok: false, code: 'unreadable', error: 'content_refusal', errorClass: 'content_refusal' });
+    expect(diag._attemptsForTests()).toHaveLength(1);
+    expect(diag.summary().lastErrorClass).toBe('content_refusal');
+  });
+
+  it('keeps only the last 20 vision attempts and never a raw error string', () => {
+    const diag = require('./lib/vision-diag');
+    diag._resetForTests();
+    for (let i = 0; i < 25; i += 1) {
+      diag.record({
+        provider: 'xai',
+        status: i % 2 === 0 ? 200 : 402,
+        errorClass: i % 2 === 0 ? 'ok' : 'payment_required',
+        durationMs: 100 + i,
+        at: 1000 + i,
+        imageBase64: 'SECRET',
+        errorMessage: 'Your team used all available credits sk-live',
+      });
+    }
+    const rows = diag._attemptsForTests();
+    expect(rows).toHaveLength(20);
+    expect(rows[0].at).toBe(1005);
+    expect(rows[19].at).toBe(1024);
+    expect(JSON.stringify(rows)).not.toMatch(/SECRET|sk-live|credits/);
+    const view = diag.summary();
+    expect(view.samples).toBe(20);
+    expect(view.lastErrorClass).toBe('payment_required');
+    expect(view.p50Ms).toEqual(expect.any(Number));
+    const ddl = require('./lib/db-migrate').DDL;
+    expect(ddl).toContain('CREATE TABLE IF NOT EXISTS vision_diag');
+  });
 });
 
 describe('lib/ai-usage limit calc', () => {

@@ -2,6 +2,7 @@
 // This module provides API endpoints for the FitMunch app
 
 const { stripMarkup, stripNames } = require('./lib/strip-markup');
+const { publicUser, publicProfile } = require('./lib/public-user');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -83,7 +84,7 @@ router.get('/user/profile/:userId', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     const profile = await getProfile(req.params.userId);
-    res.json({ success: true, profile });
+    res.json({ success: true, profile: publicProfile(profile) });
   } catch (error) {
     console.error('Error fetching profile:', error);
     sendApiError(res, error);
@@ -1229,11 +1230,27 @@ function authMiddleware(req, res, next) {
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
 
+// Trainer-only routes. The users row is the source of truth for role (a token's role claim
+// can be stale). Coach preview sessions keep their existing behaviour when preview is on.
+async function requireTrainer(req, res, next) {
+  try {
+    if (req.user && req.user.preview) {
+      if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
+      return next();
+    }
+    const r = await _pool.query('SELECT role FROM users WHERE id=$1', [req.user.userId]);
+    if (!r.rows[0] || r.rows[0].role !== 'pt') {
+      return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    }
+    next();
+  } catch (err) { sendApiError(res, err); }
+}
+
 // ── CLIENT INVITATIONS ───────────────────────────────────────────────────────
 const crypto = require('crypto');
 
 // POST /api/clients/invite — PT creates invite link
-router.post('/clients/invite', authMiddleware, async (req, res) => {
+router.post('/clients/invite', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const gate = await coachGateForPt(req.user.userId);
     if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
@@ -1264,7 +1281,7 @@ router.get('/clients/invite/:token', async (req, res) => {
 // ── PT CLIENT MANAGEMENT ─────────────────────────────────────────────────────
 
 // GET /api/clients — PT gets their client list with recent activity
-router.get('/clients', authMiddleware, async (req, res) => {
+router.get('/clients', authMiddleware, requireTrainer, async (req, res) => {
   try {
     if (req.user.preview) {
       const coachStore = require('./lib/coach-store');
@@ -1288,7 +1305,7 @@ router.get('/clients', authMiddleware, async (req, res) => {
 });
 
 // GET /api/clients/:clientId — full client detail for PT
-router.get('/clients/:clientId', authMiddleware, async (req, res) => {
+router.get('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     // Verify PT owns this client
     const owns = await _pool.query(
@@ -1303,12 +1320,12 @@ router.get('/clients/:clientId', authMiddleware, async (req, res) => {
     const plans = await _pool.query(
       'SELECT * FROM plan_assignments WHERE client_id=$1 AND active=TRUE', [req.params.clientId]
     );
-    res.json({ success: true, client: user, profile, meals, workouts, progress, assignments: plans.rows });
+    res.json({ success: true, client: publicUser(user), profile: publicProfile(profile), meals, workouts, progress, assignments: plans.rows });
   } catch (err) { sendApiError(res, err); }
 });
 
 // PATCH /api/clients/:clientId — update phase/notes/status
-router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
+router.patch('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { phase, notes, status } = req.body;
     if (status === 'active') {
@@ -1331,7 +1348,7 @@ router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
 });
 
 // POST /api/clients/:clientId/assign-plan — PT assigns a meal or workout plan to client
-router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) => {
+router.post('/clients/:clientId/assign-plan', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { planType } = req.body || {};
     if (!['meal','workout'].includes(planType)) return res.status(400).json({ error: 'planType must be meal or workout' });
@@ -1389,6 +1406,8 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     };
     function categorise(itemName) {
       const n = itemName.toLowerCase();
+      // Nut butters, butter beans and butternut aren't dairy (D7).
+      if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'vegetables' : 'pantry';
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
@@ -2189,6 +2208,17 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 });
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
+const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
+// New users (under 3 logged days this week) get an honest empty state: no score, no filler wins, no AI call,
+// no credit (D8).
+const REVIEW_MIN_DAYS = 3;
+const REVIEW_EMPTY = {
+  headline: "Log 3 days of meals and I'll score your week.",
+  wins: [],
+  focus: ['Log what you eat on 3 days this week, even roughly.', 'Weigh in once so the trend has a starting point.'],
+  score: null,
+  empty: true,
+};
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
@@ -2212,6 +2242,15 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     if (reviewGuarded) {
       // Fixed, food-free review with one checked meal. No AI, no credit.
       return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+    }
+    // Too little logged to judge the week: the empty state, before any AI or credit check.
+    {
+      const since0 = new Date(Date.now() - 7 * 86400000);
+      const meals0 = await getMealLogsForPeriod(req.user.userId, since0, new Date()).catch(() => []);
+      const days0 = new Set((meals0 || []).map((m) => new Date(m.date).toDateString())).size;
+      if (days0 < REVIEW_MIN_DAYS) {
+        return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+      }
     }
     // Filtered users need no AI, so this check comes after their fixed review (EQA #135 r4 L2).
     if (!aiClient.hasProvider()) {
@@ -2332,7 +2371,10 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
     // PT info
     const ptRow = await _pool.query('SELECT u.name, u.email FROM pt_clients pc JOIN users u ON u.id=pc.pt_id WHERE pc.client_id=$1', [req.user.userId]);
     res.json({
-      success: true, user, profile,
+      success: true,
+      // Allowlisted: the raw row carries password_hash, stripe_customer_id and settings (launch audit D1).
+      user: publicUser(user, { subscriptionTier: user ? effectiveTier(user) : 'free' }),
+      profile: publicProfile(profile),
       mealPlan: mealAssignment,
       workoutPlan: workoutAssignment,
       shoppingLists: lists.rows,
@@ -2348,7 +2390,7 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
 // ── PT Referral System ──────────────────────────────────────────────────────
 
 // Get or generate a referral code for logged-in PT
-router.get('/referral/code', authMiddleware, async (req, res) => {
+router.get('/referral/code', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const pool = _pool;
     await ensureMigrations();
@@ -2372,7 +2414,7 @@ router.get('/referral/code', authMiddleware, async (req, res) => {
 });
 
 // Claim a referral code at signup (extends trial by 30 days for referrer)
-router.post('/referral/claim', authMiddleware, async (req, res) => {
+router.post('/referral/claim', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'No code provided' });

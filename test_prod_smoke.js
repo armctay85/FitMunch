@@ -55,6 +55,33 @@ describe('production smoke classification', () => {
       status: 503,
       reason: 'scan unavailable',
     });
+    const withDiag = classifyScan(503, {
+      success: false,
+      error: 'Scanning is unavailable right now.',
+      scanDiag: {
+        provider: 'xai',
+        errorClass: 'payment_required',
+        status: 402,
+        counts: { xai: { '402': 2 }, openai: { '503': 1 } },
+        lastErrorClass: 'server_error',
+        p50Ms: 480,
+        errorMessage: 'Bearer sk-live-secret',
+      },
+    });
+    expect(withDiag.ok).toBe(false);
+    expect(withDiag.provider).toBe('xai');
+    expect(withDiag.errorClass).toBe('payment_required');
+    expect(withDiag.reason).toContain('provider=xai');
+    expect(withDiag.reason).toContain('errorClass=payment_required');
+    expect(withDiag.reason).toContain('p50Ms=480');
+    expect(withDiag.reason).toContain('counts=xai:402=2,openai:503=1');
+    expect(withDiag.reason).not.toMatch(/sk-live|Bearer/);
+    const leaked = classifyScan(503, {
+      success: false,
+      error: 'Scanning is unavailable right now.',
+      scanDiag: { provider: 'Bearer sk-live', errorClass: 'payment required!' },
+    });
+    expect(leaked).toEqual({ ok: false, status: 503, reason: 'scan unavailable' });
     expect(classifyScan(422, {
       success: false,
       error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",

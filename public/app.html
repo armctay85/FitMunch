@@ -14,6 +14,7 @@
 <script src="/js/fm-targets.js"></script>
 <script src="/js/fm-item-name.js"></script>
 <script src="/js/fm-week-wow.js"></script>
+<script src="/js/fm-home-week.js"></script>
 <style>
 /* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
 :root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
@@ -286,6 +287,33 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .allergen-note{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:.8rem;font-weight:500;line-height:1.4}
 .allergen-note-badge{display:inline-block;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:#334155;font-size:.68rem;font-weight:600}
 .mp-safe-notice{display:block;margin:10px 0 14px;padding:12px 14px;border-left:4px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:.92rem;font-weight:600;line-height:1.45}
+.hw-card{background:#fff;border:1px solid rgba(31,157,74,.35);border-radius:var(--radius);padding:14px;margin-bottom:14px;min-width:0}
+.hw-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.hw-k{font-size:.68rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--green2)}
+.hw-name{font-size:1.05rem;font-weight:900;color:var(--text);overflow-wrap:anywhere}
+.hw-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
+.hw-tg div{background:rgba(31,157,74,.07);border-radius:10px;padding:8px 4px;text-align:center;min-width:0}
+.hw-tg .hw-cal{grid-column:1 / -1}
+.hw-tg b{display:block;font-size:1rem;font-weight:900;color:var(--text);overflow-wrap:anywhere}
+.hw-tg .hw-cal b{font-size:.95rem;font-variant-numeric:tabular-nums}
+.hw-tg span{font-size:.66rem;color:var(--text2);font-weight:700}
+.hw-skel{display:flex;flex-direction:column;gap:8px}
+.hw-skel-line{height:14px;border-radius:7px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:hw-shimmer 1.2s ease-in-out infinite}
+.hw-skel-line.short{width:55%;align-self:flex-start}
+@keyframes hw-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.hw-skel-line{animation:none;background:#f3f4f6}}
+.hw-err{margin:0 0 10px;color:#334155;font-size:.9rem;line-height:1.45}
+.hw-days{display:flex;gap:4px;margin-bottom:10px}
+.hw-days span{flex:1;min-width:0;text-align:center;font-size:.7rem;font-weight:700;padding:5px 0;border-radius:8px;color:var(--text2);background:#f3f4f6}
+.hw-days span.on{background:var(--green2);color:#fff}
+.hw-meals{list-style:none;margin:0 0 12px;padding:0}
+.hw-meals li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.85rem;min-width:0}
+.hw-meals li b{font-weight:700;overflow-wrap:anywhere;min-width:0}
+.hw-meals li span{color:var(--text2);white-space:nowrap;font-size:.78rem}
+.hw-warn{font-size:.8rem;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px}
+.hw-acts{display:flex;gap:8px;flex-wrap:wrap}
+.hw-acts .btn,#home-week-retry{min-height:44px}
+.hw-acts .btn{flex:1 1 140px}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .goals-nudge span{font-size:.75rem;color:#4b5a52}
@@ -950,7 +978,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
  <li>Limited AI actions per month</li>
@@ -969,9 +997,10 @@ html.fm-authed #app-gate{display:none}
  <div><div class="view-title" id="portal-greeting">Good morning</div><div class="view-sub" id="portal-pt-name">Loading your data…</div></div>
  </div>
  <div class="scroll-body">
+ <section class="hw-card" id="home-week" style="display:none" aria-labelledby="home-week-name"></section>
  <div class="metrics-row">
  <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" onclick="nav('portal-meals')">Log a meal →</button></div>
- <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" onclick="openOnboarding()">Set goals →</button></div>
+ <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" id="pm-cals-cta" onclick="openOnboarding()">Set goals →</button></div>
  <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-green" id="pm-workouts" style="color:var(--green2)">0</div><div class="metric-sub">this week</div><button class="metric-cta" onclick="nav('portal-workouts')">Log workout →</button></div>
  <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div><button class="metric-cta" onclick="nav('receipt-scanner')">Scan receipt →</button></div>
  </div>
@@ -985,7 +1014,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong>Free includes 10 AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -1093,7 +1122,7 @@ html.fm-authed #app-gate{display:none}
 
 <!-- ══ CLIENT: MY PLAN ══ -->
 <div class="view" id="view-portal-plan">
- <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub">Assigned by your trainer.</div></div></div>
+ <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub" id="portal-plan-sub">Your saved meal and workout plans.</div></div></div>
  <div class="scroll-body" id="portal-plan-body">
  <div style="padding:20px;text-align:center"><div class="loader"></div></div>
  </div>
@@ -1663,7 +1692,7 @@ html.fm-authed #app-gate{display:none}
  <figure class="ob-curve" id="ob-curve" style="display:none"></figure>
  <p style="font-size:.9rem;color:#1f2937;font-weight:600;line-height:1.45;margin-bottom:10px" id="ob-week-note" role="status"></p>
  <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
- <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
+ <button class="btn btn-green" style="width:100%;margin-top:12px" id="ob-done" onclick="onboardDone()">Done</button>
  </div>
  </div>
 </div>
@@ -2730,7 +2759,7 @@ async function loadPortalHome() {
  const prof = await API('/user/profile/' + S.user.id);
  if (prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
  if (prof.success && prof.profile && prof.profile.targetCalories) {
- S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein };
+ S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein, targetCarbs: prof.profile.targetCarbs, targetFat: prof.profile.targetFat };
  renderGoalTargets();
  }
  } catch(e) { /* ignore */ }
@@ -2751,7 +2780,8 @@ async function loadPortalHome() {
  // Dashboard metrics
  const todayMeals = (r.recentMeals||[]).filter(m => new Date(m.date).toDateString()===new Date().toDateString());
  document.getElementById('pm-meals').textContent = todayMeals.length;
- document.getElementById('pm-cals').textContent = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ const loggedCals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ document.getElementById('pm-cals').textContent = FMHomeWeek.formatCount(loggedCals);
  const weekWorkouts = (r.recentWorkouts||[]).filter(w => (Date.now()-new Date(w.date)) < 7*86400000);
  document.getElementById('pm-workouts').textContent = weekWorkouts.length;
  document.getElementById('pm-streak').textContent = calcStreak(r.recentMeals||[]);
@@ -2777,9 +2807,18 @@ async function loadPortalHome() {
  el.classList.toggle('zero-soft', String(el.textContent||'0') === '0');
  });
  if (S.goals?.targetCalories) {
- const cals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
  const sub = document.getElementById('pm-cals-sub');
- if (sub) sub.textContent = `of ${S.goals.targetCalories} goal`;
+ if (sub) sub.textContent = `of ${FMHomeWeek.formatCount(S.goals.targetCalories)} goal`;
+ }
+ const cta = document.getElementById('pm-cals-cta');
+ if (cta) cta.style.display = S.goals?.targetCalories ? 'none' : '';
+ const hasWeek = await loadHomeWeek();
+ if (hasWeek && !r.mealPlan && mealPlanEl) {
+ mealPlanEl.textContent = '';
+ const n = document.createElement('div'); n.className = 'portal-plan-name'; n.textContent = S_homeWeek.name;
+ const m = document.createElement('div'); m.className = 'portal-plan-meta'; m.textContent = 'Saved · ' + S_homeWeek.days.length + ' days';
+ mealPlanEl.append(n, m);
+ if (mealBtn) { mealBtn.textContent = 'View'; mealBtn.onclick = () => nav('meal-plans'); }
  }
  // Load AI coaching insight (non-blocking)
  loadAiCoaching(todayMeals, r.recentMeals||[]);
@@ -2827,6 +2866,9 @@ function calcStreak(meals) {
 
 function renderPortalPlan() {
  const el = document.getElementById('portal-plan-body');
+ // Only say a trainer assigned it when there is one (launch audit D9).
+ const sub = document.getElementById('portal-plan-sub');
+ if (sub) sub.textContent = S.portalData && S.portalData.pt ? 'Assigned by your trainer.' : 'Your saved meal and workout plans.';
  if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
  const { mealPlan, workoutPlan } = S.portalData;
  let html = '';
@@ -3624,7 +3666,7 @@ function obRenderCurve(proj) {
 function obRenderHeader(plan, tg) {
  const a = FMWeekWow.weekAverages(plan);
  const meals = ((plan.days || [])[0] && Object.keys(plan.days[0].meals || {}).length) || 4;
- document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: a.calories || tg.calories, protein: a.protein || tg.protein, meals });
+ document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: FMWeekWow.shownTarget(a.calories, tg.calories), protein: FMWeekWow.shownTarget(a.protein, tg.protein), meals });
 }
 function obMealRow(d, slot, m, onSwap) {
  const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
@@ -3693,13 +3735,15 @@ async function onboardBuildWeek() {
  const btn = document.getElementById('ob-build'); btn.disabled = true; btn.textContent = 'Building...';
  const fitnessGoal = OB.input.goal;
  try {
- await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein }) });
+ const saved = await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein, targetCarbs: r.carbs, targetFat: r.fat }) });
+ if (!saved || !saved.success) throw new Error('targets not saved');
  if (OB.input.weightKg) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight: parseFloat(OB.input.weightKg) }) });
  // Keep the goal weight so the curve comes back after a reload. The server checks it against the weight just logged.
  try { await API('/user/goal-weight', { method:'POST', body: JSON.stringify({ goalWeightKg: OB.goalKg }) }); if (S.user) S.user.goalWeightKg = OB.goalKg; } catch (_) { /* optional */ }
- S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
+ S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein, targetCarbs: r.carbs, targetFat: r.fat };
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }
+ OB.savedPlan = null;
  const diet = selectedObDiets();
  const allergies = selectedObAllergies();
  // Filters are their own save. The targets POST above stays as it is.
@@ -3720,7 +3764,7 @@ async function onboardBuildWeek() {
  const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
  const local = async () => {
  const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (b && b.success && b.plan) { const note = [NOTE_BUILDER, b.notice, ...(b.plan.notes || [])].filter(s => s && String(s).trim()).join(' '); S_activePlan = b.plan; onboardRenderWeek(b.plan, note, r); }
+ if (b && b.success && b.plan) { const note = [NOTE_BUILDER, b.notice, ...(b.plan.notes || [])].filter(s => s && String(s).trim()).join(' '); S_activePlan = b.plan; onboardRenderWeek(b.plan, note, r); await onboardSaveWeek(b.plan, fitnessGoal); }
  else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
  };
  // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
@@ -3729,7 +3773,7 @@ async function onboardBuildWeek() {
  try {
  if (!consented) { await local(); return; }
  const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); }
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); await onboardSaveWeek(g.plan, fitnessGoal); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
  finally {
@@ -3737,6 +3781,145 @@ async function onboardBuildWeek() {
  // Redraw the curve now step 3 is visible, so it is drawn at the figure's real width.
  if (OB && document.getElementById('ob-curve').style.display !== 'none') obRenderCurve(FMWeekWow.projectWeight({ weightKg: OB.input.weightKg, goalKg: OB.goalKg, goal: OB.input.goal }));
  }
+}
+
+// Save the week the user just saw (swaps are applied in place, so Done saves them too). The server runs the
+// same allergen check on save as on every saved plan, and again on every read.
+function obWeekBody(plan, fitnessGoal) {
+ const a = FMWeekWow.weekAverages(plan) || {};
+ return { name: 'Your first week', description: plan.summary || 'Built at sign-up from your targets.', goalType: fitnessGoal || plan.goal || 'general_fitness',
+ totalCalories: a.calories || plan.avgDailyCalories || 0, totalProtein: a.protein || 0, meals: plan.days };
+}
+async function onboardSaveWeek(plan, fitnessGoal) {
+ try {
+ const body = obWeekBody(plan, fitnessGoal);
+ // A second pass updates the existing "Your first week" row instead of stacking another one.
+ let id = OB && OB.savedPlan && OB.savedPlan.id;
+ if (!id) {
+ try {
+ const existing = await API('/meal-plans');
+ const plans = existing && existing.success && Array.isArray(existing.plans) ? existing.plans : [];
+ id = FMHomeWeek.onboardingPlanId(plans);
+ } catch (_) { id = null; }
+ }
+ const s = id
+ ? await API('/meal-plans/' + id, { method:'PUT', body: JSON.stringify(body) })
+ : await API('/meal-plans', { method:'POST', body: JSON.stringify(body) });
+ if (s && s.success && s.plan) { OB.savedPlan = { id: s.plan.id, fitnessGoal }; return true; }
+ } catch (_) { /* shown below */ }
+ const n = document.getElementById('ob-week-note');
+ n.textContent = n.textContent + ' We could not save this week yet. Tap Done to try again.';
+ return false;
+}
+async function onboardDone() {
+ const btn = document.getElementById('ob-done');
+ btn.disabled = true;
+ try {
+ // Keep swaps made on step 3: re-save the shown week over the saved row, or save it now if the first save failed.
+ if (OB && S_activePlan && Array.isArray(S_activePlan.days)) {
+ if (OB.savedPlan && OB.savedPlan.id) await API('/meal-plans/' + OB.savedPlan.id, { method:'PUT', body: JSON.stringify(obWeekBody(S_activePlan, OB.savedPlan.fitnessGoal)) });
+ else await onboardSaveWeek(S_activePlan, OB.input && OB.input.goal);
+ }
+ } catch (_) { /* Home still shows what was saved */ }
+ finally { btn.disabled = false; }
+ closeModal('modal-onboard');
+ nav('portal-home');
+ await loadPortalHome();
+}
+
+// ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
+let S_homeWeek = null;
+let S_homeWeekReq = 0;
+function hideHomeWeek(box) {
+ box.style.display = 'none'; box.textContent = ''; box.removeAttribute('aria-busy');
+}
+function showHomeWeekSkeleton(box) {
+ box.textContent = ''; box.style.display = ''; box.setAttribute('aria-busy', 'true');
+ const sk = document.createElement('div'); sk.className = 'hw-skel'; sk.id = 'home-week-skel'; sk.setAttribute('aria-hidden', 'true');
+ for (let i = 0; i < 3; i++) { const line = document.createElement('div'); line.className = 'hw-skel-line' + (i === 2 ? ' short' : ''); sk.appendChild(line); }
+ box.appendChild(sk);
+}
+function showHomeWeekError(box) {
+ box.textContent = ''; box.style.display = ''; box.removeAttribute('aria-busy'); box.removeAttribute('aria-labelledby');
+ const p = document.createElement('p'); p.className = 'hw-err'; p.id = 'home-week-error';
+ p.textContent = "Couldn't load your week, try again";
+ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-ghost2'; b.id = 'home-week-retry'; b.textContent = 'Try again';
+ b.onclick = () => { loadHomeWeek(); };
+ box.append(p, b);
+}
+async function loadHomeWeek() {
+ const box = document.getElementById('home-week');
+ if (!box || typeof FMHomeWeek === 'undefined') return;
+ const ticket = ++S_homeWeekReq;
+ showHomeWeekSkeleton(box);
+ let status = 0; let r = null; let failed = false;
+ try {
+ const res = await fetch('/api/meal-plans', { headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token } });
+ status = res.status;
+ r = await res.json();
+ } catch (_) { failed = true; }
+ if (ticket !== S_homeWeekReq) return;
+ const kind = FMHomeWeek.loadFailure(status, r, failed);
+ if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; return false; }
+ const row = kind === 'ok' ? r.plans[0] : null;
+ const sum = row ? FMHomeWeek.summary(row) : null;
+ S_homeWeek = sum;
+ if (!sum) { hideHomeWeek(box); return false; }
+ const tg = FMHomeWeek.targets(S.goals);
+ box.textContent = ''; box.removeAttribute('aria-busy');
+ const top = document.createElement('div'); top.className = 'hw-top';
+ const head = document.createElement('div');
+ const k = document.createElement('div'); k.className = 'hw-k'; k.textContent = 'This week';
+ const nm = document.createElement('div'); nm.className = 'hw-name'; nm.id = 'home-week-name'; nm.textContent = sum.name;
+ head.append(k, nm); top.appendChild(head); box.appendChild(top); box.setAttribute('aria-labelledby', 'home-week-name');
+ const cal = FMHomeWeek.calorieTile(sum.average && sum.average.calories, tg && tg.calories);
+ if (cal || tg) {
+ const g = document.createElement('div'); g.className = 'hw-tg'; g.id = 'home-week-targets'; g.setAttribute('aria-label', 'Your daily targets');
+ const cells = [];
+ if (cal) cells.push([cal.value, cal.label, true]);
+ if (tg) cells.push([tg.protein + 'g', 'protein', false], [tg.carbs + 'g', 'carbs', false], [tg.fat + 'g', 'fat', false]);
+ cells.forEach(([v, l, wide]) => {
+ const d = document.createElement('div'); if (wide) d.className = 'hw-cal';
+ const b = document.createElement('b'); b.textContent = v; if (wide) b.id = 'home-week-cal';
+ const s = document.createElement('span'); s.textContent = l; d.append(b, s); g.appendChild(d);
+ });
+ box.appendChild(g);
+ }
+ const days = document.createElement('div'); days.className = 'hw-days'; days.setAttribute('aria-hidden', 'true');
+ sum.days.slice(0, 7).forEach(d => { const s = document.createElement('span'); s.textContent = d.short; if (d.today) s.className = 'on'; days.appendChild(s); });
+ box.appendChild(days);
+ // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }; text is built here, textContent only.
+ const aw = FMHomeWeek.warnings(row.allergenWarnings);
+ if (aw.notice) {
+ const n = document.createElement('div'); n.className = 'hw-warn'; n.id = 'home-week-notice'; n.setAttribute('role', 'alert');
+ n.textContent = '⚠️ ' + aw.notice; box.appendChild(n);
+ }
+ if (aw.red.length) {
+ const w = document.createElement('div'); w.className = 'hw-warn'; w.id = 'home-week-warn'; w.setAttribute('role', 'alert');
+ w.textContent = '⚠️ ' + aw.red.slice(0, 3).join('; ') + (aw.red.length > 3 ? ` (+${aw.red.length - 3} more in Meal Planner)` : '');
+ box.appendChild(w);
+ }
+ if (aw.notes.length) {
+ const nt = document.createElement('div'); nt.className = 'allergen-note'; nt.id = 'home-week-note';
+ nt.textContent = aw.notes.slice(0, 3).join(', ') + (aw.notes.length > 3 ? ' and more' : '') + ': ' + uncheckedNote(aw.notes.length);
+ box.appendChild(nt);
+ }
+ const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
+ t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
+ box.appendChild(t);
+ const ul = document.createElement('ul'); ul.className = 'hw-meals'; ul.id = 'home-week-today';
+ sum.today.meals.forEach(m => {
+ const li = document.createElement('li'); const b = document.createElement('b'); b.textContent = obTitle(m.name);
+ const s = document.createElement('span'); s.textContent = m.calories ? m.calories + ' kcal' : ''; li.append(b, s); ul.appendChild(li);
+ });
+ box.appendChild(ul);
+ const acts = document.createElement('div'); acts.className = 'hw-acts';
+ const shop = document.createElement('button'); shop.type = 'button'; shop.className = 'btn btn-green'; shop.id = 'home-week-shop'; shop.textContent = '🛒 Shopping list';
+ shop.onclick = async () => { shop.disabled = true; try { await buildAiShoppingList(S_homeWeek.shoppingPlan); } finally { shop.disabled = false; } };
+ const all = document.createElement('button'); all.type = 'button'; all.className = 'btn btn-ghost2'; all.textContent = 'See the full week'; all.onclick = () => nav('meal-plans');
+ acts.append(shop, all); box.appendChild(acts);
+ box.style.display = '';
+ return true;
 }
 
 // ── GOALS ONBOARDING ─────────────────────────────────────────────────────────
@@ -4489,6 +4672,15 @@ async function loadWeeklyReview() {
  throw new Error(r.error || 'failed');
  }
  const rev = r.review || {};
+ // New users get an honest empty state from the server: no score, no wins (launch audit D8).
+ if (rev.empty) {
+ body.textContent = '';
+ const h = document.createElement('div'); h.style.cssText = 'font-size:.88rem;font-weight:800;margin-bottom:8px'; h.id = 'wr-empty'; h.textContent = rev.headline; body.appendChild(h);
+ const st = r.stats || {};
+ if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged this week.`; body.appendChild(n); }
+ (rev.focus || []).forEach(f => { const d = document.createElement('div'); d.style.cssText = 'font-size:.78rem;color:var(--text2);padding:2px 0'; d.textContent = '🎯 ' + f; body.appendChild(d); });
+ return;
+ }
  // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
  const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
