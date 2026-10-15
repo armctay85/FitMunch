@@ -21,9 +21,14 @@ struct HomeView: View {
                     OfflineNotice(prominent: true)
 
                     dateNavigation
-                    progressSection
-                    summarySection
-                    mealsSection
+                    if viewModel.isLoading {
+                        LoadingSkeleton(rows: 4, label: "Loading today")
+                            .accessibilityIdentifier("today-loading")
+                    } else {
+                        progressSection
+                        summarySection
+                        mealsSection
+                    }
                 }
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
@@ -55,15 +60,6 @@ struct HomeView: View {
             }
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
-            }
-            .overlay {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(Theme.Radius.large)
-                }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") {
