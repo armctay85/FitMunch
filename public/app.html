@@ -3767,11 +3767,21 @@ async function loadHomeWeek() {
  const days = document.createElement('div'); days.className = 'hw-days'; days.setAttribute('aria-hidden', 'true');
  sum.days.slice(0, 7).forEach(d => { const s = document.createElement('span'); s.textContent = d.short; if (d.today) s.className = 'on'; days.appendChild(s); });
  box.appendChild(days);
- const warns = (row.allergenWarnings || []).filter(w => w && (w.message || w.notice));
- if (warns.length) {
- const w = document.createElement('div'); w.className = 'hw-warn'; w.setAttribute('role', 'alert');
- w.textContent = '⚠️ ' + (warns[0].notice || warns[0].message) + (warns.length > 1 ? ` (+${warns.length - 1} more in Meal Planner)` : '');
+ // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }; text is built here, textContent only.
+ const aw = FMHomeWeek.warnings(row.allergenWarnings);
+ if (aw.notice) {
+ const n = document.createElement('div'); n.className = 'hw-warn'; n.id = 'home-week-notice'; n.setAttribute('role', 'alert');
+ n.textContent = '⚠️ ' + aw.notice; box.appendChild(n);
+ }
+ if (aw.red.length) {
+ const w = document.createElement('div'); w.className = 'hw-warn'; w.id = 'home-week-warn'; w.setAttribute('role', 'alert');
+ w.textContent = '⚠️ ' + aw.red.slice(0, 3).join('; ') + (aw.red.length > 3 ? ` (+${aw.red.length - 3} more in Meal Planner)` : '');
  box.appendChild(w);
+ }
+ if (aw.notes.length) {
+ const nt = document.createElement('div'); nt.className = 'allergen-note'; nt.id = 'home-week-note';
+ nt.textContent = aw.notes.slice(0, 3).join(', ') + (aw.notes.length > 3 ? ' and more' : '') + ': ' + uncheckedNote(aw.notes.length);
+ box.appendChild(nt);
  }
  const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
  t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${sum.today.calories.toLocaleString()} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');

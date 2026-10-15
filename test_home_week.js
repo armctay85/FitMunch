@@ -78,3 +78,45 @@ describe('app wiring', () => {
     expect(src).not.toMatch(/Pty Ltd|inc\. GST|Grok|OpenClaw|MRR|\bdesk\b|\bagent\b|woolworths|coles|aldi|iga\b/i);
   });
 });
+
+// The saved week's allergen entries, in the shape the API really sends (api_server.js mealWarnings):
+// { meal, contains[] }, { meal, contains: [], unchecked, note } and { meal: '', contains: [], notice }.
+// There is no `message` field. (Elite QA #146: the card used to read one and showed nothing.)
+describe('allergen warnings on the Home card (real API shape)', () => {
+  const NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
+  it('builds the red text from meal and contains', () => {
+    const w = hw.warnings([{ meal: 'Satay chicken', contains: ['nuts'] }, { meal: 'Banana pancakes', contains: ['banana', 'egg'] }]);
+    expect(w.red).toEqual(['Satay chicken contains nuts', 'Banana pancakes contains banana, egg']);
+    expect(w.notes).toEqual([]);
+    expect(w.notice).toBe('');
+  });
+  it('an unchecked meal is a calm note, never red', () => {
+    const w = hw.warnings([{ meal: 'Arancini', contains: [], unchecked: true, note: NOTE }, { meal: 'Arancini', contains: [], unchecked: true, note: NOTE }]);
+    expect(w.red).toEqual([]);
+    expect(w.notes).toEqual(['Arancini']);
+  });
+  it('the unreadable-list notice is kept, and a mix keeps all three', () => {
+    const w = hw.warnings([
+      { meal: '', contains: [], notice: 'We could not read all your allergies' },
+      { meal: 'Satay chicken', contains: ['nuts'] },
+      { meal: 'Mum\'s special', contains: [], unchecked: true, note: NOTE },
+    ]);
+    expect(w).toEqual({ notice: 'We could not read all your allergies', red: ['Satay chicken contains nuts'], notes: ["Mum's special"] });
+  });
+  it('a made-up message field is ignored, and junk entries are skipped', () => {
+    expect(hw.warnings([{ meal: 'Peanut toast', contains: [], message: 'Peanut toast contains peanut' }, null, 'x', 7, { meal: 'A', contains: [5, '', '  '] }])).toEqual({ notice: '', red: [], notes: [] });
+    expect(hw.warnings(undefined)).toEqual({ notice: '', red: [], notes: [] });
+    expect(hw.warnings({ meal: 'x', contains: ['y'] })).toEqual({ notice: '', red: [], notes: [] });
+  });
+  it('loadHomeWeek renders them from the helper: red and notice get the alert role, the calm note does not, no innerHTML', () => {
+    const l = fn('loadHomeWeek');
+    expect(l).toContain('FMHomeWeek.warnings(row.allergenWarnings)');
+    expect(l).not.toMatch(/\.message|innerHTML/);
+    const redBlock = l.slice(l.indexOf("id = 'home-week-warn'"), l.indexOf("id = 'home-week-note'"));
+    expect(redBlock).toContain("setAttribute('role', 'alert')");
+    const noteBlock = l.slice(l.indexOf("id = 'home-week-note'"), l.indexOf("const t = document.createElement('div'); t.className = 'hw-k'"));
+    expect(noteBlock).not.toContain('role');
+    expect(noteBlock).toContain('uncheckedNote(');
+    expect(l).toContain("id = 'home-week-notice'");
+  });
+});

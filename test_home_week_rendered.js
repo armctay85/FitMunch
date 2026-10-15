@@ -140,18 +140,49 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     });
   }
 
-  it('390px: an allergy warning on the saved week shows in red on Home; no saved week means no card', async () => {
+  it('390px: allergy entries in the API\'s real shape show on Home (red warning, calm note, notice); no saved week means no card', async () => {
     const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+    // Exactly what GET /api/meal-plans sends: { meal, contains } / { meal, contains: [], unchecked, note } / { meal: '', contains: [], notice }. No `message` field.
     db = { profile: { targetCalories: 2000, targetProtein: 130 }, profileSaves: [], plans: [{ id: 1, name: 'Your first week', meals: plan.days }], puts: 0, shopping: 0,
-      warnings: [{ meal: 'Peanut butter toast', contains: ['peanut'], message: 'Peanut butter toast contains peanut, which your filters exclude.' }] };
+      warnings: [
+        { meal: '', contains: [], notice: 'We couldn\'t read all your allergies, so every allergen filter is on.' },
+        { meal: 'Satay chicken', contains: ['nuts'] },
+        { meal: 'Banana <img src=x onerror="window.__xss=1"> bowl', contains: ['banana'] },
+        { meal: 'Arancini', contains: [], unchecked: true, note: 'We couldn\'t check this meal against your allergies, so check the ingredients.' },
+      ] };
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
     await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
     await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
     const p = await ctx.newPage();
     await p.goto(`${base}/app.html`);
-    await p.waitForSelector('#home-week .hw-warn');
-    expect(await p.getAttribute('#home-week .hw-warn', 'role')).toBe('alert');
-    expect(await p.textContent('#home-week .hw-warn')).toMatch(/contains peanut/);
+    await p.waitForSelector('#home-week-warn');
+    // Red per-meal warning, built from meal + contains, with the alert role.
+    expect(await p.getAttribute('#home-week-warn', 'role')).toBe('alert');
+    const red = await p.textContent('#home-week-warn');
+    expect(red).toContain('Satay chicken contains nuts');
+    expect(red).toContain('contains banana');
+    // The unreadable-list notice is its own alert.
+    expect(await p.getAttribute('#home-week-notice', 'role')).toBe('alert');
+    expect(await p.textContent('#home-week-notice')).toMatch(/couldn't read all your allergies/);
+    // The calm "not checked" note: names the meal, says what to do, and is not an alert.
+    expect(await p.getAttribute('#home-week-note', 'role')).toBeNull();
+    const note = await p.textContent('#home-week-note');
+    expect(note).toMatch(/Arancini/);
+    expect(note).toMatch(/We couldn't check this meal against your allergies, so check the ingredients\./);
+    expect(await p.isVisible('#home-week-note')).toBe(true);
+    // API text is text only: the tag in the meal name is shown, never parsed.
+    expect(await p.$('#home-week img')).toBeNull();
+    expect(await p.evaluate(() => window.__xss === undefined)).toBe(true);
+    expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    if (shots) await p.screenshot({ path: `${shots}/home-week-allergen-390.png` });
+    // No warnings, no boxes.
+    db.warnings = [];
+    await p.evaluate(() => loadHomeWeek());
+    expect(await p.$('#home-week-warn')).toBeNull();
+    expect(await p.$('#home-week-note')).toBeNull();
+    expect(await p.$('#home-week-notice')).toBeNull();
+    db.warnings = [{ meal: 'Satay chicken', contains: ['nuts'] }];
+    await p.evaluate(() => loadHomeWeek());
     // Carbs and fat are derived when only calories and protein were saved (older profiles).
     expect((await p.$$eval('#home-week-targets b', (e) => e.map((x) => x.textContent))).length).toBe(4);
     db.plans = [];

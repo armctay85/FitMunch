@@ -59,7 +59,25 @@
     };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary };
+  /**
+   * The saved week's allergen entries as the API really sends them: { meal, contains[] } for a red warning,
+   * { meal, contains: [], unchecked, note } for a meal we could not check, { notice } when the allergy list
+   * could not be read. Text is built here (never taken from an API message field) and is for textContent only.
+   */
+  function warnings(list) {
+    const out = { notice: '', red: [], notes: [] };
+    (Array.isArray(list) ? list : []).forEach((w) => {
+      if (!w || typeof w !== 'object') return;
+      if (typeof w.notice === 'string' && w.notice) { if (!out.notice) out.notice = w.notice; return; }
+      const meal = typeof w.meal === 'string' ? w.meal.trim().slice(0, 80) : '';
+      if (w.unchecked) { const n = meal || 'This meal'; if (out.notes.indexOf(n) < 0) out.notes.push(n); return; }
+      const c = (Array.isArray(w.contains) ? w.contains : []).filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 40));
+      if (c.length) out.red.push((meal || 'A meal') + ' contains ' + c.join(', '));
+    });
+    return out;
+  }
+
+  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

@@ -134,6 +134,11 @@ maybe('Save and build my week -> Home (real SQL)', () => {
     const row = (await get('/api/meal-plans')).body.plans[0];
     expect(row.allergenWarnings.length).toBeGreaterThan(0);
     expect(JSON.stringify(row.allergenWarnings).toLowerCase()).toMatch(/peanut/);
+    // The card reads exactly this shape: { meal, contains }, with no `message` field, and builds its own text.
+    expect(row.allergenWarnings.every((w) => !('message' in w) && typeof w.meal === 'string' && Array.isArray(w.contains))).toBe(true);
+    const shown = hw.warnings(row.allergenWarnings);
+    expect(shown.red.length).toBeGreaterThan(0);
+    expect(shown.red[0]).toMatch(/^Peanut butter toast contains .*peanut/i);
   });
 
   it("another user's Home never sees the week", async () => {
