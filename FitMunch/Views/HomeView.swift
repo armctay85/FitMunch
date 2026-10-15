@@ -21,9 +21,13 @@ struct HomeView: View {
                     OfflineNotice(prominent: true)
 
                     dateNavigation
-                    progressSection
-                    summarySection
-                    mealsSection
+                    if showsEmptyMeals {
+                        mealsSection
+                    } else {
+                        progressSection
+                        summarySection
+                        mealsSection
+                    }
                 }
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
@@ -79,6 +83,11 @@ struct HomeView: View {
             }
             .floatingTabBarInset()
         }
+    }
+
+    /// Zero rings were pushing "No meals logged today" below the fold.
+    private var showsEmptyMeals: Bool {
+        viewModel.meals.isEmpty && !viewModel.isLoading && network.isOnline
     }
 
     private var dateNavigation: some View {
