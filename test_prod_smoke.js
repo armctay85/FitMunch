@@ -8,6 +8,7 @@ const {
   secretsMissing,
   buildIssueBody,
   upsertProdSmokeIssue,
+  safeReason,
 } = require('./scripts/lib/prod-smoke-eval');
 
 const CANNED = [
@@ -105,39 +106,71 @@ describe('production smoke classification', () => {
     const phrase = 'cap limit reached. ';
     const raw = phrase.repeat(20);
     const plain = classifyScan(429, null, raw);
-    const detail = plain.reason.slice('unexpected scan result 429 '.length);
-    expect(detail).toBe(raw.slice(0, 120));
-    expect(detail.length).toBe(120);
-    expect(plain.reason).not.toContain(phrase.repeat(7));
+    expect(plain.reason).toBe(`unexpected scan result 429 unexpected body (${Buffer.byteLength(raw)} bytes)`);
+    expect(plain.reason).not.toContain('cap limit');
   });
 
   it('scrubs the full body before truncating, so a secret split by 120 chars does not leak', () => {
-    const prefix = 'note '.repeat(23);
-    const error = `${prefix}sk-live-FAKEKEYDATA`;
-    expect(prefix.length).toBe(115);
+    const key = 'sk_live_FAKEKEYDATA99';
+    const error = `daily_cap ${' '.repeat(100)}${key}`;
+    expect(error.indexOf('sk_live_')).toBe(110);
+    expect(error.length).toBeGreaterThan(120);
     const reason = classifyScan(429, { success: false, error }).reason;
-    expect(reason).toContain('note note');
-    expect(reason).not.toContain('sk-li');
-    expect(reason).not.toContain('-live-');
+    expect(reason).toBe('unexpected scan result 429 daily_cap');
+    expect(reason).not.toContain('sk_live_');
     expect(reason).not.toContain('FAKEKEY');
-    expect(reason).not.toContain('[redacted]');
+
+    const cut = 'n'.repeat(110) + 'sk_live_FAKEKEYDATA99';
+    const sliced = classifyScan(429, { success: false, error: cut }).reason;
+    expect(sliced).toBe(`unexpected scan result 429 unexpected body (${Buffer.byteLength(cut)} bytes)`);
+    expect(sliced).not.toContain('sk_live_');
+    expect(sliced).not.toContain('FAKEKEY');
+
+    const tail = 'n'.repeat(115) + 'sk-live-FAKEKEYDATA99';
+    const eaten = classifyScan(429, { success: false, error: tail }).reason;
+    expect(eaten).not.toContain('-live-');
+    expect(eaten).not.toContain('FAKEKEY');
+    expect(eaten).not.toContain('sk-li');
   });
 
   it.each([
-    ['sk_live_', 'daily_cap sk_live_FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['rk_live_', 'daily_cap rk_live_FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['pk_live_', 'daily_cap pk_live_FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['whsec_', 'daily_cap whsec_FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['sk-ant-', 'daily_cap sk-ant-FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['sk-proj-', 'daily_cap sk-proj-FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['xai-', 'daily_cap xai-FAKEFAKEFAKE', 'FAKEFAKE'],
-    ['newline sk-', 'daily_cap sk-\nFAKEKEYDATA', 'FAKEKEY'],
-    ['unicode escape', 'daily_cap \\u0073k-live-FAKEKEYDATA', 'FAKEKEY'],
-    ['long base64', 'daily_cap QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVoQUJDREVG', 'QUJD'],
+    ['sk_live_', 'daily_cap sk_live_FAKEKEYDATA99', 'FAKEKEY'],
+    ['rk_live_', 'daily_cap rk_live_FAKEKEYDATA99', 'FAKEKEY'],
+    ['pk_live_', 'daily_cap pk_live_FAKEKEYDATA99', 'FAKEKEY'],
+    ['whsec_', 'daily_cap whsec_FAKEKEYDATA99', 'FAKEKEY'],
+    ['sk-ant-', 'daily_cap sk-ant-FAKEKEYDATA99', 'FAKEKEY'],
+    ['sk-proj-', 'daily_cap sk-proj-FAKEKEYDATA99', 'FAKEKEY'],
+    ['xai-', 'daily_cap xai-FAKEKEYDATA99', 'FAKEKEY'],
+    ['newline sk-', 'daily_cap sk-\nFAKEKEYDATA99', 'FAKEKEY'],
+    ['newline sk_live_', 'daily_cap sk_live_\nFAKEKEYDATA99', 'FAKEKEY'],
+    ['newline rk_live_', 'daily_cap rk_live_\nFAKEKEYDATA99', 'FAKEKEY'],
+    ['newline pk_live_', 'daily_cap pk_live_\nFAKEKEYDATA99', 'FAKEKEY'],
+    ['newline whsec_', 'daily_cap whsec_\nFAKEKEYDATA99', 'FAKEKEY'],
+    ['spaced sk_live_', 'daily_cap sk_live_ FAKEKEYDATA99', 'FAKEKEY'],
+    ['unicode escape', 'daily_cap \\u0073k-live-FAKEKEYDATA99', 'FAKEKEY'],
+    ['glued sk-live-', 'nnnsk-live-FAKEKEYDATA99', 'FAKEKEY'],
+    ['long base64', 'daily_cap QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVoQUJD+REVG', 'QUJD'],
+    ['AKIA', 'daily_cap AKIAFAKEKEYDATA99XYZ', 'AKIA'],
+    ['ghp_', 'daily_cap ghp_FAKEKEYDATA99', 'ghp_'],
+    ['github_pat_', 'daily_cap github_pat_FAKEKEYDATA99', 'github_pat_'],
+    ['xoxb-', 'daily_cap xoxb-1234567890-1234567890123-FAKEKEYDATA99', 'xoxb-'],
+    ['xoxp-', 'daily_cap xoxp-1234567890-FAKEKEYDATA99', 'xoxp-'],
+    ['AIza', 'daily_cap AIzaFAKEKEYDATA99', 'AIza'],
+    ['long hex', 'daily_cap 736b5f6c6976655f53484f525446414b45', '736b5f'],
+    ['data:image', 'daily_cap data:image/png;base64,QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVoQUJDREVG', 'data:image'],
+    ['Bearer', 'daily_cap Bearer FAKESECRETDATA99', 'FAKESECRET'],
+    ['fm_smoke_', 'daily_cap fm_smoke_FAKESESSION', 'fm_smoke_'],
+    ['password', 'daily_cap password=FAKESECRET99', 'FAKESECRET'],
   ])('drops a %s secret instead of printing it', (_label, error, secret) => {
     const reason = classifyScan(429, { success: false, error }).reason;
-    expect(reason).toBe('unexpected scan result 429 daily_cap');
+    const glued = _label === 'glued sk-live-';
+    if (glued) {
+      expect(reason).toBe(`unexpected scan result 429 unexpected body (${Buffer.byteLength(error)} bytes)`);
+    } else {
+      expect(reason).toBe('unexpected scan result 429 daily_cap');
+    }
     expect(reason).not.toContain(secret);
+    expect(reason).not.toContain('FAKEKEY');
   });
 
   it('reports the full body size when the text is only a secret', () => {
@@ -170,23 +203,160 @@ describe('production smoke classification', () => {
     expect(reason).not.toContain(secret);
   });
 
-  it('strips log and issue injection from an otherwise safe error', () => {
+  it('strips controls before matching, including inside a key', () => {
     expect(classifyScan(429, { success: false, error: 'daily_cap\u001b' }).reason)
       .toBe('unexpected scan result 429 daily_cap');
     expect(classifyScan(429, { success: false, error: 'daily_cap\u2028' }).reason)
       .toBe('unexpected scan result 429 daily_cap');
+    const controls = ['\u0000', '\u007f', '\u0085', '\u200b', '\u200e', '\u2028', '\u2029', '\u202a', '\ufeff'];
+    for (const mark of controls) {
+      const error = `daily_cap sk_live_${mark}FAKEKEYDATA99`;
+      const reason = classifyScan(429, { success: false, error }).reason;
+      expect(reason).toBe('unexpected scan result 429 daily_cap');
+      expect(reason).not.toContain('FAKEKEY');
+      expect(reason).not.toContain('sk_live_');
+    }
+    expect(classifyScan(429, { success: false, error: `daily_cap rk_live_${'\u007f'}FAKEKEYDATA99` }).reason)
+      .toBe('unexpected scan result 429 daily_cap');
+    expect(classifyScan(429, { success: false, error: `daily_cap whsec_${'\u2029'}FAKEKEYDATA99` }).reason)
+      .toBe('unexpected scan result 429 daily_cap');
     const brackets = classifyScan(429, { success: false, error: 'daily_cap<a>' }).reason;
-    expect(brackets).toContain('daily_cap');
     expect(brackets).not.toMatch(/[<>]/);
-    expect(classifyScan(429, { success: false, error: 'hello there@' }).reason)
-      .toBe('unexpected scan result 429 hello there');
+    const mention = classifyScan(429, { success: false, error: 'hello there@' }).reason;
+    expect(mention).not.toContain('@');
+    expect(mention).not.toContain('hello there');
     const mailed = classifyScan(429, { success: false, error: 'cap note person@example.com' }).reason;
-    expect(mailed).toContain('cap note');
     expect(mailed).not.toContain('person');
     expect(mailed).not.toContain('example.com');
     expect(mailed).not.toContain('@');
-    expect(mailed).not.toMatch(/[\u0000-\u001f\u2028\u2029]/);
+    expect(mailed).toContain('unexpected body');
   });
+
+  it('does not print credential shapes that are only allowed characters', () => {
+    const userId = classifyScan(429, { success: false, error: 'user_8f3a91bc' }).reason;
+    expect(userId).toBe(`unexpected scan result 429 unexpected body (${Buffer.byteLength('user_8f3a91bc')} bytes)`);
+    expect(userId).not.toContain('8f3a91bc');
+    const hex = '736b5f6c6976655f53484f5254';
+    expect(hex.length).toBeLessThan(32);
+    const shortHex = classifyScan(429, { success: false, error: hex }).reason;
+    expect(shortHex).toBe(`unexpected scan result 429 unexpected body (${Buffer.byteLength(hex)} bytes)`);
+    expect(shortHex).not.toContain('736b5f');
+  });
+
+  it('redacts key shapes in safeReason even when glued to other letters', () => {
+    const samples = [
+      'nnnsk-live-FAKEKEYDATA99',
+      'nnnsk_live_FAKEKEYDATA99',
+      'whsec_FAKEKEYDATA99',
+      'AKIAFAKEKEYDATA99XYZ',
+      'ghp_FAKEKEYDATA99',
+      'xoxb-1234567890-FAKEKEYDATA99',
+    ];
+    for (const sample of samples) {
+      const reason = safeReason(sample);
+      expect(reason).not.toContain('FAKEKEY');
+      expect(reason).not.toContain('AKIA');
+      expect(reason).not.toContain('ghp_');
+      expect(reason).not.toContain('xoxb-');
+      expect(reason).not.toContain('whsec_');
+      expect(reason).not.toContain('sk_live_');
+      expect(reason).not.toContain('sk-live-');
+    }
+  });
+
+  it('allowlists scanDiag provider, error class, and count keys', () => {
+    const provider = `sk_live_${'A'.repeat(16)}`;
+    const verdict = classifyScan(422, {
+      success: false,
+      error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
+      scanDiag: {
+        provider,
+        errorClass: 'unreadable',
+        status: 200,
+        counts: { [provider]: { '200': 1 } },
+        p50Ms: 3,
+      },
+    });
+    expect(verdict.reason).toContain('scan unreadable');
+    expect(verdict.reason).toContain('errorClass=unreadable');
+    expect(verdict.reason).toContain('p50Ms=3');
+    expect(verdict.reason).not.toContain('sk_live_');
+    expect(verdict.reason).not.toContain('AAAA');
+    expect(verdict.provider).toBeUndefined();
+
+    const klass = `whsec_${'b'.repeat(30)}`;
+    const leaked = classifyScan(422, {
+      success: false,
+      error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
+      scanDiag: {
+        provider: 'xai',
+        errorClass: klass,
+        counts: { [klass]: { '200': 4 }, xai: { none: 1 } },
+        p50Ms: 3,
+      },
+    });
+    expect(leaked.provider).toBe('xai');
+    expect(leaked.reason).toContain('provider=xai');
+    expect(leaked.reason).toContain('counts=xai:none=1');
+    expect(leaked.reason).not.toContain('whsec_');
+    expect(leaked.reason).not.toContain('bbbb');
+    expect(leaked.errorClass).toBeUndefined();
+  });
+
+  it('returns the body size for a 10MB error without throwing', () => {
+    const error = 'a'.repeat(10 * 1024 * 1024);
+    const reason = classifyScan(429, { success: false, error }).reason;
+    expect(reason).toBe(`unexpected scan result 429 unexpected body (${Buffer.byteLength(error)} bytes)`);
+    expect(reason).not.toContain('aaaaaa');
+  });
+
+  it('never prints a key body across the 120 cut, with a control in every slot', () => {
+    const body = 'FAKEKEYDATA99';
+    const keys = [
+      ['sk_live_', `sk_live_${body}`],
+      ['rk_live_', `rk_live_${body}`],
+      ['pk_live_', `pk_live_${body}`],
+      ['whsec_', `whsec_${body}`],
+      ['sk-', `sk-${body}`],
+      ['sk-ant-', `sk-ant-${body}`],
+      ['xai-', `xai-${body}`],
+      ['AKIA', `AKIA${body}XX`],
+      ['ghp_', `ghp_${body}`],
+      ['xoxb-', `xoxb-${body}`],
+    ];
+    const marks = ['\u0000', '\u007f', '\u200b', '\u2028', '\u2029', '\ufeff'];
+    const windows = [];
+    for (let i = 0; i <= body.length - 6; i += 1) windows.push(body.slice(i, i + 6));
+    let leak = '';
+    let checked = 0;
+    for (let offset = 0; offset <= 200 && !leak; offset += 1) {
+      const pad = 'n'.repeat(offset);
+      for (const [prefix, key] of keys) {
+        const head = prefix + body.slice(0, 4);
+        for (let slot = 0; slot <= key.length && !leak; slot += 1) {
+          const left = key.slice(0, slot);
+          const right = key.slice(slot);
+          for (const mark of marks) {
+            checked += 1;
+            const reason = classifyScan(429, { success: false, error: pad + left + mark + right }).reason;
+            if (reason.includes(head)) {
+              leak = `prefix ${prefix} at offset ${offset} slot ${slot}`;
+              break;
+            }
+            for (const window of windows) {
+              if (reason.includes(window)) {
+                leak = `body ${window} at offset ${offset} slot ${slot}`;
+                break;
+              }
+            }
+            if (leak) break;
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(200 * keys.length * 6);
+    expect(leak).toBe('');
+  }, 120000);
 
   it('includes a 422 receipt diagnostic in the smoke issue text', () => {
     const verdict = classifyScan(422, {
@@ -223,12 +393,29 @@ describe('production smoke classification', () => {
   });
 
   it('keeps the storage pool inside the 90s scan budget', () => {
-    const src = require('fs').readFileSync(require('path').join(__dirname, 'server/storage.js'), 'utf8');
-    expect(src).toMatch(/connectionTimeoutMillis:\s*5000/);
-    expect(src).toMatch(/statement_timeout:\s*8000/);
-    expect(src).toMatch(/allowExitOnIdle:\s*true/);
-    expect(src).not.toMatch(/connectionTimeoutMillis:\s*30000/);
-    expect(src).not.toMatch(/statement_timeout:\s*60000/);
+    const fs = require('fs');
+    const path = require('path');
+    const read = (rel) => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+    const storage = read('server/storage.js');
+    expect(storage).toMatch(/connectionTimeoutMillis:\s*5000/);
+    expect(storage).toMatch(/statement_timeout:\s*8000/);
+    expect(storage).toMatch(/allowExitOnIdle:\s*true/);
+    expect(storage).toMatch(/ensureSchema !== false/);
+    const migrate = read('lib/db-migrate.js');
+    expect(migrate).toMatch(/connectionTimeoutMillis:\s*3000/);
+    expect(migrate).toMatch(/statement_timeout:\s*8000/);
+    expect(migrate).not.toMatch(/connectionTimeoutMillis:\s*15000/);
+    expect(migrate).not.toMatch(/statement_timeout:\s*30000/);
+    const usage = read('lib/ai-usage.js');
+    expect(usage).toMatch(/connectionTimeoutMillis:\s*3000/);
+    expect(usage).toMatch(/statement_timeout:\s*2000/);
+    const api = read('api_server.js');
+    expect(api).toMatch(/statement_timeout:\s*8000/);
+    const scan = read('receipt-scanner.js');
+    expect(scan).toMatch(/ensureSchema:\s*false/);
+    const ai = read('lib/ai-client.js');
+    expect(ai).toMatch(/89s/);
+    expect(ai).toMatch(/skips ensureSchema/);
   });
 
   it('rejects canned sample items and sample-fallback confidence', () => {

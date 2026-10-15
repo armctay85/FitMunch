@@ -59,8 +59,10 @@ async function getUserByEmail(email) {
   return user;
 }
 
-async function getUserById(id) {
-  await ensureSchema();
+async function getUserById(id, opts) {
+  // Receipt scan passes ensureSchema:false. The migrate pool is not on that
+  // hot path; login has already created the tables.
+  if (!opts || opts.ensureSchema !== false) await ensureSchema();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
   return user;
 }
