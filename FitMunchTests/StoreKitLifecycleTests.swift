@@ -49,7 +49,8 @@ final class StoreKitLifecycleTests: XCTestCase {
         session.resetToDefaultState()
         session.clearTransactions()
 
-        let product = try XCTUnwrap(try await Product.products(for: [productID]).first)
+        let loaded = try await Product.products(for: [productID])
+        let product = try XCTUnwrap(loaded.first)
         let subscription = try XCTUnwrap(product.subscription, "\(productID) subscription")
         let intro = try XCTUnwrap(subscription.introductoryOffer, "\(productID) intro")
         step(productID, "trial-offer", intro.paymentMode == .freeTrial && intro.period.unit == .day && intro.period.value == 14,
@@ -69,8 +70,7 @@ final class StoreKitLifecycleTests: XCTestCase {
         entitled = try await entitlementIDs()
         step(productID, "restore", entitled.contains(productID), "after_sync=\(entitled.sorted().joined(separator: ","))")
 
-        let identifier = Int(transaction.id)
-        XCTAssertEqual(UInt64(identifier), transaction.id, "transaction id does not fit the cancel API")
+        let identifier = UInt(transaction.id)
         try session.disableAutoRenewForTransaction(identifier: identifier)
         let renewal = try await renewalInfo(productID)
         step(productID, "cancel", renewal.willAutoRenew == false, "willAutoRenew=\(renewal.willAutoRenew)")
@@ -113,8 +113,10 @@ final class StoreKitLifecycleTests: XCTestCase {
     }
 
     private func status(_ productID: String) async throws -> Product.SubscriptionInfo.Status {
-        let product = try XCTUnwrap(try await Product.products(for: [productID]).first)
-        let statuses = try await XCTUnwrap(product.subscription).status
+        let loaded = try await Product.products(for: [productID])
+        let product = try XCTUnwrap(loaded.first)
+        let subscription = try XCTUnwrap(product.subscription)
+        let statuses = try await subscription.status
         return try XCTUnwrap(statuses.first, "\(productID) has no subscription status")
     }
 }
