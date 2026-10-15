@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
+    @State private var privacyExpanded = false
     @ObservedObject private var premium = PremiumManager.shared
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
@@ -63,7 +64,7 @@ struct SettingsView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
-                                        .truncationMode(.middle)
+                                        .truncationMode(.tail)
                                 }
                             }
                             Spacer(minLength: Theme.Spacing.two)
@@ -146,7 +147,20 @@ struct SettingsView: View {
                 } header: {
                     Text("Privacy")
                 } footer: {
-                    Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review. Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review.")
+                        if privacyExpanded {
+                            Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
+                        }
+                        Button(privacyExpanded ? "Show less" : "Read more") {
+                            privacyExpanded.toggle()
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.brandGreen)
+                        .frame(minHeight: 44, alignment: .leading)
+                        .accessibilityIdentifier("me-privacy-more")
+                    }
                 }
                 
                 // Subscription section
@@ -252,7 +266,7 @@ struct SettingsView: View {
                             Text(user.email)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                                .truncationMode(.middle)
+                                .truncationMode(.tail)
                         }
                     }
                     Button("Log Out", role: .destructive) {
