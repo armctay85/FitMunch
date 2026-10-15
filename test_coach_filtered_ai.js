@@ -504,3 +504,199 @@ describe('lexicon gaps and natural prose', () => {
     expect(dietGuard.replyVerified('At 2,100 kcal and 150 g protein, have pea protein powder.', ['dairy free'])).toBe(true);
   });
 });
+
+describe('a non-string or empty provider reply is a fallback and the credit is returned', () => {
+  const days = () => [0, 1, 2].map((n) => ({ date: new Date(Date.now() - n * 86400000), mealType: 'lunch', foodName: 'Chicken and rice', calories: 600, protein: 40 }));
+  const shapes = [
+    ['number', 21500],
+    ['array', ['At 2,100 kcal and 150 g protein, have chicken and rice.']],
+    ['object', { text: 'At 2,100 kcal and 150 g protein, have chicken and rice.' }],
+  ];
+
+  it.each(shapes)('chat treats a %s reply as unverified and refunds', async (_name, text) => {
+    aiClient.chat.mockResolvedValue({ ok: true, text, provider: 'mock', model: 'm' });
+    const r = await chat('Snack idea?');
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.provider).toBeNull();
+    expect(r.body.reply).toMatch(/2,100 kcal/);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.anything(), { userId: 'u-filtered', feature: 'chat' });
+  });
+
+  it.each(shapes)('insight treats a %s reply as unverified and refunds', async (_name, text) => {
+    aiClient.chat.mockResolvedValue({ ok: true, text, provider: 'mock', model: 'm' });
+    const r = await request(app).post('/api/ai/insight').set('Authorization', token)
+      .send({ todayCalories: 400, todayProtein: 20, targetCalories: 2000, targetProtein: 150 });
+    expect(r.status).toBe(200);
+    expect(r.body.provider).toBeNull();
+    expect(r.body.insight).toMatch(/2,100 kcal/);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.anything(), { userId: 'u-filtered', feature: 'insight' });
+  });
+
+  it.each([
+    ['number', 21500],
+    ['array', ['You logged 3 days at 2,100 kcal and 150 g protein with chicken and rice.']],
+    ['object', { score: 21500 }],
+  ])('weekly treats a %s reply as unverified and refunds', async (_name, data) => {
+    logs = days();
+    aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data });
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
+    expect(r.body.provider).toBeNull();
+    expect(r.body.review.score).toBeGreaterThanOrEqual(4);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.anything(), { userId: 'u-filtered', feature: 'weekly_review' });
+  });
+});
+
+describe('questions Coach cannot read still get the day plan', () => {
+  it.each([
+    'What should I eat post-leg-day?',
+    'What should I eat while bulking?',
+    '¿Qué puedo comer hoy?',
+    '今天吃什么',
+  ])('"%s" says it cannot read the question and offers the day', async (q) => {
+    say('Have a Milo.', 'Have a Chobani.');
+    const r = await chat(q);
+    expect(r.status).toBe(200);
+    expect(r.body.reply).toMatch(/I can't read that question/);
+    expect(r.body.reply).not.toMatch(/That does not fit your filters/);
+    expect(r.body.reply).toMatch(/Breakfast:/);
+    expect(r.body.reply).toMatch(/Lunch:/);
+    expect(r.body.reply).toMatch(/Dinner:/);
+    expect(dietGuard.textBreaksFilters(r.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['dairy free'])).toBe(false);
+  });
+});
+
+describe('a profile that cannot be read stays filter-safe', () => {
+  it('a food question gets the notice and a day that keeps dairy, gluten and egg out', async () => {
+    storage.getProfile.mockRejectedValue(new Error('db down'));
+    const r = await chat('What should I eat for dinner?');
+    expect(r.status).toBe(200);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    expect(r.body.reply).toContain(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.reply).toMatch(/Breakfast:/);
+    expect(r.body.reply).toMatch(/Dinner:/);
+    for (const f of ['dairy free', 'gluten free', 'egg free']) {
+      expect(dietGuard.textBreaksFilters(r.body.reply, [f])).toBe(false);
+    }
+  });
+
+  it('insight does not call the model and the tip keeps dairy, gluten and egg out', async () => {
+    storage.getProfile.mockRejectedValue(new Error('db down'));
+    const r = await request(app).post('/api/ai/insight').set('Authorization', token)
+      .send({ todayCalories: 400, todayProtein: 20 });
+    expect(r.status).toBe(200);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    expect(r.body.provider).toBeNull();
+    expect(r.body.insight).toContain(dietGuard.SAFE_TIP);
+    for (const f of ['dairy free', 'gluten free', 'egg free']) {
+      expect(dietGuard.textBreaksFilters(r.body.insight, [f])).toBe(false);
+    }
+  });
+
+  it('weekly with three logged days does not call the model', async () => {
+    storage.getProfile.mockRejectedValue(new Error('db down'));
+    logs = [0, 1, 2].map((n) => ({ date: new Date(Date.now() - n * 86400000), mealType: 'lunch', foodName: 'Chicken and rice', calories: 600, protein: 40 }));
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
+    expect(r.body.review.score).toBeNull();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    for (const f of ['dairy free', 'gluten free', 'egg free']) {
+      expect(dietGuard.textBreaksFilters(JSON.stringify(r.body.review), [f])).toBe(false);
+    }
+  });
+});
+
+describe('cite, prose, prefix and prompt mutants', () => {
+  it('21500 is not a cite of 2,150, and a real 2150 token is', async () => {
+    profile({ targetCalories: 2150, targetProtein: 165 });
+    say('21500');
+    const glued = await chat('Snack idea?');
+    expect(glued.body.source).toBe('ai');
+    expect(glued.body.reply.startsWith('At 2,150 kcal and 165 g protein.')).toBe(true);
+    expect(glued.body.reply).toContain('21500');
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+    say('Have chicken and rice at 2,150 kcal.');
+    const formatted = await chat('Snack idea?');
+    expect(formatted.body.reply).toBe('Have chicken and rice at 2,150 kcal.');
+    say('Have chicken and rice at 2150 kcal.');
+    const raw = await chat('Snack idea?');
+    expect(raw.body.reply).toBe('Have chicken and rice at 2150 kcal.');
+    say('Have chicken and rice at 2,1500 kcal.');
+    const longer = await chat('Snack idea?');
+    expect(longer.body.reply.startsWith('At 2,150 kcal and 165 g protein.')).toBe(true);
+  });
+
+  it('pain is not coaching prose, so a reply that says it is unverified', () => {
+    expect(dietGuard.replyIssues('Have chicken and rice. Stop if you feel pain.', ['gluten free'])).toContain('unverified:pain');
+    expect(dietGuard.replyVerified('Have chicken and rice. Stop if you feel pain.', ['dairy free'])).toBe(false);
+  });
+
+  it('typed prefixes match kiwifruit and kiwi, and stop at the length boundary', () => {
+    expect(dietGuard.replyIssues('Have some kiwi with rice.', dietGuard.combineFilters({ allergies: ['kiwifruit'] }))).toContain('allergy:kiwifruit');
+    expect(dietGuard.replyIssues('Have some kiwifruit with rice.', dietGuard.combineFilters({ allergies: ['kiwi'] }))).toContain('allergy:kiwi');
+    expect(dietGuard.replyIssues('Have strawberry with rice.', dietGuard.combineFilters({ allergies: ['berry'] }))).toContain('allergy:berry');
+    expect(dietGuard.replyIssues('Have pea with rice.', dietGuard.combineFilters({ allergies: ['pea'] }))).toContain('allergy:pea');
+    expect(dietGuard.replyIssues('Have peanut with rice.', dietGuard.combineFilters({ allergies: ['pea'] }))).not.toContain('allergy:pea');
+    expect(dietGuard.replyIssues('Have kiw with rice.', dietGuard.combineFilters({ allergies: ['kiwifruit'] }))).not.toContain('allergy:kiwifruit');
+  });
+
+  it('a kiwifruit allergy rejects a reply that only says kiwi', async () => {
+    profile({ dietaryPreferences: [], allergies: ['kiwifruit'] });
+    say('Have some kiwi with rice.', 'Kiwi again with chicken.');
+    const r = await chat('Snack idea?');
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply).not.toMatch(/kiwi/i);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('recent logs keep a safe meal and drop one the filters cannot verify', async () => {
+    profile({ dietaryPreferences: [], allergies: ['milk'] });
+    logs = [
+      { mealType: 'snack', foodName: 'oat milk', calories: 120, protein: 4, date: new Date() },
+      { mealType: 'lunch', foodName: 'Chicken and rice', calories: 640, protein: 48, date: new Date() },
+    ];
+    say(SAFE);
+    const r = await chat('What should I eat after training?');
+    expect(r.status).toBe(200);
+    const system = aiClient.chat.mock.calls[0][0].system;
+    expect(system).toContain('Chicken and rice');
+    expect(system).not.toMatch(/oat milk/i);
+  });
+
+  it('with no filters, an unrecognised recent log is still told to Coach', async () => {
+    profile({ dietaryPreferences: [], allergies: [] });
+    logs = [{ mealType: 'snack', foodName: 'zymbar', calories: 100, protein: 5, date: new Date() }];
+    say('Have chicken and rice.');
+    const r = await chat('What should I eat after training?');
+    expect(r.status).toBe(200);
+    expect(aiClient.chat.mock.calls[0][0].system).toContain('zymbar');
+  });
+
+  it('a filtered user with no provider gets the builder and is not charged', async () => {
+    aiClient.hasProvider.mockReturnValue(false);
+    const r = await chat('What is a good dinner tonight?');
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply).toMatch(/You asked: What is a good dinner tonight\?/);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('a user with no filters and no provider gets 503 before any credit', async () => {
+    profile({ dietaryPreferences: [], allergies: [] });
+    aiClient.hasProvider.mockReturnValue(false);
+    const r = await chat('What is a good dinner tonight?');
+    expect(r.status).toBe(503);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+  });
+});

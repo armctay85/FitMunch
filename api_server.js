@@ -1701,6 +1701,18 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
   } catch (err) { sendApiError(res, err); }
 });
 
+/** A model string, or '' when the provider sent a number, array, object, or blank. Never calls trim on a non-string. */
+function modelText(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+}
+
+/** Weekly JSON is a review only when it is a plain object that contains a non-empty string. */
+function reviewDataText(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
+  return dietGuard.reviewText(data).trim();
+}
+
 // ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
 // LLM-backed when OPENAI_API_KEY (or ANTHROPIC_API_KEY) is set. Falls back to the
 // deterministic coach tip if no provider is configured or the provider errors.
@@ -1781,7 +1793,11 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     const facts = { todayCalories, todayProtein, streak, goal, targetCalories: insightCalories, targetProtein: insightProtein };
     const insightFilters = dietGuard.savedFilters(insightProfile);
     if (insightUnread || dietGuard.unreadable(insightFilters)) {
-      const insight = dietGuard.safeInsight({ filters: insightFilters, calories: insightCalories, protein: insightProtein });
+      // A thrown profile is not an empty filter list: every allergen-free filter applies, or the tip would name dairy, gluten and eggs.
+      const mealFilters = insightUnread
+        ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
+        : insightFilters;
+      const insight = dietGuard.safeInsight({ filters: mealFilters, calories: insightCalories, protein: insightProtein });
       return res.json({ success: true, insight, provider: null });
     }
     const filters = mealSafety.profileFilters(insightProfile);
@@ -1835,7 +1851,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     });
 
     if (filteredInsight) {
-      const accept = (r) => !!(r && r.ok && r.text && dietGuard.replyVerified(r.text, insightFilters, filters));
+      const accept = (r) => {
+        const text = modelText(r && r.text);
+        return !!(r && r.ok && text && dietGuard.replyVerified(text, insightFilters, filters));
+      };
       const { result: r, verified } = await filteredModelAttempts(callInsight, accept);
       if (!verified) {
         await refundUnlessVerified(gate, req.user.userId, 'insight');
@@ -1844,7 +1863,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       res.locals.aiAnswered = true;
       return res.json({
         success: true,
-        insight: ensureCite(r.text.trim(), insightCalories, insightProtein),
+        insight: ensureCite(modelText(r.text), insightCalories, insightProtein),
         provider: r.provider,
         model: r.model,
         remaining: gate.remaining,
@@ -1852,13 +1871,15 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
 
     const r = await callInsight();
+    const insightText = modelText(r && r.text);
 
-    if (!r.ok || !r.text.trim()) {
+    if (!r.ok || !insightText) {
+      if (r && r.ok) await refundUnlessVerified(gate, req.user.userId, 'insight');
       res.locals.aiFailed = true;
-      return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
+      return res.json({ success: true, insight: fallback, provider: (r && r.provider) || null, error: publicClientError(r && r.error, undefined) });
     }
     res.locals.aiAnswered = true;
-    const tip = mealSafety.enforceText(r.text.trim(), { ...filters, alternative: false });
+    const tip = mealSafety.enforceText(insightText, { ...filters, alternative: false });
     return res.json({
       success: true,
       insight: tip.removed.length ? fallback : tip.text,
@@ -1986,12 +2007,23 @@ const COACH_CITE = 'Cite the user\'s daily calorie and protein targets in the an
 const COACH_VERIFY = 'Name only foods you can verify against the user\'s diet and allergies. Do not name a brand. Do not name a food just to say to avoid it. If you are not sure a food is safe, leave it out. Reply in English using Latin letters only.';
 const COACH_RETRY = 'Your last answer named a food that cannot be verified as safe for this user, or it was not in English. Reply again in English using Latin letters only. Name only plain foods that fit every diet and allergy listed. Do not name brands. Do not name a food in order to warn against it. Cite the calorie and protein targets.';
 
-/** Prepend the user's targets when a checked reply does not already name the kcal number. */
+/** Whole numbers only, so 21500 is not read as 2,150 and 2,1500 is not read as 2,150. */
+function numberTokens(body) {
+  const tokens = [];
+  const re = /(?<![\d,])(?:\d{1,3}(?:,\d{3})+|\d+)(?![\d,])/g;
+  const s = String(body == null ? '' : body);
+  let m;
+  while ((m = re.exec(s))) tokens.push(m[0]);
+  return tokens;
+}
+
+/** Prepend the user's targets when a checked reply does not already name the kcal number as its own token. */
 function ensureCite(text, calories, protein) {
   const { kcal, prot } = dietGuard.targetsOf(calories, protein);
   const body = String(text || '').trim();
   const formatted = dietGuard.fmt(kcal);
-  if (body.includes(formatted) || body.includes(String(kcal))) return body;
+  const tokens = numberTokens(body);
+  if (tokens.includes(formatted) || tokens.includes(String(kcal))) return body;
   return `At ${formatted} kcal and ${prot} g protein. ${body}`.trim();
 }
 
@@ -2075,10 +2107,15 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     // Saved filters are read, never written. An unreadable profile or filter list fails closed with no AI.
     // A readable diet or allergy list still gets a real answer, then a fail-closed food check.
     const ctxObj = context && typeof context === 'object' ? context : {};
-    const filters = dietGuard.combineFilters(profile, [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)]);
+    const sentFilters = [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)];
+    const filters = dietGuard.combineFilters(profile, sentFilters);
     const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
+    // The early return still keys off profileUnread. The reply itself uses every allergen-free filter, or the day plan names dairy, gluten and eggs.
+    const replyFilters = profileUnread
+      ? dietGuard.combineFilters({ dietaryPreferences: [dietGuard.UNREADABLE] }, sentFilters)
+      : filters;
     const safeOpts = {
-      filters,
+      filters: replyFilters,
       calories: (profile && profile.targetCalories) || ctxObj.targetCalories,
       protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
       question: latestUser,
@@ -2086,9 +2123,13 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     };
     const hardBlocked = profileUnread || dietGuard.unreadable(filters);
     if (hardBlocked) {
-      return dietGuard.isFoodTalk(intent, latestUser)
-        ? res.json({ success: true, reply: dietGuard.safeCoachReply(safeOpts).reply, source: 'builder', provider: null })
-        : res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
+      if (dietGuard.isFoodTalk(intent, latestUser)) {
+        const built = profileUnread
+          ? dietGuard.addressedCoachReply(safeOpts)
+          : dietGuard.safeCoachReply(safeOpts);
+        return res.json({ success: true, reply: built.reply, source: built.source || 'builder', provider: null });
+      }
+      return res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
     }
 
     const aiFilters = chatAiFilters(profile, ctxObj);
@@ -2145,13 +2186,16 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     });
 
     if (filtered) {
-      const accept = (r) => !!(r && r.ok && r.text && dietGuard.replyVerified(r.text, filters, aiFilters));
+      const accept = (r) => {
+        const text = modelText(r && r.text);
+        return !!(r && r.ok && text && dietGuard.replyVerified(text, filters, aiFilters));
+      };
       const { result: r, verified } = await filteredModelAttempts(callChat, accept);
       if (verified) {
         res.locals.aiAnswered = true;
         return res.json({
           success: true,
-          reply: ensureCite(r.text.trim(), safeOpts.calories, safeOpts.protein),
+          reply: ensureCite(modelText(r.text), safeOpts.calories, safeOpts.protein),
           provider: r.provider,
           model: r.model,
           usage: r.usage || null,
@@ -2172,10 +2216,15 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
+    const replyText = modelText(r.text);
+    if (!replyText) {
+      await refundUnlessVerified(gate, req.user.userId, 'chat');
+      return res.status(502).json({ success: false, error: publicClientError('ai_error'), provider: r.provider || null });
+    }
 
     res.locals.aiAnswered = true;
     // Food suggestions in the reply go through the allergen check before the user sees them.
-    const checked = mealSafety.enforceText(r.text.trim(), aiFilters);
+    const checked = mealSafety.enforceText(replyText, aiFilters);
     return res.json({
       success: true,
       reply: checked.text,
@@ -2342,7 +2391,10 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     // An unreadable profile fails closed with no AI. Everyone else is scored only after 3 logged days.
     const reviewFilters = dietGuard.savedFilters(profile);
     if (reviewUnread || dietGuard.unreadable(reviewFilters)) {
-      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+      const mealFilters = reviewUnread
+        ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
+        : reviewFilters;
+      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
     }
 
     // Gather the last 7 days of real data before deciding whether this week can be scored.
@@ -2432,7 +2484,10 @@ Cite the calorie and protein targets. Do not award a win for showing up, opening
     });
 
     if (filteredReview) {
-      const accept = (r) => !!(r && r.ok && r.data && dietGuard.replyVerified(dietGuard.reviewText(r.data), reviewFilters, reviewAiFilters));
+      const accept = (r) => {
+        const text = reviewDataText(r && r.data);
+        return !!(r && r.ok && text && dietGuard.replyVerified(text, reviewFilters, reviewAiFilters));
+      };
       const { result: r, verified } = await filteredModelAttempts(callReview, accept);
       if (!verified) {
         await refundUnlessVerified(gate, req.user.userId, 'weekly_review');
@@ -2452,6 +2507,10 @@ Cite the calorie and protein targets. Do not award a win for showing up, opening
     const r = await callReview();
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
+    }
+    if (!reviewDataText(r.data)) {
+      await refundUnlessVerified(gate, req.user.userId, 'weekly_review');
+      return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, remaining: gate.remaining });
     }
     res.locals.aiAnswered = true;
     res.json({
