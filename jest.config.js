@@ -15,6 +15,7 @@ module.exports = {
     '**/test_app_select_names.js',
     '**/test_app.js',
     '**/test_haul_score.js',
+    '**/test_receipt_lines.js',
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
