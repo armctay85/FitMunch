@@ -1701,6 +1701,14 @@ router.delete('/workout-plans/:id', authMiddleware, async (req, res) => {
   } catch (err) { sendApiError(res, err); }
 });
 
+// ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
+// LLM-backed when OPENAI_API_KEY (or ANTHROPIC_API_KEY) is set. Falls back to the
+// deterministic coach tip if no provider is configured or the provider errors.
+const mealSafety = require('./lib/meal-safety');
+const aiClient = require('./lib/ai-client');
+const aiUsage = require('./lib/ai-usage');
+const dietGuard = require('./lib/diet-guard');
+
 /** A model string, or '' when the provider sent a number, array, object, or blank. Never calls trim on a non-string. */
 function modelText(value) {
   if (typeof value !== 'string') return '';
@@ -1712,14 +1720,6 @@ function reviewDataText(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
   return dietGuard.reviewText(data).trim();
 }
-
-// ── AI COACHING INSIGHT ───────────────────────────────────────────────────────
-// LLM-backed when OPENAI_API_KEY (or ANTHROPIC_API_KEY) is set. Falls back to the
-// deterministic coach tip if no provider is configured or the provider errors.
-const mealSafety = require('./lib/meal-safety');
-const aiClient = require('./lib/ai-client');
-const aiUsage = require('./lib/ai-usage');
-const dietGuard = require('./lib/diet-guard');
 
 function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCalories, targetProtein }) {
   const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
