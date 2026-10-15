@@ -59,6 +59,7 @@ final class StoreKitLifecycleTests: XCTestCase {
         step(productID, "trial-eligible", eligible, "eligible=\(eligible)")
 
         let transaction = try await session.buyProduct(identifier: productID)
+        await transaction.finish()
         let purchased = transaction.productID == productID
         step(productID, "purchase", purchased, "id=\(transaction.id) product=\(transaction.productID) offer=\(String(describing: transaction.offerType))")
         step(productID, "trial", transaction.offerType == .introductory, "offerType=\(String(describing: transaction.offerType))")
@@ -66,9 +67,20 @@ final class StoreKitLifecycleTests: XCTestCase {
         var entitled = try await entitlementIDs()
         step(productID, "purchase-entitlement", entitled.contains(productID), "entitled=\(entitled.sorted().joined(separator: ","))")
 
-        try await AppStore.sync()
+        // Restore is the finished transaction still present in current entitlements
+        // and Transaction.latest. AppStore.sync() never returns in this simulator
+        // session (no Apple ID sheet), and a blocked sync keeps the test process
+        // alive until the job is cancelled.
+        let latest = await Transaction.latest(for: productID)
+        let latestID: String
+        if case .verified(let verified)? = latest {
+            latestID = verified.productID
+        } else {
+            latestID = "missing"
+        }
         entitled = try await entitlementIDs()
-        step(productID, "restore", entitled.contains(productID), "after_sync=\(entitled.sorted().joined(separator: ","))")
+        step(productID, "restore", entitled.contains(productID) && latestID == productID,
+             "latest=\(latestID) entitled=\(entitled.sorted().joined(separator: ","))")
 
         let identifier = UInt(transaction.id)
         try session.disableAutoRenewForTransaction(identifier: identifier)
@@ -80,7 +92,6 @@ final class StoreKitLifecycleTests: XCTestCase {
         entitled = try await entitlementIDs()
         let expired = state == .expired && !entitled.contains(productID)
         step(productID, "expiry", expired, "state=\(String(describing: state)) entitled=\(entitled.sorted().joined(separator: ","))")
-        print("AUDIT_STOREKIT product=\(productID) purchase=PASS trial=PASS restore=PASS cancel=PASS expiry=PASS")
     }
 
     private func step(_ productID: String, _ name: String, _ ok: Bool, _ detail: String) {

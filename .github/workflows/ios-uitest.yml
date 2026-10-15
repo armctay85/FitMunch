@@ -306,7 +306,7 @@ jobs:
   screen-audit:
     if: (github.event_name == 'workflow_dispatch' && inputs.screen_audit == true) || (github.event_name == 'pull_request' && github.head_ref == 'cursor/b11-screen-audit-89f8')
     runs-on: macos-26
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -386,46 +386,61 @@ jobs:
             local udid="$2"
             local folder="$3"
             local with_storekit="$4"
-            echo "$folder" > /tmp/fitmunch-audit-device
+            if [[ "$with_storekit" != "storekit-only" ]]; then
+              echo "$folder" > /tmp/fitmunch-audit-device
+            fi
             bash scripts/set-simulator-region-au.sh "$udid"
             local bundle="artifacts/audit-2026-10-15/${folder}.xcresult"
             rm -rf "$bundle"
+            local only_testing=(-only-testing:FitMunchUITests/Build11ScreenAuditUITests)
+            if [[ "$with_storekit" == "storekit-only" ]]; then
+              only_testing=(-only-testing:FitMunchTests/StoreKitLifecycleTests)
+            elif [[ "$with_storekit" == "yes" ]]; then
+              only_testing+=(-only-testing:FitMunchTests/StoreKitLifecycleTests)
+            fi
             local args=(
               xcodebuild test
               -project FitMunch.xcodeproj
               -scheme FitMunch
               -destination "platform=iOS Simulator,id=$udid"
               -derivedDataPath "$DERIVED"
-              -only-testing:FitMunchUITests/Build11ScreenAuditUITests
+              "${only_testing[@]}"
               -testLanguage en
               -testRegion AU
               -parallel-testing-enabled NO
+              -test-timeouts-enabled YES
+              -default-test-execution-time-allowance 240
+              -maximum-test-execution-time-allowance 360
               -resultBundlePath "$bundle"
               CODE_SIGNING_ALLOWED=NO
               CODE_SIGNING_REQUIRED=NO
               CODE_SIGN_IDENTITY=-
             )
-            if [[ "$with_storekit" == "yes" ]]; then
-              args+=(-only-testing:FitMunchTests/StoreKitLifecycleTests)
-            fi
             set +e
             "${args[@]}" | tee "artifacts/audit-2026-10-15/${folder}.log"
             local rc=${PIPESTATUS[0]}
             set -e
             echo "$name exit=$rc" | tee -a artifacts/audit-2026-10-15/destinations.txt
+            mkdir -p artifacts/audit-2026-10-15/screens
+            if [[ -d /tmp/fitmunch-audit-2026-10-15 ]]; then
+              cp -R /tmp/fitmunch-audit-2026-10-15/. artifacts/audit-2026-10-15/screens/
+            fi
             return 0
           }
 
-          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "yes"
+          # Screenshots first. StoreKit runs on the 6.9in destination after the UI audit.
+          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "no"
           run_audit "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-6.5in" "no"
+          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in-storekit" "storekit-only"
 
           mkdir -p artifacts/audit-2026-10-15/screens
           if [[ -d /tmp/fitmunch-audit-2026-10-15 ]]; then
             cp -R /tmp/fitmunch-audit-2026-10-15/. artifacts/audit-2026-10-15/screens/
           fi
-          grep 'AUDIT_STOREKIT ' artifacts/audit-2026-10-15/iphone-6.9in.log > artifacts/audit-2026-10-15/storekit.txt || true
+          grep 'AUDIT_STOREKIT ' artifacts/audit-2026-10-15/*.log > artifacts/audit-2026-10-15/storekit.txt || true
           grep 'AUDIT_SCREEN ' artifacts/audit-2026-10-15/*.log > artifacts/audit-2026-10-15/screens.txt || true
           find artifacts/audit-2026-10-15/screens -type f | sort | tee artifacts/audit-2026-10-15/files.txt
+          rm -rf artifacts/audit-2026-10-15/*.xcresult
           test -d artifacts/audit-2026-10-15/screens/iphone-6.9in
           test -d artifacts/audit-2026-10-15/screens/iphone-6.5in
 
