@@ -188,30 +188,45 @@ describe('production smoke classification', () => {
     expect(mailed).not.toMatch(/[\u0000-\u001f\u2028\u2029]/);
   });
 
-  it('keeps scan unreadable diag on a 422 that was not a receipt', () => {
+  it('includes a 422 receipt diagnostic in the smoke issue text', () => {
     const verdict = classifyScan(422, {
       success: false,
       error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
       scanDiag: {
-        provider: 'xai',
+        provider: 'openai',
         errorClass: 'unreadable',
         status: 200,
-        counts: { xai: { '200': 1 } },
+        counts: { openai: { '200': 1 } },
         lastErrorClass: 'unreadable',
-        p50Ms: 90,
+        p50Ms: 140,
+        note: 'Bearer sk-live-secret',
       },
     });
     expect(verdict.ok).toBe(false);
-    expect(verdict.reason).toContain('scan unreadable');
-    expect(verdict.reason).toContain('errorClass=unreadable');
+    expect(verdict.status).toBe(422);
+    expect(verdict.provider).toBe('openai');
     expect(verdict.errorClass).toBe('unreadable');
-    expect(verdict.provider).toBe('xai');
+    expect(verdict.reason).toContain('scan unreadable');
+    expect(verdict.reason).toContain('provider=openai');
+    expect(verdict.reason).toContain('errorClass=unreadable');
+    expect(verdict.reason).toContain('p50Ms=140');
+    expect(verdict.reason).toContain('counts=openai:200=1');
+    expect(verdict.reason).not.toMatch(/sk-live|Bearer/);
+    const body = buildIssueBody({
+      coach: { ok: true, status: 200 },
+      scan: verdict,
+    }, null);
+    expect(body).toContain('Scan detail:');
+    expect(body).toContain('provider=openai');
+    expect(body).toContain('errorClass=unreadable');
+    expect(body).not.toMatch(/sk-live|Bearer/);
   });
 
   it('keeps the storage pool inside the 90s scan budget', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, 'server/storage.js'), 'utf8');
     expect(src).toMatch(/connectionTimeoutMillis:\s*5000/);
     expect(src).toMatch(/statement_timeout:\s*8000/);
+    expect(src).toMatch(/allowExitOnIdle:\s*true/);
     expect(src).not.toMatch(/connectionTimeoutMillis:\s*30000/);
     expect(src).not.toMatch(/statement_timeout:\s*60000/);
   });

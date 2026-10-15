@@ -14,6 +14,9 @@ const pool = new Pool({
   // 45s + 20s. maxDuration is 90s, so 30s connect + 60s statement does not fit.
   connectionTimeoutMillis: 5000,
   statement_timeout: 8000,
+  // An idle client must not hold the process open after tests. The server
+  // stays up on its listen socket.
+  allowExitOnIdle: true,
 });
 
 // Initialize Drizzle ORM

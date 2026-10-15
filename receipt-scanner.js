@@ -159,8 +159,8 @@ async function readReceiptItems(imageBase64, mimeType, route) {
     return core.parseVisionItems(visionResult.text);
   } catch (_) {
     // 200 with text that is not a receipt. Same diagnostic shape as a provider
-    // failure, so smoke can show "scan unreadable". Ordinary accounts still
-    // get only the public 422.
+    // failure, so the smoke gate can attach it. Ordinary accounts still get
+    // only the public 422.
     const carried = visionResult && visionResult.diag;
     const summary = visionDiag.summary();
     throw visionFailure({
