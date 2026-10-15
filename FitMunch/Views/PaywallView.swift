@@ -33,6 +33,9 @@ struct PaywallView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     headerSection
+                    if isLoadingPlans {
+                        LoadingSkeleton(rows: 3, label: "Loading plans", identifier: "paywall-loading")
+                    }
                     if plansLoadFailed {
                         emptyPlansSection
                     }
@@ -71,21 +74,6 @@ struct PaywallView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomBar
             }
-            .overlay {
-                if isLoadingPlans && plans.isEmpty {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Loading plans…")
-                            .font(.subheadline.weight(.semibold))
-                            .accessibilityIdentifier("paywall-loading-label")
-                    }
-                    .padding(24)
-                    .background(.regularMaterial)
-                    .cornerRadius(16)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("paywall-loading")
-                }
-            }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {
                     Task { await loadPlansWithRetry() }
@@ -115,12 +103,6 @@ struct PaywallView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("paywall-headline")
-
-            if isLoadingPlans {
-                Text("Loading plans")
-                    .font(.subheadline.weight(.semibold))
-                    .accessibilityIdentifier("paywall-load-phase")
-            }
         }
     }
 

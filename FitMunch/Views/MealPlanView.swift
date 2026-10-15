@@ -81,7 +81,9 @@ struct MealPlanView: View {
                 if let plan {
                     planSummary(plan)
                         .accessibilityIdentifier("plan-preview")
-                } else if !isLoading {
+                } else if isLoading {
+                    LoadingSkeleton(rows: 3, label: "Loading your week", identifier: "plan-loading")
+                } else {
                     planEmptyState
                 }
             }

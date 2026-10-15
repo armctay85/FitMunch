@@ -20,7 +20,9 @@ struct HomeView: View {
                     OfflineNotice()
 
                     dateNavigation
-                    if showsEmptyMeals {
+                    if viewModel.isLoading {
+                        LoadingSkeleton(rows: 4, label: "Loading today", identifier: "today-loading")
+                    } else if showsEmptyMeals {
                         mealsSection
                     } else {
                         progressSection
@@ -58,15 +60,6 @@ struct HomeView: View {
             }
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
-            }
-            .overlay {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(Theme.Radius.large)
-                }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") {
