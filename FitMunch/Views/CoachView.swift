@@ -8,6 +8,7 @@ struct CoachView: View {
     @State private var input = ""
     @State private var intent = "general"
     @State private var isSending = false
+    @State private var isTyping = false
     @State private var remaining: Int?
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
@@ -69,6 +70,10 @@ struct CoachView: View {
                                 bubble(message)
                                     .id(message.id)
                             }
+                            if isTyping {
+                                typingBubble
+                                    .id("coach-typing-row")
+                            }
                         }
                         .padding()
                     }
@@ -79,6 +84,14 @@ struct CoachView: View {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         } else {
                             withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                        }
+                    }
+                    .onChange(of: isTyping) { _, typing in
+                        guard typing, !ScreenshotLaunch.isActive else { return }
+                        if reduceMotion {
+                            proxy.scrollTo("coach-typing-row", anchor: .bottom)
+                        } else {
+                            withAnimation { proxy.scrollTo("coach-typing-row", anchor: .bottom) }
                         }
                     }
                 }
@@ -198,6 +211,20 @@ struct CoachView: View {
         .accessibilityIdentifier("coach-suggestion")
     }
 
+    private var typingBubble: some View {
+        HStack {
+            TypingDots()
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+            Spacer(minLength: 40)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Coach is typing")
+        .accessibilityIdentifier("coach-typing")
+    }
+
     private func bubble(_ message: ChatMessage) -> some View {
         HStack {
             if message.role == "user" { Spacer(minLength: 40) }
@@ -226,14 +253,16 @@ struct CoachView: View {
         consentNote = nil
         input = ""
         messages.append(ChatMessage(role: "user", content: text))
-        let typingIndex = messages.count
-        messages.append(ChatMessage(role: "assistant", content: "…"))
         isSending = true
+        isTyping = true
 
-        let history = messages.prefix(typingIndex).suffix(12).map { ["role": $0.role, "content": $0.content] }
+        let history = messages.suffix(12).map { ["role": $0.role, "content": $0.content] }
 
         Task {
-            defer { isSending = false }
+            defer {
+                isSending = false
+                isTyping = false
+            }
             do {
                 let res = try await APIClient.request(
                     "/ai/chat",
@@ -242,27 +271,47 @@ struct CoachView: View {
                     as: ChatResponse.self
                 )
                 if res.success, let reply = res.reply {
-                    messages[typingIndex] = ChatMessage(role: "assistant", content: reply)
+                    messages.append(ChatMessage(role: "assistant", content: reply))
                     remaining = res.remaining
                 } else if res.upgrade == true {
                     freeLimitHits += 1
-                    messages[typingIndex] = ChatMessage(role: "assistant",
-                        content: res.error ?? "You've used this month's free AI actions.")
+                    messages.append(ChatMessage(role: "assistant",
+                        content: res.error ?? "You've used this month's free AI actions."))
                     showPaywall = true
                 } else {
-                    messages[typingIndex] = ChatMessage(role: "assistant",
-                        content: res.error ?? "That didn't work. Try again in a moment.")
+                    messages.append(ChatMessage(role: "assistant",
+                        content: res.error ?? "That didn't work. Try again in a moment."))
                 }
             } catch {
                 let apiError = error as? APIError
-                messages[typingIndex] = ChatMessage(role: "assistant",
-                    content: apiError?.errorDescription ?? "Network hiccup. Try again.")
+                messages.append(ChatMessage(role: "assistant",
+                    content: apiError?.errorDescription ?? "Network hiccup. Try again."))
                 if case .server(let text)? = apiError, text.lowercased().contains("upgrade") {
                     freeLimitHits += 1
                     showPaywall = true
                 }
             }
         }
+    }
+}
+
+/// Three dots while the coach reply is in flight. Still when Reduce Motion is on.
+private struct TypingDots: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.35, paused: reduceMotion)) { context in
+            let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.35) % 3
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.secondary)
+                        .frame(width: 7, height: 7)
+                        .opacity(reduceMotion || tick == index ? 1 : 0.35)
+                }
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
