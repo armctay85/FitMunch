@@ -14,6 +14,7 @@ const core = require('./lib/receipt-scan-core');
 const crypto = require('crypto');
 const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const visionDiag = require('./lib/vision-diag');
 
 let visionOverride = null;
 function getVision() {
@@ -124,6 +125,22 @@ function extractImage(req) {
 
 const VISION_PROMPT = 'This is a supermarket receipt photo. Return one JSON object and nothing else: {"items":[{"name":"Bananas","quantity":1,"unit":"kg","unitPrice":3.9,"price":3.9,"discount":0,"category":"fruit","line":"BANANAS 1.000 kg @ $3.90/kg 3.90"}]}. price is the dollars paid for that line after any discount. unitPrice is the printed per kg or per item price when you can see it. Weighted lines (per kg, deli scales): quantity is the weight, unit is kg or g, price is the amount charged. Multi-buy (2 for $5, 3 @ $1.80): quantity is how many, price is the amount charged for the deal. If a price is not readable, set price to null. Never use 1 as a placeholder. Skip totals, tax, payment, loyalty, bags and savings lines. Put the printed line text in line. Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other.';
 
+function visionFailure(visionResult) {
+  const unreadable = visionResult && visionResult.code === 'unreadable';
+  const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
+  failed.code = failed.message;
+  const diag = visionResult && visionResult.diag;
+  failed.scanDiag = visionDiag.publicView({
+    provider: visionResult && visionResult.provider,
+    errorClass: visionResult && visionResult.errorClass,
+    status: visionResult && visionResult.status,
+    counts: diag && diag.counts,
+    lastErrorClass: (diag && diag.lastErrorClass) || (visionResult && visionResult.errorClass) || null,
+    p50Ms: diag && diag.p50Ms,
+  });
+  return failed;
+}
+
 async function readReceiptItems(imageBase64, mimeType, route) {
   const visionResult = await getVision()({
     imageBase64,
@@ -136,10 +153,7 @@ async function readReceiptItems(imageBase64, mimeType, route) {
     jsonMode: true,
   });
   if (!visionResult || !visionResult.ok) {
-    const unreadable = visionResult && visionResult.code === 'unreadable';
-    const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
-    failed.code = failed.message;
-    throw failed;
+    throw visionFailure(visionResult);
   }
   try {
     return core.parseVisionItems(visionResult.text);
@@ -166,17 +180,23 @@ function hashUserId(userId) {
   return crypto.createHash('sha256').update(String(userId)).digest('hex');
 }
 
-function sendVisionFailure(res, err, event, userId) {
+function sendVisionFailure(res, err, event, userId, exposeDiag) {
   const unavailable = visionFailureCode(err) === 'unavailable';
+  const diag = visionDiag.publicView(err && err.scanDiag);
   console.info('[receipt-scan]', JSON.stringify({
     event,
     userId: hashUserId(userId),
+    provider: diag && diag.provider,
+    errorClass: diag && diag.errorClass,
   }));
   if (unavailable) res.set('Retry-After', '60');
-  return res.status(unavailable ? 503 : 422).json({
+  const body = {
     success: false,
     error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
-  });
+  };
+  // Smoke account only. Ordinary scans and guest first-scan stay on the public copy.
+  if (exposeDiag && diag) body.scanDiag = diag;
+  return res.status(unavailable ? 503 : 422).json(body);
 }
 
 router.get('/', requireAuth, (_req, res) => res.json({
@@ -232,11 +252,27 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
     } catch (visionErr) {
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
+      if (smoke && visionErr && visionErr.scanDiag) {
+        try {
+          const merged = await visionDiag.mergedSummary();
+          if (merged && merged.samples > 0) {
+            visionErr.scanDiag = visionDiag.publicView({
+              provider: visionErr.scanDiag.provider,
+              errorClass: visionErr.scanDiag.errorClass,
+              status: visionErr.scanDiag.status,
+              counts: merged.counts,
+              lastErrorClass: merged.lastErrorClass || visionErr.scanDiag.lastErrorClass,
+              p50Ms: merged.p50Ms != null ? merged.p50Ms : visionErr.scanDiag.p50Ms,
+            });
+          }
+        } catch (_) { /* the public error still goes out */ }
+      }
       return sendVisionFailure(
         res,
         visionErr,
         unavailable ? 'scan_unavailable' : 'scan_unreadable',
-        req.user?.userId || null
+        req.user?.userId || null,
+        smoke
       );
     }
 
@@ -337,7 +373,8 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
         res,
         visionErr,
         unavailable ? 'first_scan_unavailable' : 'first_scan_unreadable',
-        null
+        null,
+        false
       );
     }
 

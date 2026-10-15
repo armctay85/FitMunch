@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
+    '**/test_audit_p2.js',
+    '**/test_audit_p2_pg.js',
     '**/test_home_hero_r3.js',
     '**/test_home_hero_alt.js',
     '**/test_home_hero_rendered.js',
@@ -17,6 +19,7 @@ module.exports = {
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
+    '**/test_coach_filtered_ai.js',
 
     '**/test_privacy_export.js',
     '**/test_ai_consent_routes.js',
@@ -32,6 +35,8 @@ module.exports = {
     '**/test_trust_bar.js',
     '**/test_sample_receipt_demo.js',
     '**/test_meal_plan_owner_pg.js',
+    '**/test_trainer_only_pg.js',
+    '**/test_no_secret_fields_pg.js',
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',
     '**/test_allergen_tags.js',
@@ -44,6 +49,9 @@ module.exports = {
     '**/test_onboard_rendered.js',
     '**/test_first_week_wow.js',
     '**/test_first_week_wow_rendered.js',
+    '**/test_home_week.js',
+    '**/test_home_week_pg.js',
+    '**/test_home_week_rendered.js',
     '**/test_first_scan.js',
     '**/test_shopper.js',
     '**/test_coach_plan.js',

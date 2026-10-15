@@ -96,6 +96,10 @@ describe('POST /api/receipt/first-scan', () => {
       ok: false,
       error: 'vision_failed GEMINI_API_KEY credit balance is too low',
       code: 'unavailable',
+      provider: 'openai',
+      status: 402,
+      errorClass: 'payment_required',
+      diag: { counts: { openai: { '402': 1 } }, lastErrorClass: 'payment_required', p50Ms: 12 },
     }));
 
     const res = await request(app)
@@ -189,6 +193,10 @@ describe('POST /api/receipt/scan read failure', () => {
       ok: false,
       code: 'unavailable',
       error: 'vision_failed GEMINI_API_KEY credit balance is too low',
+      provider: 'xai',
+      status: 402,
+      errorClass: 'payment_required',
+      diag: { counts: { xai: { '402': 1 } }, lastErrorClass: 'payment_required', p50Ms: 400 },
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
@@ -213,6 +221,73 @@ describe('POST /api/receipt/scan read failure', () => {
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('scan_unavailable');
     expect(logged).not.toContain('u-scan-fail');
+    expect(res.body.scanDiag).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
+  });
+
+  it('gives the smoke account the provider and error class, and keeps the public copy', async () => {
+    const previous = process.env.SMOKE_ACCOUNT_IDS;
+    process.env.SMOKE_ACCOUNT_IDS = 'u-scan-fail';
+    process.env.GEMINI_API_KEY = 'test-key';
+    receiptRouter._setVisionForTests(async () => ({
+      ok: false,
+      code: 'unavailable',
+      error: 'provider_error',
+      provider: 'xai',
+      status: 402,
+      errorClass: 'payment_required',
+      diag: {
+        counts: { xai: { '402': 2 }, openai: { '200': 4 } },
+        lastErrorClass: 'payment_required',
+        p50Ms: 480,
+      },
+    }));
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    try {
+      const res = await request(app)
+        .post('/api/receipt/scan')
+        .set('Authorization', `Bearer ${authToken()}`)
+        .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
+        .expect(503);
+      expect(res.body.error).toBe('Scanning is unavailable right now.');
+      expect(res.body.success).toBe(false);
+      expect(res.body.scanDiag).toEqual({
+        provider: 'xai',
+        errorClass: 'payment_required',
+        status: 402,
+        counts: { xai: { '402': 2 }, openai: { '200': 4 } },
+        lastErrorClass: 'payment_required',
+        p50Ms: 480,
+      });
+      expect(JSON.stringify(res.body)).not.toMatch(/GEMINI_API_KEY|sk-|imageBase64|Bearer/);
+    } finally {
+      if (previous == null) delete process.env.SMOKE_ACCOUNT_IDS;
+      else process.env.SMOKE_ACCOUNT_IDS = previous;
+    }
+  });
+
+  it('returns 422 for a content refusal and does not name the provider to a normal account', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    receiptRouter._setVisionForTests(async () => ({
+      ok: false,
+      code: 'unreadable',
+      error: 'content_refusal',
+      provider: 'openai',
+      status: 422,
+      errorClass: 'content_refusal',
+      diag: { counts: { openai: { '422': 1 } }, lastErrorClass: 'content_refusal', p50Ms: 90 },
+    }));
+    jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    const res = await request(app)
+      .post('/api/receipt/scan')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .attach('receipt', TINY_PNG, { filename: 'receipt.png', contentType: 'image/png' })
+      .expect(422);
+    expect(res.body).toEqual({
+      success: false,
+      error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
+    });
+    expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
   });
 
   it('returns the unreadable 422 when the provider answers but the text is not a receipt', async () => {
