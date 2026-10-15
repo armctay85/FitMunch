@@ -22,6 +22,97 @@
     });
   }
 
+  function mealItem(m, type) {
+    const mealType = String(type || (m && (m.mealType || m.slot || m.type)) || 'lunch').toLowerCase();
+    return {
+      name: m && m.name != null ? String(m.name) : '',
+      mealType,
+      calories: m ? m.calories : undefined,
+      protein: m ? m.protein : undefined,
+      carbs: m ? m.carbs : undefined,
+      fat: m ? m.fat : undefined,
+      ingredients: m ? m.ingredients : undefined,
+      foods: m ? m.foods : undefined,
+    };
+  }
+
+  /** One stored meal: its foods list, or the meal itself. Non-objects yield nothing. */
+  function itemsFromMeal(m, fallbackType) {
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return [];
+    if (Array.isArray(m.foods) && m.foods.length) {
+      const type = m.mealType || m.slot || m.type || fallbackType || 'lunch';
+      const out = [];
+      m.foods.forEach((f) => {
+        if (f && typeof f === 'object' && !Array.isArray(f)) out.push(mealItem(f, f.mealType || f.slot || f.type || type));
+      });
+      return out;
+    }
+    if (m.name != null || m.mealType || m.slot || m.type || (Array.isArray(m.ingredients) && m.ingredients.length)) {
+      return [mealItem(m, m.mealType || m.slot || m.type || fallbackType || 'lunch')];
+    }
+    return [];
+  }
+
+  function itemsFromMealsField(meals) {
+    if (Array.isArray(meals)) {
+      const out = [];
+      meals.forEach((m) => { itemsFromMeal(m).forEach((x) => out.push(x)); });
+      return out;
+    }
+    if (!meals || typeof meals !== 'object') return [];
+    const keys = Object.keys(meals);
+    const used = new Set();
+    const out = [];
+    SLOT_ORDER.forEach((slot) => {
+      const k = keys.find((x) => String(x).toLowerCase() === slot);
+      if (!k) return;
+      used.add(k);
+      itemsFromMeal(meals[k], slot).forEach((x) => out.push(x));
+    });
+    keys.forEach((k) => {
+      if (used.has(k)) return;
+      const v = meals[k];
+      if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+      itemsFromMeal(v, k).forEach((x) => out.push(x));
+    });
+    return out;
+  }
+
+  /**
+   * A saved plan's meals, in every shape a reader might see: a flat list, a week of days
+   * (meals as a slot object or a list, including { days }), or JSON text of either.
+   * Onboarding POST /meal-plans writes plan.days (slot objects). Odd or missing shapes
+   * come back as empty lists. Never throws.
+   */
+  function flattenPlanMeals(raw) {
+    const empty = { days: [], items: [] };
+    try {
+      let meals = raw;
+      if (typeof meals === 'string') {
+        try { meals = JSON.parse(meals); } catch (_) { return empty; }
+      }
+      if (meals && typeof meals === 'object' && !Array.isArray(meals) && Array.isArray(meals.days)) meals = meals.days;
+      if (!Array.isArray(meals)) return empty;
+      const dayish = meals.some((d) => d && typeof d === 'object' && !Array.isArray(d) && d.meals && typeof d.meals === 'object');
+      if (!dayish) {
+        const items = [];
+        meals.forEach((m) => { itemsFromMeal(m).forEach((x) => items.push(x)); });
+        return { days: [], items };
+      }
+      const days = [];
+      meals.forEach((d, i) => {
+        if (!d || typeof d !== 'object' || Array.isArray(d) || !d.meals || typeof d.meals !== 'object') return;
+        const day = typeof d.day === 'string' && d.day.trim() ? d.day.trim().slice(0, 40) : `Day ${i + 1}`;
+        days.push({ day, meals: itemsFromMealsField(d.meals) });
+      });
+      const items = [];
+      days.forEach((d) => { d.meals.forEach((x) => items.push(x)); });
+      return { days, items };
+    } catch (_) {
+      return empty;
+    }
+  }
+
   /** Today's day of the plan by weekday name, else the first day. */
   function todayIndex(days, now) {
     if (!days.length) return -1;
@@ -125,7 +216,39 @@
     return out;
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, formatCount, calorieTile, onboardingPlanId, loadFailure };
+  /**
+   * Home card red lines. Each allergen group (a `contains` value) appears once, on the first
+   * meal that hits it, in list order. The card shows the first three of those lines; `more`
+   * is how many distinct lines are left. Notice and unchecked notes match warnings().
+   */
+  function allergenPreview(list, limit) {
+    const base = warnings(list);
+    const cap = limit == null ? 3 : Number(limit);
+    const seen = new Set();
+    const lines = [];
+    (Array.isArray(list) ? list : []).forEach((w) => {
+      if (!w || typeof w !== 'object' || w.unchecked) return;
+      const meal = typeof w.meal === 'string' ? w.meal.trim().slice(0, 80) : '';
+      const fresh = [];
+      (Array.isArray(w.contains) ? w.contains : []).forEach((x) => {
+        if (typeof x !== 'string') return;
+        const label = x.trim().slice(0, 40);
+        if (!label) return;
+        const key = label.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        fresh.push(label);
+      });
+      if (fresh.length) lines.push((meal || 'A meal') + ' contains ' + fresh.join(', '));
+    });
+    const n = Number.isFinite(cap) && cap >= 0 ? cap : 3;
+    const shown = lines.slice(0, n);
+    const more = lines.length - shown.length;
+    const text = shown.join('; ') + (more > 0 ? ` (+${more} more in Meal Planner)` : '');
+    return { notice: base.notice, notes: base.notes, lines, shown, more, text };
+  }
+
+  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, allergenPreview, flattenPlanMeals, formatCount, calorieTile, onboardingPlanId, loadFailure };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

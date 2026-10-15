@@ -63,6 +63,7 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       res.json({ success: true, list: { name: 'Your first week: shopping list', itemCount: items.length, items, byAisle: { pantry: items }, aisleOrder: ['pantry'], aisleIcons: {} } });
     });
     app.post('/api/user/goal-weight', (req, res) => res.json({ success: true, goalWeightKg: req.body.goalWeightKg }));
+    app.get('/_vercel/insights/script.js', (req, res) => { res.type('application/javascript'); res.send(''); });
     app.use('/api', (req, res) => res.json(req.path.includes('/auth/me')
       ? { success: true, user: { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role: 'client', subscriptionTier: 'free', settings: {} } }
       : { success: true, lists: [], logs: [], recentMeals: db.todayCals ? [{ date: new Date().toISOString(), calories: db.todayCals }] : [], recentWorkouts: [] }));
@@ -273,4 +274,71 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     expect(db.plans[0].name).toBe('Your first week');
     await ctx.close();
   });
+
+  // Onboarding weeks are day-shaped (plan.days: meals is a slot object). Meal Plans used to throw
+  // "d.meals.flatMap is not a function" and draw no card. The same week carries three egg hits
+  // first, then satay, banana and prawn: Home shows each group once.
+  for (const width of [320, 390, 1440]) {
+    it(`${width}px: onboarding week renders a Meal Plans card, and Home dedupes allergen groups`, async () => {
+      const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+      const breakfast = plan.days[0].meals.breakfast.name;
+      db = {
+        profile: { targetCalories: 2000, targetProtein: 130 }, profileSaves: [],
+        plans: [{ id: 1, name: 'Your first week', meals: plan.days, total_calories: 2000, goal_type: 'weight_loss' }],
+        puts: 0, shopping: 0,
+        warnings: [
+          { meal: '', contains: [], notice: 'We couldn\'t read all your allergies, so every allergen filter is on.' },
+          { meal: 'Eggs on toast', contains: ['egg'] },
+          { meal: 'Egg fried rice', contains: ['egg'] },
+          { meal: 'Cheese omelette', contains: ['egg'] },
+          { meal: 'Satay chicken', contains: ['nuts'] },
+          { meal: 'Banana bowl', contains: ['banana'] },
+          { meal: 'Garlic prawns', contains: ['prawn'] },
+          { meal: 'Arancini', contains: [], unchecked: true, note: 'We couldn\'t check this meal against your allergies, so check the ingredients.' },
+        ],
+      };
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+      await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+      await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+      const p = await ctx.newPage();
+      const pageErrors = [];
+      const consoleErrors = [];
+      p.on('pageerror', (e) => pageErrors.push(String(e)));
+      p.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+      await p.goto(`${base}/app.html`);
+      await p.waitForSelector('#home-week-warn');
+      const red = await p.textContent('#home-week-warn');
+      expect(red).toBe('⚠️ Eggs on toast contains egg; Satay chicken contains nuts; Banana bowl contains banana (+1 more in Meal Planner)');
+      expect(red.match(/contains egg/g)).toEqual(['contains egg']);
+      expect(red).not.toContain('Egg fried rice');
+      expect(red).not.toContain('Garlic prawns');
+      expect(await p.getAttribute('#home-week-warn', 'role')).toBe('alert');
+      expect(await p.getAttribute('#home-week-notice', 'role')).toBe('alert');
+      expect(await p.textContent('#home-week-notice')).toMatch(/couldn't read all your allergies/);
+      expect(await p.getAttribute('#home-week-note', 'role')).toBeNull();
+      expect(await p.textContent('#home-week-note')).toMatch(/Arancini/);
+      expect(await p.evaluate(() => getComputedStyle(document.getElementById('home-week-note')).backgroundColor)).toBe('rgb(248, 250, 252)');
+      const shots = process.env.MEAL_PLAN_SHOTS;
+      if (shots) await p.locator('#home-week').screenshot({ path: `${shots}/home-deduped-${width}.png` });
+
+      await p.locator('#home-week button', { hasText: 'See the full week' }).click();
+      await p.waitForSelector('#view-meal-plans.active #meal-plans-grid .plan-card');
+      const card = await p.textContent('#meal-plans-grid .plan-card');
+      expect(card).toContain('Your first week');
+      expect(card).toContain('Monday');
+      expect(card).toContain('Breakfast: ' + breakfast);
+      expect(card).toContain('Tuesday');
+      expect(await p.locator('#meal-plans-grid .plan-card').count()).toBe(1);
+      expect(pageErrors).toEqual([]);
+      const jsErrors = consoleErrors.filter((t) => !/Failed to load resource|net::ERR_|favicon/i.test(t));
+      expect(jsErrors).toEqual([]);
+      expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+      if (shots) {
+        await p.locator('#mp-saved-section').scrollIntoViewIfNeeded();
+        await p.locator('#meal-plans-grid .plan-card').screenshot({ path: `${shots}/meal-plans-card-${width}.png` });
+        await p.screenshot({ path: `${shots}/meal-plans-${width}.png` });
+      }
+      await ctx.close();
+    });
+  }
 });
