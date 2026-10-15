@@ -15,9 +15,11 @@ module.exports = {
     '**/test_app_select_names.js',
     '**/test_app.js',
     '**/test_haul_score.js',
+    '**/test_receipt_lines.js',
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
+    '**/test_coach_filtered_ai.js',
 
     '**/test_privacy_export.js',
     '**/test_ai_consent_routes.js',

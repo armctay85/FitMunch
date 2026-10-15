@@ -18,8 +18,9 @@ jest.mock('./server/storage.js', () => {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u-smoke-1', subscriptionTier: 'free', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(async () => null),
-    // Three logged days: past the weekly review's new-user empty state, so the gate checks still run.
-    getMealLogsForPeriod: jest.fn(async () => [0, 1, 2].map((d) => ({ date: new Date(Date.now() - d * 86400000), calories: 600, protein: 40 }))),
+    getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
     trackEvent: jest.fn(),
   };
 });
@@ -149,9 +150,21 @@ describe('other AI routes fail closed on a smoke usage-store error', () => {
   const routes = [
     ['insight', (t) => request(app).post('/api/ai/insight').set('Authorization', `Bearer ${t}`).send({ todayCalories: 1000, targetCalories: 2000 })],
     ['workout plan', (t) => request(app).post('/api/ai/workout-plan').set('Authorization', `Bearer ${t}`).send({ goal: 'strength' })],
-    ['weekly review', (t) => request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${t}`)],
     ['meal plan', (t) => request(app).post('/api/meal-plan/generate').set('Authorization', `Bearer ${t}`).send({})],
   ];
+  it('a week with no logs is a first-week review and does not use the AI gate', async () => {
+    process.env.SMOKE_ACCOUNT_IDS = ID;
+    smokeFail = true;
+    const down = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${tokenFor('x@example.com', ID)}`);
+    expect(down.status).toBe(200);
+    expect(down.body.review.score).toBeNull();
+    smokeFail = false;
+    smokeUsed = 30;
+    const capped = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${tokenFor('x@example.com', ID)}`);
+    expect(capped.status).toBe(200);
+    expect(capped.body.review.score).toBeNull();
+    expect(capped.body.review.headline).toMatch(/Log 3 days/);
+  });
   it.each(routes)('%s returns 503 when the gate is unavailable', async (_n, call) => {
     process.env.SMOKE_ACCOUNT_IDS = ID;
     smokeFail = true;
