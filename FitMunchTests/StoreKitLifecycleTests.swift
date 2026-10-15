@@ -58,9 +58,16 @@ final class StoreKitLifecycleTests: XCTestCase {
         let eligible = await subscription.isEligibleForIntroOffer
         step(productID, "trial-eligible", eligible, "eligible=\(eligible)")
 
+        // One renewal every two seconds so a later wait can pass a short period.
+        // The 14-day trial is still longer than that window. expireSubscription is
+        // the immediate expiry. RevenueCat records that call as unreliable, so the
+        // test also polls status and prints the expiration date.
+        session.timeRate = .oneRenewalEveryTwoSeconds
         let transaction = try await session.buyProduct(identifier: productID)
         await transaction.finish()
         let purchased = transaction.productID == productID
+        step(productID, "display-price", !product.displayPrice.isEmpty,
+             "display=\(product.displayPrice) currency=\(product.priceFormatStyle.currencyCode)")
         step(productID, "purchase", purchased, "id=\(transaction.id) product=\(transaction.productID) offer=\(String(describing: transaction.offerType))")
         step(productID, "trial", transaction.offerType == .introductory, "offerType=\(String(describing: transaction.offerType))")
 
@@ -82,16 +89,65 @@ final class StoreKitLifecycleTests: XCTestCase {
         step(productID, "restore", entitled.contains(productID) && latestID == productID,
              "latest=\(latestID) entitled=\(entitled.sorted().joined(separator: ","))")
 
-        let identifier = UInt(transaction.id)
-        try session.disableAutoRenewForTransaction(identifier: identifier)
-        let renewal = try await renewalInfo(productID)
-        step(productID, "cancel", renewal.willAutoRenew == false, "willAutoRenew=\(renewal.willAutoRenew)")
+        let ids = await transactionIDs(for: productID)
+        let targets = ids.isEmpty ? [UInt(transaction.id)] : ids
+        for identifier in targets {
+            try session.disableAutoRenewForTransaction(identifier: identifier)
+        }
+        var cancelOK = false
+        var cancelDetail = "ids=\(targets)"
+        for _ in 0..<8 {
+            if let renewal = try? await renewalInfo(productID), renewal.willAutoRenew == false {
+                cancelOK = true
+                cancelDetail = "willAutoRenew=false ids=\(targets)"
+                break
+            }
+            try await Task.sleep(nanoseconds: 400_000_000)
+        }
+        if !cancelOK, let renewal = try? await renewalInfo(productID) {
+            cancelDetail = "willAutoRenew=\(renewal.willAutoRenew) ids=\(targets) after_poll"
+        }
+        step(productID, "cancel", cancelOK, cancelDetail)
 
+        let before = await latestSummary(productID)
         try session.expireSubscription(productIdentifier: productID)
-        let state = try await subscriptionState(productID)
-        entitled = try await entitlementIDs()
-        let expired = state == .expired && !entitled.contains(productID)
-        step(productID, "expiry", expired, "state=\(String(describing: state)) entitled=\(entitled.sorted().joined(separator: ","))")
+        var expired = false
+        var expiryDetail = "before=\(before)"
+        for _ in 0..<10 {
+            let state = try? await subscriptionState(productID)
+            let entitledNow = (try? await entitlementIDs()) ?? []
+            let summary = await latestSummary(productID)
+            let gone = !entitledNow.contains(productID)
+            expired = state == .expired && gone
+            expiryDetail = "state=\(String(describing: state)) entitled=\(entitledNow.sorted().joined(separator: ",")) latest=\(summary)"
+            if expired { break }
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+        if !expired {
+            try await Task.sleep(nanoseconds: 6_000_000_000)
+            let state = try? await subscriptionState(productID)
+            let entitledNow = (try? await entitlementIDs()) ?? []
+            let summary = await latestSummary(productID)
+            expired = state == .expired && !entitledNow.contains(productID)
+            expiryDetail = "after_time_rate state=\(String(describing: state)) entitled=\(entitledNow.sorted().joined(separator: ",")) latest=\(summary) before=\(before)"
+        }
+        step(productID, "expiry", expired, expiryDetail)
+    }
+
+    private func transactionIDs(for productID: String) async -> [UInt] {
+        var ids: [UInt] = []
+        for await result in Transaction.all {
+            guard case .verified(let transaction) = result, transaction.productID == productID else { continue }
+            ids.append(UInt(transaction.id))
+        }
+        return ids
+    }
+
+    private func latestSummary(_ productID: String) async -> String {
+        guard let latest = await Transaction.latest(for: productID) else { return "missing" }
+        guard case .verified(let transaction) = latest else { return "unverified" }
+        let expiration = transaction.expirationDate.map { String(describing: $0) } ?? "nil"
+        return "id=\(transaction.id) exp=\(expiration)"
     }
 
     private func step(_ productID: String, _ name: String, _ ok: Bool, _ detail: String) {

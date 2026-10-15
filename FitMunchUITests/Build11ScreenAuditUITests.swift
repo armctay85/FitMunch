@@ -111,19 +111,22 @@ final class Build11ScreenAuditUITests: XCTestCase {
         }
 
         openTab("Me", in: app)
+        captureProgress(in: app)
+        openTab("Me", in: app)
         let upgrade = app.buttons["settings-upgrade"].waitForExistence(timeout: 6)
         mark("Me", "free", upgrade ? "PASS" : "FAIL", copyNote(app), shot(app, "me-top"))
         _ = scrollUntilAnyExists([app.staticTexts["March 2025"], app.staticTexts["Version"]], in: app)
         let stale = app.staticTexts["March 2025"].exists
         mark("Settings", "about", stale ? "FAIL" : "PASS", stale ? "Build Date is hardcoded March 2025" : copyNote(app), shot(app, "me-about"))
+        app.terminate()
+    }
+
+    /// Progress is the first row on Me. Capture it before any scroll that pushes that row off screen.
+    func testProgressCapture() {
+        let app = launch([ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-ForceLightMode"])
+        guard waitForTabs(app) else { return }
         openTab("Me", in: app)
-        if app.buttons["me-progress"].waitForExistence(timeout: 4) {
-            app.buttons["me-progress"].tap()
-        } else if app.staticTexts["Progress"].exists {
-            app.staticTexts["Progress"].tap()
-        }
-        let progress = app.navigationBars["Progress"].waitForExistence(timeout: 6) || app.staticTexts["Progress"].waitForExistence(timeout: 2)
-        mark("Progress", "empty", progress ? "PASS" : "FAIL", copyNote(app), shot(app, "progress-empty"))
+        captureProgress(in: app)
         app.terminate()
     }
 
@@ -285,6 +288,28 @@ final class Build11ScreenAuditUITests: XCTestCase {
         app.launchArguments = arguments
         app.launch()
         return app
+    }
+
+    private func captureProgress(in app: XCUIApplication) {
+        scrollToTop(app)
+        let row = app.descendants(matching: .any)["me-progress"]
+        if row.waitForExistence(timeout: 6) {
+            row.tap()
+        }
+        let dateRange = app.staticTexts["Date Range"].waitForExistence(timeout: 8)
+        let stats = app.staticTexts["Statistics"].waitForExistence(timeout: 4)
+        let empty = app.staticTexts["No meals in this range"].exists
+            || app.staticTexts["Your progress shows up after you log a meal."].exists
+        let nav = app.navigationBars["Progress"].exists
+        let ok = dateRange && (stats || empty || nav)
+        mark("Progress", "empty", ok ? "PASS" : "FAIL", "dateRange=\(dateRange) stats=\(stats) emptyCopy=\(empty) nav=\(nav). \(copyNote(app))", shot(app, "progress-empty"))
+    }
+
+    private func scrollToTop(_ app: XCUIApplication) {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     private func waitForTabs(_ app: XCUIApplication) -> Bool {

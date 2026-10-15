@@ -392,7 +392,7 @@ jobs:
             bash scripts/set-simulator-region-au.sh "$udid"
             local bundle="artifacts/audit-2026-10-15/${folder}.xcresult"
             rm -rf "$bundle"
-            local only_testing=(-only-testing:FitMunchUITests/Build11ScreenAuditUITests)
+            local only_testing=(-only-testing:FitMunchUITests/Build11ScreenAuditUITests/testProgressCapture)
             if [[ "$with_storekit" == "storekit-only" ]]; then
               only_testing=(-only-testing:FitMunchTests/StoreKitLifecycleTests)
             elif [[ "$with_storekit" == "yes" ]]; then
@@ -428,9 +428,9 @@ jobs:
             return 0
           }
 
-          # Screenshots first. StoreKit runs on the 6.9in destination after the UI audit.
-          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "no"
-          run_audit "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-6.5in" "no"
+          # Follow-up: Progress only, then StoreKit cancel and expiry. The full screen set is already in docs/audit.
+          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "progress"
+          run_audit "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-6.5in" "progress"
           run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in-storekit" "storekit-only"
 
           mkdir -p artifacts/audit-2026-10-15/screens
