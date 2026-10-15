@@ -103,7 +103,10 @@
       if (typeof meals === 'string') {
         try { meals = JSON.parse(meals); } catch (_) { return empty; }
       }
-      if (meals && typeof meals === 'object' && !Array.isArray(meals) && Array.isArray(meals.days)) meals = meals.days;
+      if (meals && typeof meals === 'object' && !Array.isArray(meals)) {
+        if (Array.isArray(meals.days)) meals = meals.days;
+        else if (Array.isArray(meals.planDays)) meals = meals.planDays;
+      }
       if (!Array.isArray(meals)) return empty;
       const dayish = meals.some((d) => d && typeof d === 'object' && !Array.isArray(d) && d.meals && typeof d.meals === 'object');
       if (!dayish) {
@@ -416,10 +419,39 @@
    */
   function loadFailure(status, body, failed) {
     const code = Number(status) || 0;
-    if (failed || code >= 500) return 'error';
+    if (failed || code >= 500 || code === 304) return 'error';
     if (!body || body.success !== true || !Array.isArray(body.plans)) return 'error';
     if (!body.plans.length) return 'empty';
     return 'ok';
+  }
+
+  /**
+   * GET /meal-plans as text. 500 and an aborted read are errors (a previous body is not a substitute).
+   * 304 or an empty body uses the last successful body when we have one, otherwise the caller refetches.
+   * A refetch that is still 304 or empty is an error, never an empty plan list.
+   */
+  function plansFromResponse(status, rawText, failed, cache) {
+    const code = Number(status) || 0;
+    if (failed || code >= 500) return { kind: 'error', body: null };
+    const text = rawText == null ? '' : String(rawText);
+    const emptyBody = !text.trim();
+    if (code === 304 || emptyBody) {
+      if (cache && cache.success === true && Array.isArray(cache.plans)) {
+        return { kind: cache.plans.length ? 'ok' : 'empty', body: cache, fromCache: true };
+      }
+      return { kind: 'refetch', body: null };
+    }
+    let body;
+    try { body = JSON.parse(text); } catch (_) { return { kind: 'error', body: null }; }
+    const kind = loadFailure(code || 200, body, false);
+    return { kind, body, fromCache: false };
+  }
+
+  function mealCount(flat) {
+    const days = flat && Array.isArray(flat.days) ? flat.days : [];
+    const fromDays = days.reduce((n, d) => n + ((d && Array.isArray(d.meals) && d.meals.length) || 0), 0);
+    const items = flat && Array.isArray(flat.items) ? flat.items.length : 0;
+    return fromDays + (fromDays ? 0 : items);
   }
 
   /** Day list from flattenPlanMeals, the same reader Meal Planner uses. A flat list is one day of meals. */
@@ -473,17 +505,13 @@
   }
 
   /**
-   * The plan Meal Planner lists first that actually has meals, else the first named row.
-   * GET /meal-plans is newest first, the same order as the Meal Planner cards.
+   * Newest plan that has at least one meal. An empty meals object still makes a day, so days.length
+   * is not enough: a newer zero-meal day must not beat an older plan that has food.
+   * GET /meal-plans is newest first. A row with no meals is skipped, named or not.
    */
   function pickListedPlan(plans) {
     const list = Array.isArray(plans) ? plans.filter((p) => p && typeof p === 'object') : [];
-    const withMeals = list.find((p) => {
-      const flat = flattenPlanMeals(p.meals);
-      return flat.days.length > 0 || flat.items.length > 0;
-    });
-    if (withMeals) return withMeals;
-    return list.find((p) => typeof p.name === 'string' && p.name.trim()) || null;
+    return list.find((p) => mealCount(flattenPlanMeals(p.meals)) > 0) || null;
   }
 
   /**
@@ -536,7 +564,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure, plansFromResponse };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

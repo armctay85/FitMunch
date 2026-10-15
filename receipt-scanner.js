@@ -340,7 +340,7 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
       filtersUnreadable = dg.unreadable(filters);
     } catch (_) {
       filters = null;
-      filtersUnreadable = false;
+      filtersUnreadable = true;
     }
     const payload = core.buildScanPayload(rawItems, {
       guest: false,

@@ -87,11 +87,25 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       res.json({ success: true, plan: row, allergenWarnings: warnings });
     });
     app.get('/api/meal-plans', async (req, res) => {
+      db.mealGets = (db.mealGets || 0) + 1;
       if (db.mealDelay) await new Promise((r) => setTimeout(r, db.mealDelay));
+      if (db.mealAbort) { req.socket.destroy(); return; }
+      if (db.meal304 === 'once' && db.mealGets === 1) return res.status(304).end();
+      if (db.meal304 === 'always') return res.status(304).end();
       if (db.mealStatus) return res.status(db.mealStatus).json({ success: false, error: 'unavailable' });
       if (db.noPlans) return res.json({ success: true });
+      res.set('Cache-Control', 'no-store');
       res.json({ success: true, plans: db.plans.map((p) => ({ ...p, allergenWarnings: db.warningsFromMeals ? allergenWarningsFor(p.meals) : (db.warnings || []) })) });
     });
+    app.get('/api/portal/me', (req, res) => res.json({
+      success: true,
+      pt: db.pt || null,
+      mealPlan: db.trainerMeal || null,
+      workoutPlan: null,
+      recentMeals: db.todayCals ? [{ date: new Date().toISOString(), calories: db.todayCals }] : [],
+      recentWorkouts: [],
+      shoppingLists: [],
+    }));
     app.post('/api/meal-plan/generate', (req, res) => {
       const dietary = engine.normaliseDiet(req.body.dietary || []);
       res.json({ success: true, source: 'builder', plan: engine.withSwaps(engine.buildPlan({ calories: req.body.calories, protein: req.body.protein, days: 7, dietary }), dietary, req.body.calories) });
@@ -349,6 +363,8 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     await p.waitForSelector('#home-week-skel');
     await p.waitForSelector('#home-week-error');
     expect(await p.textContent('#home-week-error')).toBe("Couldn't load your week, try again");
+    expect(await p.textContent('#home-mealplan')).toMatch(/Couldn't load your week, try again/);
+    expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
     expect(await p.getAttribute('#home-week-error', 'role')).toBeNull();
     expect(await p.evaluate(() => document.getElementById('home-week-retry').getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     db.mealStatus = 503;
@@ -369,8 +385,98 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     db.plans = [];
     await p.evaluate(() => loadHomeWeek());
     expect(await p.isVisible('#home-week')).toBe(false);
+    expect(await p.textContent('#home-mealplan')).toMatch(/No plan yet/);
     await ctx.close();
   });
+
+  // A failed GET must not be painted as an empty plan. Sidebar, terms and privacy sizes are left as they are on main.
+  for (const width of [320, 390, 1440]) {
+    it(`${width}px: 500, 304 and an aborted read never say there is no plan`, async () => {
+      const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+      db = { profile: { targetCalories: 2000, targetProtein: 130 }, profileSaves: [], plans: [{ id: 1, name: 'Your first week', meals: plan.days }], puts: 0, shopping: 0, warnings: [], mealStatus: 500 };
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+      await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+      await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+      const p = await ctx.newPage();
+      await p.goto(`${base}/app.html`);
+      await p.waitForSelector('#home-mealplan-error');
+      expect(await p.textContent('#home-week-error')).toBe("Couldn't load your week, try again");
+      expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
+      if (width === 390) {
+        await p.addScriptTag({ path: require.resolve('axe-core') });
+        const axeProblems = await p.evaluate(async () => {
+          const res = await window.axe.run(document.getElementById('view-portal-home'), { runOnly: { type: 'rule', values: ['button-name', 'image-alt', 'label', 'color-contrast', 'link-name'] } });
+          return res.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+        });
+        expect(axeProblems).toEqual([]);
+      }
+      await p.evaluate(() => nav('portal-plan'));
+      await p.waitForSelector('#portal-plan-error');
+      const failedPlan = await p.textContent('#portal-plan-body');
+      expect(failedPlan).toMatch(/Couldn't load your week, try again/);
+      expect(failedPlan).not.toMatch(/No meal plan yet/);
+      const minTap = width >= 1000 ? 40 : 44;
+      const planTap = await p.evaluate(() => [...document.querySelectorAll('#portal-plan-body button')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
+      expect(planTap.length).toBeGreaterThan(0);
+      for (const h of planTap) expect(h).toBeGreaterThanOrEqual(minTap);
+      if (shots) await p.screenshot({ path: `${shots}/my-plan-load-fail-${width}.png` });
+
+      db.mealStatus = 0;
+      db.meal304 = 'always';
+      await p.evaluate(() => nav('portal-home'));
+      await p.evaluate(() => loadHomeWeek());
+      await p.waitForSelector('#home-mealplan-error');
+      expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
+      expect(await p.textContent('#home-week')).toMatch(/Couldn't load your week/);
+
+      db.meal304 = 'once';
+      db.mealGets = 0;
+      await p.evaluate(() => { S_mealPlansCache = null; return loadHomeWeek(); });
+      await p.waitForSelector('#home-week-name');
+      expect(await p.textContent('#home-week-name')).toBe('Your first week');
+      expect(await p.textContent('#home-mealplan')).toMatch(/Your first week/);
+      expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
+      expect(db.mealGets).toBeGreaterThanOrEqual(2);
+
+      db.meal304 = 'always';
+      await p.evaluate(() => loadHomeWeek());
+      expect(await p.textContent('#home-week-name')).toBe('Your first week');
+      expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
+
+      db.meal304 = null;
+      db.mealAbort = true;
+      await p.evaluate(() => loadHomeWeek());
+      await p.waitForSelector('#home-mealplan-error');
+      expect(await p.textContent('#home-week-error')).toMatch(/Couldn't load/);
+      expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
+      const homeTap = await p.evaluate(() => [...document.querySelectorAll('#home-mealplan-retry, #home-week-retry')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
+      for (const h of homeTap) expect(h).toBeGreaterThanOrEqual(minTap);
+      if (shots) await p.screenshot({ path: `${shots}/home-load-fail-${width}.png` });
+      if (width === 390) {
+        db.mealAbort = false;
+        db.trainerMeal = { meal_plan_name: 'Trainer week', total_calories: 2000 };
+        db.plans = [
+          { id: 4, name: 'Old planDays', meals: { planDays: [{ day: 'Monday', meals: { lunch: { name: 'Rice bowl', calories: 500, protein: 20 } } }] } },
+          { id: 3, name: 'Zero meals', meals: [{ day: 'Monday', meals: {} }] },
+          { id: 2, name: 'Newer empty', meals: [] },
+          { id: 1, name: 'Your first week', meals: plan.days },
+        ];
+        await p.evaluate(() => { S_mealPlansCache = null; return loadPortalHome(); });
+        await p.waitForSelector('#home-week-name');
+        expect(await p.textContent('#home-week-name')).toBe('Old planDays');
+        expect(await p.textContent('#home-mealplan')).toMatch(/Trainer week/);
+        await p.evaluate(() => nav('portal-plan'));
+        await p.waitForSelector('#portal-saved-plan');
+        const both = await p.textContent('#portal-plan-body');
+        expect(both).toContain('Trainer week');
+        expect(both).toContain('Old planDays');
+        expect(both).not.toContain('Zero meals');
+        expect(both).not.toMatch(/No meal plan yet/);
+        if (shots) await p.screenshot({ path: `${shots}/my-plan-trainer-${width}.png` });
+      }
+      await ctx.close();
+    });
+  }
 
   it('repeat onboarding updates the existing Your first week row', async () => {
     const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });

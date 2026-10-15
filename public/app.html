@@ -2835,14 +2835,7 @@ async function loadPortalHome() {
  }
  const cta = document.getElementById('pm-cals-cta');
  if (cta) cta.style.display = S.goals?.targetCalories ? 'none' : '';
- const hasWeek = await loadHomeWeek();
- if (hasWeek && !r.mealPlan && mealPlanEl) {
- mealPlanEl.textContent = '';
- const n = document.createElement('div'); n.className = 'portal-plan-name'; n.textContent = S_homeWeek.name;
- const m = document.createElement('div'); m.className = 'portal-plan-meta'; m.textContent = 'Saved · ' + S_homeWeek.days.length + ' days';
- mealPlanEl.append(n, m);
- if (mealBtn) { mealBtn.textContent = 'View'; mealBtn.onclick = () => nav('meal-plans'); }
- }
+ await loadHomeWeek();
  // Load AI coaching insight (non-blocking)
  loadAiCoaching(todayMeals, r.recentMeals||[]);
  }
@@ -2907,14 +2900,18 @@ async function renderPortalPlan() {
  if (sub) sub.textContent = S.portalData && S.portalData.pt ? 'Assigned by your trainer.' : 'Your saved meal and workout plans.';
  if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
  const { mealPlan, workoutPlan } = S.portalData;
- // Same GET the Meal Planner uses, never a cached empty list from before the week was saved.
+ // Same GET the Meal Planner uses. A failed read is a retry, never the empty state.
  let saved = null;
+ let loadKind = 'error';
  try {
-  const res = await fetch('/api/meal-plans', { cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token } });
-  const body = await res.json();
-  const row = (body && body.success && Array.isArray(body.plans)) ? FMHomeWeek.pickListedPlan(body.plans) : null;
-  saved = row ? FMHomeWeek.summary(row) : null;
- } catch (_) { saved = S_homeWeek; }
+  const parsed = await readMealPlans();
+  loadKind = parsed.kind;
+  if (parsed.kind === 'ok') {
+   const row = FMHomeWeek.pickListedPlan(parsed.body.plans);
+   saved = row ? FMHomeWeek.summary(row) : null;
+   if (!saved) loadKind = 'empty';
+  }
+ } catch (_) { loadKind = 'error'; saved = null; }
  if (currentView !== 'portal-plan') return;
  let html = '';
  if (mealPlan) {
@@ -2925,6 +2922,7 @@ async function renderPortalPlan() {
  </div>`;
  }
  if (saved) html += savedPlanCardHtml(saved);
+ else if (loadKind === 'error') html += '<div class="empty-state" id="portal-plan-error"><div class="ei">🥗</div><div class="et">Couldn\'t load your week, try again</div><div style="margin-top:12px"><button class="btn btn-green ea" id="portal-plan-retry" onclick="renderPortalPlan()">Try again</button></div></div>';
  else if (!mealPlan) html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
@@ -3536,7 +3534,7 @@ async function scanReceipt() {
  }
 }
 
-const CAT_EMOJI2 = {meat:'ME',dairy:'DY',grains:'GR',vegetables:'VG',fruit:'FR',pantry:'PN',beverage:'BV',supplement:'SP',protein:'PR',other:'OT'};
+const CAT_EMOJI2 = {meat:'ME',dairy:'DY',grains:'GR',vegetables:'VG',fruit:'FR',pantry:'PN',beverage:'BV',supplement:'SP',protein:'PR',plant:'PL',other:'OT'};
 
 function renderScanResults(data) {
  const { weeklyTotals: t, grade: g, items, shareText: st, itemCount } = data;
@@ -3921,6 +3919,56 @@ async function onboardDone() {
 // ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
 let S_homeWeek = null;
 let S_homeWeekReq = 0;
+let S_mealPlansCache = null;
+function paintHomeMealCard(kind, sum) {
+ const el = document.getElementById('home-mealplan');
+ const btn = document.getElementById('home-mealplan-btn');
+ if (!el) return;
+ if (S.portalData && S.portalData.mealPlan) return;
+ el.textContent = '';
+ if (kind === 'loading') { el.textContent = 'Loading your week…'; return; }
+ if (kind === 'error') {
+  const p = document.createElement('p'); p.id = 'home-mealplan-error'; p.textContent = "Couldn't load your week, try again";
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-green btn-sm'; b.id = 'home-mealplan-retry'; b.textContent = 'Try again';
+  b.onclick = () => { loadHomeWeek(); };
+  el.append(p, b);
+  if (btn) { btn.textContent = 'Try again'; btn.onclick = () => loadHomeWeek(); }
+  return;
+ }
+ if (kind === 'ok' && sum) {
+  const n = document.createElement('div'); n.className = 'portal-plan-name'; n.textContent = sum.name;
+  const m = document.createElement('div'); m.className = 'portal-plan-meta'; m.textContent = 'Saved · ' + sum.days.length + ' days';
+  el.append(n, m);
+  if (btn) { btn.textContent = 'View'; btn.onclick = () => nav('meal-plans'); }
+  return;
+ }
+ const wrap = document.createElement('div'); wrap.className = 'home-plan-empty';
+ const p = document.createElement('p'); p.textContent = 'No plan yet. Generate an Aussie supermarket week in up to about a minute.';
+ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-green btn-sm'; b.textContent = 'Generate meal plan →';
+ b.onclick = () => nav('meal-plans');
+ wrap.append(p, b); el.append(wrap);
+ if (btn) { btn.textContent = 'Generate'; btn.onclick = () => nav('meal-plans'); }
+}
+async function readMealPlans() {
+ const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token, 'Cache-Control': 'no-store' };
+ const once = async (cacheMode) => {
+  const res = await fetch('/api/meal-plans', { cache: cacheMode, headers });
+  return { status: res.status, text: await res.text() };
+ };
+ try {
+  let got = await once('no-store');
+  let parsed = FMHomeWeek.plansFromResponse(got.status, got.text, false, S_mealPlansCache);
+  if (parsed.kind === 'refetch') {
+   got = await once('reload');
+   parsed = FMHomeWeek.plansFromResponse(got.status, got.text, false, S_mealPlansCache);
+   if (parsed.kind === 'refetch') parsed = { kind: 'error', body: null };
+  }
+  if ((parsed.kind === 'ok' || parsed.kind === 'empty') && parsed.body && !parsed.fromCache) S_mealPlansCache = parsed.body;
+  return parsed;
+ } catch (_) {
+  return FMHomeWeek.plansFromResponse(0, '', true, null);
+ }
+}
 function hideHomeWeek(box) {
  box.style.display = 'none'; box.textContent = ''; box.removeAttribute('aria-busy');
 }
@@ -3943,19 +3991,16 @@ async function loadHomeWeek() {
  if (!box || typeof FMHomeWeek === 'undefined') return;
  const ticket = ++S_homeWeekReq;
  showHomeWeekSkeleton(box);
- let status = 0; let r = null; let failed = false;
- try {
- const res = await fetch('/api/meal-plans', { cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token } });
- status = res.status;
- r = await res.json();
- } catch (_) { failed = true; }
+ paintHomeMealCard('loading');
+ const parsed = await readMealPlans();
  if (ticket !== S_homeWeekReq) return;
- const kind = FMHomeWeek.loadFailure(status, r, failed);
- if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; return false; }
- const row = kind === 'ok' ? FMHomeWeek.pickListedPlan(r.plans) : null;
+ const kind = parsed.kind === 'ok' ? 'ok' : (parsed.kind === 'empty' ? 'empty' : 'error');
+ if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; paintHomeMealCard('error'); return false; }
+ const row = kind === 'ok' ? FMHomeWeek.pickListedPlan(parsed.body.plans) : null;
  const sum = row ? FMHomeWeek.summary(row) : null;
  S_homeWeek = sum;
- if (!sum) { hideHomeWeek(box); return false; }
+ if (!sum) { hideHomeWeek(box); paintHomeMealCard('empty'); return false; }
+ paintHomeMealCard('ok', sum);
  const tg = FMHomeWeek.targets(S.goals);
  box.textContent = ''; box.removeAttribute('aria-busy');
  const top = document.createElement('div'); top.className = 'hw-top';
