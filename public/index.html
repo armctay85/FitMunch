@@ -651,7 +651,10 @@ footer{
         <button type="button" class="btn btn-leaf" data-fs-retake hidden style="display:none;margin-top:12px">Retake</button>
       </div>
       <div class="fs-card">
-        <div data-fs-loading hidden class="fs-empty" style="display:none">Reading your receipt…</div>
+        <div data-fs-loading hidden class="fs-empty" style="display:none" aria-live="polite">
+          <div data-fs-progress>Preparing the photo</div>
+          <div style="margin:10px auto 0;max-width:200px;height:6px;border-radius:99px;background:rgba(31,157,74,.15);overflow:hidden"><div data-fs-progress-fill style="height:100%;width:8%;background:#1f9d4a;border-radius:99px"></div></div>
+        </div>
         <div data-fs-empty class="fs-empty">
           Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled from the sample supermarket shop.
         </div>

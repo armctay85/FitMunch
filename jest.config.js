@@ -15,9 +15,11 @@ module.exports = {
     '**/test_app_select_names.js',
     '**/test_app.js',
     '**/test_haul_score.js',
+    '**/test_receipt_lines.js',
     '**/test_app_store_copy.js',
 
     '**/test_coach_context.js',
+    '**/test_coach_filtered_ai.js',
 
     '**/test_privacy_export.js',
     '**/test_ai_consent_routes.js',
@@ -47,6 +49,9 @@ module.exports = {
     '**/test_onboard_rendered.js',
     '**/test_first_week_wow.js',
     '**/test_first_week_wow_rendered.js',
+    '**/test_home_week.js',
+    '**/test_home_week_pg.js',
+    '**/test_home_week_rendered.js',
     '**/test_first_scan.js',
     '**/test_receipt_image.js',
     '**/test_shopper.js',
