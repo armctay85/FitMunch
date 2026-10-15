@@ -83,13 +83,8 @@ struct CoachView: View {
                     }
                 }
 
-                if let consentNote {
-                    Text(consentNote)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal)
-                        .accessibilityIdentifier("coach-consent-blocked")
+                if consentNote != nil || consent.isDenied(auth.user?.id) {
+                    blockedCard
                 }
 
                 HStack(spacing: 10) {
@@ -141,6 +136,7 @@ struct CoachView: View {
                     },
                     onNotNow: {
                         showConsent = false
+                        input = ""
                         consent.deny(userId: auth.user?.id)
                         consentNote = AIConsentCopy.coachBlocked
                     }
@@ -152,6 +148,28 @@ struct CoachView: View {
                 }
             }
         }
+    }
+
+    private var blockedCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
+            Text(AIConsentCopy.coachBlocked)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Allow in Privacy") {
+                NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("coach-open-privacy")
+        }
+        .padding(Theme.Spacing.four)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.bottom, Theme.Spacing.two)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("coach-consent-blocked")
     }
 
     private var emptyState: some View {
@@ -220,6 +238,7 @@ struct CoachView: View {
             return
         }
         if consent.isDenied(auth.user?.id) {
+            input = ""
             consentNote = AIConsentCopy.coachBlocked
             return
         }
