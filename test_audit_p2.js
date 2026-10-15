@@ -59,12 +59,58 @@ describe('copy', () => {
   });
 });
 
-describe('table header at phone widths', () => {
-  const css = read('public', 'css', 'fm-coach-shell.css');
-  const phone = css.slice(css.indexOf('@media(max-width:559px)'));
-  it('every <th> is clipped as well as the thead, so none can reach past 390px', () => {
-    expect(phone).toMatch(/\.fm-table thead th\{position:absolute;width:1px;height:1px;[^}]*overflow:hidden;[^}]*clip:rect\(0 0 0 0\)/);
+// Rendered, not source text: the rule must sit in the stylesheet the pages really load (fm-shell.css, not
+// fm-coach-shell.css) and no <th> may reach past the screen at 320 and 390px. Needs playwright-core and Chrome;
+// in CI a missing browser is a failure, never a skip.
+const inCI = !!process.env.CI && process.env.CI !== 'false';
+let chromium = null;
+try { ({ chromium } = require('playwright-core')); } catch (_) { chromium = null; }
+const chrome = [process.env.CHROME, '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser']
+  .filter(Boolean).find((p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } });
+const canRun = !!(chromium && chrome);
+if (!canRun && inCI) {
+  describe('table header at phone widths (CI)', () => { it('can launch a browser', () => { throw new Error('test_audit_p2.js rendered check cannot run in CI: no playwright-core or Chrome'); }); });
+}
+(canRun ? describe : describe.skip)('table header at phone widths, rendered', () => {
+  jest.setTimeout(180000);
+  let server; let browser; let base;
+  beforeAll(async () => {
+    const express = require('express');
+    const app = express();
+    app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+    await new Promise((r) => { server = app.listen(0, '127.0.0.1', r); });
+    base = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch({ executablePath: chrome, args: ['--no-sandbox'] });
   });
+  afterAll(async () => { if (browser) await browser.close(); if (server) await new Promise((r) => server.close(r)); });
+  it('the rule is in fm-shell.css (the stylesheet the five .fm-table pages load), and the misplaced copy is gone', () => {
+    const shell = read('public', 'css', 'fm-shell.css');
+    expect(shell.slice(shell.indexOf('@media(max-width:559px)'))).toMatch(/\.fm-table thead th\{position:absolute;width:1px;height:1px;[^}]*overflow:hidden;[^}]*clip:rect\(0 0 0 0\)/);
+    expect(read('public', 'css', 'fm-coach-shell.css')).not.toMatch(/\.fm-table thead th\{/);
+    for (const f of fs.readdirSync(path.join(__dirname, 'public')).filter((n) => n.endsWith('.html'))) {
+      if (/class="fm-table"/.test(read('public', f))) expect([f, read('public', f)]).toEqual([f, expect.stringContaining('/css/fm-shell.css')]);
+    }
+  });
+  for (const width of [320, 390]) {
+    for (const page of ['privacy', 'ai-meal-planner-australia']) {
+      it(`${width}px ${page}: every <th> ends inside the screen and the page does not scroll sideways`, async () => {
+        const ctx = await browser.newContext({ viewport: { width, height: 844 } });
+        await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+        const p = await ctx.newPage();
+        await p.goto(`${base}/${page}.html`, { waitUntil: 'domcontentloaded' });
+        await p.waitForSelector('.fm-table th', { state: 'attached' });
+        const r = await p.evaluate(() => ({
+          iw: innerWidth,
+          ths: [...document.querySelectorAll('.fm-table th')].map((t) => ({ s: t.textContent.trim(), right: t.getBoundingClientRect().right })),
+          sideways: document.documentElement.scrollWidth > innerWidth,
+        }));
+        expect(r.ths.length).toBeGreaterThan(0);
+        for (const t of r.ths) expect([t.s, t.right <= r.iw]).toEqual([t.s, true]);
+        expect(r.sideways).toBe(false);
+        await ctx.close();
+      });
+    }
+  }
 });
 
 describe('peanut butter and friends are not dairy', () => {
