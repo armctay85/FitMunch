@@ -118,6 +118,40 @@ describe('production smoke classification', () => {
     expect(leaked.reason).not.toMatch(/sk-live|SECRETDATA|iVBORw0KGgo|data:image|Bearer/);
   });
 
+  it('includes a 422 receipt diagnostic in the smoke issue text', () => {
+    const verdict = classifyScan(422, {
+      success: false,
+      error: "We couldn't read this receipt. Try again with a flat, well-lit photo.",
+      scanDiag: {
+        provider: 'openai',
+        errorClass: 'unreadable',
+        status: 200,
+        counts: { openai: { '200': 1 } },
+        lastErrorClass: 'unreadable',
+        p50Ms: 140,
+        note: 'Bearer sk-live-secret',
+      },
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.status).toBe(422);
+    expect(verdict.provider).toBe('openai');
+    expect(verdict.errorClass).toBe('unreadable');
+    expect(verdict.reason).toContain('scan unreadable');
+    expect(verdict.reason).toContain('provider=openai');
+    expect(verdict.reason).toContain('errorClass=unreadable');
+    expect(verdict.reason).toContain('p50Ms=140');
+    expect(verdict.reason).toContain('counts=openai:200=1');
+    expect(verdict.reason).not.toMatch(/sk-live|Bearer/);
+    const body = buildIssueBody({
+      coach: { ok: true, status: 200 },
+      scan: verdict,
+    }, null);
+    expect(body).toContain('Scan detail:');
+    expect(body).toContain('provider=openai');
+    expect(body).toContain('errorClass=unreadable');
+    expect(body).not.toMatch(/sk-live|Bearer/);
+  });
+
   it('rejects canned sample items and sample-fallback confidence', () => {
     expect(classifyScan(200, { success: true, scannerProvider: 'vision', items: CANNED }).reason).toBe('canned sample items');
     expect(classifyScan(200, {

@@ -43,7 +43,9 @@ const {
   coachGateHttpBody,
   COACH_39_ACTIVE_CLIENT_LIMIT,
 } = require('./lib/fitmunch-coach-billing');
-const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Idle clients must not hold the process open after tests. The HTTP server
+// keeps production up on its listen socket.
+const _pool = new Pool({ connectionString: process.env.DATABASE_URL, allowExitOnIdle: true });
 
 async function coachGateForPt(ptId) {
   const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [ptId]);
@@ -2692,6 +2694,7 @@ async function _endDbForTests() {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports.__pool = _pool; // test seam: Postgres suites must end this pool
   module.exports._endDbForTests = _endDbForTests;
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.

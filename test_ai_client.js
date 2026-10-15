@@ -138,7 +138,7 @@ describe('lib/ai-client provider routing', () => {
     const ai = require('./lib/ai-client');
     expect(ai.tryNext({ error: 'missing_key' })).toBe(true);
     expect(ai.tryNext({ error: 'missing_key', status: 401 })).toBe(true);
-    for (const status of [401, 402, 403, 404, 408, 413, 429, 500, 502, 503, 504, 599]) {
+    for (const status of [401, 402, 403, 404, 408, 413, 415, 429, 500, 502, 503, 504, 599]) {
       expect(ai.tryNext({ status, error: 'provider_error' })).toBe(true);
     }
     expect(ai.tryNext({ error: 'provider_error' })).toBe(true);
@@ -459,6 +459,7 @@ describe('lib/ai-client provider routing', () => {
   it.each([
     ['402 payment', 402],
     ['413 payload', 413],
+    ['415 media', 415],
     ['500 server', 500],
     ['503 unavailable', 503],
   ])('vision falls through to OpenAI on %s', async (_label, status) => {

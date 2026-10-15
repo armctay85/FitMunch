@@ -176,9 +176,22 @@ async function readReceiptItems(imageBase64, mimeType, route) {
   try {
     return core.parseVisionItems(visionResult.text);
   } catch (_) {
-    const failed = new Error('scan_unreadable');
-    failed.code = 'scan_unreadable';
-    throw failed;
+    // 200 with text that is not a receipt. Same diagnostic shape as a provider
+    // failure, so the smoke gate can attach it. Ordinary accounts still get
+    // only the public 422.
+    const carried = visionResult && visionResult.diag;
+    const summary = visionDiag.summary();
+    throw visionFailure({
+      code: 'unreadable',
+      provider: visionResult && visionResult.provider,
+      status: visionResult && visionResult.status != null ? visionResult.status : 200,
+      errorClass: (visionResult && visionResult.errorClass) || 'unreadable',
+      diag: {
+        counts: (carried && carried.counts) || summary.counts,
+        lastErrorClass: (carried && carried.lastErrorClass) || summary.lastErrorClass,
+        p50Ms: carried && carried.p50Ms != null ? carried.p50Ms : summary.p50Ms,
+      },
+    });
   }
 }
 
