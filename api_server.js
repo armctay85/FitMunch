@@ -1230,11 +1230,27 @@ function authMiddleware(req, res, next) {
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
 
+// Trainer-only routes. The users row is the source of truth for role (a token's role claim
+// can be stale). Coach preview sessions keep their existing behaviour when preview is on.
+async function requireTrainer(req, res, next) {
+  try {
+    if (req.user && req.user.preview) {
+      if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
+      return next();
+    }
+    const r = await _pool.query('SELECT role FROM users WHERE id=$1', [req.user.userId]);
+    if (!r.rows[0] || r.rows[0].role !== 'pt') {
+      return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    }
+    next();
+  } catch (err) { sendApiError(res, err); }
+}
+
 // ── CLIENT INVITATIONS ───────────────────────────────────────────────────────
 const crypto = require('crypto');
 
 // POST /api/clients/invite — PT creates invite link
-router.post('/clients/invite', authMiddleware, async (req, res) => {
+router.post('/clients/invite', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const gate = await coachGateForPt(req.user.userId);
     if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
@@ -1265,7 +1281,7 @@ router.get('/clients/invite/:token', async (req, res) => {
 // ── PT CLIENT MANAGEMENT ─────────────────────────────────────────────────────
 
 // GET /api/clients — PT gets their client list with recent activity
-router.get('/clients', authMiddleware, async (req, res) => {
+router.get('/clients', authMiddleware, requireTrainer, async (req, res) => {
   try {
     if (req.user.preview) {
       const coachStore = require('./lib/coach-store');
@@ -1289,7 +1305,7 @@ router.get('/clients', authMiddleware, async (req, res) => {
 });
 
 // GET /api/clients/:clientId — full client detail for PT
-router.get('/clients/:clientId', authMiddleware, async (req, res) => {
+router.get('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     // Verify PT owns this client
     const owns = await _pool.query(
@@ -1309,7 +1325,7 @@ router.get('/clients/:clientId', authMiddleware, async (req, res) => {
 });
 
 // PATCH /api/clients/:clientId — update phase/notes/status
-router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
+router.patch('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { phase, notes, status } = req.body;
     if (status === 'active') {
@@ -1332,7 +1348,7 @@ router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
 });
 
 // POST /api/clients/:clientId/assign-plan — PT assigns a meal or workout plan to client
-router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) => {
+router.post('/clients/:clientId/assign-plan', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { planType } = req.body || {};
     if (!['meal','workout'].includes(planType)) return res.status(400).json({ error: 'planType must be meal or workout' });
@@ -2374,7 +2390,7 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
 // ── PT Referral System ──────────────────────────────────────────────────────
 
 // Get or generate a referral code for logged-in PT
-router.get('/referral/code', authMiddleware, async (req, res) => {
+router.get('/referral/code', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const pool = _pool;
     await ensureMigrations();
@@ -2398,7 +2414,7 @@ router.get('/referral/code', authMiddleware, async (req, res) => {
 });
 
 // Claim a referral code at signup (extends trial by 30 days for referrer)
-router.post('/referral/claim', authMiddleware, async (req, res) => {
+router.post('/referral/claim', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'No code provided' });
