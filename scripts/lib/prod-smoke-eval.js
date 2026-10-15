@@ -68,6 +68,15 @@ function diagReason(payload) {
   };
 }
 
+function scanFailureVerdict(status, payload, label) {
+  const diag = diagReason(payload);
+  const out = { ok: false, status, reason: `${label}${diag ? diag.extra : ''}` };
+  if (diag && diag.provider) out.provider = diag.provider;
+  if (diag && diag.errorClass) out.errorClass = diag.errorClass;
+  if (diag && diag.diagLine) out.diagLine = diag.diagLine;
+  return out;
+}
+
 function classifyScan(status, body) {
   const payload = body && typeof body === 'object' ? body : null;
   if (
@@ -76,12 +85,12 @@ function classifyScan(status, body) {
     && payload.success === false
     && payload.error === SCAN_UNAVAILABLE
   ) {
-    const diag = diagReason(payload);
-    const out = { ok: false, status, reason: `scan unavailable${diag ? diag.extra : ''}` };
-    if (diag && diag.provider) out.provider = diag.provider;
-    if (diag && diag.errorClass) out.errorClass = diag.errorClass;
-    if (diag && diag.diagLine) out.diagLine = diag.diagLine;
-    return out;
+    return scanFailureVerdict(status, payload, 'scan unavailable');
+  }
+  // A 200 that was not a receipt is a public 422. Smoke runs include scanDiag
+  // on that body; the issue text has to keep the provider and error class.
+  if (status === 422 && payload && payload.success === false && payload.scanDiag) {
+    return scanFailureVerdict(status, payload, 'scan unreadable');
   }
   if (status === 200 && payload && payload.success === true && Array.isArray(payload.items) && payload.items.length > 0) {
     if (payload.scannerProvider === 'fallback') return { ok: false, status, reason: 'fallback provider' };

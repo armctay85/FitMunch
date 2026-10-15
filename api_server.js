@@ -43,7 +43,9 @@ const {
   coachGateHttpBody,
   COACH_39_ACTIVE_CLIENT_LIMIT,
 } = require('./lib/fitmunch-coach-billing');
-const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Idle clients must not hold the process open after tests. The HTTP server
+// keeps production up on its listen socket.
+const _pool = new Pool({ connectionString: process.env.DATABASE_URL, allowExitOnIdle: true });
 
 async function coachGateForPt(ptId) {
   const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [ptId]);

@@ -12,6 +12,9 @@ const pool = new Pool({
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
   connectionTimeoutMillis: 30000, // Increased from 2s to 30s to prevent timeout errors
   statement_timeout: 60000, // Query timeout 60 seconds
+  // An idle client must not hold the process open after tests. The server
+  // stays up on its listen socket.
+  allowExitOnIdle: true,
 });
 
 // Initialize Drizzle ORM
