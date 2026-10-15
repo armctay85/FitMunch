@@ -22,12 +22,9 @@ function getVision() {
   return visionOverride || require('./lib/ai-client').vision;
 }
 
-async function userTier(userId) {
-  try {
-    const { getUserById, effectiveTier } = require('./server/storage.js');
-    const user = await getUserById(userId);
-    return effectiveTier(user);
-  } catch { return 'free'; }
+function tierOf(user) {
+  const { effectiveTier } = require('./server/storage.js');
+  return effectiveTier(user);
 }
 
 function requireAuth(req, res, next) {
@@ -159,7 +156,7 @@ function sendIfTooLarge(res, err) {
 }
 
 async function readReceiptItems(imageBase64, mimeType, route) {
-  const prepared = receiptImage.prepareReceiptImage({ imageBase64, mimeType });
+  const prepared = await receiptImage.prepareReceiptImage({ imageBase64, mimeType });
   const visionResult = await getVision()({
     imageBase64: prepared.imageBase64,
     mimeType: prepared.mimeType || mimeType || 'image/jpeg',
@@ -250,18 +247,20 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
 
     const { consentResponse } = require('./lib/ai-data-consent');
     const { getUserById } = require('./server/storage.js');
+    // One user read, and no schema migration. ensureSchema's pool used to add
+    // 15s connect + 30s statement before vision's 65s, which does not fit in 90s.
+    let tier = 'free';
     try {
-      const account = await getUserById(req.user.userId);
+      const account = await getUserById(req.user.userId, { ensureSchema: false });
       const denied = consentResponse(account && account.settings);
       if (denied) return res.status(denied.status).json(denied.body);
+      tier = tierOf(account);
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-
-    const tier = await userTier(req.user.userId);
     // Smoke accounts skip the monthly pre-check; checkAndConsume applies their daily cap.
     const smoke = aiUsage.isSmokeAccount({ userId: req.user.userId });
     if (!smoke && (!tier || tier === 'free')) {

@@ -646,6 +646,109 @@ describe('lib/ai-client provider routing', () => {
       expect(`xai:none=${diag.summary().counts.xai.none}`).toBe('xai:none=1');
     } finally {
       jest.useRealTimers();
+      delete process.env.VISION_FIRST_TIMEOUT_MS;
+    }
+  });
+
+  it('retries xAI once inside the budget after a network error with no status', async () => {
+    jest.useFakeTimers();
+    try {
+      clearProviderKeys();
+      delete process.env.VISION_FIRST_TIMEOUT_MS;
+      process.env.XAI_API_KEY = 'xai-test';
+      process.env.OPENAI_API_KEY = 'sk-test';
+      jest.resetModules();
+      const https = require('https');
+      const ai = require('./lib/ai-client');
+      const hosts = [];
+      const timeouts = [];
+      let xaiCalls = 0;
+      jest.spyOn(https, 'request').mockImplementation((opts, cb) => {
+        hosts.push(opts.hostname);
+        timeouts.push(opts.timeout);
+        const handlers = {};
+        const req = {
+          on(event, fn) { handlers[event] = fn; return req; },
+          write() {},
+          end() {
+            if (opts.hostname !== 'api.x.ai') {
+              cb(visionJson('Rice'));
+              return;
+            }
+            xaiCalls += 1;
+            if (xaiCalls === 1) {
+              const err = new Error('socket hang up');
+              err.code = 'ECONNRESET';
+              handlers.error(err);
+              return;
+            }
+            cb(visionJson('Milk'));
+          },
+          destroy() {},
+          setTimeout() {},
+        };
+        return req;
+      });
+      jest.spyOn(console, 'info').mockImplementation(() => {});
+      const result = await ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+      expect(result.ok).toBe(true);
+      expect(result.provider).toBe('xai');
+      expect(xaiCalls).toBe(2);
+      expect(hosts).toEqual(['api.x.ai', 'api.x.ai']);
+      expect(timeouts[0]).toBe(ai.visionFirstTimeoutMs());
+      expect(timeouts[1]).toBe(ai.XAI_QUICK_RETRY_MS);
+      expect(timeouts[0]).toBe(30000);
+      expect(ai.XAI_QUICK_RETRY_MS).toBe(3000);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not retry xAI when the remaining budget is under 3s', async () => {
+    jest.useFakeTimers();
+    try {
+      clearProviderKeys();
+      process.env.VISION_FIRST_TIMEOUT_MS = '5000';
+      process.env.XAI_API_KEY = 'xai-test';
+      process.env.OPENAI_API_KEY = 'sk-test';
+      jest.resetModules();
+      const https = require('https');
+      const ai = require('./lib/ai-client');
+      const hosts = [];
+      let xaiCalls = 0;
+      jest.spyOn(https, 'request').mockImplementation((opts, cb) => {
+        hosts.push(opts.hostname);
+        const handlers = {};
+        const req = {
+          on(event, fn) { handlers[event] = fn; return req; },
+          write() {},
+          end() {
+            if (opts.hostname === 'api.x.ai') {
+              xaiCalls += 1;
+              setTimeout(() => {
+                const err = new Error('socket hang up');
+                err.code = 'ECONNRESET';
+                handlers.error(err);
+              }, 2500);
+              return;
+            }
+            cb(visionJson('Rice'));
+          },
+          destroy() {},
+          setTimeout() {},
+        };
+        return req;
+      });
+      jest.spyOn(console, 'info').mockImplementation(() => {});
+      const pending = ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+      await jest.advanceTimersByTimeAsync(2500);
+      const result = await pending;
+      expect(result.provider).toBe('openai');
+      expect(xaiCalls).toBe(1);
+      expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
+    } finally {
+      jest.useRealTimers();
+      delete process.env.VISION_FIRST_TIMEOUT_MS;
     }
   });
 
@@ -720,6 +823,61 @@ describe('lib/ai-client provider routing', () => {
     expect(blocked).toMatchObject({ ok: false, code: 'unreadable', error: 'content_refusal', errorClass: 'content_refusal' });
     expect(diag._attemptsForTests()).toHaveLength(1);
     expect(diag.summary().lastErrorClass).toBe('content_refusal');
+  });
+
+  it('retries a 400 that mentions response_format without logging or returning that message', async () => {
+    clearProviderKeys();
+    process.env.XAI_API_KEY = 'xai-test';
+    process.env.OPENAI_API_KEY = 'sk-test';
+    jest.resetModules();
+    const https = require('https');
+    const ai = require('./lib/ai-client');
+    const secret = 'leak-token-banana-4421 response_format is not supported';
+    const bodies = [];
+    jest.spyOn(https, 'request').mockImplementation((opts, cb) => {
+      const chunks = [];
+      const req = {
+        on() { return req; },
+        write(chunk) { chunks.push(Buffer.from(chunk)); },
+        end() {
+          bodies.push(Buffer.concat(chunks).toString('utf8'));
+          const first = bodies.length === 1;
+          const res = {
+            statusCode: first ? 400 : 200,
+            on(event, fn) {
+              if (event === 'data') {
+                const payload = first
+                  ? { error: { type: 'invalid_request_error', code: 'bad_request', message: secret } }
+                  : { choices: [{ message: { content: '[{"name":"Milk"}]' } }] };
+                fn(Buffer.from(JSON.stringify(payload)));
+              }
+              if (event === 'end') fn();
+            },
+          };
+          cb(res);
+        },
+        destroy() {},
+        setTimeout() {},
+      };
+      return req;
+    });
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+    const result = await ai.vision({
+      imageBase64: 'aa',
+      prompt: 'read',
+      route: '/receipt/scan',
+      jsonMode: true,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.provider).toBe('xai');
+    expect(result.text).toContain('Milk');
+    expect(bodies).toHaveLength(2);
+    expect(JSON.parse(bodies[0]).response_format).toEqual({ type: 'json_object' });
+    expect(JSON.parse(bodies[1]).response_format).toBeUndefined();
+    const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
+    const surfaced = `${logged}\n${JSON.stringify(result)}`;
+    expect(surfaced).not.toContain('leak-token-banana-4421');
+    expect(surfaced).not.toContain('response_format is not supported');
   });
 
   it('keeps only the last 20 vision attempts and never a raw error string', () => {
