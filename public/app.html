@@ -123,6 +123,10 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .plan-card-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:4px}
 .plan-card-meta{font-size:.72rem;color:var(--mute2)}
 .plan-card-footer{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Desktop with a mouse: Meal Plans card actions are at least 40px. Touch keeps the 44px rule below. */
+@media (pointer:fine) and (min-width:1025px){
+ .plan-card-footer .btn{min-height:40px;box-sizing:border-box}
+}
 
 .shop-category{margin-bottom:16px}
 .shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
@@ -2243,7 +2247,8 @@ function copyInvite() {
 function _mealRowHtml(idx, item, containerId) {
  const types = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'];
  const opts = types.map(t=>`<option value="${t}" ${item.mealType===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
- return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
+ const path = item && item.path ? `<input type="hidden" data-field="path" value="${escapeHtml(item.path)}"/>` : '';
+ return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">${path}
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
  <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" maxlength="200" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
@@ -2261,6 +2266,7 @@ function _mealRowHtml(idx, item, containerId) {
 function _collectMealItems(containerId) {
  const rows = document.querySelectorAll(`[id^="mprow-${containerId}-"]`);
  return Array.from(rows).map(row => ({
+ path: row.querySelector('[data-field=path]')?.value||'',
  name: row.querySelector('[data-field=name]')?.value?.trim()||'',
  mealType: row.querySelector('[data-field=mealType]')?.value||'lunch',
  calories: parseFloat(row.querySelector('[data-field=calories]')?.value)||0,
@@ -2276,7 +2282,7 @@ function mpAddMealItem() {
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_mpItemCount++, {mealType:'breakfast'}, 'mp'));
 }
 
-let _editMpId = null, _editMpItemCount = 0;
+let _editMpId = null, _editMpItemCount = 0, _editMpSource = null;
 function editMpAddMealItem() {
  const list = document.getElementById('edit-mp-meals');
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, {mealType:'lunch'}, 'emp'));
@@ -2285,17 +2291,11 @@ function editMpAddMealItem() {
 function openEditMealPlan(planId) {
  const p = S.mealPlans.find(x=>x.id===planId); if (!p) return;
  _editMpId = planId; _editMpItemCount = 0;
+ _editMpSource = p.meals;
  document.getElementById('edit-mp-title').textContent = 'Edit: ' + p.name;
  const list = document.getElementById('edit-mp-meals');
  list.innerHTML = '';
- let meals = p.meals;
- if (typeof meals === 'string') try { meals = JSON.parse(meals); } catch { meals = []; }
- // Flatten: support both [{name,mealType,...}] and [{day,meals:[{mealType,foods:[...]}]}]
- let items = [];
- if (Array.isArray(meals)) {
- if (meals[0]?.foods !== undefined || meals[0]?.name !== undefined) items = meals;
- else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType||'lunch'}))));
- }
+ const items = FMHomeWeek.editMealRows(p.meals);
  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
  let warnEl = document.getElementById('edit-mp-allergen');
  if (!warnEl) { warnEl = document.createElement('div'); warnEl.id = 'edit-mp-allergen'; list.insertAdjacentElement('beforebegin', warnEl); }
@@ -2314,12 +2314,40 @@ function clearModalError(id) { const p = document.querySelector('#' + id + ' .mo
 
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
- const meals = _collectMealItems('emp');
- const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+ const meals = FMHomeWeek.applyMealEdits(_editMpSource, _collectMealItems('emp'));
+ const totals = FMHomeWeek.planMacros(meals);
+ const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals, totalCalories: totals.calories, totalProtein: totals.protein, totalCarbs: totals.carbs, totalFat: totals.fat }) });
  if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
  clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
  loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓');
+}
+
+// Saved plans are a flat meal list, or a day-shaped week (onboarding writes plan.days).
+function savedPlanSlotLabel(type) {
+ const t = String(type || '').toLowerCase();
+ const known = { breakfast:'Breakfast', lunch:'Lunch', dinner:'Dinner', snack:'Snack', 'pre-workout':'Pre-workout', 'post-workout':'Post-workout' };
+ return known[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+}
+function savedPlanMealLine(p, i, prefix) {
+ const label = prefix ? escapeHtml(prefix) + ': ' : '';
+ return `<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${label}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`;
+}
+function savedPlanMealsHtml(p) {
+ const parsed = FMHomeWeek.flattenPlanMeals(p && p.meals);
+ const days = parsed.days || [];
+ const items = parsed.items || [];
+ let body = '';
+ if (days.length) {
+ body = days.map(d => `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${escapeHtml(d.day)}</div>${(d.meals||[]).map(i => savedPlanMealLine(p, i, savedPlanSlotLabel(i.mealType))).join('')}</div>`).join('');
+ } else if (items.length) {
+ body = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
+ `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
+ }</div>`).join('');
+ }
+ if (!body) return `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ return `<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||'this plan')}" style="margin-top:8px;max-height:${days.length ? 280 : 120}px;overflow-y:auto">${body}</div>`;
 }
 
 // ── Meal Plan List ────────────────────────────────────────────────────────────
@@ -2342,18 +2370,7 @@ async function loadMealPlans() {
  if (section) section.style.display = '';
  grid.innerHTML = S.mealPlans.map(p => {
  const goalLabel = {muscle_gain:'Muscle gain',weight_loss:'Weight loss',maintenance:'Maintenance',general_fitness:'Fitness'}[p.goal_type] || 'Goal';
- let meals = p.meals; if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
- let items = [];
- if (Array.isArray(meals)) {
- if (meals[0]?.name) items = meals;
- else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType}))));
- }
- const mealSummary = items.length ? `<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||'this plan')}" style="margin-top:8px;max-height:120px;overflow-y:auto">${
- ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
- `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
- }</div>`).join('')
- }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ const mealSummary = savedPlanMealsHtml(p);
  const warnBadge = allergenBadgeHtml(p.allergenWarnings);
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
@@ -2374,20 +2391,18 @@ async function loadMealPlans() {
 async function buildListFromSaved(planId) {
  const plan = S.mealPlans.find(p => p.id === planId);
  if (!plan) return;
- let meals = plan.meals;
- if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
- if (!meals || !Array.isArray(meals) || !meals.length) {
+ const parsed = FMHomeWeek.flattenPlanMeals(plan.meals);
+ if (!parsed.items.length) {
  toast('Add meals to this plan first', 'warn'); return;
  }
- // Normalise to days structure for shopping list generator
- const days = meals[0]?.meals ? meals : [{ day: 1, meals: [{ mealType: 'daily', foods: meals }] }];
+ const days = parsed.days.length ? parsed.days : [{ day: 1, meals: parsed.items }];
  await buildAiShoppingList({ planName: plan.name, days });
 }
 
 async function saveMealPlan() {
  const name = document.getElementById('mp-name').value.trim();
  if (!name) { toast('Plan name is required', 'error'); return; }
- const meals = _collectMealItems('mp');
+ const meals = _collectMealItems('mp').map(m => { const copy = Object.assign({}, m); delete copy.path; return copy; });
  const r = await API('/meal-plans', { method:'POST', body: JSON.stringify({
  name, description: document.getElementById('mp-desc').value.trim(),
  goalType: document.getElementById('mp-goal').value,
@@ -3928,15 +3943,16 @@ async function loadHomeWeek() {
  const days = document.createElement('div'); days.className = 'hw-days'; days.setAttribute('aria-hidden', 'true');
  sum.days.slice(0, 7).forEach(d => { const s = document.createElement('span'); s.textContent = d.short; if (d.today) s.className = 'on'; days.appendChild(s); });
  box.appendChild(days);
- // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }; text is built here, textContent only.
- const aw = FMHomeWeek.warnings(row.allergenWarnings);
+ // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }.
+ // Each allergen group is shown once, on the first meal that hits it. textContent only.
+ const aw = FMHomeWeek.allergenPreview(row.allergenWarnings);
  if (aw.notice) {
  const n = document.createElement('div'); n.className = 'hw-warn'; n.id = 'home-week-notice'; n.setAttribute('role', 'alert');
  n.textContent = '⚠️ ' + aw.notice; box.appendChild(n);
  }
- if (aw.red.length) {
+ if (aw.text) {
  const w = document.createElement('div'); w.className = 'hw-warn'; w.id = 'home-week-warn'; w.setAttribute('role', 'alert');
- w.textContent = '⚠️ ' + aw.red.slice(0, 3).join('; ') + (aw.red.length > 3 ? ` (+${aw.red.length - 3} more in Meal Planner)` : '');
+ w.textContent = '⚠️ ' + aw.text;
  box.appendChild(w);
  }
  if (aw.notes.length) {

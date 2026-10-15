@@ -1655,14 +1655,17 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
     // warning system, computed on save and again on every read against the filters the user has then).
     const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
     const checked = await safeSavedMeals(req.user.userId, sentMeals);
-    // Compute totals from meals if provided
+    // Totals come from the stored shape. A day-shaped week has calories on each meal, not on
+    // m.foods, so summing foods only stored 0. planMacros averages the days (the card is cal/day)
+    // and still sums a manual list from its foods when those foods carry the macros.
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
-    if (meals && Array.isArray(meals)) {
-      const allFoods = meals.flatMap(m => m.foods || []);
-      calcCalories = allFoods.reduce((s,f) => s+(f.calories||0), 0) || totalCalories || 0;
-      calcProtein  = allFoods.reduce((s,f) => s+(f.protein||0), 0) || totalProtein  || 0;
-      calcCarbs    = allFoods.reduce((s,f) => s+(f.carbs||0),   0) || totalCarbs    || 0;
-      calcFat      = allFoods.reduce((s,f) => s+(f.fat||0),     0) || totalFat      || 0;
+    const shaped = meals && typeof meals === 'object' && (Array.isArray(meals) || Array.isArray(meals.days));
+    if (shaped) {
+      const sums = require('./public/js/fm-home-week').planMacros(meals);
+      calcCalories = sums.calories;
+      calcProtein = sums.protein;
+      calcCarbs = sums.carbs;
+      calcFat = sums.fat;
     }
     const r = await _pool.query(
       `UPDATE meal_plans SET name=COALESCE($1,name), description=COALESCE($2,description),

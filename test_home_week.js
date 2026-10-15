@@ -168,7 +168,9 @@ describe('allergen warnings on the Home card (real API shape)', () => {
   });
   it('loadHomeWeek renders them from the helper: red and notice get the alert role, the calm note does not, no innerHTML', () => {
     const l = fn('loadHomeWeek');
-    expect(l).toContain('FMHomeWeek.warnings(row.allergenWarnings)');
+    expect(l).toContain('FMHomeWeek.allergenPreview(row.allergenWarnings)');
+    expect(l).toContain("w.textContent = '⚠️ ' + aw.text");
+    expect(l).not.toMatch(/aw\.red\.slice\(0,\s*3\)/);
     expect(l).not.toMatch(/\.message|innerHTML/);
     const redBlock = l.slice(l.indexOf("id = 'home-week-warn'"), l.indexOf("id = 'home-week-note'"));
     expect(redBlock).toContain("setAttribute('role', 'alert')");
@@ -176,5 +178,149 @@ describe('allergen warnings on the Home card (real API shape)', () => {
     expect(noteBlock).not.toContain('role');
     expect(noteBlock).toContain('uncheckedNote(');
     expect(l).toContain("id = 'home-week-notice'");
+  });
+});
+
+describe('saved plan meals, both shapes', () => {
+  const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+  it('reads the week onboarding saves (plan.days, slot objects) and keeps the days', () => {
+    const flat = hw.flattenPlanMeals(plan.days);
+    expect(flat.days.map((d) => d.day)).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+    expect(flat.days[0].meals.map((m) => m.mealType)).toEqual(['breakfast', 'lunch', 'dinner', 'snack']);
+    expect(flat.days[0].meals[0].name).toBe(plan.days[0].meals.breakfast.name);
+    expect(flat.items).toHaveLength(28);
+    expect(hw.flattenPlanMeals({ days: plan.days }).days).toHaveLength(7);
+    expect(hw.flattenPlanMeals(JSON.stringify(plan.days)).days).toHaveLength(7);
+  });
+  it('reads a flat manual list and a day whose meals are foods', () => {
+    const manual = hw.flattenPlanMeals([{ name: 'Oats', mealType: 'breakfast', calories: 300, protein: 12 }]);
+    expect(manual.days).toEqual([]);
+    expect(manual.items[0]).toEqual(expect.objectContaining({ name: 'Oats', mealType: 'breakfast', calories: 300, protein: 12 }));
+    const foods = hw.flattenPlanMeals([{ day: 'Monday', meals: [{ mealType: 'lunch', foods: [{ name: 'Rice', calories: 200, protein: 4 }] }] }]);
+    expect(foods.days[0].day).toBe('Monday');
+    expect(foods.days[0].meals[0]).toEqual(expect.objectContaining({ name: 'Rice', mealType: 'lunch', calories: 200, protein: 4 }));
+  });
+  it('does not throw on a missing or odd shape', () => {
+    for (const raw of [undefined, null, 5, true, 'nope', '[', '{', { days: 'x' }, { days: null }, [{ meals: 5 }], [{ day: 'Monday', meals: 'egg' }], [{ day: 'Monday', meals: { breakfast: 'egg' } }], { notMeals: true }]) {
+      expect(() => hw.flattenPlanMeals(raw)).not.toThrow();
+      const r = hw.flattenPlanMeals(raw);
+      expect(Array.isArray(r.days)).toBe(true);
+      expect(Array.isArray(r.items)).toBe(true);
+    }
+  });
+  it('Meal Plans, edit and the shopping button read meals through the helper', () => {
+    expect(html).not.toMatch(/\.meals\.flatMap/);
+    expect(fn('savedPlanMealsHtml')).toContain('FMHomeWeek.flattenPlanMeals');
+    expect(fn('loadMealPlans')).toContain('savedPlanMealsHtml(p)');
+    expect(fn('openEditMealPlan')).toContain('FMHomeWeek.editMealRows');
+    expect(fn('saveEditedMealPlan')).toContain('FMHomeWeek.applyMealEdits');
+    expect(fn('saveEditedMealPlan')).toContain('FMHomeWeek.planMacros');
+    expect(fn('buildListFromSaved')).toContain('FMHomeWeek.flattenPlanMeals');
+    expect(fn('onboardBuildWeek')).toContain('await onboardSaveWeek(b.plan, fitnessGoal)');
+  });
+  it('string foods keep the parent meal on the card and in the shopping list', () => {
+    const raw = [{ day: 'Monday', meals: [{ name: 'Peanut sauce chicken', mealType: 'lunch', calories: 640, foods: ['peanuts'] }] }];
+    const r = hw.flattenPlanMeals(raw);
+    expect(r.days[0].meals).toHaveLength(1);
+    expect(r.days[0].meals[0].name).toBe('Peanut sauce chicken');
+    expect(r.days[0].meals[0].foods).toEqual(['peanuts']);
+    expect(r.items).toHaveLength(1);
+    const shop = engine.aggregateShoppingList({ days: r.days });
+    expect(shop.map((i) => i.name.toLowerCase())).toContain('peanuts');
+    const slot = hw.flattenPlanMeals([{ day: 'Monday', meals: { lunch: { name: 'Peanut sauce chicken', foods: ['peanuts'] } } }]);
+    expect(slot.days[0].meals[0].name).toBe('Peanut sauce chicken');
+  });
+  it('an array of meal arrays still lists the meals', () => {
+    const r = hw.flattenPlanMeals([[{ name: 'Oats', mealType: 'breakfast', calories: 300 }]]);
+    expect(r.items.map((i) => i.name)).toEqual(['Oats']);
+    expect(r.items[0].calories).toBe(300);
+  });
+  it('a non-array is empty because of the array guard alone', () => {
+    // some() and forEach() would otherwise be read as a meal list. Removing only
+    // `if (!Array.isArray(meals)) return empty;` lets this through.
+    const fake = {
+      some() { return false; },
+      forEach(cb) { cb({ name: 'Oats', mealType: 'breakfast', calories: 300 }); },
+    };
+    expect(hw.flattenPlanMeals(fake)).toEqual({ days: [], items: [] });
+  });
+});
+
+describe('editing a saved plan keeps the day shape', () => {
+  const src = [{
+    day: 'Monday',
+    dailyTotals: { calories: 480 },
+    meals: {
+      breakfast: { name: 'Monday bowl', calories: 480, protein: 22, carbs: 40, fat: 18, ingredients: [{ item: 'Peanuts', qty: '40g' }], swaps: ['rice cakes'] },
+      lunch: { name: 'Rice bowl', calories: 300, protein: 15, ingredients: [{ item: 'Rice', qty: '150g' }] },
+    },
+  }];
+  it('patches name and macros on the original meal and leaves ingredients', () => {
+    const rows = hw.editMealRows(src);
+    expect(rows.map((r) => r.path)).toEqual(['0.meals.breakfast', '0.meals.lunch']);
+    const saved = hw.applyMealEdits(src, [{ ...rows[0], calories: 510, protein: 24 }, rows[1]]);
+    expect(saved[0].day).toBe('Monday');
+    expect(saved[0].dailyTotals).toEqual({ calories: 480 });
+    expect(saved[0].meals.breakfast.ingredients).toEqual([{ item: 'Peanuts', qty: '40g' }]);
+    expect(saved[0].meals.breakfast.swaps).toEqual(['rice cakes']);
+    expect(saved[0].meals.breakfast.calories).toBe(510);
+    expect(saved[0].meals.lunch.ingredients).toEqual([{ item: 'Rice', qty: '150g' }]);
+    expect(src[0].meals.breakfast.calories).toBe(480);
+    expect(hw.planMacros(saved)).toEqual({ calories: 810, protein: 39, carbs: 40, fat: 18 });
+  });
+  it('sums a day-shaped week from the meals, and a food list from its foods', () => {
+    expect(hw.planMacros(src).calories).toBe(780);
+    expect(hw.planMacros({ days: src }).calories).toBe(780);
+    const week = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+    const daily = hw.planMacros(week.days);
+    expect(daily.calories).toBeGreaterThan(1700);
+    expect(daily.calories).toBeLessThan(2300);
+    expect(hw.planMacros([{ name: 'Bowl', calories: 999, foods: [{ name: 'Rice', calories: 200, protein: 4 }, { name: 'Chicken', calories: 150, protein: 30 }] }])).toEqual({ calories: 350, protein: 34, carbs: 0, fat: 0 });
+    const api = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    const put = api.slice(api.indexOf("router.put('/meal-plans/:id'"), api.indexOf("router.delete('/meal-plans/:id'"));
+    expect(put).toContain('planMacros');
+    expect(put).not.toMatch(/flatMap\(m => m\.foods/);
+  });
+});
+
+// A week that starts with three egg meals used to fill the three red slots with the same group
+// and hide satay, banana and prawn. Each contains group is shown once, on the first meal that hits it.
+describe('Home allergen lines, one per group', () => {
+  const NOTE = "We couldn't check this meal against your allergies, so check the ingredients.";
+  const list = [
+    { meal: '', contains: [], notice: 'We couldn\'t read all your allergies, so every allergen filter is on.' },
+    { meal: 'Eggs on toast', contains: ['egg'] },
+    { meal: 'Egg fried rice', contains: ['egg'] },
+    { meal: 'Cheese omelette', contains: ['Egg'] },
+    { meal: 'Satay chicken', contains: ['nuts'] },
+    { meal: 'Banana bowl', contains: ['banana'] },
+    { meal: 'Garlic prawns', contains: ['prawn'] },
+    { meal: 'Arancini', contains: [], unchecked: true, note: NOTE },
+  ];
+  it('shows each distinct group once and counts the rest', () => {
+    const p = hw.allergenPreview(list);
+    expect(p.lines).toEqual([
+      'Eggs on toast contains egg',
+      'Satay chicken contains nuts',
+      'Banana bowl contains banana',
+      'Garlic prawns contains prawn',
+    ]);
+    expect(p.shown).toEqual(p.lines.slice(0, 3));
+    expect(p.more).toBe(1);
+    expect(p.text).toBe('Eggs on toast contains egg; Satay chicken contains nuts; Banana bowl contains banana (+1 more in Meal Planner)');
+    expect(p.text.match(/contains egg/g)).toEqual(['contains egg']);
+    expect(p.text).not.toContain('Egg fried rice');
+    expect(p.text).not.toContain('Cheese omelette');
+    expect(p.text).not.toContain('Garlic prawns');
+    expect(p.notice).toBe(hw.warnings(list).notice);
+    expect(p.notes).toEqual(hw.warnings(list).notes);
+    expect(p.notes).toEqual(['Arancini']);
+  });
+  it('a second group on a later meal still appears, and an empty list stays empty', () => {
+    const p = hw.allergenPreview([{ meal: 'Eggs on toast', contains: ['egg', 'egg'] }, { meal: 'Pad thai', contains: ['egg', 'peanut'] }]);
+    expect(p.lines).toEqual(['Eggs on toast contains egg', 'Pad thai contains peanut']);
+    expect(p.more).toBe(0);
+    expect(p.text).not.toContain('(+');
+    expect(hw.allergenPreview(undefined)).toEqual({ notice: '', notes: [], lines: [], shown: [], more: 0, text: '' });
   });
 });
