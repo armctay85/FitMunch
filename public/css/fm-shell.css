@@ -155,3 +155,33 @@ img,svg,video{max-width:100%;height:auto}
 @media(max-width:720px){
   .fm-nav-links a:not(.fm-nav-cta){display:none}
 }
+
+/* Shared chrome: nav, buttons, hero band, footer. Page CSS still owns its own sections. */
+.fm-nav{
+  position:sticky;top:0;z-index:30;
+  background:rgba(7,19,13,.94);
+  backdrop-filter:saturate(1.2) blur(14px);
+  padding:14px clamp(16px,4vw,40px);
+}
+.fm-nav.fm-nav-abs{
+  position:absolute;
+  background:linear-gradient(180deg, rgba(7,19,13,.88), rgba(7,19,13,0));
+}
+.fm-nav-links a{min-height:44px;display:inline-flex;align-items:center}
+.fm-nav-cta{
+  min-height:44px;display:inline-flex;align-items:center;
+  border-radius:999px;padding:0 16px;
+}
+.fm-btn{border-radius:999px;min-height:48px;transition:transform .2s var(--fm-ease,ease), background .2s}
+.fm-btn:hover{transform:translateY(-1px)}
+.fm-btn:active{transform:translateY(0)}
+.fm-hero-band{
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgba(31,157,74,.2), transparent 55%),
+    var(--fridge);
+}
+.fm-footer{padding:48px clamp(16px,4vw,48px) 28px}
+@media(prefers-reduced-motion:reduce){
+  .fm-btn,.fm-nav-cta{transition:none}
+  .fm-btn:hover{transform:none}
+}
