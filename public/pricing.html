@@ -86,6 +86,8 @@ html,body{max-width:100%;overflow-x:hidden}
   .trust-strip{grid-template-columns:1fr}
 }
 [data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}
+#billing-toggle .save-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:#e8f5ec;color:#0f5a2a;font-size:.72rem;font-weight:800;line-height:1.4}
+#billing-toggle .save-badge[hidden]{display:none}
 #billing-toggle .fm-btn-ink{background:#ffffff;color:#0c1210;border-color:#5c6d64}
 </style>
 </head>
@@ -121,7 +123,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <div class="fm-section-inner">
     <div id="billing-toggle" role="group" aria-label="Premium billing" hidden style="gap:6px;justify-content:center;margin:0 0 18px">
       <button type="button" class="fm-btn fm-btn-leaf" data-billing="monthly" aria-pressed="true">Monthly</button>
-      <button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly</button>
+      <button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly <span class="save-badge" id="yearly-save" hidden></span></button>
     </div>
     <div class="plans" aria-label="FitMunch pricing plans">
       <article class="plan main">
@@ -141,7 +143,7 @@ html,body{max-width:100%;overflow-x:hidden}
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
-        <div class="p-price">A<span>$0</span> <small>forever</small></div>
+        <div class="p-price"><span>A$0</span> <small>forever</small></div>
         <p class="p-desc">Try food logging and a starter plan. Limited AI actions each month.</p>
         <ul>
           <li>Macro and food logging</li>
@@ -237,6 +239,12 @@ try {
       if (!cfg || cfg.premiumAnnual !== true) return;
       box.hidden = false;
       box.style.display = "flex";
+      // Yearly saving from the two shown prices, rounded down, so the badge never overstates it.
+      const n = (s) => Number((String(s).match(/A\$(\d+(?:\.\d+)?)/) || [])[1]);
+      const mo = n(price.getAttribute('data-monthly')); const yr = n(price.getAttribute('data-annual'));
+      const pct = mo > 0 && yr > 0 ? Math.floor((1 - yr / (mo * 12)) * 100) : 0;
+      const badge = document.getElementById('yearly-save');
+      if (badge && pct >= 5) { badge.textContent = 'Save ' + pct + '%'; badge.hidden = false; badge.setAttribute('title', 'A$' + yr + ' a year vs 12 x A$' + mo + ' = A$' + (mo * 12).toFixed(2)); }
       box.querySelectorAll('button[data-billing]').forEach((b) => {
         b.addEventListener('click', () => setBilling(b.getAttribute('data-billing')));
       });

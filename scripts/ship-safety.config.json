@@ -351,6 +351,7 @@
     "js/fm-identity.js",
     "js/fm-targets.js",
     "js/fm-week-wow.js",
+    "js/fm-home-week.js",
     "js/fm-storage.js",
     "js/fm-track.js",
     "login.html",

@@ -14,6 +14,7 @@
 <script src="/js/fm-targets.js"></script>
 <script src="/js/fm-item-name.js"></script>
 <script src="/js/fm-week-wow.js"></script>
+<script src="/js/fm-home-week.js"></script>
 <style>
 /* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
 :root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
@@ -122,6 +123,10 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .plan-card-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:4px}
 .plan-card-meta{font-size:.72rem;color:var(--mute2)}
 .plan-card-footer{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Desktop with a mouse: Meal Plans card actions are at least 40px. Touch keeps the 44px rule below. */
+@media (pointer:fine) and (min-width:1025px){
+ .plan-card-footer .btn{min-height:40px;box-sizing:border-box}
+}
 
 .shop-category{margin-bottom:16px}
 .shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
@@ -286,6 +291,33 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .allergen-note{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:.8rem;font-weight:500;line-height:1.4}
 .allergen-note-badge{display:inline-block;padding:1px 6px;border-radius:4px;background:#e2e8f0;color:#334155;font-size:.68rem;font-weight:600}
 .mp-safe-notice{display:block;margin:10px 0 14px;padding:12px 14px;border-left:4px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:.92rem;font-weight:600;line-height:1.45}
+.hw-card{background:#fff;border:1px solid rgba(31,157,74,.35);border-radius:var(--radius);padding:14px;margin-bottom:14px;min-width:0}
+.hw-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.hw-k{font-size:.68rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--green2)}
+.hw-name{font-size:1.05rem;font-weight:900;color:var(--text);overflow-wrap:anywhere}
+.hw-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
+.hw-tg div{background:rgba(31,157,74,.07);border-radius:10px;padding:8px 4px;text-align:center;min-width:0}
+.hw-tg .hw-cal{grid-column:1 / -1}
+.hw-tg b{display:block;font-size:1rem;font-weight:900;color:var(--text);overflow-wrap:anywhere}
+.hw-tg .hw-cal b{font-size:.95rem;font-variant-numeric:tabular-nums}
+.hw-tg span{font-size:.66rem;color:var(--text2);font-weight:700}
+.hw-skel{display:flex;flex-direction:column;gap:8px}
+.hw-skel-line{height:14px;border-radius:7px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:hw-shimmer 1.2s ease-in-out infinite}
+.hw-skel-line.short{width:55%;align-self:flex-start}
+@keyframes hw-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.hw-skel-line{animation:none;background:#f3f4f6}}
+.hw-err{margin:0 0 10px;color:#334155;font-size:.9rem;line-height:1.45}
+.hw-days{display:flex;gap:4px;margin-bottom:10px}
+.hw-days span{flex:1;min-width:0;text-align:center;font-size:.7rem;font-weight:700;padding:5px 0;border-radius:8px;color:var(--text2);background:#f3f4f6}
+.hw-days span.on{background:var(--green2);color:#fff}
+.hw-meals{list-style:none;margin:0 0 12px;padding:0}
+.hw-meals li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.85rem;min-width:0}
+.hw-meals li b{font-weight:700;overflow-wrap:anywhere;min-width:0}
+.hw-meals li span{color:var(--text2);white-space:nowrap;font-size:.78rem}
+.hw-warn{font-size:.8rem;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px}
+.hw-acts{display:flex;gap:8px;flex-wrap:wrap}
+.hw-acts .btn,#home-week-retry{min-height:44px}
+.hw-acts .btn{flex:1 1 140px}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .goals-nudge span{font-size:.75rem;color:#4b5a52}
@@ -337,6 +369,11 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .view-actions .btn{flex:1 1 auto;justify-content:center}
  .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
  .shop-cb.checked{box-shadow:none}
+}
+/* Desktop with a mouse: filter chips and the allergy field, Add and Save stay easy to hit. */
+@media (min-width: 1025px) and (pointer: fine) {
+ #dietary-tags .diet-tag,#saved-allergies .diet-tag,#ob-diet .diet-tag,#ob-allergies .diet-tag{min-height:40px;display:inline-flex;align-items:center}
+ #allergy-add,#mp-save-filters,button[onclick="addTypedAllergy()"]{min-height:40px}
 }
 /* Touch tablets and small laptops: same 44px tap targets as phones. */
 @media (pointer:coarse), (max-width:1024px) {
@@ -692,8 +729,16 @@ html.fm-authed #app-gate{display:none}
  <button class="diet-tag" data-val="egg free" onclick="toggleDietTag(this)">🥚 Egg free</button>
  <button class="diet-tag" data-val="sesame free" onclick="toggleDietTag(this)">🌱 Sesame free</button>
  <button class="diet-tag" data-val="soy free" onclick="toggleDietTag(this)">🫘 Soy free</button>
- <button class="diet-tag" data-val="shellfish free" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
+ <button type="button" class="diet-tag" data-val="shellfish free" aria-pressed="false" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
+ <button type="button" class="diet-tag" data-val="fish free" aria-pressed="false" onclick="toggleDietTag(this)">🐟 Fish free</button>
  </div>
+ <p id="mp-filter-help" style="font-size:.72rem;color:var(--text3);margin:8px 0 0">Untick a filter and save to remove it. If your profile changed on another screen, we'll ask you to reload.</p>
+ <div id="saved-allergies" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+ <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+ <input id="allergy-add" class="form-input" maxlength="100" placeholder="Add an allergy, like kiwi" aria-label="Add an allergy"/>
+ <button type="button" class="btn btn-ghost2" onclick="addTypedAllergy()">Add</button>
+ </div>
+ <button type="button" class="btn btn-ghost2" style="width:100%;margin-top:8px" id="mp-save-filters" onclick="saveDietFilters()">Save filters</button>
  </div>
  <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="mp-gen-btn" onclick="generateMealPlan()">
  ✨ Generate my meal plan →
@@ -937,7 +982,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
  <li>Limited AI actions per month</li>
@@ -956,9 +1001,10 @@ html.fm-authed #app-gate{display:none}
  <div><div class="view-title" id="portal-greeting">Good morning</div><div class="view-sub" id="portal-pt-name">Loading your data…</div></div>
  </div>
  <div class="scroll-body">
+ <section class="hw-card" id="home-week" style="display:none" aria-labelledby="home-week-name"></section>
  <div class="metrics-row">
  <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" onclick="nav('portal-meals')">Log a meal →</button></div>
- <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" onclick="openOnboarding()">Set goals →</button></div>
+ <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" id="pm-cals-cta" onclick="openOnboarding()">Set goals →</button></div>
  <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-green" id="pm-workouts" style="color:var(--green2)">0</div><div class="metric-sub">this week</div><button class="metric-cta" onclick="nav('portal-workouts')">Log workout →</button></div>
  <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div><button class="metric-cta" onclick="nav('receipt-scanner')">Scan receipt →</button></div>
  </div>
@@ -972,7 +1018,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong>Free includes 10 AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -1080,7 +1126,7 @@ html.fm-authed #app-gate{display:none}
 
 <!-- ══ CLIENT: MY PLAN ══ -->
 <div class="view" id="view-portal-plan">
- <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub">Assigned by your trainer.</div></div></div>
+ <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub" id="portal-plan-sub">Your saved meal and workout plans.</div></div></div>
  <div class="scroll-body" id="portal-plan-body">
  <div style="padding:20px;text-align:center"><div class="loader"></div></div>
  </div>
@@ -1289,10 +1335,13 @@ html.fm-authed #app-gate{display:none}
  </div>
  <!-- Results Panel -->
  <div>
- <div id="scan-loading" style="display:none;text-align:center;padding:40px">
+ <div id="scan-loading" style="display:none;text-align:center;padding:40px" aria-live="polite">
  <div class="loader" style="width:24px;height:24px;border-width:3px;margin:0 auto 12px"></div>
- <div style="font-size:.85rem;font-weight:600;color:var(--text2)">Reading your receipt…</div>
- <div style="font-size:.75rem;color:var(--text3);margin-top:4px">AI is reading every line item</div>
+ <div id="scan-progress-label" style="font-size:.85rem;font-weight:600;color:var(--text2)">Preparing the photo</div>
+ <div style="margin:12px auto 0;max-width:220px;height:6px;border-radius:99px;background:rgba(31,157,74,.15);overflow:hidden">
+ <div id="scan-progress-fill" style="height:100%;width:8%;background:var(--leaf);border-radius:99px;transition:width .2s linear"></div>
+ </div>
+ <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Reading prices and weights from your receipt</div>
  </div>
  <div id="scan-empty" class="receipt-empty-panel">
  <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));border:1px solid rgba(31,157,74,.28);display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:14px">🧾</div>
@@ -1316,6 +1365,7 @@ html.fm-authed #app-gate{display:none}
  <div style="text-align:center"><div style="font-size:1.2rem;font-weight:600;color:#fff;font-family:'IBM Plex Mono',monospace" id="scan-items">0</div><div style="font-size:.65rem;color:rgba(238,242,238,.65)">Items</div></div>
  </div>
  </div>
+ <div id="scan-ppd" style="margin:8px 0 12px;font-size:.78rem;font-weight:700;color:var(--text2)"></div>
  <!-- Macro bar -->
  <div class="card" style="margin-bottom:14px">
  <div class="card-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
@@ -1585,7 +1635,7 @@ html.fm-authed #app-gate{display:none}
 
 <!-- GOALS ONBOARDING MODAL -->
 <div class="modal-overlay" id="modal-onboard" style="z-index:301" onclick="closeOnOverlay(event)">
- <div class="modal" style="max-width:460px">
+ <div class="modal" style="max-width:460px;max-height:calc(100dvh - 24px);overflow-y:auto">
  <div class="modal-title"><span id="ob-title">About you</span><button class="modal-close" aria-label="Close" onclick="closeModal('modal-onboard')">✕</button></div>
  <div class="ob-progress"><p class="ob-stepno" id="ob-stepno" aria-live="polite">Step 1 of 3</p><div class="ob-track" aria-hidden="true"><span id="ob-track-fill" style="width:33.3%"></span></div></div>
  <div id="ob-step-1">
@@ -1601,8 +1651,37 @@ html.fm-authed #app-gate{display:none}
  <option value="sedentary">Mostly sitting, little exercise</option><option value="light">Train 1-3 times a week</option><option value="moderate" selected>Train 3-5 times a week</option><option value="active">Train 6-7 times a week</option><option value="very_active">Physical job plus training</option></select></div>
  <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
  <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
- <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
- <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option><option value="nut_free">Nut free</option><option value="sesame_free">Sesame free</option><option value="soy_free">Soy free</option><option value="shellfish_free">Shellfish free</option></select></div>
+ <div class="form-field"><div class="form-label" id="ob-diet-label">Diet</div>
+ <div id="ob-diet" role="group" aria-labelledby="ob-diet-label" style="display:flex;flex-wrap:wrap;gap:6px">
+ <button type="button" class="diet-tag" data-val="vegetarian" aria-pressed="false" onclick="toggleDietTag(this)">Vegetarian</button>
+ <button type="button" class="diet-tag" data-val="vegan" aria-pressed="false" onclick="toggleDietTag(this)">Vegan</button>
+ <button type="button" class="diet-tag" data-val="dairy free" aria-pressed="false" onclick="toggleDietTag(this)">Dairy free</button>
+ <button type="button" class="diet-tag" data-val="egg free" aria-pressed="false" onclick="toggleDietTag(this)">Egg free</button>
+ <button type="button" class="diet-tag" data-val="gluten free" aria-pressed="false" onclick="toggleDietTag(this)">Gluten free</button>
+ <button type="button" class="diet-tag" data-val="nut free" aria-pressed="false" onclick="toggleDietTag(this)">Nut free</button>
+ <button type="button" class="diet-tag" data-val="sesame free" aria-pressed="false" onclick="toggleDietTag(this)">Sesame free</button>
+ <button type="button" class="diet-tag" data-val="soy free" aria-pressed="false" onclick="toggleDietTag(this)">Soy free</button>
+ <button type="button" class="diet-tag" data-val="shellfish free" aria-pressed="false" onclick="toggleDietTag(this)">Shellfish free</button>
+ <button type="button" class="diet-tag" data-val="fish free" aria-pressed="false" onclick="toggleDietTag(this)">Fish free</button>
+ </div>
+ <p style="font-size:.72rem;color:var(--text3);margin:8px 0 0">Tick every diet that applies. No restrictions means leave them all off.</p>
+ <div class="form-label" id="ob-allergy-label" style="margin-top:12px">Allergies</div>
+ <div id="ob-allergies" role="group" aria-labelledby="ob-allergy-label" style="display:flex;flex-wrap:wrap;gap:6px">
+ <button type="button" class="diet-tag" data-allergy="peanut" aria-pressed="false" onclick="toggleDietTag(this)">Peanut</button>
+ <button type="button" class="diet-tag" data-allergy="tree nuts" aria-pressed="false" onclick="toggleDietTag(this)">Tree nuts</button>
+ <button type="button" class="diet-tag" data-allergy="milk" aria-pressed="false" onclick="toggleDietTag(this)">Milk</button>
+ <button type="button" class="diet-tag" data-allergy="egg" aria-pressed="false" onclick="toggleDietTag(this)">Egg</button>
+ <button type="button" class="diet-tag" data-allergy="wheat" aria-pressed="false" onclick="toggleDietTag(this)">Wheat</button>
+ <button type="button" class="diet-tag" data-allergy="soy" aria-pressed="false" onclick="toggleDietTag(this)">Soy</button>
+ <button type="button" class="diet-tag" data-allergy="sesame" aria-pressed="false" onclick="toggleDietTag(this)">Sesame</button>
+ <button type="button" class="diet-tag" data-allergy="fish" aria-pressed="false" onclick="toggleDietTag(this)">Fish</button>
+ <button type="button" class="diet-tag" data-allergy="crustacea" aria-pressed="false" onclick="toggleDietTag(this)">Crustacea</button>
+ <button type="button" class="diet-tag" data-allergy="molluscs" aria-pressed="false" onclick="toggleDietTag(this)">Molluscs</button>
+ <button type="button" class="diet-tag" data-allergy="lupin" aria-pressed="false" onclick="toggleDietTag(this)">Lupin</button>
+ <button type="button" class="diet-tag" data-allergy="sulphites" aria-pressed="false" onclick="toggleDietTag(this)">Sulphites</button>
+ </div>
+ <p style="font-size:.72rem;color:var(--text3);margin:8px 0 0">Tick every allergy that applies. They are saved on your profile and used for this week.</p>
+ </div>
  <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
  <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
  </div>
@@ -1621,7 +1700,7 @@ html.fm-authed #app-gate{display:none}
  <figure class="ob-curve" id="ob-curve" style="display:none"></figure>
  <p style="font-size:.9rem;color:#1f2937;font-weight:600;line-height:1.45;margin-bottom:10px" id="ob-week-note" role="status"></p>
  <div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day" style="max-height:52vh;overflow:auto"></div>
- <button class="btn btn-green" style="width:100%;margin-top:12px" onclick="closeModal('modal-onboard')">Done</button>
+ <button class="btn btn-green" style="width:100%;margin-top:12px" id="ob-done" onclick="onboardDone()">Done</button>
  </div>
  </div>
 </div>
@@ -2168,7 +2247,8 @@ function copyInvite() {
 function _mealRowHtml(idx, item, containerId) {
  const types = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'];
  const opts = types.map(t=>`<option value="${t}" ${item.mealType===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
- return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
+ const path = item && item.path ? `<input type="hidden" data-field="path" value="${escapeHtml(item.path)}"/>` : '';
+ return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">${path}
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
  <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" maxlength="200" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
@@ -2186,6 +2266,7 @@ function _mealRowHtml(idx, item, containerId) {
 function _collectMealItems(containerId) {
  const rows = document.querySelectorAll(`[id^="mprow-${containerId}-"]`);
  return Array.from(rows).map(row => ({
+ path: row.querySelector('[data-field=path]')?.value||'',
  name: row.querySelector('[data-field=name]')?.value?.trim()||'',
  mealType: row.querySelector('[data-field=mealType]')?.value||'lunch',
  calories: parseFloat(row.querySelector('[data-field=calories]')?.value)||0,
@@ -2201,7 +2282,7 @@ function mpAddMealItem() {
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_mpItemCount++, {mealType:'breakfast'}, 'mp'));
 }
 
-let _editMpId = null, _editMpItemCount = 0;
+let _editMpId = null, _editMpItemCount = 0, _editMpSource = null;
 function editMpAddMealItem() {
  const list = document.getElementById('edit-mp-meals');
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, {mealType:'lunch'}, 'emp'));
@@ -2210,17 +2291,11 @@ function editMpAddMealItem() {
 function openEditMealPlan(planId) {
  const p = S.mealPlans.find(x=>x.id===planId); if (!p) return;
  _editMpId = planId; _editMpItemCount = 0;
+ _editMpSource = p.meals;
  document.getElementById('edit-mp-title').textContent = 'Edit: ' + p.name;
  const list = document.getElementById('edit-mp-meals');
  list.innerHTML = '';
- let meals = p.meals;
- if (typeof meals === 'string') try { meals = JSON.parse(meals); } catch { meals = []; }
- // Flatten: support both [{name,mealType,...}] and [{day,meals:[{mealType,foods:[...]}]}]
- let items = [];
- if (Array.isArray(meals)) {
- if (meals[0]?.foods !== undefined || meals[0]?.name !== undefined) items = meals;
- else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType||'lunch'}))));
- }
+ const items = FMHomeWeek.editMealRows(p.meals);
  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
  let warnEl = document.getElementById('edit-mp-allergen');
  if (!warnEl) { warnEl = document.createElement('div'); warnEl.id = 'edit-mp-allergen'; list.insertAdjacentElement('beforebegin', warnEl); }
@@ -2239,12 +2314,40 @@ function clearModalError(id) { const p = document.querySelector('#' + id + ' .mo
 
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
- const meals = _collectMealItems('emp');
- const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals }) });
+ const meals = FMHomeWeek.applyMealEdits(_editMpSource, _collectMealItems('emp'));
+ const totals = FMHomeWeek.planMacros(meals);
+ const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals, totalCalories: totals.calories, totalProtein: totals.protein, totalCarbs: totals.carbs, totalFat: totals.fat }) });
  if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
  clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
  loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓');
+}
+
+// Saved plans are a flat meal list, or a day-shaped week (onboarding writes plan.days).
+function savedPlanSlotLabel(type) {
+ const t = String(type || '').toLowerCase();
+ const known = { breakfast:'Breakfast', lunch:'Lunch', dinner:'Dinner', snack:'Snack', 'pre-workout':'Pre-workout', 'post-workout':'Post-workout' };
+ return known[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+}
+function savedPlanMealLine(p, i, prefix) {
+ const label = prefix ? escapeHtml(prefix) + ': ' : '';
+ return `<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${label}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`;
+}
+function savedPlanMealsHtml(p) {
+ const parsed = FMHomeWeek.flattenPlanMeals(p && p.meals);
+ const days = parsed.days || [];
+ const items = parsed.items || [];
+ let body = '';
+ if (days.length) {
+ body = days.map(d => `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${escapeHtml(d.day)}</div>${(d.meals||[]).map(i => savedPlanMealLine(p, i, savedPlanSlotLabel(i.mealType))).join('')}</div>`).join('');
+ } else if (items.length) {
+ body = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
+ `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
+ }</div>`).join('');
+ }
+ if (!body) return `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ return `<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||'this plan')}" style="margin-top:8px;max-height:${days.length ? 280 : 120}px;overflow-y:auto">${body}</div>`;
 }
 
 // ── Meal Plan List ────────────────────────────────────────────────────────────
@@ -2267,18 +2370,7 @@ async function loadMealPlans() {
  if (section) section.style.display = '';
  grid.innerHTML = S.mealPlans.map(p => {
  const goalLabel = {muscle_gain:'Muscle gain',weight_loss:'Weight loss',maintenance:'Maintenance',general_fitness:'Fitness'}[p.goal_type] || 'Goal';
- let meals = p.meals; if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
- let items = [];
- if (Array.isArray(meals)) {
- if (meals[0]?.name) items = meals;
- else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType}))));
- }
- const mealSummary = items.length ? `<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||'this plan')}" style="margin-top:8px;max-height:120px;overflow-y:auto">${
- ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
- `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
- }</div>`).join('')
- }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ const mealSummary = savedPlanMealsHtml(p);
  const warnBadge = allergenBadgeHtml(p.allergenWarnings);
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
@@ -2299,20 +2391,18 @@ async function loadMealPlans() {
 async function buildListFromSaved(planId) {
  const plan = S.mealPlans.find(p => p.id === planId);
  if (!plan) return;
- let meals = plan.meals;
- if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
- if (!meals || !Array.isArray(meals) || !meals.length) {
+ const parsed = FMHomeWeek.flattenPlanMeals(plan.meals);
+ if (!parsed.items.length) {
  toast('Add meals to this plan first', 'warn'); return;
  }
- // Normalise to days structure for shopping list generator
- const days = meals[0]?.meals ? meals : [{ day: 1, meals: [{ mealType: 'daily', foods: meals }] }];
+ const days = parsed.days.length ? parsed.days : [{ day: 1, meals: parsed.items }];
  await buildAiShoppingList({ planName: plan.name, days });
 }
 
 async function saveMealPlan() {
  const name = document.getElementById('mp-name').value.trim();
  if (!name) { toast('Plan name is required', 'error'); return; }
- const meals = _collectMealItems('mp');
+ const meals = _collectMealItems('mp').map(m => { const copy = Object.assign({}, m); delete copy.path; return copy; });
  const r = await API('/meal-plans', { method:'POST', body: JSON.stringify({
  name, description: document.getElementById('mp-desc').value.trim(),
  goalType: document.getElementById('mp-goal').value,
@@ -2686,9 +2776,9 @@ async function loadPortalHome() {
  // Load user profile / goals
  try {
  const prof = await API('/user/profile/' + S.user.id);
- if (prof.success && prof.profile) prefillDietTags(prof.profile.dietaryPreferences);
+ if (prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
  if (prof.success && prof.profile && prof.profile.targetCalories) {
- S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein };
+ S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein, targetCarbs: prof.profile.targetCarbs, targetFat: prof.profile.targetFat };
  renderGoalTargets();
  }
  } catch(e) { /* ignore */ }
@@ -2709,7 +2799,8 @@ async function loadPortalHome() {
  // Dashboard metrics
  const todayMeals = (r.recentMeals||[]).filter(m => new Date(m.date).toDateString()===new Date().toDateString());
  document.getElementById('pm-meals').textContent = todayMeals.length;
- document.getElementById('pm-cals').textContent = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ const loggedCals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ document.getElementById('pm-cals').textContent = FMHomeWeek.formatCount(loggedCals);
  const weekWorkouts = (r.recentWorkouts||[]).filter(w => (Date.now()-new Date(w.date)) < 7*86400000);
  document.getElementById('pm-workouts').textContent = weekWorkouts.length;
  document.getElementById('pm-streak').textContent = calcStreak(r.recentMeals||[]);
@@ -2735,9 +2826,18 @@ async function loadPortalHome() {
  el.classList.toggle('zero-soft', String(el.textContent||'0') === '0');
  });
  if (S.goals?.targetCalories) {
- const cals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
  const sub = document.getElementById('pm-cals-sub');
- if (sub) sub.textContent = `of ${S.goals.targetCalories} goal`;
+ if (sub) sub.textContent = `of ${FMHomeWeek.formatCount(S.goals.targetCalories)} goal`;
+ }
+ const cta = document.getElementById('pm-cals-cta');
+ if (cta) cta.style.display = S.goals?.targetCalories ? 'none' : '';
+ const hasWeek = await loadHomeWeek();
+ if (hasWeek && !r.mealPlan && mealPlanEl) {
+ mealPlanEl.textContent = '';
+ const n = document.createElement('div'); n.className = 'portal-plan-name'; n.textContent = S_homeWeek.name;
+ const m = document.createElement('div'); m.className = 'portal-plan-meta'; m.textContent = 'Saved · ' + S_homeWeek.days.length + ' days';
+ mealPlanEl.append(n, m);
+ if (mealBtn) { mealBtn.textContent = 'View'; mealBtn.onclick = () => nav('meal-plans'); }
  }
  // Load AI coaching insight (non-blocking)
  loadAiCoaching(todayMeals, r.recentMeals||[]);
@@ -2785,6 +2885,9 @@ function calcStreak(meals) {
 
 function renderPortalPlan() {
  const el = document.getElementById('portal-plan-body');
+ // Only say a trainer assigned it when there is one (launch audit D9).
+ const sub = document.getElementById('portal-plan-sub');
+ if (sub) sub.textContent = S.portalData && S.portalData.pt ? 'Assigned by your trainer.' : 'Your saved meal and workout plans.';
  if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
  const { mealPlan, workoutPlan } = S.portalData;
  let html = '';
@@ -3207,7 +3310,7 @@ function openReceiptLibrary(e) {
 }
 
 /** Downscale phone photos so Vercel 4.5MB body limit never kills the scan. */
-function compressReceiptFile(file, maxEdge = 1600, quality = 0.82) {
+function compressReceiptFile(file, maxEdge = 1200, quality = 0.72) {
  return new Promise((resolve, reject) => {
  const url = URL.createObjectURL(file);
  const img = new Image();
@@ -3297,6 +3400,29 @@ function clearReceipt() {
  if (logBox) logBox.style.display = 'none';
 }
 
+let scanProgressTimer = null;
+function startScanProgress() {
+ const label = document.getElementById('scan-progress-label');
+ const fill = document.getElementById('scan-progress-fill');
+ const steps = ['Preparing the photo', 'Reading prices and weights', 'Scoring the haul'];
+ const started = Date.now();
+ if (label) label.textContent = steps[0];
+ if (fill) fill.style.width = '8%';
+ if (scanProgressTimer) clearInterval(scanProgressTimer);
+ scanProgressTimer = setInterval(function () {
+  const t = Date.now() - started;
+  const idx = t < 500 ? 0 : (t < 1800 ? 1 : 2);
+  if (label) label.textContent = steps[idx];
+  if (fill) fill.style.width = Math.min(90, 8 + t / 80) + '%';
+ }, 200);
+}
+function stopScanProgress() {
+ if (scanProgressTimer) clearInterval(scanProgressTimer);
+ scanProgressTimer = null;
+ const fill = document.getElementById('scan-progress-fill');
+ if (fill) fill.style.width = '100%';
+}
+
 async function scanReceipt() {
  if (!receiptBlob && !receiptBase64) { toast('Choose or take a receipt photo first', 'error'); return; }
  if (!S.token) { toast('Please sign in again to scan', 'error'); return; }
@@ -3305,6 +3431,7 @@ async function scanReceipt() {
  document.getElementById('scan-empty').style.display = 'none';
  document.getElementById('scan-results').style.display = 'none';
  document.getElementById('scan-btn').disabled = true;
+ startScanProgress();
  const readFail = "We couldn't read this receipt. Try again with a flat, well-lit photo.";
  const scanUnavailable = "Scanning is unavailable right now.";
  try {
@@ -3375,6 +3502,7 @@ async function scanReceipt() {
  empty.appendChild(retake);
  }
  } finally {
+ stopScanProgress();
  document.getElementById('scan-loading').style.display = 'none';
  document.getElementById('scan-btn').disabled = false;
  }
@@ -3391,6 +3519,13 @@ function renderScanResults(data) {
  document.getElementById('scan-fat').textContent = t.fat + 'g';
  document.getElementById('scan-item-count').textContent = itemCount;
  document.getElementById('scan-items').textContent = itemCount;
+ const ppd = document.getElementById('scan-ppd');
+ if (ppd) {
+  const missing = Number(data.unpricedCount) || 0;
+  ppd.textContent = missing
+    ? (missing === 1 ? '1 price could not be read' : missing + ' prices could not be read')
+    : '';
+ }
 
  // Store scan data globally for logging
  S.lastScan = data;
@@ -3403,9 +3538,13 @@ function renderScanResults(data) {
  html += `<div style="padding:8px 14px 2px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--bg);font-family:'IBM Plex Mono',monospace">${CAT_EMOJI2[cat]||'OT'} · ${escapeHtml(cat)}</div>`;
  catItems.forEach(item => {
  const idx = itemIdx++;
+ const priceLabel = (item.priceStatus === 'unknown' || !(Number(item.price) > 0))
+  ? 'Price unknown'
+  : ('A$' + Number(item.price).toFixed(2));
  html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px dashed var(--border);cursor:pointer">
  <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0" checked/>
  <span style="flex:1;font-size:.8rem;font-weight:500">${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}</span>
+ <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(priceLabel)}</span>
  <span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.protein)}g P</span>
  <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal</span>
  </label>`;
@@ -3502,6 +3641,12 @@ function onboardStep(n) {
  document.getElementById('ob-stepno').textContent = 'Step ' + n + ' of 3';
  document.getElementById('ob-track-fill').style.width = (n / 3 * 100).toFixed(1) + '%';
 }
+function selectedObDiets() {
+ return [...document.querySelectorAll('#ob-diet .diet-tag.active[data-val]')].map(b => b.dataset.val);
+}
+function selectedObAllergies() {
+ return [...document.querySelectorAll('#ob-allergies .diet-tag.active[data-allergy]')].map(b => b.dataset.allergy);
+}
 function onboardCompute() {
  const v = id => document.getElementById(id).value;
  const input = { age: v('ob-age'), sex: v('ob-sex'), heightCm: v('ob-height'), weightKg: v('ob-weight'), activity: v('ob-activity'), goal: v('ob-goal') };
@@ -3514,7 +3659,7 @@ function onboardCompute() {
  if (!gw.ok) { err.textContent = gw.error; err.style.display = ''; gwEl.setAttribute('aria-invalid', 'true'); gwEl.focus(); return; }
  gwEl.removeAttribute('aria-invalid');
  const goalKg = gw.value;
- OB = { input, goalKg, diet: v('ob-diet'), targets: t };
+ OB = { input, goalKg, diet: selectedObDiets(), allergies: selectedObAllergies(), targets: t };
  err.style.display = 'none';
  document.getElementById('ob-cals').value = t.calories;
  document.getElementById('ob-prot').value = t.protein;
@@ -3576,7 +3721,7 @@ function obRenderCurve(proj) {
 function obRenderHeader(plan, tg) {
  const a = FMWeekWow.weekAverages(plan);
  const meals = ((plan.days || [])[0] && Object.keys(plan.days[0].meals || {}).length) || 4;
- document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: a.calories || tg.calories, protein: a.protein || tg.protein, meals });
+ document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: FMWeekWow.shownTarget(a.calories, tg.calories), protein: FMWeekWow.shownTarget(a.protein, tg.protein), meals });
 }
 function obMealRow(d, slot, m, onSwap) {
  const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
@@ -3645,18 +3790,36 @@ async function onboardBuildWeek() {
  const btn = document.getElementById('ob-build'); btn.disabled = true; btn.textContent = 'Building...';
  const fitnessGoal = OB.input.goal;
  try {
- await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein }) });
+ const saved = await API('/user/profile', { method:'POST', body: JSON.stringify({ fitnessGoal, targetCalories: r.calories, targetProtein: r.protein, targetCarbs: r.carbs, targetFat: r.fat }) });
+ if (!saved || !saved.success) throw new Error('targets not saved');
  if (OB.input.weightKg) await API('/progress/log', { method:'POST', body: JSON.stringify({ userId: S.user.id, date: new Date().toISOString(), weight: parseFloat(OB.input.weightKg) }) });
  // Keep the goal weight so the curve comes back after a reload. The server checks it against the weight just logged.
  try { await API('/user/goal-weight', { method:'POST', body: JSON.stringify({ goalWeightKg: OB.goalKg }) }); if (S.user) S.user.goalWeightKg = OB.goalKg; } catch (_) { /* optional */ }
- S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein };
+ S.goals = { fitnessGoal, targetCalories: r.calories, targetProtein: r.protein, targetCarbs: r.carbs, targetFat: r.fat };
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }
- const diet = OB.diet && OB.diet !== 'none' ? [OB.diet.replace('_', ' ')] : [];
+ OB.savedPlan = null;
+ const diet = selectedObDiets();
+ const allergies = selectedObAllergies();
+ // Filters are their own save. The targets POST above stays as it is.
+ if ((diet.length || allergies.length) && S && S.user) {
+ try {
+ let updatedAt = null;
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.profile && prof.profile.updatedAt) updatedAt = prof.profile.updatedAt;
+ const body = { dietaryPreferences: diet };
+ const allergySave = obAllergySave(allergies, prof && prof.profile && prof.profile.allergies);
+ if (allergySave) body.allergies = allergySave;
+ if (updatedAt) body.profileUpdatedAt = updatedAt;
+ const saved = await API('/user/profile', { method:'POST', body: JSON.stringify(body) });
+ if (saved && saved.stale) toast(saved.error || 'Your profile changed since this page loaded. Reload it and try again.', 'error');
+ else if (saved && saved.success === false) toast(saved.error || 'Could not save your filters.', 'warn');
+ } catch (_) { /* the week below still uses the diets you ticked */ }
+ }
  const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
  const local = async () => {
  const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : ''), r); }
+ if (b && b.success && b.plan) { const note = [NOTE_BUILDER, b.notice, ...(b.plan.notes || [])].filter(s => s && String(s).trim()).join(' '); S_activePlan = b.plan; onboardRenderWeek(b.plan, note, r); await onboardSaveWeek(b.plan, fitnessGoal); }
  else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
  };
  // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
@@ -3665,7 +3828,7 @@ async function onboardBuildWeek() {
  try {
  if (!consented) { await local(); return; }
  const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); }
+ if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); await onboardSaveWeek(g.plan, fitnessGoal); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
  finally {
@@ -3673,6 +3836,146 @@ async function onboardBuildWeek() {
  // Redraw the curve now step 3 is visible, so it is drawn at the figure's real width.
  if (OB && document.getElementById('ob-curve').style.display !== 'none') obRenderCurve(FMWeekWow.projectWeight({ weightKg: OB.input.weightKg, goalKg: OB.goalKg, goal: OB.input.goal }));
  }
+}
+
+// Save the week the user just saw (swaps are applied in place, so Done saves them too). The server runs the
+// same allergen check on save as on every saved plan, and again on every read.
+function obWeekBody(plan, fitnessGoal) {
+ const a = FMWeekWow.weekAverages(plan) || {};
+ return { name: 'Your first week', description: plan.summary || 'Built at sign-up from your targets.', goalType: fitnessGoal || plan.goal || 'general_fitness',
+ totalCalories: a.calories || plan.avgDailyCalories || 0, totalProtein: a.protein || 0, meals: plan.days };
+}
+async function onboardSaveWeek(plan, fitnessGoal) {
+ try {
+ const body = obWeekBody(plan, fitnessGoal);
+ // A second pass updates the existing "Your first week" row instead of stacking another one.
+ let id = OB && OB.savedPlan && OB.savedPlan.id;
+ if (!id) {
+ try {
+ const existing = await API('/meal-plans');
+ const plans = existing && existing.success && Array.isArray(existing.plans) ? existing.plans : [];
+ id = FMHomeWeek.onboardingPlanId(plans);
+ } catch (_) { id = null; }
+ }
+ const s = id
+ ? await API('/meal-plans/' + id, { method:'PUT', body: JSON.stringify(body) })
+ : await API('/meal-plans', { method:'POST', body: JSON.stringify(body) });
+ if (s && s.success && s.plan) { OB.savedPlan = { id: s.plan.id, fitnessGoal }; return true; }
+ } catch (_) { /* shown below */ }
+ const n = document.getElementById('ob-week-note');
+ n.textContent = n.textContent + ' We could not save this week yet. Tap Done to try again.';
+ return false;
+}
+async function onboardDone() {
+ const btn = document.getElementById('ob-done');
+ btn.disabled = true;
+ try {
+ // Keep swaps made on step 3: re-save the shown week over the saved row, or save it now if the first save failed.
+ if (OB && S_activePlan && Array.isArray(S_activePlan.days)) {
+ if (OB.savedPlan && OB.savedPlan.id) await API('/meal-plans/' + OB.savedPlan.id, { method:'PUT', body: JSON.stringify(obWeekBody(S_activePlan, OB.savedPlan.fitnessGoal)) });
+ else await onboardSaveWeek(S_activePlan, OB.input && OB.input.goal);
+ }
+ } catch (_) { /* Home still shows what was saved */ }
+ finally { btn.disabled = false; }
+ closeModal('modal-onboard');
+ nav('portal-home');
+ await loadPortalHome();
+}
+
+// ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
+let S_homeWeek = null;
+let S_homeWeekReq = 0;
+function hideHomeWeek(box) {
+ box.style.display = 'none'; box.textContent = ''; box.removeAttribute('aria-busy');
+}
+function showHomeWeekSkeleton(box) {
+ box.textContent = ''; box.style.display = ''; box.setAttribute('aria-busy', 'true');
+ const sk = document.createElement('div'); sk.className = 'hw-skel'; sk.id = 'home-week-skel'; sk.setAttribute('aria-hidden', 'true');
+ for (let i = 0; i < 3; i++) { const line = document.createElement('div'); line.className = 'hw-skel-line' + (i === 2 ? ' short' : ''); sk.appendChild(line); }
+ box.appendChild(sk);
+}
+function showHomeWeekError(box) {
+ box.textContent = ''; box.style.display = ''; box.removeAttribute('aria-busy'); box.removeAttribute('aria-labelledby');
+ const p = document.createElement('p'); p.className = 'hw-err'; p.id = 'home-week-error';
+ p.textContent = "Couldn't load your week, try again";
+ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-ghost2'; b.id = 'home-week-retry'; b.textContent = 'Try again';
+ b.onclick = () => { loadHomeWeek(); };
+ box.append(p, b);
+}
+async function loadHomeWeek() {
+ const box = document.getElementById('home-week');
+ if (!box || typeof FMHomeWeek === 'undefined') return;
+ const ticket = ++S_homeWeekReq;
+ showHomeWeekSkeleton(box);
+ let status = 0; let r = null; let failed = false;
+ try {
+ const res = await fetch('/api/meal-plans', { headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token } });
+ status = res.status;
+ r = await res.json();
+ } catch (_) { failed = true; }
+ if (ticket !== S_homeWeekReq) return;
+ const kind = FMHomeWeek.loadFailure(status, r, failed);
+ if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; return false; }
+ const row = kind === 'ok' ? r.plans[0] : null;
+ const sum = row ? FMHomeWeek.summary(row) : null;
+ S_homeWeek = sum;
+ if (!sum) { hideHomeWeek(box); return false; }
+ const tg = FMHomeWeek.targets(S.goals);
+ box.textContent = ''; box.removeAttribute('aria-busy');
+ const top = document.createElement('div'); top.className = 'hw-top';
+ const head = document.createElement('div');
+ const k = document.createElement('div'); k.className = 'hw-k'; k.textContent = 'This week';
+ const nm = document.createElement('div'); nm.className = 'hw-name'; nm.id = 'home-week-name'; nm.textContent = sum.name;
+ head.append(k, nm); top.appendChild(head); box.appendChild(top); box.setAttribute('aria-labelledby', 'home-week-name');
+ const cal = FMHomeWeek.calorieTile(sum.average && sum.average.calories, tg && tg.calories);
+ if (cal || tg) {
+ const g = document.createElement('div'); g.className = 'hw-tg'; g.id = 'home-week-targets'; g.setAttribute('aria-label', 'Your daily targets');
+ const cells = [];
+ if (cal) cells.push([cal.value, cal.label, true]);
+ if (tg) cells.push([tg.protein + 'g', 'protein', false], [tg.carbs + 'g', 'carbs', false], [tg.fat + 'g', 'fat', false]);
+ cells.forEach(([v, l, wide]) => {
+ const d = document.createElement('div'); if (wide) d.className = 'hw-cal';
+ const b = document.createElement('b'); b.textContent = v; if (wide) b.id = 'home-week-cal';
+ const s = document.createElement('span'); s.textContent = l; d.append(b, s); g.appendChild(d);
+ });
+ box.appendChild(g);
+ }
+ const days = document.createElement('div'); days.className = 'hw-days'; days.setAttribute('aria-hidden', 'true');
+ sum.days.slice(0, 7).forEach(d => { const s = document.createElement('span'); s.textContent = d.short; if (d.today) s.className = 'on'; days.appendChild(s); });
+ box.appendChild(days);
+ // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }.
+ // Each allergen group is shown once, on the first meal that hits it. textContent only.
+ const aw = FMHomeWeek.allergenPreview(row.allergenWarnings);
+ if (aw.notice) {
+ const n = document.createElement('div'); n.className = 'hw-warn'; n.id = 'home-week-notice'; n.setAttribute('role', 'alert');
+ n.textContent = '⚠️ ' + aw.notice; box.appendChild(n);
+ }
+ if (aw.text) {
+ const w = document.createElement('div'); w.className = 'hw-warn'; w.id = 'home-week-warn'; w.setAttribute('role', 'alert');
+ w.textContent = '⚠️ ' + aw.text;
+ box.appendChild(w);
+ }
+ if (aw.notes.length) {
+ const nt = document.createElement('div'); nt.className = 'allergen-note'; nt.id = 'home-week-note';
+ nt.textContent = aw.notes.slice(0, 3).join(', ') + (aw.notes.length > 3 ? ' and more' : '') + ': ' + uncheckedNote(aw.notes.length);
+ box.appendChild(nt);
+ }
+ const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
+ t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
+ box.appendChild(t);
+ const ul = document.createElement('ul'); ul.className = 'hw-meals'; ul.id = 'home-week-today';
+ sum.today.meals.forEach(m => {
+ const li = document.createElement('li'); const b = document.createElement('b'); b.textContent = obTitle(m.name);
+ const s = document.createElement('span'); s.textContent = m.calories ? m.calories + ' kcal' : ''; li.append(b, s); ul.appendChild(li);
+ });
+ box.appendChild(ul);
+ const acts = document.createElement('div'); acts.className = 'hw-acts';
+ const shop = document.createElement('button'); shop.type = 'button'; shop.className = 'btn btn-green'; shop.id = 'home-week-shop'; shop.textContent = '🛒 Shopping list';
+ shop.onclick = async () => { shop.disabled = true; try { await buildAiShoppingList(S_homeWeek.shoppingPlan); } finally { shop.disabled = false; } };
+ const all = document.createElement('button'); all.type = 'button'; all.className = 'btn btn-ghost2'; all.textContent = 'See the full week'; all.onclick = () => nav('meal-plans');
+ acts.append(shop, all); box.appendChild(acts);
+ box.style.display = '';
+ return true;
 }
 
 // ── GOALS ONBOARDING ─────────────────────────────────────────────────────────
@@ -3719,14 +4022,147 @@ function renderGoalTargets() {
 let S_activePlan = null;
 let S_activeShoppingList = null;
 
-function toggleDietTag(btn) { btn.classList.toggle('active'); }
+function toggleDietTag(btn) {
+ btn.classList.toggle('active');
+ btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+}
 // The meal plan form starts with the saved diet filters ticked, so a plan never quietly drops one.
 function prefillDietTags(saved) {
  let list = saved;
  if (typeof list === 'string') { try { list = JSON.parse(list); } catch (_) { list = list.split(','); } }
- if (!Array.isArray(list)) return;
- const want = new Set(list.map(d => String(d).toLowerCase().replace(/[-_]+/g, ' ').trim()));
- document.querySelectorAll('#dietary-tags .diet-tag').forEach(b => { if (want.has(b.dataset.val)) b.classList.add('active'); });
+ if (!Array.isArray(list)) list = [];
+ const want = new Set(list.map(d => String(d).toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()));
+ document.querySelectorAll('#dietary-tags .diet-tag').forEach(b => {
+ const on = want.has(b.dataset.val);
+ b.classList.toggle('active', on);
+ b.setAttribute('aria-pressed', on ? 'true' : 'false');
+ });
+}
+
+let S_filters = { updatedAt: null, dietsOk: true, diets: [], allergiesOk: true, allergies: [], seen: false };
+function normFilterWord(d) { return String(d).toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function filterWords(v) {
+ if (v == null || v === false) return { ok: true, list: [] };
+ let x = v;
+ if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+ if (x == null || x === false) return { ok: true, list: [] };
+ if (typeof x === 'string') x = [x];
+ if (x && typeof x === 'object' && !Array.isArray(x)) {
+ const keys = [];
+ for (const k in x) {
+ if (!Object.prototype.hasOwnProperty.call(x, k) || !x[k]) continue;
+ if (typeof x[k] === 'object') return { ok: false, list: [] };
+ keys.push(String(k));
+ }
+ x = keys;
+ }
+ if (!Array.isArray(x)) return { ok: false, list: [] };
+ const list = [];
+ const skip = new Set(['', 'null', 'undefined', 'none', 'false', '[]', '{}']);
+ for (const s of x) {
+ if (s == null || s === false) continue;
+ if (typeof s !== 'string') return { ok: false, list: [] };
+ const t = s.trim();
+ if (skip.has(t.toLowerCase())) continue;
+ list.push(t);
+ }
+ return { ok: true, list };
+}
+// Ticked onboarding chips merge with allergies already saved (typed ones have no chip).
+// No chips, or a list we cannot read: return null so the save omits allergies and does not wipe them.
+function obAllergySave(chips, saved) {
+ if (!chips || !chips.length) return null;
+ const loaded = filterWords(saved);
+ if (!loaded.ok) return null;
+ const merged = loaded.list.slice();
+ for (const a of chips) if (!merged.some(x => normFilterWord(x) === normFilterWord(a))) merged.push(a);
+ return merged;
+}
+function rememberProfileFilters(profile) {
+ const p = profile || {};
+ const diets = filterWords(p.dietaryPreferences);
+ const allergies = filterWords(p.allergies);
+ S_filters = {
+ updatedAt: p.updatedAt || null,
+ dietsOk: diets.ok,
+ diets: diets.ok ? diets.list.map(normFilterWord) : [],
+ allergiesOk: allergies.ok,
+ allergies: allergies.ok ? allergies.list : [],
+ seen: true,
+ };
+ renderAllergyChips();
+}
+function renderAllergyChips() {
+ const box = document.getElementById('saved-allergies');
+ if (!box) return;
+ box.textContent = '';
+ if (!S_filters.allergiesOk) {
+ const note = document.createElement('p');
+ note.style.cssText = 'font-size:.75rem;color:var(--text3);margin:0';
+ note.textContent = "We couldn't read every saved allergy, so this screen won't change them.";
+ box.appendChild(note);
+ return;
+ }
+ S_filters.allergies.forEach(a => {
+ const b = document.createElement('button');
+ b.type = 'button';
+ b.className = 'diet-tag active';
+ b.setAttribute('aria-label', 'Remove ' + a);
+ b.textContent = a + ' \u2715';
+ b.onclick = () => { S_filters.allergies = S_filters.allergies.filter(x => x !== a); renderAllergyChips(); };
+ box.appendChild(b);
+ });
+}
+function addTypedAllergy() {
+ const input = document.getElementById('allergy-add');
+ if (!input) return;
+ const raw = String(input.value || '').trim();
+ if (!raw) return;
+ if (!S_filters.allergiesOk) { toast("We couldn't read every saved allergy, so this screen won't change them.", 'warn'); return; }
+ if (raw.length > 100) { toast('Each allergy can be up to 100 characters.', 'warn'); return; }
+ if (S_filters.allergies.length >= 50) { toast('You can save up to 50 allergies.', 'warn'); return; }
+ if (!S_filters.allergies.some(a => a.toLowerCase() === raw.toLowerCase())) S_filters.allergies.push(raw);
+ input.value = '';
+ renderAllergyChips();
+}
+async function saveDietFilters(opts) {
+ const quiet = opts && opts.quiet;
+ if (!S_filters.seen && S && S.user) {
+ try {
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ else if (prof && prof.success) S_filters.seen = true;
+ else { toast("We couldn't load your diet filters. Please try again.", 'error'); return { ok: false }; }
+ } catch (_) { toast("We couldn't load your diet filters. Please try again.", 'error'); return { ok: false }; }
+ }
+ const picker = new Set([...document.querySelectorAll('#dietary-tags .diet-tag')].map(b => b.dataset.val));
+ const ticked = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
+ const body = {};
+ if (S_filters.dietsOk) {
+ const kept = S_filters.diets.filter(d => !picker.has(normFilterWord(d)));
+ const merged = ticked.slice();
+ kept.forEach(d => { if (!merged.some(x => normFilterWord(x) === normFilterWord(d))) merged.push(d); });
+ body.dietaryPreferences = merged;
+ }
+ if (S_filters.allergiesOk) body.allergies = S_filters.allergies.slice();
+ if (!('dietaryPreferences' in body) && !('allergies' in body)) return { ok: true, skipped: true };
+ if (S_filters.updatedAt) body.profileUpdatedAt = S_filters.updatedAt;
+ const r = await API('/user/profile', { method:'POST', body: JSON.stringify(body) });
+ if (r && r.stale) {
+ toast(r.error || 'Your profile changed since this page loaded. Reload it and try again.', 'error');
+ try {
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ } catch (_) {}
+ return { ok: false, stale: true };
+ }
+ if (!r || r.success === false) { toast((r && r.error) || 'Could not save your filters.', 'error'); return { ok: false }; }
+ try {
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ } catch (_) {}
+ if (!quiet) toast('Filters saved.');
+ return { ok: true };
 }
 
 async function generateMealPlan() {
@@ -3734,6 +4170,8 @@ async function generateMealPlan() {
  const days = parseInt(document.getElementById('mp-days-sel').value) || 7;
  const cals = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
  const prot = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
+ const savedFilters = await saveDietFilters({ quiet: true });
+ if (!savedFilters.ok) return;
  const dietary = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
 
  // Pre-fill from goals if blank
@@ -4290,6 +4728,15 @@ async function loadWeeklyReview() {
  throw new Error(r.error || 'failed');
  }
  const rev = r.review || {};
+ // New users get an honest empty state from the server: no score, no wins (launch audit D8).
+ if (rev.empty) {
+ body.textContent = '';
+ const h = document.createElement('div'); h.style.cssText = 'font-size:.88rem;font-weight:800;margin-bottom:8px'; h.id = 'wr-empty'; h.textContent = rev.headline; body.appendChild(h);
+ const st = r.stats || {};
+ if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged this week.`; body.appendChild(n); }
+ (rev.focus || []).forEach(f => { const d = document.createElement('div'); d.style.cssText = 'font-size:.78rem;color:var(--text2);padding:2px 0'; d.textContent = '🎯 ' + f; body.appendChild(d); });
+ return;
+ }
  // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
  const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));

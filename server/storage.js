@@ -10,8 +10,13 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 30000, // Increased from 2s to 30s to prevent timeout errors
-  statement_timeout: 60000, // Query timeout 60 seconds
+  // Receipt scan reads the user here before vision. Vision's worst case is
+  // 45s + 20s. maxDuration is 90s, so 30s connect + 60s statement does not fit.
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 8000,
+  // An idle client must not hold the process open after tests. The server
+  // stays up on its listen socket.
+  allowExitOnIdle: true,
 });
 
 // Initialize Drizzle ORM
@@ -54,8 +59,10 @@ async function getUserByEmail(email) {
   return user;
 }
 
-async function getUserById(id) {
-  await ensureSchema();
+async function getUserById(id, opts) {
+  // Receipt scan passes ensureSchema:false. The migrate pool is not on that
+  // hot path; login has already created the tables.
+  if (!opts || opts.ensureSchema !== false) await ensureSchema();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
   return user;
 }
@@ -424,8 +431,16 @@ async function withStripeCustomerLock(lockKey, fn) {
   });
 }
 
+/** Tests only. Closes the storage pool so the next Jest file does not inherit its clients. */
+async function endPoolForTests() {
+  if (pool && typeof pool.end === 'function') {
+    try { await pool.end(); } catch (_) { /* already closed */ }
+  }
+}
+
 // Export all functions and database instance
 module.exports = {
+  endPoolForTests,
   db,
   // Test seam only: lets a test hand inProfileTx a fake client (EQA #142 S2).
   __profileTx: { pool, inProfileTx },

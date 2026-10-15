@@ -309,6 +309,16 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
   mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
 }
+.hero-app-note{
+  position:relative;
+  z-index:1;
+  margin:0;
+  padding:8px 14px 2px;
+  background:#0c1c14;
+  color:#d7e7db;
+  font-size:.75rem;
+  line-height:1.45;
+}
 .fold .hero-shot figcaption{
   margin:0;
   padding:2px 14px 14px;
@@ -473,7 +483,8 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
   .plan-live{order:1}
   .fold .hero-food{order:2;height:88px}
   .fold .hero-app{order:3;position:relative;top:auto;right:auto;width:100%;height:168px;border:0;border-radius:0;box-shadow:none}
-  .fold .hero-shot figcaption{order:4}
+  .hero-app-note{order:4}
+  .fold .hero-shot figcaption{order:5}
 }
 @media(max-width:359px){
   .fold .hero{padding-left:12px;padding-right:12px}

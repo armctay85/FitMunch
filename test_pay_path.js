@@ -439,7 +439,9 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
 
   it('Yearly toggle: unselected button is fm-btn-ink, 4.5:1 or better, with a focus ring (QA r2 M2)', async () => {
     const html = (await request(app).get('/pricing').expect(200)).text;
-    expect(html).toContain('<button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly</button>');
+    expect(html).toContain('<button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly <span class="save-badge" id="yearly-save" hidden></span></button>');
+    // The Save N% badge is dark green on pale green, 4.5:1 or better, and hidden until the page computes it.
+    expect(html).toContain('#billing-toggle .save-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:#e8f5ec;color:#0f5a2a;');
     expect(html).toContain("b.className = on ? 'fm-btn fm-btn-leaf' : 'fm-btn fm-btn-ink';");
     expect(html).not.toMatch(/data-billing="[a-z]+"[^>]*fm-btn-ghost|fm-btn-ghost[^>]*data-billing/);
     expect(html).toContain('[data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}');

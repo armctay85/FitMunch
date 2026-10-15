@@ -44,8 +44,11 @@ const AISLE_WORDS = [
 const AISLE_ORDER = ['Meat & Seafood','Produce','Dairy & Eggs','Pantry','Bakery','Frozen','Supplements','Other'];
 const AISLE_ICONS = { 'Meat & Seafood':'🥩','Produce':'🥦','Dairy & Eggs':'🥚','Pantry':'🫙','Bakery':'🍞','Frozen':'🧊','Supplements':'💊','Other':'📦' };
 
+// Nut butters, butter beans and butternut aren't dairy (D7).
+const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
 function aisleFor(name) {
   const n = String(name).toLowerCase();
+  if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'Produce' : 'Pantry';
   for (const [aisle, words] of AISLE_WORDS) if (words.some((w) => n.includes(w))) return aisle;
   return 'Other';
 }
@@ -156,6 +159,33 @@ async function rememberFilters(userId, sent) {
   } catch (_) { /* the plan is still built from the merged filters */ }
 }
 
+/**
+ * Diet list for the builder only. Known filters stay first. Typed allergies the builder can
+ * match by ingredient name are appended, and so is text it cannot match (so the plan can say so).
+ * The response `dietary` field stays the known list from planFilters.
+ */
+function builderDietary(filters) {
+  const known = dietGuard.planFilters(filters);
+  const extra = [];
+  for (const raw of planEngine.normaliseDiet(filters)) {
+    if (planEngine.DIET_FILTERS.includes(raw) || raw === dietGuard.UNREADABLE) continue;
+    const terms = planEngine.typedAllergenTerms(raw);
+    if (!terms.length) {
+      if (!extra.includes(raw)) extra.push(raw);
+      continue;
+    }
+    for (const term of terms) {
+      if (!planEngine.DIET_FILTERS.includes(term) && !extra.includes(term)) extra.push(term);
+    }
+  }
+  return extra.length ? [...known, ...extra] : known;
+}
+
+function builtPlan(input, filters) {
+  const dietary = builderDietary(filters);
+  return safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan({ ...input, dietary }), input), dietary, input.calories), input);
+}
+
 /** Every plan leaves this route through the ingredient-derived allergen and diet check. */
 function safePlan(plan, input) {
   return mealSafety.enforcePlan(plan, input).plan;
@@ -191,9 +221,14 @@ router.post('/generate', requireAuth, async (req, res) => {
     // Saved filters always apply too; ticked ones are saved first (onboarding, EQA #141 M2). No AI call,
     // so no consent or usage check applies.
     if (profileRead) await rememberFilters(req.user.userId, input.dietary);
-    input.dietary = dietGuard.planFilters(dietGuard.combineFilters(profile, input.dietary));
+    const combined = dietGuard.combineFilters(profile, input.dietary);
+    input.dietary = dietGuard.planFilters(combined);
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
-    return res.json({ success: true, plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input), source: 'builder' });
+    const plan = builtPlan(input, combined);
+    const body = { success: true, plan, source: 'builder' };
+    // Only when the allergy list could not be read. An empty notice would show as a blank line.
+    if (dietGuard.unreadable(combined)) body.notice = dietGuard.UNREADABLE_NOTICE;
+    return res.json(body);
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
   // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
@@ -204,7 +239,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       success: true,
       // r8: the builder week also goes through #127's ingredient check (meals and swaps), so a typed allergy
       // with no builder filter (lupin, kiwi) is honoured too.
-      plan: safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan(input), input), input.dietary, input.calories), input),
+      plan: builtPlan(input, dietary),
       source: 'builder',
       notice: dietGuard.unreadable(dietary) ? `${dietGuard.UNREADABLE_NOTICE} ${dietGuard.PLAN_NOTICE}` : dietGuard.PLAN_NOTICE,
       dietary: input.dietary,

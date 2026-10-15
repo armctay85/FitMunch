@@ -53,7 +53,7 @@ img,svg,video{max-width:100%;height:auto}
 .fm-btn-leaf{background:var(--leaf);color:#fff;border:none}
 .fm-btn-leaf:hover{background:var(--leaf2)}
 .fm-btn-ghost{background:transparent;color:#fff;border-color:rgba(244,247,244,.85)}
-.fm-btn-ink{background:transparent;color:var(--ink);border-color:var(--line)}
+.fm-btn-ink{background:transparent;color:var(--ink);border-color:#1c3328}
 
 .fm-footer{
   background:var(--fridge2);
@@ -130,6 +130,8 @@ img,svg,video{max-width:100%;height:auto}
   .fm-table-wrap{overflow-x:visible}
   .fm-table,.fm-table tbody,.fm-table tr,.fm-table td{display:block;width:100%}
   .fm-table thead{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  /* A header group ignores overflow, so clip each cell too: no <th> sticks out past a phone screen (D10). */
+  .fm-table thead th{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   .fm-table tr{padding:10px 14px;border-bottom:1px dashed var(--line)}
   .fm-table tr:last-child{border-bottom:0}
   .fm-table td,.fm-table tr:last-child td{display:grid;grid-template-columns:minmax(96px,38%) minmax(0,1fr);gap:12px;align-items:baseline;padding:5px 0;border-bottom:0}

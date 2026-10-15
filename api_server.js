@@ -43,7 +43,16 @@ const {
   coachGateHttpBody,
   COACH_39_ACTIVE_CLIENT_LIMIT,
 } = require('./lib/fitmunch-coach-billing');
-const _pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Idle clients must not hold the process open after tests. The HTTP server
+// keeps production up on its listen socket.
+// statement_timeout 0 (the server default) can hold the one function for the
+// whole maxDuration. Receipt scan does not use this pool; bound it anyway.
+const _pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 8000,
+  allowExitOnIdle: true,
+});
 
 async function coachGateForPt(ptId) {
   const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [ptId]);
@@ -1230,11 +1239,27 @@ function authMiddleware(req, res, next) {
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
 
+// Trainer-only routes. The users row is the source of truth for role (a token's role claim
+// can be stale). Coach preview sessions keep their existing behaviour when preview is on.
+async function requireTrainer(req, res, next) {
+  try {
+    if (req.user && req.user.preview) {
+      if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
+      return next();
+    }
+    const r = await _pool.query('SELECT role FROM users WHERE id=$1', [req.user.userId]);
+    if (!r.rows[0] || r.rows[0].role !== 'pt') {
+      return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+    }
+    next();
+  } catch (err) { sendApiError(res, err); }
+}
+
 // ── CLIENT INVITATIONS ───────────────────────────────────────────────────────
 const crypto = require('crypto');
 
 // POST /api/clients/invite — PT creates invite link
-router.post('/clients/invite', authMiddleware, async (req, res) => {
+router.post('/clients/invite', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const gate = await coachGateForPt(req.user.userId);
     if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
@@ -1265,7 +1290,7 @@ router.get('/clients/invite/:token', async (req, res) => {
 // ── PT CLIENT MANAGEMENT ─────────────────────────────────────────────────────
 
 // GET /api/clients — PT gets their client list with recent activity
-router.get('/clients', authMiddleware, async (req, res) => {
+router.get('/clients', authMiddleware, requireTrainer, async (req, res) => {
   try {
     if (req.user.preview) {
       const coachStore = require('./lib/coach-store');
@@ -1289,7 +1314,7 @@ router.get('/clients', authMiddleware, async (req, res) => {
 });
 
 // GET /api/clients/:clientId — full client detail for PT
-router.get('/clients/:clientId', authMiddleware, async (req, res) => {
+router.get('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     // Verify PT owns this client
     const owns = await _pool.query(
@@ -1309,7 +1334,7 @@ router.get('/clients/:clientId', authMiddleware, async (req, res) => {
 });
 
 // PATCH /api/clients/:clientId — update phase/notes/status
-router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
+router.patch('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { phase, notes, status } = req.body;
     if (status === 'active') {
@@ -1332,7 +1357,7 @@ router.patch('/clients/:clientId', authMiddleware, async (req, res) => {
 });
 
 // POST /api/clients/:clientId/assign-plan — PT assigns a meal or workout plan to client
-router.post('/clients/:clientId/assign-plan', authMiddleware, async (req, res) => {
+router.post('/clients/:clientId/assign-plan', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { planType } = req.body || {};
     if (!['meal','workout'].includes(planType)) return res.status(400).json({ error: 'planType must be meal or workout' });
@@ -1390,6 +1415,8 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     };
     function categorise(itemName) {
       const n = itemName.toLowerCase();
+      // Nut butters, butter beans and butternut aren't dairy (D7).
+      if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'vegetables' : 'pantry';
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
@@ -1628,14 +1655,17 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
     // warning system, computed on save and again on every read against the filters the user has then).
     const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
     const checked = await safeSavedMeals(req.user.userId, sentMeals);
-    // Compute totals from meals if provided
+    // Totals come from the stored shape. A day-shaped week has calories on each meal, not on
+    // m.foods, so summing foods only stored 0. planMacros averages the days (the card is cal/day)
+    // and still sums a manual list from its foods when those foods carry the macros.
     let calcCalories = totalCalories, calcProtein = totalProtein, calcCarbs = totalCarbs, calcFat = totalFat;
-    if (meals && Array.isArray(meals)) {
-      const allFoods = meals.flatMap(m => m.foods || []);
-      calcCalories = allFoods.reduce((s,f) => s+(f.calories||0), 0) || totalCalories || 0;
-      calcProtein  = allFoods.reduce((s,f) => s+(f.protein||0), 0) || totalProtein  || 0;
-      calcCarbs    = allFoods.reduce((s,f) => s+(f.carbs||0),   0) || totalCarbs    || 0;
-      calcFat      = allFoods.reduce((s,f) => s+(f.fat||0),     0) || totalFat      || 0;
+    const shaped = meals && typeof meals === 'object' && (Array.isArray(meals) || Array.isArray(meals.days));
+    if (shaped) {
+      const sums = require('./public/js/fm-home-week').planMacros(meals);
+      calcCalories = sums.calories;
+      calcProtein = sums.protein;
+      calcCarbs = sums.carbs;
+      calcFat = sums.fat;
     }
     const r = await _pool.query(
       `UPDATE meal_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
@@ -1709,6 +1739,18 @@ const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
 
+/** A model string, or '' when the provider sent a number, array, object, or blank. Never calls trim on a non-string. */
+function modelText(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+}
+
+/** Weekly JSON is a review only when it is a plain object that contains a non-empty string. */
+function reviewDataText(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
+  return dietGuard.reviewText(data).trim();
+}
+
 function heuristicInsight({ todayCalories, todayProtein, streak, goal, targetCalories, targetProtein }) {
   const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
   const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
@@ -1771,19 +1813,29 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       });
     }
 
-    const facts = { todayCalories, todayProtein, streak, goal, targetCalories, targetProtein };
-    // #127a: filtered users (or an unreadable profile) get a fixed tip that names no foods. No AI, no credit.
+    // An unreadable profile fails closed with no AI. A readable diet or allergy list gets a real tip, then a food check.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
+    const savedKcal = insightProfile && Number(insightProfile.targetCalories);
+    const savedProt = insightProfile && Number(insightProfile.targetProtein);
+    const insightCalories = Number.isFinite(savedKcal) && savedKcal > 0 ? savedKcal : targetCalories;
+    const insightProtein = Number.isFinite(savedProt) && savedProt > 0 ? savedProt : targetProtein;
+    const facts = { todayCalories, todayProtein, streak, goal, targetCalories: insightCalories, targetProtein: insightProtein };
     const insightFilters = dietGuard.savedFilters(insightProfile);
-    if (insightUnread || insightFilters.length) {
-      const insight = dietGuard.safeInsight({ filters: insightFilters, calories: targetCalories, protein: targetProtein });
+    if (insightUnread || dietGuard.unreadable(insightFilters)) {
+      // A thrown profile is not an empty filter list: every allergen-free filter applies, or the tip would name dairy, gluten and eggs.
+      const mealFilters = insightUnread
+        ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
+        : insightFilters;
+      const insight = dietGuard.safeInsight({ filters: mealFilters, calories: insightCalories, protein: insightProtein });
       return res.json({ success: true, insight, provider: null });
     }
-    // Same profile read as the guard above (no second lookup): only unfiltered users get here.
     const filters = mealSafety.profileFilters(insightProfile);
-    // The built-in tip goes through the same check as the AI one.
-    const fallback = safeInsight(heuristicInsight(facts), filters);
+    const filteredInsight = insightFilters.length > 0;
+    // The built-in tip goes through the same check as the AI one. Filtered users get a checked meal that cites the saved targets.
+    const fallback = filteredInsight
+      ? dietGuard.addressedInsight({ filters: insightFilters, calories: insightCalories, protein: insightProtein, todayCalories, todayProtein })
+      : safeInsight(heuristicInsight(facts), filters);
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
@@ -1800,36 +1852,64 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-    const calPct = targetCalories > 0 ? Math.round((todayCalories / targetCalories) * 100) : 0;
-    const protPct = targetProtein > 0 ? Math.round((todayProtein / targetProtein) * 100) : 0;
+    const calPct = insightCalories > 0 ? Math.round((todayCalories / insightCalories) * 100) : 0;
+    const protPct = insightProtein > 0 ? Math.round((todayProtein / insightProtein) * 100) : 0;
     const system = [
       'You are FitMunch, an Australian nutrition and fitness coach.',
       'Speak directly to the user in 1-3 short sentences, max ~55 words.',
       'Be specific, practical, and kind. No medical claims. Use Australian spelling and foods.',
       'Never include a greeting or the user\'s name. Never mention that you are an AI.',
+      filteredInsight ? COACH_CITE : '',
+      filteredInsight ? COACH_VERIFY : '',
       mealSafety.promptRules(filters),
     ].filter(Boolean).join(' ');
     const prompt = [
       `Goal: ${goal}.`,
-      `Today so far: ${todayCalories} kcal (${calPct}% of ${targetCalories}), ${todayProtein}g protein (${protPct}% of ${targetProtein}).`,
+      `Today so far: ${todayCalories} kcal (${calPct}% of ${insightCalories}), ${todayProtein}g protein (${protPct}% of ${insightProtein}).`,
       `Logging streak: ${streak} day(s).`,
+      filteredInsight ? `Diet and allergy filters: ${insightFilters.join(', ')}.` : '',
       'Write one concise coaching tip for right now.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
-    const r = await aiClient.chat({
-      system,
+    const callInsight = (extra, budgetMs) => aiClient.chat({
+      system: extra ? `${system}\n\n${extra}` : system,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 160,
       temperature: 0.7,
       route: '/ai/insight',
+      ...(budgetMs ? { budgetMs } : {}),
     });
 
-    if (!r.ok || !r.text.trim()) {
+    if (filteredInsight) {
+      const accept = (r) => {
+        const text = modelText(r && r.text);
+        return !!(r && r.ok && text && dietGuard.replyVerified(text, insightFilters, filters));
+      };
+      const { result: r, verified } = await filteredModelAttempts(callInsight, accept);
+      if (!verified) {
+        await refundUnlessVerified(gate, req.user.userId, 'insight');
+        return res.json({ success: true, insight: fallback, provider: null, remaining: gate.remaining });
+      }
+      res.locals.aiAnswered = true;
+      return res.json({
+        success: true,
+        insight: ensureCite(modelText(r.text), insightCalories, insightProtein),
+        provider: r.provider,
+        model: r.model,
+        remaining: gate.remaining,
+      });
+    }
+
+    const r = await callInsight();
+    const insightText = modelText(r && r.text);
+
+    if (!r.ok || !insightText) {
+      if (r && r.ok) await refundUnlessVerified(gate, req.user.userId, 'insight');
       res.locals.aiFailed = true;
-      return res.json({ success: true, insight: fallback, provider: r.provider || null, error: publicClientError(r.error, undefined) });
+      return res.json({ success: true, insight: fallback, provider: (r && r.provider) || null, error: publicClientError(r && r.error, undefined) });
     }
     res.locals.aiAnswered = true;
-    const tip = mealSafety.enforceText(r.text.trim(), { ...filters, alternative: false });
+    const tip = mealSafety.enforceText(insightText, { ...filters, alternative: false });
     return res.json({
       success: true,
       insight: tip.removed.length ? fallback : tip.text,
@@ -1894,7 +1974,7 @@ async function coachPlanFor(userId) {
 }
 
 /** Compact personal context for Coach. Never includes email or ids. */
-async function buildCoachContext(userId, profile, context = {}) {
+async function buildCoachContext(userId, profile, context = {}, filters, aiFilters) {
   const p = profile || {};
   const ctx = context && typeof context === 'object' ? context : {};
   const lines = [];
@@ -1911,6 +1991,9 @@ async function buildCoachContext(userId, profile, context = {}) {
   if (diet.length) lines.push(`Diet: ${diet.join(', ')}`);
   const allergies = listOf(p.allergies);
   if (allergies.length) lines.push(`Allergies: ${allergies.map(mealSafety.promptSafe).filter(Boolean).map((a) => a.slice(0, 40)).slice(0, 10).join(', ')}`);
+  if (Array.isArray(filters) && filters.length && !dietGuard.unreadable(filters)) {
+    lines.push(`Active diet and allergy filters: ${filters.filter((f) => f && f !== dietGuard.UNREADABLE).slice(0, 16).join(', ')}`);
+  }
   if (Number.isFinite(Number(ctx.todayCalories))) {
     lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
   }
@@ -1927,22 +2010,95 @@ async function buildCoachContext(userId, profile, context = {}) {
       lines.push(`Latest plan: ${String(plan.name || 'meal plan').slice(0, 60)}${days.length ? `, ${days.length} days` : ''}${first.length ? ` (day 1: ${first.join('; ').slice(0, 200)})` : ''}`);
     }
   } catch (_) { /* plan context is optional */ }
+  try {
+    const since = new Date(Date.now() - 7 * 86400000);
+    const [logged, workouts] = await Promise.all([
+      getMealLogsForPeriod(userId, since, new Date()).catch(() => []),
+      getRecentWorkouts(userId, 5).catch(() => []),
+    ]);
+    const bits = [];
+    for (const m of (logged || []).slice(0, 12)) {
+      const name = String(m.foodName || m.name || '').trim().slice(0, 80);
+      if (!name) continue;
+      if (Array.isArray(filters) && filters.length && !dietGuard.replyVerified(name, filters, aiFilters)) continue;
+      const kcalBit = Number.isFinite(Number(m.calories)) ? `${Math.round(Number(m.calories))} kcal` : '';
+      const protBit = Number.isFinite(Number(m.protein)) ? `${Math.round(Number(m.protein))} g protein` : '';
+      const macro = [kcalBit, protBit].filter(Boolean).join(', ');
+      bits.push([m.mealType, name, macro].filter(Boolean).join(': '));
+    }
+    if (bits.length) lines.push(`Recent logs: ${bits.join('; ').slice(0, 420)}`);
+    const types = [...new Set((workouts || []).map((w) => w && (w.workoutType || w.type)).filter(Boolean))].slice(0, 5);
+    if (types.length) lines.push(`Recent training: ${types.join(', ').slice(0, 120)}`);
+  } catch (_) { /* recent logs are optional */ }
   return lines.join('\n');
+}
+
+const COACH_CITE = 'Cite the user\'s daily calorie and protein targets in the answer, in digits (for example: at 2,100 kcal and 150 g protein).';
+const COACH_VERIFY = 'Name only foods you can verify against the user\'s diet and allergies. Do not name a brand. Do not name a food just to say to avoid it. If you are not sure a food is safe, leave it out. Reply in English using Latin letters only.';
+const COACH_RETRY = 'Your last answer named a food that cannot be verified as safe for this user, or it was not in English. Reply again in English using Latin letters only. Name only plain foods that fit every diet and allergy listed. Do not name brands. Do not name a food in order to warn against it. Cite the calorie and protein targets.';
+
+/** Whole numbers only, so 21500 is not read as 2,150 and 2,1500 is not read as 2,150. */
+function numberTokens(body) {
+  const tokens = [];
+  const re = /(?<![\d,])(?:\d{1,3}(?:,\d{3})+|\d+)(?![\d,])/g;
+  const s = String(body == null ? '' : body);
+  let m;
+  while ((m = re.exec(s))) tokens.push(m[0]);
+  return tokens;
+}
+
+/** Prepend the user's targets when a checked reply does not already name the kcal number as its own token. */
+function ensureCite(text, calories, protein) {
+  const { kcal, prot } = dietGuard.targetsOf(calories, protein);
+  const body = String(text || '').trim();
+  const formatted = dietGuard.fmt(kcal);
+  const tokens = numberTokens(body);
+  if (tokens.includes(formatted) || tokens.includes(String(kcal))) return body;
+  return `At ${formatted} kcal and ${prot} g protein. ${body}`.trim();
+}
+
+const FILTERED_ATTEMPT_FLOOR_MS = Number(aiClient.MIN_ATTEMPT_MS) > 0 ? Number(aiClient.MIN_ATTEMPT_MS) : 2500;
+
+/**
+ * First reply and one retry share CHAT_BUDGET_MS. The retry is skipped when less than
+ * FILTERED_ATTEMPT_FLOOR_MS is left. A thrown provider call is a failed attempt, not a 500.
+ */
+async function filteredModelAttempts(call, accept) {
+  const started = Date.now();
+  const run = async (extra, budgetMs) => {
+    try {
+      return await call(extra, budgetMs);
+    } catch (_) {
+      return { ok: false, error: 'provider_error' };
+    }
+  };
+  let result = await run(undefined, CHAT_BUDGET_MS);
+  if (accept(result)) return { result, verified: true };
+  const left = CHAT_BUDGET_MS - (Date.now() - started);
+  if (left >= FILTERED_ATTEMPT_FLOOR_MS) {
+    result = await run(COACH_RETRY, left);
+    if (accept(result)) return { result, verified: true };
+  }
+  return { result, verified: false };
+}
+
+/** Give back the one credit unless the reply we serve was verified. Never throws. */
+async function refundUnlessVerified(gate, userId, feature) {
+  await aiUsage.refundAiCall(gate, { userId: String(userId), feature });
+}
+
+function chatAiFilters(profile, ctxObj) {
+  return mealSafety.mergeFilters(mealSafety.profileFilters(profile), {
+    dietary: Array.isArray(ctxObj.dietary) ? ctxObj.dietary : [],
+    allergies: Array.isArray(ctxObj.allergies) ? ctxObj.allergies : [],
+  });
 }
 
 router.post('/ai/chat', authMiddleware, async (req, res) => {
   try {
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
-
     const { intent = 'general', messages = [], context = {} } = req.body || {};
-    const system = [
-      chatIntentPrompt(intent),
-      CHAT_GLOBAL_RULES,
-    ].join('\n\n');
 
-    // Load profile + tier for context and gating.
+    // Load profile + tier for context and gating. Consent is checked before any provider error.
     let tier = 'free';
     let profile = null;
     let profileUnread = false;
@@ -1978,22 +2134,42 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
     }
 
-    // #127a: any saved or sent diet/allergy filter -> meals come from the ingredient-checked
-    // builder only, never the AI. Saved filters are read, never written. Unreadable profile fails closed.
+    // Saved filters are read, never written. An unreadable profile or filter list fails closed with no AI.
+    // A readable diet or allergy list still gets a real answer, then a fail-closed food check.
     const ctxObj = context && typeof context === 'object' ? context : {};
-    const filters = dietGuard.combineFilters(profile, [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)]);
-    const guarded = profileUnread || filters.length > 0;
+    const sentFilters = [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)];
+    const filters = dietGuard.combineFilters(profile, sentFilters);
+    const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
+    // The early return still keys off profileUnread. The reply itself uses every allergen-free filter, or the day plan names dairy, gluten and eggs.
+    const replyFilters = profileUnread
+      ? dietGuard.combineFilters({ dietaryPreferences: [dietGuard.UNREADABLE] }, sentFilters)
+      : filters;
     const safeOpts = {
-      filters,
+      filters: replyFilters,
       calories: (profile && profile.targetCalories) || ctxObj.targetCalories,
       protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
+      question: latestUser,
+      intent,
     };
-    const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
-    // Filtered users never reach the AI: food questions get checked recipes, everything else food-free guidance.
-    if (guarded) {
-      return dietGuard.isFoodTalk(intent, latestUser)
-        ? res.json({ success: true, reply: dietGuard.safeCoachReply(safeOpts).reply, source: 'builder', provider: null })
-        : res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
+    const hardBlocked = profileUnread || dietGuard.unreadable(filters);
+    if (hardBlocked) {
+      if (dietGuard.isFoodTalk(intent, latestUser)) {
+        const built = profileUnread
+          ? dietGuard.addressedCoachReply(safeOpts)
+          : dietGuard.safeCoachReply(safeOpts);
+        return res.json({ success: true, reply: built.reply, source: built.source || 'builder', provider: null });
+      }
+      return res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
+    }
+
+    const aiFilters = chatAiFilters(profile, ctxObj);
+    const filtered = filters.length > 0;
+    if (filtered && !aiClient.hasProvider()) {
+      const fb = dietGuard.addressedCoachReply(safeOpts);
+      return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null });
+    }
+    if (!filtered && !aiClient.hasProvider()) {
+      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
@@ -2004,6 +2180,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
     }
     if (!gate.allowed) {
+      // The builder uses no model call, so a filtered free user at the cap still gets an answer and is not charged.
+      if (filtered) {
+        const fb = dietGuard.addressedCoachReply(safeOpts);
+        return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, upgrade: true, limit: gate.limit, used: gate.used });
+      }
       return res.status(429).json({
         success: false,
         upgrade: true,
@@ -2014,25 +2195,50 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-
     // Personal context from the account itself (profile, targets, latest plan,
-    // today's log), not just what the browser sends. Compact, one line each.
-    const personal = await buildCoachContext(req.user.userId, profile, context).catch(() => '');
-    const aiFilters = mealSafety.mergeFilters(mealSafety.profileFilters(profile), { dietary: Array.isArray(context && context.dietary) ? context.dietary : [], allergies: Array.isArray(context && context.allergies) ? context.allergies : [] });
+    // today's log, recent meals), not just what the browser sends. Compact, one line each.
+    const personal = await buildCoachContext(req.user.userId, profile, context, filters, aiFilters).catch(() => '');
     const rules = mealSafety.promptRules(aiFilters);
-    const withRules = rules ? `${system}\n\n--- Food rules for this user (always follow) ---\n${rules}` : system;
+    const baseSystem = [chatIntentPrompt(intent), CHAT_GLOBAL_RULES].join('\n\n');
+    const withRules = rules ? `${baseSystem}\n\n--- Food rules for this user (always follow) ---\n${rules}` : baseSystem;
+    const cited = filtered ? `${withRules}\n\n${COACH_CITE}\n${COACH_VERIFY}` : withRules;
     const finalSystem = personal
-      ? `${withRules}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
-      : withRules;
+      ? `${cited}\n\n--- This user ---\n${personal}\n\nUse these numbers and this plan in your answer. Be specific to them (grams, kcal, meals they have planned).`
+      : cited;
 
-    const r = await aiClient.chat({
-      system: finalSystem,
+    const callChat = (extra, budgetMs = CHAT_BUDGET_MS) => aiClient.chat({
+      system: extra ? `${finalSystem}\n\n${extra}` : finalSystem,
       messages: safeMessages,
       maxTokens: CHAT_MAX_TOKENS,
       temperature: 0.6,
       route: '/ai/chat',
-      budgetMs: CHAT_BUDGET_MS,
+      budgetMs,
     });
+
+    if (filtered) {
+      const accept = (r) => {
+        const text = modelText(r && r.text);
+        return !!(r && r.ok && text && dietGuard.replyVerified(text, filters, aiFilters));
+      };
+      const { result: r, verified } = await filteredModelAttempts(callChat, accept);
+      if (verified) {
+        res.locals.aiAnswered = true;
+        return res.json({
+          success: true,
+          reply: ensureCite(modelText(r.text), safeOpts.calories, safeOpts.protein),
+          provider: r.provider,
+          model: r.model,
+          usage: r.usage || null,
+          remaining: gate.remaining,
+          source: 'ai',
+        });
+      }
+      await refundUnlessVerified(gate, req.user.userId, 'chat');
+      const fb = dietGuard.addressedCoachReply(safeOpts);
+      return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining: gate.remaining });
+    }
+
+    const r = await callChat();
 
     if (!r.ok && r.error === 'no_user_message') {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
@@ -2040,10 +2246,15 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
+    const replyText = modelText(r.text);
+    if (!replyText) {
+      await refundUnlessVerified(gate, req.user.userId, 'chat');
+      return res.status(502).json({ success: false, error: publicClientError('ai_error'), provider: r.provider || null });
+    }
 
     res.locals.aiAnswered = true;
     // Food suggestions in the reply go through the allergen check before the user sees them.
-    const checked = mealSafety.enforceText(r.text.trim(), aiFilters);
+    const checked = mealSafety.enforceText(replyText, aiFilters);
     return res.json({
       success: true,
       reply: checked.text,
@@ -2190,6 +2401,17 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 });
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
+const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
+// New users (under 3 logged days this week) get an honest empty state: no score, no filler wins, no AI call,
+// no credit (D8).
+const REVIEW_MIN_DAYS = 3;
+const REVIEW_EMPTY = {
+  headline: "Log 3 days of meals and I'll score your week.",
+  wins: [],
+  focus: ['Log what you eat on 3 days this week, even roughly.', 'Weigh in once so the trend has a starting point.'],
+  score: null,
+  empty: true,
+};
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
@@ -2207,15 +2429,46 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // #127a: filtered users get no food advice from the AI; unsafe lines are dropped below.
+    // An unreadable profile fails closed with no AI. Everyone else is scored only after 3 logged days.
     const reviewFilters = dietGuard.savedFilters(profile);
-    const reviewGuarded = reviewUnread || reviewFilters.length > 0;
-    if (reviewGuarded) {
-      // Fixed, food-free review with one checked meal. No AI, no credit.
-      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+    if (reviewUnread || dietGuard.unreadable(reviewFilters)) {
+      const mealFilters = reviewUnread
+        ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
+        : reviewFilters;
+      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
     }
-    // Filtered users need no AI, so this check comes after their fixed review (EQA #135 r4 L2).
+    // Gather the last 7 days of real data before deciding whether this week can be scored.
+    const since = new Date(Date.now() - 7 * 86400000);
+    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
+    const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
+    const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
+
+    const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
+    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
+    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
+    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
+    const stats = { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length };
+    const reviewOpts = {
+      filters: reviewFilters,
+      calories: profile && profile.targetCalories,
+      protein: profile && profile.targetProtein,
+      daysLogged,
+      workouts: weekWorkouts.length,
+    };
+    const filteredReview = reviewFilters.length > 0;
+    // Too little logged to judge the week: no model call and no credit.
+    // Filtered users get the checked first-week review. Everyone else gets the empty state.
+    const days0 = daysLogged;
+    if (days0 < REVIEW_MIN_DAYS) {
+      if (filteredReview) {
+        return res.json({ success: true, review: dietGuard.firstWeekReview(reviewOpts), stats, source: 'fixed', provider: null });
+      }
+      return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+    }
     if (!aiClient.hasProvider()) {
+      if (filteredReview) {
+        return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null });
+      }
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
     }
 
@@ -2227,23 +2480,15 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
     }
     if (!gate.allowed) {
+      if (filteredReview) {
+        return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, upgrade: true, limit: gate.limit, used: gate.used });
+      }
       return res.status(429).json({
         success: false, upgrade: true, limit: gate.limit, used: gate.used,
         error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited reviews.`,
       });
     }
     aiUsage.refundSmokeOnFailure(gate, res);
-
-    // Gather the last 7 days of real data.
-    const since = new Date(Date.now() - 7 * 86400000);
-    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
-    const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
-    const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
-
-    const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
-    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
-    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
-    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
 
     const dataBlock = [
       `Days with meals logged (last 7): ${daysLogged}`,
@@ -2254,11 +2499,12 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       profile?.fitnessGoal ? `Goal: ${profile.fitnessGoal}` : '',
       profile?.targetCalories ? `Calorie target: ${profile.targetCalories}/day` : '',
       profile?.targetProtein ? `Protein target: ${profile.targetProtein}g/day` : '',
+      filteredReview ? `Diet and allergy filters: ${reviewFilters.join(', ')}` : '',
     ].filter(Boolean).join('\n');
 
     const reviewAiFilters = mealSafety.profileFilters(profile);
     const reviewRules = mealSafety.promptRules(reviewAiFilters);
-    const system = `You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims.${reviewRules ? `\n${reviewRules}` : ''}`;
+    const system = `You are FitMunch, an Australian nutrition and fitness coach writing a short weekly review. Australian spelling. Warm but honest. Never mention being an AI. No medical claims. Wins must be real things the user did. Never give a score of 1 just for opening the app.${filteredReview ? ` ${COACH_CITE} ${COACH_VERIFY}` : ''}${reviewRules ? `\n${reviewRules}` : ''}`;
     const prompt = `Here is the user's last 7 days of real logged data:
 
 ${dataBlock}
@@ -2270,23 +2516,51 @@ Write a weekly review as JSON only, no markdown:
   "focus": ["2-3 short specific improvements for next week"],
   "score": <integer 1-10 for overall week consistency>
 }
-If very little data was logged, be encouraging about starting and make "focus" about building a logging habit.`;
+Cite the calorie and protein targets. Do not award a win for showing up, opening the app, or asking for a review.`;
 
-    const r = await aiClient.chatJson({
-      system,
+    const callReview = (extra, budgetMs) => aiClient.chatJson({
+      system: extra ? `${system}\n\n${extra}` : system,
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1500,
       temperature: 0.7,
       route: '/ai/weekly-review',
+      ...(budgetMs ? { budgetMs } : {}),
     });
+
+    if (filteredReview) {
+      const accept = (r) => {
+        const text = reviewDataText(r && r.data);
+        return !!(r && r.ok && text && dietGuard.replyVerified(text, reviewFilters, reviewAiFilters));
+      };
+      const { result: r, verified } = await filteredModelAttempts(callReview, accept);
+      if (!verified) {
+        await refundUnlessVerified(gate, req.user.userId, 'weekly_review');
+        return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, remaining: gate.remaining });
+      }
+      res.locals.aiAnswered = true;
+      return res.json({
+        success: true,
+        review: dietGuard.polishReview(r.data, reviewOpts),
+        stats,
+        provider: r.provider,
+        remaining: gate.remaining,
+        source: 'ai',
+      });
+    }
+
+    const r = await callReview();
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
+    }
+    if (!reviewDataText(r.data)) {
+      await refundUnlessVerified(gate, req.user.userId, 'weekly_review');
+      return res.json({ success: true, review: dietGuard.addressedWeeklyReview(reviewOpts), stats, source: 'fixed', provider: null, remaining: gate.remaining });
     }
     res.locals.aiAnswered = true;
     res.json({
       success: true,
-      review: mealSafety.enforceJsonText(r.data, reviewAiFilters).value,
-      stats: { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length },
+      review: dietGuard.polishReview(mealSafety.enforceJsonText(r.data, reviewAiFilters).value, reviewOpts),
+      stats,
       provider: r.provider,
       remaining: gate.remaining,
     });
@@ -2352,7 +2626,7 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
 // ── PT Referral System ──────────────────────────────────────────────────────
 
 // Get or generate a referral code for logged-in PT
-router.get('/referral/code', authMiddleware, async (req, res) => {
+router.get('/referral/code', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const pool = _pool;
     await ensureMigrations();
@@ -2376,7 +2650,7 @@ router.get('/referral/code', authMiddleware, async (req, res) => {
 });
 
 // Claim a referral code at signup (extends trial by 30 days for referrer)
-router.post('/referral/claim', authMiddleware, async (req, res) => {
+router.post('/referral/claim', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'No code provided' });
@@ -2421,8 +2695,17 @@ router.post('/pt-leads', async (req, res) => {
 });
 
 // Export router for use in other modules
+/** Tests only. The chat routes keep this pool for the life of the process otherwise. */
+async function _endDbForTests() {
+  if (_pool && typeof _pool.end === 'function') {
+    try { await _pool.end(); } catch (_) { /* already closed */ }
+  }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports.__pool = _pool; // test seam: Postgres suites must end this pool
+  module.exports._endDbForTests = _endDbForTests;
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };

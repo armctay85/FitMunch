@@ -41,6 +41,8 @@ jest.mock('./server/storage.js', () => {
       if (patch) await m.createOrUpdateProfile(id, patch);
     }),
     getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
     getWorkoutLogsForPeriod: jest.fn(async () => []),
   };
   return m;
@@ -218,14 +220,14 @@ describe('Coach chat (POST /api/ai/chat)', () => {
     [{ dietaryPreferences: ['vegan'] }, 'Have a whey shake after training.', /whey/i],
     [{ dietaryPreferences: ['egg free'] }, 'Make a tuna sandwich with mayo.', /mayo/i],
   ];
-  // r8 (#135 merged): filtered users never reach the AI in Coach; they get checked recipes.
-  it.each(CHAT)('%j: no AI call, a checked reply with none of the unsafe food', async (p, text, words) => {
+  // Filtered users get a real answer, then a fail-closed check. An unsafe model reply is never served.
+  it.each(CHAT)('%j: checked reply with none of the unsafe food', async (p, text, words) => {
     profile = p;
     const res = await chat(text);
     expect(res.status).toBe(200);
-    expect(aiClient.chat).not.toHaveBeenCalled();
     expect(res.body.provider).toBeNull();
     expect(res.body.reply).not.toMatch(words);
+    expect(res.body.reply).not.toMatch(/removed/i);
   });
   // The reply check itself, kept for when Coach can block anything it can't check.
   it.each(CHAT)('enforceText strips the unsafe suggestion for %j and adds a safe alternative', (p, text, words) => {
@@ -234,11 +236,10 @@ describe('Coach chat (POST /api/ai/chat)', () => {
     expect(r.text).toMatch(/I removed a suggestion that didn't fit your filters/);
     expect(r.text).toMatch(/A safe (?:\w+ )?option: /);
   });
-  it('filters sent in the chat context count too: no AI call', async () => {
+  it('filters sent in the chat context count too', async () => {
     profile = {};
     const res = await chat('Grill chicken with rice and broccoli.', { dietary: ['nut free'] });
     expect(res.status).toBe(200);
-    expect(aiClient.chat).not.toHaveBeenCalled();
     expect(res.body.reply).not.toMatch(/peanut|almond|cashew|satay|pesto/i);
   });
   it('no filters: the reply is untouched', async () => {
@@ -255,7 +256,6 @@ describe('insight and weekly review', () => {
     const res = await request(app).post('/api/ai/insight').set('Authorization', u1).send({});
     expect(res.status).toBe(200);
     expect(res.body.insight).not.toMatch(/almond/i);
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
   it('a filtered user gets the fixed weekly review: no AI call, no unsafe food', async () => {
     profile = { allergies: ['peanuts'], dietaryPreferences: ['gluten free'] };
@@ -529,7 +529,6 @@ describe('r2 S4: the insight fallback', () => {
     expect(res.status).toBe(200);
     expect(res.body.insight).not.toMatch(/peanut|removed/i);
     expect(res.body.insight.length).toBeGreaterThan(10);
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
 });
 
