@@ -366,6 +366,11 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
  .shop-cb.checked{box-shadow:none}
 }
+/* Desktop with a mouse: filter chips and the allergy field, Add and Save stay easy to hit. */
+@media (min-width: 1025px) and (pointer: fine) {
+ #dietary-tags .diet-tag,#saved-allergies .diet-tag,#ob-diet .diet-tag,#ob-allergies .diet-tag{min-height:40px;display:inline-flex;align-items:center}
+ #allergy-add,#mp-save-filters,button[onclick="addTypedAllergy()"]{min-height:40px}
+}
 /* Touch tablets and small laptops: same 44px tap targets as phones. */
 @media (pointer:coarse), (max-width:1024px) {
  .nav-logo{min-height:44px;display:flex;align-items:center}
@@ -720,8 +725,16 @@ html.fm-authed #app-gate{display:none}
  <button class="diet-tag" data-val="egg free" onclick="toggleDietTag(this)">🥚 Egg free</button>
  <button class="diet-tag" data-val="sesame free" onclick="toggleDietTag(this)">🌱 Sesame free</button>
  <button class="diet-tag" data-val="soy free" onclick="toggleDietTag(this)">🫘 Soy free</button>
- <button class="diet-tag" data-val="shellfish free" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
+ <button type="button" class="diet-tag" data-val="shellfish free" aria-pressed="false" onclick="toggleDietTag(this)">🦐 Shellfish free</button>
+ <button type="button" class="diet-tag" data-val="fish free" aria-pressed="false" onclick="toggleDietTag(this)">🐟 Fish free</button>
  </div>
+ <p id="mp-filter-help" style="font-size:.72rem;color:var(--text3);margin:8px 0 0">Untick a filter and save to remove it. If your profile changed on another screen, we'll ask you to reload.</p>
+ <div id="saved-allergies" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+ <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+ <input id="allergy-add" class="form-input" maxlength="100" placeholder="Add an allergy, like kiwi" aria-label="Add an allergy"/>
+ <button type="button" class="btn btn-ghost2" onclick="addTypedAllergy()">Add</button>
+ </div>
+ <button type="button" class="btn btn-ghost2" style="width:100%;margin-top:8px" id="mp-save-filters" onclick="saveDietFilters()">Save filters</button>
  </div>
  <button class="btn btn-green" style="width:100%;padding:12px;font-size:.92rem" id="mp-gen-btn" onclick="generateMealPlan()">
  ✨ Generate my meal plan →
@@ -1618,7 +1631,7 @@ html.fm-authed #app-gate{display:none}
 
 <!-- GOALS ONBOARDING MODAL -->
 <div class="modal-overlay" id="modal-onboard" style="z-index:301" onclick="closeOnOverlay(event)">
- <div class="modal" style="max-width:460px">
+ <div class="modal" style="max-width:460px;max-height:calc(100dvh - 24px);overflow-y:auto">
  <div class="modal-title"><span id="ob-title">About you</span><button class="modal-close" aria-label="Close" onclick="closeModal('modal-onboard')">✕</button></div>
  <div class="ob-progress"><p class="ob-stepno" id="ob-stepno" aria-live="polite">Step 1 of 3</p><div class="ob-track" aria-hidden="true"><span id="ob-track-fill" style="width:33.3%"></span></div></div>
  <div id="ob-step-1">
@@ -1634,8 +1647,37 @@ html.fm-authed #app-gate{display:none}
  <option value="sedentary">Mostly sitting, little exercise</option><option value="light">Train 1-3 times a week</option><option value="moderate" selected>Train 3-5 times a week</option><option value="active">Train 6-7 times a week</option><option value="very_active">Physical job plus training</option></select></div>
  <div class="form-field"><label class="form-label" for="ob-goal">Goal</label><select id="ob-goal" class="form-select">
  <option value="lose_weight">Lose fat</option><option value="maintain">Maintain</option><option value="muscle_gain">Build muscle</option><option value="general_fitness">General fitness</option></select></div>
- <div class="form-field"><label class="form-label" for="ob-diet">Diet</label><select id="ob-diet" class="form-select">
- <option value="none">No restrictions</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option><option value="dairy_free">Dairy free</option><option value="egg_free">Egg free</option><option value="gluten_free">Gluten free</option><option value="nut_free">Nut free</option><option value="sesame_free">Sesame free</option><option value="soy_free">Soy free</option><option value="shellfish_free">Shellfish free</option></select></div>
+ <div class="form-field"><div class="form-label" id="ob-diet-label">Diet</div>
+ <div id="ob-diet" role="group" aria-labelledby="ob-diet-label" style="display:flex;flex-wrap:wrap;gap:6px">
+ <button type="button" class="diet-tag" data-val="vegetarian" aria-pressed="false" onclick="toggleDietTag(this)">Vegetarian</button>
+ <button type="button" class="diet-tag" data-val="vegan" aria-pressed="false" onclick="toggleDietTag(this)">Vegan</button>
+ <button type="button" class="diet-tag" data-val="dairy free" aria-pressed="false" onclick="toggleDietTag(this)">Dairy free</button>
+ <button type="button" class="diet-tag" data-val="egg free" aria-pressed="false" onclick="toggleDietTag(this)">Egg free</button>
+ <button type="button" class="diet-tag" data-val="gluten free" aria-pressed="false" onclick="toggleDietTag(this)">Gluten free</button>
+ <button type="button" class="diet-tag" data-val="nut free" aria-pressed="false" onclick="toggleDietTag(this)">Nut free</button>
+ <button type="button" class="diet-tag" data-val="sesame free" aria-pressed="false" onclick="toggleDietTag(this)">Sesame free</button>
+ <button type="button" class="diet-tag" data-val="soy free" aria-pressed="false" onclick="toggleDietTag(this)">Soy free</button>
+ <button type="button" class="diet-tag" data-val="shellfish free" aria-pressed="false" onclick="toggleDietTag(this)">Shellfish free</button>
+ <button type="button" class="diet-tag" data-val="fish free" aria-pressed="false" onclick="toggleDietTag(this)">Fish free</button>
+ </div>
+ <p style="font-size:.72rem;color:var(--text3);margin:8px 0 0">Tick every diet that applies. No restrictions means leave them all off.</p>
+ <div class="form-label" id="ob-allergy-label" style="margin-top:12px">Allergies</div>
+ <div id="ob-allergies" role="group" aria-labelledby="ob-allergy-label" style="display:flex;flex-wrap:wrap;gap:6px">
+ <button type="button" class="diet-tag" data-allergy="peanut" aria-pressed="false" onclick="toggleDietTag(this)">Peanut</button>
+ <button type="button" class="diet-tag" data-allergy="tree nuts" aria-pressed="false" onclick="toggleDietTag(this)">Tree nuts</button>
+ <button type="button" class="diet-tag" data-allergy="milk" aria-pressed="false" onclick="toggleDietTag(this)">Milk</button>
+ <button type="button" class="diet-tag" data-allergy="egg" aria-pressed="false" onclick="toggleDietTag(this)">Egg</button>
+ <button type="button" class="diet-tag" data-allergy="wheat" aria-pressed="false" onclick="toggleDietTag(this)">Wheat</button>
+ <button type="button" class="diet-tag" data-allergy="soy" aria-pressed="false" onclick="toggleDietTag(this)">Soy</button>
+ <button type="button" class="diet-tag" data-allergy="sesame" aria-pressed="false" onclick="toggleDietTag(this)">Sesame</button>
+ <button type="button" class="diet-tag" data-allergy="fish" aria-pressed="false" onclick="toggleDietTag(this)">Fish</button>
+ <button type="button" class="diet-tag" data-allergy="crustacea" aria-pressed="false" onclick="toggleDietTag(this)">Crustacea</button>
+ <button type="button" class="diet-tag" data-allergy="molluscs" aria-pressed="false" onclick="toggleDietTag(this)">Molluscs</button>
+ <button type="button" class="diet-tag" data-allergy="lupin" aria-pressed="false" onclick="toggleDietTag(this)">Lupin</button>
+ <button type="button" class="diet-tag" data-allergy="sulphites" aria-pressed="false" onclick="toggleDietTag(this)">Sulphites</button>
+ </div>
+ <p style="font-size:.72rem;color:var(--text3);margin:8px 0 0">Tick every allergy that applies. They are saved on your profile and used for this week.</p>
+ </div>
  <p id="ob-err" style="display:none;color:#c0392b;font-size:.8rem;margin:4px 0 8px"></p>
  <button class="btn btn-green" style="width:100%" onclick="onboardCompute()">Work out my targets</button>
  </div>
@@ -2719,7 +2761,7 @@ async function loadPortalHome() {
  // Load user profile / goals
  try {
  const prof = await API('/user/profile/' + S.user.id);
- if (prof.success && prof.profile) prefillDietTags(prof.profile.dietaryPreferences);
+ if (prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
  if (prof.success && prof.profile && prof.profile.targetCalories) {
  S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein, targetCarbs: prof.profile.targetCarbs, targetFat: prof.profile.targetFat };
  renderGoalTargets();
@@ -3584,6 +3626,12 @@ function onboardStep(n) {
  document.getElementById('ob-stepno').textContent = 'Step ' + n + ' of 3';
  document.getElementById('ob-track-fill').style.width = (n / 3 * 100).toFixed(1) + '%';
 }
+function selectedObDiets() {
+ return [...document.querySelectorAll('#ob-diet .diet-tag.active[data-val]')].map(b => b.dataset.val);
+}
+function selectedObAllergies() {
+ return [...document.querySelectorAll('#ob-allergies .diet-tag.active[data-allergy]')].map(b => b.dataset.allergy);
+}
 function onboardCompute() {
  const v = id => document.getElementById(id).value;
  const input = { age: v('ob-age'), sex: v('ob-sex'), heightCm: v('ob-height'), weightKg: v('ob-weight'), activity: v('ob-activity'), goal: v('ob-goal') };
@@ -3596,7 +3644,7 @@ function onboardCompute() {
  if (!gw.ok) { err.textContent = gw.error; err.style.display = ''; gwEl.setAttribute('aria-invalid', 'true'); gwEl.focus(); return; }
  gwEl.removeAttribute('aria-invalid');
  const goalKg = gw.value;
- OB = { input, goalKg, diet: v('ob-diet'), targets: t };
+ OB = { input, goalKg, diet: selectedObDiets(), allergies: selectedObAllergies(), targets: t };
  err.style.display = 'none';
  document.getElementById('ob-cals').value = t.calories;
  document.getElementById('ob-prot').value = t.protein;
@@ -3736,11 +3784,27 @@ async function onboardBuildWeek() {
  renderGoalTargets();
  } catch (_) { /* targets still used for the week below */ }
  OB.savedPlan = null;
- const diet = OB.diet && OB.diet !== 'none' ? [OB.diet.replace('_', ' ')] : [];
+ const diet = selectedObDiets();
+ const allergies = selectedObAllergies();
+ // Filters are their own save. The targets POST above stays as it is.
+ if ((diet.length || allergies.length) && S && S.user) {
+ try {
+ let updatedAt = null;
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.profile && prof.profile.updatedAt) updatedAt = prof.profile.updatedAt;
+ const body = { dietaryPreferences: diet };
+ const allergySave = obAllergySave(allergies, prof && prof.profile && prof.profile.allergies);
+ if (allergySave) body.allergies = allergySave;
+ if (updatedAt) body.profileUpdatedAt = updatedAt;
+ const saved = await API('/user/profile', { method:'POST', body: JSON.stringify(body) });
+ if (saved && saved.stale) toast(saved.error || 'Your profile changed since this page loaded. Reload it and try again.', 'error');
+ else if (saved && saved.success === false) toast(saved.error || 'Could not save your filters.', 'warn');
+ } catch (_) { /* the week below still uses the diets you ticked */ }
+ }
  const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
  const local = async () => {
  const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
- if (b && b.success && b.plan) { S_activePlan = b.plan; onboardRenderWeek(b.plan, NOTE_BUILDER + (b.plan.notes && b.plan.notes.length ? ' ' + b.plan.notes.join(' ') : ''), r); await onboardSaveWeek(b.plan, fitnessGoal); }
+ if (b && b.success && b.plan) { const note = [NOTE_BUILDER, b.notice, ...(b.plan.notes || [])].filter(s => s && String(s).trim()).join(' '); S_activePlan = b.plan; onboardRenderWeek(b.plan, note, r); await onboardSaveWeek(b.plan, fitnessGoal); }
  else document.getElementById('ob-week-note').textContent = 'Could not build your week right now. Try Meal Plans in a minute.';
  };
  // AI plan only with consent. Without it (or if AI is off/unavailable) use the deterministic week.
@@ -3942,14 +4006,147 @@ function renderGoalTargets() {
 let S_activePlan = null;
 let S_activeShoppingList = null;
 
-function toggleDietTag(btn) { btn.classList.toggle('active'); }
+function toggleDietTag(btn) {
+ btn.classList.toggle('active');
+ btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+}
 // The meal plan form starts with the saved diet filters ticked, so a plan never quietly drops one.
 function prefillDietTags(saved) {
  let list = saved;
  if (typeof list === 'string') { try { list = JSON.parse(list); } catch (_) { list = list.split(','); } }
- if (!Array.isArray(list)) return;
- const want = new Set(list.map(d => String(d).toLowerCase().replace(/[-_]+/g, ' ').trim()));
- document.querySelectorAll('#dietary-tags .diet-tag').forEach(b => { if (want.has(b.dataset.val)) b.classList.add('active'); });
+ if (!Array.isArray(list)) list = [];
+ const want = new Set(list.map(d => String(d).toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()));
+ document.querySelectorAll('#dietary-tags .diet-tag').forEach(b => {
+ const on = want.has(b.dataset.val);
+ b.classList.toggle('active', on);
+ b.setAttribute('aria-pressed', on ? 'true' : 'false');
+ });
+}
+
+let S_filters = { updatedAt: null, dietsOk: true, diets: [], allergiesOk: true, allergies: [], seen: false };
+function normFilterWord(d) { return String(d).toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function filterWords(v) {
+ if (v == null || v === false) return { ok: true, list: [] };
+ let x = v;
+ if (typeof x === 'string') { try { x = JSON.parse(x); } catch (_) { x = x.split(','); } }
+ if (x == null || x === false) return { ok: true, list: [] };
+ if (typeof x === 'string') x = [x];
+ if (x && typeof x === 'object' && !Array.isArray(x)) {
+ const keys = [];
+ for (const k in x) {
+ if (!Object.prototype.hasOwnProperty.call(x, k) || !x[k]) continue;
+ if (typeof x[k] === 'object') return { ok: false, list: [] };
+ keys.push(String(k));
+ }
+ x = keys;
+ }
+ if (!Array.isArray(x)) return { ok: false, list: [] };
+ const list = [];
+ const skip = new Set(['', 'null', 'undefined', 'none', 'false', '[]', '{}']);
+ for (const s of x) {
+ if (s == null || s === false) continue;
+ if (typeof s !== 'string') return { ok: false, list: [] };
+ const t = s.trim();
+ if (skip.has(t.toLowerCase())) continue;
+ list.push(t);
+ }
+ return { ok: true, list };
+}
+// Ticked onboarding chips merge with allergies already saved (typed ones have no chip).
+// No chips, or a list we cannot read: return null so the save omits allergies and does not wipe them.
+function obAllergySave(chips, saved) {
+ if (!chips || !chips.length) return null;
+ const loaded = filterWords(saved);
+ if (!loaded.ok) return null;
+ const merged = loaded.list.slice();
+ for (const a of chips) if (!merged.some(x => normFilterWord(x) === normFilterWord(a))) merged.push(a);
+ return merged;
+}
+function rememberProfileFilters(profile) {
+ const p = profile || {};
+ const diets = filterWords(p.dietaryPreferences);
+ const allergies = filterWords(p.allergies);
+ S_filters = {
+ updatedAt: p.updatedAt || null,
+ dietsOk: diets.ok,
+ diets: diets.ok ? diets.list.map(normFilterWord) : [],
+ allergiesOk: allergies.ok,
+ allergies: allergies.ok ? allergies.list : [],
+ seen: true,
+ };
+ renderAllergyChips();
+}
+function renderAllergyChips() {
+ const box = document.getElementById('saved-allergies');
+ if (!box) return;
+ box.textContent = '';
+ if (!S_filters.allergiesOk) {
+ const note = document.createElement('p');
+ note.style.cssText = 'font-size:.75rem;color:var(--text3);margin:0';
+ note.textContent = "We couldn't read every saved allergy, so this screen won't change them.";
+ box.appendChild(note);
+ return;
+ }
+ S_filters.allergies.forEach(a => {
+ const b = document.createElement('button');
+ b.type = 'button';
+ b.className = 'diet-tag active';
+ b.setAttribute('aria-label', 'Remove ' + a);
+ b.textContent = a + ' \u2715';
+ b.onclick = () => { S_filters.allergies = S_filters.allergies.filter(x => x !== a); renderAllergyChips(); };
+ box.appendChild(b);
+ });
+}
+function addTypedAllergy() {
+ const input = document.getElementById('allergy-add');
+ if (!input) return;
+ const raw = String(input.value || '').trim();
+ if (!raw) return;
+ if (!S_filters.allergiesOk) { toast("We couldn't read every saved allergy, so this screen won't change them.", 'warn'); return; }
+ if (raw.length > 100) { toast('Each allergy can be up to 100 characters.', 'warn'); return; }
+ if (S_filters.allergies.length >= 50) { toast('You can save up to 50 allergies.', 'warn'); return; }
+ if (!S_filters.allergies.some(a => a.toLowerCase() === raw.toLowerCase())) S_filters.allergies.push(raw);
+ input.value = '';
+ renderAllergyChips();
+}
+async function saveDietFilters(opts) {
+ const quiet = opts && opts.quiet;
+ if (!S_filters.seen && S && S.user) {
+ try {
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ else if (prof && prof.success) S_filters.seen = true;
+ else { toast("We couldn't load your diet filters. Please try again.", 'error'); return { ok: false }; }
+ } catch (_) { toast("We couldn't load your diet filters. Please try again.", 'error'); return { ok: false }; }
+ }
+ const picker = new Set([...document.querySelectorAll('#dietary-tags .diet-tag')].map(b => b.dataset.val));
+ const ticked = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
+ const body = {};
+ if (S_filters.dietsOk) {
+ const kept = S_filters.diets.filter(d => !picker.has(normFilterWord(d)));
+ const merged = ticked.slice();
+ kept.forEach(d => { if (!merged.some(x => normFilterWord(x) === normFilterWord(d))) merged.push(d); });
+ body.dietaryPreferences = merged;
+ }
+ if (S_filters.allergiesOk) body.allergies = S_filters.allergies.slice();
+ if (!('dietaryPreferences' in body) && !('allergies' in body)) return { ok: true, skipped: true };
+ if (S_filters.updatedAt) body.profileUpdatedAt = S_filters.updatedAt;
+ const r = await API('/user/profile', { method:'POST', body: JSON.stringify(body) });
+ if (r && r.stale) {
+ toast(r.error || 'Your profile changed since this page loaded. Reload it and try again.', 'error');
+ try {
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ } catch (_) {}
+ return { ok: false, stale: true };
+ }
+ if (!r || r.success === false) { toast((r && r.error) || 'Could not save your filters.', 'error'); return { ok: false }; }
+ try {
+ const prof = await API('/user/profile/' + S.user.id);
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ } catch (_) {}
+ if (!quiet) toast('Filters saved.');
+ return { ok: true };
 }
 
 async function generateMealPlan() {
@@ -3957,6 +4154,8 @@ async function generateMealPlan() {
  const days = parseInt(document.getElementById('mp-days-sel').value) || 7;
  const cals = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
  const prot = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
+ const savedFilters = await saveDietFilters({ quiet: true });
+ if (!savedFilters.ok) return;
  const dietary = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
 
  // Pre-fill from goals if blank
