@@ -511,14 +511,16 @@ maybe('#127a on real Postgres', () => {
     expect(engine.TEMPLATES.some((t) => text.includes(`${t.name} (`))).toBe(true);
     expect(dietGuard.textBreaksFilters(text.replace(dietGuard.SAFE_NOTICE, ''), filters)).toBe(false);
   };
-  it("r4: QA's leaks (dairy free and GF asking 'How many sets for squats?', GF teriyaki) make no AI call; replies name no food or brand beyond one checked meal", async () => {
+  it('r4: dairy free and gluten free get a checked reply; a gluten question is not repeated', async () => {
     await pool.query(`update user_profiles set dietary_preferences='["dairy free"]'::jsonb where user_id=$1`, [PLAIN]);
     for (const [who, f] of [[PLAIN, 'dairy free'], [GF, 'gluten free']]) {
       for (const q of ['How many sets for squats?', 'Is teriyaki chicken ok?', 'What do I grab before training?']) {
         const r = await ask(who, q, { intent: 'workout' });
         expect(r.status).toBe(200);
         expect(r.body.reply).not.toContain(COMING);
-        expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go|teriyaki/i);
+        // Teriyaki is gluten, not dairy. A dairy-free user may see their own question quoted. A gluten-free user must not.
+        expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go/i);
+        if (f === 'gluten free') expect(r.body.reply).not.toMatch(/teriyaki/i);
         safeMealIn(r.body.reply, [f]);
       }
     }

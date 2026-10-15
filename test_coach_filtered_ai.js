@@ -29,16 +29,30 @@ jest.mock('./lib/ai-usage', () => ({
   isSmokeAccount: () => false,
   refundSmokeOnFailure: () => {},
 }));
+// Do not requireActual storage.js: that builds a real pg.Pool (max 20) and never closes it.
 jest.mock('./server/storage.js', () => {
-  const actual = jest.requireActual('./server/storage.js');
+  const noop = () => jest.fn(async () => undefined);
   return {
-    ...actual,
     getUserById: jest.fn(async () => ({ id: 'u1', email: 'me@example.com', name: 'Pat', subscriptionTier: 'premium', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(),
     getMealLogsForPeriod: jest.fn(async () => logs),
     getRecentWorkouts: jest.fn(async () => [{ workoutType: 'squats', date: new Date() }]),
     getProgressHistory: jest.fn(async () => []),
     createOrUpdateProfile: jest.fn(),
+    effectiveTier: (user) => (user && user.subscriptionTier ? String(user.subscriptionTier) : 'free'),
+    createUser: noop(),
+    getUserByEmail: noop(),
+    updateUserSubscription: noop(),
+    setAIDataConsent: noop(),
+    logMeal: noop(),
+    getMealLogsByDate: noop(),
+    logWorkout: noop(),
+    getWorkoutLogsByDate: noop(),
+    logProgress: noop(),
+    trackEvent: noop(),
+    getFunnelStats: noop(),
+    db: {},
+    schema: {},
   };
 });
 

@@ -41,6 +41,8 @@ jest.mock('./server/storage.js', () => {
       if (patch) await m.createOrUpdateProfile(id, patch);
     }),
     getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
     getWorkoutLogsForPeriod: jest.fn(async () => []),
   };
   return m;

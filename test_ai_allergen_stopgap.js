@@ -40,7 +40,17 @@ jest.mock('./lib/ai-usage', () => {
 });
 jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
-  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn(), mergeProfileFilters: jest.fn(async () => true) };
+  return {
+    ...actual,
+    getUserById: jest.fn(),
+    getProfile: jest.fn(),
+    createOrUpdateProfile: jest.fn(),
+    mergeProfileFilters: jest.fn(async () => true),
+    // The filtered Coach path reads logs. Keep that off the real pool.
+    getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
+  };
 });
 
 const express = require('express');

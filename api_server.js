@@ -2592,8 +2592,16 @@ router.post('/pt-leads', async (req, res) => {
 });
 
 // Export router for use in other modules
+/** Tests only. The chat routes keep this pool for the life of the process otherwise. */
+async function _endDbForTests() {
+  if (_pool && typeof _pool.end === 'function') {
+    try { await _pool.end(); } catch (_) { /* already closed */ }
+  }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = router;
+  module.exports._endDbForTests = _endDbForTests;
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };

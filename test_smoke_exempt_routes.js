@@ -18,6 +18,9 @@ jest.mock('./server/storage.js', () => {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u-smoke-1', subscriptionTier: 'free', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(async () => null),
+    getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
     trackEvent: jest.fn(),
   };
 });

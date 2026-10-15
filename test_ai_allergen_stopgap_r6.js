@@ -19,7 +19,15 @@ jest.mock('./lib/ai-usage', () => {
 });
 jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
-  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn() };
+  return {
+    ...actual,
+    getUserById: jest.fn(),
+    getProfile: jest.fn(),
+    createOrUpdateProfile: jest.fn(),
+    getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
+  };
 });
 
 const fs = require('fs');
