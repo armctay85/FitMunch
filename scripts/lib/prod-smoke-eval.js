@@ -68,26 +68,95 @@ function diagReason(payload) {
   };
 }
 
-/** One line from a failed scan, with secrets, tokens, and image bytes removed. */
-function scanFailureDetail(body, rawText) {
+function scanSource(body, rawText) {
   const err = body && typeof body === 'object' && !Array.isArray(body) ? body.error : undefined;
-  let source = '';
-  if (typeof err === 'string' && err.trim()) source = err;
-  else if (typeof rawText === 'string') source = rawText;
-  else if (typeof body === 'string') source = body;
-  const excerpt = source.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 120);
-  if (!excerpt) return '';
-  return excerpt
-    .replace(/data:image\/[^\s'"]+/gi, '[image]')
-    .replace(/\b(?:Basic|Bearer)\s+\S+/gi, '[redacted]')
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted]')
-    .replace(/\b(?:sk-ant-|sk-|xai-)[A-Za-z0-9_\-]*/gi, '[redacted]')
-    .replace(/\b[A-Za-z0-9+/]{32,}={0,2}\b/g, '[redacted]')
-    .replace(/fm_smoke_\S*/gi, '[redacted]')
-    .replace(/\b(?:password|api[_-]?key|authorization)\b\s*[:=]\s*\S+/gi, '[redacted]')
-    .replace(/\b(?:bearer|api[_-]?key|password|fm_smoke_|authorization)\b/gi, '[redacted]')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  if (typeof err === 'string' && err.trim()) return err;
+  if (typeof rawText === 'string' && rawText.trim()) return rawText;
+  if (typeof body === 'string' && body.trim()) return body;
+  return '';
+}
+
+/** Turn JSON escapes into characters before any secret match, on the full text. */
+function decodeJsonEscapes(text) {
+  return String(text)
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\\//g, '/')
+    .replace(/\\"/g, '"');
+}
+
+function collapseWs(text) {
+  return String(text).replace(/[\r\n\t\f\v\u00a0]+/g, ' ').replace(/ {2,}/g, ' ').trim();
+}
+
+/**
+ * Remove secrets from the full string. Replacements are spaces so a later
+ * allowlist can keep a short error code that sat beside a token.
+ */
+function scrubSecrets(text) {
+  // Spaces only, not \s: collapseWs has already turned newlines into spaces.
+  // A more specific prefix is not also matched by the general sk- pattern.
+  return text
+    .replace(/data:image\/[^\s'"]+/gi, ' ')
+    .replace(/\b(?:Basic|Bearer)\s+\S+/gi, ' ')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, ' ')
+    .replace(/\bsk-ant-[ ]*[A-Za-z0-9_\-]{3,}/gi, ' ')
+    .replace(/\bsk-proj-[ ]*[A-Za-z0-9_\-]{3,}/gi, ' ')
+    .replace(/\bsk-live-[ ]*[A-Za-z0-9_\-]{3,}/gi, ' ')
+    .replace(/\bxai-[ ]*[A-Za-z0-9_\-]{3,}/gi, ' ')
+    .replace(/\bsk-(?!ant-|proj-|live-)[ ]*[A-Za-z0-9_\-]{3,}/gi, ' ')
+    .replace(/\bsk_live_[A-Za-z0-9]+/gi, ' ')
+    .replace(/\brk_live_[A-Za-z0-9]+/gi, ' ')
+    .replace(/\bpk_live_[A-Za-z0-9]+/gi, ' ')
+    .replace(/\bwhsec_[A-Za-z0-9]+/gi, ' ')
+    .replace(/[?&]access_token=[^\s&#]+/gi, ' ')
+    .replace(/[?&]token=[^\s&#]+/gi, ' ')
+    .replace(/[?&]key=[^\s&#]+/gi, ' ')
+    .replace(/\bset-cookie:[ ]*session=[^\s;]+/gi, ' ')
+    .replace(/\bfm_smoke_\S*/gi, ' ')
+    .replace(/\b(?:password|api[_-]?key|authorization)\b\s*[:=]\s*\S+/gi, ' ')
+    .replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, ' ');
+}
+
+/** Control chars, ESC, line separators, brackets, mentions, and emails. */
+function stripInjection(text) {
+  return text
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, ' ')
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, '')
+    .replace(/[<>@]/g, '');
+}
+
+function allowlistedDetail(text) {
+  if (/^[a-z0-9_]{1,40}$/i.test(text)) return text;
+  // Period and apostrophe so a normal sentence ("...reached.") can be named.
+  // Anything else, including a leftover token, is not printed.
+  if (/^[a-z0-9_ .'’-]+$/i.test(text)) return text.slice(0, 120);
+  return '';
+}
+
+/**
+ * One line from a failed scan. Decode and scrub the FULL text, then keep an
+ * allowlisted error code or short snippet, else the byte size only.
+ */
+function scanFailureDetail(body, rawText) {
+  const source = scanSource(body, rawText);
+  if (!source) return '';
+  const prepared = collapseWs(decodeJsonEscapes(source));
+  const scrubbed = collapseWs(stripInjection(scrubSecrets(prepared)));
+  const safe = allowlistedDetail(scrubbed);
+  if (safe) return safe;
+  return `unexpected body (${Buffer.byteLength(source)} bytes)`;
+}
+
+function scanFailureVerdict(status, payload, label) {
+  const diag = diagReason(payload);
+  const out = { ok: false, status, reason: `${label}${diag ? diag.extra : ''}` };
+  if (diag && diag.provider) out.provider = diag.provider;
+  if (diag && diag.errorClass) out.errorClass = diag.errorClass;
+  if (diag && diag.diagLine) out.diagLine = diag.diagLine;
+  return out;
 }
 
 function classifyScan(status, body, rawText) {
@@ -98,12 +167,12 @@ function classifyScan(status, body, rawText) {
     && payload.success === false
     && payload.error === SCAN_UNAVAILABLE
   ) {
-    const diag = diagReason(payload);
-    const out = { ok: false, status, reason: `scan unavailable${diag ? diag.extra : ''}` };
-    if (diag && diag.provider) out.provider = diag.provider;
-    if (diag && diag.errorClass) out.errorClass = diag.errorClass;
-    if (diag && diag.diagLine) out.diagLine = diag.diagLine;
-    return out;
+    return scanFailureVerdict(status, payload, 'scan unavailable');
+  }
+  // A 200 that was not a receipt is a public 422. Smoke runs include scanDiag
+  // on that body; the issue text has to keep the provider and error class.
+  if (status === 422 && payload && payload.success === false && payload.scanDiag) {
+    return scanFailureVerdict(status, payload, 'scan unreadable');
   }
   if (status === 200 && payload && payload.success === true && Array.isArray(payload.items) && payload.items.length > 0) {
     if (payload.scannerProvider === 'fallback') return { ok: false, status, reason: 'fallback provider' };

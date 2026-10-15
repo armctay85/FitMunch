@@ -10,8 +10,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 30000, // Increased from 2s to 30s to prevent timeout errors
-  statement_timeout: 60000, // Query timeout 60 seconds
+  // Receipt scan reads the user here before vision. Vision's worst case is
+  // 45s + 20s. maxDuration is 90s, so 30s connect + 60s statement does not fit.
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 8000,
 });
 
 // Initialize Drizzle ORM
