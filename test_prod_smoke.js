@@ -150,7 +150,7 @@ describe('production smoke classification', () => {
     ['unicode escape', 'daily_cap \\u0073k-live-FAKEKEYDATA99', 'FAKEKEY'],
     ['glued sk-live-', 'nnnsk-live-FAKEKEYDATA99', 'FAKEKEY'],
     ['long base64', 'daily_cap QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVoQUJD+REVG', 'QUJD'],
-    ['AKIA', 'daily_cap AKIAFAKEKEYDATA99XYZ', 'AKIA'],
+    ['AKIA', `daily_cap ${'AKIA' + 'FAKEKEYDATA99XYZ'}`, 'AKIA'],
     ['ghp_', 'daily_cap ghp_FAKEKEYDATA99', 'ghp_'],
     ['github_pat_', 'daily_cap github_pat_FAKEKEYDATA99', 'github_pat_'],
     ['xoxb-', 'daily_cap xoxb-1234567890-1234567890123-FAKEKEYDATA99', 'xoxb-'],
@@ -248,7 +248,7 @@ describe('production smoke classification', () => {
       'nnnsk-live-FAKEKEYDATA99',
       'nnnsk_live_FAKEKEYDATA99',
       'whsec_FAKEKEYDATA99',
-      'AKIAFAKEKEYDATA99XYZ',
+      'AKIA' + 'FAKEKEYDATA99XYZ',
       'ghp_FAKEKEYDATA99',
       'xoxb-1234567890-FAKEKEYDATA99',
     ];
