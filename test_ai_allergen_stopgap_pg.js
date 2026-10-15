@@ -46,7 +46,7 @@ jest.mock('./lib/ai-usage', () => {
 });
 
 const SCHEMA = `
-drop table if exists meal_plans, plan_assignments, user_profiles, users cascade;
+drop table if exists meal_logs, meal_plans, plan_assignments, user_profiles, users cascade;
 create table users(id uuid primary key, email varchar(255) not null unique, name text not null, password_hash text not null,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(), last_login_at timestamptz,
   email_verified boolean default false, subscription_tier varchar(50) default 'free', subscription_expires_at timestamptz,
@@ -55,6 +55,7 @@ create table user_profiles(id serial primary key, user_id uuid not null referenc
   age integer, gender varchar(20), activity_level varchar(50), fitness_goal varchar(100), dietary_preferences jsonb default '[]'::jsonb,
   allergies jsonb default '[]'::jsonb, target_calories integer default 2000, target_steps integer default 10000, target_protein integer,
   target_carbs integer, target_fat integer, updated_at timestamptz not null default now());
+create table meal_logs(id serial primary key, user_id uuid not null references users(id) on delete cascade, date timestamptz not null default now(), meal_type varchar(50) not null, food_name text not null, calories integer not null, protein real default 0, carbs real default 0, fat real default 0, fiber real default 0, serving_size text, created_at timestamptz not null default now());
 create table meal_plans(id serial primary key, user_id uuid, name text, description text, goal_type text, meals jsonb, is_active boolean,
   total_calories int, total_protein int, total_carbs int, total_fat int, created_at timestamptz default now(), updated_at timestamptz);
 create table plan_assignments(id serial primary key, pt_id uuid, client_id uuid, plan_type text, plan_id int, active boolean default true, assigned_at timestamptz default now());
@@ -541,6 +542,8 @@ maybe('#127a on real Postgres', () => {
       safeMealIn(i.body.insight, [f]);
     }
     expect(aiClient.chatJson).not.toHaveBeenCalled();
+    // Three logged days: past the weekly review's new-user empty state (launch audit D8).
+    for (let d = 0; d < 3; d += 1) await pool.query("insert into meal_logs(user_id, date, meal_type, food_name, calories) values ($1, now() - ($2 || ' days')::interval, 'lunch', 'Chicken salad', 500)", [PLAIN, String(d)]);
     const p = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
     expect(p.body.review.score).toBeNull();
     expect(JSON.stringify(p.body.review)).not.toMatch(/peanut butter|showed up/i);

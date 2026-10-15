@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
+    '**/test_audit_p2.js',
+    '**/test_audit_p2_pg.js',
     '**/test_home_hero_r3.js',
     '**/test_home_hero_alt.js',
     '**/test_home_hero_rendered.js',
@@ -32,6 +34,7 @@ module.exports = {
     '**/test_trust_bar.js',
     '**/test_sample_receipt_demo.js',
     '**/test_meal_plan_owner_pg.js',
+    '**/test_trainer_only_pg.js',
     '**/test_no_secret_fields_pg.js',
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',

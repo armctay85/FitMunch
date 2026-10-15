@@ -937,7 +937,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card">
  <div class="card-body">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
- <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
+ <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
  <li>Limited AI actions per month</li>
@@ -972,7 +972,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free AI runs out fast once the loop sticks</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong>Free includes 10 AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -1080,7 +1080,7 @@ html.fm-authed #app-gate{display:none}
 
 <!-- ══ CLIENT: MY PLAN ══ -->
 <div class="view" id="view-portal-plan">
- <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub">Assigned by your trainer.</div></div></div>
+ <div class="view-header"><div><div class="view-title">My Plan</div><div class="view-sub" id="portal-plan-sub">Your saved meal and workout plans.</div></div></div>
  <div class="scroll-body" id="portal-plan-body">
  <div style="padding:20px;text-align:center"><div class="loader"></div></div>
  </div>
@@ -2785,6 +2785,9 @@ function calcStreak(meals) {
 
 function renderPortalPlan() {
  const el = document.getElementById('portal-plan-body');
+ // Only say a trainer assigned it when there is one (launch audit D9).
+ const sub = document.getElementById('portal-plan-sub');
+ if (sub) sub.textContent = S.portalData && S.portalData.pt ? 'Assigned by your trainer.' : 'Your saved meal and workout plans.';
  if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
  const { mealPlan, workoutPlan } = S.portalData;
  let html = '';
@@ -3576,7 +3579,7 @@ function obRenderCurve(proj) {
 function obRenderHeader(plan, tg) {
  const a = FMWeekWow.weekAverages(plan);
  const meals = ((plan.days || [])[0] && Object.keys(plan.days[0].meals || {}).length) || 4;
- document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: a.calories || tg.calories, protein: a.protein || tg.protein, meals });
+ document.getElementById('ob-head').textContent = FMWeekWow.headerLine({ weightKg: OB && OB.input.weightKg, goalKg: OB && OB.goalKg, goal: OB && OB.input.goal, calories: FMWeekWow.shownTarget(a.calories, tg.calories), protein: FMWeekWow.shownTarget(a.protein, tg.protein), meals });
 }
 function obMealRow(d, slot, m, onSwap) {
  const [icon, label] = OB_SLOTS[slot] || ['•', obTitle(slot)];
@@ -4290,6 +4293,15 @@ async function loadWeeklyReview() {
  throw new Error(r.error || 'failed');
  }
  const rev = r.review || {};
+ // New users get an honest empty state from the server: no score, no wins (launch audit D8).
+ if (rev.empty) {
+ body.textContent = '';
+ const h = document.createElement('div'); h.style.cssText = 'font-size:.88rem;font-weight:800;margin-bottom:8px'; h.id = 'wr-empty'; h.textContent = rev.headline; body.appendChild(h);
+ const st = r.stats || {};
+ if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged this week.`; body.appendChild(n); }
+ (rev.focus || []).forEach(f => { const d = document.createElement('div'); d.style.cssText = 'font-size:.78rem;color:var(--text2);padding:2px 0'; d.textContent = '🎯 ' + f; body.appendChild(d); });
+ return;
+ }
  // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
  const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
