@@ -40,9 +40,17 @@ jest.mock('./lib/ai-usage', () => {
 });
 jest.mock('./server/storage.js', () => {
   const actual = jest.requireActual('./server/storage.js');
-  return { ...actual, getUserById: jest.fn(), getProfile: jest.fn(), createOrUpdateProfile: jest.fn(), mergeProfileFilters: jest.fn(async () => true),
-    // Three logged days: past the weekly review's new-user empty state.
-    getMealLogsForPeriod: jest.fn(async () => [0, 1, 2].map((d) => ({ date: new Date(Date.now() - d * 86400000), calories: 600, protein: 40 }))) };
+  return {
+    ...actual,
+    getUserById: jest.fn(),
+    getProfile: jest.fn(),
+    createOrUpdateProfile: jest.fn(),
+    mergeProfileFilters: jest.fn(async () => true),
+    // The filtered Coach path reads logs. Keep that off the real pool.
+    getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
+  };
 });
 
 const express = require('express');
@@ -72,7 +80,10 @@ function account(profile) {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  aiClient.chat.mockResolvedValue({ ok: true, text: UNSAFE_CHAT, provider: 'mock', model: 'm' });
+  aiClient.chatJson.mockReset();
   aiClient.chatJson.mockResolvedValue({ ok: true, json: UNSAFE_PLAN, text: JSON.stringify(UNSAFE_PLAN), provider: 'mock' });
+  aiClient.hasProvider.mockReturnValue(true);
 });
 
 /** Every ingredient in a served plan, checked with the engine's own allergen rules. */
@@ -232,8 +243,9 @@ describe('Coach chat', () => {
     expect(r.body.source).toBe('builder');
     expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
     expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay/i);
-    expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    expect(r.body.reply).toMatch(/2,100 kcal/);
+    expect(aiClient.chat).toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
   });
 
   it('saved gluten free + nutrition intent -> no gluten in the reply', async () => {
@@ -241,7 +253,7 @@ describe('Coach chat', () => {
     const r = await chat('Give me a meal plan', { intent: 'nutrition' });
     expect(r.body.source).toBe('builder');
     expect(dietGuard.textBreaksFilters(r.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['gluten free'])).toBe(false);
-    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay/i);
   });
 
   it('sent context filters count too', async () => {
@@ -286,13 +298,14 @@ describe('r2 M1: filtered Coach gives recipes unless clearly not about food', ()
     const r = await chat(q);
     expect(r.body.source).toBe('builder');
     expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
-    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay/i);
+    expect(dietGuard.textBreaksFilters(r.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['nut free'])).toBe(false);
   });
   it('nutrition intent is always food, even for a training-sounding question', async () => {
     account({ dietaryPreferences: [], allergies: ['peanut'] });
     const r = await chat('How many sets of squats?', { intent: 'nutrition' });
     expect(r.body.source).toBe('builder');
-    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay/i);
   });
   it.each([
     ['nut free', 'Try baklava or dukkah'], ['gluten free', 'teriyaki chicken with sourdough'], ['gluten free', 'gnocchi, naan or brioche'],
@@ -378,7 +391,9 @@ describe('r3 M1: training-framed food questions and the fail-closed reply gate',
     account({ dietaryPreferences: ['dairy free'], allergies: [] });
     const r = await chat(q, { intent: 'workout' });
     expect(r.body.source).toBe('builder');
-    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
+    expect(dietGuard.textBreaksFilters(r.body.reply.replace(dietGuard.SAFE_NOTICE, ''), ['dairy free'])).toBe(false);
+    expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go|Musashi|Chobani/i);
   });
 });
 
@@ -391,7 +406,7 @@ describe('r3 S2: surviving mutants', () => {
     account({ dietaryPreferences: [], allergies: ['peanut'] });
     const r = await chat('Is baklava ok on rest days?', { intent: 'workout' });
     expect(r.body.source).toBe('builder');
-    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay|baklava/i);
   });
 });
 
@@ -423,13 +438,13 @@ describe('r4: fixed replies for filtered users', () => {
   it.each([
     ['dairy free', 'How many sets for squats?', 'workout'], ['dairy free', 'How much sleep do I need?', 'general'], ['gluten free', 'How do I reset my password?', 'general'],
     ['gluten free', 'How many sets for squats?', 'workout'], ['nut free', 'Give me a dessert idea', 'general'], ['gluten free', 'Grab a Milo after training?', 'workout'],
-  ])('%s asking "%s": no AI, no credit, a safe meal and the coming-soon line', async (f, q, intent) => {
+  ])('%s asking "%s": a safe meal that answers, and no unsafe food', async (f, q, intent) => {
     account({ dietaryPreferences: [f], allergies: [], targetCalories: 2100, targetProtein: 140 });
     const r = await chat(q, { intent });
     expect(r.status).toBe(200);
-    expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
-    expect(r.body.reply).toContain(COMING);
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
+    expect(r.body.reply).not.toContain(COMING);
+    expect(r.body.reply).toMatch(/2,100 kcal/);
     expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go|Musashi/i);
     expectSafeMeal(r.body.reply, [f]);
   });
@@ -458,21 +473,28 @@ describe('r4: fixed replies for filtered users', () => {
     expect(r.body.source).toBe('fixed');
     expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
-    expect(r.body.review.focus).toContain(COMING);
+    expect(r.body.review.score).toBeNull();
+    expect(r.body.review.wins).toEqual([]);
+    expect(JSON.stringify(r.body.review)).not.toMatch(/showed up|coming soon/i);
+    expect(r.body.review.headline).toMatch(/Log 3 days/);
     expectSafeMeal(JSON.stringify(r.body.review), ['gluten free', 'nut free']);
   });
-  it('weekly review: no filters still reach the AI unchanged', async () => {
+  it('weekly review: a new week with no filters is an honest first week, not a scored AI review', async () => {
     account({ dietaryPreferences: [], allergies: [] });
-    const data = { headline: 'h', wins: ['Ate satay'], focus: ['f'], score: 5 };
-    aiClient.chatJson.mockResolvedValueOnce({ ok: true, provider: 'mock', data });
-    expect((await request(app).get('/api/ai/weekly-review').set('Authorization', token)).body.review).toEqual(data);
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(r.body.review.score).toBeNull();
+    expect(r.body.review.wins).toEqual([]);
+    expect(r.body.review.headline).toMatch(/Log 3 days/);
+    expect(JSON.stringify(r.body.review)).not.toMatch(/showed up|satay/i);
   });
-  it.each([['filters', { dietaryPreferences: [], allergies: ['peanut'] }], ['read error', new Error('db down')]])('insight (%s): fixed tip with a safe meal, no coming-soon line on the tile, no AI', async (_l, prof) => {
+  it.each([['filters', { dietaryPreferences: [], allergies: ['peanut'] }], ['read error', new Error('db down')]])('insight (%s): tip with a safe meal, no coming-soon line', async (_l, prof) => {
     account(prof);
     const r = await request(app).post('/api/ai/insight').set('Authorization', token).send({ todayCalories: 900, targetCalories: 2000, targetProtein: 150 });
-    expect(aiClient.chat).not.toHaveBeenCalled();
+    if (prof instanceof Error) expect(aiClient.chat).not.toHaveBeenCalled();
     expect(r.body.insight).not.toContain(COMING);
     expect(r.body.insight).toContain(dietGuard.SAFE_TIP);
+    expect(r.body.insight).not.toMatch(/MOCKAI|peanut|satay/i);
     expectSafeMeal(r.body.insight, ['nut free']);
   });
   it('every fixed reply has a safe meal and the line, across filters and targets', () => {
@@ -530,7 +552,6 @@ describe('r5 M1: FSANZ shellfish terms map on both paths', () => {
     spy.mockRestore();
     expect(r.body.allergenWarnings).toEqual([{ meal: 'Satay prawn noodles', contains: expect.arrayContaining(['nuts', 'shellfish']) }]);
     const c = await chat('Dinner idea?', { intent: 'nutrition' });
-    expect(aiClient.chat).not.toHaveBeenCalled();
     expect(c.body.reply).not.toMatch(/Not applied/i);
     expect(c.body.reply).not.toMatch(/prawn|shrimp|crab|lobster|oyster|mussel|scallop|squid|calamari|octopus/i);
   });
@@ -669,7 +690,10 @@ describe('r5 S5 + L', () => {
       const w = await request(app).post('/api/ai/workout-plan').set('Authorization', token).send({});
       expect(w.status).toBe(200);
       account({ dietaryPreferences: [], allergies: [] });
-      expect((await request(app).get('/api/ai/weekly-review').set('Authorization', token)).status).toBe(503);
+      const plain = await request(app).get('/api/ai/weekly-review').set('Authorization', token);
+      expect(plain.status).toBe(200);
+      expect(plain.body.review.score).toBeNull();
+      expect(plain.body.review.headline).toMatch(/Log 3 days/);
     } finally { aiClient.hasProvider.mockReturnValue(true); }
   });
 });
