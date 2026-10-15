@@ -10,6 +10,7 @@ struct PaywallView: View {
     @State private var showErrorAlert = false
     @State private var alertError = ""
     @State private var purchaseSuccessTick = 0
+    @State private var successDetail: String?
 
     private var plans: [PaywallPlan] { premiumManager.paywallPlans }
     private var isLoadingPlans: Bool { premiumManager.paywallPhase == .loading && plans.isEmpty }
@@ -91,7 +92,33 @@ struct PaywallView: View {
                 await loadPlansWithRetry()
             }
             .sensoryFeedback(.success, trigger: purchaseSuccessTick)
+            .overlay {
+                if let successDetail {
+                    successCard(successDetail)
+                }
+            }
         }
+    }
+
+    private func successCard(_ detail: String) -> some View {
+        VStack(spacing: Theme.Spacing.four) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(Theme.brandGreen)
+            Text("You're in")
+                .font(.title2.weight(.bold))
+            Text(detail)
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Theme.secondaryText)
+            Button("Continue") { dismiss() }
+                .buttonStyle(PrimaryButtonStyle())
+        }
+        .padding(Theme.Spacing.six)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.surface.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("paywall-success")
     }
 
     // MARK: - Sections
@@ -245,10 +272,17 @@ struct PaywallView: View {
             Task { await purchase(plan) }
         } label: {
             if premiumManager.isLoading {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                VStack(spacing: 6) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Text("Confirming with the App Store")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .accessibilityIdentifier("paywall-confirming")
             } else {
                 VStack(spacing: 2) {
                     Text(cta.title)
@@ -321,15 +355,25 @@ struct PaywallView: View {
     private func purchase(_ plan: PaywallPlan) async {
         let success = await premiumManager.purchase(plan: plan)
         if success {
+            successDetail = trialEndCopy(plan)
             purchaseSuccessTick += 1
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            dismiss()
             return
         }
         if let message = premiumManager.errorMessage, !message.isEmpty {
             alertError = message
             showErrorAlert = true
         }
+    }
+
+    /// Trial end is the intro length on the purchased product, counted from today.
+    private func trialEndCopy(_ plan: PaywallPlan) -> String {
+        if plan.eligibleForIntro, let intro = plan.intro, intro.isFreeTrial {
+            let days = PaywallPricing.introDays(intro)
+            if days > 0, let end = Calendar.current.date(byAdding: .day, value: days, to: .now) {
+                return "Your free trial ends \(end.formatted(date: .long, time: .omitted))."
+            }
+        }
+        return "Premium is on."
     }
 
     private func open(_ string: String) {
