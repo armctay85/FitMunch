@@ -14,33 +14,43 @@ const profileState = {
   },
 };
 
-jest.mock('./server/storage.js', () => {
-  const actual = jest.requireActual('./server/storage.js');
-  return {
-    ...actual,
-    getUserById: jest.fn(async () => ({ id: 'u', subscriptionTier: 'free', settings: { aiDataConsent: true } })),
-    getProfile: jest.fn(async () => profileState.row),
-    createOrUpdateProfile: jest.fn(async (_userId, data, opts = {}) => {
-      if (profileState.row && opts.requireVersion && opts.ifUpdatedAt == null) {
-        const err = new Error('version');
-        err.code = 'PROFILE_VERSION_REQUIRED';
-        throw err;
-      }
-      if (profileState.row && opts.ifUpdatedAt != null && opts.ifUpdatedAt !== profileState.row.updatedAt) {
-        const err = new Error('stale');
-        err.code = 'PROFILE_STALE';
-        throw err;
-      }
-      profileState.row = {
-        ...(profileState.row || {}),
-        ...data,
-        updatedAt: '2026-10-02T00:00:00.000Z',
-      };
-      return profileState.row;
-    }),
-    mergeProfileFilters: jest.fn(async () => true),
-  };
+// Do not load server/storage.js. Requiring it opens a Postgres pool (max 20) that this
+// suite never ends, and in CI that exhausts max_connections for the database suites.
+jest.mock('pg', () => {
+  const actual = jest.requireActual('pg');
+  class Pool {
+    query() { return Promise.resolve({ rows: [], rowCount: 0 }); }
+    connect() { return Promise.resolve({ query: () => Promise.resolve({ rows: [], rowCount: 0 }), release() {} }); }
+    end() { return Promise.resolve(); }
+    on() { return this; }
+  }
+  return { ...actual, Pool };
 });
+
+jest.mock('./server/storage.js', () => ({
+  getUserById: jest.fn(async () => ({ id: 'u', subscriptionTier: 'free', settings: { aiDataConsent: true } })),
+  effectiveTier: () => 'free',
+  getProfile: jest.fn(async () => profileState.row),
+  createOrUpdateProfile: jest.fn(async (_userId, data, opts = {}) => {
+    if (profileState.row && opts.requireVersion && opts.ifUpdatedAt == null) {
+      const err = new Error('version');
+      err.code = 'PROFILE_VERSION_REQUIRED';
+      throw err;
+    }
+    if (profileState.row && opts.ifUpdatedAt != null && opts.ifUpdatedAt !== profileState.row.updatedAt) {
+      const err = new Error('stale');
+      err.code = 'PROFILE_STALE';
+      throw err;
+    }
+    profileState.row = {
+      ...(profileState.row || {}),
+      ...data,
+      updatedAt: '2026-10-02T00:00:00.000Z',
+    };
+    return profileState.row;
+  }),
+  mergeProfileFilters: jest.fn(async () => true),
+}));
 
 const fs = require('fs');
 const path = require('path');
@@ -227,5 +237,24 @@ describe('generate applies fish free and typed allergies', () => {
     expect(ingredientBlob(r.body.plan)).not.toMatch(/banana|plantain/i);
     expect(JSON.stringify(r.body)).not.toMatch(/Not applied/);
     expect(JSON.stringify(r.body.plan.notes || [])).not.toMatch(/couldn't check kiwi/i);
+  });
+
+  it('leaves banana, mango and kiwi out of the week when they sit after an unreadable allergy entry', async () => {
+    const junk = Array.from({ length: 15 }, (_, i) => `qzz${i}food`);
+    for (const fruit of ['banana', 'mango', 'kiwi']) {
+      profileState.row = {
+        dietaryPreferences: [],
+        allergies: [{ x: 1 }, ...junk, fruit],
+        updatedAt: '2026-10-01T00:00:00.000Z',
+      };
+      for (const body of [{}, { builderOnly: true }]) {
+        const r = await request(app).post('/api/meal-plan/generate').set('Authorization', token).send({
+          goal: 'maintain', days: 7, calories: 2000, protein: 120, dietary: [], ...body,
+        });
+        expect(r.status).toBe(200);
+        expect(JSON.stringify(r.body.plan)).not.toMatch(new RegExp(fruit, 'i'));
+        expect(JSON.stringify(r.body.plan.notes || [])).not.toMatch(/couldn't check/i);
+      }
+    }
   });
 });
