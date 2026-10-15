@@ -14,6 +14,7 @@ const core = require('./lib/receipt-scan-core');
 const crypto = require('crypto');
 const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const receiptImage = require('./lib/receipt-image');
 const visionDiag = require('./lib/vision-diag');
 
 let visionOverride = null;
@@ -40,7 +41,17 @@ function requireAuth(req, res, next) {
 
 const router = express.Router();
 router.use(attachApiJsonSanitizer);
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: receiptImage.MAX_UPLOAD_BYTES } });
+
+function receiptUpload(req, res, next) {
+  upload.single('receipt')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ success: false, error: receiptImage.TOO_LARGE_MESSAGE });
+    }
+    return next(err);
+  });
+}
 
 // In-memory store, one window per server instance. A second isolate does not share the count.
 // Key on req.ip. trust proxy is 1, so this is the hop the proxy appended,
@@ -138,10 +149,17 @@ function visionFailure(visionResult) {
   return failed;
 }
 
+function sendIfTooLarge(res, err) {
+  if (!err || Number(err.status) !== 413) return false;
+  res.status(413).json({ success: false, error: err.message || receiptImage.TOO_LARGE_MESSAGE });
+  return true;
+}
+
 async function readReceiptItems(imageBase64, mimeType, route) {
+  const prepared = await receiptImage.prepareReceiptImage({ imageBase64, mimeType });
   const visionResult = await getVision()({
-    imageBase64,
-    mimeType: mimeType || 'image/jpeg',
+    imageBase64: prepared.imageBase64,
+    mimeType: prepared.mimeType || mimeType || 'image/jpeg',
     prompt: VISION_PROMPT,
     route,
     // One structured call. A short cap keeps the read from rambling.
@@ -220,7 +238,7 @@ router.get('/', requireAuth, (_req, res) => res.json({
   },
 }));
 
-router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => {
+router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
   try {
     const image = extractImage(req);
     if (!image) {
@@ -263,6 +281,7 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     try {
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
     } catch (visionErr) {
+      if (sendIfTooLarge(res, visionErr)) return;
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
       if (smoke && visionErr && visionErr.scanDiag) {
         try {
@@ -349,7 +368,7 @@ function guestAllowedAi(req) {
   return v === true || v === 'true';
 }
 
-router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (req, res) => {
+router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => {
   try {
     if (!guestAllowedAi(req)) {
       return res.status(403).json({ success: false, code: 'ai_consent_required', error: GUEST_CONSENT_ERROR });
@@ -380,6 +399,7 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
     try {
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/first-scan');
     } catch (visionErr) {
+      if (sendIfTooLarge(res, visionErr)) return;
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
       return sendVisionFailure(
         res,
