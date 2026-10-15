@@ -138,7 +138,9 @@ maybe('Save and build my week -> Home (real SQL)', () => {
     expect(row.allergenWarnings.every((w) => !('message' in w) && typeof w.meal === 'string' && Array.isArray(w.contains))).toBe(true);
     const shown = hw.warnings(row.allergenWarnings);
     expect(shown.red.length).toBeGreaterThan(0);
-    expect(shown.red[0]).toMatch(/^Peanut butter toast contains .*peanut/i);
+    // The group the API puts in `contains` is "nuts", not the word in the meal name.
+    expect(shown.red.join(' | ')).toMatch(/Peanut butter toast contains nuts/);
+    expect(row.allergenWarnings.some((w) => w.meal === 'Peanut butter toast' && Array.isArray(w.contains) && w.contains.includes('nuts'))).toBe(true);
   });
 
   it("another user's Home never sees the week", async () => {

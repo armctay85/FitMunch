@@ -291,10 +291,18 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .hw-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .hw-k{font-size:.68rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--green2)}
 .hw-name{font-size:1.05rem;font-weight:900;color:var(--text);overflow-wrap:anywhere}
-.hw-tg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0}
+.hw-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
 .hw-tg div{background:rgba(31,157,74,.07);border-radius:10px;padding:8px 4px;text-align:center;min-width:0}
-.hw-tg b{display:block;font-size:1rem;font-weight:900;color:var(--text)}
+.hw-tg .hw-cal{grid-column:1 / -1}
+.hw-tg b{display:block;font-size:1rem;font-weight:900;color:var(--text);overflow-wrap:anywhere}
+.hw-tg .hw-cal b{font-size:.95rem;font-variant-numeric:tabular-nums}
 .hw-tg span{font-size:.66rem;color:var(--text2);font-weight:700}
+.hw-skel{display:flex;flex-direction:column;gap:8px}
+.hw-skel-line{height:14px;border-radius:7px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:hw-shimmer 1.2s ease-in-out infinite}
+.hw-skel-line.short{width:55%;align-self:flex-start}
+@keyframes hw-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.hw-skel-line{animation:none;background:#f3f4f6}}
+.hw-err{margin:0 0 10px;color:#334155;font-size:.9rem;line-height:1.45}
 .hw-days{display:flex;gap:4px;margin-bottom:10px}
 .hw-days span{flex:1;min-width:0;text-align:center;font-size:.7rem;font-weight:700;padding:5px 0;border-radius:8px;color:var(--text2);background:#f3f4f6}
 .hw-days span.on{background:var(--green2);color:#fff}
@@ -304,7 +312,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .hw-meals li span{color:var(--text2);white-space:nowrap;font-size:.78rem}
 .hw-warn{font-size:.8rem;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px}
 .hw-acts{display:flex;gap:8px;flex-wrap:wrap}
-.hw-acts .btn{min-height:44px;flex:1 1 140px}
+.hw-acts .btn,#home-week-retry{min-height:44px}
+.hw-acts .btn{flex:1 1 140px}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
 .goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .goals-nudge span{font-size:.75rem;color:#4b5a52}
@@ -2729,7 +2738,8 @@ async function loadPortalHome() {
  // Dashboard metrics
  const todayMeals = (r.recentMeals||[]).filter(m => new Date(m.date).toDateString()===new Date().toDateString());
  document.getElementById('pm-meals').textContent = todayMeals.length;
- document.getElementById('pm-cals').textContent = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ const loggedCals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ document.getElementById('pm-cals').textContent = FMHomeWeek.formatCount(loggedCals);
  const weekWorkouts = (r.recentWorkouts||[]).filter(w => (Date.now()-new Date(w.date)) < 7*86400000);
  document.getElementById('pm-workouts').textContent = weekWorkouts.length;
  document.getElementById('pm-streak').textContent = calcStreak(r.recentMeals||[]);
@@ -2755,9 +2765,8 @@ async function loadPortalHome() {
  el.classList.toggle('zero-soft', String(el.textContent||'0') === '0');
  });
  if (S.goals?.targetCalories) {
- const cals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
  const sub = document.getElementById('pm-cals-sub');
- if (sub) sub.textContent = `of ${S.goals.targetCalories} goal`;
+ if (sub) sub.textContent = `of ${FMHomeWeek.formatCount(S.goals.targetCalories)} goal`;
  }
  const cta = document.getElementById('pm-cals-cta');
  if (cta) cta.style.display = S.goals?.targetCalories ? 'none' : '';
@@ -3716,7 +3725,19 @@ function obWeekBody(plan, fitnessGoal) {
 }
 async function onboardSaveWeek(plan, fitnessGoal) {
  try {
- const s = await API('/meal-plans', { method:'POST', body: JSON.stringify(obWeekBody(plan, fitnessGoal)) });
+ const body = obWeekBody(plan, fitnessGoal);
+ // A second pass updates the existing "Your first week" row instead of stacking another one.
+ let id = OB && OB.savedPlan && OB.savedPlan.id;
+ if (!id) {
+ try {
+ const existing = await API('/meal-plans');
+ const plans = existing && existing.success && Array.isArray(existing.plans) ? existing.plans : [];
+ id = FMHomeWeek.onboardingPlanId(plans);
+ } catch (_) { id = null; }
+ }
+ const s = id
+ ? await API('/meal-plans/' + id, { method:'PUT', body: JSON.stringify(body) })
+ : await API('/meal-plans', { method:'POST', body: JSON.stringify(body) });
  if (s && s.success && s.plan) { OB.savedPlan = { id: s.plan.id, fitnessGoal }; return true; }
  } catch (_) { /* shown below */ }
  const n = document.getElementById('ob-week-note');
@@ -3741,26 +3762,59 @@ async function onboardDone() {
 
 // ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
 let S_homeWeek = null;
+let S_homeWeekReq = 0;
+function hideHomeWeek(box) {
+ box.style.display = 'none'; box.textContent = ''; box.removeAttribute('aria-busy');
+}
+function showHomeWeekSkeleton(box) {
+ box.textContent = ''; box.style.display = ''; box.setAttribute('aria-busy', 'true');
+ const sk = document.createElement('div'); sk.className = 'hw-skel'; sk.id = 'home-week-skel'; sk.setAttribute('aria-hidden', 'true');
+ for (let i = 0; i < 3; i++) { const line = document.createElement('div'); line.className = 'hw-skel-line' + (i === 2 ? ' short' : ''); sk.appendChild(line); }
+ box.appendChild(sk);
+}
+function showHomeWeekError(box) {
+ box.textContent = ''; box.style.display = ''; box.removeAttribute('aria-busy'); box.removeAttribute('aria-labelledby');
+ const p = document.createElement('p'); p.className = 'hw-err'; p.id = 'home-week-error';
+ p.textContent = "Couldn't load your week, try again";
+ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-ghost2'; b.id = 'home-week-retry'; b.textContent = 'Try again';
+ b.onclick = () => { loadHomeWeek(); };
+ box.append(p, b);
+}
 async function loadHomeWeek() {
  const box = document.getElementById('home-week');
  if (!box || typeof FMHomeWeek === 'undefined') return;
- let r = null;
- try { r = await API('/meal-plans'); } catch (_) { r = null; }
- const row = r && r.success && Array.isArray(r.plans) ? r.plans[0] : null;
+ const ticket = ++S_homeWeekReq;
+ showHomeWeekSkeleton(box);
+ let status = 0; let r = null; let failed = false;
+ try {
+ const res = await fetch('/api/meal-plans', { headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token } });
+ status = res.status;
+ r = await res.json();
+ } catch (_) { failed = true; }
+ if (ticket !== S_homeWeekReq) return;
+ const kind = FMHomeWeek.loadFailure(status, r, failed);
+ if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; return false; }
+ const row = kind === 'ok' ? r.plans[0] : null;
  const sum = row ? FMHomeWeek.summary(row) : null;
  S_homeWeek = sum;
- if (!sum) { box.style.display = 'none'; box.textContent = ''; return false; }
+ if (!sum) { hideHomeWeek(box); return false; }
  const tg = FMHomeWeek.targets(S.goals);
- box.textContent = '';
+ box.textContent = ''; box.removeAttribute('aria-busy');
  const top = document.createElement('div'); top.className = 'hw-top';
  const head = document.createElement('div');
  const k = document.createElement('div'); k.className = 'hw-k'; k.textContent = 'This week';
  const nm = document.createElement('div'); nm.className = 'hw-name'; nm.id = 'home-week-name'; nm.textContent = sum.name;
- head.append(k, nm); top.appendChild(head); box.appendChild(top);
- if (tg) {
+ head.append(k, nm); top.appendChild(head); box.appendChild(top); box.setAttribute('aria-labelledby', 'home-week-name');
+ const cal = FMHomeWeek.calorieTile(sum.average && sum.average.calories, tg && tg.calories);
+ if (cal || tg) {
  const g = document.createElement('div'); g.className = 'hw-tg'; g.id = 'home-week-targets'; g.setAttribute('aria-label', 'Your daily targets');
- [[tg.calories.toLocaleString(), 'cal / day'], [tg.protein + 'g', 'protein'], [tg.carbs + 'g', 'carbs'], [tg.fat + 'g', 'fat']].forEach(([v, l]) => {
- const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; const s = document.createElement('span'); s.textContent = l; d.append(b, s); g.appendChild(d);
+ const cells = [];
+ if (cal) cells.push([cal.value, cal.label, true]);
+ if (tg) cells.push([tg.protein + 'g', 'protein', false], [tg.carbs + 'g', 'carbs', false], [tg.fat + 'g', 'fat', false]);
+ cells.forEach(([v, l, wide]) => {
+ const d = document.createElement('div'); if (wide) d.className = 'hw-cal';
+ const b = document.createElement('b'); b.textContent = v; if (wide) b.id = 'home-week-cal';
+ const s = document.createElement('span'); s.textContent = l; d.append(b, s); g.appendChild(d);
  });
  box.appendChild(g);
  }
@@ -3784,7 +3838,7 @@ async function loadHomeWeek() {
  box.appendChild(nt);
  }
  const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
- t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${sum.today.calories.toLocaleString()} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
+ t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
  box.appendChild(t);
  const ul = document.createElement('ul'); ul.className = 'hw-meals'; ul.id = 'home-week-today';
  sum.today.meals.forEach(m => {

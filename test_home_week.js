@@ -40,6 +40,40 @@ describe('summary of a saved plan', () => {
   });
 });
 
+describe('calorie tile and load states', () => {
+  it('labels the week average against the goal, with a thousands separator', () => {
+    expect(hw.formatCount(1860)).toBe('1,860');
+    expect(hw.formatCount(1858)).toBe('1,858');
+    expect(hw.formatCount(0)).toBe('0');
+    expect(hw.calorieTile(1858, 1860)).toEqual({ value: '1,858 of 1,860', label: 'average' });
+    expect(hw.calorieTile(1860, 1860)).toEqual({ value: '1,860 of 1,860', label: 'average' });
+    expect(hw.calorieTile(0, 1860)).toEqual({ value: '1,860', label: 'cal / day' });
+    const s = hw.summary(rowSafe(), new Date(2026, 9, 15, 12));
+    expect(s.average.calories).toBeGreaterThan(0);
+    expect(hw.calorieTile(s.average.calories, 1860).value).toBe(hw.formatCount(s.average.calories) + ' of 1,860');
+  });
+  it('500, 503 and a body with no plans list are errors; an empty list is no saved week', () => {
+    expect(hw.loadFailure(500, { success: false }, false)).toBe('error');
+    expect(hw.loadFailure(503, { success: false, error: 'busy' }, false)).toBe('error');
+    expect(hw.loadFailure(200, null, true)).toBe('error');
+    expect(hw.loadFailure(200, { success: true }, false)).toBe('error');
+    expect(hw.loadFailure(200, { success: false, plans: [] }, false)).toBe('error');
+    expect(hw.loadFailure(200, { success: true, plans: [] }, false)).toBe('empty');
+    expect(hw.loadFailure(200, { success: true, plans: [{ id: 1 }] }, false)).toBe('ok');
+  });
+  it('repeat onboarding reuses the Your first week row', () => {
+    expect(hw.onboardingPlanId([{ id: 2, name: 'Older plan' }, { id: 9, name: 'Your first week' }])).toBe(9);
+    expect(hw.onboardingPlanId([{ id: 4, name: 'Your first week' }, { id: 3, name: 'Your first week' }])).toBe(4);
+    expect(hw.onboardingPlanId([{ id: 1, name: 'Your first week, 15 Oct' }])).toBeNull();
+    expect(hw.onboardingPlanId([])).toBeNull();
+    expect(hw.onboardingPlanId(null)).toBeNull();
+  });
+});
+
+function rowSafe() {
+  return { id: 9, name: 'Your first week', meals: engine.buildPlan({ calories: 1860, protein: 141, days: 7, dietary: [] }).days };
+}
+
 describe('targets', () => {
   it('uses the saved targets, and derives carbs and fat only when they are missing', () => {
     expect(hw.targets({ targetCalories: 1860, targetProtein: 141, targetCarbs: 220, targetFat: 50 })).toEqual({ calories: 1860, protein: 141, carbs: 220, fat: 50 });
@@ -68,14 +102,38 @@ describe('app wiring', () => {
     expect(html).toMatch(/<div class="view active" id="view-portal-home">[\s\S]{0,400}<section class="hw-card" id="home-week"/);
     expect(html).toContain('<script src="/js/fm-home-week.js"></script>');
     const l = fn('loadHomeWeek');
-    expect(l).toContain("API('/meal-plans')");
+    expect(l).toContain("fetch('/api/meal-plans'");
+    expect(l).toContain('FMHomeWeek.loadFailure(status, r, failed)');
+    expect(l).toContain('FMHomeWeek.calorieTile');
     expect(l).toContain('buildAiShoppingList(S_homeWeek.shoppingPlan)');
     expect(l).not.toMatch(/innerHTML/); // plan text is the user's: textContent only
-    expect(fn('loadPortalHome')).toContain('await loadHomeWeek()');
+    const home = fn('loadPortalHome');
+    expect(home).toContain('await loadHomeWeek()');
+    expect(home).toContain('of ${FMHomeWeek.formatCount(S.goals.targetCalories)} goal');
+    expect(fn('showHomeWeekError')).toContain("Couldn't load your week, try again");
+    expect(fn('showHomeWeekError')).toContain("id = 'home-week-retry'");
+    expect(fn('showHomeWeekError')).not.toMatch(/innerHTML/);
+    expect(fn('showHomeWeekSkeleton')).toContain("id = 'home-week-skel'");
+  });
+  it('a second onboarding updates the existing Your first week row', () => {
+    const s = fn('onboardSaveWeek');
+    expect(s).toContain('FMHomeWeek.onboardingPlanId(plans)');
+    expect(s).toContain("method:'PUT'");
+    expect(s).toContain("API('/meal-plans', { method:'POST'");
   });
   it('the served helper has no banned words', () => {
     const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');
     expect(src).not.toMatch(/Pty Ltd|inc\. GST|Grok|OpenClaw|MRR|\bdesk\b|\bagent\b|woolworths|coles|aldi|iga\b/i);
+  });
+  it('mealWarnings returns { meal, contains } (and unchecked or notice), never a message field', () => {
+    const src = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
+    const i = src.indexOf('function mealWarnings(');
+    expect(i).toBeGreaterThan(-1);
+    const body = src.slice(i, src.indexOf("\nrouter.get('/meal-plans'", i));
+    expect(body).toContain('out.push({ meal, contains })');
+    expect(body).toContain('unchecked: true, note: UNCHECKED_NOTE');
+    expect(body).toContain('notice: dg.UNREADABLE_NOTICE');
+    expect(body).not.toMatch(/\bmessage\s*:/);
   });
 });
 

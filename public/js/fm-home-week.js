@@ -44,16 +44,64 @@
     return { calories, protein, carbs, fat };
   }
 
+  /** Thousands separator, Australian grouping, so 1860 is always "1,860". */
+  function formatCount(n) {
+    const v = Math.round(Number(n));
+    if (!Number.isFinite(v)) return '0';
+    const sign = v < 0 ? '-' : '';
+    return sign + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  /**
+   * The calorie tile: the week's average against the saved goal ("1,858 of 1,860"), labelled as an average.
+   * Target only (no meals to average) keeps the plain daily goal.
+   */
+  function calorieTile(average, target) {
+    const a = Math.round(Number(average));
+    const t = Math.round(Number(target));
+    const hasA = Number.isFinite(a) && a > 0;
+    const hasT = Number.isFinite(t) && t > 0;
+    if (hasA && hasT) return { value: formatCount(a) + ' of ' + formatCount(t), label: 'average' };
+    if (hasA) return { value: formatCount(a), label: 'average' };
+    if (hasT) return { value: formatCount(t), label: 'cal / day' };
+    return null;
+  }
+
+  /** The onboarding row to update, so a second pass does not add another "Your first week". */
+  function onboardingPlanId(plans) {
+    const row = (Array.isArray(plans) ? plans : []).find((p) => p && p.name === 'Your first week' && p.id != null && p.id !== '');
+    return row ? row.id : null;
+  }
+
+  /**
+   * How Home should treat GET /meal-plans. 500, 503 (any 5xx), a failed read, or a body with no plans
+   * list is an error the card can retry. A successful empty list is simply no saved week.
+   */
+  function loadFailure(status, body, failed) {
+    const code = Number(status) || 0;
+    if (failed || code >= 500) return 'error';
+    if (!body || body.success !== true || !Array.isArray(body.plans)) return 'error';
+    if (!body.plans.length) return 'empty';
+    return 'ok';
+  }
+
   /** Everything the card shows, or null when there is no saved plan with meals. */
   function summary(row, now) {
     const days = planDays(row);
     if (!days.length) return null;
     const ti = todayIndex(days, now);
     const today = days[ti];
+    const listed = days.map((d, i) => ({ day: d.day, short: String(d.day).slice(0, 3), today: i === ti, ...dayTotals(d) }));
+    const n = listed.length || 1;
+    const average = {
+      calories: Math.round(listed.reduce((s, d) => s + d.calories, 0) / n),
+      protein: Math.round(listed.reduce((s, d) => s + d.protein, 0) / n),
+    };
     return {
       id: row.id,
       name: String(row.name || 'Your week'),
-      days: days.map((d, i) => ({ day: d.day, short: String(d.day).slice(0, 3), today: i === ti, ...dayTotals(d) })),
+      days: listed,
+      average,
       today: { day: today.day, meals: today.meals.map((m) => ({ slot: m.slot, name: String(m.name || ''), calories: num(m.calories), protein: num(m.protein) })), ...dayTotals(today) },
       shoppingPlan: { planName: String(row.name || 'Your week'), days: days.map((d) => ({ day: d.day, meals: d.meals })) },
     };
@@ -77,7 +125,7 @@
     return out;
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, warnings, formatCount, calorieTile, onboardingPlanId, loadFailure };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));
