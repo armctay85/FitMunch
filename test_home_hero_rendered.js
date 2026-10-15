@@ -213,4 +213,39 @@ maybe('contrast guards, measured', () => {
     }
     await ctx.close();
   });
+
+  const GHOST_PAGES = [
+    '/receipt-nutrition-scanner.html',
+    '/pricing.html',
+    '/for-pts.html',
+    '/haul-teardown.html',
+    '/ai-meal-planner-australia.html',
+    '/404.html',
+  ];
+
+  for (const width of [320, 390, 768, 1440]) {
+    it(`ghost buttons clear 4.5:1 text and 3:1 border at ${width}px`, async () => {
+      const ctx = await browser.newContext({ viewport: { width, height: 900 } });
+      const p = await ctx.newPage();
+      for (const href of GHOST_PAGES) {
+        await p.goto(`${base}${href}`);
+        const buttons = p.locator('a.fm-btn-ghost, button.fm-btn-ghost');
+        const count = await buttons.count();
+        expect(count).toBeGreaterThan(0);
+        for (let i = 0; i < count; i++) {
+          const btn = buttons.nth(i);
+          const box = await btn.boundingBox();
+          if (!box || box.width < 2 || box.height < 2) continue;
+          await btn.scrollIntoViewIfNeeded();
+          expect(await btn.evaluate(contrastOf)).toBeGreaterThanOrEqual(4.5);
+          expect(await btn.evaluate(contrastOf, { border: true })).toBeGreaterThanOrEqual(3);
+          await btn.hover();
+          expect(await btn.evaluate(contrastOf)).toBeGreaterThanOrEqual(4.5);
+          await btn.focus();
+          expect(await btn.evaluate(contrastOf)).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+      await ctx.close();
+    });
+  }
 });

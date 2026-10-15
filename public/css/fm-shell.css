@@ -193,8 +193,26 @@ img,svg,video{max-width:100%;height:auto}
 .content-inner a.fm-btn-leaf:hover,
 .content-inner a.fm-btn-leaf:focus,
 .content-inner a.fm-btn-leaf:focus-visible{background:#0c6428;color:#fff}
+/* Ghost on the light paper. The dark-band rules below win inside .fm-convert. */
+.fm-section a.fm-btn-ghost,
+.fm-section button.fm-btn-ghost{
+  background:transparent;
+  color:#0c1210;
+  border-color:#1c3328;
+}
+.fm-section a.fm-btn-ghost:hover,
+.fm-section a.fm-btn-ghost:focus,
+.fm-section a.fm-btn-ghost:focus-visible,
+.fm-section button.fm-btn-ghost:hover,
+.fm-section button.fm-btn-ghost:focus,
+.fm-section button.fm-btn-ghost:focus-visible{
+  background:transparent;
+  color:#07130d;
+  border-color:#07130d;
+}
 .fm-convert a.fm-btn-ghost,
-.content-inner a.fm-btn-ghost{
+.content-inner a.fm-btn-ghost,
+.fm-section .fm-convert a.fm-btn-ghost{
   background:transparent;
   color:#f4f7f4;
   border:1px solid rgba(244,247,244,.8);
@@ -204,7 +222,10 @@ img,svg,video{max-width:100%;height:auto}
 .fm-convert a.fm-btn-ghost:focus-visible,
 .content-inner a.fm-btn-ghost:hover,
 .content-inner a.fm-btn-ghost:focus,
-.content-inner a.fm-btn-ghost:focus-visible{background:transparent;color:#fff;border-color:#fff}
+.content-inner a.fm-btn-ghost:focus-visible,
+.fm-section .fm-convert a.fm-btn-ghost:hover,
+.fm-section .fm-convert a.fm-btn-ghost:focus,
+.fm-section .fm-convert a.fm-btn-ghost:focus-visible{background:transparent;color:#fff;border-color:#fff}
 .fm-btn-leaf:hover,.fm-btn-leaf:focus-visible,.fm-nav-cta:hover,.fm-nav-cta:focus-visible{background:#0c6428;color:#fff}
 .fm-footer-links{gap:4px 8px}
 .fm-footer-links a,.fm-nav-links a,.fm-back{

@@ -22,6 +22,8 @@
   display:inline-flex;align-items:center;gap:10px;
   text-decoration:none;color:#fff;
   font-size:1.25rem;font-weight:800;letter-spacing:-.04em;
+  min-height:44px;
+  box-sizing:border-box;
 }
 .fm-brand img{width:32px;height:32px;border-radius:8px;display:block}
 .fm-brand span{color:var(--leaf)}
@@ -29,11 +31,13 @@
 .fm-nav-links a{
   color:rgba(255,255,255,.76);text-decoration:none;
   font-size:.84rem;font-weight:600;padding:8px 12px;
+  min-height:44px;display:inline-flex;align-items:center;box-sizing:border-box;
 }
 .fm-nav-links a:hover{color:#fff}
 .fm-nav-cta{
   background:var(--leaf);color:#fff!important;text-decoration:none;
   font-size:.84rem;font-weight:700;padding:10px 16px;border-radius:4px;
+  min-height:44px;display:inline-flex;align-items:center;box-sizing:border-box;
 }
 .fm-nav-cta:hover{background:var(--leaf2)}
 
@@ -63,7 +67,7 @@
 .fm-footer-brand{font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.03em}
 .fm-footer-brand span{color:var(--leaf)}
 .fm-footer-links{display:flex;flex-wrap:wrap;gap:14px 22px}
-.fm-footer-links a{color:rgba(238,242,238,.55);text-decoration:none;font-size:.85rem;font-weight:600}
+.fm-footer-links a{color:rgba(238,242,238,.55);text-decoration:none;font-size:.85rem;font-weight:600;min-height:44px;display:inline-flex;align-items:center;padding:8px 4px;box-sizing:border-box}
 .fm-footer-links a:hover{color:#fff}
 .fm-footer-note{width:100%;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:18px;font-size:.78rem;margin-bottom:0}
 
