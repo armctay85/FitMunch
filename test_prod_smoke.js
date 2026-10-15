@@ -94,6 +94,30 @@ describe('production smoke classification', () => {
     }).ok).toBe(true);
   });
 
+  it('names the error on an unexpected scan so a daily-cap 429 identifies itself', () => {
+    const capped = classifyScan(429, { success: false, error: 'daily_cap' });
+    expect(capped.ok).toBe(false);
+    expect(capped.status).toBe(429);
+    expect(capped.reason).toBe('unexpected scan result 429 daily_cap');
+    expect(classifyScan(429, { success: false, error: 'Smoke account daily AI cap reached.' }).reason)
+      .toBe('unexpected scan result 429 Smoke account daily AI cap reached.');
+
+    const phrase = 'cap limit reached. ';
+    const raw = phrase.repeat(20);
+    const plain = classifyScan(429, null, raw);
+    const detail = plain.reason.slice('unexpected scan result 429 '.length);
+    expect(detail).toBe(raw.slice(0, 120));
+    expect(detail.length).toBe(120);
+    expect(plain.reason).not.toContain(phrase.repeat(7));
+
+    const leaked = classifyScan(429, {
+      success: false,
+      error: 'daily_cap Bearer sk-live-SECRETDATA data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',
+    });
+    expect(leaked.reason).toContain('daily_cap');
+    expect(leaked.reason).not.toMatch(/sk-live|SECRETDATA|iVBORw0KGgo|data:image|Bearer/);
+  });
+
   it('rejects canned sample items and sample-fallback confidence', () => {
     expect(classifyScan(200, { success: true, scannerProvider: 'vision', items: CANNED }).reason).toBe('canned sample items');
     expect(classifyScan(200, {

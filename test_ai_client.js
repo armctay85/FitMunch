@@ -496,7 +496,7 @@ describe('lib/ai-client provider routing', () => {
       expect(result.text).toContain('Milk 1L');
       expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
       expect(spy.mock.calls[0][0].timeout).toBe(ai.VISION_FIRST_TIMEOUT_MS);
-      expect(spy.mock.calls[0][0].timeout).toBe(12000);
+      expect(spy.mock.calls[0][0].timeout).toBe(30000);
       expect(spy.mock.calls[1][0].timeout).toBe(20000);
       const attempts = diag._attemptsForTests();
       expect(attempts.map((row) => row.provider)).toEqual(['xai', 'openai']);
@@ -531,10 +531,12 @@ describe('lib/ai-client provider routing', () => {
     expect(result.ok).toBe(true);
     expect(result.provider).toBe('openai');
     expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
-    expect(spy.mock.calls[0][0].timeout).toBe(12000);
+    expect(spy.mock.calls[0][0].timeout).toBe(30000);
     expect(spy.mock.calls[1][0].timeout).toBe(20000);
     expect(diag._attemptsForTests()[0].errorClass).toBe('timeout');
     expect(diag._attemptsForTests()[0].status).toBeNull();
+    expect(diag.summary().counts.xai).toEqual({ none: 1 });
+    expect(`xai:none=${diag.summary().counts.xai.none}`).toBe('xai:none=1');
   });
 
   it('a vision provider with nobody after it keeps the 20s timeout', async () => {
@@ -551,49 +553,136 @@ describe('lib/ai-client provider routing', () => {
     expect(spy.mock.calls[0][0].timeout).toBe(20000);
   });
 
-  it('a hung first provider is cut at 12s and the fallback still has 20s', async () => {
+  function installVisionHttps(onEnd) {
+    const https = require('https');
+    const timeouts = [];
+    const hosts = [];
+    jest.spyOn(https, 'request').mockImplementation((opts, cb) => {
+      timeouts.push(opts.timeout);
+      hosts.push(opts.hostname);
+      const req = {
+        on() { return req; },
+        write() {},
+        end() { onEnd(opts, cb); },
+        destroy(err) { req.destroyed = err; },
+        setTimeout() {},
+      };
+      return req;
+    });
+    return { timeouts, hosts };
+  }
+
+  function visionJson(name) {
+    return {
+      statusCode: 200,
+      on(event, fn) {
+        if (event === 'data') {
+          fn(Buffer.from(JSON.stringify({ choices: [{ message: { content: `[{"name":"${name}"}]` } }] })));
+        }
+        if (event === 'end') fn();
+      },
+    };
+  }
+
+  it('a first provider that answers at 20s succeeds with no failover', async () => {
     jest.useFakeTimers();
     try {
       clearProviderKeys();
+      delete process.env.VISION_FIRST_TIMEOUT_MS;
       process.env.XAI_API_KEY = 'xai-test';
       process.env.OPENAI_API_KEY = 'sk-test';
       jest.resetModules();
-      const https = require('https');
       const ai = require('./lib/ai-client');
-      const timeouts = [];
-      jest.spyOn(https, 'request').mockImplementation((opts, cb) => {
-        timeouts.push(opts.timeout);
-        const req = {
-          on() { return req; },
-          write() {},
-          end() {
-            if (opts.hostname === 'api.openai.com') {
-              const res = {
-                statusCode: 200,
-                on(event, fn) {
-                  if (event === 'data') fn(Buffer.from(JSON.stringify({ choices: [{ message: { content: '[{"name":"Rice"}]' } }] })));
-                  if (event === 'end') fn();
-                },
-              };
-              cb(res);
-            }
-          },
-          destroy(err) { req.destroyed = err; },
-          setTimeout() {},
-        };
-        return req;
+      const { hosts, timeouts } = installVisionHttps((opts, cb) => {
+        setTimeout(() => cb(visionJson('Milk')), 20000);
+      });
+      jest.spyOn(console, 'info').mockImplementation(() => {});
+      expect(ai.VISION_FIRST_TIMEOUT_MS).toBe(30000);
+      expect(ai.visionFirstTimeoutMs()).toBe(30000);
+      const pending = ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+      // The old 12s cut would already have failed over by here.
+      await jest.advanceTimersByTimeAsync(12000);
+      expect(hosts).toEqual(['api.x.ai']);
+      expect(timeouts).toEqual([30000]);
+      await jest.advanceTimersByTimeAsync(8000);
+      const result = await pending;
+      expect(result.ok).toBe(true);
+      expect(result.provider).toBe('xai');
+      expect(result.text).toContain('Milk');
+      expect(hosts).toEqual(['api.x.ai']);
+      expect(timeouts).toEqual([30000]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a first provider that never answers is cut at 30s, fails over, and is recorded as xai:none', async () => {
+    jest.useFakeTimers();
+    try {
+      clearProviderKeys();
+      delete process.env.VISION_FIRST_TIMEOUT_MS;
+      process.env.XAI_API_KEY = 'xai-test';
+      process.env.OPENAI_API_KEY = 'sk-test';
+      jest.resetModules();
+      const ai = require('./lib/ai-client');
+      const diag = require('./lib/vision-diag');
+      const { hosts, timeouts } = installVisionHttps((opts, cb) => {
+        if (opts.hostname === 'api.openai.com') cb(visionJson('Rice'));
       });
       jest.spyOn(console, 'info').mockImplementation(() => {});
       const pending = ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
-      await jest.advanceTimersByTimeAsync(11999);
-      expect(timeouts).toEqual([12000]);
+      await jest.advanceTimersByTimeAsync(29999);
+      expect(hosts).toEqual(['api.x.ai']);
+      expect(timeouts).toEqual([30000]);
       await jest.advanceTimersByTimeAsync(1);
       const result = await pending;
       expect(result.ok).toBe(true);
       expect(result.provider).toBe('openai');
-      expect(timeouts).toEqual([12000, 20000]);
+      expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
+      expect(timeouts).toEqual([30000, 20000]);
+      expect(diag._attemptsForTests()[0]).toMatchObject({ provider: 'xai', status: null, errorClass: 'timeout' });
+      expect(diag.summary().counts.xai).toEqual({ none: 1 });
+      expect(`xai:none=${diag.summary().counts.xai.none}`).toBe('xai:none=1');
     } finally {
       jest.useRealTimers();
+    }
+  });
+
+  it.each([
+    ['below the minimum', '1000', 5000],
+    ['at the minimum', '5000', 5000],
+    ['inside the range', '20000', 20000],
+    ['at the maximum', '45000', 45000],
+    ['above the maximum', '90000', 45000],
+    ['not a number', 'slow', 30000],
+    ['blank', '   ', 30000],
+  ])('VISION_FIRST_TIMEOUT_MS %s is clamped and cuts the first provider there', async (_label, env, cut) => {
+    jest.useFakeTimers();
+    try {
+      clearProviderKeys();
+      process.env.VISION_FIRST_TIMEOUT_MS = env;
+      process.env.XAI_API_KEY = 'xai-test';
+      process.env.OPENAI_API_KEY = 'sk-test';
+      jest.resetModules();
+      const ai = require('./lib/ai-client');
+      expect(ai.visionFirstTimeoutMs()).toBe(cut);
+      const { hosts, timeouts } = installVisionHttps((opts, cb) => {
+        if (opts.hostname === 'api.openai.com') cb(visionJson('Rice'));
+      });
+      jest.spyOn(console, 'info').mockImplementation(() => {});
+      const pending = ai.vision({ imageBase64: 'aa', prompt: 'read', route: '/receipt/scan' });
+      await jest.advanceTimersByTimeAsync(cut - 1);
+      expect(hosts).toEqual(['api.x.ai']);
+      expect(timeouts).toEqual([cut]);
+      await jest.advanceTimersByTimeAsync(1);
+      const result = await pending;
+      expect(result.ok).toBe(true);
+      expect(result.provider).toBe('openai');
+      expect(hosts).toEqual(['api.x.ai', 'api.openai.com']);
+      expect(timeouts).toEqual([cut, ai.REQUEST_TIMEOUT_MS]);
+    } finally {
+      jest.useRealTimers();
+      delete process.env.VISION_FIRST_TIMEOUT_MS;
     }
   });
 
