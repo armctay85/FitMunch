@@ -53,6 +53,7 @@ module.exports = {
     '**/test_home_week_pg.js',
     '**/test_home_week_rendered.js',
     '**/test_first_scan.js',
+    '**/test_receipt_image.js',
     '**/test_shopper.js',
     '**/test_coach_plan.js',
     '**/test_sanitize_plan.js',
