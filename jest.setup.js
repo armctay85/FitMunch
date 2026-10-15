@@ -93,3 +93,8 @@ if (!global.console) {
     warn: jest.fn()
   };
 }process.env.QUICK_CHECKOUT_MIN_MS = process.env.QUICK_CHECKOUT_MIN_MS || '0';
+
+// Release pg pools this file opened before the next file starts (CI max_connections).
+afterAll(async () => {
+  await require('./test/end-app-pools').endAppPools();
+});

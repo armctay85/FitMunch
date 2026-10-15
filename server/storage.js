@@ -424,8 +424,16 @@ async function withStripeCustomerLock(lockKey, fn) {
   });
 }
 
+/** Tests only. Closes the storage pool so the next Jest file does not inherit its clients. */
+async function endPoolForTests() {
+  if (pool && typeof pool.end === 'function') {
+    try { await pool.end(); } catch (_) { /* already closed */ }
+  }
+}
+
 // Export all functions and database instance
 module.exports = {
+  endPoolForTests,
   db,
   // Test seam only: lets a test hand inProfileTx a fake client (EQA #142 S2).
   __profileTx: { pool, inProfileTx },
