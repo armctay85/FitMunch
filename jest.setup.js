@@ -98,3 +98,24 @@ if (!global.console) {
 afterAll(async () => {
   await require('./test/end-app-pools').endAppPools();
 });
+
+// jsdom suites do not provide TextEncoder. pg's SCRAM helper needs it, and
+// those suites install it themselves after this file runs.
+const { TextEncoder, TextDecoder } = require('util');
+if (typeof global.TextEncoder !== 'function') global.TextEncoder = TextEncoder;
+if (typeof global.TextDecoder !== 'function') global.TextDecoder = TextDecoder;
+
+// A failed SCRAM handshake (pool created before DATABASE_URL is set) reports
+// the error and drops the client, but leaves the TCP socket referenced. Postgres
+// then holds it until authentication_timeout (60s), which is the "Jest did not
+// exit" pause. Close the socket once the client has already surfaced the error.
+const pg = require('pg');
+const origHandleErrorWhileConnecting = pg.Client.prototype._handleErrorWhileConnecting;
+pg.Client.prototype._handleErrorWhileConnecting = function (err) {
+  const result = origHandleErrorWhileConnecting.apply(this, arguments);
+  try {
+    const stream = this.connection && this.connection.stream;
+    if (stream && typeof stream.destroy === 'function' && !stream.destroyed) stream.destroy();
+  } catch (_) { /* the query error is already reported */ }
+  return result;
+};
