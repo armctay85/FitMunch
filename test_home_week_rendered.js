@@ -129,7 +129,7 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       await p.evaluate(() => { document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open')); openOnboarding(); });
       await p.fill('#ob-age', '34'); await p.selectOption('#ob-sex', 'male'); await p.fill('#ob-height', '180');
       await p.fill('#ob-weight', '82'); await p.fill('#ob-goal-weight', '78');
-      await p.selectOption('#ob-goal', 'lose_weight'); await p.selectOption('#ob-diet', 'vegetarian');
+      await p.selectOption('#ob-goal', 'lose_weight'); await p.click('#ob-diet .diet-tag[data-val="vegetarian"]');
       await p.click('#ob-step-1 .btn-green');
       const calories = Number(await p.inputValue('#ob-cals')); const protein = Number(await p.inputValue('#ob-prot'));
       await p.click('#ob-build');
@@ -302,7 +302,7 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     await p.evaluate(() => { document.querySelectorAll('.modal-overlay.open').forEach((e) => e.classList.remove('open')); openOnboarding(); });
     await p.fill('#ob-age', '34'); await p.selectOption('#ob-sex', 'male'); await p.fill('#ob-height', '180');
     await p.fill('#ob-weight', '82'); await p.fill('#ob-goal-weight', '78');
-    await p.selectOption('#ob-goal', 'lose_weight'); await p.selectOption('#ob-diet', 'none');
+    await p.selectOption('#ob-goal', 'lose_weight');
     await p.click('#ob-step-1 .btn-green');
     await p.click('#ob-build');
     await p.waitForSelector('#ob-week .ob-day');

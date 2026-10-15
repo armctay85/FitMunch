@@ -21,12 +21,9 @@ function getVision() {
   return visionOverride || require('./lib/ai-client').vision;
 }
 
-async function userTier(userId) {
-  try {
-    const { getUserById, effectiveTier } = require('./server/storage.js');
-    const user = await getUserById(userId);
-    return effectiveTier(user);
-  } catch { return 'free'; }
+function tierOf(user) {
+  const { effectiveTier } = require('./server/storage.js');
+  return effectiveTier(user);
 }
 
 function requireAuth(req, res, next) {
@@ -123,7 +120,7 @@ function extractImage(req) {
   return null;
 }
 
-const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. "price" is the line total paid for that line (unit price times quantity), not the unit price. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items, no totals, payment or discount lines. Parse quantity from name. Raw JSON only.';
+const VISION_PROMPT = 'This is a supermarket receipt photo. Return one JSON object and nothing else: {"items":[{"name":"Bananas","quantity":1,"unit":"kg","unitPrice":3.9,"price":3.9,"discount":0,"category":"fruit","line":"BANANAS 1.000 kg @ $3.90/kg 3.90"}]}. price is the dollars paid for that line after any discount. unitPrice is the printed per kg or per item price when you can see it. Weighted lines (per kg, deli scales): quantity is the weight, unit is kg or g, price is the amount charged. Multi-buy (2 for $5, 3 @ $1.80): quantity is how many, price is the amount charged for the deal. If a price is not readable, set price to null. Never use 1 as a placeholder. Skip totals, tax, payment, loyalty, bags and savings lines. Put the printed line text in line. Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other.';
 
 function visionFailure(visionResult) {
   const unreadable = visionResult && visionResult.code === 'unreadable';
@@ -147,6 +144,10 @@ async function readReceiptItems(imageBase64, mimeType, route) {
     mimeType: mimeType || 'image/jpeg',
     prompt: VISION_PROMPT,
     route,
+    // One structured call. A short cap keeps the read from rambling.
+    maxTokens: 1200,
+    temperature: 0,
+    jsonMode: true,
   });
   if (!visionResult || !visionResult.ok) {
     throw visionFailure(visionResult);
@@ -154,9 +155,22 @@ async function readReceiptItems(imageBase64, mimeType, route) {
   try {
     return core.parseVisionItems(visionResult.text);
   } catch (_) {
-    const failed = new Error('scan_unreadable');
-    failed.code = 'scan_unreadable';
-    throw failed;
+    // 200 with text that is not a receipt. Same diagnostic shape as a provider
+    // failure, so the smoke gate can attach it. Ordinary accounts still get
+    // only the public 422.
+    const carried = visionResult && visionResult.diag;
+    const summary = visionDiag.summary();
+    throw visionFailure({
+      code: 'unreadable',
+      provider: visionResult && visionResult.provider,
+      status: visionResult && visionResult.status != null ? visionResult.status : 200,
+      errorClass: (visionResult && visionResult.errorClass) || 'unreadable',
+      diag: {
+        counts: (carried && carried.counts) || summary.counts,
+        lastErrorClass: (carried && carried.lastErrorClass) || summary.lastErrorClass,
+        p50Ms: carried && carried.p50Ms != null ? carried.p50Ms : summary.p50Ms,
+      },
+    });
   }
 }
 
@@ -215,18 +229,20 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
 
     const { consentResponse } = require('./lib/ai-data-consent');
     const { getUserById } = require('./server/storage.js');
+    // One user read, and no schema migration. ensureSchema's pool used to add
+    // 15s connect + 30s statement before vision's 65s, which does not fit in 90s.
+    let tier = 'free';
     try {
-      const account = await getUserById(req.user.userId);
+      const account = await getUserById(req.user.userId, { ensureSchema: false });
       const denied = consentResponse(account && account.settings);
       if (denied) return res.status(denied.status).json(denied.body);
+      tier = tierOf(account);
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-
-    const tier = await userTier(req.user.userId);
     // Smoke accounts skip the monthly pre-check; checkAndConsume applies their daily cap.
     const smoke = aiUsage.isSmokeAccount({ userId: req.user.userId });
     if (!smoke && (!tier || tier === 'free')) {

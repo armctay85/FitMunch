@@ -41,9 +41,9 @@ async function requestJson(url, options) {
     if (text) {
       try { json = JSON.parse(text); } catch { json = null; }
     }
-    return { status: res.status, json };
+    return { status: res.status, json, text };
   } catch {
-    return { status: null, json: null };
+    return { status: null, json: null, text: '' };
   } finally {
     clearTimeout(timer);
   }
@@ -109,7 +109,7 @@ const scan = await requestJson(`${base}/api/receipt/scan`, {
   headers: { accept: 'application/json', authorization: `Bearer ${token}` },
   body: form,
 });
-result.scan = classifyScan(scan.status, scan.json);
+result.scan = classifyScan(scan.status, scan.json, scan.text);
 result.ok = !!(result.coach.ok && result.scan.ok);
 writeResult(result);
 
