@@ -376,6 +376,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   pointer-events:none;
 }
 .final h2{font-size:clamp(2.4rem,7vw,4.4rem);max-width:12ch;position:relative}
+.final-bowl{position:relative;width:min(240px,70%);height:auto;margin-top:28px;display:block}
 .final .btn{border-radius:999px}
 footer{padding:36px 16px 24px}
 
