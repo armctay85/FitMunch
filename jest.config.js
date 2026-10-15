@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
   testMatch: [
+    '**/test_audit_p2.js',
+    '**/test_audit_p2_pg.js',
     '**/test_home_hero_r3.js',
     '**/test_home_hero_alt.js',
     '**/test_home_hero_rendered.js',

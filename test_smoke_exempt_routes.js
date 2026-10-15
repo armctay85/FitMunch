@@ -18,6 +18,8 @@ jest.mock('./server/storage.js', () => {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u-smoke-1', subscriptionTier: 'free', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(async () => null),
+    // Three logged days: past the weekly review's new-user empty state, so the gate checks still run.
+    getMealLogsForPeriod: jest.fn(async () => [0, 1, 2].map((d) => ({ date: new Date(Date.now() - d * 86400000), calories: 600, protein: 40 }))),
     trackEvent: jest.fn(),
   };
 });

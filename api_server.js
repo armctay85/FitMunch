@@ -1406,6 +1406,8 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     };
     function categorise(itemName) {
       const n = itemName.toLowerCase();
+      // Nut butters, butter beans and butternut aren't dairy (D7).
+      if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'vegetables' : 'pantry';
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
@@ -2206,6 +2208,17 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 });
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
+const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
+// New users (under 3 logged days this week) get an honest empty state: no score, no filler wins, no AI call,
+// no credit (D8).
+const REVIEW_MIN_DAYS = 3;
+const REVIEW_EMPTY = {
+  headline: "Log 3 days of meals and I'll score your week.",
+  wins: [],
+  focus: ['Log what you eat on 3 days this week, even roughly.', 'Weigh in once so the trend has a starting point.'],
+  score: null,
+  empty: true,
+};
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
@@ -2229,6 +2242,15 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     if (reviewGuarded) {
       // Fixed, food-free review with one checked meal. No AI, no credit.
       return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: reviewFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+    }
+    // Too little logged to judge the week: the empty state, before any AI or credit check.
+    {
+      const since0 = new Date(Date.now() - 7 * 86400000);
+      const meals0 = await getMealLogsForPeriod(req.user.userId, since0, new Date()).catch(() => []);
+      const days0 = new Set((meals0 || []).map((m) => new Date(m.date).toDateString())).size;
+      if (days0 < REVIEW_MIN_DAYS) {
+        return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+      }
     }
     // Filtered users need no AI, so this check comes after their fixed review (EQA #135 r4 L2).
     if (!aiClient.hasProvider()) {
