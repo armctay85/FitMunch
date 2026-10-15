@@ -45,7 +45,14 @@ const {
 } = require('./lib/fitmunch-coach-billing');
 // Idle clients must not hold the process open after tests. The HTTP server
 // keeps production up on its listen socket.
-const _pool = new Pool({ connectionString: process.env.DATABASE_URL, allowExitOnIdle: true });
+// statement_timeout 0 (the server default) can hold the one function for the
+// whole maxDuration. Receipt scan does not use this pool; bound it anyway.
+const _pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 8000,
+  allowExitOnIdle: true,
+});
 
 async function coachGateForPt(ptId) {
   const userRow = await _pool.query('SELECT settings FROM users WHERE id=$1', [ptId]);
