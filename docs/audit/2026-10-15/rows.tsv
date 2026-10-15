@@ -1,0 +1,92 @@
+Auth	register	iphone-6.9in	PASS	copy ok	iphone-6.9in/auth-register.png
+Auth	sign-in	iphone-6.9in	PASS	copy ok	iphone-6.9in/auth-sign-in.png
+Auth	error	iphone-6.9in	FAIL	No error text within 12s. copy ok	iphone-6.9in/auth-error.png
+Coach	empty	iphone-6.9in	PASS	copy ok	iphone-6.9in/coach-empty.png
+Consent	sheet	iphone-6.9in	PASS	copy ok	iphone-6.9in/consent-sheet.png
+Coach	consent-blocked	iphone-6.9in	PASS	copy ok	iphone-6.9in/coach-blocked.png
+Scan	empty	iphone-6.9in	PASS	copy ok	iphone-6.9in/scan-empty.png
+Scan	consent-blocked	iphone-6.9in	PASS	copy ok	iphone-6.9in/scan-blocked.png
+Plan	empty	iphone-6.9in	PASS	copy ok	iphone-6.9in/plan-empty.png
+Plan	consent-blocked	iphone-6.9in	PASS	copy ok	iphone-6.9in/plan-blocked.png
+Plan	training	iphone-6.9in	PASS	copy ok	iphone-6.9in/plan-training.png
+Today	dark	iphone-6.9in	PASS	copy ok	iphone-6.9in/today-dark.png
+Plan	dark	iphone-6.9in	PASS	copy ok	iphone-6.9in/plan-dark.png
+Scan	dark	iphone-6.9in	PASS	copy ok	iphone-6.9in/scan-dark.png
+Coach	dark	iphone-6.9in	PASS	copy ok	iphone-6.9in/coach-dark.png
+Me	dark	iphone-6.9in	PASS	copy ok	iphone-6.9in/me-dark.png
+Today	loading	iphone-6.9in	PASS	Spinner held	iphone-6.9in/today-loading.png
+Today	error	iphone-6.9in	PASS	Error alert	iphone-6.9in/today-error.png
+Plan	loading	iphone-6.9in	PASS	copy ok	iphone-6.9in/plan-loading.png
+Scan	loading	iphone-6.9in	PASS	copy ok	iphone-6.9in/scan-loading.png
+Coach	loading	iphone-6.9in	PASS	copy ok	iphone-6.9in/coach-loading.png
+Today	offline	iphone-6.9in	PASS	Offline shows. Empty meal copy is hidden.	iphone-6.9in/today-offline.png
+Plan	offline	iphone-6.9in	PASS	copy ok	iphone-6.9in/plan-offline.png
+Coach	offline	iphone-6.9in	PASS	copy ok	iphone-6.9in/coach-offline.png
+Scan	offline	iphone-6.9in	PASS	copy ok	iphone-6.9in/scan-offline.png
+Onboarding	welcome	iphone-6.9in	PASS	copy ok	iphone-6.9in/onboarding-welcome.png
+Onboarding	goals	iphone-6.9in	PASS	copy ok	iphone-6.9in/onboarding-goals.png
+Onboarding	plan	iphone-6.9in	PASS	copy ok	iphone-6.9in/onboarding-plan.png
+Onboarding	validation-error	iphone-6.9in	PASS	Name and email required	iphone-6.9in/onboarding-validation.png
+Paywall	loading	iphone-6.9in	PASS	Loading plans visible	iphone-6.9in/paywall-loading.png
+Paywall	error	iphone-6.9in	PASS	error=true retry=true	iphone-6.9in/paywall-error.png
+Paywall	plans	iphone-6.9in	FAIL	phase=timeout weeklyCard=false weeklyId=false. copy ok	iphone-6.9in/paywall-plans.png
+Paywall	restore	iphone-6.9in	PASS	Restore alert appeared	iphone-6.9in/paywall-restore.png
+Paywall	purchase	iphone-6.9in	FAIL	No purchase sheet. Isolated SKTestSession covers purchase, trial, cancel, and expiry.	iphone-6.9in/paywall-purchase.png
+Today	populated	iphone-6.9in	PASS	copy ok	iphone-6.9in/today-populated.png
+Plan	populated	iphone-6.9in	PASS	week=true priceLine=true. copy ok	iphone-6.9in/plan-populated.png
+Scan	intro	iphone-6.9in	PASS	copy ok	iphone-6.9in/scan-intro-populated.png
+Coach	populated	iphone-6.9in	PASS	copy ok	iphone-6.9in/coach-populated.png
+Me	premium	iphone-6.9in	PASS	copy ok	iphone-6.9in/me-premium.png
+Scan	error	iphone-6.9in	PASS	unreadable=true retake=true	iphone-6.9in/scan-error.png
+Scan	camera	iphone-6.9in	PASS	Camera or library fallback	iphone-6.9in/scan-camera.png
+Today	empty	iphone-6.9in	PASS	copy ok	iphone-6.9in/today-empty.png
+Today	log-meal	iphone-6.9in	PASS	copy ok	iphone-6.9in/today-log-meal.png
+Me	free	iphone-6.9in	PASS	copy ok	iphone-6.9in/me-top.png
+Settings	about	iphone-6.9in	FAIL	Build Date is hardcoded March 2025	iphone-6.9in/me-about.png
+Progress	empty	iphone-6.9in	FAIL	copy ok	iphone-6.9in/progress-empty.png
+Auth	register	iphone-6.5in	PASS	copy ok	iphone-6.5in/auth-register.png
+Auth	sign-in	iphone-6.5in	PASS	copy ok	iphone-6.5in/auth-sign-in.png
+Auth	error	iphone-6.5in	FAIL	No error text within 12s. copy ok	iphone-6.5in/auth-error.png
+Coach	empty	iphone-6.5in	PASS	copy ok	iphone-6.5in/coach-empty.png
+Consent	sheet	iphone-6.5in	PASS	copy ok	iphone-6.5in/consent-sheet.png
+Coach	consent-blocked	iphone-6.5in	PASS	copy ok	iphone-6.5in/coach-blocked.png
+Scan	empty	iphone-6.5in	PASS	copy ok	iphone-6.5in/scan-empty.png
+Scan	consent-blocked	iphone-6.5in	PASS	copy ok	iphone-6.5in/scan-blocked.png
+Plan	empty	iphone-6.5in	PASS	copy ok	iphone-6.5in/plan-empty.png
+Plan	consent-blocked	iphone-6.5in	PASS	copy ok	iphone-6.5in/plan-blocked.png
+Plan	training	iphone-6.5in	PASS	copy ok	iphone-6.5in/plan-training.png
+Today	dark	iphone-6.5in	PASS	copy ok	iphone-6.5in/today-dark.png
+Plan	dark	iphone-6.5in	PASS	copy ok	iphone-6.5in/plan-dark.png
+Scan	dark	iphone-6.5in	PASS	copy ok	iphone-6.5in/scan-dark.png
+Coach	dark	iphone-6.5in	PASS	copy ok	iphone-6.5in/coach-dark.png
+Me	dark	iphone-6.5in	PASS	copy ok	iphone-6.5in/me-dark.png
+Today	loading	iphone-6.5in	PASS	Spinner held	iphone-6.5in/today-loading.png
+Today	error	iphone-6.5in	PASS	Error alert	iphone-6.5in/today-error.png
+Plan	loading	iphone-6.5in	PASS	copy ok	iphone-6.5in/plan-loading.png
+Scan	loading	iphone-6.5in	PASS	copy ok	iphone-6.5in/scan-loading.png
+Coach	loading	iphone-6.5in	PASS	copy ok	iphone-6.5in/coach-loading.png
+Today	offline	iphone-6.5in	PASS	Offline shows. Empty meal copy is hidden.	iphone-6.5in/today-offline.png
+Plan	offline	iphone-6.5in	PASS	copy ok	iphone-6.5in/plan-offline.png
+Coach	offline	iphone-6.5in	PASS	copy ok	iphone-6.5in/coach-offline.png
+Scan	offline	iphone-6.5in	PASS	copy ok	iphone-6.5in/scan-offline.png
+Onboarding	welcome	iphone-6.5in	PASS	copy ok	iphone-6.5in/onboarding-welcome.png
+Onboarding	goals	iphone-6.5in	PASS	copy ok	iphone-6.5in/onboarding-goals.png
+Onboarding	plan	iphone-6.5in	PASS	copy ok	iphone-6.5in/onboarding-plan.png
+Onboarding	validation-error	iphone-6.5in	PASS	Name and email required	iphone-6.5in/onboarding-validation.png
+Paywall	loading	iphone-6.5in	PASS	Loading plans visible	iphone-6.5in/paywall-loading.png
+Paywall	error	iphone-6.5in	PASS	error=true retry=true	iphone-6.5in/paywall-error.png
+Paywall	plans	iphone-6.5in	FAIL	phase=timeout weeklyCard=false weeklyId=false. copy ok	iphone-6.5in/paywall-plans.png
+Paywall	restore	iphone-6.5in	PASS	Restore alert appeared	iphone-6.5in/paywall-restore.png
+Paywall	purchase	iphone-6.5in	FAIL	No purchase sheet. Isolated SKTestSession covers purchase, trial, cancel, and expiry.	iphone-6.5in/paywall-purchase.png
+Today	populated	iphone-6.5in	PASS	copy ok	iphone-6.5in/today-populated.png
+Plan	populated	iphone-6.5in	PASS	week=true priceLine=true. copy ok	iphone-6.5in/plan-populated.png
+Scan	intro	iphone-6.5in	PASS	copy ok	iphone-6.5in/scan-intro-populated.png
+Coach	populated	iphone-6.5in	PASS	copy ok	iphone-6.5in/coach-populated.png
+Me	premium	iphone-6.5in	PASS	copy ok	iphone-6.5in/me-premium.png
+Scan	error	iphone-6.5in	PASS	unreadable=true retake=true	iphone-6.5in/scan-error.png
+Scan	camera	iphone-6.5in	PASS	Camera or library fallback	iphone-6.5in/scan-camera.png
+Today	empty	iphone-6.5in	PASS	copy ok	iphone-6.5in/today-empty.png
+Today	log-meal	iphone-6.5in	PASS	copy ok	iphone-6.5in/today-log-meal.png
+Me	free	iphone-6.5in	PASS	copy ok	iphone-6.5in/me-top.png
+Settings	about	iphone-6.5in	PASS	copy ok	iphone-6.5in/me-about.png
+Progress	empty	iphone-6.5in	FAIL	copy ok	iphone-6.5in/progress-empty.png
