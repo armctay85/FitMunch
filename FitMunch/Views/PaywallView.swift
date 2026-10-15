@@ -36,10 +36,10 @@ struct PaywallView: View {
                     if isLoadingPlans {
                         LoadingSkeleton(rows: 3, label: "Loading plans", identifier: "paywall-loading")
                     }
+                    benefitsSection
                     if plansLoadFailed {
                         emptyPlansSection
                     }
-                    benefitsSection
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
@@ -174,6 +174,8 @@ struct PaywallView: View {
                 Task { await restore() }
             }
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityIdentifier("paywall-restore-inline")
         }
         .accessibilityIdentifier("paywall-error-state")
@@ -203,12 +205,15 @@ struct PaywallView: View {
                     .accessibilityIdentifier("paywall-renewal")
                 subscribeButton(plan)
             }
-            Button("Restore Purchases") {
-                Task { await restore() }
+            if !plansLoadFailed {
+                Button("Restore Purchases") {
+                    Task { await restore() }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("paywall-restore")
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
-            .accessibilityIdentifier("paywall-restore")
 
             HStack(spacing: 6) {
                 Button("Terms") {
