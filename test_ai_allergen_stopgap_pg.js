@@ -545,8 +545,10 @@ maybe('#127a on real Postgres', () => {
     // Three logged days: past the weekly review's new-user empty state (launch audit D8).
     for (let d = 0; d < 3; d += 1) await pool.query("insert into meal_logs(user_id, date, meal_type, food_name, calories) values ($1, now() - ($2 || ' days')::interval, 'lunch', 'Chicken salad', 500)", [PLAIN, String(d)]);
     const p = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
-    expect(p.body.review.score).toBeNull();
-    expect(JSON.stringify(p.body.review)).not.toMatch(/peanut butter|showed up/i);
+    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(p.body.review.score).toBe(7);
+    expect(JSON.stringify(p.body.review)).toMatch(/peanut butter/);
+    expect(JSON.stringify(p.body.review)).not.toMatch(/showed up/i);
     const c = await ask(PLAIN, 'How many sets for squats?', { intent: 'workout' });
     expect(c.body.reply).toMatch(/MOCKAI/);
   });
