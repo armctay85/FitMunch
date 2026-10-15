@@ -68,7 +68,29 @@ function diagReason(payload) {
   };
 }
 
-function classifyScan(status, body) {
+/** One line from a failed scan, with secrets, tokens, and image bytes removed. */
+function scanFailureDetail(body, rawText) {
+  const err = body && typeof body === 'object' && !Array.isArray(body) ? body.error : undefined;
+  let source = '';
+  if (typeof err === 'string' && err.trim()) source = err;
+  else if (typeof rawText === 'string') source = rawText;
+  else if (typeof body === 'string') source = body;
+  const excerpt = source.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 120);
+  if (!excerpt) return '';
+  return excerpt
+    .replace(/data:image\/[^\s'"]+/gi, '[image]')
+    .replace(/\b(?:Basic|Bearer)\s+\S+/gi, '[redacted]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted]')
+    .replace(/\b(?:sk-ant-|sk-|xai-)[A-Za-z0-9_\-]*/gi, '[redacted]')
+    .replace(/\b[A-Za-z0-9+/]{32,}={0,2}\b/g, '[redacted]')
+    .replace(/fm_smoke_\S*/gi, '[redacted]')
+    .replace(/\b(?:password|api[_-]?key|authorization)\b\s*[:=]\s*\S+/gi, '[redacted]')
+    .replace(/\b(?:bearer|api[_-]?key|password|fm_smoke_|authorization)\b/gi, '[redacted]')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function classifyScan(status, body, rawText) {
   const payload = body && typeof body === 'object' ? body : null;
   if (
     (status === 422 || status === 503)
@@ -97,7 +119,10 @@ function classifyScan(status, body) {
     }
     return { ok: true, status, kind: 'parsed', itemCount: names.length };
   }
-  return { ok: false, status: status == null ? null : status, reason: `unexpected scan result ${status == null ? 'none' : status}` };
+  const code = status == null ? 'none' : status;
+  const detail = scanFailureDetail(body, rawText);
+  const reason = detail ? `unexpected scan result ${code} ${detail}` : `unexpected scan result ${code}`;
+  return { ok: false, status: status == null ? null : status, reason };
 }
 
 function secretsMissing(email, password) {
