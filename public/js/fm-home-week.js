@@ -407,9 +407,14 @@
     return null;
   }
 
-  /** The onboarding row to update, so a second pass does not add another "Your first week". */
+  /** The onboarding row to update, so a second pass does not add another "Your first week".
+   * A row the user has edited is left alone. Onboarding then saves a new plan. */
   function onboardingPlanId(plans) {
-    const row = (Array.isArray(plans) ? plans : []).find((p) => p && p.name === 'Your first week' && p.id != null && p.id !== '');
+    const row = (Array.isArray(plans) ? plans : []).find((p) => {
+      if (!p || p.name !== 'Your first week' || p.id == null || p.id === '') return false;
+      if (p.user_edited === true || p.userEdited === true) return false;
+      return true;
+    });
     return row ? row.id : null;
   }
 

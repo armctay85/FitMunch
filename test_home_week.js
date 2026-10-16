@@ -117,6 +117,8 @@ describe('calorie tile and load states', () => {
     expect(hw.onboardingPlanId([{ id: 1, name: 'Your first week, 15 Oct' }])).toBeNull();
     expect(hw.onboardingPlanId([])).toBeNull();
     expect(hw.onboardingPlanId(null)).toBeNull();
+    expect(hw.onboardingPlanId([{ id: 9, name: 'Your first week', user_edited: true }, { id: 11, name: 'Your first week' }])).toBe(11);
+    expect(hw.onboardingPlanId([{ id: 9, name: 'Your first week', userEdited: true }])).toBeNull();
   });
 });
 
@@ -185,6 +187,12 @@ describe('app wiring', () => {
     expect(s).toContain('FMHomeWeek.onboardingPlanId(plans)');
     expect(s).toContain("method:'PUT'");
     expect(s).toContain("API('/meal-plans', { method:'POST'");
+  });
+  it('editing a plan marks it so a later onboarding pass does not overwrite it', () => {
+    expect(fn('saveEditedMealPlan')).toContain('userEdited: true');
+    const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');
+    expect(src).toContain('user_edited');
+    expect(src).toContain('userEdited');
   });
   it('the served helper has no banned words', () => {
     const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');

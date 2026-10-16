@@ -177,7 +177,9 @@ describe('claim-resend replies at one fixed time', () => {
       // Every reply waits out the full window, match or miss (server clock
       // and client clock both, so a reply can never come back early).
       for (const w of windows) expect(w.windowMs).toBe(500);
-      expect(Math.min(...server)).toBeGreaterThanOrEqual(498);
+      // setTimeout can fire a few ms early. hrtime then reads just under the window
+      // on a loaded worker. A skipped wait would be hundreds of ms short.
+      expect(Math.min(...server)).toBeGreaterThanOrEqual(490);
       expect(Math.min(...[...hits, ...misses].map((x) => x.ms))).toBeGreaterThanOrEqual(495);
       // A match (slow Stripe + 120ms send) and a miss reply within 50ms of
       // each other, on average and at the extremes.

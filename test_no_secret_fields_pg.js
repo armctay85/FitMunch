@@ -135,6 +135,11 @@ describe('publicUser / publicProfile allowlist', () => {
   it('adds caller-computed extras', () => {
     expect(publicUser(row, { subscriptionTier: 'pro' }).subscriptionTier).toBe('pro');
   });
+  it('drops anything in extra that is not on the allowlist', () => {
+    const out = publicUser(row, { subscriptionTier: 'pro', passwordHash: HASH, stripeCustomerId: 'cus_X', settings: { token: 'r' } });
+    expect(out).toEqual({ id: 'u1', name: 'A', email: 'a@x.test', emailVerified: true, createdAt: 'd', subscriptionTier: 'pro' });
+    expect(JSON.stringify(out)).not.toMatch(/cus_X|password|resetToken/);
+  });
   it('null in, null out', () => {
     expect(publicUser(null)).toBeNull();
     expect(publicProfile(undefined)).toBeNull();

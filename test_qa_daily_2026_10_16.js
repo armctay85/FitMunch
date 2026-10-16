@@ -157,7 +157,8 @@ describe('coach notes are filtered before they are appended', () => {
     const out = dietGuard.addressedCoachReply({
       filters, calories: 2180, protein: 180, question: 'one high-protein lunch', intent: 'nutrition',
     });
-    expect(out.plan.notes.join(' ')).toMatch(/tofu/i);
+    expect(out.plan.notes.join(' ')).toMatch(/Add a protein you've saved as OK/);
+    expect(out.plan.notes.join(' ')).not.toMatch(/tofu|tempeh|legumes/i);
     expect(out.reply).toMatch(/This fits your filters/);
     expect(out.reply).not.toMatch(/does not fit/i);
     expect(out.reply).not.toMatch(/tofu|tempeh|legumes/i);
@@ -174,7 +175,8 @@ describe('coach notes are filtered before they are appended', () => {
     const out = dietGuard.addressedCoachReply({
       filters, calories: 2180, protein: 180, question: 'Can I have peanut butter for lunch?', intent: 'nutrition',
     });
-    expect(out.plan.notes.join(' ')).toMatch(/Eggs, Greek yoghurt or tofu/);
+    expect(out.plan.notes.join(' ')).toMatch(/Add a protein you've saved as OK/);
+    expect(out.plan.notes.join(' ')).not.toMatch(/Eggs|yoghurt|tofu/i);
     expect(out.reply).toMatch(/That does not fit your filters/);
     expect(out.reply).not.toMatch(/This fits your filters/);
     expect(out.reply).not.toMatch(/peanut butter|Eggs|yoghurt|tofu/i);

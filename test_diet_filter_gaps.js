@@ -132,6 +132,39 @@ describe('typed allergens match ingredient names', () => {
     expect(safety.mealProblems({ name: 'Banana smoothie', ingredients: ['Banana'] }, dairy)).toContain('dairy');
   });
 
+  it('butternut squash risotto, butter beans, egg-free mayo and gluten-free bread are not false alarms', () => {
+    expect(safety.flagsInText('butternut squash risotto').has('dairy')).toBe(false);
+    expect([...safety.flagsInText('butternut squash risotto')]).toEqual([]);
+    expect(dietGuard.brokenGroups('butternut squash risotto', ['dairy free'])).toEqual([]);
+    expect(safety.flagsInText('Mushroom risotto').has('dairy')).toBe(true);
+    expect(engine.allergensOf(['Butter beans'])).not.toContain('dairy');
+    expect(engine.allergensOf(['Salted butter'])).toContain('dairy');
+    expect(engine.allergensOf(['Moreton Bay bugs'])).toEqual(expect.arrayContaining(['shellfish']));
+    expect(engine.allergensOf(['Yabbies'])).toEqual(expect.arrayContaining(['shellfish']));
+    expect(engine.allergensOf(['Pipis'])).toEqual(expect.arrayContaining(['shellfish']));
+    expect(engine.textHasTypedAllergen('soy milk', 'milk')).toBe(false);
+    expect(engine.textHasTypedAllergen('Soy milk', 'soy')).toBe(true);
+    expect(engine.textHasTypedAllergen('whole milk', 'milk')).toBe(true);
+    expect([...safety.flagsInText('Egg free mayonnaise')]).toEqual([]);
+    expect(safety.flagsInText('Egg free mayonnaise and scrambled eggs').has('eggs')).toBe(true);
+    expect([...safety.flagsInText('Gluten free bread')]).toEqual([]);
+    expect(safety.flagsInText('Gluten free bread and pasta').has('gluten')).toBe(true);
+    expect(safety.flagsInText('Dead bug').has('shellfish')).toBe(false);
+    expect(safety.flagsInText('Balmain bugs').has('shellfish')).toBe(true);
+    expect(engine.allergensOf(['Dead bug'])).not.toContain('shellfish');
+    const shellfish = /yabb(?:y|ies)|pipis\?|moreton bay bugs\?/;
+    const src = require('fs').readFileSync(require('path').join(__dirname, 'lib', 'meal-plan-engine.js'), 'utf8');
+    const block = src.slice(src.indexOf('const SHELLFISH'), src.indexOf('function nameExcluded'));
+    expect(block.match(new RegExp(shellfish.source, 'g')).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('desktop filter chips stay at least 40px', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
+    expect(html).toMatch(/@media \(min-width: 1025px\) and \(pointer: fine\) \{[^}]*#dietary-tags \.diet-tag[^}]*min-height:40px/);
+    expect(html).toMatch(/#ob-diet \.diet-tag,#ob-allergies \.diet-tag\{min-height:40px/);
+    expect(html).toMatch(/#allergy-add,#mp-save-filters,button\[onclick="addTypedAllergy\(\)"\]\{min-height:40px\}/);
+  });
+
   it('drops banana from meals and swaps, and does not say the filter was not applied', () => {
     const plan = engine.withSwaps(engine.buildPlan({ calories: 2000, protein: 140, days: 7, dietary: ['banana'] }), ['banana'], 2000);
     expect(plan.days).toHaveLength(7);
