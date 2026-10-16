@@ -310,10 +310,17 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .hw-days{display:flex;gap:4px;margin-bottom:10px}
 .hw-days span{flex:1;min-width:0;text-align:center;font-size:.7rem;font-weight:700;padding:5px 0;border-radius:8px;color:var(--text2);background:#f3f4f6}
 .hw-days span.on{background:var(--green2);color:#fff}
+.hw-prog{margin:0 0 10px}
+.hw-prog-meta{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;font-weight:700;color:var(--text2);margin-bottom:4px}
+.hw-prog-meta span{min-width:0;overflow-wrap:anywhere}
+.hw-prog-track{height:8px;border-radius:99px;background:#e8eee9;overflow:hidden}
+.hw-prog-fill{height:100%;background:var(--green2);border-radius:99px}
 .hw-meals{list-style:none;margin:0 0 12px;padding:0}
-.hw-meals li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.85rem;min-width:0}
-.hw-meals li b{font-weight:700;overflow-wrap:anywhere;min-width:0}
+.hw-meals li{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.85rem;min-width:0}
+.hw-meals li b{font-weight:700;overflow-wrap:anywhere;min-width:0;flex:1 1 120px}
 .hw-meals li span{color:var(--text2);white-space:nowrap;font-size:.78rem}
+.hw-meal-side{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.hw-log{min-height:44px;min-width:44px;padding:0 12px}
 .hw-warn{font-size:.8rem;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px}
 .hw-acts{display:flex;gap:8px;flex-wrap:wrap}
 .hw-acts .btn,#home-week-retry{min-height:44px}
@@ -988,7 +995,7 @@ html.fm-authed #app-gate{display:none}
  <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
- <li>Limited AI actions per month</li>
+ <li id="billing-free-ai">Free includes AI actions a month</li>
  <li>Shopping lists and favourites</li>
  </ul>
  <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" disabled>Current free plan</button>
@@ -1021,7 +1028,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free includes 10 AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong id="home-free-ai">Free includes AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -1902,6 +1909,7 @@ async function boot() {
  document.getElementById('btn-upgrade').style.display = '';
  const nudge = document.getElementById('home-upgrade-nudge');
  if (nudge) nudge.style.display = 'flex';
+ fillFreeAiLine();
  }
  // Show correct sidebar
  if (S.role === 'client') {
@@ -3916,6 +3924,41 @@ async function onboardDone() {
  await loadPortalHome();
 }
 
+function freeAiActionsLine(limit) {
+ const n = Number(limit);
+ if (!Number.isFinite(n) || n < 0) return '';
+ return 'Free includes ' + n + ' AI actions a month';
+}
+function paintFreeAiLine(limit) {
+ const line = freeAiActionsLine(limit);
+ if (!line) return;
+ ['home-free-ai', 'billing-free-ai'].forEach((id) => {
+ const el = document.getElementById(id);
+ if (el) el.textContent = line;
+ });
+}
+async function fillFreeAiLine() {
+ try {
+ const r = await API('/ai/usage');
+ if (r && r.success) paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit);
+ } catch (_) {}
+}
+async function logHomeMeal(btn, m) {
+ if (!S.user || !btn || btn.disabled) return;
+ btn.disabled = true;
+ const r = await API('/meals/log', { method: 'POST', body: JSON.stringify({
+ date: new Date().toISOString(),
+ mealType: m.slot || 'lunch',
+ foodName: m.name,
+ calories: m.calories || 0,
+ protein: m.protein || 0,
+ })});
+ if (!r || !r.success) { btn.disabled = false; toast((r && r.error) || 'Could not log that meal', 'error'); return; }
+ btn.textContent = 'Logged';
+ toast('Logged: ' + (m.name || 'meal'));
+ if (typeof loadTodayMeals === 'function') loadTodayMeals();
+}
+
 // ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
 let S_homeWeek = null;
 let S_homeWeekReq = 0;
@@ -4045,10 +4088,31 @@ async function loadHomeWeek() {
  const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
  t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
  box.appendChild(t);
+ if (tg && tg.calories) {
+ const prog = FMHomeWeek.calorieProgress(sum.today.calories, tg.calories);
+ if (prog) {
+ const wrap = document.createElement('div'); wrap.className = 'hw-prog'; wrap.id = 'home-week-progress';
+ const meta = document.createElement('div'); meta.className = 'hw-prog-meta';
+ const left = document.createElement('span'); left.id = 'home-week-progress-value'; left.textContent = prog.value + ' kcal';
+ const right = document.createElement('span'); right.id = 'home-week-progress-left'; right.textContent = prog.remaining;
+ meta.append(left, right);
+ const track = document.createElement('div'); track.className = 'hw-prog-track'; track.setAttribute('role', 'progressbar');
+ track.setAttribute('aria-valuemin', '0'); track.setAttribute('aria-valuemax', String(tg.calories));
+ track.setAttribute('aria-valuenow', String(sum.today.calories || 0));
+ track.setAttribute('aria-label', prog.value + ' kcal, ' + prog.remaining);
+ const fill = document.createElement('div'); fill.className = 'hw-prog-fill'; fill.style.width = prog.pct + '%';
+ track.appendChild(fill); wrap.append(meta, track); box.appendChild(wrap);
+ }
+ }
  const ul = document.createElement('ul'); ul.className = 'hw-meals'; ul.id = 'home-week-today';
  sum.today.meals.forEach(m => {
  const li = document.createElement('li'); const b = document.createElement('b'); b.textContent = obTitle(m.name);
- const s = document.createElement('span'); s.textContent = m.calories ? m.calories + ' kcal' : ''; li.append(b, s); ul.appendChild(li);
+ const side = document.createElement('span'); side.className = 'hw-meal-side';
+ const s = document.createElement('span'); s.textContent = m.calories ? FMHomeWeek.formatCount(m.calories) + ' kcal' : '';
+ const log = document.createElement('button'); log.type = 'button'; log.className = 'btn btn-ghost2 btn-sm hw-log'; log.textContent = 'Log';
+ log.setAttribute('aria-label', 'Log ' + (m.slot || 'meal') + ': ' + obTitle(m.name));
+ log.onclick = () => logHomeMeal(log, m);
+ side.append(s, log); li.append(b, side); ul.appendChild(li);
  });
  box.appendChild(ul);
  }
@@ -4632,6 +4696,7 @@ async function loadBillingUsage() {
  try {
  const r = await API('/ai/usage');
  if (!r.success) return;
+ paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit);
  if (r.limit === null) {
  el.innerHTML = `<div style="background:rgba(31,157,74,.08);border:1px solid rgba(31,157,74,.28);border-radius:6px;padding:12px 16px;font-size:.8rem;color:#14532d"><strong>${(r.tier||'premium').charAt(0).toUpperCase()+(r.tier||'premium').slice(1)} plan</strong> · unlimited AI · ${r.used} actions this month</div>`;
  } else {
@@ -4799,13 +4864,26 @@ async function sendChat() {
 }
 
 // ── WEEKLY REVIEW ────────────────────────────────────────────────────────────
+async function fetchWeeklyReview() {
+ // Ask the server first. The empty state uses no AI, so it must not open the consent prompt.
+ const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
+ const res = await fetch('/api/ai/weekly-review', { headers });
+ const r = await res.json().catch(() => ({ success: false }));
+ if (res.status === 403 && r && (r.code === 'ai_consent_required' || r.code === 'ai_consent_off')) {
+ if (r.code === 'ai_consent_off' || !(await ensureAiConsent())) return r;
+ return API('/ai/weekly-review');
+ }
+ return r;
+}
 async function loadWeeklyReview() {
  const body = document.getElementById('wr-body');
  const btn = document.getElementById('wr-btn');
+ const idleLabel = 'Get my review →';
  btn.disabled = true;
  body.innerHTML = '<div style="text-align:center;padding:16px"><div class="loader"></div><div style="font-size:.75rem;color:var(--text3);margin-top:10px">Reading your week…</div></div>';
+ let scored = false;
  try {
- const r = await API('/ai/weekly-review');
+ const r = await fetchWeeklyReview();
  if (!r.success) {
  if (maybeUpgrade(r)) { body.innerHTML = '<div style="font-size:.78rem;color:var(--text3)">Upgrade to Premium for unlimited weekly reviews.</div>'; return; }
  throw new Error(r.error || 'failed');
@@ -4816,10 +4894,11 @@ async function loadWeeklyReview() {
  body.textContent = '';
  const h = document.createElement('div'); h.style.cssText = 'font-size:.88rem;font-weight:800;margin-bottom:8px'; h.id = 'wr-empty'; h.textContent = rev.headline; body.appendChild(h);
  const st = r.stats || {};
- if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged this week.`; body.appendChild(n); }
+ if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.id = 'wr-empty-days'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged in the last 7 days.`; body.appendChild(n); }
  (rev.focus || []).forEach(f => { const d = document.createElement('div'); d.style.cssText = 'font-size:.78rem;color:var(--text2);padding:2px 0'; d.textContent = '🎯 ' + f; body.appendChild(d); });
  return;
  }
+ scored = true;
  // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
  const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
@@ -4838,7 +4917,7 @@ async function loadWeeklyReview() {
  body.innerHTML = '<div style="font-size:.78rem;color:var(--text3)">Couldn\'t load your review - try again shortly.</div>';
  } finally {
  btn.disabled = false;
- btn.textContent = '↻ Refresh';
+ btn.textContent = scored ? '↻ Refresh' : idleLabel;
  }
 }
 

@@ -116,6 +116,7 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       res.json({ success: true, list: { name: 'Your first week: shopping list', itemCount: items.length, items, byAisle: { pantry: items }, aisleOrder: ['pantry'], aisleIcons: {} } });
     });
     app.post('/api/user/goal-weight', (req, res) => res.json({ success: true, goalWeightKg: req.body.goalWeightKg }));
+    app.post('/api/meals/log', (req, res) => { db.mealLogs = db.mealLogs || []; db.mealLogs.push(req.body); res.json({ success: true, meal: { id: db.mealLogs.length } }); });
     app.get('/_vercel/insights/script.js', (req, res) => { res.type('application/javascript'); res.send(''); });
     app.use('/api', (req, res) => res.json(req.path.includes('/auth/me')
       ? { success: true, user: { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role: 'client', subscriptionTier: 'free', settings: {} } }
@@ -188,6 +189,15 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       expect(await p.textContent('#pm-cals')).toBe(hw.formatCount(1858));
       expect(await p.textContent('#pm-cals-sub')).toBe(`of ${hw.formatCount(calories)} goal`);
       expect(card.meals).toBe(4);
+      const prog = await p.evaluate(() => ({
+        text: document.getElementById('home-week-progress') ? document.getElementById('home-week-progress').textContent : '',
+        logs: document.querySelectorAll('#home-week-today .hw-log').length,
+        label: document.querySelector('#home-week-today .hw-log') ? document.querySelector('#home-week-today .hw-log').textContent : '',
+      }));
+      expect(prog.logs).toBe(4);
+      expect(prog.label).toBe('Log');
+      expect(prog.text).toMatch(/kcal left|kcal over/);
+      expect(prog.text).toMatch(/\d/);
       expect([card.days, card.on]).toEqual([7, 1]);
       expect(card.firstOnScreen).toBe(true);
       expect(card.nudge).toBe('none');
@@ -224,11 +234,17 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
         return res.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
       });
       expect(homeAxe).toEqual([]);
-      const homeTap = await p.evaluate(() => [...document.querySelectorAll('#home-mealplan-btn, #home-week-shop, #home-mealplan button')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
+      const homeTap = await p.evaluate(() => [...document.querySelectorAll('#home-mealplan-btn, #home-week-shop, #home-mealplan button, #home-week-today .hw-log')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
       for (const h of homeTap) expect(h).toBeGreaterThanOrEqual(minTap);
       expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       expect(await p.evaluate(() => { const b = document.getElementById('home-week'); return b.scrollWidth > b.clientWidth + 1; })).toBe(false);
       if (shots) await p.screenshot({ path: `${shots}/home-week-${width}.png` });
+      await p.click('#home-week-today .hw-log');
+      await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logged');
+      expect(db.mealLogs.length).toBe(1);
+      expect(db.mealLogs[0].foodName).toBeTruthy();
+      expect(db.mealLogs[0].mealType).toBeTruthy();
+      expect(db.mealLogs[0].calories).toBeGreaterThan(0);
 
       // One tap: the shopping list for the saved week.
       await p.click('#home-week-shop');

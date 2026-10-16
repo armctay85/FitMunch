@@ -396,6 +396,24 @@
    * The calorie tile: the week's average against the saved goal ("1,858 of 1,860"), labelled as an average.
    * Target only (no meals to average) keeps the plain daily goal.
    */
+  /**
+   * Today's meals against the daily calorie target: a 0-100 fill and the kcal still left.
+   * No target means no bar.
+   */
+  function calorieProgress(todayCalories, target) {
+    const t = Math.round(Number(target));
+    const raw = Math.round(Number(todayCalories));
+    const eaten = Number.isFinite(raw) && raw > 0 ? raw : 0;
+    if (!Number.isFinite(t) || t <= 0) return null;
+    const pct = Math.max(0, Math.min(100, Math.round((eaten / t) * 100)));
+    const left = t - eaten;
+    return {
+      pct,
+      value: formatCount(eaten) + ' of ' + formatCount(t),
+      remaining: left >= 0 ? formatCount(left) + ' kcal left' : formatCount(-left) + ' kcal over',
+    };
+  }
+
   function calorieTile(average, target) {
     const a = Math.round(Number(average));
     const t = Math.round(Number(target));
@@ -564,7 +582,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure, plansFromResponse };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, calorieProgress, onboardingPlanId, loadFailure, plansFromResponse };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

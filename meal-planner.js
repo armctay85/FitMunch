@@ -13,6 +13,7 @@ const { sendApiError } = require('./lib/public-error');
 const planEngine = require('./lib/meal-plan-engine');
 const mealSafety = require('./lib/meal-safety');
 const dietGuard = require('./lib/diet-guard');
+const { shoppingAisle } = require('./lib/grocery-aisle');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -44,11 +45,10 @@ const AISLE_WORDS = [
 const AISLE_ORDER = ['Meat & Seafood','Produce','Dairy & Eggs','Pantry','Bakery','Frozen','Supplements','Other'];
 const AISLE_ICONS = { 'Meat & Seafood':'🥩','Produce':'🥦','Dairy & Eggs':'🥚','Pantry':'🫙','Bakery':'🍞','Frozen':'🧊','Supplements':'💊','Other':'📦' };
 
-// Nut butters, butter beans and butternut aren't dairy (D7).
-const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
 function aisleFor(name) {
+  const special = shoppingAisle(name);
+  if (special) return special;
   const n = String(name).toLowerCase();
-  if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'Produce' : 'Pantry';
   for (const [aisle, words] of AISLE_WORDS) if (words.some((w) => n.includes(w))) return aisle;
   return 'Other';
 }

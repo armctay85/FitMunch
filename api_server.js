@@ -32,6 +32,8 @@ const {
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
 const { consentResponse, choiceFromSettings } = require('./lib/ai-data-consent');
+const { shoppingCategory } = require('./lib/grocery-aisle');
+const { loggedSydneyDays, mealsInReviewWindow } = require('./lib/review-window');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -1414,9 +1416,9 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
       other: [],
     };
     function categorise(itemName) {
+      const special = shoppingCategory(itemName);
+      if (special) return special;
       const n = itemName.toLowerCase();
-      // Nut butters, butter beans and butternut aren't dairy (D7).
-      if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'vegetables' : 'pantry';
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
@@ -2285,6 +2287,7 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
         tier: 'smoke',
         period: 'day',
         day: aiUsage.sydneyDay(),
+        freeMonthly: aiUsage.freeMonthlyLimit(),
       });
     }
     const used = await aiUsage.getUsed(userId);
@@ -2300,6 +2303,7 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       used,
       limit: isPaid ? null : limit,
       remaining: isPaid ? null : Math.max(0, limit - used),
+      freeMonthly: limit,
       tier,
       month: aiUsage.monthKey(),
     });
@@ -2402,26 +2406,24 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 });
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
-const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
-// New users (under 3 logged days this week) get an honest empty state: no score, no filler wins, no AI call,
-// no credit (D8).
+// Under 3 logged Sydney dates in the last 7 days: honest empty state, no score, no AI call, no credit.
 const REVIEW_MIN_DAYS = 3;
 const REVIEW_EMPTY = {
-  headline: "Log 3 days of meals and I'll score your week.",
+  headline: "Log 3 days of meals in the last 7 days and I'll score them.",
   wins: [],
-  focus: ['Log what you eat on 3 days this week, even roughly.', 'Weigh in once so the trend has a starting point.'],
+  focus: ['Log what you eat on 3 days in the last 7 days, even roughly.', 'Weigh in once so the trend has a starting point.'],
   score: null,
   empty: true,
 };
+const USAGE_STORE_DOWN = "We couldn't check your AI usage. Please try again.";
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
     let tier = 'free';
     let profile = null;
+    let user = null;
     try {
-      const user = await getUserById(req.user.userId);
-      const denied = consentResponse(user && user.settings);
-      if (denied) return res.status(denied.status).json(denied.body);
+      user = await getUserById(req.user.userId);
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => { reviewUnread = true; return null; });
     } catch (_) {
@@ -2430,24 +2432,44 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // An unreadable profile fails closed with no AI. Everyone else is scored only after 3 logged days.
+    // An unreadable profile fails closed with no AI. That review is personal, so consent still applies.
     const reviewFilters = dietGuard.savedFilters(profile);
-    if (reviewUnread || dietGuard.unreadable(reviewFilters)) {
+    const unreadableReview = reviewUnread || dietGuard.unreadable(reviewFilters);
+    // Last 7 Sydney dates. A meal-log outage is a 503, never an empty "log 3 days".
+    const since = new Date(Date.now() - 7 * 86400000);
+    const mealSince = new Date(Date.now() - 8 * 86400000);
+    let weekMeals = [];
+    let days0 = 0;
+    if (!unreadableReview) {
+      let meals;
+      try {
+        meals = await getMealLogsForPeriod(req.user.userId, mealSince, new Date());
+      } catch (_) {
+        return res.status(503).json({ success: false, error: USAGE_STORE_DOWN });
+      }
+      weekMeals = mealsInReviewWindow(meals, new Date(), 7);
+      days0 = loggedSydneyDays(weekMeals, new Date(), 7);
+    }
+    const filteredReview = reviewFilters.length > 0;
+    const daysLogged = days0;
+    // The empty state uses no AI, so it is returned before the consent check.
+    if (days0 < REVIEW_MIN_DAYS && !filteredReview && !unreadableReview) {
+      return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+    }
+    const denied = consentResponse(user && user.settings);
+    if (denied) return res.status(denied.status).json(denied.body);
+    if (unreadableReview) {
       const mealFilters = reviewUnread
         ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
         : reviewFilters;
       return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
     }
-    // Gather the last 7 days of real data before deciding whether this week can be scored.
-    const since = new Date(Date.now() - 7 * 86400000);
-    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
     const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
     const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
 
     const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
-    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
-    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
-    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
+    const totCal = weekMeals.reduce((s, m) => s + (m.calories || 0), 0);
+    const totProt = weekMeals.reduce((s, m) => s + (Number(m.protein) || 0), 0);
     const stats = { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length };
     const reviewOpts = {
       filters: reviewFilters,
@@ -2456,15 +2478,9 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       daysLogged,
       workouts: weekWorkouts.length,
     };
-    const filteredReview = reviewFilters.length > 0;
-    // Too little logged to judge the week: no model call and no credit.
-    // Filtered users get the checked first-week review. Everyone else gets the empty state.
-    const days0 = daysLogged;
+    // Filtered users with too few days get the checked first-week review. No model call and no credit.
     if (days0 < REVIEW_MIN_DAYS) {
-      if (filteredReview) {
-        return res.json({ success: true, review: dietGuard.firstWeekReview(reviewOpts), stats, source: 'fixed', provider: null });
-      }
-      return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+      return res.json({ success: true, review: dietGuard.firstWeekReview(reviewOpts), stats, source: 'fixed', provider: null });
     }
     if (!aiClient.hasProvider()) {
       if (filteredReview) {
@@ -2549,8 +2565,18 @@ Cite the calorie and protein targets. Do not award a win for showing up, opening
       });
     }
 
-    const r = await callReview();
+    const refundWeekly = () => (typeof aiUsage.refundAiCall === 'function'
+      ? aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'weekly_review' })
+      : Promise.resolve(false));
+    let r;
+    try {
+      r = await callReview();
+    } catch (callErr) {
+      await refundWeekly();
+      throw callErr;
+    }
     if (!r.ok) {
+      await refundWeekly();
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
     if (!reviewDataText(r.data)) {

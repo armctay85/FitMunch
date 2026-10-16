@@ -843,7 +843,7 @@ footer{
         <p>Macro logging, a starter plan allowance, and a receipt scan teaser.</p>
         <ul>
           <li>Macro and meal logging</li>
-          <li>Limited AI actions each month</li>
+          <li data-free-ai>Free includes AI actions a month</li>
           <li>Starter shopping lists</li>
         </ul>
         <a class="btn btn-ink" href="/login.html?utm_source=homepage&utm_medium=pricing&utm_campaign=free_signup#register" data-fm-auth="register">Start free</a>
@@ -994,6 +994,21 @@ try {
       btn.textContent = 'Score the sample receipt';
     }
   });
+})();
+</script>
+<script>
+(function () {
+  var nodes = document.querySelectorAll('[data-free-ai]');
+  if (!nodes.length || !window.fetch) return;
+  fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (cfg) {
+      var n = cfg && Number(cfg.freeAiMonthly);
+      if (!Number.isFinite(n) || n < 0) return;
+      var line = 'Free includes ' + n + ' AI actions a month';
+      nodes.forEach(function (el) { el.textContent = line; });
+    })
+    .catch(function () {});
 })();
 </script>
 <script src="/js/fm-plan-demo.js" defer></script>

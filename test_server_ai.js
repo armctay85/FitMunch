@@ -49,6 +49,7 @@ jest.mock('./lib/ai-usage', () => {
     getUsed: jest.fn(async () => 0),
     increment: jest.fn(async () => {}),
     checkAndConsume: jest.fn(async () => ({ allowed: true, remaining: 9 })),
+    refundAiCall: jest.fn(async () => true),
   };
 });
 
@@ -342,6 +343,41 @@ describe('AI routes', () => {
     await expectLookupFailure(() => request(app)
       .get('/api/ai/weekly-review')
       .set('Authorization', `Bearer ${token}`));
+  });
+
+  it('GET /api/ai/weekly-review returns 503 when meal logs cannot be read, not an empty week', async () => {
+    const storage = require('./server/storage.js');
+    const aiClient = require('./lib/ai-client');
+    storage.getMealLogsForPeriod.mockRejectedValueOnce(new Error('meal logs down'));
+    aiClient.chatJson.mockClear();
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${token}`);
+    expect(r.status).toBe(503);
+    expect(r.body.error).toBe("We couldn't check your AI usage. Please try again.");
+    expect(r.body.review).toBeUndefined();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+  });
+
+  it('GET /api/ai/weekly-review empty state does not need AI consent', async () => {
+    const storage = require('./server/storage.js');
+    storage.getUserById.mockResolvedValueOnce({
+      id: 'u-test', name: 'Tester', email: 't@example.com', subscriptionTier: 'free', settings: {},
+    });
+    storage.getMealLogsForPeriod.mockResolvedValueOnce([]);
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${token}`);
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('empty');
+    expect(r.body.review.headline).toMatch(/last 7 days/);
+    expect(r.body.stats).toEqual({ daysLogged: 0, daysNeeded: 3 });
+  });
+
+  it('GET /api/ai/weekly-review refunds the free credit when the model call fails', async () => {
+    const aiClient = require('./lib/ai-client');
+    const aiUsage = require('./lib/ai-usage');
+    aiClient.chatJson.mockResolvedValueOnce({ ok: false, error: 'down', provider: 'mock' });
+    aiUsage.refundAiCall.mockClear();
+    const r = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${token}`);
+    expect(r.status).toBe(502);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.objectContaining({ allowed: true }), { userId: 'u-test', feature: 'weekly_review' });
   });
 
   it('POST /api/meal-plan/generate returns 503 when the account lookup throws', async () => {
