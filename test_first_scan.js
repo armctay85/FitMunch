@@ -200,6 +200,7 @@ describe('POST /api/receipt/scan read failure', () => {
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
+    const refund = jest.spyOn(aiUsage, 'refundAiCall');
     const info = jest.spyOn(console, 'info').mockImplementation(() => {});
 
     const res = await request(app)
@@ -217,7 +218,8 @@ describe('POST /api/receipt/scan read failure', () => {
     expect(res.body.shareText).toBeUndefined();
     expect(JSON.stringify(res.body)).not.toMatch(/Chicken Breast 1kg|Rolled Oats|sample-fallback|GEMINI_API_KEY|Just scanned my weekly shop/);
     expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
-    expect(consume).not.toHaveBeenCalled();
+    expect(consume).toHaveBeenCalledTimes(1);
+    expect(refund).toHaveBeenCalledTimes(1);
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('scan_unavailable');
     expect(logged).not.toContain('u-scan-fail');
@@ -243,6 +245,7 @@ describe('POST /api/receipt/scan read failure', () => {
       },
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    jest.spyOn(aiUsage, 'checkAndConsume').mockResolvedValue({ allowed: true, remaining: 29, smoke: true, userId: 'u-scan-fail', day: 'day:2026-10-16' });
     try {
       const res = await request(app)
         .post('/api/receipt/scan')
@@ -300,6 +303,7 @@ describe('POST /api/receipt/scan read failure', () => {
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
+    const refund = jest.spyOn(aiUsage, 'refundAiCall');
     const info = jest.spyOn(console, 'info').mockImplementation(() => {});
 
     const res = await request(app)
@@ -314,7 +318,8 @@ describe('POST /api/receipt/scan read failure', () => {
     });
     expect(res.body.scanDiag).toBeUndefined();
     expect(res.body.items).toBeUndefined();
-    expect(consume).not.toHaveBeenCalled();
+    expect(consume).toHaveBeenCalledTimes(1);
+    expect(refund).toHaveBeenCalledTimes(1);
     const logged = info.mock.calls.map((args) => args.join(' ')).join('\n');
     expect(logged).toContain('"provider":"openai"');
     expect(logged).toContain('"errorClass":"unreadable"');
@@ -333,6 +338,7 @@ describe('POST /api/receipt/scan read failure', () => {
       diag: { counts: { openai: { '200': 1 } }, p50Ms: 140 },
     }));
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    jest.spyOn(aiUsage, 'checkAndConsume').mockResolvedValue({ allowed: true, remaining: 29, smoke: true, userId: 'u-scan-fail', day: 'day:2026-10-16' });
     const info = jest.spyOn(console, 'info').mockImplementation(() => {});
     try {
       const res = await request(app)
@@ -467,6 +473,7 @@ describe('POST /api/receipt/scan read failure', () => {
     delete process.env.OPENAI_API_KEY;
     jest.spyOn(storage, 'getUserById').mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
     const consume = jest.spyOn(aiUsage, 'checkAndConsume');
+    const refund = jest.spyOn(aiUsage, 'refundAiCall');
     try {
       const res = await request(app)
         .post('/api/receipt/scan')
@@ -478,7 +485,8 @@ describe('POST /api/receipt/scan read failure', () => {
       expect(res.body.items).toBeUndefined();
       expect(JSON.stringify(res.body)).not.toMatch(/API_KEY|GEMINI|sample-fallback/);
       expect(JSON.stringify(res.body)).not.toMatch(SCAN_PROVIDER_NAME);
-      expect(consume).not.toHaveBeenCalled();
+      expect(consume).toHaveBeenCalledTimes(1);
+      expect(refund).toHaveBeenCalledTimes(1);
     } finally {
       for (const [key, value] of Object.entries(previous)) {
         if (value == null) delete process.env[key];

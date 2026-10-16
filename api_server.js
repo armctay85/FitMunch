@@ -195,7 +195,10 @@ router.post('/meals/log', authMiddleware, async (req, res) => {
     if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
-    if (mealData.date) mealData.date = new Date(mealData.date);
+    if (mealData.date) {
+      if (!isRealIsoDate(mealData.date)) return res.status(400).json({ success: false, error: 'Date is not valid.' });
+      mealData.date = new Date(mealData.date);
+    }
     const meal = await logMeal(req.user.userId, mealData);
     res.json({ success: true, meal });
   } catch (error) {
@@ -285,9 +288,8 @@ function progressInput(body) {
     out.notes = b.notes.slice(0, 1000);
   }
   if (b.date !== undefined && b.date !== null && b.date !== '') {
+    if (!isRealIsoDate(b.date)) return { error: 'Date is not valid.' };
     const d = new Date(b.date);
-    if (typeof b.date !== 'string' && typeof b.date !== 'number') return { error: 'Date is not valid.' };
-    if (Number.isNaN(d.getTime()) || d.getFullYear() < 1900) return { error: 'Date is not valid.' };
     if (d.getTime() > Date.now() + 24 * 3600 * 1000) return { error: 'Date can be at most a day ahead.' };
     out.date = d;
   }
@@ -1828,7 +1830,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       const mealFilters = insightUnread
         ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
         : insightFilters;
-      const insight = dietGuard.safeInsight({ filters: mealFilters, calories: insightCalories, protein: insightProtein });
+      const pastBudget = !insightUnread && !!mealSafety.profileFilters(insightProfile).pastBudget;
+      const insight = dietGuard.safeInsight({ filters: mealFilters, calories: insightCalories, protein: insightProtein, pastBudget });
       return res.json({ success: true, insight, provider: null });
     }
     const filters = mealSafety.profileFilters(insightProfile);
@@ -1843,6 +1846,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {
@@ -2176,6 +2180,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {
@@ -2298,6 +2303,7 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
     const used = await aiUsage.getUsed(userId);
     // Free accounts stop when the counter cannot be read. Paid accounts keep the old display (EQA #163).
     if (used == null && !isPaid) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     const shown = used == null ? 0 : used;
@@ -2349,6 +2355,7 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {
@@ -2442,7 +2449,8 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       const mealFilters = reviewUnread
         ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
         : reviewFilters;
-      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+      const pastBudget = !reviewUnread && !!mealSafety.profileFilters(profile).pastBudget;
+      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein, pastBudget }), source: 'fixed', provider: null });
     }
     // Gather the last 7 days of real data before deciding whether this week can be scored.
     const since = new Date(Date.now() - 7 * 86400000);
@@ -2481,6 +2489,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {

@@ -265,7 +265,9 @@ router.post('/generate', requireAuth, async (req, res) => {
       // with no builder filter (lupin, kiwi) is honoured too.
       plan: builtPlan(input, dietary, pastBudget),
       source: 'builder',
-      notice: dietGuard.unreadable(dietary) ? dietGuard.unreadableNotice(pastBudget) + ' ' + dietGuard.PLAN_NOTICE : dietGuard.PLAN_NOTICE,
+      notice: dietGuard.unreadable(dietary)
+        ? (pastBudget ? dietGuard.unreadableNotice(true) : dietGuard.unreadableNotice(false) + ' ' + dietGuard.PLAN_NOTICE)
+        : dietGuard.PLAN_NOTICE,
       dietary: input.dietary,
     });
   };
@@ -313,6 +315,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       const tier = await userTier(req.user.userId);
       gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
       if (!gate.allowed && gate.unavailable) {
+        res.set('Retry-After', '3');
         return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
       }
       if (!gate.allowed && gate.smoke) {

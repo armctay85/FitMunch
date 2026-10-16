@@ -117,6 +117,18 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     expect(out).toContain(dietGuard.UNREADABLE);
     expect(out).not.toContain('peanut');
     expect(dietGuard.listOf({ nope: false, empty: '', zero: 0, peanut: true })).toEqual(['peanut']);
+    const arr = new Array(100000).fill(false);
+    arr.push('peanut');
+    const stopped = dietGuard.listOf(arr);
+    expect(stopped).toContain(dietGuard.UNREADABLE);
+    expect(stopped).not.toContain('peanut');
+    expect(stopped.length).toBeGreaterThan(0);
+    expect(stopped.length).toBeLessThan(dietGuard.MAX_FILTER_SCAN);
+    const blanks = new Array(100000).fill('');
+    blanks.push('peanut');
+    const blankStopped = dietGuard.listOf(blanks);
+    expect(blankStopped).toContain(dietGuard.UNREADABLE);
+    expect(blankStopped).not.toContain('peanut');
   });
 
   it('listOf keeps every item within the character budget, and fails closed past it', () => {

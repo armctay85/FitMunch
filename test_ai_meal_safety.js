@@ -1159,7 +1159,8 @@ describe('r11: allergy read budget on the builder and typed meals', () => {
       expect(res.status).toBe(200);
       expect(res.body.source).toBe('builder');
       expect(aiClient.chatJson).not.toHaveBeenCalled();
-      expect(res.body.notice).toContain("Some foods you typed weren't checked.");
+      expect(res.body.notice).toBe(dietGuard.unreadableNotice(true));
+      expect(res.body.notice).not.toMatch(/\bsafe\b/i);
       const meals = res.body.plan.days.flatMap((d) => Object.values(d.meals));
       expect(meals.length).toBeGreaterThan(0);
       expect(meals.every((m) => m.unchecked === true)).toBe(true);
@@ -1224,6 +1225,54 @@ describe('r11: allergy read budget on the builder and typed meals', () => {
     engine.buildPlan({ calories: 2000, protein: 100, days: 1, dietary: ['gluten free', ...many.slice(0, 200), 'banana'] });
     expect(spy.mock.calls.length).toBeLessThan(200);
     spy.mockRestore();
+  });
+
+  const CLAIM = /\b(?:checked|fits|safe)\b/i;
+  it('past the budget, chat, insight, weekly and training name no meal and make no checked claim', async () => {
+    profile = { allergies: pastList('banana'), targetCalories: 2000, targetProtein: 140 };
+    const dietGuard = require('./lib/diet-guard');
+    const hold = dietGuard.PAST_BUDGET_HOLD;
+    expect(hold).not.toMatch(CLAIM);
+    expect(hold).toMatch(/shorten your allergy list/i);
+    const chat = await request(app).post('/api/ai/chat').set('Authorization', auth).send({
+      intent: 'nutrition', messages: [{ role: 'user', content: 'What can I eat for breakfast?' }],
+    });
+    expect(chat.status).toBe(200);
+    expect(chat.body.provider).toBeNull();
+    expect(chat.body.reply).toBe(hold);
+    expect(chat.body.reply).not.toMatch(CLAIM);
+    expect(chat.body.reply).not.toMatch(/banana|mango|yoghurt|breakfast:|kcal/i);
+    const training = await request(app).post('/api/ai/chat').set('Authorization', auth).send({
+      intent: 'workout', messages: [{ role: 'user', content: 'How many sets for squats?' }],
+    });
+    expect(training.status).toBe(200);
+    expect(training.body.provider).toBeNull();
+    expect(training.body.reply).toBe(hold);
+    expect(training.body.reply).not.toMatch(CLAIM);
+    expect(training.body.reply).not.toMatch(/banana|mango|yoghurt|breakfast:|kcal/i);
+    const insight = await request(app).post('/api/ai/insight').set('Authorization', auth).send({ todayCalories: 400, todayProtein: 20 });
+    expect(insight.status).toBe(200);
+    expect(insight.body.provider).toBeNull();
+    expect(insight.body.insight).toBe(hold);
+    expect(insight.body.insight).not.toMatch(CLAIM);
+    expect(insight.body.insight).not.toMatch(/banana|mango|beef|sweet potato|kcal/i);
+    const weekly = await request(app).get('/api/ai/weekly-review').set('Authorization', auth);
+    expect(weekly.status).toBe(200);
+    expect(weekly.body.provider).toBeNull();
+    expect(weekly.body.review).toEqual({ headline: hold, wins: [], focus: [], score: null });
+    expect(JSON.stringify(weekly.body.review)).not.toMatch(CLAIM);
+    expect(JSON.stringify(weekly.body.review)).not.toMatch(/banana|mango|beef|kcal/i);
+    const filters = safety.profileFilters(profile).dietary;
+    for (const text of [
+      dietGuard.safeCoachReply({ filters, pastBudget: true }).reply,
+      dietGuard.safeTrainingReply({ filters, pastBudget: true }),
+      dietGuard.safeInsight({ filters, pastBudget: true }),
+      JSON.stringify(dietGuard.safeWeeklyReview({ filters, pastBudget: true })),
+    ]) {
+      expect(text).toBe(text.includes('{') ? JSON.stringify({ headline: hold, wins: [], focus: [], score: null }) : hold);
+      expect(text).not.toMatch(CLAIM);
+      expect(text).not.toMatch(/banana|mango|Breakfast|kcal/);
+    }
   });
 
   it('the generated plan shows a Not checked badge when a meal is unchecked', () => {
