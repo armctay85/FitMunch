@@ -19,10 +19,47 @@
  font-family: 'Literata', Georgia, serif;
  background: var(--bg); color: var(--text);
  min-height: 100vh; display: flex; align-items: center; justify-content: center;
- padding: 20px;
+ padding: 28px 20px;
  background-image:
  radial-gradient(ellipse 640px 420px at 12% -8%, rgba(31,157,74,.12), transparent 60%),
  radial-gradient(ellipse 560px 400px at 95% 105%, rgba(31,157,74,.08), transparent 60%);
+ }
+ .auth-shell {
+ width: min(960px, 100%);
+ display: grid;
+ grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+ gap: 36px;
+ align-items: center;
+ }
+ .auth-kicker {
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-size: .75rem; font-weight: 700; letter-spacing: .12em;
+ text-transform: uppercase; color: #7dffa3; margin-bottom: 10px;
+ }
+ .auth-aside h1 {
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-size: clamp(1.8rem, 4vw, 2.7rem); font-weight: 800;
+ letter-spacing: -.045em; line-height: 1.05; color: #f4f7f4; margin-bottom: 12px;
+ }
+ .auth-line { color: #d7e7db; font-size: 1.05rem; line-height: 1.5; margin-bottom: 18px; max-width: 36ch; }
+ .auth-meal { background: #f6f3ea; color: #10261a; border-radius: 16px; padding: 16px 16px 14px; }
+ .auth-meal-k {
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-size: .75rem; font-weight: 700; letter-spacing: .08em;
+ text-transform: uppercase; color: #0c6428; margin-bottom: 6px;
+ }
+ .auth-meal-name {
+ font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-size: 1.15rem; font-weight: 800; letter-spacing: -.02em; margin-bottom: 4px;
+ }
+ .auth-meal-meta { color: #1c3328; font-size: .95rem; line-height: 1.4; margin-bottom: 10px; }
+ .auth-meal ul { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+ .auth-meal li {
+ font-size: .85rem; background: #fff; border: 1px solid #d5ddd6;
+ border-radius: 999px; padding: 6px 10px; color: #10261a;
+ }
+ @media (max-width: 800px) {
+ .auth-shell { grid-template-columns: 1fr; gap: 18px; }
  }
  :focus-visible { outline: 2px solid var(--green2); outline-offset: 2px; }
 
@@ -151,6 +188,21 @@
 </head>
 <body>
 
+<div class="auth-shell">
+ <aside class="auth-aside">
+  <p class="auth-kicker">FitMunch</p>
+  <h1>Your body wrote the trolley.</h1>
+  <p class="auth-line">A week of meals from your targets, then the shopping list.</p>
+  <div class="auth-meal">
+   <p class="auth-meal-k">Sample Wednesday</p>
+   <p class="auth-meal-name">Chicken and sweet potato</p>
+   <p class="auth-meal-meta">Lunch · 640 kcal · 48g protein</p>
+   <ul>
+    <li>Chicken breast</li>
+    <li>Sweet potato</li>
+   </ul>
+  </div>
+ </aside>
 <div class="card">
  <div class="logo">
  <img src="/assets/logo.svg" alt="FitMunch" width="44" height="44" style="flex-shrink:0;display:block"/>
@@ -160,10 +212,6 @@
  <div id="premium-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(31,157,74,.35);background:rgba(31,157,74,.1);border-radius:4px">
  <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</div>
- </div>
- <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
- <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
- <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
  </div>
  <div id="claim-intent" class="claim-card" style="display:none">
  <div class="claim-kicker" style="color:var(--green)">Finish your account</div>
@@ -258,6 +306,10 @@
 
  <!-- REGISTER PANEL -->
  <div class="panel" id="panel-register">
+ <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
+ <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
+ <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
+ </div>
  <div class="error-msg" id="register-error"></div>
  <div class="success-msg" id="register-success"></div>
 
@@ -284,6 +336,7 @@
  Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
  </div>
  </div>
+</div>
 </div>
 
 <script>

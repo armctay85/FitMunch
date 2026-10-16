@@ -232,7 +232,7 @@
 }
 .goal-chip:hover{border-color:#1f9d4a}
 .goal-chip.is-on{background:#10261a;color:#f4f7f4;border-color:#10261a}
-.plan-note{font-size:.78rem;line-height:1.45;color:#5c6d64;margin:2px 0 10px;max-width:46ch}
+.plan-note{font-size:.875rem;line-height:1.45;color:#1c3328;margin:2px 0 10px;max-width:46ch}
 .plan-bars{display:grid;gap:8px;margin-bottom:12px}
 .bar{display:grid;grid-template-columns:72px 1fr auto;gap:8px;align-items:center}
 .bar span,.bar b{
@@ -273,7 +273,7 @@
   font-family:'Bricolage Grotesque',system-ui,sans-serif;
   font-weight:800;letter-spacing:-.02em;font-size:.92rem;line-height:1.2;
 }
-.meal-meta{font-size:.75rem;color:#5c6d64;line-height:1.3}
+.meal-meta{font-size:.875rem;color:#1c3328;line-height:1.35}
 .plan-trolley{margin-top:10px;padding-top:10px;border-top:1px solid #e4ebe4}
 .plan-trolley p{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
@@ -299,33 +299,34 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   margin:0;
   aspect-ratio:auto;
   object-fit:cover;
-  object-position:center 68%;
+  object-position:top center;
   border:0;
+  border-top:1px solid rgba(125,255,163,.28);
   border-radius:0;
   box-shadow:none;
-  background:#0c1c14;
-  filter:blur(18px);
-  opacity:.4;
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+  background:#f4f7f4;
+  filter:none;
+  opacity:1;
+  -webkit-mask-image:none;
+  mask-image:none;
 }
 .hero-app-note{
   position:relative;
   z-index:1;
   margin:0;
-  padding:8px 14px 2px;
-  background:#0c1c14;
-  color:#d7e7db;
-  font-size:.75rem;
+  padding:10px 14px;
+  background:#10261a;
+  color:#f4fbf6;
+  font-size:.875rem;
   line-height:1.45;
 }
 .fold .hero-shot figcaption{
   margin:0;
-  padding:2px 14px 14px;
+  padding:4px 14px 14px;
   max-width:none;
-  background:transparent;
-  color:#d7e7db;
-  font-size:.75rem;
+  background:#0c1c14;
+  color:#f4fbf6;
+  font-size:.875rem;
   line-height:1.45;
 }
 
@@ -344,7 +345,8 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 }
 .engine h2,.coach-door h2,.faq h2{
   font-size:clamp(1.9rem,4.4vw,3rem);
-  font-weight:800;letter-spacing:-.055em;line-height:1.02;margin-bottom:12px;max-width:16ch;
+  font-weight:800;letter-spacing:-.055em;line-height:1.05;margin-bottom:12px;max-width:20em;
+  text-wrap:balance;
 }
 .engine-lead{color:#5c6d64;font-size:1.05rem;line-height:1.6;max-width:46ch;margin-bottom:28px}
 .engine-art{width:min(640px,100%);height:auto;display:block;margin:0 0 28px}
@@ -407,7 +409,12 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 .pricing{padding:clamp(64px,10vw,112px) 16px}
 .plans{border-radius:18px;overflow:hidden}
 .plan{padding:28px 22px}
-.price-n{font-size:clamp(2.4rem,6vw,3.2rem)}
+.price-n{font-size:clamp(2.4rem,6vw,3.2rem);line-height:1.05}
+.pricing .price-n small,.price-n small{
+  display:block;margin-top:8px;font-size:1.05rem;line-height:1.4;font-weight:600;
+  letter-spacing:0;color:#1c3328;
+}
+.pricing a.btn,.final a.btn{padding:14px 22px;min-height:52px}
 .final{padding:clamp(72px,12vw,120px) 16px;position:relative;overflow:hidden}
 .final:before{
   content:"";
@@ -430,11 +437,11 @@ html.fm-motion .reveal{
 html.fm-motion .reveal.is-in{opacity:1;transform:none}
 
 @media(min-width:860px){
-  .fold{height:100svh;min-height:100svh}
+  .fold{height:auto;min-height:100svh}
   .trial-bar{min-height:40px;padding:8px 16px}
   .site-nav{padding:10px 40px}
   .fold .hero{padding:6px 40px 16px}
-  .fold .hero-copy{justify-content:space-between;height:100%;padding:8px 0 4px}
+  .fold .hero-copy{justify-content:flex-start;align-self:center;height:auto;padding:8px 0 4px}
   .fold .hero h1.hero-display{font-size:clamp(3rem, 4.2vw, 4.7rem)}
   .fold .hero-copy h2{font-size:clamp(1.2rem, 1.7vw, 1.55rem)}
   .fold .hero-inner{
@@ -442,11 +449,12 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
     gap:32px;
   }
   .fold .hero-shot{
-    height:100%;
+    height:auto;
+    align-self:start;
     min-height:0;
-    grid-template-rows:64px minmax(0,1fr) 176px auto;
+    grid-template-rows:168px auto auto auto auto;
   }
-  .fold .hero-food{height:100%;min-height:72px}
+  .fold .hero-food{height:168px;min-height:0;width:100%}
   .fold .plan-live{padding:10px 12px 8px}
   .plan-chips{margin-bottom:4px}
   .goal-chip{min-height:44px}
@@ -459,8 +467,10 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
     position:relative;
     top:auto;right:auto;
     width:100%;
-    height:176px;
-    border:0;border-radius:0;box-shadow:none;
+    height:168px;
+    border:0;border-top:1px solid rgba(125,255,163,.28);border-radius:0;box-shadow:none;
+    filter:none;opacity:1;-webkit-mask-image:none;mask-image:none;
+    object-position:top center;
   }
   .engine-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .coach-inner{grid-template-columns:1.1fr .9fr;gap:40px}
@@ -470,7 +480,10 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
 @media(max-width:859px){
   .fold{height:auto;min-height:100svh}
   .trial-bar{font-size:.78rem;padding:8px 12px;min-height:44px}
-  .site-nav{padding:8px 16px}
+  .site-nav{padding:8px 10px;gap:2px}
+  .brand{font-size:1rem;gap:6px}
+  .nav-links a{padding:0 8px;font-size:.8rem}
+  .nav-links a.nav-cta{padding:0 10px;margin-left:2px}
   .fold .hero{padding:4px 16px 16px}
   .fold .hero h1.hero-display{font-size:2.15rem;margin-bottom:8px}
   .fold .hero-copy h2{font-size:1.05rem;margin-bottom:8px}
@@ -480,11 +493,15 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
   .fold .hero-ctas .btn{width:100%}
   .hero-hooks li{flex:1 1 auto}
   .fold .hero-shot{grid-template-rows:auto}
-  .plan-live{order:1}
-  .fold .hero-food{order:2;height:88px}
-  .fold .hero-app{order:3;position:relative;top:auto;right:auto;width:100%;height:168px;border:0;border-radius:0;box-shadow:none}
-  .hero-app-note{order:4}
+  .fold .hero-food{order:1;height:148px;width:100%}
+  .plan-live{order:2}
+  .hero-app-note{order:3}
+  .fold .hero-app{order:4;position:relative;top:auto;right:auto;width:100%;height:148px;border:0;border-radius:0;box-shadow:none;filter:none;opacity:1;-webkit-mask-image:none;mask-image:none;object-position:top center}
   .fold .hero-shot figcaption{order:5}
+}
+@media(max-width:360px){
+  .site-nav .nav-links a[data-fm-auth="login"]{display:none}
+  .site-nav.is-open .nav-links a[data-fm-auth="login"]{display:flex}
 }
 @media(max-width:359px){
   .fold .hero{padding-left:12px;padding-right:12px}

@@ -1,106 +1,136 @@
 /* Live sample day. No network. Numbers are a preview, not a saved plan. */
-(function () {
-  var root = document.getElementById('plan-demo');
-  if (!root) return;
-
+(function (exp) {
   var PLANS = {
     cut: {
       classic: {
         kcal: 2000, protein: 150,
         meals: [
-          ['Breakfast', 'Veggie omelette with potatoes', '501 kcal · 38g protein'],
-          ['Lunch', 'Chicken and sweet potato', '640 kcal · 48g protein'],
-          ['Dinner', 'Salmon, greens and rice', '560 kcal · 42g protein'],
-          ['Snack', 'Greek yoghurt and berries', '299 kcal · 22g protein']
-        ],
-        trolley: ['Eggs', 'Chicken breast', 'Sweet potato', 'Salmon', 'Greek yoghurt', 'Broccoli', 'Berries']
+          meal('Breakfast', 'Veggie omelette with potatoes', '501 kcal · 38g protein', ['Eggs', 'Potatoes', 'Vegetables']),
+          meal('Lunch', 'Chicken and sweet potato', '640 kcal · 48g protein', ['Chicken breast', 'Sweet potato']),
+          meal('Dinner', 'Salmon, greens and rice', '560 kcal · 42g protein', ['Salmon', 'Greens', 'Rice']),
+          meal('Snack', 'Greek yoghurt and berries', '299 kcal · 22g protein', ['Greek yoghurt', 'Berries'])
+        ]
       },
       protein: {
         kcal: 2000, protein: 170,
         meals: [
-          ['Breakfast', 'Egg whites and oats', '420 kcal · 40g protein'],
-          ['Lunch', 'Chicken and broccoli', '610 kcal · 58g protein'],
-          ['Dinner', 'Beef mince and rice', '640 kcal · 52g protein'],
-          ['Snack', 'Cottage cheese', '330 kcal · 20g protein']
-        ],
-        trolley: ['Egg whites', 'Rolled oats', 'Chicken breast', 'Broccoli', 'Beef mince', 'Rice', 'Cottage cheese']
+          meal('Breakfast', 'Egg whites and oats', '420 kcal · 40g protein', ['Egg whites', 'Rolled oats']),
+          meal('Lunch', 'Chicken and broccoli', '610 kcal · 58g protein', ['Chicken breast', 'Broccoli']),
+          meal('Dinner', 'Beef mince and rice', '640 kcal · 52g protein', ['Beef mince', 'Rice']),
+          meal('Snack', 'Cottage cheese', '330 kcal · 20g protein', ['Cottage cheese'])
+        ]
       },
       plant: {
         kcal: 2000, protein: 130,
         meals: [
-          ['Breakfast', 'Tofu scramble and potatoes', '480 kcal · 38g protein'],
-          ['Lunch', 'Chickpea and rice bowl', '620 kcal · 36g protein'],
-          ['Dinner', 'Lentil tray and greens', '590 kcal · 44g protein'],
-          ['Snack', 'Soy yoghurt and berries', '310 kcal · 12g protein']
-        ],
-        trolley: ['Tofu', 'Potatoes', 'Chickpeas', 'Rice', 'Lentils', 'Greens', 'Soy yoghurt']
+          meal('Breakfast', 'Tofu scramble and potatoes', '480 kcal · 38g protein', ['Tofu', 'Potatoes']),
+          meal('Lunch', 'Chickpea and rice bowl', '620 kcal · 36g protein', ['Chickpeas', 'Rice']),
+          meal('Dinner', 'Lentil tray and greens', '590 kcal · 44g protein', ['Lentils', 'Greens']),
+          meal('Snack', 'Soy yoghurt and berries', '310 kcal · 12g protein', ['Soy yoghurt', 'Berries'])
+        ]
       }
     },
     build: {
       classic: {
         kcal: 2800, protein: 180,
         meals: [
-          ['Breakfast', 'Oats, eggs and banana', '740 kcal · 36g protein'],
-          ['Lunch', 'Chicken rice bowl', '820 kcal · 58g protein'],
-          ['Dinner', 'Beef, pasta and greens', '840 kcal · 54g protein'],
-          ['Snack', 'Cottage cheese and fruit', '400 kcal · 32g protein']
-        ],
-        trolley: ['Rolled oats', 'Eggs', 'Banana', 'Chicken breast', 'Rice', 'Beef mince', 'Pasta']
+          meal('Breakfast', 'Oats, eggs and banana', '740 kcal · 36g protein', ['Rolled oats', 'Eggs', 'Banana']),
+          meal('Lunch', 'Chicken rice bowl', '820 kcal · 58g protein', ['Chicken breast', 'Rice']),
+          meal('Dinner', 'Beef, pasta and greens', '840 kcal · 54g protein', ['Beef mince', 'Pasta', 'Greens']),
+          meal('Snack', 'Cottage cheese and fruit', '400 kcal · 32g protein', ['Cottage cheese', 'Fruit'])
+        ]
       },
       protein: {
         kcal: 2800, protein: 210,
         meals: [
-          ['Breakfast', 'Egg and oat stack', '680 kcal · 48g protein'],
-          ['Lunch', 'Double chicken rice', '860 kcal · 72g protein'],
-          ['Dinner', 'Beef and sweet potato', '820 kcal · 60g protein'],
-          ['Snack', 'Greek yoghurt', '440 kcal · 30g protein']
-        ],
-        trolley: ['Eggs', 'Rolled oats', 'Chicken breast', 'Rice', 'Beef mince', 'Sweet potato', 'Greek yoghurt']
+          meal('Breakfast', 'Egg and oat stack', '680 kcal · 48g protein', ['Eggs', 'Rolled oats']),
+          meal('Lunch', 'Double chicken rice', '860 kcal · 72g protein', ['Chicken breast', 'Rice']),
+          meal('Dinner', 'Beef and sweet potato', '820 kcal · 60g protein', ['Beef mince', 'Sweet potato']),
+          meal('Snack', 'Greek yoghurt', '440 kcal · 30g protein', ['Greek yoghurt'])
+        ]
       },
       plant: {
         kcal: 2800, protein: 160,
         meals: [
-          ['Breakfast', 'Tofu, oats and banana', '720 kcal · 38g protein'],
-          ['Lunch', 'Tempeh rice bowl', '840 kcal · 46g protein'],
-          ['Dinner', 'Lentil pasta and greens', '820 kcal · 54g protein'],
-          ['Snack', 'Soy yoghurt and nuts', '420 kcal · 22g protein']
-        ],
-        trolley: ['Tofu', 'Rolled oats', 'Banana', 'Tempeh', 'Rice', 'Lentils', 'Pasta']
+          meal('Breakfast', 'Tofu, oats and banana', '720 kcal · 38g protein', ['Tofu', 'Rolled oats', 'Banana']),
+          meal('Lunch', 'Tempeh rice bowl', '840 kcal · 46g protein', ['Tempeh', 'Rice']),
+          meal('Dinner', 'Lentil pasta and greens', '820 kcal · 54g protein', ['Lentils', 'Pasta', 'Greens']),
+          meal('Snack', 'Soy yoghurt and nuts', '420 kcal · 22g protein', ['Soy yoghurt', 'Nuts'])
+        ]
       }
     },
     hold: {
       classic: {
         kcal: 2300, protein: 140,
         meals: [
-          ['Breakfast', 'Eggs on toast', '520 kcal · 28g protein'],
-          ['Lunch', 'Tuna rice bowl', '640 kcal · 42g protein'],
-          ['Dinner', 'Chicken tray and broccoli', '740 kcal · 48g protein'],
-          ['Snack', 'Yoghurt and berries', '400 kcal · 22g protein']
-        ],
-        trolley: ['Eggs', 'Bread', 'Tuna', 'Rice', 'Chicken breast', 'Broccoli', 'Yoghurt']
+          meal('Breakfast', 'Eggs on toast', '520 kcal · 28g protein', ['Eggs', 'Bread']),
+          meal('Lunch', 'Tuna rice bowl', '640 kcal · 42g protein', ['Tuna', 'Rice']),
+          meal('Dinner', 'Chicken tray and broccoli', '740 kcal · 48g protein', ['Chicken breast', 'Broccoli']),
+          meal('Snack', 'Yoghurt and berries', '400 kcal · 22g protein', ['Yoghurt', 'Berries'])
+        ]
       },
       protein: {
         kcal: 2300, protein: 170,
         meals: [
-          ['Breakfast', 'Eggs and cottage cheese', '480 kcal · 44g protein'],
-          ['Lunch', 'Chicken and sweet potato', '700 kcal · 56g protein'],
-          ['Dinner', 'Turkey mince and rice', '720 kcal · 50g protein'],
-          ['Snack', 'Greek yoghurt', '400 kcal · 20g protein']
-        ],
-        trolley: ['Eggs', 'Cottage cheese', 'Chicken breast', 'Sweet potato', 'Turkey mince', 'Rice', 'Greek yoghurt']
+          meal('Breakfast', 'Eggs and cottage cheese', '480 kcal · 44g protein', ['Eggs', 'Cottage cheese']),
+          meal('Lunch', 'Chicken and sweet potato', '700 kcal · 56g protein', ['Chicken breast', 'Sweet potato']),
+          meal('Dinner', 'Turkey mince and rice', '720 kcal · 50g protein', ['Turkey mince', 'Rice']),
+          meal('Snack', 'Greek yoghurt', '400 kcal · 20g protein', ['Greek yoghurt'])
+        ]
       },
       plant: {
         kcal: 2300, protein: 120,
         meals: [
-          ['Breakfast', 'Tofu and toast', '510 kcal · 32g protein'],
-          ['Lunch', 'Chickpea rice bowl', '680 kcal · 36g protein'],
-          ['Dinner', 'Lentil tray', '710 kcal · 38g protein'],
-          ['Snack', 'Soy yoghurt and berries', '400 kcal · 14g protein']
-        ],
-        trolley: ['Tofu', 'Bread', 'Chickpeas', 'Rice', 'Lentils', 'Greens', 'Soy yoghurt']
+          meal('Breakfast', 'Tofu and toast', '510 kcal · 32g protein', ['Tofu', 'Bread']),
+          meal('Lunch', 'Chickpea rice bowl', '680 kcal · 36g protein', ['Chickpeas', 'Rice']),
+          meal('Dinner', 'Lentil tray', '710 kcal · 38g protein', ['Lentils']),
+          meal('Snack', 'Soy yoghurt and berries', '400 kcal · 14g protein', ['Soy yoghurt', 'Berries'])
+        ]
       }
     }
   };
+
+  function meal(slot, name, meta, items) {
+    return { slot: slot, name: name, meta: meta, items: items };
+  }
+
+  function trolleyFor(plan) {
+    var seen = {};
+    var out = [];
+    plan.meals.forEach(function (row) {
+      row.items.forEach(function (item) {
+        if (seen[item]) return;
+        seen[item] = true;
+        out.push(item);
+      });
+    });
+    return out;
+  }
+
+  function comma(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function captionFor(goal, diet, plan) {
+    var kcal = comma(plan.kcal);
+    var pro = plan.protein + 'g protein';
+    if (goal === 'cut' && diet === 'classic') {
+      return 'Your first week: built for 82kg cutting to 78kg, at ' + kcal + ' kcal and ' + pro + ', with Swap open on breakfast.';
+    }
+    var goalName = { cut: 'Cut', build: 'Build', hold: 'Hold' }[goal];
+    var dietName = { classic: 'Classic', protein: 'High protein', plant: 'Plant' }[diet];
+    return goalName + ', ' + dietName + ': a sample day at ' + kcal + ' kcal and ' + pro + '.';
+  }
+
+  if (exp) {
+    exp.PLANS = PLANS;
+    exp.trolleyFor = trolleyFor;
+    exp.captionFor = captionFor;
+  }
+
+  if (typeof document === 'undefined') return;
+  var root = document.getElementById('plan-demo');
+  if (!root) return;
 
   var goal = 'cut';
   var diet = 'classic';
@@ -112,10 +142,6 @@
   var mealsEl = document.getElementById('plan-meals');
   var trolleyEl = document.getElementById('plan-trolley');
   var note = document.getElementById('plan-note');
-
-  function comma(n) {
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
 
   function paint(animate) {
     var plan = PLANS[goal][diet];
@@ -142,13 +168,13 @@
         if (animate && !reduced) li.style.animationDelay = (i * 70) + 'ms';
         var slot = document.createElement('span');
         slot.className = 'slot';
-        slot.textContent = row[0].slice(0, 1);
+        slot.textContent = row.slot.slice(0, 1);
         var name = document.createElement('span');
         name.className = 'meal-name';
-        name.textContent = row[1];
+        name.textContent = row.name;
         var meta = document.createElement('span');
         meta.className = 'meal-meta';
-        meta.textContent = row[0] + ' · ' + row[2];
+        meta.textContent = row.slot + ' · ' + row.meta;
         li.appendChild(slot);
         li.appendChild(name);
         li.appendChild(meta);
@@ -157,7 +183,7 @@
     }
     if (trolleyEl) {
       trolleyEl.textContent = '';
-      plan.trolley.forEach(function (item) {
+      trolleyFor(plan).forEach(function (item) {
         var li = document.createElement('li');
         li.textContent = item;
         trolleyEl.appendChild(li);
@@ -167,14 +193,10 @@
     var lock = document.querySelector('.hero-lock');
     if (lock) lock.textContent = totals + ' Pick another goal and the meals follow.';
     var cap = document.querySelector('.hero-shot figcaption');
-    if (cap) {
-      cap.textContent = (goal === 'cut' && diet === 'classic')
-        ? 'Your first week: built for 82kg cutting to 78kg, at ' + comma(plan.kcal) + ' kcal and ' + plan.protein + 'g protein, with Swap open on breakfast.'
-        : 'Sample day at ' + comma(plan.kcal) + ' kcal and ' + plan.protein + 'g protein.';
-    }
+    if (cap) cap.textContent = captionFor(goal, diet, plan);
   }
 
-  function select(group, value, attr) {
+  function select(value, attr) {
     root.querySelectorAll('[data-' + attr + ']').forEach(function (btn) {
       var on = btn.getAttribute('data-' + attr) === value;
       btn.classList.toggle('is-on', on);
@@ -187,11 +209,11 @@
     if (!btn || !root.contains(btn)) return;
     if (btn.hasAttribute('data-goal')) {
       goal = btn.getAttribute('data-goal');
-      select('goal', goal, 'goal');
+      select(goal, 'goal');
       paint(true);
     } else if (btn.hasAttribute('data-diet')) {
       diet = btn.getAttribute('data-diet');
-      select('diet', diet, 'diet');
+      select(diet, 'diet');
       paint(true);
     }
   });
@@ -211,4 +233,4 @@
     });
   }, { threshold: 0.16 });
   nodes.forEach(function (n) { io.observe(n); });
-})();
+})(typeof module !== 'undefined' && module.exports ? module.exports : null);
