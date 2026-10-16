@@ -3764,6 +3764,11 @@ function obMealRow(d, slot, m, onSwap) {
  const body = document.createElement('div'); body.className = 'ob-meal-body';
  const k = document.createElement('div'); k.className = 'ob-meal-k'; k.textContent = label;
  const n = document.createElement('div'); n.className = 'ob-meal-n'; n.textContent = obTitle(m.name);
+ if (m.unchecked) {
+ const badge = document.createElement('span'); badge.className = 'allergen-note-badge'; badge.textContent = 'Not checked';
+ badge.title = "We couldn't check this meal against your allergies, so check the ingredients.";
+ n.appendChild(document.createTextNode(' ')); n.appendChild(badge);
+ }
  const meta = document.createElement('div'); meta.className = 'ob-meal-meta';
  meta.textContent = [m.calories ? m.calories + ' kcal' : '', m.protein ? m.protein + 'g protein' : '', m.prepMins ? m.prepMins + ' min' : ''].filter(Boolean).join(' · ');
  body.append(k, n, meta); row.append(ic, body);
@@ -4349,7 +4354,7 @@ function renderPlanDay(day) {
  const ings = (meal.ingredients||[]).map(i => escapeHtml(`${i.item}${i.qty?' ('+i.qty+')':''}`)).join(' · ');
  html += `<div class="meal-card">
  <div class="meal-type-label">${escapeHtml(MEAL_LABELS[type]||type)}</div>
- <div class="meal-name">${escapeHtml(meal.name)}</div>
+ <div class="meal-name">${meal.unchecked ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(meal.name)}</div>
  <div class="meal-meta">
  <span class="meal-macro meal-m-cal">${escapeHtml(meal.calories||0)} cal</span>
  <span class="meal-macro meal-m-p">P: ${escapeHtml(meal.protein||0)}g</span>
