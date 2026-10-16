@@ -123,6 +123,10 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .plan-card-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:4px}
 .plan-card-meta{font-size:.72rem;color:var(--mute2)}
 .plan-card-footer{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Desktop with a mouse: Meal Plans card actions are at least 40px. Touch keeps the 44px rule below. */
+@media (pointer:fine) and (min-width:1025px){
+ .plan-card-footer .btn{min-height:40px;box-sizing:border-box}
+}
 
 .shop-category{margin-bottom:16px}
 .shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
@@ -354,6 +358,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  .modal{width:calc(100vw - 24px);max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;padding:18px 16px}
  .modal [style*="grid-template-columns"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
  .scroll-body [style*="grid-template-columns:1fr 1fr 1fr"],.scroll-body [style*="grid-template-columns: 1fr 1fr 1fr"],.scroll-body [style*="repeat(3"],.scroll-body [style*="repeat(4"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .home-plans{grid-template-columns:1fr !important}
  .mob-more-btn{min-width:0;flex:1 1 calc(50% - 8px)}
  /* Phones: Sign out lives in the More sheet; every tap target is at least 44px. */
  .topnav .btn-logout{display:none}
@@ -370,6 +375,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 @media (min-width: 1025px) and (pointer: fine) {
  #dietary-tags .diet-tag,#saved-allergies .diet-tag,#ob-diet .diet-tag,#ob-allergies .diet-tag{min-height:40px;display:inline-flex;align-items:center}
  #allergy-add,#mp-save-filters,button[onclick="addTypedAllergy()"]{min-height:40px}
+ .btn,.btn-sm{min-height:40px;box-sizing:border-box}
+ .hw-acts .btn{min-height:44px}
 }
 /* Touch tablets and small laptops: same 44px tap targets as phones. */
 @media (pointer:coarse), (max-width:1024px) {
@@ -1025,7 +1032,7 @@ html.fm-authed #app-gate{display:none}
  <button class="btn btn-green btn-sm" onclick="openOnboarding()">Set goals</button>
  </div>
 
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+ <div class="home-plans" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
  <div class="card">
  <div class="card-header"><span class="card-title">My Meal Plan</span><button class="btn btn-ghost2 btn-sm" id="home-mealplan-btn" onclick="nav('meal-plans')">Generate</button></div>
  <div class="card-body" id="home-mealplan">
@@ -1319,7 +1326,7 @@ html.fm-authed #app-gate{display:none}
  <div class="card" id="share-card" style="display:none">
  <div class="card-header"><span class="card-title">Share to TikTok &amp; IG</span></div>
  <div class="card-body">
- <textarea id="share-text-box" class="form-input" rows="7" style="width:100%;font-size:.78rem;line-height:1.6"></textarea>
+ <textarea id="share-text-box" class="form-input" rows="7" aria-label="Share caption" style="width:100%;font-size:.78rem;line-height:1.6"></textarea>
  <div style="display:flex;gap:8px;margin-top:10px">
  <button class="btn btn-green" style="flex:1" onclick="copyShareText()">📋 Copy caption</button>
  <button class="btn btn-ghost2" onclick="shareNative()">📲 Share</button>
@@ -1373,6 +1380,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Item list -->
  <div class="card">
  <div class="card-header"><span class="card-title">Items scanned</span></div>
+ <div id="scan-wins" style="padding:0 14px;font-size:.75rem;color:var(--text2)"></div>
  <div id="scan-items-list" style="max-height:260px;overflow-y:auto"></div>
  </div>
  <!-- Log to meals -->
@@ -1401,7 +1409,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-privacy" onclick="closeOnOverlay(event)">
  <div class="modal" role="dialog" aria-labelledby="privacy-title">
  <div class="modal-title" id="privacy-title">Privacy<button class="modal-close" onclick="closeModal('modal-privacy')" aria-label="Close">✕</button></div>
- <label class="privacy-switch-row"><input type="checkbox" role="switch" class="fm-switch" id="privacy-ai-toggle" onchange="setAiConsent(this.checked)" aria-describedby="privacy-ai-desc"/><span><b>AI features</b><br><span id="privacy-ai-desc" style="color:var(--text2);font-size:.8rem">Coach, meal plans, workout plans, reviews and receipt scans. When off, nothing is sent to an AI provider and the rest of FitMunch keeps working.</span></span></label>
+ <label class="privacy-switch-row"><input type="checkbox" role="switch" class="fm-switch" id="privacy-ai-toggle" onchange="setAiConsent(this.checked)" aria-describedby="privacy-ai-desc"/><span><b>AI features</b><br><span id="privacy-ai-desc" style="color:var(--text2);font-size:.8rem">Coach, meal plans, workout plans, reviews and receipt scans. When off, nothing is sent to an AI provider and the rest of FitMunch keeps working. The week built at sign-up does not use AI. Turn on AI in Privacy for AI-written plans.</span></span></label>
  <div style="border-top:1px solid var(--line);margin:16px 0"></div>
  <div style="font-size:.88rem"><b>Your data</b><br><span style="color:var(--text2);font-size:.8rem">Download your account, profile, logs, progress, plans, shopping lists, favourites, achievements, activity, AI usage counts and trainer links as a JSON file. Up to 5 times an hour.</span></div>
  <div class="modal-actions" style="justify-content:flex-start"><button class="btn btn-ghost2" id="privacy-export-btn" onclick="downloadMyData()">Download my data</button></div>
@@ -2243,7 +2251,8 @@ function copyInvite() {
 function _mealRowHtml(idx, item, containerId) {
  const types = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'];
  const opts = types.map(t=>`<option value="${t}" ${item.mealType===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
- return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">
+ const path = item && item.path ? `<input type="hidden" data-field="path" value="${escapeHtml(item.path)}"/>` : '';
+ return `<div id="mprow-${containerId}-${idx}" style="background:var(--surface2);border-radius:8px;padding:10px;position:relative">${path}
  <button onclick="document.getElementById('mprow-${containerId}-${idx}').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">✕</button>
  <div style="display:grid;grid-template-columns:1fr 100px;gap:6px;margin-bottom:6px">
  <div><label style="font-size:.7rem;color:var(--text3)">Food / Meal</label><input class="form-input" style="padding:4px 6px;font-size:.78rem" placeholder="e.g. Oats with banana" maxlength="200" value="${escapeHtml(item.name||'')}" data-field="name"/></div>
@@ -2261,6 +2270,7 @@ function _mealRowHtml(idx, item, containerId) {
 function _collectMealItems(containerId) {
  const rows = document.querySelectorAll(`[id^="mprow-${containerId}-"]`);
  return Array.from(rows).map(row => ({
+ path: row.querySelector('[data-field=path]')?.value||'',
  name: row.querySelector('[data-field=name]')?.value?.trim()||'',
  mealType: row.querySelector('[data-field=mealType]')?.value||'lunch',
  calories: parseFloat(row.querySelector('[data-field=calories]')?.value)||0,
@@ -2276,7 +2286,7 @@ function mpAddMealItem() {
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_mpItemCount++, {mealType:'breakfast'}, 'mp'));
 }
 
-let _editMpId = null, _editMpItemCount = 0;
+let _editMpId = null, _editMpItemCount = 0, _editMpSource = null;
 function editMpAddMealItem() {
  const list = document.getElementById('edit-mp-meals');
  list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, {mealType:'lunch'}, 'emp'));
@@ -2285,17 +2295,11 @@ function editMpAddMealItem() {
 function openEditMealPlan(planId) {
  const p = S.mealPlans.find(x=>x.id===planId); if (!p) return;
  _editMpId = planId; _editMpItemCount = 0;
+ _editMpSource = p.meals;
  document.getElementById('edit-mp-title').textContent = 'Edit: ' + p.name;
  const list = document.getElementById('edit-mp-meals');
  list.innerHTML = '';
- let meals = p.meals;
- if (typeof meals === 'string') try { meals = JSON.parse(meals); } catch { meals = []; }
- // Flatten: support both [{name,mealType,...}] and [{day,meals:[{mealType,foods:[...]}]}]
- let items = [];
- if (Array.isArray(meals)) {
- if (meals[0]?.foods !== undefined || meals[0]?.name !== undefined) items = meals;
- else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType||'lunch'}))));
- }
+ const items = FMHomeWeek.editMealRows(p.meals);
  items.forEach(item => list.insertAdjacentHTML('beforeend', _mealRowHtml(_editMpItemCount++, item, 'emp')));
  let warnEl = document.getElementById('edit-mp-allergen');
  if (!warnEl) { warnEl = document.createElement('div'); warnEl.id = 'edit-mp-allergen'; list.insertAdjacentElement('beforebegin', warnEl); }
@@ -2314,12 +2318,40 @@ function clearModalError(id) { const p = document.querySelector('#' + id + ' .mo
 
 async function saveEditedMealPlan() {
  if (!_editMpId) return;
- const meals = _collectMealItems('emp');
- const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals, userEdited: true }) });
+ const meals = FMHomeWeek.applyMealEdits(_editMpSource, _collectMealItems('emp'));
+ const totals = FMHomeWeek.planMacros(meals);
+ const r = await API('/meal-plans/'+_editMpId, { method:'PUT', body: JSON.stringify({ meals, totalCalories: totals.calories, totalProtein: totals.protein, totalCarbs: totals.carbs, totalFat: totals.fat, userEdited: true }) });
  if (!r.success) { showModalError('modal-edit-meal-plan', r.error || 'Failed to save'); return; }
  clearModalError('modal-edit-meal-plan');
  closeModal('modal-edit-meal-plan');
  loadMealPlans(); if (!showAllergenWarnings(r)) toast('Plan updated ✓');
+}
+
+// Saved plans are a flat meal list, or a day-shaped week (onboarding writes plan.days).
+function savedPlanSlotLabel(type) {
+ const t = String(type || '').toLowerCase();
+ const known = { breakfast:'Breakfast', lunch:'Lunch', dinner:'Dinner', snack:'Snack', 'pre-workout':'Pre-workout', 'post-workout':'Post-workout' };
+ return known[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : '');
+}
+function savedPlanMealLine(p, i, prefix) {
+ const label = prefix ? escapeHtml(prefix) + ': ' : '';
+ return `<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${label}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`;
+}
+function savedPlanMealsHtml(p) {
+ const parsed = FMHomeWeek.flattenPlanMeals(p && p.meals);
+ const days = parsed.days || [];
+ const items = parsed.items || [];
+ let body = '';
+ if (days.length) {
+ body = days.map(d => `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${escapeHtml(d.day)}</div>${(d.meals||[]).map(i => savedPlanMealLine(p, i, savedPlanSlotLabel(i.mealType))).join('')}</div>`).join('');
+ } else if (items.length) {
+ body = ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
+ `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
+ items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
+ }</div>`).join('');
+ }
+ if (!body) return `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ return `<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||'this plan')}" style="margin-top:8px;max-height:${days.length ? 280 : 120}px;overflow-y:auto">${body}</div>`;
 }
 
 // ── Meal Plan List ────────────────────────────────────────────────────────────
@@ -2342,18 +2374,7 @@ async function loadMealPlans() {
  if (section) section.style.display = '';
  grid.innerHTML = S.mealPlans.map(p => {
  const goalLabel = {muscle_gain:'Muscle gain',weight_loss:'Weight loss',maintenance:'Maintenance',general_fitness:'Fitness'}[p.goal_type] || 'Goal';
- let meals = p.meals; if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
- let items = [];
- if (Array.isArray(meals)) {
- if (meals[0]?.name) items = meals;
- else if (meals[0]?.meals) items = meals.flatMap(d=>d.meals.flatMap(m=>(m.foods||[]).map(f=>({...f,mealType:m.mealType}))));
- }
- const mealSummary = items.length ? `<div class="plan-meal-scroll" tabindex="0" role="region" aria-label="Meals in ${escapeHtml(p.name||'this plan')}" style="margin-top:8px;max-height:120px;overflow-y:auto">${
- ['breakfast','lunch','dinner','snack','pre-workout','post-workout'].filter(t=>items.some(i=>i.mealType===t)).map(t=>
- `<div style="margin-top:6px"><div style="font-size:.7rem;font-weight:700;color:var(--accent)">${t.charAt(0).toUpperCase()+t.slice(1)}</div>${
- items.filter(i=>i.mealType===t).map(i=>`<div style="font-size:.75rem;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border)">${(p.allergenWarnings||[]).some(w=>w.meal===i.name&&!w.unchecked&&!w.notice) ? '<span class="allergen-badge" title="Contains a food your allergies or diet exclude">⚠ Allergen</span> ' : (p.allergenWarnings||[]).some(w=>w.meal===i.name&&w.unchecked) ? '<span class="allergen-note-badge" title="'+escapeHtml(UNCHECKED_NOTE)+'">Not checked</span> ' : ''}${escapeHtml(i.name)} - ${escapeHtml(i.calories||0)} cal${i.protein&&Number(i.protein)!==0?` · P:${escapeHtml(i.protein)}g`:''}</div>`).join('')
- }</div>`).join('')
- }</div>` : `<div style="font-size:.75rem;color:var(--text3);margin-top:8px;font-style:italic">No meals yet - click Edit to add foods.</div>`;
+ const mealSummary = savedPlanMealsHtml(p);
  const warnBadge = allergenBadgeHtml(p.allergenWarnings);
  return `<div class="plan-card">
  <div class="plan-card-name">${escapeHtml(p.name)}</div>
@@ -2374,20 +2395,18 @@ async function loadMealPlans() {
 async function buildListFromSaved(planId) {
  const plan = S.mealPlans.find(p => p.id === planId);
  if (!plan) return;
- let meals = plan.meals;
- if (typeof meals==='string') try{meals=JSON.parse(meals);}catch{meals=[];}
- if (!meals || !Array.isArray(meals) || !meals.length) {
+ const parsed = FMHomeWeek.flattenPlanMeals(plan.meals);
+ if (!parsed.items.length) {
  toast('Add meals to this plan first', 'warn'); return;
  }
- // Normalise to days structure for shopping list generator
- const days = meals[0]?.meals ? meals : [{ day: 1, meals: [{ mealType: 'daily', foods: meals }] }];
+ const days = parsed.days.length ? parsed.days : [{ day: 1, meals: parsed.items }];
  await buildAiShoppingList({ planName: plan.name, days });
 }
 
 async function saveMealPlan() {
  const name = document.getElementById('mp-name').value.trim();
  if (!name) { toast('Plan name is required', 'error'); return; }
- const meals = _collectMealItems('mp');
+ const meals = _collectMealItems('mp').map(m => { const copy = Object.assign({}, m); delete copy.path; return copy; });
  const r = await API('/meal-plans', { method:'POST', body: JSON.stringify({
  name, description: document.getElementById('mp-desc').value.trim(),
  goalType: document.getElementById('mp-goal').value,
@@ -2816,14 +2835,7 @@ async function loadPortalHome() {
  }
  const cta = document.getElementById('pm-cals-cta');
  if (cta) cta.style.display = S.goals?.targetCalories ? 'none' : '';
- const hasWeek = await loadHomeWeek();
- if (hasWeek && !r.mealPlan && mealPlanEl) {
- mealPlanEl.textContent = '';
- const n = document.createElement('div'); n.className = 'portal-plan-name'; n.textContent = S_homeWeek.name;
- const m = document.createElement('div'); m.className = 'portal-plan-meta'; m.textContent = 'Saved · ' + S_homeWeek.days.length + ' days';
- mealPlanEl.append(n, m);
- if (mealBtn) { mealBtn.textContent = 'View'; mealBtn.onclick = () => nav('meal-plans'); }
- }
+ await loadHomeWeek();
  // Load AI coaching insight (non-blocking)
  loadAiCoaching(todayMeals, r.recentMeals||[]);
  }
@@ -2868,13 +2880,39 @@ function calcStreak(meals) {
  return streak;
 }
 
-function renderPortalPlan() {
+function savedPlanCardHtml(sum) {
+ const name = escapeHtml(sum.name || 'Your week');
+ const days = (sum.days || []).length;
+ const meta = days ? ('Saved · ' + days + ' days') : 'Saved';
+ const meals = ((sum.today && sum.today.meals) || []).slice(0, 4).map((m) =>
+  '<div style="font-size:.78rem;color:var(--text2);padding:2px 0">' + escapeHtml(m.name) + (m.calories ? ' · ' + escapeHtml(m.calories) + ' kcal' : '') + '</div>').join('');
+ return `<div class="portal-plan" id="portal-saved-plan"><div class="portal-plan-title">Meal Plan</div>
+ <div class="portal-plan-name">${name}</div>
+ <div class="portal-plan-meta">${escapeHtml(meta)}</div>
+ ${meals}
+ <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('meal-plans')">Open in Meal Planner</button></div>
+ </div>`;
+}
+async function renderPortalPlan() {
  const el = document.getElementById('portal-plan-body');
  // Only say a trainer assigned it when there is one (launch audit D9).
  const sub = document.getElementById('portal-plan-sub');
  if (sub) sub.textContent = S.portalData && S.portalData.pt ? 'Assigned by your trainer.' : 'Your saved meal and workout plans.';
  if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
  const { mealPlan, workoutPlan } = S.portalData;
+ // Same GET the Meal Planner uses. A failed read is a retry, never the empty state.
+ let saved = null;
+ let loadKind = 'error';
+ try {
+  const parsed = await readMealPlans();
+  loadKind = parsed.kind;
+  if (parsed.kind === 'ok') {
+   const row = FMHomeWeek.pickListedPlan(parsed.body.plans);
+   saved = row ? FMHomeWeek.summary(row) : null;
+   if (!saved) loadKind = 'empty';
+  }
+ } catch (_) { loadKind = 'error'; saved = null; }
+ if (currentView !== 'portal-plan') return;
  let html = '';
  if (mealPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🥗 Meal Plan</div>
@@ -2882,7 +2920,10 @@ function renderPortalPlan() {
  <div class="portal-plan-meta">${escapeHtml(mealPlan.total_calories||0)} calories/day target</div>
  <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="nav('portal-shopping')">🛒 View Shopping List</button></div>
  </div>`;
- } else html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
+ }
+ if (saved) html += savedPlanCardHtml(saved);
+ else if (loadKind === 'error') html += '<div class="empty-state" id="portal-plan-error"><div class="ei">🥗</div><div class="et">Couldn\'t load your week, try again</div><div style="margin-top:12px"><button class="btn btn-green ea" id="portal-plan-retry" onclick="renderPortalPlan()">Try again</button></div></div>';
+ else if (!mealPlan) html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
  <div class="portal-plan-name">${escapeHtml(workoutPlan.workout_plan_name||'Workout Plan')}</div>
@@ -3493,7 +3534,7 @@ async function scanReceipt() {
  }
 }
 
-const CAT_EMOJI2 = {meat:'ME',dairy:'DY',grains:'GR',vegetables:'VG',fruit:'FR',pantry:'PN',beverage:'BV',supplement:'SP',other:'OT'};
+const CAT_EMOJI2 = {meat:'ME',dairy:'DY',grains:'GR',vegetables:'VG',fruit:'FR',pantry:'PN',beverage:'BV',supplement:'SP',protein:'PR',plant:'PL',other:'OT'};
 
 function renderScanResults(data) {
  const { weeklyTotals: t, grade: g, items, shareText: st, itemCount } = data;
@@ -3526,14 +3567,22 @@ function renderScanResults(data) {
  const priceLabel = (item.priceStatus === 'unknown' || !(Number(item.price) > 0))
   ? 'Price unknown'
   : ('A$' + Number(item.price).toFixed(2));
+ const contains = Array.isArray(item.contains) ? item.contains.filter(x => typeof x === 'string' && x.trim()) : [];
+ const badge = contains.length ? `<span class="allergen-badge">contains ${escapeHtml(contains.join(', '))}</span> ` : (item.unchecked ? '<span class="allergen-note-badge">Not checked</span> ' : '');
+ const basis = item.nutrition && item.nutrition.basis ? ` (${escapeHtml(item.nutrition.basis)})` : '';
  html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px dashed var(--border);cursor:pointer">
- <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0" checked/>
- <span style="flex:1;font-size:.8rem;font-weight:500">${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}</span>
+ <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0"${(contains.length || item.unchecked) ? '' : ' checked'}/>
+ <span style="flex:1;font-size:.8rem;font-weight:500">${badge}${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}</span>
  <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(priceLabel)}</span>
  <span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.protein)}g P</span>
- <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal</span>
+ <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal${basis}</span>
  </label>`;
  });
+ }
+ const winsEl = document.getElementById('scan-wins');
+ if (winsEl) {
+  const names = Array.isArray(data.wins) ? data.wins.filter(x => typeof x === 'string') : [];
+  winsEl.textContent = names.length ? ('Pantry wins: ' + names.join(', ')) : '';
  }
  document.getElementById('scan-items-list').innerHTML = html;
 
@@ -3801,7 +3850,7 @@ async function onboardBuildWeek() {
  else if (saved && saved.success === false) toast(saved.error || 'Could not save your filters.', 'warn');
  } catch (_) { /* the week below still uses the diets you ticked */ }
  }
- const NOTE_BUILDER = 'Your week, built on your targets from everyday foods. No AI used. Turn on AI in Privacy for AI-written plans.';
+ const NOTE_BUILDER = 'Your first week is ready. Seven days, built on your targets from everyday foods.';
  const local = async () => {
  const b = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ builderOnly: true, goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
  if (b && b.success && b.plan) { const note = [NOTE_BUILDER, b.notice, ...(b.plan.notes || [])].filter(s => s && String(s).trim()).join(' '); S_activePlan = b.plan; onboardRenderWeek(b.plan, note, r); await onboardSaveWeek(b.plan, fitnessGoal); }
@@ -3870,6 +3919,56 @@ async function onboardDone() {
 // ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
 let S_homeWeek = null;
 let S_homeWeekReq = 0;
+let S_mealPlansCache = null;
+function paintHomeMealCard(kind, sum) {
+ const el = document.getElementById('home-mealplan');
+ const btn = document.getElementById('home-mealplan-btn');
+ if (!el) return;
+ if (S.portalData && S.portalData.mealPlan) return;
+ el.textContent = '';
+ if (kind === 'loading') { el.textContent = 'Loading your week…'; return; }
+ if (kind === 'error') {
+  const p = document.createElement('p'); p.id = 'home-mealplan-error'; p.textContent = "Couldn't load your week, try again";
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-green btn-sm'; b.id = 'home-mealplan-retry'; b.textContent = 'Try again';
+  b.onclick = () => { loadHomeWeek(); };
+  el.append(p, b);
+  if (btn) { btn.textContent = 'Try again'; btn.onclick = () => loadHomeWeek(); }
+  return;
+ }
+ if (kind === 'ok' && sum) {
+  const n = document.createElement('div'); n.className = 'portal-plan-name'; n.textContent = sum.name;
+  const m = document.createElement('div'); m.className = 'portal-plan-meta'; m.textContent = 'Saved · ' + sum.days.length + ' days';
+  el.append(n, m);
+  if (btn) { btn.textContent = 'View'; btn.onclick = () => nav('meal-plans'); }
+  return;
+ }
+ const wrap = document.createElement('div'); wrap.className = 'home-plan-empty';
+ const p = document.createElement('p'); p.textContent = 'No plan yet. Generate an Aussie supermarket week in up to about a minute.';
+ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-green btn-sm'; b.textContent = 'Generate meal plan →';
+ b.onclick = () => nav('meal-plans');
+ wrap.append(p, b); el.append(wrap);
+ if (btn) { btn.textContent = 'Generate'; btn.onclick = () => nav('meal-plans'); }
+}
+async function readMealPlans() {
+ const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token, 'Cache-Control': 'no-store' };
+ const once = async (cacheMode) => {
+  const res = await fetch('/api/meal-plans', { cache: cacheMode, headers });
+  return { status: res.status, text: await res.text() };
+ };
+ try {
+  let got = await once('no-store');
+  let parsed = FMHomeWeek.plansFromResponse(got.status, got.text, false, S_mealPlansCache);
+  if (parsed.kind === 'refetch') {
+   got = await once('reload');
+   parsed = FMHomeWeek.plansFromResponse(got.status, got.text, false, S_mealPlansCache);
+   if (parsed.kind === 'refetch') parsed = { kind: 'error', body: null };
+  }
+  if ((parsed.kind === 'ok' || parsed.kind === 'empty') && parsed.body && !parsed.fromCache) S_mealPlansCache = parsed.body;
+  return parsed;
+ } catch (_) {
+  return FMHomeWeek.plansFromResponse(0, '', true, null);
+ }
+}
 function hideHomeWeek(box) {
  box.style.display = 'none'; box.textContent = ''; box.removeAttribute('aria-busy');
 }
@@ -3892,19 +3991,16 @@ async function loadHomeWeek() {
  if (!box || typeof FMHomeWeek === 'undefined') return;
  const ticket = ++S_homeWeekReq;
  showHomeWeekSkeleton(box);
- let status = 0; let r = null; let failed = false;
- try {
- const res = await fetch('/api/meal-plans', { headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token } });
- status = res.status;
- r = await res.json();
- } catch (_) { failed = true; }
+ paintHomeMealCard('loading');
+ const parsed = await readMealPlans();
  if (ticket !== S_homeWeekReq) return;
- const kind = FMHomeWeek.loadFailure(status, r, failed);
- if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; return false; }
- const row = kind === 'ok' ? r.plans[0] : null;
+ const kind = parsed.kind === 'ok' ? 'ok' : (parsed.kind === 'empty' ? 'empty' : 'error');
+ if (kind === 'error') { showHomeWeekError(box); S_homeWeek = null; paintHomeMealCard('error'); return false; }
+ const row = kind === 'ok' ? FMHomeWeek.pickListedPlan(parsed.body.plans) : null;
  const sum = row ? FMHomeWeek.summary(row) : null;
  S_homeWeek = sum;
- if (!sum) { hideHomeWeek(box); return false; }
+ if (!sum) { hideHomeWeek(box); paintHomeMealCard('empty'); return false; }
+ paintHomeMealCard('ok', sum);
  const tg = FMHomeWeek.targets(S.goals);
  box.textContent = ''; box.removeAttribute('aria-busy');
  const top = document.createElement('div'); top.className = 'hw-top';
@@ -3928,15 +4024,16 @@ async function loadHomeWeek() {
  const days = document.createElement('div'); days.className = 'hw-days'; days.setAttribute('aria-hidden', 'true');
  sum.days.slice(0, 7).forEach(d => { const s = document.createElement('span'); s.textContent = d.short; if (d.today) s.className = 'on'; days.appendChild(s); });
  box.appendChild(days);
- // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }; text is built here, textContent only.
- const aw = FMHomeWeek.warnings(row.allergenWarnings);
+ // The API sends { meal, contains[] } (red), { meal, unchecked, note } (calm) and { notice }.
+ // Each allergen group is shown once, on the first meal that hits it. textContent only.
+ const aw = FMHomeWeek.allergenPreview(row.allergenWarnings);
  if (aw.notice) {
  const n = document.createElement('div'); n.className = 'hw-warn'; n.id = 'home-week-notice'; n.setAttribute('role', 'alert');
  n.textContent = '⚠️ ' + aw.notice; box.appendChild(n);
  }
- if (aw.red.length) {
+ if (aw.text) {
  const w = document.createElement('div'); w.className = 'hw-warn'; w.id = 'home-week-warn'; w.setAttribute('role', 'alert');
- w.textContent = '⚠️ ' + aw.red.slice(0, 3).join('; ') + (aw.red.length > 3 ? ` (+${aw.red.length - 3} more in Meal Planner)` : '');
+ w.textContent = '⚠️ ' + aw.text;
  box.appendChild(w);
  }
  if (aw.notes.length) {
@@ -3944,6 +4041,7 @@ async function loadHomeWeek() {
  nt.textContent = aw.notes.slice(0, 3).join(', ') + (aw.notes.length > 3 ? ' and more' : '') + ': ' + uncheckedNote(aw.notes.length);
  box.appendChild(nt);
  }
+ if (sum.today && sum.today.meals && sum.today.meals.length) {
  const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
  t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
  box.appendChild(t);
@@ -3953,6 +4051,7 @@ async function loadHomeWeek() {
  const s = document.createElement('span'); s.textContent = m.calories ? m.calories + ' kcal' : ''; li.append(b, s); ul.appendChild(li);
  });
  box.appendChild(ul);
+ }
  const acts = document.createElement('div'); acts.className = 'hw-acts';
  const shop = document.createElement('button'); shop.type = 'button'; shop.className = 'btn btn-green'; shop.id = 'home-week-shop'; shop.textContent = '🛒 Shopping list';
  shop.onclick = async () => { shop.disabled = true; try { await buildAiShoppingList(S_homeWeek.shoppingPlan); } finally { shop.disabled = false; } };
