@@ -44,9 +44,16 @@ describe('A$0', () => {
 });
 
 describe('copy', () => {
-  it('the jargon line is plain English and says what is true (10 AI actions a month, per the usage limit)', () => {
+  it('the jargon line is plain English and the number comes from the usage limit, not a typed 10', () => {
     expect(app).not.toMatch(/runs out fast|once the loop sticks/i);
-    expect(app).toContain('<strong>Free includes 10 AI actions a month</strong>');
+    expect(app).toContain('id="home-free-ai">Free includes AI actions a month');
+    expect(app).toContain('id="billing-free-ai">Free includes AI actions a month');
+    expect(app).not.toMatch(/Free includes \d+ AI actions/);
+    expect(app).toContain('paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit)');
+    expect(read('public', 'pricing.html')).toContain('data-free-ai');
+    expect(read('public', 'index.html')).toContain('data-free-ai');
+    expect(read('public', 'pricing.html') + read('public', 'index.html') + app).not.toMatch(/Limited AI actions (per|each) month/);
+    expect(read('server.js')).toContain('freeAiMonthly: require(\'./lib/ai-usage\').freeMonthlyLimit()');
   });
   it('My Plan says "Assigned by your trainer" only when portal data has a trainer', () => {
     expect(app).not.toMatch(/<div class="view-sub">Assigned by your trainer\.<\/div>/);
@@ -111,18 +118,109 @@ if (!canRun && inCI) {
       });
     }
   }
+  for (const width of [390, 1440]) {
+    it(`${width}px pricing: badge hidden without a yearly price, then Save 37%, and the free line uses the config number`, async () => {
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 } });
+      const p = await ctx.newPage();
+      await p.route('**/api/pricing/config', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, premiumAnnual: false, freeAiMonthly: 42 }),
+      }));
+      await p.goto(`${base}/pricing.html`, { waitUntil: 'domcontentloaded' });
+      await p.waitForFunction(() => document.body.innerText.includes('Free includes 42 AI actions a month'));
+      expect(await p.locator('#yearly-save').isHidden()).toBe(true);
+      expect(await p.locator('#billing-toggle').isHidden()).toBe(true);
+      expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+      await p.unroute('**/api/pricing/config');
+      await p.route('**/api/pricing/config', (route) => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, premiumAnnual: true, freeAiMonthly: 10 }),
+      }));
+      await p.goto(`${base}/pricing.html`, { waitUntil: 'domcontentloaded' });
+      await p.waitForFunction(() => document.getElementById('yearly-save') && document.getElementById('yearly-save').textContent === 'Save 37%');
+      expect(await p.locator('#yearly-save').isVisible()).toBe(true);
+      expect(await p.locator('#billing-toggle').isVisible()).toBe(true);
+      await p.waitForFunction(() => document.body.innerText.includes('Free includes 10 AI actions a month'));
+      expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+      await ctx.close();
+    });
+  }
+  it('390px weekly review empty state keeps Get my review and does not open consent', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+    const p = await ctx.newPage();
+    const user = { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role: 'client', subscriptionTier: 'free', settings: {} };
+    await p.route('**/api/**', (route) => {
+      const url = route.request().url();
+      const json = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+      if (url.includes('/auth/me')) return json({ success: true, user });
+      if (url.includes('/ai/weekly-review')) {
+        return json({
+          success: true,
+          source: 'empty',
+          review: { headline: "Log 3 days of meals in the last 7 days and I'll score them.", wins: [], focus: ['Log what you eat on 3 days in the last 7 days, even roughly.'], score: null, empty: true },
+          stats: { daysLogged: 1, daysNeeded: 3 },
+        });
+      }
+      if (url.includes('/user/profile')) return json({ success: true, profile: {} });
+      if (url.includes('/meal-plans')) return json({ success: true, plans: [] });
+      if (url.includes('/portal/me')) return json({ success: true, pt: null, mealPlan: null, workoutPlan: null, recentMeals: [], recentWorkouts: [] });
+      if (url.includes('/ai/usage')) return json({ success: true, used: 1, limit: 10, remaining: 9, freeMonthly: 10, tier: 'free' });
+      return json({ success: true });
+    });
+    await p.goto(`${base}/app.html`, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#wr-btn');
+    expect(await p.locator('#modal-ai-consent').evaluate((el) => el.classList.contains('open'))).toBe(false);
+    await p.click('#wr-btn');
+    await p.waitForSelector('#wr-empty');
+    expect(await p.textContent('#wr-btn')).toBe('Get my review →');
+    expect(await p.textContent('#wr-empty-days')).toBe('1 of 3 days logged in the last 7 days.');
+    expect(await p.locator('#modal-ai-consent').evaluate((el) => el.classList.contains('open'))).toBe(false);
+    expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await ctx.close();
+  });
 });
 
 describe('peanut butter and friends are not dairy', () => {
+  const grocery = require('./lib/grocery-aisle');
   const src = read('meal-planner.js');
-  // aisleFor is module-private; read it back by evaluating its source.
-  const aisleFor = new Function(`${src.slice(src.indexOf('const AISLE_WORDS'), src.indexOf('const AISLE_ORDER'))}
-    ${src.slice(src.indexOf('// Nut butters'), src.indexOf('// AI calls go through'))}
-    return aisleFor;`)();
+  // aisleFor stays module-private. Run the word lists, then the shared non-dairy rule both routes use.
+  const aisleFor = new Function('shoppingAisle', `${src.slice(src.indexOf('const AISLE_WORDS'), src.indexOf('const AISLE_ORDER'))}
+    ${src.slice(src.indexOf('function aisleFor'), src.indexOf('// AI calls go through'))}
+    return aisleFor;`)(grocery.shoppingAisle);
+  const categorise = (name) => {
+    const special = grocery.shoppingCategory(name);
+    if (special) return special;
+    const n = String(name).toLowerCase();
+    const cats = { dairy: ['egg', 'milk', 'yogurt', 'yoghurt', 'cheese', 'ricotta', 'cream', 'butter', 'whey'], vegetables: ['lettuce'], pantry: ['peanut', 'almond'] };
+    for (const [cat, words] of Object.entries(cats)) if (words.some((w) => n.includes(w))) return cat;
+    return 'other';
+  };
+  it('the regex lives in one module and both shopping routes use it', () => {
+    expect(read('api_server.js')).not.toMatch(/const NOT_DAIRY_BUTTER/);
+    expect(read('meal-planner.js')).not.toMatch(/const NOT_DAIRY_BUTTER/);
+    expect(read('api_server.js')).toContain("require('./lib/grocery-aisle')");
+    expect(read('meal-planner.js')).toContain("require('./lib/grocery-aisle')");
+    expect(grocery.NOT_DAIRY_BUTTER).toBeInstanceOf(RegExp);
+  });
   it('nut butters go to Pantry, butternut to Produce', () => {
     for (const n of ['Peanut butter', 'peanut butter (smooth)', 'Almond butter', 'Cashew butter', 'Cocoa butter']) expect([n, aisleFor(n)]).toEqual([n, 'Pantry']);
     expect(aisleFor('Butternut pumpkin')).toBe('Produce');
     expect(aisleFor('Butter beans')).toBe('Pantry');
+  });
+  it('the leftover misses are not dairy, and butternut biscuits are not produce', () => {
+    for (const n of ['Sunflower seed butter', 'Plant-based butter', 'Almond milk', 'Peanutbutter']) {
+      expect([n, aisleFor(n)]).toEqual([n, 'Pantry']);
+      expect([n, categorise(n)]).toEqual([n, 'pantry']);
+    }
+    for (const n of ['Butter lettuce', 'Butterhead lettuce', 'Butterfly pea flower']) {
+      expect([n, aisleFor(n)]).toEqual([n, 'Produce']);
+      expect([n, categorise(n)]).toEqual([n, 'vegetables']);
+    }
+    expect(aisleFor('Butternut snap biscuits')).toBe('Pantry');
+    expect(categorise('Butternut snap biscuits')).toBe('pantry');
   });
   it('real dairy and eggs are unchanged', () => {
     for (const n of ['Butter', 'Unsalted butter', 'Greek yoghurt', 'Eggs', 'Skim milk', 'Cheddar cheese', 'Ricotta']) expect([n, aisleFor(n)]).toEqual([n, 'Dairy & Eggs']);
@@ -131,6 +229,27 @@ describe('peanut butter and friends are not dairy', () => {
     const plan = { planName: 'w', days: [{ day: 'Monday', meals: { breakfast: { name: 'Toast', ingredients: [{ item: 'Peanut butter', qty: '20g' }, { item: 'Wholemeal bread', qty: '2 slices' }] } } }] };
     const items = engine.aggregateShoppingList(plan);
     expect(aisleFor(items.find((i) => /peanut/i.test(i.name)).name)).toBe('Pantry');
+  });
+});
+
+describe('weekly review window', () => {
+  const win = require('./lib/review-window');
+  const usage = require('./lib/ai-usage');
+  it('uses the same Sydney date as the usage ledger', () => {
+    const samples = [new Date('2026-10-16T12:00:00Z'), new Date('2026-10-16T13:30:00Z'), new Date('2026-01-15T13:30:00Z')];
+    for (const d of samples) expect(win.sydneyDay(d)).toBe(usage.sydneyDay(d));
+  });
+  it('three Sydney evenings that are two UTC dates count as three days inside the last 7', () => {
+    // AEDT: Fri 23:00, Sat 00:30 and Sun 00:30 are Fri/Sat/Sun in Sydney and only Fri/Sat in UTC.
+    const meals = [
+      { date: new Date('2026-10-16T12:00:00Z') },
+      { date: new Date('2026-10-16T13:30:00Z') },
+      { date: new Date('2026-10-17T13:30:00Z') },
+    ];
+    const utcDays = new Set(meals.map((m) => new Date(m.date).toDateString())).size;
+    expect(utcDays).toBe(2);
+    expect(win.loggedSydneyDays(meals, new Date('2026-10-18T02:00:00Z'), 7)).toBe(3);
+    expect(win.loggedSydneyDays([{ date: new Date('2026-10-10T12:00:00Z') }], new Date('2026-10-18T02:00:00Z'), 7)).toBe(0);
   });
 });
 
@@ -143,11 +262,17 @@ describe('weekly review: honest empty state', () => {
     expect(empty.headline).toMatch(/3 days/);
     expect(api).toContain('const REVIEW_MIN_DAYS = 3;');
   });
-  it('the empty state is returned before the AI provider check and the credit', () => {
-    const i = api.indexOf('if (days0 < REVIEW_MIN_DAYS)');
+  it('the empty state is returned before the AI provider check, the credit and the consent check', () => {
+    const i = api.indexOf('if (days0 < REVIEW_MIN_DAYS && !filteredReview && !unreadableReview)');
     expect(i).toBeGreaterThan(api.indexOf("router.get('/ai/weekly-review'"));
     expect(i).toBeLessThan(api.indexOf("feature: 'weekly_review'"));
-    expect(i).toBeLessThan(api.indexOf('aiClient.hasProvider()', i - 200) + 1000);
+    expect(i).toBeLessThan(api.indexOf('const denied = consentResponse(user && user.settings);', i));
+    const route = api.slice(api.indexOf("router.get('/ai/weekly-review'"), api.indexOf("router.get('/portal/me'"));
+    expect(route).toMatch(/getMealLogsForPeriod\(req\.user\.userId, mealSince, new Date\(\)\)/);
+    const mealLine = route.split('\n').find((line) => line.includes('getMealLogsForPeriod'));
+    expect(mealLine).not.toMatch(/\.catch/);
+    expect(route).toContain('USAGE_STORE_DOWN');
+    expect(route).toContain("refundAiCall(gate, { userId: String(req.user.userId), feature: 'weekly_review' })");
   });
   it('the app renders it with textContent, no ring and no wins', () => {
     const i = app.indexOf('if (rev.empty) {');

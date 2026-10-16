@@ -44,7 +44,8 @@ const userProfiles = pgTable('user_profiles', {
 const mealLogs = pgTable('meal_logs', {
   id: serial('id').primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  date: timestamp('date').defaultNow().notNull(),
+  // timestamptz. Without withTimezone, a Sydney session shifts the instant and a logged day drops out of the review window.
+  date: timestamp('date', { withTimezone: true }).defaultNow().notNull(),
   mealType: varchar('meal_type', { length: 50 }).notNull(), // breakfast, lunch, dinner, snack
   foodName: text('food_name').notNull(),
   calories: integer('calories').notNull(),

@@ -82,6 +82,9 @@ describe('calorie tile and load states', () => {
     expect(hw.formatCount(1858)).toBe('1,858');
     expect(hw.formatCount(0)).toBe('0');
     expect(hw.calorieTile(1858, 1860)).toEqual({ value: '1,858 of 1,860', label: 'average' });
+    expect(hw.calorieProgress(1240, 1860)).toEqual({ pct: 67, value: '1,240 of 1,860', remaining: '620 kcal left' });
+    expect(hw.calorieProgress(2000, 1860).remaining).toBe('140 kcal over');
+    expect(hw.calorieProgress(100, 0)).toBeNull();
     expect(hw.calorieTile(1860, 1860)).toEqual({ value: '1,860 of 1,860', label: 'average' });
     expect(hw.calorieTile(0, 1860)).toEqual({ value: '1,860', label: 'cal / day' });
     const s = hw.summary(rowSafe(), new Date(2026, 9, 15, 12));
