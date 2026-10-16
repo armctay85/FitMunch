@@ -537,6 +537,7 @@ async function ensureMigrations() {
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           PRIMARY KEY (code, claimer_id)
         );
+        ${require('./lib/db-migrate').CLAIMS_HEAL}
       `);
     } catch (err) {
       console.error('[ensureMigrations]', err.message);
@@ -2153,8 +2154,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 
     // Saved filters are read, never written. An unreadable profile or filter list fails closed with no AI.
     // A readable diet or allergy list still gets a real answer, then a fail-closed food check.
-    const ctxObj = context && typeof context === 'object' ? context : {};
-    const sentFilters = [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)];
+    const ctxObj = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
+    // A bare string ("peanut") is the same guard as { allergies: ['peanut'] }.
+    const sentFilters = typeof context === 'string'
+      ? dietGuard.listOf(context)
+      : [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)];
     const filters = dietGuard.combineFilters(profile, sentFilters);
     const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
     // The early return still keys off profileUnread. The reply itself uses every allergen-free filter, or the day plan names dairy, gluten and eggs.
@@ -2179,7 +2183,9 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
     }
 
-    const aiFilters = chatAiFilters(profile, ctxObj);
+    const aiFilters = typeof context === 'string'
+      ? mealSafety.mergeFilters(mealSafety.profileFilters(profile), { dietary: [], allergies: dietGuard.listOf(context) })
+      : chatAiFilters(profile, ctxObj);
     const filtered = filters.length > 0;
     if (filtered && !aiClient.hasProvider()) {
       const fb = dietGuard.addressedCoachReply(safeOpts);

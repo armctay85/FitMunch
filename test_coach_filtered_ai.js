@@ -594,21 +594,22 @@ describe('a profile that cannot be read stays filter-safe', () => {
     expect(aiClient.chat).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     expect(r.body.provider).toBeNull();
-    expect(r.body.insight).toContain(dietGuard.SAFE_TIP);
-    expect(r.body.insight).not.toContain(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.insight).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.insight).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:|Dinner:/);
     for (const f of ['dairy free', 'gluten free', 'egg free']) {
       expect(dietGuard.textBreaksFilters(r.body.insight, [f])).toBe(false);
     }
   });
 
-  it('insight expands an unreadable profile to every allergen-free filter and omits the chat notice', async () => {
+  it('insight on an unreadable profile is the notice only, with no meal', async () => {
     storage.getProfile.mockRejectedValue(new Error('db down'));
     const r = await request(app).post('/api/ai/insight').set('Authorization', token)
       .send({ todayCalories: 400, todayProtein: 20 });
     expect(r.status).toBe(200);
     expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(r.body.insight).not.toContain(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.insight).toBe(dietGuard.UNREADABLE_NOTICE);
     expect(r.body.insight).not.toContain(dietGuard.COMING_SOON);
+    expect(r.body.insight).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:|Dinner:/);
     for (const f of dietGuard.ALL_FREE) {
       expect(dietGuard.textBreaksFilters(r.body.insight, [f])).toBe(false);
     }
@@ -621,7 +622,10 @@ describe('a profile that cannot be read stays filter-safe', () => {
     expect(r.status).toBe(200);
     expect(r.body.source).toBe('fixed');
     expect(r.body.review.score).toBeNull();
-    expect(JSON.stringify(r.body.review)).not.toContain(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.review.headline).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.review.wins).toEqual([]);
+    expect(r.body.review.focus).toEqual([]);
+    expect(JSON.stringify(r.body.review)).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:|Dinner:/);
     expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     for (const f of ['dairy free', 'gluten free', 'egg free']) {

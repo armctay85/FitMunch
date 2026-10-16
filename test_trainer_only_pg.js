@@ -204,4 +204,52 @@ maybe('trainer-only routes (real Postgres)', () => {
     const stolen = (await pool.query('select count(*)::int n from pt_referral_claims where code=$1', ['FM-NOTPT1'])).rows[0].n;
     expect(stolen).toBe(0);
   });
+
+  it('heals an unconstrained pt_referral_claims table without dropping unique rows', async () => {
+    const C1 = '00000000-0000-4000-8000-00000000c1d1';
+    const C2 = '00000000-0000-4000-8000-00000000c1d2';
+    const ddl = require('./lib/db-migrate').DDL;
+    try {
+      await pool.query('DROP TABLE IF EXISTS pt_referral_claims');
+      await pool.query(`CREATE TABLE pt_referral_claims (
+        code TEXT,
+        claimer_id UUID NOT NULL,
+        created_at TIMESTAMPTZ
+      )`);
+      await pool.query(
+        `INSERT INTO pt_referral_claims (code, claimer_id, created_at) VALUES
+          ('FM-DUP', $1, '2020-01-01T00:00:00Z'),
+          ('FM-DUP', $1, '2020-01-02T00:00:00Z'),
+          (' FM-DUP ', $1, '2020-01-03T00:00:00Z'),
+          ('fm-dup', $1, '2020-01-04T00:00:00Z'),
+          ('FM-OTHER', $1, '2020-01-05T00:00:00Z'),
+          (NULL, $1, '2020-01-06T00:00:00Z'),
+          ('fm-dup', $2, '2020-01-01T00:00:00Z')`,
+        [C1, C2],
+      );
+      await pool.query(ddl);
+      await pool.query(ddl);
+      await pool.query(ddl);
+      const rows = (await pool.query(
+        'SELECT code, claimer_id::text AS claimer FROM pt_referral_claims ORDER BY code NULLS LAST, claimer_id',
+      )).rows;
+      expect(rows).toEqual([
+        { code: 'FM-DUP', claimer: C1 },
+        { code: 'FM-OTHER', claimer: C1 },
+        { code: 'fm-dup', claimer: C2 },
+        { code: null, claimer: C1 },
+      ]);
+      const idx = (await pool.query(
+        "SELECT indexdef FROM pg_indexes WHERE indexname = 'pt_referral_claims_norm_uidx'",
+      )).rows;
+      expect(idx).toHaveLength(1);
+      await expect(pool.query(
+        'INSERT INTO pt_referral_claims (code, claimer_id) VALUES ($1, $2)',
+        ['fm-dup', C1],
+      )).rejects.toThrow(/duplicate key|unique/i);
+    } finally {
+      await pool.query('DROP TABLE IF EXISTS pt_referral_claims');
+      await pool.query(ddl);
+    }
+  });
 });
