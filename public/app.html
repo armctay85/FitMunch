@@ -75,7 +75,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .scroll-body::-webkit-scrollbar{width:4px}
 .scroll-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 
-.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:4px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:4px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:background-color .15s,color .15s,border-color .15s}
 .btn-green{background:var(--leaf);color:#fff}.btn-green:hover{background:var(--leaf2)}
 .btn-ghost2{background:transparent;color:var(--mute);border:1px solid var(--line)}.btn-ghost2:hover{color:var(--ink);border-color:var(--mute2)}
 .btn-red{background:rgba(194,59,59,.08);color:var(--red);border:1px solid rgba(194,59,59,.2)}.btn-red:hover{background:rgba(194,59,59,.15)}
@@ -387,7 +387,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 @media (pointer:coarse), (max-width:1024px) {
  .nav-logo{min-height:44px;display:flex;align-items:center}
  .sidebar .sb-item,.sidebar .nav-item,.btn-logout,.metric-cta,.btn,.btn-sm,.nav-btn,.diet-tag,.mob-nav-btn,.mob-more-btn,.modal-close,button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),[role=button]{min-height:44px;min-width:44px}
- .sidebar .sb-item,.sidebar .nav-item{display:flex;align-items:center}
+ .sidebar .sb-item,.sidebar .nav-item{display:flex;align-items:center;flex-shrink:0}
  a[href].btn,a[href][class*="cta"],[onclick]:not(div):not(tr):not(li){min-height:44px;min-width:44px;display:inline-flex;align-items:center}
  input[type=checkbox]:not(.fm-switch),input[type=radio]{width:24px;height:24px;margin:10px}
  .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
@@ -407,6 +407,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .modal-overlay{visibility:hidden}
 .modal-overlay.open{visibility:visible}
 .modal input:focus-visible,.modal select:focus-visible,.modal textarea:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--leaf2);outline-offset:2px}
+#mp-saved-generate:focus-visible,#mp-saved-retry:focus-visible{outline:2px solid #166534;outline-offset:2px}
+#ai-consent-privacy{display:inline-flex;align-items:center;min-height:44px;padding:10px 8px;box-sizing:border-box}
 /* Privacy and AI consent modals: above onboarding, 44px targets, a real switch. */
 #modal-ai-consent{z-index:400}
 #modal-ai-consent .btn,#modal-privacy .btn,#modal-privacy .modal-close{min-height:44px;min-width:44px}
@@ -787,6 +789,10 @@ html.fm-authed #app-gate{display:none}
  <div id="mp-saved-empty" class="home-plan-empty" hidden>
  <p>No saved plans yet.</p>
  <button type="button" class="btn btn-green btn-sm" id="mp-saved-generate" onclick="generateMealPlan()">Generate</button>
+ </div>
+ <div id="mp-saved-error" class="home-plan-empty" hidden>
+ <p>Couldn't load your week, try again</p>
+ <button type="button" class="btn btn-green btn-sm" id="mp-saved-retry" onclick="loadMealPlans()">Try again</button>
  </div>
  <div class="plan-grid" id="meal-plans-grid"></div>
  </div>
@@ -1407,7 +1413,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-ai-consent">
  <div class="modal" role="dialog" aria-labelledby="ai-consent-title">
  <div class="modal-title" id="ai-consent-title">Allow AI features?</div>
- <div style="font-size:.85rem;color:var(--text2);line-height:1.5">Coach, meal plans, workout plans, reviews and receipt scans send the details you enter (and a receipt photo for scans) to an AI provider to produce your answer. Nothing is sent until you allow it. You can change this any time in Privacy. <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a></div>
+ <div style="font-size:.85rem;color:var(--text2);line-height:1.5">Coach, meal plans, workout plans, reviews and receipt scans send the details you enter (and a receipt photo for scans) to an AI provider to produce your answer. Nothing is sent until you allow it. You can change this any time in Privacy. <a id="ai-consent-privacy" href="/privacy" target="_blank" rel="noopener">Privacy policy</a></div>
  <div class="modal-actions">
  <button class="btn btn-ghost2" id="ai-consent-no">Not now</button>
  <button class="btn btn-green" id="ai-consent-yes">Allow</button>
@@ -2374,13 +2380,30 @@ async function loadMealPlans() {
  if (gg && S.goals.fitnessGoal) gg.value = S.goals.fitnessGoal;
  }
  // Meals you typed or edited are kept as entered; the server's allergenWarnings (one per meal) drive the badges.
- const r = await API('/meal-plans');
- S.mealPlans = r.plans || [];
+ // Same reader as Home: a 500, an empty 304, an abort, or a body that is not { success, plans } is a retry.
+ // A failed refresh leaves the list already on screen. "No saved plans yet." is only a successful empty load.
  const grid = document.getElementById('meal-plans-grid');
  const section = document.getElementById('mp-saved-section');
  const empty = document.getElementById('mp-saved-empty');
+ const err = document.getElementById('mp-saved-error');
  if (!grid) return;
- if (!S.mealPlans.length) {
+ const parsed = await readMealPlans();
+ if (!parsed || parsed.kind === 'error' || parsed.kind === 'refetch') {
+  if (section) section.style.display = '';
+  if (empty) empty.hidden = true;
+  if (err) err.hidden = false;
+  return;
+ }
+ const plans = parsed.body && Array.isArray(parsed.body.plans) ? parsed.body.plans : null;
+ if (!plans) {
+  if (section) section.style.display = '';
+  if (empty) empty.hidden = true;
+  if (err) err.hidden = false;
+  return;
+ }
+ S.mealPlans = plans;
+ if (err) err.hidden = true;
+ if (!plans.length) {
   grid.innerHTML = '';
   if (section) section.style.display = '';
   if (empty) empty.hidden = false;

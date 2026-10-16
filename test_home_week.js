@@ -288,9 +288,15 @@ describe('saved plan meals, both shapes', () => {
     expect(fn('savedPlanMealsHtml')).toContain('FMHomeWeek.flattenPlanMeals');
     expect(fn('loadMealPlans')).toContain('savedPlanMealsHtml(p)');
     const listed = fn('loadMealPlans');
+    expect(listed).toContain('await readMealPlans()');
+    expect(listed).toContain("parsed.kind === 'error'");
     expect(listed).toContain("getElementById('mp-saved-empty')");
-    expect(listed).toContain('empty.hidden = false');
+    expect(listed).toContain("getElementById('mp-saved-error')");
+    expect(listed.indexOf('empty.hidden = false')).toBeGreaterThan(listed.indexOf("parsed.kind === 'error'"));
+    expect(listed).not.toMatch(/S\.mealPlans = r\.plans \|\| \[\]/);
     expect(listed).not.toMatch(/if \(!S\.mealPlans\.length\) \{ if \(section\) section\.style\.display = 'none'/);
+    expect(html).toContain('id="mp-saved-error" class="home-plan-empty" hidden');
+    expect(html).toContain('id="mp-saved-retry" onclick="loadMealPlans()">Try again</button>');
     expect(html).toContain('id="mp-saved-empty" class="home-plan-empty" hidden');
     expect(html).toContain('>No saved plans yet.</p>');
     expect(html).toContain('id="mp-saved-generate" onclick="generateMealPlan()">Generate</button>');

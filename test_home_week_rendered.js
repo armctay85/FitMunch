@@ -728,4 +728,108 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       await ctx.close();
     }
   });
+
+  for (const width of [320, 390, 1440]) {
+    it(`${width}px: Meal Planner 500, empty 304 and abort stay a retry; a successful empty load still says there are none`, async () => {
+      const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+      db = { profile: { targetCalories: 2000, targetProtein: 130 }, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [], mealStatus: 500 };
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+      await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+      const p = await ctx.newPage();
+      await p.goto(`${base}/app.html`);
+      await p.waitForSelector('#home-mealplan-error');
+      await p.evaluate(() => nav('meal-plans'));
+      await p.waitForSelector('#mp-saved-error:not([hidden])');
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.textContent('#mp-saved-error')).toMatch(/Couldn't load your week, try again/);
+
+      db.mealStatus = 0;
+      db.meal304 = 'always';
+      await p.evaluate(() => { S_mealPlansCache = null; return loadMealPlans(); });
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+
+      db.meal304 = null;
+      db.mealAbort = true;
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+      expect(await p.locator('#meal-plans-grid .plan-card').count()).toBe(0);
+
+      db.mealAbort = false;
+      db.plans = [{ id: 1, name: 'Your first week', meals: plan.days }];
+      await p.evaluate(() => { S_mealPlansCache = null; return loadMealPlans(); });
+      await p.waitForSelector('#meal-plans-grid .plan-card');
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+
+      db.mealStatus = 500;
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+
+      db.mealStatus = 0;
+      db.meal304 = 'always';
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+
+      db.meal304 = null;
+      db.mealAbort = true;
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+
+      db.mealAbort = false;
+      db.plans = [];
+      await p.evaluate(() => { S_mealPlansCache = null; return loadMealPlans(); });
+      await p.waitForSelector('#mp-saved-empty:not([hidden])');
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(true);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(false);
+      expect(await p.textContent('#mp-saved-empty')).toMatch(/No saved plans yet/);
+      expect(await p.locator('#meal-plans-grid .plan-card').count()).toBe(0);
+
+      if (width === 1440) {
+        await p.locator('#mp-saved-generate').focus();
+        const ring = await p.evaluate(() => {
+          const cs = getComputedStyle(document.getElementById('mp-saved-generate'));
+          return { color: cs.outlineColor, width: cs.outlineWidth, style: cs.outlineStyle, offset: cs.outlineOffset };
+        });
+        expect(ring).toEqual({ color: 'rgb(22, 101, 52)', width: '2px', style: 'solid', offset: '2px' });
+      }
+
+      await p.evaluate(() => {
+        const modal = document.querySelector('#modal-ai-consent .modal');
+        modal.style.transition = 'none';
+        document.getElementById('modal-ai-consent').classList.add('open');
+      });
+      const linkH = Math.round((await p.locator('#ai-consent-privacy').boundingBox()).height);
+      expect(linkH).toBeGreaterThanOrEqual(44);
+      expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+      await ctx.close();
+    });
+  }
+
+  it('fine pointer shell rows stay at least 44px at 768 and 1024', async () => {
+    db = { profile: {}, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [] };
+    const ctx = await browser.newContext({ viewport: { width: 1024, height: 800 } });
+    await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+    const p = await ctx.newPage();
+    await p.goto(`${base}/app.html`);
+    await p.waitForFunction(() => document.documentElement.classList.contains('fm-authed'));
+    for (const width of [768, 1024]) {
+      await p.setViewportSize({ width, height: 800 });
+      const h = await p.evaluate(() => ({
+        row: document.querySelector('#sidebar-client .sb-item').getBoundingClientRect().height,
+        up: document.getElementById('btn-upgrade').getBoundingClientRect().height,
+        log: document.getElementById('pm-log-meal').getBoundingClientRect().height,
+      }));
+      expect(Math.round(h.row)).toBeGreaterThanOrEqual(44);
+      expect(Math.round(h.up)).toBeGreaterThanOrEqual(44);
+      expect(Math.round(h.log)).toBeGreaterThanOrEqual(44);
+    }
+    await ctx.close();
+  });
 });
