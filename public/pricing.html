@@ -60,6 +60,19 @@ html,body{max-width:100%;overflow-x:hidden}
 .check strong{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.84rem;margin-bottom:3px}
 .check span{font-size:.78rem;color:var(--mute);line-height:1.45}
 .footnote{font-size:.8rem;color:var(--mute);margin-top:28px}
+.pr-plans{padding-top:40px;background:var(--paper)}
+#billing-toggle{margin:0 auto 28px;padding:6px;width:fit-content;background:#fff;border:1px solid var(--line);border-radius:999px}
+.today{margin-top:36px}
+.today h2{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:clamp(1.4rem,3vw,1.8rem);font-weight:800;letter-spacing:-.03em;margin:0 0 14px}
+.today-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.today-grid .check{background:#fff}
+.p-price small{display:block;margin-top:8px;font-size:1rem;line-height:1.4;color:#1c3328;font-weight:600}
+@media(max-width:860px){
+  .today-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:520px){
+  .today-grid{grid-template-columns:1fr}
+}
 
 .trust-strip{
   display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
@@ -119,9 +132,9 @@ html,body{max-width:100%;overflow-x:hidden}
   </div>
 </header>
 
-<section class="fm-section" style="padding-top:0">
+<section class="fm-section pr-plans">
   <div class="fm-section-inner">
-    <div id="billing-toggle" role="group" aria-label="Premium billing" hidden style="gap:6px;justify-content:center;margin:0 0 18px">
+    <div id="billing-toggle" role="group" aria-label="Premium billing" hidden style="gap:6px;justify-content:center">
       <button type="button" class="fm-btn fm-btn-leaf" data-billing="monthly" aria-pressed="true">Monthly</button>
       <button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly <span class="save-badge" id="yearly-save" hidden></span></button>
     </div>
@@ -156,7 +169,7 @@ html,body{max-width:100%;overflow-x:hidden}
       </article>
       <article class="plan">
         <div class="p-name">Coach</div>
-        <div class="p-price">A$39 <small>and A$79 a month</small></div>
+        <div class="p-price">A$39 <small>a month for up to 10 clients</small></div>
         <p class="p-desc">A$39 a month for up to 10 clients, or A$79 a month unlimited. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
         <ul>
           <li>Up to 10 clients on A$39, unlimited on A$79</li>
@@ -168,12 +181,13 @@ html,body{max-width:100%;overflow-x:hidden}
       </article>
     </div>
 
-    <div class="proof-grid">
-      <div class="pbox">
-        <h2>What you get today</h2>
-        <div class="checks">
-          <div class="check"><strong>Included</strong><span>Macro snapshot from your shop, pantry gaps, shareable shop score.</span></div>
-        </div>
+    <div class="today">
+      <h2>What you get today</h2>
+      <div class="today-grid">
+        <div class="check"><strong>Meals</strong><span>Seven days written from the targets you set.</span></div>
+        <div class="check"><strong>Trolley</strong><span>The ingredients for those meals, ready for the shop.</span></div>
+        <div class="check"><strong>Receipt</strong><span>A haul score after you have shopped.</span></div>
+        <div class="check"><strong>Trial</strong><span>14 days of Premium, then A$19.99 a month. Free stays A$0 forever.</span></div>
       </div>
     </div>
     <p class="footnote">All prices are in AUD. Free starts as a free account with no card. Premium and Coach trials collect a card via Stripe. <a href="/refund">Refund policy</a>. General food planning support only, not medical advice. FitMunch is a browser web app (Add to Home Screen on iPhone). An App Store listing is not live yet.</p>

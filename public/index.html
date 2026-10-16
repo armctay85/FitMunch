@@ -184,11 +184,11 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   border-top:1px solid var(--line);
 }
 .loop-inner{position:relative;width:min(1040px,100%);margin:0 auto}
-.loop-head{max-width:34ch;margin-bottom:52px}
+.loop-head{max-width:40rem;margin-bottom:52px}
 .loop-head h2{
   font-size:clamp(2.05rem,4.6vw,3.2rem);
   font-weight:800;letter-spacing:-.055em;line-height:1.02;
-  margin-bottom:14px;
+  margin-bottom:14px;max-width:20em;text-wrap:balance;
 }
 .loop-head p{color:var(--mute);font-size:1.06rem;line-height:1.65}
 .beats{
@@ -340,10 +340,13 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   text-transform:uppercase;color:var(--leaf2);margin-bottom:12px;
 }
 .price-n{
-  font-size:2.55rem;font-weight:600;letter-spacing:-.05em;line-height:1;
+  font-size:2.55rem;font-weight:600;letter-spacing:-.05em;line-height:1.05;
   margin-bottom:10px;
 }
-.price-n small{font-size:.88rem;font-weight:500;color:var(--mute)}
+.price-n small{
+  display:block;margin-top:8px;font-size:1.05rem;font-weight:600;line-height:1.4;
+  letter-spacing:0;color:#1c3328;
+}
 .plan > p{color:var(--mute);font-size:.95rem;line-height:1.55;margin-bottom:22px}
 .plan ul{list-style:none;display:grid;gap:9px;margin-bottom:26px}
 .plan li{
@@ -369,7 +372,8 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 }
 .final h2 em{font-style:normal;color:var(--leaf)}
 .final p{color:rgba(238,242,238,.76);font-size:1.05rem;line-height:1.6;max-width:36ch;margin-bottom:28px}
-.final-ctas{display:flex;flex-wrap:wrap;gap:10px}
+.final-ctas{display:flex;flex-wrap:wrap;gap:12px}
+.pricing a.btn,.final a.btn{padding:14px 22px;min-height:52px}
 
 /* TRUST */
 .trust{
@@ -398,14 +402,15 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   border-top:1px solid var(--line);
 }
 .landers-inner{width:min(1040px,100%);margin:0 auto}
-.landers-head{max-width:36ch;margin-bottom:28px}
+.landers-head{max-width:40rem;margin-bottom:28px}
 .landers-head h2{
   font-size:clamp(1.85rem,4vw,2.7rem);
   font-weight:800;letter-spacing:-.05em;line-height:1.05;margin-bottom:10px;
+  max-width:18em;text-wrap:balance;
 }
 .landers-head p{color:var(--mute);font-size:1.02rem;line-height:1.6}
 .lander-grid{
-  display:grid;grid-template-columns:1fr 1fr;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
   gap:1px;background:var(--line);border:1px solid var(--line);
 }
 .lander-card{
@@ -508,6 +513,37 @@ footer{
 .demo-own{margin-top:12px;font-size:.9rem}
 .demo-own a{color:inherit}
 .demo-error{font-size:.9rem;color:#ffb4a8;margin-top:12px}
+.nav-toggle{
+  display:none;align-items:center;justify-content:center;
+  width:44px;height:44px;min-width:44px;min-height:44px;
+  padding:0;border:1px solid rgba(255,255,255,.35);border-radius:10px;
+  background:transparent;color:#fff;cursor:pointer;
+}
+.nav-toggle-bars,.nav-toggle-bars::before,.nav-toggle-bars::after{
+  display:block;width:18px;height:2px;background:#fff;border-radius:2px;position:relative;
+}
+.nav-toggle-bars::before,.nav-toggle-bars::after{
+  content:"";position:absolute;left:0;
+}
+.nav-toggle-bars::before{top:-6px}
+.nav-toggle-bars::after{top:6px}
+@media(max-width:859px){
+  .site-nav{position:relative;gap:4px;flex-wrap:nowrap}
+  .brand{margin-right:auto}
+  .nav-links{order:2}
+  .nav-toggle{display:inline-flex;flex:0 0 44px;order:3}
+  .site-nav .nav-links a{white-space:nowrap}
+  .site-nav .nav-links a.nav-keep{display:inline-flex}
+  .site-nav.is-open .nav-links{
+    display:flex;flex-direction:column;align-items:stretch;
+    position:absolute;top:calc(100% + 4px);left:12px;right:12px;z-index:40;
+    background:#07130d;border:1px solid rgba(125,255,163,.28);border-radius:14px;
+    padding:8px;box-shadow:0 18px 40px rgba(0,0,0,.45);
+  }
+  .site-nav.is-open .nav-links a{
+    display:flex;min-height:44px;padding:10px 12px;
+  }
+}
 </style>
 <noscript><style>.receipt{opacity:1;transform:none}</style></noscript>
 <link rel="stylesheet" href="/css/fm-elite.css"/>
@@ -525,10 +561,13 @@ footer{
     <img src="/assets/logo.svg" alt="" width="32" height="32"/>
     FitMunch
   </a>
-  <div class="nav-links">
+  <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Open menu">
+    <span class="nav-toggle-bars" aria-hidden="true"></span>
+  </button>
+  <div class="nav-links" id="site-menu">
     <a href="#loop">How it works</a>
     <a href="#engine">The engine</a>
-    <a href="#pricing">Pricing</a>
+    <a class="nav-keep" href="#pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
     <a class="nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
   </div>
@@ -582,12 +621,12 @@ footer{
         <div class="plan-trolley">
           <p>Trolley</p>
           <ul id="plan-trolley">
-            <li>Eggs</li><li>Chicken breast</li><li>Sweet potato</li><li>Salmon</li><li>Greek yoghurt</li><li>Broccoli</li><li>Berries</li>
+            <li>Eggs</li><li>Potatoes</li><li>Vegetables</li><li>Chicken breast</li><li>Sweet potato</li><li>Salmon</li><li>Greens</li><li>Rice</li><li>Greek yoghurt</li><li>Berries</li>
           </ul>
         </div>
       </div>
+      <p class="hero-app-note">Sample cut week. The card above follows the goal you pick. This picture stays the 82kg example.</p>
       <img class="hero-app" src="/assets/fm-app-week.webp" alt="Preview of a generated Wednesday meal plan" width="1122" height="1617" fetchpriority="high"/>
-      <p class="hero-app-note">Your own week builds from your body, not this sample.</p>
       <figcaption>Your first week: built for 82kg cutting to 78kg, at 2,000 kcal and 150g protein, with Swap open on breakfast.</figcaption>
     </figure>
   </div>
@@ -673,7 +712,7 @@ footer{
   <div class="landers-inner">
     <div class="landers-head">
       <h2>Plan from the shop you already do.</h2>
-      <p>Four ways into the same health engine. Premium is A$19.99 a month after a 14-day trial.</p>
+      <p>Three ways into the same health engine. Premium is A$19.99 a month after a 14-day trial.</p>
     </div>
     <div class="lander-grid">
       <article class="lander-card">
@@ -993,6 +1032,68 @@ try {
       btn.disabled = false;
       btn.textContent = 'Score the sample receipt';
     }
+  });
+})();
+</script>
+<script>
+(function () {
+  var nav = document.querySelector('.site-nav');
+  var btn = document.getElementById('nav-toggle');
+  var menu = document.getElementById('site-menu');
+  if (!nav || !btn || !menu) return;
+  function itemLinks() {
+    return Array.prototype.filter.call(menu.querySelectorAll('a'), function (a) {
+      return getComputedStyle(a).display !== 'none';
+    });
+  }
+  function setOpen(open) {
+    nav.classList.toggle('is-open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
+  function openMenu() {
+    setOpen(true);
+    var first = itemLinks()[0];
+    if (first) first.focus();
+  }
+  function closeMenu(restore) {
+    if (!nav.classList.contains('is-open')) return;
+    setOpen(false);
+    if (restore) btn.focus();
+  }
+  btn.addEventListener('click', function () {
+    if (nav.classList.contains('is-open')) closeMenu(false);
+    else openMenu();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!nav.classList.contains('is-open')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMenu(true);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    var items = itemLinks();
+    if (!items.length) return;
+    var first = items[0];
+    var last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+  menu.addEventListener('click', function (e) {
+    if (e.target.closest('a')) closeMenu(false);
+  });
+  document.addEventListener('click', function (e) {
+    if (!nav.classList.contains('is-open')) return;
+    if (!nav.contains(e.target)) closeMenu(false);
+  });
+  window.addEventListener('resize', function () {
+    if (window.innerWidth > 859) closeMenu(false);
   });
 })();
 </script>
