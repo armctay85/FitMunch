@@ -231,16 +231,22 @@ maybe('trainer-only routes (real Postgres)', () => {
       await pool.query(ddl);
       await pool.query(ddl);
       const rows = (await pool.query(
-        'SELECT code, claimer_id::text AS claimer FROM pt_referral_claims ORDER BY code NULLS LAST, claimer_id',
+        'SELECT code, claimer_id::text AS claimer FROM pt_referral_claims',
       )).rows;
-      expect(rows).toEqual([
+      const byCode = (a, b) => {
+        if (a.code == null) return 1;
+        if (b.code == null) return -1;
+        if (a.code !== b.code) return a.code < b.code ? -1 : 1;
+        return a.claimer < b.claimer ? -1 : a.claimer > b.claimer ? 1 : 0;
+      };
+      expect(rows.slice().sort(byCode)).toEqual([
         { code: 'FM-DUP', claimer: C1 },
         { code: 'FM-OTHER', claimer: C1 },
         { code: 'fm-dup', claimer: C2 },
         { code: null, claimer: C1 },
       ]);
       const idx = (await pool.query(
-        "SELECT indexdef FROM pg_indexes WHERE indexname = 'pt_referral_claims_norm_uidx'",
+        "SELECT indexdef FROM pg_indexes WHERE indexname = 'pt_referral_claims_norm_uidx' AND schemaname = current_schema()",
       )).rows;
       expect(idx).toHaveLength(1);
       await expect(pool.query(
