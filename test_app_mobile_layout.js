@@ -53,6 +53,23 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
     }
   });
 
+  it('gives fine-pointer shell targets 40px and coarse sidebar rows 44px', () => {
+    const fine = mediaBlock('min-width: 1025px) and (pointer: fine');
+    expect(fine).toMatch(/\.sidebar \.sb-item\{min-height:40px;min-width:40px/);
+    expect(fine).toMatch(/#btn-upgrade\{min-height:40px;min-width:40px/);
+    expect(fine).toMatch(/\.metric-cta\{min-height:40px;min-width:40px/);
+    const coarse = mediaBlock('pointer:coarse), (max-width:1024px');
+    expect(coarse).toMatch(/\.sidebar \.sb-item,/);
+    expect(coarse).toMatch(/min-height:44px;min-width:44px/);
+    expect(html).toContain('id="pm-log-meal"');
+  });
+
+  it('Start here is large enough and dark enough for 4.5:1 on the receipt card', () => {
+    expect(html).toMatch(/\.home-start-here\{font-size:\.875rem;font-weight:800;[^}]*color:#14532d/);
+    expect(html).toContain('id="home-start-here" class="home-start-here">📸 Start here</div>');
+    expect(html).not.toMatch(/font-size:\.62rem[^>]*>📸 Start here/);
+  });
+
   it('gives phone tap targets 44px and moves Sign out into the More sheet', () => {
     expect(phone).toMatch(/\.topnav \.btn-logout\{display:none\}/);
     expect(phone).toMatch(/\.nav-btn,\.diet-tag,\.metric-cta,[^{]*\{min-height:44px;min-width:44px\}/);
