@@ -157,6 +157,26 @@ describe('AI routes', () => {
     aiClient.providerName.mockReturnValue('openai');
   });
 
+  it('GET /api/ai/usage fails closed for free when the counter cannot be read, and premium still answers', async () => {
+    const aiUsage = require('./lib/ai-usage');
+    const storage = require('./server/storage.js');
+    aiUsage.getUsed.mockResolvedValueOnce(null);
+    const free = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${token}`);
+    expect(free.status).toBe(503);
+    expect(free.body.error).toBe("We couldn't check your AI usage. Please try again.");
+    storage.getUserById.mockResolvedValueOnce({
+      id: 'u-test', name: 'Tester', email: 't@example.com', subscriptionTier: 'premium', settings: { aiDataConsent: true },
+    });
+    aiUsage.getUsed.mockResolvedValueOnce(null);
+    const paid = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${token}`);
+    expect(paid.status).toBe(200);
+    expect(paid.body.success).toBe(true);
+    expect(paid.body.tier).toBe('premium');
+    expect(paid.body.used).toBe(0);
+    expect(paid.body.remaining).toBeNull();
+    aiUsage.getUsed.mockResolvedValue(0);
+  });
+
   it('POST /api/ai/workout-plan generates a structured program', async () => {
     const r = await request(app)
       .post('/api/ai/workout-plan')

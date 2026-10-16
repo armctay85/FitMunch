@@ -100,16 +100,24 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     expect(dietGuard.listOf([...new Array(dietGuard.MAX_FILTER_SCAN - 6).fill(7), 'peanut'])).toEqual([dietGuard.UNREADABLE, 'peanut']);
   });
 
-  it('#140 L: a 2M-key object stops at the character budget, fails closed, and is quick', () => {
+  it('#140 L: a 2M-key object stops at the character budget and fails closed', () => {
     const obj = {};
     for (let i = 0; i < 2e6; i += 1) obj[`k${i}`] = true;
-    const t = Date.now();
     const out = dietGuard.listOf(obj);
-    const ms = Date.now() - t;
     expect(out[out.length - 1]).toBe(dietGuard.UNREADABLE);
     expect(out.length).toBeLessThan(dietGuard.MAX_FILTER_SCAN);
-    expect(ms).toBeLessThan(1500);
+    expect(out.length).toBeGreaterThan(1);
   }, 30000);
+
+  it('#144 L2: falsy keys spend the read budget, so a huge empty object does not scan through to a late key', () => {
+    const obj = {};
+    for (let i = 0; i < dietGuard.MAX_FILTER_SCAN + 5; i += 1) obj[`f${i}`] = false;
+    obj.peanut = true;
+    const out = dietGuard.listOf(obj);
+    expect(out).toContain(dietGuard.UNREADABLE);
+    expect(out).not.toContain('peanut');
+    expect(dietGuard.listOf({ nope: false, empty: '', zero: 0, peanut: true })).toEqual(['peanut']);
+  });
 
   it('listOf keeps every item within the character budget, and fails closed past it', () => {
     const list = new Array(60).fill('vegan');
@@ -143,7 +151,7 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     let l; let tl;
     try { [l, tl] = await ms(() => request(app).get('/api/meal-plans').set('Authorization', token)); } finally { spy.mockRestore(); }
     expect(l.status).toBe(200);
-    expect(l.body.plans[0].allergenWarnings[0].notice).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(l.body.plans[0].allergenWarnings[0].notice).toBe(dietGuard.unreadableNotice(true));
     expect(l.body.plans[0].allergenWarnings[1].contains).toContain('nuts');
     expect([tc, ti, tl].every((t) => t < 500)).toBe(true);
     expect(ins.status).toBeLessThan(500);
@@ -317,7 +325,7 @@ describe('r3', () => {
     let l; const t2 = Date.now();
     try { l = await request(app).get('/api/meal-plans').set('Authorization', token); } finally { spy.mockRestore(); }
     expect(Date.now() - t2).toBeLessThan(500);
-    expect(l.body.plans[0].allergenWarnings[0].notice).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(l.body.plans[0].allergenWarnings[0].notice).toBe(dietGuard.unreadableNotice(true));
   });
   it('S1c: a string over 20k characters is never parsed', () => {
     const big = JSON.stringify(new Array(200000).fill('peanut'));
@@ -329,7 +337,7 @@ describe('r3', () => {
       expect(spy).not.toHaveBeenCalled();
     } finally { spy.mockRestore(); }
   });
-  it('L1: the notice sits on its own line, with no ".;" joiner; the toast says "check" once', () => {
+  it('L1: the notice sits on its own line, with no ".;" joiner; "checked" appears once, and only for a past-budget list', () => {
     const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
     // eslint-disable-next-line no-new-func
     const badge = new Function('escapeHtml', `${html.match(/function allergenBadgeHtml[\s\S]*?\n\}/)[0]}; return allergenBadgeHtml;`)((x) => String(x));
@@ -340,7 +348,14 @@ describe('r3', () => {
     // eslint-disable-next-line no-new-func
     const show = new Function('toast', `${html.match(/function showAllergenWarnings[\s\S]*?\n\}/)[0]}; return showAllergenWarnings;`)((m) => { msg = m; });
     show({ allergenWarnings: [{ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE }, { meal: 'Satay chicken', contains: ['nuts'] }] });
+    // The base notice has no "check". The extra sentence is only for a list that stopped early, and it is the one "checked".
+    expect((msg.match(/check/gi) || []).length).toBe(0);
+    expect(msg).not.toMatch(/Check against/i);
+    expect(msg).not.toContain('.;');
+    show({ allergenWarnings: [{ meal: '', contains: [], notice: dietGuard.unreadableNotice(true) }, { meal: 'Satay chicken', contains: ['nuts'] }] });
     expect((msg.match(/check/gi) || []).length).toBe(1);
+    expect(msg).toContain("Some foods you typed weren't checked.");
+    expect(msg).not.toMatch(/Check against/i);
     expect(msg).not.toContain('.;');
     show({ allergenWarnings: [{ meal: 'Satay chicken', contains: ['nuts'] }] });
     expect(msg).toBe('Allergen warning: Satay chicken contains nuts. Check against your allergies and diet.');

@@ -206,6 +206,40 @@ describe('smoke account cap', () => {
     usage._setQueryForTests(async (sql) => { if (/CREATE/.test(sql)) return { rows: [] }; throw new Error('down'); });
     expect(await usage.checkAndConsume({ userId: 'u-f', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, smoke: true, unavailable: true });
   });
+  it('a free account fails closed when the usage read errors', async () => {
+    const { usage } = load({ AI_FREE_MONTHLY_LIMIT: '10', DATABASE_URL: 'postgres://mocked/usage' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    usage._setQueryForTests(async (sql) => {
+      if (/CREATE/.test(sql)) return { rows: [] };
+      if (/SELECT COALESCE\(SUM/.test(sql)) throw new Error('usage read failed');
+      return { rows: [{ total: 0 }] };
+    });
+    expect(await usage.checkAndConsume({ userId: 'u-free', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, unavailable: true });
+  });
+  it('a free account fails closed when the usage increment errors', async () => {
+    const { usage } = load({ AI_FREE_MONTHLY_LIMIT: '10', DATABASE_URL: 'postgres://mocked/usage' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    usage._setQueryForTests(async (sql) => {
+      if (/CREATE/.test(sql)) return { rows: [] };
+      if (/SELECT COALESCE\(SUM/.test(sql)) return { rows: [{ total: 1 }] };
+      if (/INSERT INTO ai_usage_monthly/.test(sql)) throw new Error('increment failed');
+      return { rows: [] };
+    });
+    expect(await usage.checkAndConsume({ userId: 'u-free', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, unavailable: true, used: 1 });
+  });
+  it('a cancelled usage statement fails closed for free and still allows premium', async () => {
+    const { usage } = load({ AI_FREE_MONTHLY_LIMIT: '10', DATABASE_URL: 'postgres://mocked/usage' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const cancel = Object.assign(new Error('canceling statement due to user request'), { code: '57014' });
+    usage._setQueryForTests(async (sql) => {
+      if (/CREATE/.test(sql)) return { rows: [] };
+      if (/SELECT COALESCE\(SUM/.test(sql)) throw cancel;
+      if (/INSERT INTO ai_usage_monthly/.test(sql)) throw cancel;
+      return { rows: [] };
+    });
+    expect(await usage.checkAndConsume({ userId: 'u-free', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, unavailable: true });
+    expect(await usage.checkAndConsume({ userId: 'u-paid', tier: 'premium', feature: 'chat' })).toMatchObject({ allowed: true, remaining: null });
+  });
   it('fails closed with no store at all', async () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-f' });
     usage._setQueryForTests(null);

@@ -1615,7 +1615,7 @@ function mealWarnings(meals, filters) {
     else if (w.unrecognised || (filters && filters.pastBudget)) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
   }
   // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
-  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.UNREADABLE_NOTICE });
+  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.unreadableNotice(filters.pastBudget) });
   return out.slice(0, 50);
 }
 
@@ -2151,6 +2151,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
       question: latestUser,
       intent,
+      pastBudget: !!(profile && !profileUnread && mealSafety.profileFilters(profile).pastBudget),
     };
     const hardBlocked = profileUnread || dietGuard.unreadable(filters);
     if (hardBlocked) {
@@ -2287,7 +2288,6 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
         day: aiUsage.sydneyDay(),
       });
     }
-    const used = await aiUsage.getUsed(userId);
     const limit = aiUsage.freeMonthlyLimit();
     let tier = 'free';
     try {
@@ -2295,11 +2295,17 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       tier = effectiveTier(user);
     } catch (_) {}
     const isPaid = tier && tier !== 'free';
+    const used = await aiUsage.getUsed(userId);
+    // Free accounts stop when the counter cannot be read. Paid accounts keep the old display (EQA #163).
+    if (used == null && !isPaid) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    const shown = used == null ? 0 : used;
     res.json({
       success: true,
-      used,
+      used: shown,
       limit: isPaid ? null : limit,
-      remaining: isPaid ? null : Math.max(0, limit - used),
+      remaining: isPaid ? null : Math.max(0, limit - shown),
       tier,
       month: aiUsage.monthKey(),
     });

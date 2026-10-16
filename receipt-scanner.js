@@ -266,6 +266,9 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
     if (!smoke && (!tier || tier === 'free')) {
       const limit = aiUsage.freeMonthlyLimit();
       const used = await aiUsage.getUsed(String(req.user.userId));
+      if (used == null) {
+        return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+      }
       if (limit === 0 || used >= limit) {
         return res.status(429).json({
           success: false,
@@ -401,6 +404,9 @@ router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => 
     const guestId = `guest:${guestIp(req)}`;
     const limit = aiUsage.freeMonthlyLimit();
     const used = await aiUsage.getUsed(guestId);
+    if (used == null) {
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
     if (limit === 0 || used >= limit) {
       return res.status(429).json({
         success: false,
