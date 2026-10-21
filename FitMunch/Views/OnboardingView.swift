@@ -168,6 +168,7 @@ struct OnboardingView: View {
                     .font(.headline)
                 
                 ForEach(Constants.FitnessGoals.allCases, id: \.self) { goal in
+                    let selected = viewModel.selectedGoal == goal
                     Button {
                         viewModel.selectedGoal = goal
                     } label: {
@@ -175,15 +176,23 @@ struct OnboardingView: View {
                             Text(goal.displayName)
                                 .foregroundColor(.primary)
                             Spacer()
-                            if viewModel.selectedGoal == goal {
+                            if selected {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(Theme.brandGreen)
                             }
                         }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
+                        .padding(.horizontal, Theme.Spacing.four)
+                        .frame(minHeight: 44)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(selected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                                .stroke(selected ? Theme.brandGreen : Color.clear, lineWidth: 2)
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
             .sensoryFeedback(.selection, trigger: viewModel.selectedGoal)
@@ -211,6 +220,7 @@ struct OnboardingView: View {
                 title: "Premium",
                 price: viewModel.premiumPriceText,
                 period: viewModel.premiumPeriodText,
+                trial: viewModel.premiumTrialText,
                 features: [
                     "Unlimited meal logging",
                     "Full history & advanced charts",
@@ -265,6 +275,7 @@ private struct PlanCard: View {
     let title: String
     let price: String
     let period: String
+    var trial: String = ""
     let features: [String]
     let isSelected: Bool
     let action: () -> Void
@@ -278,9 +289,13 @@ private struct PlanCard: View {
                         .fontWeight(.bold)
                     Spacer()
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(Theme.brandGreen)
-                            .font(.title2)
+                        Text("Selected")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Theme.brandGreenSoft)
+                            .foregroundStyle(Theme.brandGreen)
+                            .clipShape(Capsule())
                     }
                 }
                 
@@ -290,7 +305,13 @@ private struct PlanCard: View {
                         .fontWeight(.bold)
                     Text(period)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.secondaryText)
+                    if isSelected && !trial.isEmpty {
+                        Text(trial)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.brandGreen)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
@@ -306,10 +327,11 @@ private struct PlanCard: View {
                 }
             }
             .padding()
-            .background(isSelected ? Theme.brandGreen.opacity(0.1) : Color.gray.opacity(0.1))
-            .cornerRadius(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
                     .stroke(isSelected ? Theme.brandGreen : Color.clear, lineWidth: 2)
             )
         }

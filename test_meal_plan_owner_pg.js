@@ -23,8 +23,10 @@ const T20 = '00000000-0000-4000-8000-000000000020';
 const T30 = '00000000-0000-4000-8000-000000000030';
 
 const SCHEMA = `
-drop table if exists users, pt_clients, meal_plans, workout_plans, plan_assignments, shopping_lists cascade;
+drop table if exists user_profiles, users, pt_clients, meal_plans, workout_plans, plan_assignments, shopping_lists cascade;
 create table users(id uuid primary key, email text, name text, password_hash text, role text, pt_id uuid, settings jsonb, subscription_tier text, subscription_expires_at timestamptz);
+-- Saved plans are re-checked against the owner's diet filters when read.
+create table user_profiles(id serial primary key, user_id uuid, dietary_preferences jsonb default '[]', allergies jsonb default '[]', height real, weight real, age integer, gender varchar(20), activity_level varchar(50), fitness_goal varchar(100), target_calories integer, target_steps integer, target_protein integer, target_carbs integer, target_fat integer, updated_at timestamp default now());
 create table pt_clients(id serial primary key, pt_id uuid not null, client_id uuid not null, status text default 'active', phase text, notes text, created_at timestamptz default now(), updated_at timestamptz default now());
 create table meal_plans(id serial primary key, user_id uuid, name text, description text, goal_type text, meals jsonb,
   total_calories int, total_protein int, total_carbs int, total_fat int, created_at timestamptz default now(), updated_at timestamptz);
@@ -35,7 +37,7 @@ create table shopping_lists(id serial primary key, user_id uuid, meal_plan_id in
   completed boolean default false, created_at timestamptz default now(), updated_at timestamptz);
 `;
 const SEED = `
-truncate users, pt_clients, meal_plans, workout_plans, plan_assignments, shopping_lists restart identity;
+truncate users, pt_clients, meal_plans, workout_plans, plan_assignments, shopping_lists restart identity cascade;
 insert into users(id, role, pt_id) values ('${U1}','client','${T10}'),('${U2}','client','${T20}'),('${T10}','pt',null),('${T20}','pt',null),('${T30}','pt',null);
 insert into pt_clients(pt_id,client_id,status) values ('${T10}','${U1}','active'),('${T20}','${U2}','active'),('${T30}','${U1}','inactive');
 insert into meal_plans(user_id,name,meals) values
