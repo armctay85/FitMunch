@@ -150,6 +150,13 @@ struct CoachView: View {
                 if ScreenshotLaunch.isActive && messages.isEmpty {
                     messages = ScreenshotLaunch.coachMessages()
                 }
+                if AuditLaunch.isCoachLoading && messages.isEmpty {
+                    messages = [
+                        ChatMessage(role: "user", content: "What should I eat tonight?"),
+                        ChatMessage(role: "assistant", content: "…"),
+                    ]
+                    isSending = true
+                }
             }
         }
     }

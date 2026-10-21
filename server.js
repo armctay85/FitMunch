@@ -1324,6 +1324,14 @@ app.use((err, req, res, next) => {
     console.error('Invalid JSON body');
     return res.status(400).json({ success: false, error: 'Invalid JSON' });
   }
+  const receiptPath = String(req.originalUrl || req.url || '').split('?')[0];
+  const tooLarge = err && (err.type === 'entity.too.large' || Number(err.status || err.statusCode) === 413);
+  if (tooLarge && /\/api\/receipt(?:\/|$)/.test(receiptPath)) {
+    return res.status(413).json({
+      success: false,
+      error: require('./lib/receipt-image').TOO_LARGE_MESSAGE,
+    });
+  }
   console.error(err);
   let code = Number(err.status || err.statusCode);
   if (!Number.isFinite(code) || code < 400 || code >= 600) code = 500;
