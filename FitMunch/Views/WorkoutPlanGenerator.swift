@@ -167,13 +167,13 @@ enum WorkoutPlanGenerator {
 /// screen does not show the old placeholder of one minute.
 enum WorkoutDuration {
     static func minutes(for exercises: [WorkoutExercise]) -> Int? {
-        var seconds = 0
+        var total = 0
         for exercise in exercises {
             guard let piece = seconds(for: exercise) else { return nil }
-            seconds += piece
+            total += piece
         }
-        guard seconds > 0 else { return nil }
-        return max(1, Int((Double(seconds) / 60.0).rounded()))
+        guard total > 0 else { return nil }
+        return max(1, Int((Double(total) / 60.0).rounded()))
     }
 
     static func seconds(for exercise: WorkoutExercise) -> Int? {

@@ -66,11 +66,11 @@ struct ReceiptScanView: View {
             // AVCapture camera is the cover root. Do not present a system image picker for camera.
             .fullScreenCover(isPresented: $showCamera) {
                 SafeCameraPicker(
-                    requestsPermission: consent.allows(auth.user?.id),
                     onImage: { image in
                         receiptImage = image
                         startScan(image)
                     },
+                    requestsPermission: consent.allows(auth.user?.id),
                     onUnavailable: { message in
                         presentCameraFallback(message)
                     }
