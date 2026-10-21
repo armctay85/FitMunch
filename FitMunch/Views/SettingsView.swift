@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
     @State private var exportCSV: String?
+    @State private var exportError: String?
     @ObservedObject private var premium = PremiumManager.shared
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
@@ -218,8 +219,9 @@ struct SettingsView: View {
                 // Data section
                 Section("Data") {
                     Button("Export Data") {
-                        exportCSV = mealExportCSV()
+                        prepareExport()
                     }
+                    .accessibilityIdentifier("settings-export")
                     .foregroundStyle(Theme.brandGreen)
                     .disabled(!premium.isPremium)
                     
@@ -324,20 +326,43 @@ struct SettingsView: View {
                     ExportSheet(data: exportCSV)
                 }
             }
+            .alert("Export", isPresented: Binding(
+                get: { exportError != nil },
+                set: { if !$0 { exportError = nil } }
+            )) {
+                Button("Try again") { prepareExport() }
+                Button("OK", role: .cancel) { exportError = nil }
+            } message: {
+                Text(exportError ?? "")
+            }
         }
     }
 
-    /// Every on-device meal, not a shop price. Commas in names are spaces so each meal stays one row.
-    private func mealExportCSV() -> String {
-        let descriptor = FetchDescriptor<Meal>(sortBy: [SortDescriptor(\.date, order: .forward)])
-        let meals = (try? modelContext.fetch(descriptor)) ?? []
-        var csv = "Date,Meal Name,Calories,Protein (g),Carbs (g),Fats (g)\n"
-        for meal in meals {
-            let dateString = Constants.dateFormatter.string(from: meal.date)
-            let name = meal.name.replacingOccurrences(of: ",", with: " ")
-            csv += "\(dateString),\(name),\(meal.totalCalories),\(meal.totalProtein),\(meal.totalCarbs),\(meal.totalFats)\n"
+    /// A failed fetch stays on the error alert. It does not open Export Complete.
+    private func prepareExport() {
+        do {
+            exportError = nil
+            exportCSV = try mealExportCSV()
+        } catch {
+            exportCSV = nil
+            exportError = "Couldn't prepare your export. Try again."
         }
-        return csv
+    }
+
+    private func mealExportCSV() throws -> String {
+        let descriptor = FetchDescriptor<Meal>(sortBy: [SortDescriptor(\.date, order: .forward)])
+        let meals = try modelContext.fetch(descriptor)
+        let rows = meals.map { meal in
+            [
+                Constants.dateFormatter.string(from: meal.date),
+                meal.name,
+                "\(meal.totalCalories)",
+                "\(meal.totalProtein)",
+                "\(meal.totalCarbs)",
+                "\(meal.totalFats)",
+            ]
+        }
+        return MealCSV.document(rows: rows)
     }
 }
 

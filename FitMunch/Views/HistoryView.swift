@@ -451,6 +451,7 @@ struct ExportSheet: View {
     
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 20) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 60))
@@ -470,31 +471,25 @@ struct ExportSheet: View {
                     Text("Preview:")
                         .font(.headline)
                     
-                    ScrollView {
-                        Text(data)
-                            .font(.system(.caption, design: .monospaced))
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .frame(height: 200)
+                    Text(data)
+                        .font(.system(.caption, design: .monospaced))
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
                 }
                 .padding()
-                
-                Spacer()
                 
                 Button("Share") {
                     shareSheet = true
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Theme.buttonFill)
-                .foregroundColor(.white)
-                .cornerRadius(12)
+                .buttonStyle(PrimaryButtonStyle())
                 .padding(.horizontal)
+                .accessibilityIdentifier("export-share")
             }
             .padding()
+            }
+            .accessibilityIdentifier("export-sheet")
             .navigationTitle("Export Data")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
