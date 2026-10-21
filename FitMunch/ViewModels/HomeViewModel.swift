@@ -27,6 +27,16 @@ class HomeViewModel: ObservableObject {
     
     /// Load meals for the selected date
     func loadMealsForSelectedDate() {
+        if AuditLaunch.isTodayLoading {
+            isLoading = true
+            return
+        }
+        if AuditLaunch.isTodayError {
+            isLoading = false
+            meals = []
+            errorMessage = "Failed to load meals: Couldn't read today's log."
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         
