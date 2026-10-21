@@ -12,6 +12,7 @@ enum AuditLaunch {
     static let scanFinished = "-AuditScanFinished"
     static let todayLoading = "-AuditTodayLoading"
     static let todayError = "-AuditTodayError"
+    static let todayEmpty = "-AuditTodayEmpty"
     static let coachLoading = "-AuditCoachLoading"
 
     static var isOnboarding: Bool { flag(onboarding) }
@@ -23,6 +24,7 @@ enum AuditLaunch {
     static var isScanFinished: Bool { flag(scanFinished) }
     static var isTodayLoading: Bool { flag(todayLoading) }
     static var isTodayError: Bool { flag(todayError) }
+    static var isTodayEmpty: Bool { flag(todayEmpty) }
     static var isCoachLoading: Bool { flag(coachLoading) }
 
     private static func flag(_ name: String) -> Bool {

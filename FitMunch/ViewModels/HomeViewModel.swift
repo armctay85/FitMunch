@@ -27,6 +27,13 @@ class HomeViewModel: ObservableObject {
     
     /// Load meals for the selected date
     func loadMealsForSelectedDate() {
+        if AuditLaunch.isTodayEmpty {
+            let existing = (try? modelContext.fetch(FetchDescriptor<Meal>())) ?? []
+            for meal in existing {
+                modelContext.delete(meal)
+            }
+            try? modelContext.save()
+        }
         if AuditLaunch.isTodayLoading {
             isLoading = true
             return
