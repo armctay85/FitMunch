@@ -39,7 +39,7 @@ describe('Public Premium CTA', () => {
   it('login?plan=premium is email-first when signed out, and opens checkout straight after sign-in', async () => {
     const login = await request(app).get('/login.html?plan=premium').expect(200);
     expect(login.text).toContain('Start Premium trial');
-    expect(login.text).toContain('Start your 14-day free trial');
+    expect(login.text).toContain('Start the 14-day trial');
     expect(login.text).toContain("' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: '");
     // Wilson r2: straight to Stripe. Subscribers see the sign-in message;
     // a used trial is shown before the browser leaves for Stripe.
@@ -57,7 +57,7 @@ describe('Public Premium CTA', () => {
     expect(login.text).toContain("'14-day free trial, then ' + priceLine");
     expect(login.text).toContain("annualBilling ? 'A$149.99 a year' : 'A$19.99 a month'");
     expect(login.text).toContain('Stripe opens');
-    expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial')");
+    expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial')");
     expect(login.text).toMatch(/await fetch\('\/api\/quick-checkout'/);
     expect(login.text).toContain('if (emailFirst && !pendingClaim) return doEmailFirstTrial();');
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);
@@ -385,7 +385,7 @@ describe('iOS ASC review blockers (source contract)', () => {
   });
 
   it('build number is 9 and UITests cover Upgrade + Take a photo', () => {
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"11"/);
     expect(project).toMatch(/MARKETING_VERSION:\s*"1\.0"/);
     expect(guards).toContain('testUpgradeOpensPaywallWithoutCrashing');
     expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');
@@ -439,7 +439,9 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
 
   it('Yearly toggle: unselected button is fm-btn-ink, 4.5:1 or better, with a focus ring (QA r2 M2)', async () => {
     const html = (await request(app).get('/pricing').expect(200)).text;
-    expect(html).toContain('<button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly</button>');
+    expect(html).toContain('<button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly <span class="save-badge" id="yearly-save" hidden></span></button>');
+    // The Save N% badge is dark green on pale green, 4.5:1 or better, and hidden until the page computes it.
+    expect(html).toContain('#billing-toggle .save-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:#e8f5ec;color:#0f5a2a;');
     expect(html).toContain("b.className = on ? 'fm-btn fm-btn-leaf' : 'fm-btn fm-btn-ink';");
     expect(html).not.toMatch(/data-billing="[a-z]+"[^>]*fm-btn-ghost|fm-btn-ghost[^>]*data-billing/);
     expect(html).toContain('[data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}');

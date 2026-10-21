@@ -10,8 +10,13 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 30000, // Increased from 2s to 30s to prevent timeout errors
-  statement_timeout: 60000, // Query timeout 60 seconds
+  // Receipt scan reads the user here before vision. Vision's worst case is
+  // 45s + 20s. maxDuration is 90s, so 30s connect + 60s statement does not fit.
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 8000,
+  // An idle client must not hold the process open after tests. The server
+  // stays up on its listen socket.
+  allowExitOnIdle: true,
 });
 
 // Initialize Drizzle ORM
@@ -54,8 +59,10 @@ async function getUserByEmail(email) {
   return user;
 }
 
-async function getUserById(id) {
-  await ensureSchema();
+async function getUserById(id, opts) {
+  // Receipt scan passes ensureSchema:false. The migrate pool is not on that
+  // hot path; login has already created the tables.
+  if (!opts || opts.ensureSchema !== false) await ensureSchema();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
   return user;
 }
@@ -138,12 +145,14 @@ async function ensureUserExists(userId, email = null, name = 'Anonymous User') {
       return existing;
     }
     
+    // ON CONFLICT: two first requests at once must not throw (EQA #141 r2 L1).
     const [user] = await db.insert(schema.users).values({
       id: userId,
       email: email || `user_${userId}@fitmunch.app`,
       name: name,
       passwordHash: 'not_set',
-    }).returning();
+    }).onConflictDoNothing().returning();
+    if (!user) return getUserById(userId);
     
     console.log('✅ Auto-provisioned user:', userId);
     return user;
@@ -154,57 +163,101 @@ async function ensureUserExists(userId, email = null, name = 'Anonymous User') {
 }
 
 // Profile operations
-async function createOrUpdateProfile(userId, profileData) {
-  await ensureSchema();
-  await ensureUserExists(userId);
-  
-  const existing = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId));
-  
-  if (existing.length > 0) {
-    await db.update(schema.userProfiles)
-      .set({ ...profileData, updatedAt: new Date() })
-      .where(eq(schema.userProfiles.userId, userId));
+// Every profile write takes this per-user lock (two-key form: own namespace, no clash with other locks),
+// then the row lock, so a generate's filter merge and a profile save never interleave (EQA #141 r2 M1).
+const PROFILE_LOCK_NS = 1410141;
+const lockProfile = (client, userId) => client.query('select pg_advisory_xact_lock($1, hashtext($2::text))', [PROFILE_LOCK_NS, String(userId)]);
+
+async function inProfileTx(userId, fn) {
+  const client = await pool.connect();
+  let broken = null;
+  // A backend killed mid-transaction emits 'error' on the checked-out client; without a listener
+  // Node crashes. The broken client is then destroyed, never returned to the pool (EQA #142 S2).
+  const onError = (e) => { broken = broken || e || new Error('connection error'); };
+  client.on('error', onError);
+  try {
+    await client.query('BEGIN');
+    await lockProfile(client, userId);
+    const { rows } = await client.query('select * from user_profiles where user_id = $1 order by id limit 1 for update', [userId]);
+    const out = await fn(client, rows[0] || null);
+    await client.query(out && out.rollback ? 'ROLLBACK' : 'COMMIT');
+    return out ? out.value : undefined;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (e) { broken = e; }
+    throw err;
+  } finally {
+    client.off('error', onError);
+    client.release(broken || undefined);
+  }
+}
+
+const PROFILE_COLUMNS = {
+  height: 'height', weight: 'weight', age: 'age', gender: 'gender', activityLevel: 'activity_level',
+  fitnessGoal: 'fitness_goal', dietaryPreferences: 'dietary_preferences', allergies: 'allergies',
+  targetCalories: 'target_calories', targetSteps: 'target_steps', targetProtein: 'target_protein',
+  targetCarbs: 'target_carbs', targetFat: 'target_fat',
+};
+const JSON_COLUMNS = new Set(['dietary_preferences', 'allergies']);
+
+async function writeProfileRow(client, userId, row, patch) {
+  const cols = Object.keys(patch).filter((k) => Object.hasOwn(PROFILE_COLUMNS, k) && patch[k] !== undefined);
+  const vals = cols.map((k) => (JSON_COLUMNS.has(PROFILE_COLUMNS[k]) ? JSON.stringify(patch[k]) : patch[k]));
+  const cast = (k, i) => `$${i + 2}${JSON_COLUMNS.has(PROFILE_COLUMNS[k]) ? '::jsonb' : ''}`;
+  if (row) {
+    const set = cols.map((k, i) => `${PROFILE_COLUMNS[k]} = ${cast(k, i)}`).concat('updated_at = now()').join(', ');
+    await client.query(`update user_profiles set ${set} where id = $1`, [row.id, ...vals]);
   } else {
-    await db.insert(schema.userProfiles).values({
-      userId,
-      ...profileData,
-    });
+    const names = ['user_id', ...cols.map((k) => PROFILE_COLUMNS[k])].join(', ');
+    const params = ['$1', ...cols.map(cast)].join(', ');
+    await client.query(`insert into user_profiles(${names}) values (${params})`, [userId, ...vals]);
   }
 }
 
 /**
- * Atomically merge into a profile's dietary_preferences. In one transaction, under a per-user
- * advisory lock, the row is read FOR UPDATE and merge(stored) decides the new list (null = no write).
- * Concurrent merges serialise; a concurrent profile save waits for the row lock. Returns true if written.
+ * Save a profile under the profile lock. opts.ifUpdatedAt (the updated_at the form loaded) makes a
+ * save that sends filters fail with code PROFILE_STALE if the profile changed since, so a stale form
+ * can't silently drop a filter a generate just added.
  */
-async function mergeDietaryPreferences(userId, merge) {
+async function createOrUpdateProfile(userId, profileData, opts = {}) {
   await ensureSchema();
   await ensureUserExists(userId);
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query("select pg_advisory_xact_lock(hashtext('fm-profile:' || $1::text))", [String(userId)]);
-    const { rows } = await client.query('select id, dietary_preferences from user_profiles where user_id = $1 order by id limit 1 for update', [userId]);
-    const next = merge(rows.length ? rows[0].dietary_preferences : null);
-    if (!Array.isArray(next)) { await client.query('ROLLBACK'); return false; }
-    if (rows.length) {
-      await client.query('update user_profiles set dietary_preferences = $2::jsonb, updated_at = now() where id = $1', [rows[0].id, JSON.stringify(next)]);
-    } else {
-      await client.query('insert into user_profiles(user_id, dietary_preferences) values ($1, $2::jsonb)', [userId, JSON.stringify(next)]);
+  return inProfileTx(userId, async (client, row) => {
+    // Compared in SQL at millisecond precision (JSON dates carry ms; Postgres stores µs).
+    const stale = row && opts.ifUpdatedAt != null && !(await client.query(
+      "select date_trunc('milliseconds', $2::timestamptz) = date_trunc('milliseconds', updated_at) as same from user_profiles where id = $1",
+      [row.id, opts.ifUpdatedAt])).rows[0].same;
+    // A filter save must name the version it edits once a row exists (EQA #142 follow-up).
+    if (row && opts.requireVersion && opts.ifUpdatedAt == null) {
+      const err = new Error('Profile version required'); err.code = 'PROFILE_VERSION_REQUIRED'; throw err;
     }
-    await client.query('COMMIT');
-    return true;
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (_) { /* connection already gone */ }
-    throw err;
-  } finally {
-    client.release();
-  }
+    if (stale) {
+      const err = new Error('Profile changed since it was loaded'); err.code = 'PROFILE_STALE'; throw err;
+    }
+    await writeProfileRow(client, userId, row, profileData || {});
+    return { value: undefined };
+  });
+}
+
+/**
+ * Atomically merge ticked filters into a profile. Under the profile lock, merge({ dietaryPreferences,
+ * allergies }) of the stored row returns a patch ({ dietaryPreferences } or { allergies }) or null for no
+ * write. Returns true if written.
+ */
+async function mergeProfileFilters(userId, merge) {
+  await ensureSchema();
+  await ensureUserExists(userId);
+  return inProfileTx(userId, async (client, row) => {
+    const patch = merge(row ? { dietaryPreferences: row.dietary_preferences, allergies: row.allergies } : { dietaryPreferences: null, allergies: null });
+    if (!patch) return { rollback: true, value: false };
+    await writeProfileRow(client, userId, row, patch);
+    return { value: true };
+  });
 }
 
 async function getProfile(userId) {
   await ensureSchema();
-  const [profile] = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId));
+  // Lowest id first, the same row every write targets (old duplicate rows read deterministically).
+  const [profile] = await db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).orderBy(schema.userProfiles.id).limit(1);
   return profile;
 }
 
@@ -378,10 +431,20 @@ async function withStripeCustomerLock(lockKey, fn) {
   });
 }
 
+/** Tests only. Closes the storage pool so the next Jest file does not inherit its clients. */
+async function endPoolForTests() {
+  if (pool && typeof pool.end === 'function') {
+    try { await pool.end(); } catch (_) { /* already closed */ }
+  }
+}
+
 // Export all functions and database instance
 module.exports = {
+  endPoolForTests,
   db,
-  mergeDietaryPreferences,
+  // Test seam only: lets a test hand inProfileTx a fake client (EQA #142 S2).
+  __profileTx: { pool, inProfileTx },
+  mergeProfileFilters,
   createUser,
   getUserByEmail,
   getUserById,

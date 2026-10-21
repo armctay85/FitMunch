@@ -59,7 +59,7 @@ struct PaywallView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.body.weight(.semibold))
-                            .frame(width: 32, height: 32)
+                            .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel("Close")
                     .accessibilityIdentifier("paywall-close")
@@ -140,7 +140,7 @@ struct PaywallView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("paywall-trial-timeline")
@@ -428,7 +428,7 @@ private struct PackageCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? brandGreen.opacity(0.08) : Color.gray.opacity(0.08))
+            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)

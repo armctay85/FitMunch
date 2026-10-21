@@ -23,7 +23,7 @@
   <rect width="1080" height="1080" fill="url(#bg)"/>
   <rect width="1080" height="1080" fill="url(#glow)"/>
 
-  <!-- ── BROCCOLI + DUMBBELL — centred at (540, 430) scale ~1.9 ── -->
+  <!-- Broccoli and dumbbell, centred at (540, 430), scale about 1.9 -->
   <g transform="translate(540, 430) scale(1.9)">
 
     <!-- Broccoli florets -->
