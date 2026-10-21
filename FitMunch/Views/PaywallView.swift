@@ -10,6 +10,7 @@ struct PaywallView: View {
     @State private var showErrorAlert = false
     @State private var alertError = ""
     @State private var purchaseSuccessTick = 0
+    @State private var successDetail: String?
 
     private var plans: [PaywallPlan] { premiumManager.paywallPlans }
     private var isLoadingPlans: Bool { premiumManager.paywallPhase == .loading && plans.isEmpty }
@@ -33,10 +34,13 @@ struct PaywallView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     headerSection
+                    if isLoadingPlans {
+                        LoadingSkeleton(rows: 3, label: "Loading plans", identifier: "paywall-loading")
+                    }
+                    benefitsSection
                     if plansLoadFailed {
                         emptyPlansSection
                     }
-                    benefitsSection
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
@@ -59,7 +63,7 @@ struct PaywallView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.body.weight(.semibold))
-                            .frame(width: 32, height: 32)
+                            .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel("Close")
                     .accessibilityIdentifier("paywall-close")
@@ -70,21 +74,6 @@ struct PaywallView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomBar
-            }
-            .overlay {
-                if isLoadingPlans && plans.isEmpty {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Loading plans…")
-                            .font(.subheadline.weight(.semibold))
-                            .accessibilityIdentifier("paywall-loading-label")
-                    }
-                    .padding(24)
-                    .background(.regularMaterial)
-                    .cornerRadius(16)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("paywall-loading")
-                }
             }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {
@@ -103,7 +92,33 @@ struct PaywallView: View {
                 await loadPlansWithRetry()
             }
             .sensoryFeedback(.success, trigger: purchaseSuccessTick)
+            .overlay {
+                if let successDetail {
+                    successCard(successDetail)
+                }
+            }
         }
+    }
+
+    private func successCard(_ detail: String) -> some View {
+        VStack(spacing: Theme.Spacing.four) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(Theme.brandGreen)
+            Text("You're in")
+                .font(.title2.weight(.bold))
+            Text(detail)
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Theme.secondaryText)
+            Button("Continue") { dismiss() }
+                .buttonStyle(PrimaryButtonStyle())
+        }
+        .padding(Theme.Spacing.six)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.surface.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("paywall-success")
     }
 
     // MARK: - Sections
@@ -115,12 +130,6 @@ struct PaywallView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("paywall-headline")
-
-            if isLoadingPlans {
-                Text("Loading plans")
-                    .font(.subheadline.weight(.semibold))
-                    .accessibilityIdentifier("paywall-load-phase")
-            }
         }
     }
 
@@ -140,7 +149,7 @@ struct PaywallView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("paywall-trial-timeline")
@@ -192,6 +201,8 @@ struct PaywallView: View {
                 Task { await restore() }
             }
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityIdentifier("paywall-restore-inline")
         }
         .accessibilityIdentifier("paywall-error-state")
@@ -221,12 +232,15 @@ struct PaywallView: View {
                     .accessibilityIdentifier("paywall-renewal")
                 subscribeButton(plan)
             }
-            Button("Restore Purchases") {
-                Task { await restore() }
+            if !plansLoadFailed {
+                Button("Restore Purchases") {
+                    Task { await restore() }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("paywall-restore")
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
-            .accessibilityIdentifier("paywall-restore")
 
             HStack(spacing: 6) {
                 Button("Terms") {
@@ -258,10 +272,17 @@ struct PaywallView: View {
             Task { await purchase(plan) }
         } label: {
             if premiumManager.isLoading {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                VStack(spacing: 6) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Text("Confirming with the App Store")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .accessibilityIdentifier("paywall-confirming")
             } else {
                 VStack(spacing: 2) {
                     Text(cta.title)
@@ -334,15 +355,24 @@ struct PaywallView: View {
     private func purchase(_ plan: PaywallPlan) async {
         let success = await premiumManager.purchase(plan: plan)
         if success {
+            successDetail = trialEndCopy(plan)
             purchaseSuccessTick += 1
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            dismiss()
             return
         }
         if let message = premiumManager.errorMessage, !message.isEmpty {
             alertError = message
             showErrorAlert = true
         }
+    }
+
+    /// Trial end is the intro length on the purchased product, counted from today.
+    private func trialEndCopy(_ plan: PaywallPlan) -> String {
+        if plan.eligibleForIntro, let intro = plan.intro, intro.isFreeTrial {
+            if let end = PaywallPricing.trialEndDate(intro) {
+                return "Your free trial ends \(end.formatted(date: .long, time: .omitted))."
+            }
+        }
+        return "Premium is on."
     }
 
     private func open(_ string: String) {
@@ -428,7 +458,7 @@ private struct PackageCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? brandGreen.opacity(0.08) : Color.gray.opacity(0.08))
+            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)

@@ -23,8 +23,17 @@ struct ReceiptScanView: View {
 
     private static let unreadableCopy = "We couldn't read this receipt. Try again with a flat, well-lit photo."
     private static let unavailableCopy = "Scanning is unavailable right now."
+
+    /// Debug capture of a finished haul so the offline line can sit under real results.
+    private static var finishedSample: ReceiptScanResponse? {
+        let json = """
+        {"success":true,"scannerProvider":"preview","grade":"B","shareText":"Weekly haul score B","items":[{"name":"Greek yoghurt","category":"dairy","nutrition":{"protein":20,"calories":150}}],"weeklyTotals":{"protein":20,"calories":150}}
+        """
+        return try? JSONDecoder().decode(ReceiptScanResponse.self, from: Data(json.utf8))
+    }
     @EnvironmentObject private var auth: AuthManager
     @ObservedObject private var consent = AIDataConsent.shared
+    @ObservedObject private var network = NetworkMonitor.shared
 
     private enum ScanStart {
         case camera
@@ -37,8 +46,11 @@ struct ReceiptScanView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    OfflineNotice()
                     if let scan = scan, scan.scannerProvider != "fallback" {
+                        if !network.isOnline {
+                            OfflineNotice()
+                                .accessibilityIdentifier("scan-result-offline")
+                        }
                         resultsView(scan)
                     } else {
                         introView
@@ -52,6 +64,16 @@ struct ReceiptScanView: View {
             .background(Theme.surface)
             .sensoryFeedback(.success, trigger: scanCompletions)
             .navigationTitle("Scan")
+            .onAppear {
+                if AuditLaunch.isScanLoading {
+                    isScanning = true
+                } else if AuditLaunch.isScanError {
+                    errorMessage = Self.unreadableCopy
+                    showRetake = true
+                } else if AuditLaunch.isScanFinished {
+                    scan = Self.finishedSample
+                }
+            }
             .accessibilityIdentifier("scan-screen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Theme.surface, for: .navigationBar)
@@ -90,7 +112,6 @@ struct ReceiptScanView: View {
                         showConsent = false
                         pendingScan = nil
                         consent.deny(userId: auth.user?.id)
-                        errorMessage = AIConsentCopy.scanBlocked
                     }
                 )
             }
@@ -133,6 +154,60 @@ struct ReceiptScanView: View {
         }
     }
 
+    private var scanLoading: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Reading your receipt…")
+                .font(.subheadline.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .padding(Theme.Spacing.four)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Reading your receipt")
+        .accessibilityIdentifier("scan-loading")
+    }
+
+    private var scanOffline: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+                .font(.title2)
+                .foregroundStyle(Theme.brandGreen)
+            Text("You're offline")
+                .font(.headline)
+            Text("Scan needs a connection. Try again when you're back online.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Theme.Spacing.four)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("scan-offline")
+    }
+
+    private var scanBlockedCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AIConsentCopy.scanBlocked)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Allow in Privacy") {
+                NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("scan-open-privacy")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.four)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .accessibilityIdentifier("scan-consent-blocked")
+    }
+
     // MARK: - Intro
 
     private var introView: some View {
@@ -151,22 +226,18 @@ struct ReceiptScanView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
-            if !isScanning {
+            if isScanning {
+                scanLoading
+            } else if !network.isOnline {
+                scanOffline
+            } else if consent.isDenied(auth.user?.id) {
+                scanBlockedCard
+            } else {
                 scanActions
                     .padding(.top, Theme.Spacing.two)
             }
 
-            if isScanning {
-                VStack(spacing: 10) {
-                    ProgressView().scaleEffect(1.3)
-                    Text("Reading your receipt…")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 20)
-            }
-
-            if let errorMessage = errorMessage {
+            if let errorMessage = errorMessage, errorMessage != AIConsentCopy.scanBlocked {
                 Text(errorMessage)
                     .font(.footnote)
                     .foregroundColor(.red)
@@ -319,13 +390,13 @@ struct ReceiptScanView: View {
 
     private func beginScan(_ start: ScanStart) {
         errorMessage = nil
+        guard network.isOnline else { return }
         if consent.needsPrompt(auth.user?.id) {
             pendingScan = start
             showConsent = true
             return
         }
         if consent.isDenied(auth.user?.id) {
-            errorMessage = AIConsentCopy.scanBlocked
             return
         }
         runScan(start)
@@ -385,6 +456,7 @@ struct ReceiptScanView: View {
     }
 
     private func startScan(_ image: UIImage) {
+        guard network.isOnline else { return }
         guard let jpeg = image.jpegData(compressionQuality: 0.7) else {
             errorMessage = "Couldn't read that image. Try another photo."
             return
