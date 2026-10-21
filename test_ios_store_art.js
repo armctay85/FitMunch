@@ -28,7 +28,7 @@ describe('ASC archive build number', () => {
     expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=9\s*\\/);
     expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=8\s*\\/);
     expect(archive).toMatch(/expected 10/);
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"11"/);
   });
 
   it('ships NSCameraUsageDescription for ITMS-90683', () => {

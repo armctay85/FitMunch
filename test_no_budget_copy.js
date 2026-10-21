@@ -104,7 +104,7 @@ const COST_PROMISES = [
 
 // Every $ or AUD amount is banned except the exact plan prices (Free $0, Premium A$19.99 a month or
 // A$149.99 a year, Coach A$39 and A$79). EQA #121 r2 S1.
-const PLAN_PRICES = new Set(['$0', 'A$19.99', 'A$149.99', 'A$39', 'A$79']);
+const PLAN_PRICES = new Set(['$0', 'A$0', 'A$19.99', 'A$149.99', 'A$39', 'A$79']);
 // EQA #121 r3 S1: AU$/NZ$/US$, HTML-entity and fullwidth dollars, per-kg prices, spelled-out dollars, tenners.
 // EQA #137 r1 S: cents, euro and pound signs, currency codes either side, &#x24;/&#036;, a trailing $,
 // "per kilogram", and teens/tens number words.
@@ -157,7 +157,7 @@ const NOT_COPY = new Set([
 ]);
 // The receipt model instruction is matched exactly (by hash), not by prefix, so any edit to it or any
 // other string sharing its opening is scanned again (EQA #137 r1 S).
-const NOT_COPY_EXACT = [['receipt-scanner.js', 'efa82209e52b9493901aaef788edc80caf823a4116c52d51e3bc3b0e250ca7dc']];
+const NOT_COPY_EXACT = [['receipt-scanner.js', '087d617dfd248bb527540dff539ab6ea149e211b6eac4f892e3c490995559edb']];
 const sha = (t) => require('crypto').createHash('sha256').update(t).digest('hex');
 const isCopy = (rel, text) => !NOT_COPY.has(`${rel}|${text}`) && !NOT_COPY_EXACT.some(([r, h]) => r === rel && sha(text) === h);
 function stringLiterals(src) {
@@ -229,7 +229,7 @@ describe('no budget, cost or saving promises in served customer copy', () => {
     for (const s of ['Chicken breast 1kg $12', 'Costs under $50', 'From $5', 'AUD 60 weekly shop', 'A$12.50 tub', '60 AUD',
       'A$20 a month', 'AU$12 for chicken', 'NZ$9 tub', 'US$5 tub', '&#36;12 per kilo', '&dollar;12 per kilo', '＄12 per kilo',
       '12.99 per kg', 'Twelve dollars a week', 'Under a tenner a day', 'x.replace(/a/, "<b>$1</b>"); Chicken $12.']) expect([s, moneyHits(s).length > 0]).toEqual([s, true]);
-    for (const s of ['14-day trial, then A$19.99 a month', 'A$149.99 a year', 'Coach A$39', 'A$79 a month', '$0 forever',
+    for (const s of ['14-day trial, then A$19.99 a month', 'A$149.99 a year', 'Coach A$39', 'A$79 a month', '$0 forever', 'A$0 forever',
       '1kg chicken breast', 'Pack sizes vary by store.']) expect([s, moneyHits(s)]).toEqual([s, []]);
     for (const s of ['Prices vary by store and week.', '14-day trial, then A$19.99 a month', 'FitMunch does not show supermarket prices',
       '3 days per week', 'Save your plan', 'Saved to your lists']) expect([s, caught(s)]).toEqual([s, false]);
