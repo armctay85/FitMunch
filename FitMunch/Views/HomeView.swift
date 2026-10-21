@@ -86,7 +86,7 @@ struct HomeView: View {
 
     /// Zero rings were pushing "No meals logged today" below the fold.
     private var showsEmptyMeals: Bool {
-        viewModel.meals.isEmpty && !viewModel.isLoading && network.isOnline
+        viewModel.meals.isEmpty && !viewModel.isLoading
     }
 
     private var dateNavigation: some View {
