@@ -307,10 +307,10 @@ struct SettingsView: View {
             .alert("Reset Data", isPresented: $showResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
-                    // This would reset all user data
+                    resetLocalLogs()
                 }
             } message: {
-                Text("This will delete all your meal logs and reset the app to its initial state. This action cannot be undone.")
+                Text("This deletes the meal and workout logs on this iPhone. Your account, goals and synced history stay.")
             }
             .navigationDestination(isPresented: $navigateToOnboarding) {
                 OnboardingView()
@@ -335,6 +335,24 @@ struct SettingsView: View {
             } message: {
                 Text(exportError ?? "")
             }
+        }
+    }
+
+    /// Deletes on-device meal and training logs. Meals cascade to their foods.
+    /// A failed save rolls the context back. The account stays signed in.
+    private func resetLocalLogs() {
+        do {
+            for meal in try modelContext.fetch(FetchDescriptor<Meal>()) {
+                modelContext.delete(meal)
+            }
+            for log in try modelContext.fetch(FetchDescriptor<WorkoutLog>()) {
+                modelContext.delete(log)
+            }
+            try modelContext.save()
+            UserDefaults.standard.removeObject(forKey: "completedWorkoutDays")
+        } catch {
+            modelContext.rollback()
+            viewModel.errorMessage = "Couldn't reset your logs. Try again."
         }
     }
 
