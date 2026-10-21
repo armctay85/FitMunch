@@ -14,18 +14,17 @@ const core = require('./lib/receipt-scan-core');
 const crypto = require('crypto');
 const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
+const receiptImage = require('./lib/receipt-image');
+const visionDiag = require('./lib/vision-diag');
 
 let visionOverride = null;
 function getVision() {
   return visionOverride || require('./lib/ai-client').vision;
 }
 
-async function userTier(userId) {
-  try {
-    const { getUserById, effectiveTier } = require('./server/storage.js');
-    const user = await getUserById(userId);
-    return effectiveTier(user);
-  } catch { return 'free'; }
+function tierOf(user) {
+  const { effectiveTier } = require('./server/storage.js');
+  return effectiveTier(user);
 }
 
 function requireAuth(req, res, next) {
@@ -42,7 +41,17 @@ function requireAuth(req, res, next) {
 
 const router = express.Router();
 router.use(attachApiJsonSanitizer);
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: receiptImage.MAX_UPLOAD_BYTES } });
+
+function receiptUpload(req, res, next) {
+  upload.single('receipt')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ success: false, error: receiptImage.TOO_LARGE_MESSAGE });
+    }
+    return next(err);
+  });
+}
 
 // In-memory store, one window per server instance. A second isolate does not share the count.
 // Key on req.ip. trust proxy is 1, so this is the hop the proxy appended,
@@ -122,27 +131,64 @@ function extractImage(req) {
   return null;
 }
 
-const VISION_PROMPT = 'This is a supermarket receipt photo. Extract every food/grocery item. Return ONLY a JSON array: [{"name":"Item","quantity":1,"unit":"kg","price":12.50,"category":"meat"}]. "price" is the line total paid for that line (unit price times quantity), not the unit price. Categories: meat,dairy,grains,vegetables,fruit,pantry,beverage,supplement,other. Only food items, no totals, payment or discount lines. Parse quantity from name. Raw JSON only.';
+const VISION_PROMPT = 'This is a supermarket receipt photo. Return one JSON object and nothing else: {"items":[{"name":"Bananas","quantity":1,"unit":"kg","unitPrice":3.9,"price":3.9,"discount":0,"category":"fruit","line":"BANANAS 1.000 kg @ $3.90/kg 3.90"}]}. price is the dollars paid for that line after any discount. unitPrice is the printed per kg or per item price when you can see it. Weighted lines (per kg, deli scales): quantity is the weight, unit is kg or g, price is the amount charged. Multi-buy (2 for $5, 3 @ $1.80): quantity is how many, price is the amount charged for the deal. If a price is not readable, set price to null. Never use 1 as a placeholder. Skip totals, tax, payment, loyalty, bags and savings lines. Put the printed line text in line. Categories: meat, dairy, grains, vegetables, fruit, pantry, beverage, supplement, other.';
+
+function visionFailure(visionResult) {
+  const unreadable = visionResult && visionResult.code === 'unreadable';
+  const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
+  failed.code = failed.message;
+  const diag = visionResult && visionResult.diag;
+  failed.scanDiag = visionDiag.publicView({
+    provider: visionResult && visionResult.provider,
+    errorClass: visionResult && visionResult.errorClass,
+    status: visionResult && visionResult.status,
+    counts: diag && diag.counts,
+    lastErrorClass: (diag && diag.lastErrorClass) || (visionResult && visionResult.errorClass) || null,
+    p50Ms: diag && diag.p50Ms,
+  });
+  return failed;
+}
+
+function sendIfTooLarge(res, err) {
+  if (!err || Number(err.status) !== 413) return false;
+  res.status(413).json({ success: false, error: err.message || receiptImage.TOO_LARGE_MESSAGE });
+  return true;
+}
 
 async function readReceiptItems(imageBase64, mimeType, route) {
+  const prepared = await receiptImage.prepareReceiptImage({ imageBase64, mimeType });
   const visionResult = await getVision()({
-    imageBase64,
-    mimeType: mimeType || 'image/jpeg',
+    imageBase64: prepared.imageBase64,
+    mimeType: prepared.mimeType || mimeType || 'image/jpeg',
     prompt: VISION_PROMPT,
     route,
+    // One structured call. A short cap keeps the read from rambling.
+    maxTokens: 1200,
+    temperature: 0,
+    jsonMode: true,
   });
   if (!visionResult || !visionResult.ok) {
-    const unreadable = visionResult && visionResult.code === 'unreadable';
-    const failed = new Error(unreadable ? 'scan_unreadable' : 'scan_unavailable');
-    failed.code = failed.message;
-    throw failed;
+    throw visionFailure(visionResult);
   }
   try {
     return core.parseVisionItems(visionResult.text);
   } catch (_) {
-    const failed = new Error('scan_unreadable');
-    failed.code = 'scan_unreadable';
-    throw failed;
+    // 200 with text that is not a receipt. Same diagnostic shape as a provider
+    // failure, so the smoke gate can attach it. Ordinary accounts still get
+    // only the public 422.
+    const carried = visionResult && visionResult.diag;
+    const summary = visionDiag.summary();
+    throw visionFailure({
+      code: 'unreadable',
+      provider: visionResult && visionResult.provider,
+      status: visionResult && visionResult.status != null ? visionResult.status : 200,
+      errorClass: (visionResult && visionResult.errorClass) || 'unreadable',
+      diag: {
+        counts: (carried && carried.counts) || summary.counts,
+        lastErrorClass: (carried && carried.lastErrorClass) || summary.lastErrorClass,
+        p50Ms: carried && carried.p50Ms != null ? carried.p50Ms : summary.p50Ms,
+      },
+    });
   }
 }
 
@@ -162,17 +208,23 @@ function hashUserId(userId) {
   return crypto.createHash('sha256').update(String(userId)).digest('hex');
 }
 
-function sendVisionFailure(res, err, event, userId) {
+function sendVisionFailure(res, err, event, userId, exposeDiag) {
   const unavailable = visionFailureCode(err) === 'unavailable';
+  const diag = visionDiag.publicView(err && err.scanDiag);
   console.info('[receipt-scan]', JSON.stringify({
     event,
     userId: hashUserId(userId),
+    provider: diag && diag.provider,
+    errorClass: diag && diag.errorClass,
   }));
   if (unavailable) res.set('Retry-After', '60');
-  return res.status(unavailable ? 503 : 422).json({
+  const body = {
     success: false,
     error: unavailable ? SCAN_UNAVAILABLE : READ_FAIL,
-  });
+  };
+  // Smoke account only. Ordinary scans and guest first-scan stay on the public copy.
+  if (exposeDiag && diag) body.scanDiag = diag;
+  return res.status(unavailable ? 503 : 422).json(body);
 }
 
 router.get('/', requireAuth, (_req, res) => res.json({
@@ -186,7 +238,7 @@ router.get('/', requireAuth, (_req, res) => res.json({
   },
 }));
 
-router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => {
+router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
   try {
     const image = extractImage(req);
     if (!image) {
@@ -195,18 +247,20 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
 
     const { consentResponse } = require('./lib/ai-data-consent');
     const { getUserById } = require('./server/storage.js');
+    // One user read, and no schema migration. ensureSchema's pool used to add
+    // 15s connect + 30s statement before vision's 65s, which does not fit in 90s.
+    let tier = 'free';
     try {
-      const account = await getUserById(req.user.userId);
+      const account = await getUserById(req.user.userId, { ensureSchema: false });
       const denied = consentResponse(account && account.settings);
       if (denied) return res.status(denied.status).json(denied.body);
+      tier = tierOf(account);
     } catch (_) {
       return res.status(503).json({
         success: false,
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-
-    const tier = await userTier(req.user.userId);
     // Smoke accounts skip the monthly pre-check; checkAndConsume applies their daily cap.
     const smoke = aiUsage.isSmokeAccount({ userId: req.user.userId });
     if (!smoke && (!tier || tier === 'free')) {
@@ -227,12 +281,29 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     try {
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
     } catch (visionErr) {
+      if (sendIfTooLarge(res, visionErr)) return;
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
+      if (smoke && visionErr && visionErr.scanDiag) {
+        try {
+          const merged = await visionDiag.mergedSummary();
+          if (merged && merged.samples > 0) {
+            visionErr.scanDiag = visionDiag.publicView({
+              provider: visionErr.scanDiag.provider,
+              errorClass: visionErr.scanDiag.errorClass,
+              status: visionErr.scanDiag.status,
+              counts: merged.counts,
+              lastErrorClass: merged.lastErrorClass || visionErr.scanDiag.lastErrorClass,
+              p50Ms: merged.p50Ms != null ? merged.p50Ms : visionErr.scanDiag.p50Ms,
+            });
+          }
+        } catch (_) { /* the public error still goes out */ }
+      }
       return sendVisionFailure(
         res,
         visionErr,
         unavailable ? 'scan_unavailable' : 'scan_unreadable',
-        req.user?.userId || null
+        req.user?.userId || null,
+        smoke
       );
     }
 
@@ -259,9 +330,23 @@ router.post('/scan', requireAuth, upload.single('receipt'), async (req, res) => 
     aiUsage.refundSmokeOnFailure(gate, res);
     res.locals.aiAnswered = true;
 
+    let filters = null;
+    let filtersUnreadable = false;
+    try {
+      const { getProfile } = require('./server/storage.js');
+      const profile = await getProfile(req.user.userId);
+      const dg = require('./lib/diet-guard');
+      filters = dg.savedFilters(profile);
+      filtersUnreadable = dg.unreadable(filters);
+    } catch (_) {
+      filters = null;
+      filtersUnreadable = true;
+    }
     const payload = core.buildScanPayload(rawItems, {
       guest: false,
       scannerProvider: 'vision',
+      filters,
+      unreadable: filtersUnreadable,
     });
     console.info('[receipt-scan]', JSON.stringify({
       event: 'scan_success',
@@ -297,7 +382,7 @@ function guestAllowedAi(req) {
   return v === true || v === 'true';
 }
 
-router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (req, res) => {
+router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => {
   try {
     if (!guestAllowedAi(req)) {
       return res.status(403).json({ success: false, code: 'ai_consent_required', error: GUEST_CONSENT_ERROR });
@@ -328,12 +413,14 @@ router.post('/first-scan', firstScanLimiter, upload.single('receipt'), async (re
     try {
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/first-scan');
     } catch (visionErr) {
+      if (sendIfTooLarge(res, visionErr)) return;
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
       return sendVisionFailure(
         res,
         visionErr,
         unavailable ? 'first_scan_unavailable' : 'first_scan_unreadable',
-        null
+        null,
+        false
       );
     }
 

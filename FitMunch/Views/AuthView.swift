@@ -16,6 +16,7 @@ struct AuthView: View {
         ZStack {
             Theme.surface.ignoresSafeArea()
 
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 22) {
                     VStack(spacing: 10) {
@@ -65,9 +66,11 @@ struct AuthView: View {
                     if let error = auth.errorMessage {
                         Text(error)
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color(red: 163.0 / 255, green: 32.0 / 255, blue: 32.0 / 255))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 28)
+                            .id("auth-error")
+                            .accessibilityIdentifier("auth-error")
                     }
 
                     Button(action: submit) {
@@ -95,6 +98,12 @@ struct AuthView: View {
                 }
             }
             .scrollClearsTabBar()
+            .onChange(of: auth.errorMessage) { _, message in
+                guard message != nil else { return }
+                focused = mode == .login ? .password : .email
+                proxy.scrollTo("auth-error", anchor: .center)
+            }
+            }
         }
         .onChange(of: mode) { _, _ in auth.errorMessage = nil }
     }
@@ -106,15 +115,19 @@ struct AuthView: View {
     }
 
     private func submit() {
-        focused = nil
+        let signingIn = mode == .login
         Task {
-            if mode == .login {
-                _ = await auth.login(email: email.trimmingCharacters(in: .whitespaces).lowercased(),
+            let ok: Bool
+            if signingIn {
+                ok = await auth.login(email: email.trimmingCharacters(in: .whitespaces).lowercased(),
                                      password: password)
             } else {
-                _ = await auth.register(name: name.trimmingCharacters(in: .whitespaces),
+                ok = await auth.register(name: name.trimmingCharacters(in: .whitespaces),
                                         email: email.trimmingCharacters(in: .whitespaces).lowercased(),
                                         password: password)
+            }
+            if !ok {
+                focused = signingIn ? .password : .email
             }
         }
     }

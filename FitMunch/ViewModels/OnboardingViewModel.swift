@@ -14,6 +14,8 @@ class OnboardingViewModel: ObservableObject {
     /// StoreKit `displayPrice` for the monthly product. No hard-coded charge.
     @Published var premiumPriceText: String = "See plans"
     @Published var premiumPeriodText: String = "in the app"
+    /// Free-trial length from the monthly intro offer, then that product's displayPrice.
+    @Published var premiumTrialText: String = ""
 
     /// Total number of onboarding steps
     let totalSteps = 3
@@ -25,6 +27,9 @@ class OnboardingViewModel: ObservableObject {
             if let product = products.first {
                 premiumPriceText = product.displayPrice
                 premiumPeriodText = "per month"
+                if let offer = product.subscription?.introductoryOffer, offer.paymentMode == .freeTrial {
+                    premiumTrialText = "\(Self.introLength(offer)) free trial, then \(product.displayPrice) per month"
+                }
             }
         } catch {
             print("Onboarding monthly price failed: \(error)")
@@ -71,6 +76,17 @@ class OnboardingViewModel: ObservableObject {
         return true
     }
     
+    private static func introLength(_ offer: Product.SubscriptionOffer) -> String {
+        let value = offer.period.value
+        switch offer.period.unit {
+        case .day: return value == 1 ? "1 day" : "\(value) days"
+        case .week: return value == 1 ? "1 week" : "\(value) weeks"
+        case .month: return value == 1 ? "1 month" : "\(value) months"
+        case .year: return value == 1 ? "1 year" : "\(value) years"
+        @unknown default: return "a"
+        }
+    }
+
     /// Check if email is valid
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
