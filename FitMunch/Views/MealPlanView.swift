@@ -122,6 +122,9 @@ struct MealPlanView: View {
             if ScreenshotLaunch.isActive && plan == nil {
                 plan = ScreenshotLaunch.mealPlan()
             }
+            if AuditLaunch.isPlanLoading {
+                isLoading = true
+            }
         }
     }
 
@@ -198,6 +201,7 @@ struct MealPlanView: View {
             if isLoading {
                 ProgressView()
                     .tint(.white)
+                    .accessibilityIdentifier("plan-loading")
             } else {
                 Text("Generate 7-day plan")
             }
