@@ -163,9 +163,7 @@ final class Build11ScreenAuditUITests: XCTestCase {
         let app = launch([ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-PaywallForceEmpty", "-ForceLightMode"])
         guard waitForTabs(app) else { return }
         openUpgradePaywall(in: app)
-        let loading = app.staticTexts["paywall-load-phase"].waitForExistence(timeout: 4)
-            || app.staticTexts["Loading plans"].exists
-            || app.otherElements["paywall-loading"].exists
+        let loading = app.descendants(matching: .any)["paywall-loading"].waitForExistence(timeout: 4)
         mark("Paywall", "loading", loading ? "PASS" : "FAIL", loading ? "Loading plans visible" : "Loading state missing", shot(app, "paywall-loading"))
         let error = app.staticTexts["Plans couldn't load. Check your connection and try again."].waitForExistence(timeout: 16)
         let retry = app.buttons["paywall-retry"].exists || app.buttons["Retry"].exists
