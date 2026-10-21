@@ -375,7 +375,7 @@ maybe('#127a on real Postgres', () => {
   });
 
   it('#142 fu: an impossible calendar date in profileUpdatedAt is a 400, not a 500, and writes nothing', async () => {
-    for (const bad of ['2026-02-30T00:00:00Z', '2026-13-01T00:00:00Z', '2026-04-31T00:00:00Z', '2026-10-15T24:00:00Z', '2026-10-15T10:60:00Z', '2026-10-15T10:00:00+15:00', '2025-02-29T00:00:00Z']) {
+    for (const bad of ['2026-02-30T00:00:00Z', '2026-13-01T00:00:00Z', '2026-04-31T00:00:00Z', '2026-10-15T24:00:00Z', '2026-10-15T10:60:00Z', '2026-10-15T10:00:00+15:00', '2025-02-29T00:00:00Z', '0000-01-01T00:00:00Z']) {
       expect([bad, (await save(GF, { dietaryPreferences: [], profileUpdatedAt: bad })).status]).toEqual([bad, 400]);
     }
     expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);

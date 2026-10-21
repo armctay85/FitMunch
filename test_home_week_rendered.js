@@ -31,6 +31,41 @@ if (mustRun && !canRun) {
 }
 const maybe = canRun ? describe : describe.skip;
 
+function channel(c) {
+  const v = c / 255;
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+function contrastRatio(fg, bg) {
+  const L = (rgb) => 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2]);
+  const a = L(fg);
+  const b = L(bg);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+async function startHereContrast(page) {
+  const { PNG } = require('pngjs');
+  const card = page.locator('#portal-onboard-cta');
+  await card.scrollIntoViewIfNeeded();
+  const png = PNG.sync.read(await card.screenshot());
+  const box = await page.locator('#home-start-here').boundingBox();
+  const parent = await card.boundingBox();
+  const fg = await page.evaluate(() => {
+    const cs = getComputedStyle(document.getElementById('home-start-here'));
+    return { rgb: cs.color.match(/\d+/g).map(Number).slice(0, 3), fontSize: parseFloat(cs.fontSize) };
+  });
+  let bg = null;
+  let best = -1;
+  const x = Math.min(png.width - 1, Math.max(0, Math.round(box.x - parent.x + 8)));
+  for (let dy = 2; dy <= 12; dy += 1) {
+    const y = Math.round(box.y - parent.y - dy);
+    if (y < 0 || y >= png.height) continue;
+    const i = (png.width * y + x) << 2;
+    const px = [png.data[i], png.data[i + 1], png.data[i + 2]];
+    const L = 0.2126 * channel(px[0]) + 0.7152 * channel(px[1]) + 0.0722 * channel(px[2]);
+    if (L > best) { best = L; bg = px; }
+  }
+  return { ratio: contrastRatio(fg.rgb, bg), fontSize: fg.fontSize, bg, fg: fg.rgb };
+}
+
 // The same check the API uses: an ingredient "Peanuts 40g" is nuts; a name with no ingredients is unchecked.
 function allergenWarningsFor(meals) {
   const mealSafety = require('./lib/meal-safety');
@@ -389,7 +424,7 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     await ctx.close();
   });
 
-  // A failed GET must not be painted as an empty plan. Sidebar, terms and privacy sizes are left as they are on main.
+  // A failed GET must not be painted as an empty plan.
   for (const width of [320, 390, 1440]) {
     it(`${width}px: 500, 304 and an aborted read never say there is no plan`, async () => {
       const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
@@ -641,6 +676,160 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     expect(after).not.toMatch(/couldn't check/);
     expect(after).not.toContain('Not checked');
     expect(pageErrors).toEqual([]);
+    await ctx.close();
+  });
+
+  it('empty sentence stays hidden until a successful empty load; Start here contrast and shell taps hold at 390 and 1440', async () => {
+    for (const width of [390, 1440]) {
+      db = { profile: {}, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [], mealStatus: 500 };
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+      await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+      const p = await ctx.newPage();
+      let release = false;
+      await p.route('**/api/portal/me', async (route) => {
+        while (!release) await new Promise((r) => setTimeout(r, 30));
+        await route.continue();
+      });
+      await p.goto(`${base}/app.html`);
+      await p.waitForFunction(() => document.documentElement.classList.contains('fm-authed'));
+      expect(await p.locator('#home-plan-empty').isVisible()).toBe(false);
+      release = true;
+      await p.waitForSelector('#home-mealplan-error');
+      expect(await p.locator('#home-plan-empty').isVisible()).toBe(false);
+      expect(await p.textContent('#home-mealplan')).not.toMatch(/No plan yet/);
+      db.mealStatus = 0;
+      await p.evaluate(() => loadHomeWeek());
+      await p.waitForSelector('#home-plan-empty:not([hidden])');
+      expect(await p.locator('#home-plan-empty').isVisible()).toBe(true);
+      expect(await p.textContent('#home-plan-empty')).toMatch(/No plan yet\. Generate an Aussie supermarket week in up to about a minute/);
+      const contrast = await startHereContrast(p);
+      expect(contrast.fontSize).toBeGreaterThanOrEqual(12);
+      expect(contrast.ratio).toBeGreaterThanOrEqual(4.5);
+      const minTap = width >= 1000 ? 40 : 44;
+      const logH = Math.round((await p.locator('#pm-log-meal').boundingBox()).height);
+      const upH = Math.round((await p.locator('#btn-upgrade').boundingBox()).height);
+      expect(logH).toBeGreaterThanOrEqual(minTap);
+      expect(upH).toBeGreaterThanOrEqual(minTap);
+      if (width >= 1000) {
+        const rowH = Math.round((await p.locator('#sidebar-client .sb-item').first().boundingBox()).height);
+        expect(rowH).toBeGreaterThanOrEqual(40);
+      } else {
+        expect(await p.locator('#sidebar-client').isVisible()).toBe(false);
+      }
+      expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+      await p.evaluate(() => nav('meal-plans'));
+      await p.waitForSelector('#mp-saved-empty:not([hidden])');
+      expect(await p.locator('#mp-saved-section').isVisible()).toBe(true);
+      expect(await p.locator('#meal-plans-grid .plan-card').count()).toBe(0);
+      expect(await p.textContent('#mp-saved-empty')).toMatch(/No saved plans yet/);
+      const genH = Math.round((await p.locator('#mp-saved-generate').boundingBox()).height);
+      expect(genH).toBeGreaterThanOrEqual(minTap);
+      expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+      await ctx.close();
+    }
+  });
+
+  for (const width of [320, 390, 1440]) {
+    it(`${width}px: Meal Planner 500, empty 304 and abort stay a retry; a successful empty load still says there are none`, async () => {
+      const plan = engine.buildPlan({ calories: 2000, protein: 130, days: 7, dietary: [] });
+      db = { profile: { targetCalories: 2000, targetProtein: 130 }, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [], mealStatus: 500 };
+      const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+      await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+      const p = await ctx.newPage();
+      await p.goto(`${base}/app.html`);
+      await p.waitForSelector('#home-mealplan-error');
+      await p.evaluate(() => nav('meal-plans'));
+      await p.waitForSelector('#mp-saved-error:not([hidden])');
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.textContent('#mp-saved-error')).toMatch(/Couldn't load your week, try again/);
+
+      db.mealStatus = 0;
+      db.meal304 = 'always';
+      await p.evaluate(() => { S_mealPlansCache = null; return loadMealPlans(); });
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+
+      db.meal304 = null;
+      db.mealAbort = true;
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+      expect(await p.locator('#meal-plans-grid .plan-card').count()).toBe(0);
+
+      db.mealAbort = false;
+      db.plans = [{ id: 1, name: 'Your first week', meals: plan.days }];
+      await p.evaluate(() => { S_mealPlansCache = null; return loadMealPlans(); });
+      await p.waitForSelector('#meal-plans-grid .plan-card');
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+
+      db.mealStatus = 500;
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+
+      db.mealStatus = 0;
+      db.meal304 = 'always';
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+
+      db.meal304 = null;
+      db.mealAbort = true;
+      await p.evaluate(() => loadMealPlans());
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(true);
+      expect(await p.textContent('#meal-plans-grid')).toMatch(/Your first week/);
+
+      db.mealAbort = false;
+      db.plans = [];
+      await p.evaluate(() => { S_mealPlansCache = null; return loadMealPlans(); });
+      await p.waitForSelector('#mp-saved-empty:not([hidden])');
+      expect(await p.locator('#mp-saved-empty').isVisible()).toBe(true);
+      expect(await p.locator('#mp-saved-error').isVisible()).toBe(false);
+      expect(await p.textContent('#mp-saved-empty')).toMatch(/No saved plans yet/);
+      expect(await p.locator('#meal-plans-grid .plan-card').count()).toBe(0);
+
+      if (width === 1440) {
+        await p.locator('#mp-saved-generate').focus();
+        const ring = await p.evaluate(() => {
+          const cs = getComputedStyle(document.getElementById('mp-saved-generate'));
+          return { color: cs.outlineColor, width: cs.outlineWidth, style: cs.outlineStyle, offset: cs.outlineOffset };
+        });
+        expect(ring).toEqual({ color: 'rgb(22, 101, 52)', width: '2px', style: 'solid', offset: '2px' });
+      }
+
+      await p.evaluate(() => {
+        const modal = document.querySelector('#modal-ai-consent .modal');
+        modal.style.transition = 'none';
+        document.getElementById('modal-ai-consent').classList.add('open');
+      });
+      const linkH = Math.round((await p.locator('#ai-consent-privacy').boundingBox()).height);
+      expect(linkH).toBeGreaterThanOrEqual(44);
+      expect(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+      await ctx.close();
+    });
+  }
+
+  it('fine pointer shell rows stay at least 44px at 768 and 1024', async () => {
+    db = { profile: {}, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [] };
+    const ctx = await browser.newContext({ viewport: { width: 1024, height: 800 } });
+    await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+    const p = await ctx.newPage();
+    await p.goto(`${base}/app.html`);
+    await p.waitForFunction(() => document.documentElement.classList.contains('fm-authed'));
+    for (const width of [768, 1024]) {
+      await p.setViewportSize({ width, height: 800 });
+      const h = await p.evaluate(() => ({
+        row: document.querySelector('#sidebar-client .sb-item').getBoundingClientRect().height,
+        up: document.getElementById('btn-upgrade').getBoundingClientRect().height,
+        log: document.getElementById('pm-log-meal').getBoundingClientRect().height,
+      }));
+      expect(Math.round(h.row)).toBeGreaterThanOrEqual(44);
+      expect(Math.round(h.up)).toBeGreaterThanOrEqual(44);
+      expect(Math.round(h.log)).toBeGreaterThanOrEqual(44);
+    }
     await ctx.close();
   });
 });

@@ -1176,3 +1176,150 @@ describe('r10 L: typed allergies past an unreadable entry', () => {
     expect(safety.allergyScans() - s0).toBe(30);
   });
 });
+
+// EQA #127 r11: past-budget builder meals, notice copy, typed near-miss, scan cost.
+describe('r11: allergy read budget on the builder and typed meals', () => {
+  const dietGuard = require('./lib/diet-guard');
+  const lexicon = require('./lib/food-lexicon');
+  const pastList = (food) => [...Array.from({ length: 200 }, (_, i) => `${i}`.padEnd(100, 'q')), food];
+  const gen = (body) => request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ goal: 'maintain', days: 7, calories: 2000, protein: 120, ...body });
+
+  it('the typed sentence is only on a past-budget notice', () => {
+    expect(dietGuard.UNREADABLE_NOTICE).toBe("We couldn't read part of your allergy list, so all 8 common allergen filters are on. Please update your profile.");
+    expect(dietGuard.UNREADABLE_NOTICE).not.toMatch(/foods you typed/i);
+    expect(dietGuard.unreadableNotice(false)).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(dietGuard.unreadableNotice(true)).toBe(`${dietGuard.UNREADABLE_NOTICE} Some foods you typed weren't checked.`);
+  });
+
+  it('past the budget, normal and onboarding plans mark every meal not checked and call no AI', async () => {
+    profile = { allergies: pastList('banana') };
+    for (const extra of [{}, { builderOnly: true }]) {
+      aiClient.chatJson.mockClear();
+      const res = await gen(extra);
+      expect(res.status).toBe(200);
+      expect(res.body.source).toBe('builder');
+      expect(aiClient.chatJson).not.toHaveBeenCalled();
+      expect(res.body.notice).toBe(dietGuard.unreadableNotice(true));
+      expect(res.body.notice).not.toMatch(/\bsafe\b/i);
+      const meals = res.body.plan.days.flatMap((d) => Object.values(d.meals));
+      expect(meals.length).toBeGreaterThan(0);
+      expect(meals.every((m) => m.unchecked === true)).toBe(true);
+      expect(res.body.plan.notes).toContain("We couldn't check these meals against your allergies, so check the ingredients.");
+    }
+  });
+
+  it('an odd entry that was fully read does not claim typed foods were skipped', async () => {
+    profile = { allergies: [{ x: 1 }, 'banana'] };
+    const res = await gen({ builderOnly: true });
+    expect(res.status).toBe(200);
+    expect(res.body.notice).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(res.body.notice).not.toContain("Some foods you typed weren't checked.");
+    expect(res.body.plan).toBeUndefined();
+    expect(res.body.source).toBe('fixed');
+    expect(res.body.provider).toBeNull();
+    expect(JSON.stringify(res.body)).not.toMatch(/banana/i);
+  });
+
+  it('past the budget, a recognised clean meal is the calm note', async () => {
+    profile = { allergies: pastList('strawberry') };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+      name: 'Clean', meals: [{ name: 'Rice cakes with avocado and tomato', foods: [] }],
+    });
+    expect(res.status).toBe(200);
+    const w = res.body.allergenWarnings;
+    expect(w[0]).toEqual({ meal: '', contains: [], notice: dietGuard.unreadableNotice(true) });
+    expect(w.find((x) => x.meal === 'Rice cakes with avocado and tomato')).toEqual({
+      meal: 'Rice cakes with avocado and tomato', contains: [], unchecked: true, note: UNCHECKED,
+    });
+  });
+
+  it('a meal #127 leaves clean is still red when the main check flags it', async () => {
+    profile = { dietaryPreferences: ['nut free'], allergies: [] };
+    const meal = {
+      name: 'Rice bowl',
+      ingredients: [{ item: 'White rice', qty: '200g' }, { item: 'Olive oil', qty: '5ml' }],
+      swaps: [{ name: 'Peanut satay', ingredients: [{ item: 'Peanut butter', qty: '20g' }] }],
+    };
+    const res = await request(app).post('/api/meal-plans').set('Authorization', auth).send({ name: 'Gap', meals: [meal] });
+    const mine = res.body.allergenWarnings.find((x) => x.meal === 'Rice bowl');
+    expect(mine.contains).toContain('nuts');
+    expect(mine.unchecked).toBeUndefined();
+  });
+
+  it('a misspelled typed meal is red for that allergy', () => {
+    const strawberry = { allergies: ['strawberry'] };
+    const avocado = { allergies: ['avocado'] };
+    const hit = (meal, f) => safety.mealProblems(meal, safety.excludedFlags(f), safety.customTerms(f));
+    expect(hit({ name: 'Strawbery smoothie' }, strawberry)).toEqual(expect.arrayContaining(['allergy: strawberry']));
+    expect(hit({ name: 'Avacado toast' }, avocado)).toEqual(expect.arrayContaining(['allergy: avocado']));
+  });
+
+  it('a long distinct allergy list does not lexicon-scan every word, and the builder does not scan once per word', () => {
+    const many = Array.from({ length: 400 }, (_, i) => `zzq${i.toString(36)}foodqq`);
+    const f = safety.profileFilters({ allergies: many });
+    expect(f.allergies.length).toBeGreaterThan(80);
+    const s0 = safety.allergyScans();
+    safety.excludedFlags(f);
+    safety.customTerms(f);
+    expect(safety.allergyScans() - s0).toBeLessThanOrEqual(80);
+    expect(safety.customTerms(f).size).toBeGreaterThan(80);
+    const spy = jest.spyOn(lexicon, 'scan');
+    engine.buildPlan({ calories: 2000, protein: 100, days: 1, dietary: ['gluten free', ...many.slice(0, 200), 'banana'] });
+    expect(spy.mock.calls.length).toBeLessThan(200);
+    spy.mockRestore();
+  });
+
+  const CLAIM = /\b(?:checked|fits|safe)\b/i;
+  it('past the budget, chat, insight, weekly and training name no meal and make no checked claim', async () => {
+    profile = { allergies: pastList('banana'), targetCalories: 2000, targetProtein: 140 };
+    const dietGuard = require('./lib/diet-guard');
+    const hold = dietGuard.PAST_BUDGET_HOLD;
+    expect(hold).not.toMatch(CLAIM);
+    expect(hold).toMatch(/shorten your allergy list/i);
+    const chat = await request(app).post('/api/ai/chat').set('Authorization', auth).send({
+      intent: 'nutrition', messages: [{ role: 'user', content: 'What can I eat for breakfast?' }],
+    });
+    expect(chat.status).toBe(200);
+    expect(chat.body.provider).toBeNull();
+    expect(chat.body.reply).toBe(hold);
+    expect(chat.body.reply).not.toMatch(CLAIM);
+    expect(chat.body.reply).not.toMatch(/banana|mango|yoghurt|breakfast:|kcal/i);
+    const training = await request(app).post('/api/ai/chat').set('Authorization', auth).send({
+      intent: 'workout', messages: [{ role: 'user', content: 'How many sets for squats?' }],
+    });
+    expect(training.status).toBe(200);
+    expect(training.body.provider).toBeNull();
+    expect(training.body.reply).toBe(hold);
+    expect(training.body.reply).not.toMatch(CLAIM);
+    expect(training.body.reply).not.toMatch(/banana|mango|yoghurt|breakfast:|kcal/i);
+    const insight = await request(app).post('/api/ai/insight').set('Authorization', auth).send({ todayCalories: 400, todayProtein: 20 });
+    expect(insight.status).toBe(200);
+    expect(insight.body.provider).toBeNull();
+    expect(insight.body.insight).toBe(hold);
+    expect(insight.body.insight).not.toMatch(CLAIM);
+    expect(insight.body.insight).not.toMatch(/banana|mango|beef|sweet potato|kcal/i);
+    const weekly = await request(app).get('/api/ai/weekly-review').set('Authorization', auth);
+    expect(weekly.status).toBe(200);
+    expect(weekly.body.provider).toBeNull();
+    expect(weekly.body.review).toEqual({ headline: hold, wins: [], focus: [], score: null });
+    expect(JSON.stringify(weekly.body.review)).not.toMatch(CLAIM);
+    expect(JSON.stringify(weekly.body.review)).not.toMatch(/banana|mango|beef|kcal/i);
+    const filters = safety.profileFilters(profile).dietary;
+    for (const text of [
+      dietGuard.safeCoachReply({ filters, pastBudget: true }).reply,
+      dietGuard.safeTrainingReply({ filters, pastBudget: true }),
+      dietGuard.safeInsight({ filters, pastBudget: true }),
+      JSON.stringify(dietGuard.safeWeeklyReview({ filters, pastBudget: true })),
+    ]) {
+      expect(text).toBe(text.includes('{') ? JSON.stringify({ headline: hold, wins: [], focus: [], score: null }) : hold);
+      expect(text).not.toMatch(CLAIM);
+      expect(text).not.toMatch(/banana|mango|Breakfast|kcal/);
+    }
+  });
+
+  it('the generated plan shows a Not checked badge when a meal is unchecked', () => {
+    const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
+    expect(html).toContain("meal.unchecked ? '<span class=\"allergen-note-badge\"");
+    expect(html).toContain("badge.textContent = 'Not checked'");
+  });
+});

@@ -261,26 +261,30 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // Smoke accounts skip the monthly pre-check; checkAndConsume applies their daily cap.
+    // Count the call before the model. A failed read or increment must not spend a provider call (EQA #182 S1).
     const smoke = aiUsage.isSmokeAccount({ userId: req.user.userId });
-    if (!smoke && (!tier || tier === 'free')) {
-      const limit = aiUsage.freeMonthlyLimit();
-      const used = await aiUsage.getUsed(String(req.user.userId));
-      if (limit === 0 || used >= limit) {
-        return res.status(429).json({
-          success: false,
-          upgrade: true,
-          limit,
-          used,
-          error: `You've used all ${limit} free AI actions this month. Upgrade for unlimited scans.`,
-        });
-      }
+    const gate = await aiUsage.checkAndConsume({
+      userId: String(req.user.userId),
+      tier,
+      feature: 'receipt_scan',
+    });
+    if (!gate.allowed && gate.unavailable) return aiUsage.sendUsageUnavailable(res);
+    if (!gate.allowed && gate.smoke) {
+      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
     }
+    if (!gate.allowed) {
+      return res.status(429).json({
+        success: false, upgrade: true, limit: gate.limit, used: gate.used,
+        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited scans.`,
+      });
+    }
+    aiUsage.refundSmokeOnFailure(gate, res);
 
     let rawItems;
     try {
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/scan');
     } catch (visionErr) {
+      if (!smoke) await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'receipt_scan' });
       if (sendIfTooLarge(res, visionErr)) return;
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
       if (smoke && visionErr && visionErr.scanDiag) {
@@ -307,27 +311,6 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
       );
     }
 
-    const gate = await aiUsage.checkAndConsume({
-      userId: String(req.user.userId),
-      tier,
-      feature: 'receipt_scan',
-    });
-    if (!gate.allowed && gate.unavailable) {
-      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
-    }
-    if (!gate.allowed && gate.smoke) {
-      return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
-    }
-    if (!gate.allowed) {
-      return res.status(429).json({
-        success: false,
-        upgrade: true,
-        limit: gate.limit,
-        used: gate.used,
-        error: `You've used all ${gate.limit} free AI actions this month. Upgrade for unlimited scans.`,
-      });
-    }
-    aiUsage.refundSmokeOnFailure(gate, res);
     res.locals.aiAnswered = true;
 
     let filters = null;
@@ -399,9 +382,13 @@ router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => 
     }
 
     const guestId = `guest:${guestIp(req)}`;
-    const limit = aiUsage.freeMonthlyLimit();
-    const used = await aiUsage.getUsed(guestId);
-    if (limit === 0 || used >= limit) {
+    const guestGate = await aiUsage.checkAndConsume({
+      userId: guestId,
+      tier: 'free',
+      feature: 'receipt_scan',
+    });
+    if (!guestGate.allowed && guestGate.unavailable) return aiUsage.sendUsageUnavailable(res);
+    if (!guestGate.allowed) {
       return res.status(429).json({
         success: false,
         upgrade: true,
@@ -413,6 +400,7 @@ router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => 
     try {
       rawItems = await readReceiptItems(image.imageBase64, image.mimeType, '/receipt/first-scan');
     } catch (visionErr) {
+      await aiUsage.refundAiCall(guestGate, { userId: guestId, feature: 'receipt_scan' });
       if (sendIfTooLarge(res, visionErr)) return;
       const unavailable = visionFailureCode(visionErr) === 'unavailable';
       return sendVisionFailure(
@@ -422,19 +410,6 @@ router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => 
         null,
         false
       );
-    }
-
-    const gate = await aiUsage.checkAndConsume({
-      userId: guestId,
-      tier: 'free',
-      feature: 'receipt_scan',
-    });
-    if (!gate.allowed) {
-      return res.status(429).json({
-        success: false,
-        upgrade: true,
-        error: 'Free first scans from this connection are used up this month. Start the Premium trial for unlimited scans.',
-      });
     }
 
     const payload = core.buildScanPayload(rawItems, { guest: true, scannerProvider: 'vision' });
