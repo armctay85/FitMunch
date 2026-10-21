@@ -310,6 +310,9 @@ describe('onboarding modal markup (EQA r1 M1, S1-S3)', () => {
     expect(html).toContain("'Step ' + n + ' of 3'");
     expect(html).toContain('<div id="ob-week" tabindex="0" role="region" aria-label="Your first week, day by day"');
     expect(html).toContain('Turn on AI in Privacy for AI-written plans.');
+    expect(html).toContain('Your first week is ready. Seven days, built on your targets from everyday foods.');
+    const noteAt = html.indexOf('const NOTE_BUILDER');
+    expect(html.slice(noteAt, noteAt + 180)).not.toContain('Turn on AI in Privacy');
     expect(html).not.toContain('Turn on AI in Me, Privacy');
     expect(html).toContain("breakfast: ['🍳', 'Breakfast']");
     expect(html).toContain("obBar('Protein', tot.protein, tg.protein, 'g')");

@@ -147,6 +147,7 @@
  .claim-resend .btn { margin-top: 0; }
  .claim-resend-status { font-size: .82rem; color: var(--sub); line-height: 1.45; min-height: 1em; }
  </style>
+ <link rel="stylesheet" href="/css/fm-auth-elite.css"/>
 </head>
 <body>
 
@@ -330,7 +331,7 @@
  if (!trialNonce) trialNonce = 't_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
  const coachPlan = plan === 'coach-39' || plan === 'coach-79';
  const paidPlan = coachPlan || plan === 'premium' || plan === 'starter' || plan === 'pro' || plan === 'pt-starter' || plan === 'pt-pro';
- let registerLabel = plan === 'premium' ? (emailFirst ? 'Start your 14-day free trial' : 'Start Premium trial') : 'Create Free Account';
+ let registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial') : 'Create Free Account';
  let pendingClaim = '';
  try {
   pendingClaim = String(window.__fmClaimToken || '');
