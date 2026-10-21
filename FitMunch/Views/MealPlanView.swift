@@ -179,11 +179,6 @@ struct MealPlanView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button("Build my week") {
-                Task { await generate() }
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("plan-build-week")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.six)
@@ -198,6 +193,8 @@ struct MealPlanView: View {
             if isLoading {
                 ProgressView()
                     .tint(.white)
+            } else if plan == nil {
+                Text("Build my week")
             } else {
                 Text("Generate 7-day plan")
             }

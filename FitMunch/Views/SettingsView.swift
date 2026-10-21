@@ -234,14 +234,8 @@ struct SettingsView: View {
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
                             .foregroundColor(.secondary)
                     }
-                    
-                    HStack {
-                        Text("Build Date")
-                        Spacer()
-                        Text("March 2025")
-                            .foregroundColor(.secondary)
-                    }
                 }
+                .accessibilityIdentifier("me-about")
                 
                 // Account section
                 Section("Account") {
@@ -268,6 +262,11 @@ struct SettingsView: View {
             .background(Theme.surface)
             .scrollClearsTabBar()
             .floatingTabBarInset()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: 88)
+                    .accessibilityHidden(true)
+            }
             .onAppear {
                 viewModel.loadPreferences()
             }

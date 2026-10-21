@@ -12,6 +12,7 @@ struct FitMunchApp: App {
     init() {
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
+        LocalStoreKitBootstrap.startIfRequested()
         #endif
         AppearanceLaunch.prepare()
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
