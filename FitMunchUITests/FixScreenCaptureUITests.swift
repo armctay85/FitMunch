@@ -9,7 +9,7 @@ final class FixScreenCaptureUITests: XCTestCase {
 
     func testPaywallUsesStoreKitPrices() {
         let app = launch([ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-ForceLightMode"])
-        openTab("Me", in: app)
+        showTab("Me", in: app)
         let upgrade = app.buttons["settings-upgrade"]
         XCTAssertTrue(upgrade.waitForExistence(timeout: 12), "Upgrade missing")
         upgrade.tap()
@@ -33,7 +33,7 @@ final class FixScreenCaptureUITests: XCTestCase {
             AuditLaunchArgument.consentDenied,
             "-ForceLightMode",
         ])
-        openTab("Scan", in: app)
+        showTab("Scan", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["scan-consent-blocked"].waitForExistence(timeout: 8))
         XCTAssertFalse(app.buttons["scan-take-photo"].exists)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -50,7 +50,7 @@ final class FixScreenCaptureUITests: XCTestCase {
             AuditLaunchArgument.offline,
             "-ForceLightMode",
         ])
-        openTab("Plan", in: app)
+        showTab("Plan", in: app)
         let build = app.buttons["plan-generate"]
         XCTAssertTrue(build.waitForExistence(timeout: 8))
         XCTAssertEqual(build.label, "Build my week")
@@ -65,7 +65,7 @@ final class FixScreenCaptureUITests: XCTestCase {
 
     func testTrainingEstimateIsNotOneMinute() {
         let app = launch([ReviewLaunchArgument.flag, "-ForceLightMode"])
-        openTab("Plan", in: app)
+        showTab("Plan", in: app)
         let training = app.buttons["Training"]
         XCTAssertTrue(training.waitForExistence(timeout: 8))
         training.tap()
@@ -85,7 +85,7 @@ final class FixScreenCaptureUITests: XCTestCase {
 
     func testAboutClearsTheTabBar() {
         let app = launch([ReviewLaunchArgument.flag, "-ForceLightMode"])
-        openTab("Me", in: app)
+        showTab("Me", in: app)
         let version = app.staticTexts["Version"]
         for _ in 0..<8 {
             if version.exists, version.isHittable, version.frame.minY > 80 {
@@ -108,7 +108,7 @@ final class FixScreenCaptureUITests: XCTestCase {
             AuditLaunchArgument.offline,
             "-ForceLightMode",
         ])
-        openTab("Today", in: app)
+        showTab("Today", in: app)
         XCTAssertTrue(app.staticTexts["No meals logged today"].waitForExistence(timeout: 8))
         shot(app, "today-offline")
         app.terminate()
@@ -141,7 +141,7 @@ final class FixScreenCaptureUITests: XCTestCase {
         return app
     }
 
-    private func openTab(_ name: String, in app: XCUIApplication) {
+    private func showTab(_ name: String, in app: XCUIApplication) {
         let button = app.tabBars.buttons[name]
         XCTAssertTrue(button.waitForExistence(timeout: 15), "Tab \(name) missing")
         button.tap()
