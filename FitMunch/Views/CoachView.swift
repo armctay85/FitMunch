@@ -103,9 +103,11 @@ struct CoachView: View {
                         .accessibilityIdentifier("coach-input")
                     Button(action: send) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.system(size: 28))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(input.trimmingCharacters(in: .whitespaces).isEmpty || isSending ? Color.secondary : Theme.brandGreen)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty || isSending)
                     .accessibilityLabel("Send")
@@ -149,6 +151,13 @@ struct CoachView: View {
             .onAppear {
                 if ScreenshotLaunch.isActive && messages.isEmpty {
                     messages = ScreenshotLaunch.coachMessages()
+                }
+                if AuditLaunch.isCoachLoading && messages.isEmpty {
+                    messages = [
+                        ChatMessage(role: "user", content: "What should I eat tonight?"),
+                        ChatMessage(role: "assistant", content: "…"),
+                    ]
+                    isSending = true
                 }
             }
         }
