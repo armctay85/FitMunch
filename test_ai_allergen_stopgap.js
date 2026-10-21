@@ -197,12 +197,13 @@ describe('meal plan generation', () => {
       expect(storage.createOrUpdateProfile).toHaveBeenLastCalledWith(expect.any(String), expect.any(Object), { ifUpdatedAt: undefined, requireVersion: true });
     }
     storage.createOrUpdateProfile.mockClear();
-    for (const bad of [true, 0, 1760000000000, '2026-10-15', 'Thu Oct 15 2026', 'nope', {}, '2026-02-30T00:00:00Z', '2026-10-15T24:00:00Z']) {
+    for (const bad of [true, 0, 1760000000000, '2026-10-15', 'Thu Oct 15 2026', 'nope', {}, '2026-02-30T00:00:00Z', '2026-10-15T24:00:00Z', '0000-01-01T00:00:00Z']) {
       expect([bad, (await save({ dietaryPreferences: [], profileUpdatedAt: bad })).status]).toEqual([bad, 400]);
     }
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
     expect((await save({ weight: 70 })).status).toBe(200);
     expect((await save({ dietaryPreferences: [], profileUpdatedAt: '2026-10-15T11:00:00.123+11:00' })).status).toBe(200);
+    expect((await save({ dietaryPreferences: [], profileUpdatedAt: '2026-01-31T00:00:00Z' })).status).toBe(200);
   });
 
   it('builderOnly (onboarding) also applies saved filters', async () => {

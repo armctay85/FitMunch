@@ -159,7 +159,7 @@ maybe('#140 r2 M1 on real Postgres: item #51 is still read', () => {
     await pool.query('delete from meal_plans where user_id=$1', [U]);
     await pool.query(`insert into meal_plans(user_id,name,meals) values ($1,'Typed',$2::jsonb)`, [U, JSON.stringify([{ name: 'Satay chicken', foods: [] }])]);
     const l = await request(app).get('/api/meal-plans').set('Authorization', as(U));
-    expect(l.body.plans[0].allergenWarnings[0]).toEqual({ meal: '', contains: [], notice: dietGuard.UNREADABLE_NOTICE });
+    expect(l.body.plans[0].allergenWarnings[0]).toEqual({ meal: '', contains: [], notice: dietGuard.unreadableNotice(true) });
     expect(l.body.plans[0].allergenWarnings).toEqual(expect.arrayContaining([{ meal: 'Satay chicken', contains: expect.arrayContaining(['nuts']) }]));
     expect(aiClient.chat).not.toHaveBeenCalled();
   });

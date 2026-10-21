@@ -205,7 +205,7 @@ describe('app wiring', () => {
     const body = src.slice(i, src.indexOf("\nrouter.get('/meal-plans'", i));
     expect(body).toContain('out.push({ meal, contains })');
     expect(body).toContain('unchecked: true, note: UNCHECKED_NOTE');
-    expect(body).toContain('notice: dg.UNREADABLE_NOTICE');
+    expect(body).toContain('notice: dg.unreadableNotice(filters.pastBudget)');
     expect(body).not.toMatch(/\bmessage\s*:/);
     const get = src.slice(src.indexOf("router.get('/meal-plans'"), src.indexOf("router.get('/meal-plans'") + 500);
     expect(get).toContain("res.set('Cache-Control', 'no-store')");

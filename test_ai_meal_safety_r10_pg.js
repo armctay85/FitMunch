@@ -143,15 +143,60 @@ maybe('r10 M2: typed allergies when the list cannot all be read, on real Postgre
     await setAllergies([...Array.from({ length: 200 }, (_, i) => `${i}`.padEnd(100, 'q')), f]);
     const res = await save([{ name: `${f} smoothie bowl`, foods: [] }, { name: `${f} and rice`, foods: [] }]);
     for (const w of [res.body.allergenWarnings, await listed()]) {
-      expect(w[0].notice).toBe(dietGuard.UNREADABLE_NOTICE);
+      expect(w[0].notice).toBe(dietGuard.unreadableNotice(true));
       // Smoothie reads as dairy (every '... free' filter is on), so it's red; it is never silently clean.
       const bowl = w.find((x) => x.meal === `${f} smoothie bowl`);
       expect(bowl.contains.length > 0 || bowl.unchecked === true).toBe(true);
       expect(w.find((x) => x.meal === `${f} and rice`)).toEqual({ meal: `${f} and rice`, contains: [], unchecked: true, note: NOTE });
     }
   });
-  it('the notice never claims foods the user typed were all checked', () => {
-    expect(dietGuard.UNREADABLE_NOTICE).not.toMatch(/every allergen filter is on\./i);
-    expect(dietGuard.UNREADABLE_NOTICE).toMatch(/foods you typed may not all be checked/i);
+  it('the notice names skipped typed foods only once the read stopped early', () => {
+    expect(dietGuard.UNREADABLE_NOTICE).toBe("We couldn't read part of your allergy list, so all 8 common allergen filters are on. Please update your profile.");
+    expect(dietGuard.unreadableNotice(false)).not.toMatch(/foods you typed/i);
+    expect(dietGuard.unreadableNotice(true)).toMatch(/Some foods you typed weren't checked\./);
+  });
+
+  it.each(FRUIT)('%s past the budget: generate marks the plan not checked, serves no AI, on both paths', async (f) => {
+    await setAllergies([...Array.from({ length: 200 }, (_, i) => `${i}`.padEnd(100, 'q')), f]);
+    for (const body of [{}, { builderOnly: true }]) {
+      aiClient.chatJson.mockClear();
+      const g = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ days: 7, calories: 2000, protein: 120, ...body });
+      expect(g.status).toBe(200);
+      expect(aiClient.chatJson).not.toHaveBeenCalled();
+      expect(g.body.notice).toContain("Some foods you typed weren't checked.");
+      const meals = g.body.plan.days.flatMap((d) => Object.values(d.meals));
+      expect(meals.length).toBeGreaterThan(0);
+      expect(meals.every((m) => m.unchecked === true)).toBe(true);
+    }
+  });
+});
+
+maybe('r11 S2: pastBudget and the main-list check, on real Postgres', () => {
+  it('a past-budget list plus a recognised clean meal is the calm note', async () => {
+    await setAllergies([...Array.from({ length: 200 }, (_, i) => `${i}`.padEnd(100, 'q')), 'strawberry']);
+    const res = await save([{ name: 'Rice cakes with avocado and tomato', foods: [] }]);
+    expect(res.status).toBe(200);
+    for (const w of [res.body.allergenWarnings, await listed()]) {
+      expect(w[0]).toEqual({ meal: '', contains: [], notice: dietGuard.unreadableNotice(true) });
+      expect(w.find((x) => x.meal === 'Rice cakes with avocado and tomato')).toEqual({
+        meal: 'Rice cakes with avocado and tomato', contains: [], unchecked: true, note: NOTE,
+      });
+    }
+  });
+
+  it('a meal #127 calls clean but the main check flags is red', async () => {
+    await pool.query('update user_profiles set allergies=$2::jsonb, dietary_preferences=$3::jsonb where user_id=$1', [U, '[]', JSON.stringify(['nut free'])]);
+    const meal = {
+      name: 'Rice bowl',
+      ingredients: [{ item: 'White rice', qty: '200g' }, { item: 'Olive oil', qty: '5ml' }],
+      swaps: [{ name: 'Peanut satay', ingredients: [{ item: 'Peanut butter', qty: '20g' }] }],
+    };
+    const res = await save([meal]);
+    expect(res.status).toBe(200);
+    for (const w of [res.body.allergenWarnings, await listed()]) {
+      const mine = w.find((x) => x.meal === 'Rice bowl');
+      expect(mine.contains).toContain('nuts');
+      expect(mine.unchecked).toBeUndefined();
+    }
   });
 });
