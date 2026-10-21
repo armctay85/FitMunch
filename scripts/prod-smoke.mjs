@@ -41,9 +41,9 @@ async function requestJson(url, options) {
     if (text) {
       try { json = JSON.parse(text); } catch { json = null; }
     }
-    return { status: res.status, json };
+    return { status: res.status, json, text };
   } catch {
-    return { status: null, json: null };
+    return { status: null, json: null, text: '' };
   } finally {
     clearTimeout(timer);
   }
@@ -109,14 +109,14 @@ const scan = await requestJson(`${base}/api/receipt/scan`, {
   headers: { accept: 'application/json', authorization: `Bearer ${token}` },
   body: form,
 });
-result.scan = classifyScan(scan.status, scan.json);
+result.scan = classifyScan(scan.status, scan.json, scan.text);
 result.ok = !!(result.coach.ok && result.scan.ok);
 writeResult(result);
 
 if (result.coach.ok) console.log(`PASS coach status=${result.coach.status}`);
 else console.error(`FAIL coach status=${result.coach.status == null ? 'none' : result.coach.status} ${result.coach.reason || ''}`);
 if (result.scan.ok) console.log(`PASS scan ${result.scan.kind} status=${result.scan.status}`);
-else console.error(`FAIL scan status=${result.scan.status == null ? 'none' : result.scan.status} ${result.scan.reason || ''}`);
+else console.error(`FAIL scan status=${result.scan.status == null ? 'none' : result.scan.status} ${result.scan.reason || 'scan_unavailable'}`);
 
 if (!result.ok) process.exit(1);
 console.log('production smoke finished');

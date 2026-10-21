@@ -145,10 +145,7 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
         openUpgradePaywall(in: app)
 
-        let sawLoading = app.staticTexts["paywall-load-phase"].waitForExistence(timeout: 8)
-            || app.staticTexts["Loading plans"].waitForExistence(timeout: 2)
-            || app.staticTexts["Loading plans…"].exists
-            || app.otherElements["paywall-loading"].exists
+        let sawLoading = app.descendants(matching: .any)["paywall-loading"].waitForExistence(timeout: 8)
         XCTAssertTrue(sawLoading, "E FAIL: paywall did not show a loading state")
 
         let error = app.staticTexts[loadFailure]

@@ -52,6 +52,14 @@ struct ReceiptScanView: View {
             .background(Theme.surface)
             .sensoryFeedback(.success, trigger: scanCompletions)
             .navigationTitle("Scan")
+            .onAppear {
+                if AuditLaunch.isScanLoading {
+                    isScanning = true
+                } else if AuditLaunch.isScanError {
+                    errorMessage = Self.unreadableCopy
+                    showRetake = true
+                }
+            }
             .accessibilityIdentifier("scan-screen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Theme.surface, for: .navigationBar)
@@ -164,6 +172,7 @@ struct ReceiptScanView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.top, 20)
+                .accessibilityIdentifier("scan-loading")
             }
 
             if let errorMessage = errorMessage {

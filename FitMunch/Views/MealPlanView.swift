@@ -81,7 +81,9 @@ struct MealPlanView: View {
                 if let plan {
                     planSummary(plan)
                         .accessibilityIdentifier("plan-preview")
-                } else if !isLoading {
+                } else if isLoading {
+                    LoadingSkeleton(rows: 3, label: "Loading your week", identifier: "plan-loading")
+                } else {
                     planEmptyState
                 }
             }
@@ -121,6 +123,9 @@ struct MealPlanView: View {
         .onAppear {
             if ScreenshotLaunch.isActive && plan == nil {
                 plan = ScreenshotLaunch.mealPlan()
+            }
+            if AuditLaunch.isPlanLoading {
+                isLoading = true
             }
         }
     }
@@ -198,6 +203,7 @@ struct MealPlanView: View {
             if isLoading {
                 ProgressView()
                     .tint(.white)
+                    .accessibilityIdentifier("plan-loading")
             } else {
                 Text("Generate 7-day plan")
             }

@@ -67,7 +67,7 @@ maybe('onboarding modal rendered on phones and tablets', () => {
       await p.waitForTimeout(300);
       expect(await p.textContent('#ob-stepno')).toBe('Step 1 of 3');
       await p.fill('#ob-age', '34'); await p.selectOption('#ob-sex', 'male'); await p.fill('#ob-height', '180'); await p.fill('#ob-weight', '130');
-      await p.selectOption('#ob-goal', 'lose_weight'); await p.selectOption('#ob-diet', 'dairy_free');
+      await p.selectOption('#ob-goal', 'lose_weight'); await p.click('#ob-diet .diet-tag[data-val="dairy free"]');
       const sizes = await p.evaluate(() => [...document.querySelectorAll('#modal-onboard input, #modal-onboard select, #modal-onboard button')]
         .filter((e) => e.offsetParent).map((e) => ({ tag: e.tagName, btn: e.classList.contains('btn'), w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height })));
       for (const s of sizes) {
@@ -93,7 +93,10 @@ maybe('onboarding modal rendered on phones and tablets', () => {
       expect(week.bars).toBe(14);
       expect(week.labels.slice(0, 4)).toEqual(['Breakfast', 'Lunch', 'Dinner', 'Snack']);
       for (const t of week.proteins) expect(Number(t.match(/Protein (\d+)g/)[1])).toBeLessThanOrEqual(protein);
-      expect(week.note).toMatch(/Turn on AI in Privacy/);
+      expect(week.note).toMatch(/Your first week is ready/);
+      expect(week.note).not.toMatch(/Turn on AI in Privacy/);
+      expect(await p.textContent('#privacy-ai-desc')).toMatch(/Turn on AI in Privacy for AI-written plans/);
+      if (process.env.ONBOARD_SHOTS) await p.screenshot({ path: `${process.env.ONBOARD_SHOTS}/onboard-week-${width}.png` });
       expect(week.consentShown).toBe(false);
       expect(week.overflow).toBe(false);
       await ctx.close();

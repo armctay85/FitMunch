@@ -125,7 +125,7 @@ describe('FitMunch Coach landers', () => {
 
   it('does not retitle the homepage or reprice the consumer plan', () => {
     const home = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-    expect(home).toContain('<h1>Your week of meals, planned to your macros.</h1>');
+    expect(home).toContain('<h2>Your week of meals, planned to your macros.</h2>');
     expect(home).toContain('$19.99');
   });
 });
