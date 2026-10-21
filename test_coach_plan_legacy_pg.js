@@ -24,7 +24,7 @@ if (URL) {
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
-const PT = 'pt-legacy-0001';
+const PT = '00000000-0000-4000-8000-00000000c0a1';
 const PLAN_ID = 'legacy-plan-0001';
 const TOKEN = 'legacyShareToken0001';
 
@@ -127,6 +127,21 @@ beforeAll(async () => {
   await pool.query('drop table if exists coach_plans, coach_branding cascade');
   await pool.query(store.DDL);
   store.resetMemory();
+  await pool.query(`
+    create table if not exists users (
+      id uuid primary key,
+      email text unique,
+      name text,
+      password_hash text,
+      role text
+    )
+  `);
+  await pool.query(
+    `insert into users (id, email, name, password_hash, role)
+     values ($1, 'legacy-pt@example.test', 'Legacy PT', 'x', 'pt')
+     on conflict (id) do update set role = 'pt'`,
+    [PT]
+  );
   app = require('./server.js');
   const { jwtSecret } = require('./lib/fitmunch-checkout');
   auth = `Bearer ${jwt.sign({ userId: PT, role: 'pt' }, jwtSecret())}`;

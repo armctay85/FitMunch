@@ -250,20 +250,40 @@ describe('Coach chat (POST /api/ai/chat)', () => {
 
 describe('insight and weekly review', () => {
   const u1 = `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET)}`;
-  it('a filtered user gets the fixed tip: no AI call, no unsafe food', async () => {
-    profile = { dietaryPreferences: ['nut free'] };
+  const SAFE_LINE = 'At 2,100 kcal and 150 g protein, have chicken, rice and broccoli.';
+  it('a filtered user gets a checked tip: the model is called, and unsafe food is not served', async () => {
+    profile = { dietaryPreferences: ['nut free'], targetCalories: 2100, targetProtein: 150 };
     aiClient.chat.mockResolvedValue({ ok: true, text: 'Grab a handful of almonds for protein.', provider: 'xai' });
     const res = await request(app).post('/api/ai/insight').set('Authorization', u1).send({});
     expect(res.status).toBe(200);
     expect(res.body.insight).not.toMatch(/almond/i);
+    expect(aiClient.chat).toHaveBeenCalled();
   });
-  it('a filtered user gets the fixed weekly review: no AI call, no unsafe food', async () => {
+  it('a filtered weekly review with under 3 logged days skips the AI call', async () => {
     profile = { allergies: ['peanuts'], dietaryPreferences: ['gluten free'] };
+    aiClient.chat.mockClear();
     aiClient.chatJson.mockResolvedValue({ ok: true, data: { headline: 'Solid week', wins: ['Logged 5 days'], focus: ['Add peanut butter toast at breakfast.'], score: 7 }, provider: 'xai' });
     const res = await request(app).get('/api/ai/weekly-review').set('Authorization', u1);
     expect(res.status).toBe(200);
     expect(res.body.source).toBe('fixed');
     expect(JSON.stringify(res.body.review)).not.toMatch(/peanut|toast/i);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+  it('chat, insight and a weekly review under 3 logged days make 2 model calls', async () => {
+    profile = { dietaryPreferences: ['gluten free'], targetCalories: 2100, targetProtein: 150 };
+    aiClient.chat.mockClear();
+    aiClient.chatJson.mockClear();
+    aiClient.chat.mockResolvedValue({ ok: true, text: SAFE_LINE, provider: 'xai' });
+    aiClient.chatJson.mockResolvedValue({ ok: true, data: { headline: SAFE_LINE, wins: ['Logged meals'], focus: ['Keep chicken and rice'], score: 7 }, provider: 'xai' });
+    const chatRes = await request(app).post('/api/ai/chat').set('Authorization', u1).send({ intent: 'general', messages: [{ role: 'user', content: 'Snack idea?' }] });
+    const insightRes = await request(app).post('/api/ai/insight').set('Authorization', u1).send({ todayCalories: 800, todayProtein: 40, targetCalories: 2100, targetProtein: 150 });
+    const weekRes = await request(app).get('/api/ai/weekly-review').set('Authorization', u1);
+    expect(chatRes.status).toBe(200);
+    expect(insightRes.status).toBe(200);
+    expect(weekRes.status).toBe(200);
+    expect(weekRes.body.source).toBe('fixed');
+    expect(aiClient.chat).toHaveBeenCalledTimes(2);
     expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 });
@@ -427,7 +447,10 @@ describe('r2 M1: saved plus sent filters, never shrunk, saved only after consent
   it('a failed filter lookup stops the plan instead of ignoring the saved filters', async () => {
     storage.getProfile.mockRejectedValueOnce(new Error('db down'));
     const res = await gen({ dietary: [] });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
+    expect(res.body.plan).toBeUndefined();
+    expect(res.body.notice).toBe(require('./lib/diet-guard').UNREADABLE_NOTICE);
+    expect(res.body.provider).toBeNull();
   });
   it('the builder fallback after an error is checked against profile allergies too', async () => {
     profile = { allergies: ['peanuts', 'eggs', 'oats'] };
@@ -729,6 +752,21 @@ describe('r5: dish words need a real stand-in, name-only warnings, brands, label
     expect(probs({ name: 'Blueberry muffin', ingredients: ['Egg whites', 'Blueberries', 'Sugar'] }, { allergies: ['gluten'] })).toContain('gluten');
     expect(probs({ name: 'Vegetable fried rice', ingredients: ['White rice', 'Corn', 'Carrot'] }, { dietary: ['egg free'] })).toContain('eggs');
     expect(probs({ name: 'Egg white and spinach muffins', ingredients: ['Egg whites', 'Spinach'] }, { dietary: ['gluten free'] })).toContain('gluten');
+  });
+  it('the card warning follows the ingredient check for tofu fried rice and dead bug', async () => {
+    profile = { dietaryPreferences: ['egg free', 'shellfish free'], allergies: [] };
+    const tofu = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+      name: 'Rice', meals: [{ name: 'Tofu fried rice', foods: [{ name: 'Firm tofu' }, { name: 'Rice' }] }],
+    });
+    expect(JSON.stringify(tofu.body.allergenWarnings)).not.toMatch(/eggs/);
+    const dead = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+      name: 'Core', meals: [{ name: 'Dead bug', foods: [] }],
+    });
+    expect(JSON.stringify(dead.body.allergenWarnings)).not.toMatch(/shellfish/);
+    const real = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+      name: 'Bugs', meals: [{ name: 'Moreton Bay bugs', foods: [] }],
+    });
+    expect(JSON.stringify(real.body.allergenWarnings)).toMatch(/shellfish/);
   });
   it('a stated stand-in still lifts them: tofu or "egg-free" fried rice, a named gluten-free flour in muffins', () => {
     expect(probs({ name: 'Tofu fried rice', ingredients: ['Rice', 'Firm tofu', 'Peas'] }, { allergies: ['egg'] })).toBeNull();
@@ -1087,7 +1125,9 @@ describe('r10 S1: a failed profile read stops /generate with 503 on all five pat
     const spy = jest.spyOn(engine, 'buildPlan');
     const res = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ days: 7, calories: 2000, protein: 120, ...body });
     const built = spy.mock.calls.length; spy.mockRestore();
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
+    expect(res.body.notice).toBe(require('./lib/diet-guard').UNREADABLE_NOTICE);
+    expect(res.body.provider).toBeNull();
     expect(res.body.plan).toBeUndefined();
     expect(built).toBe(0);
     expect(aiClient.chatJson).not.toHaveBeenCalled();
@@ -1174,8 +1214,10 @@ describe('r11: allergy read budget on the builder and typed meals', () => {
     expect(res.status).toBe(200);
     expect(res.body.notice).toBe(dietGuard.UNREADABLE_NOTICE);
     expect(res.body.notice).not.toContain("Some foods you typed weren't checked.");
-    expect(JSON.stringify(res.body.plan)).not.toMatch(/banana/i);
-    expect(res.body.plan.days.some((d) => Object.values(d.meals).some((m) => m.unchecked))).toBe(false);
+    expect(res.body.plan).toBeUndefined();
+    expect(res.body.source).toBe('fixed');
+    expect(res.body.provider).toBeNull();
+    expect(JSON.stringify(res.body)).not.toMatch(/banana/i);
   });
 
   it('past the budget, a recognised clean meal is the calm note', async () => {

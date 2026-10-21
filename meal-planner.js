@@ -215,6 +215,18 @@ function safePlan(plan, input) {
 }
 
 /** Swap options go through the same check (allergies from the profile aren't builder filters). */
+function profilePastBudget(profile) {
+  return !!(profile && mealSafety.profileFilters(profile).pastBudget);
+}
+function unreadPlan(res) {
+  return res.json({
+    success: true,
+    source: 'fixed',
+    notice: dietGuard.UNREADABLE_NOTICE,
+    provider: null,
+  });
+}
+
 function safeSwaps(plan, input) {
   const excluded = mealSafety.excludedFlags(input);
   // r9: typed allergies with no flag ("banana", "lupin") are checked on swaps too.
@@ -233,7 +245,7 @@ router.post('/generate', requireAuth, async (req, res) => {
   let profile = null; let profileRead = false;
   const early = (req.body && req.body.builderOnly === true) || parsed.dietary.length > 0;
   if (early) try { profile = await require('./server/storage.js').getProfile(req.user.userId); profileRead = true; } catch (_) {
-    if (process.env.DATABASE_URL) return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+    if (process.env.DATABASE_URL) return unreadPlan(res);
   }
   let stored = mealSafety.profileFilters(profile);
   const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary });
@@ -245,6 +257,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     // so no consent or usage check applies.
     if (profileRead) await rememberFilters(req.user.userId, input.dietary);
     const combined = dietGuard.combineFilters(profile, input.dietary);
+    if (dietGuard.unreadable(combined) && !profilePastBudget(profile)) return unreadPlan(res);
     input.dietary = dietGuard.planFilters(combined);
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
     const past = !!(stored && stored.pastBudget);
@@ -258,6 +271,7 @@ router.post('/generate', requireAuth, async (req, res) => {
   // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
   // weekly review see them too and stay off the AI (live hotfix after #135).
   const filteredPlan = (dietary, pastBudget) => {
+    if (dietGuard.unreadable(dietary) && !pastBudget) return unreadPlan(res);
     input.dietary = dietGuard.planFilters(dietary);
     return res.json({
       success: true,
@@ -305,8 +319,8 @@ router.post('/generate', requireAuth, async (req, res) => {
       input.allergies = read.allergies;
       stored = read;
     } catch (_) {
-      // #127: never plan without the user's allergies when a database is configured.
-      if (process.env.DATABASE_URL) return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+      // A configured database that cannot be read is the notice only. No week, and no model call.
+      if (process.env.DATABASE_URL) return unreadPlan(res);
       saved = null;
     }
     if (saved === null || saved.length) return await filteredPlan(saved || [], !!(stored && stored.pastBudget));

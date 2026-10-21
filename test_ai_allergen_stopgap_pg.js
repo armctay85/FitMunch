@@ -527,7 +527,7 @@ maybe('#127a on real Postgres', () => {
     }
   });
 
-  it('r4: weekly review and insight are fixed for filtered users (no AI, safe meal, coming-soon line); no-filter users still reach the AI', async () => {
+  it('r4: filtered insight reaches the model and stays safe; a weekly review under 3 logged days does not call it', async () => {
     for (const [who, f] of [[PEANUT, 'nut free'], [GF, 'gluten free']]) {
       const r = await request(app).get('/api/ai/weekly-review').set('Authorization', as(who));
       expect(r.status).toBe(200);
@@ -541,6 +541,7 @@ maybe('#127a on real Postgres', () => {
       expect(i.body.insight).not.toMatch(/MOCKAI|peanut/i);
       safeMealIn(i.body.insight, [f]);
     }
+    expect(aiClient.chat).toHaveBeenCalled();
     expect(aiClient.chatJson).not.toHaveBeenCalled();
     // Three logged days: past the weekly review's new-user empty state (launch audit D8).
     for (let d = 0; d < 3; d += 1) await pool.query("insert into meal_logs(user_id, date, meal_type, food_name, calories) values ($1, now() - ($2 || ' days')::interval, 'lunch', 'Chicken salad', 500)", [PLAIN, String(d)]);

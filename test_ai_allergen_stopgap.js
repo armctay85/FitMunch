@@ -263,6 +263,12 @@ describe('Coach chat', () => {
     expect(r.body.source).toBe('builder');
     expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay/i);
   });
+  it('a bare string context is guarded the same way as an allergy object', async () => {
+    account({ dietaryPreferences: [], allergies: [] });
+    const r = await chat('lunch ideas?', { context: 'peanut' });
+    expect(r.body.source).toBe('builder');
+    expect(r.body.reply).not.toMatch(/MOCKAI|peanut|satay/i);
+  });
 
   it('no filters -> unchanged: the AI reply is served', async () => {
     account({ dietaryPreferences: [], allergies: [] });
@@ -461,7 +467,8 @@ describe('r4: fixed replies for filtered users', () => {
     account(new Error('db down'));
     const r = await chat('How many sets for squats?', { intent: 'workout' });
     expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(r.body.reply).toContain(COMING);
+    expect(r.body.reply).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.reply).not.toContain(COMING);
   });
   it.each(['before training', 'after training', 'after the gym', 'before my run', 'after squats', 'during training', 'post-gym', 'pre-run'])(
     '"What should I have %s?" counts as food', (w) => {
@@ -489,14 +496,20 @@ describe('r4: fixed replies for filtered users', () => {
     expect(r.body.review.headline).toMatch(/Log 3 days/);
     expect(JSON.stringify(r.body.review)).not.toMatch(/showed up|satay/i);
   });
-  it.each([['filters', { dietaryPreferences: [], allergies: ['peanut'] }], ['read error', new Error('db down')]])('insight (%s): tip with a safe meal, no coming-soon line', async (_l, prof) => {
-    account(prof);
+  it('insight with a saved allergy: tip with a safe meal, no coming-soon line', async () => {
+    account({ dietaryPreferences: [], allergies: ['peanut'] });
     const r = await request(app).post('/api/ai/insight').set('Authorization', token).send({ todayCalories: 900, targetCalories: 2000, targetProtein: 150 });
-    if (prof instanceof Error) expect(aiClient.chat).not.toHaveBeenCalled();
     expect(r.body.insight).not.toContain(COMING);
     expect(r.body.insight).toContain(dietGuard.SAFE_TIP);
     expect(r.body.insight).not.toMatch(/MOCKAI|peanut|satay/i);
     expectSafeMeal(r.body.insight, ['nut free']);
+  });
+  it('insight when the profile cannot be read is the notice only', async () => {
+    account(new Error('db down'));
+    const r = await request(app).post('/api/ai/insight').set('Authorization', token).send({ todayCalories: 900, targetCalories: 2000, targetProtein: 150 });
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.insight).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.insight).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:/);
   });
   it('every fixed reply has a safe meal and the line, across filters and targets', () => {
     for (const filters of [['nut free'], ['gluten free'], ['vegan', 'soy free'], ['dairy free', 'egg free'], ['fish free'], ['shellfish free', 'sesame free'], ['kiwifruit']]) {
