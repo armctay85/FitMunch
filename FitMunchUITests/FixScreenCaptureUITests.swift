@@ -134,6 +134,34 @@ final class FixScreenCaptureUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Dynamic Type AX5 (accessibility extra extra extra large) of Today, Me, and Export.
+    func testDynamicTypeAX5() {
+        let app = launch([
+            ScreenshotLaunchArgument.flag,
+            "-ForceLightMode",
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryAccessibilityXXXL",
+        ])
+        showTab("Today", in: app)
+        XCTAssertTrue(app.staticTexts["Today's Meals"].waitForExistence(timeout: 12))
+        shot(app, "today-ax5")
+
+        showTab("Me", in: app)
+        XCTAssertTrue(app.navigationBars["Me"].waitForExistence(timeout: 8))
+        shot(app, "me-ax5")
+
+        let export = app.buttons["settings-export"]
+        scrollUntilHittable(export, in: app)
+        XCTAssertTrue(export.isEnabled)
+        export.tap()
+        let share = app.buttons["export-share"]
+        XCTAssertTrue(app.descendants(matching: .any)["export-sheet"].waitForExistence(timeout: 8))
+        scrollUntilHittable(share, in: app)
+        XCTAssertTrue(share.isHittable)
+        shot(app, "export-ax5")
+        app.terminate()
+    }
+
     private func launch(_ arguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = arguments
@@ -145,6 +173,15 @@ final class FixScreenCaptureUITests: XCTestCase {
         let button = app.tabBars.buttons[name]
         XCTAssertTrue(button.waitForExistence(timeout: 15), "Tab \(name) missing")
         button.tap()
+    }
+
+    private func scrollUntilHittable(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<12 {
+            if element.exists, element.isHittable { return }
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.waitForExistence(timeout: 4))
+        XCTAssertTrue(element.isHittable)
     }
 
     private func shot(_ app: XCUIApplication, _ name: String) {

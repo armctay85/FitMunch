@@ -16,6 +16,9 @@ REQUIRED = [
     "me-about.png",
     "today-offline.png",
     "auth-error.png",
+    "today-ax5.png",
+    "me-ax5.png",
+    "export-ax5.png",
 ]
 
 
