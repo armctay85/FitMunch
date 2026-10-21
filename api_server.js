@@ -192,14 +192,65 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 });
 
 // Meal Logging API routes
+const MAX_MEAL_CALORIES = 20000;
+const MEAL_CALORIE_ERROR = 'Calories must be a number from 0 to 20,000.';
+const MEAL_NAME_ERROR = 'Enter a food name.';
+const MEAL_LOG_DEDUPE_MS = 12000;
+const recentMealPosts = new Map();
+function mealLogInputError(body) {
+  const b = body && typeof body === 'object' ? body : {};
+  const name = b.foodName != null ? b.foodName : b.food_name;
+  if (typeof name !== 'string' || !name.trim()) return MEAL_NAME_ERROR;
+  if (name.trim().length > MAX_NAME_LENGTH) return NAME_TOO_LONG;
+  const cal = b.calories;
+  if (typeof cal !== 'number' && typeof cal !== 'string') return MEAL_CALORIE_ERROR;
+  if (typeof cal === 'string' && !cal.trim()) return MEAL_CALORIE_ERROR;
+  const n = typeof cal === 'number' ? cal : Number(cal);
+  if (!Number.isFinite(n) || n < 0 || n > MAX_MEAL_CALORIES) return MEAL_CALORIE_ERROR;
+  return null;
+}
+function mealPostKey(userId, meal) {
+  const name = String(meal.foodName || '').trim().toLowerCase();
+  const type = String(meal.mealType || '').trim().toLowerCase();
+  return userId + '\n' + name + '\n' + Math.round(Number(meal.calories)) + '\n' + type;
+}
+function freshMealPost(key) {
+  const hit = recentMealPosts.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > MEAL_LOG_DEDUPE_MS) { recentMealPosts.delete(key); return null; }
+  return hit;
+}
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
     if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
+    const invalid = mealLogInputError(req.body);
+    if (invalid) return res.status(400).json({ success: false, error: invalid });
     const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
+    mealData.foodName = String(mealData.foodName || mealData.food_name || '').trim();
+    mealData.calories = Math.round(Number(mealData.calories));
+    // Dates stay with the caller. Calendar checks for this route live in another change.
     if (mealData.date) mealData.date = new Date(mealData.date);
-    const meal = await logMeal(req.user.userId, mealData);
-    res.json({ success: true, meal });
+    const key = mealPostKey(req.user.userId, mealData);
+    const hit = freshMealPost(key);
+    if (hit) {
+      const meal = hit.pending ? await hit.pending : hit.meal;
+      return res.json({ success: true, meal });
+    }
+    let settle;
+    const pending = new Promise((resolve, reject) => { settle = { resolve, reject }; });
+    pending.catch(() => {});
+    recentMealPosts.set(key, { at: Date.now(), pending });
+    try {
+      const meal = await logMeal(req.user.userId, mealData);
+      recentMealPosts.set(key, { at: Date.now(), meal });
+      settle.resolve(meal);
+      return res.json({ success: true, meal });
+    } catch (error) {
+      recentMealPosts.delete(key);
+      settle.reject(error);
+      throw error;
+    }
   } catch (error) {
     console.error('Error logging meal:', error);
     sendApiError(res, error);
@@ -2416,6 +2467,7 @@ const REVIEW_EMPTY = {
   empty: true,
 };
 const USAGE_STORE_DOWN = "We couldn't check your AI usage. Please try again.";
+const MEAL_LOG_DOWN = "We couldn't load your meal log. Please try again.";
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
@@ -2445,7 +2497,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       try {
         meals = await getMealLogsForPeriod(req.user.userId, mealSince, new Date());
       } catch (_) {
-        return res.status(503).json({ success: false, error: USAGE_STORE_DOWN });
+        return res.status(503).json({ success: false, error: MEAL_LOG_DOWN });
       }
       weekMeals = mealsInReviewWindow(meals, new Date(), 7);
       days0 = loggedSydneyDays(weekMeals, new Date(), 7);
@@ -2491,7 +2543,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed && gate.unavailable) {
-      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+      return res.status(503).json({ success: false, error: USAGE_STORE_DOWN });
     }
     if (!gate.allowed && gate.smoke) {
       return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
@@ -2734,6 +2786,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports.__pool = _pool; // test seam: Postgres suites must end this pool
   module.exports._endDbForTests = _endDbForTests;
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
+  module.exports.mealLogInputError = mealLogInputError;
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }

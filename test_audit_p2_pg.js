@@ -178,3 +178,17 @@ maybe('shopping list aisle (real route)', () => {
     expect(cat(/^butter$/i)).toBe('dairy');
   });
 });
+
+maybe('meal log input on Postgres', () => {
+  it('returns 400 for a huge calorie value and stores one row for an identical rapid insert', async () => {
+    const bad = await request(app).post('/api/meals/log').set('Authorization', as(U)).send({ foodName: 'Apple', calories: 1e20, mealType: 'snack' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.success).toBe(false);
+    const storage = require('./server/storage.js');
+    const first = await storage.logMeal(U, { foodName: 'Pear', mealType: 'lunch', calories: 90, date: new Date(), protein: 1 });
+    const second = await storage.logMeal(U, { foodName: 'pear', mealType: 'Lunch', calories: 90, date: new Date(), protein: 1 });
+    expect(second.id).toBe(first.id);
+    const rows = await pool.query("select id from meal_logs where user_id=$1 and lower(food_name)='pear'", [U]);
+    expect(rows.rows).toHaveLength(1);
+  });
+});

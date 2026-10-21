@@ -200,6 +200,28 @@ describe('smoke account cap', () => {
       const { usage } = load({ SMOKE_DAILY_AI_CAP: raw });
       expect(usage.smokeDailyCap()).toBe(want);
     });
+  it('a customer refund logs the failure, retries once, and never throws', async () => {
+    const { usage } = load();
+    const errs = [];
+    jest.spyOn(console, 'error').mockImplementation((m) => errs.push(String(m)));
+    let calls = 0;
+    usage._setQueryForTests(async (sql) => {
+      if (!/count = count - 1/.test(sql)) return { rows: [] };
+      calls += 1;
+      if (calls === 1) throw new Error('refund down');
+      return { rows: [{ count: 2 }] };
+    });
+    await expect(usage.refundAiCall({ allowed: true }, { userId: 'u1', feature: 'weekly_review' })).resolves.toBe(true);
+    expect(calls).toBe(2);
+    expect(errs.join(' ')).toMatch(/refund/i);
+    calls = 0;
+    usage._setQueryForTests(async (sql) => {
+      if (/count = count - 1/.test(sql)) { calls += 1; throw new Error('still down'); }
+      return { rows: [] };
+    });
+    await expect(usage.refundAiCall({ allowed: true }, { userId: 'u1', feature: 'weekly_review' })).resolves.toBe(false);
+    expect(calls).toBe(2);
+  });
   it('fails closed when the store errors', async () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-f' });
     jest.spyOn(console, 'error').mockImplementation(() => {});

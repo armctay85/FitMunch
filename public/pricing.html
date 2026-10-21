@@ -144,10 +144,10 @@ html,body{max-width:100%;overflow-x:hidden}
       <article class="plan">
         <div class="p-name">Free</div>
         <div class="p-price"><span>A$0</span> <small>forever</small></div>
-        <p class="p-desc">Try food logging and a starter plan. <span data-free-ai>Free includes AI actions a month</span>.</p>
+        <p class="p-desc">Try food logging and a starter plan.</p>
         <ul>
           <li>Macro and food logging</li>
-          <li data-free-ai>Free includes AI actions a month</li>
+          <li data-free-ai hidden>Free includes AI actions a month</li>
           <li>Receipt scan teaser</li>
           <li>Starter meal planning</li>
           <li class="muted">Weekly AI plans need Premium</li>
@@ -239,7 +239,7 @@ try {
       const freeCount = cfg && Number(cfg.freeAiMonthly);
       if (Number.isFinite(freeCount) && freeCount >= 0) {
         const line = 'Free includes ' + freeCount + ' AI actions a month';
-        document.querySelectorAll('[data-free-ai]').forEach((el) => { el.textContent = line; });
+        document.querySelectorAll('[data-free-ai]').forEach((el) => { el.textContent = line; el.hidden = false; });
       }
       if (!cfg || cfg.premiumAnnual !== true) return;
       box.hidden = false;

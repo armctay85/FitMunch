@@ -400,6 +400,20 @@
    * Today's meals against the daily calorie target: a 0-100 fill and the kcal still left.
    * No target means no bar.
    */
+  /** Meals whose local calendar day is `now`, the same filter as the home calorie metric. */
+  function loggedTodayMeals(meals, now) {
+    const day = (now || new Date()).toDateString();
+    return (Array.isArray(meals) ? meals : []).filter((m) => {
+      if (!m || m.date == null) return false;
+      const dt = new Date(m.date);
+      return !Number.isNaN(dt.getTime()) && dt.toDateString() === day;
+    });
+  }
+
+  function loggedTodayKcal(meals, now) {
+    return loggedTodayMeals(meals, now).reduce((s, m) => s + (Number(m.calories) || 0), 0);
+  }
+
   function calorieProgress(todayCalories, target) {
     const t = Math.round(Number(target));
     const raw = Math.round(Number(todayCalories));
@@ -409,6 +423,9 @@
     const left = t - eaten;
     return {
       pct,
+      over: left < 0,
+      eaten,
+      target: t,
       value: formatCount(eaten) + ' of ' + formatCount(t),
       remaining: left >= 0 ? formatCount(left) + ' kcal left' : formatCount(-left) + ' kcal over',
     };
@@ -582,7 +599,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, calorieProgress, onboardingPlanId, loadFailure, plansFromResponse };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, calorieProgress, loggedTodayMeals, loggedTodayKcal, onboardingPlanId, loadFailure, plansFromResponse };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));

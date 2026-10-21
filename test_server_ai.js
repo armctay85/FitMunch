@@ -345,6 +345,47 @@ describe('AI routes', () => {
       .set('Authorization', `Bearer ${token}`));
   });
 
+  it('POST /api/meals/log returns 400 for a bad name or calories and does not store them', async () => {
+    const storage = require('./server/storage.js');
+    const api = require('./api_server');
+    storage.logMeal.mockClear();
+    expect(api.mealLogInputError({ foodName: 'Apple', calories: NaN })).toMatch(/Calories/);
+    expect(api.mealLogInputError({ foodName: 'Apple', calories: 1e20 })).toMatch(/Calories/);
+    expect(api.mealLogInputError({ foodName: 'Apple', calories: -50 })).toMatch(/Calories/);
+    expect(api.mealLogInputError({ calories: 100 })).toMatch(/food name/i);
+    expect(api.mealLogInputError({ foodName: ['Apple'], calories: 100 })).toMatch(/food name/i);
+    expect(api.mealLogInputError({ foodName: 'Apple', calories: 80 })).toBeNull();
+    for (const body of [
+      { foodName: 'Apple', calories: null },
+      { foodName: 'Apple', calories: 1e20 },
+      { foodName: 'Apple', calories: -50 },
+      { foodName: 'Apple', calories: 'NaN' },
+      { calories: 100 },
+      { foodName: ['Apple'], calories: 100 },
+      { foodName: '   ', calories: 100 },
+    ]) {
+      const r = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send(body);
+      expect(r.status).toBe(400);
+      expect(r.body.success).toBe(false);
+      expect(String(r.body.error || '')).not.toMatch(/Internal server error/i);
+    }
+    expect(storage.logMeal).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/meals/log dedupes an identical rapid double post', async () => {
+    const storage = require('./server/storage.js');
+    storage.logMeal.mockReset();
+    storage.logMeal.mockResolvedValue({ id: 41, foodName: 'Apple wedge', calories: 80 });
+    const body = { foodName: 'Apple wedge', calories: 80, mealType: 'snack', date: new Date().toISOString() };
+    const a = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send(body);
+    const b = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send(body);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(a.body.meal).toEqual({ id: 41, foodName: 'Apple wedge', calories: 80 });
+    expect(b.body.meal).toEqual(a.body.meal);
+    expect(storage.logMeal).toHaveBeenCalledTimes(1);
+  });
+
   it('GET /api/ai/weekly-review returns 503 when meal logs cannot be read, not an empty week', async () => {
     const storage = require('./server/storage.js');
     const aiClient = require('./lib/ai-client');
@@ -352,7 +393,7 @@ describe('AI routes', () => {
     aiClient.chatJson.mockClear();
     const r = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${token}`);
     expect(r.status).toBe(503);
-    expect(r.body.error).toBe("We couldn't check your AI usage. Please try again.");
+    expect(r.body.error).toBe("We couldn't load your meal log. Please try again.");
     expect(r.body.review).toBeUndefined();
     expect(aiClient.chatJson).not.toHaveBeenCalled();
   });

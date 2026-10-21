@@ -51,6 +51,8 @@ describe('copy', () => {
     expect(app).not.toMatch(/Free includes \d+ AI actions/);
     expect(app).toContain('paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit)');
     expect(read('public', 'pricing.html')).toContain('data-free-ai');
+    expect((read('public', 'pricing.html').match(/Free includes AI actions a month/g) || []).length).toBe(1);
+    expect(read('public', 'pricing.html')).toMatch(/data-free-ai hidden/);
     expect(read('public', 'index.html')).toContain('data-free-ai');
     expect(read('public', 'pricing.html') + read('public', 'index.html') + app).not.toMatch(/Limited AI actions (per|each) month/);
     expect(read('server.js')).toContain('freeAiMonthly: require(\'./lib/ai-usage\').freeMonthlyLimit()');
@@ -129,6 +131,7 @@ if (!canRun && inCI) {
       }));
       await p.goto(`${base}/pricing.html`, { waitUntil: 'domcontentloaded' });
       await p.waitForFunction(() => document.body.innerText.includes('Free includes 42 AI actions a month'));
+      expect(await p.evaluate(() => (document.body.innerText.match(/Free includes \d+ AI actions a month/g) || []).length)).toBe(1);
       expect(await p.locator('#yearly-save').isHidden()).toBe(true);
       expect(await p.locator('#billing-toggle').isHidden()).toBe(true);
       expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
@@ -143,6 +146,7 @@ if (!canRun && inCI) {
       expect(await p.locator('#yearly-save').isVisible()).toBe(true);
       expect(await p.locator('#billing-toggle').isVisible()).toBe(true);
       await p.waitForFunction(() => document.body.innerText.includes('Free includes 10 AI actions a month'));
+      expect(await p.evaluate(() => (document.body.innerText.match(/Free includes \d+ AI actions a month/g) || []).length)).toBe(1);
       expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       await ctx.close();
     });
@@ -223,7 +227,53 @@ describe('peanut butter and friends are not dairy', () => {
     expect(categorise('Butternut snap biscuits')).toBe('pantry');
   });
   it('real dairy and eggs are unchanged', () => {
-    for (const n of ['Butter', 'Unsalted butter', 'Greek yoghurt', 'Eggs', 'Skim milk', 'Cheddar cheese', 'Ricotta']) expect([n, aisleFor(n)]).toEqual([n, 'Dairy & Eggs']);
+    for (const n of ['Butter', 'Unsalted butter', 'Greek yoghurt', 'Eggs', 'Skim milk', 'Cheddar cheese', 'Ricotta', 'Buttermilk']) expect([n, aisleFor(n)]).toEqual([n, 'Dairy & Eggs']);
+  });
+  it('produce is matched on word boundaries before dairy', () => {
+    const table = [
+      ['Eggplant', 'Produce'],
+      ['eggplants', 'Produce'],
+      ['Kiwi', 'Produce'],
+      ['Kiwifruit', 'Produce'],
+      ['Strawberries', 'Produce'],
+      ['Blueberry', 'Produce'],
+      ['Peanut butter', 'Pantry'],
+      ['peanut butter (smooth)', 'Pantry'],
+      ['Almond butter', 'Pantry'],
+      ['Cashew butter', 'Pantry'],
+      ['Cocoa butter', 'Pantry'],
+      ['Shea butter', 'Pantry'],
+      ['Sunflower seed butter', 'Pantry'],
+      ['Plant-based butter', 'Pantry'],
+      ['Almond milk', 'Pantry'],
+      ['Coconut milk', 'Pantry'],
+      ['Peanutbutter', 'Pantry'],
+      ['Butter beans', 'Pantry'],
+      ['Butternut pumpkin', 'Produce'],
+      ['Butternut snap biscuits', 'Pantry'],
+      ['Butter lettuce', 'Produce'],
+      ['Butterhead lettuce', 'Produce'],
+      ['Butterfly pea flower', 'Produce'],
+      ['Butter', 'Dairy & Eggs'],
+      ['Eggs', 'Dairy & Eggs'],
+      ['Butter chicken', 'Meat & Seafood'],
+    ];
+    for (const [n, aisle] of table) expect([n, aisleFor(n)]).toEqual([n, aisle]);
+  });
+  it('the lexicon uses the same non-dairy list and does not clear real dairy', () => {
+    const lex = require('./lib/food-lexicon');
+    const flags = (s) => [...lex.scan(s).flags].sort();
+    for (const phrase of grocery.NOT_DAIRY_PHRASES) expect([phrase, grocery.nonDairyKind(phrase)]).not.toEqual([phrase, null]);
+    expect(flags('plant-based butter')).toEqual([]);
+    expect(flags('sunflower seed butter')).toEqual([]);
+    expect(flags('butter')).toEqual(['dairy']);
+    expect(flags('unsalted butter')).toContain('dairy');
+    expect(flags('butter chicken')).toEqual(['dairy', 'meat']);
+    expect(flags('plant-based butter and milk')).toContain('dairy');
+    expect(flags('peanut butter')).toContain('nuts');
+    expect(flags('peanut butter')).not.toContain('dairy');
+    expect(flags('eggplant')).not.toContain('dairy');
+    expect(flags('eggplant')).not.toContain('eggs');
   });
   it('a week with peanut butter lists it under Pantry', () => {
     const plan = { planName: 'w', days: [{ day: 'Monday', meals: { breakfast: { name: 'Toast', ingredients: [{ item: 'Peanut butter', qty: '20g' }, { item: 'Wholemeal bread', qty: '2 slices' }] } } }] };
@@ -272,6 +322,8 @@ describe('weekly review: honest empty state', () => {
     const mealLine = route.split('\n').find((line) => line.includes('getMealLogsForPeriod'));
     expect(mealLine).not.toMatch(/\.catch/);
     expect(route).toContain('USAGE_STORE_DOWN');
+    expect(route).toContain('error: MEAL_LOG_DOWN');
+    expect(api).toContain('const MEAL_LOG_DOWN = "We couldn\'t load your meal log. Please try again."');
     expect(route).toContain("refundAiCall(gate, { userId: String(req.user.userId), feature: 'weekly_review' })");
   });
   it('the app renders it with textContent, no ring and no wins', () => {
