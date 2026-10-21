@@ -66,7 +66,11 @@ enum ReviewLaunch {
         UserDefaults.standard.set("Reviewer", forKey: "userDisplayName")
         UserDefaults.standard.set("review@fitmunch.com.au", forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
-        AIDataConsent.shared.grantLaunch(userId: "review-user")
+        if AuditLaunch.isConsentDenied {
+            AIDataConsent.shared.denyLaunch(userId: "review-user")
+        } else {
+            AIDataConsent.shared.grantLaunch(userId: "review-user")
+        }
     }
 }
 

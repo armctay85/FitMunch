@@ -5,7 +5,6 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: HomeViewModel
-    @ObservedObject private var network = NetworkMonitor.shared
     @State private var showLogMeal = false
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
@@ -18,12 +17,16 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.six) {
-                    OfflineNotice(prominent: true)
+                    OfflineNotice()
 
                     dateNavigation
-                    progressSection
-                    summarySection
-                    mealsSection
+                    if showsEmptyMeals {
+                        mealsSection
+                    } else {
+                        progressSection
+                        summarySection
+                        mealsSection
+                    }
                 }
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
@@ -79,6 +82,12 @@ struct HomeView: View {
             }
             .floatingTabBarInset()
         }
+    }
+
+    /// Zero rings were pushing "No meals logged today" below the fold.
+    /// The empty line stays up when the device is offline too.
+    private var showsEmptyMeals: Bool {
+        viewModel.meals.isEmpty && !viewModel.isLoading
     }
 
     private var dateNavigation: some View {
@@ -227,9 +236,7 @@ struct HomeView: View {
                 }
             }
 
-            if viewModel.meals.isEmpty && !network.isOnline {
-                OfflineNotice(prominent: true)
-            } else if viewModel.meals.isEmpty {
+            if viewModel.meals.isEmpty {
                 ContentUnavailableView {
                     Label("No meals logged today", systemImage: "fork.knife")
                 } description: {

@@ -70,7 +70,7 @@ enum PaywallLoadPolicy {
 enum PaywallLaunchArgument {
     static let forceEmpty = "-PaywallForceEmpty"
     /// Skips RevenueCat so StoreKit product prices are what the paywall shows.
-    /// Does not start an SKTestSession in the app.
+    /// Debug builds may start an SKTestSession for this flag. Release ignores it.
     static let localStoreKit = "-UseLocalStoreKit"
     static let sandboxProbe = "-SandboxProductProbe"
 

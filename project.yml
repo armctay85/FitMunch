@@ -49,6 +49,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunch
+      - path: FitMunchUITests/FitMunchProducts.storekit
+        buildPhase: resources
     info:
       path: FitMunch/Resources/Info.plist
       properties:
@@ -89,6 +91,9 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
+      configs:
+        Debug:
+          OTHER_LDFLAGS: "$(inherited) -framework StoreKitTest"
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true

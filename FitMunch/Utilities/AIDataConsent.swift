@@ -41,6 +41,11 @@ final class AIDataConsent: ObservableObject {
         set("allow", userId: userId, sync: false)
     }
 
+    /// Audit hook. Blocks Coach, Scan, and Plan without a server round trip.
+    func denyLaunch(userId: String) {
+        set("deny", userId: userId, sync: false)
+    }
+
     private func choice(for userId: String?) -> String? {
         guard let userId, !userId.isEmpty else { return nil }
         let stored = UserDefaults.standard.string(forKey: storageKey(userId))

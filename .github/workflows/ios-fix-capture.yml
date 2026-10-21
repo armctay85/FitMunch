@@ -1,0 +1,141 @@
+name: Build 11 fix capture
+
+# Unit tests plus the changed screens and the AU paywall.
+# Does not archive, upload, or submit. Does not edit ios-archive.yml.
+
+on:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchTests/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-fix-capture.yml"
+  workflow_dispatch:
+
+jobs:
+  fix-capture:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'cursor/b11-bundled-fixes-89f8'
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/ensure-storekit-scheme.py
+
+      - name: Unit tests and fix screenshots
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/fix-capture
+          rm -rf /tmp/fitmunch-fix-capture
+
+          udid_for() {
+            xcrun simctl list devices available \
+              | grep -F "$1 (" \
+              | head -1 \
+              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
+              | head -1
+          }
+
+          latest_runtime() {
+            xcrun simctl list runtimes available \
+              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
+              | tail -1
+          }
+
+          ensure_device() {
+            local name="$1"
+            local type="$2"
+            local udid
+            udid="$(udid_for "$name" || true)"
+            if [[ -z "$udid" ]]; then
+              local runtime
+              runtime="$(latest_runtime)"
+              test -n "$runtime"
+              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
+            fi
+            echo "$udid"
+          }
+
+          PRO_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max")"
+          SIX_UDID="$(ensure_device "iPhone 14 Plus" "iPhone 14 Plus" || true)"
+          if [[ -z "${SIX_UDID:-}" ]]; then
+            SIX_UDID="$(ensure_device "iPhone 13 Pro Max" "iPhone 13 Pro Max" || true)"
+          fi
+          if [[ -z "${SIX_UDID:-}" ]]; then
+            SIX_UDID="$(ensure_device "iPhone 12 Pro Max" "iPhone 12 Pro Max")"
+          fi
+          echo "pro=$PRO_UDID" | tee artifacts/fix-capture/destinations.txt
+          echo "six=$SIX_UDID" | tee -a artifacts/fix-capture/destinations.txt
+
+          DERIVED="$RUNNER_TEMP/DerivedDataFix"
+          run_tests() {
+            local name="$1"
+            local udid="$2"
+            local folder="$3"
+            local only="$4"
+            bash scripts/set-simulator-region-au.sh "$udid"
+            echo "$folder" > /tmp/fitmunch-fix-device
+            local bundle="artifacts/fix-capture/${folder}.xcresult"
+            rm -rf "$bundle"
+            set +e
+            xcodebuild test \
+              -project FitMunch.xcodeproj \
+              -scheme FitMunch \
+              -destination "platform=iOS Simulator,id=$udid" \
+              -derivedDataPath "$DERIVED" \
+              -only-testing:"$only" \
+              -testLanguage en \
+              -testRegion AU \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "$bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=- \
+              | tee "artifacts/fix-capture/${folder}.log"
+            local rc=${PIPESTATUS[0]}
+            set -e
+            echo "$name $only exit=$rc" | tee -a artifacts/fix-capture/destinations.txt
+            if [[ -d /tmp/fitmunch-fix-capture ]]; then
+              mkdir -p artifacts/fix-capture/screens
+              cp -R /tmp/fitmunch-fix-capture/. artifacts/fix-capture/screens/ || true
+            fi
+            return "$rc"
+          }
+
+          run_tests "iPhone 17 Pro Max" "$PRO_UDID" "unit" "FitMunchTests"
+          run_tests "iPhone 17 Pro Max" "$PRO_UDID" "iphone-6.9in" "FitMunchUITests/FixScreenCaptureUITests"
+          run_tests "iPhone 14 Plus" "$SIX_UDID" "iphone-6.5in" "FitMunchUITests/FixScreenCaptureUITests"
+          python3 scripts/check-fix-screenshots.py artifacts/fix-capture/screens
+
+      - name: Upload fix screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitmunch-b11-fix-capture
+          path: artifacts/fix-capture/
+          if-no-files-found: warn
+          retention-days: 14

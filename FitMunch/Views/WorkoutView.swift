@@ -109,9 +109,10 @@ struct WorkoutView: View {
                         .font(.subheadline.weight(.semibold))
                     Text(day.workout)
                         .font(.title3.bold())
-                    Text("\(day.intensity) · ~\(day.duration) min")
+                    Text(durationLine(day))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("training-duration")
                 }
                 Spacer()
                 Button {
@@ -149,6 +150,13 @@ struct WorkoutView: View {
         .padding()
         .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func durationLine(_ day: WorkoutDay) -> String {
+        guard let minutes = WorkoutDuration.minutes(for: day.exercises) else {
+            return day.intensity
+        }
+        return "\(day.intensity) · ~\(minutes) min"
     }
 
     private func toggleDay(_ day: WorkoutDay) {

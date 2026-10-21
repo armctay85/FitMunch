@@ -1,6 +1,7 @@
 import StoreKit
 import StoreKitTest
 import XCTest
+@testable import FitMunch
 
 /// Loads FitMunchProducts.storekit in this test process. Prices, periods, and the
 /// intro offer have to come from that file, not from a hard-coded paywall catalog.
@@ -65,5 +66,23 @@ final class FitMunchProductsStoreKitTests: XCTestCase {
 
         let eligible = await subscription.isEligibleForIntroOffer
         XCTAssertTrue(eligible, "\(product.id) intro eligibility")
+    }
+
+    func testPaywallShowsTheStoreKitDisplayPrice() async throws {
+        let products = try await Product.products(for: ["fitmunch_monthly", "fitmunch_annual"])
+        let monthly = try XCTUnwrap(products.first { $0.id == "fitmunch_monthly" })
+        let annual = try XCTUnwrap(products.first { $0.id == "fitmunch_annual" })
+
+        let monthlyLine = PaywallPricing.priceWithPeriod(displayPrice: monthly.displayPrice, periodUnit: .month)
+        let annualLine = PaywallPricing.priceWithPeriod(displayPrice: annual.displayPrice, periodUnit: .year)
+        XCTAssertEqual(monthlyLine, "\(monthly.displayPrice)/month")
+        XCTAssertEqual(annualLine, "\(annual.displayPrice)/year")
+        XCTAssertTrue(monthly.displayPrice.contains("19.99"), monthly.displayPrice)
+        XCTAssertTrue(annual.displayPrice.contains("149.99"), annual.displayPrice)
+        XCTAssertEqual(monthly.priceFormatStyle.currencyCode, "AUD")
+        XCTAssertEqual(annual.priceFormatStyle.currencyCode, "AUD")
+        XCTAssertFalse(monthlyLine.contains("12.99"))
+        XCTAssertFalse(annualLine.contains("99.99"))
+        XCTAssertFalse(PaywallCatalog.sellable.contains("fitmunch_weekly"))
     }
 }

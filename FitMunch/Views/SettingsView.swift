@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Settings screen for user preferences and app management
@@ -9,6 +10,8 @@ struct SettingsView: View {
     @State private var showDeleteAlert = false
     @State private var navigateToOnboarding = false
     @State private var showPaywall = false
+    @State private var exportCSV: String?
+    @State private var exportError: String?
     @ObservedObject private var premium = PremiumManager.shared
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
@@ -216,8 +219,9 @@ struct SettingsView: View {
                 // Data section
                 Section("Data") {
                     Button("Export Data") {
-                        // Premium history export lives on History tab for now.
+                        prepareExport()
                     }
+                    .accessibilityIdentifier("settings-export")
                     .foregroundStyle(Theme.brandGreen)
                     .disabled(!premium.isPremium)
                     
@@ -234,14 +238,8 @@ struct SettingsView: View {
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
                             .foregroundColor(.secondary)
                     }
-                    
-                    HStack {
-                        Text("Build Date")
-                        Spacer()
-                        Text("March 2025")
-                            .foregroundColor(.secondary)
-                    }
                 }
+                .accessibilityIdentifier("me-about")
                 
                 // Account section
                 Section("Account") {
@@ -268,6 +266,11 @@ struct SettingsView: View {
             .background(Theme.surface)
             .scrollClearsTabBar()
             .floatingTabBarInset()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: 88)
+                    .accessibilityHidden(true)
+            }
             .onAppear {
                 viewModel.loadPreferences()
             }
@@ -321,7 +324,50 @@ struct SettingsView: View {
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .sheet(isPresented: Binding(
+                get: { exportCSV != nil },
+                set: { if !$0 { exportCSV = nil } }
+            )) {
+                if let exportCSV {
+                    ExportSheet(data: exportCSV)
+                }
+            }
+            .alert("Export", isPresented: Binding(
+                get: { exportError != nil },
+                set: { if !$0 { exportError = nil } }
+            )) {
+                Button("Try again") { prepareExport() }
+                Button("OK", role: .cancel) { exportError = nil }
+            } message: {
+                Text(exportError ?? "")
+            }
         }
+    }
+
+    private func prepareExport() {
+        do {
+            exportError = nil
+            exportCSV = try mealExportCSV()
+        } catch {
+            exportCSV = nil
+            exportError = "Couldn't prepare your export. Try again."
+        }
+    }
+
+    private func mealExportCSV() throws -> String {
+        let descriptor = FetchDescriptor<Meal>(sortBy: [SortDescriptor(\.date, order: .forward)])
+        let meals = try modelContext.fetch(descriptor)
+        let rows = meals.map { meal in
+            [
+                Constants.dateFormatter.string(from: meal.date),
+                meal.name,
+                "\(meal.totalCalories)",
+                "\(meal.totalProtein)",
+                "\(meal.totalCarbs)",
+                "\(meal.totalFats)",
+            ]
+        }
+        return MealCSV.document(rows: rows)
     }
 }
 

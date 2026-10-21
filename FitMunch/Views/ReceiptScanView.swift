@@ -70,6 +70,7 @@ struct ReceiptScanView: View {
                         receiptImage = image
                         startScan(image)
                     },
+                    requestsPermission: consent.allows(auth.user?.id),
                     onUnavailable: { message in
                         presentCameraFallback(message)
                     }
@@ -133,6 +134,25 @@ struct ReceiptScanView: View {
         }
     }
 
+    private var scanBlockedCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AIConsentCopy.scanBlocked)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Allow in Privacy") {
+                NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("scan-open-privacy")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.four)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .accessibilityIdentifier("scan-consent-blocked")
+    }
+
     // MARK: - Intro
 
     private var introView: some View {
@@ -151,7 +171,9 @@ struct ReceiptScanView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
-            if !isScanning {
+            if consent.isDenied(auth.user?.id) {
+                scanBlockedCard
+            } else if !isScanning {
                 scanActions
                     .padding(.top, Theme.Spacing.two)
             }
@@ -324,10 +346,7 @@ struct ReceiptScanView: View {
             showConsent = true
             return
         }
-        if consent.isDenied(auth.user?.id) {
-            errorMessage = AIConsentCopy.scanBlocked
-            return
-        }
+        guard consent.allows(auth.user?.id) else { return }
         runScan(start)
     }
 
@@ -346,6 +365,8 @@ struct ReceiptScanView: View {
     @MainActor
     private func openCameraSafely() async {
         errorMessage = nil
+        // The system camera alert is only reachable after AI consent is allowed.
+        guard consent.allows(auth.user?.id) else { return }
         guard CameraAvailability.hasCameraHardware else {
             presentCameraFallback("This device has no camera. Choose a receipt photo from your library instead.")
             return
@@ -358,6 +379,7 @@ struct ReceiptScanView: View {
         case .authorized:
             showCamera = true
         case .notDetermined:
+            guard consent.allows(auth.user?.id) else { return }
             let granted = await AVCaptureDevice.requestAccess(for: .video)
             if granted {
                 showCamera = true
