@@ -75,7 +75,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .scroll-body::-webkit-scrollbar{width:4px}
 .scroll-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 
-.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:4px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:4px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:background-color .15s,color .15s,border-color .15s}
 .btn-green{background:var(--leaf);color:#fff}.btn-green:hover{background:var(--leaf2)}
 .btn-ghost2{background:transparent;color:var(--mute);border:1px solid var(--line)}.btn-ghost2:hover{color:var(--ink);border-color:var(--mute2)}
 .btn-red{background:rgba(194,59,59,.08);color:var(--red);border:1px solid rgba(194,59,59,.2)}.btn-red:hover{background:rgba(194,59,59,.15)}
@@ -268,7 +268,9 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .metric-cta{font-size:.68rem;font-weight:700;color:var(--leaf2);margin-top:6px;cursor:pointer;background:none;border:none;padding:0;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .metric-cta:hover{text-decoration:underline}
 .home-plan-empty{display:flex;flex-direction:column;gap:8px}
+.home-plan-empty[hidden]{display:none!important}
 .home-plan-empty p{font-size:.78rem;color:var(--mute2);line-height:1.45;margin:0}
+.home-start-here{font-size:.875rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#14532d;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .meal-section-title{justify-content:space-between}
 .meal-add-btn{background:none;border:none;color:var(--leaf2);font-size:.72rem;font-weight:800;cursor:pointer;padding:2px 6px;border-radius:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
 .meal-add-btn:hover{background:rgba(31,157,74,.1)}
@@ -377,12 +379,15 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  #allergy-add,#mp-save-filters,button[onclick="addTypedAllergy()"]{min-height:40px}
  .btn,.btn-sm{min-height:40px;box-sizing:border-box}
  .hw-acts .btn{min-height:44px}
+ .sidebar .sb-item{min-height:40px;min-width:40px;display:flex;align-items:center;box-sizing:border-box}
+ #btn-upgrade{min-height:40px;min-width:40px;box-sizing:border-box}
+ .metric-cta{min-height:40px;min-width:40px;display:inline-flex;align-items:center;box-sizing:border-box}
 }
 /* Touch tablets and small laptops: same 44px tap targets as phones. */
 @media (pointer:coarse), (max-width:1024px) {
  .nav-logo{min-height:44px;display:flex;align-items:center}
- .sidebar .nav-item,.btn-logout,.metric-cta,.btn,.btn-sm,.nav-btn,.diet-tag,.mob-nav-btn,.mob-more-btn,.modal-close,button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),[role=button]{min-height:44px;min-width:44px}
- .sidebar .nav-item{display:flex;align-items:center}
+ .sidebar .sb-item,.sidebar .nav-item,.btn-logout,.metric-cta,.btn,.btn-sm,.nav-btn,.diet-tag,.mob-nav-btn,.mob-more-btn,.modal-close,button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),[role=button]{min-height:44px;min-width:44px}
+ .sidebar .sb-item,.sidebar .nav-item{display:flex;align-items:center;flex-shrink:0}
  a[href].btn,a[href][class*="cta"],[onclick]:not(div):not(tr):not(li){min-height:44px;min-width:44px;display:inline-flex;align-items:center}
  input[type=checkbox]:not(.fm-switch),input[type=radio]{width:24px;height:24px;margin:10px}
  .shop-cb,.shop-cb.checked{width:44px;height:44px;margin:-10px;border:10px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 0 1.5px var(--border2);border-radius:13px}
@@ -402,6 +407,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .modal-overlay{visibility:hidden}
 .modal-overlay.open{visibility:visible}
 .modal input:focus-visible,.modal select:focus-visible,.modal textarea:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--leaf2);outline-offset:2px}
+#mp-saved-generate:focus-visible,#mp-saved-retry:focus-visible{outline:2px solid #166534;outline-offset:2px}
+#ai-consent-privacy{display:inline-flex;align-items:center;min-height:44px;padding:10px 8px;box-sizing:border-box}
 /* Privacy and AI consent modals: above onboarding, 44px targets, a real switch. */
 #modal-ai-consent{z-index:400}
 #modal-ai-consent .btn,#modal-privacy .btn,#modal-privacy .modal-close{min-height:44px;min-width:44px}
@@ -779,6 +786,14 @@ html.fm-authed #app-gate{display:none}
  <!-- Saved plans -->
  <div id="mp-saved-section" style="display:none;margin-top:20px">
  <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px">Saved Plans</div>
+ <div id="mp-saved-empty" class="home-plan-empty" hidden>
+ <p>No saved plans yet.</p>
+ <button type="button" class="btn btn-green btn-sm" id="mp-saved-generate" onclick="generateMealPlan()">Generate</button>
+ </div>
+ <div id="mp-saved-error" class="home-plan-empty" hidden>
+ <p>Couldn't load your week, try again</p>
+ <button type="button" class="btn btn-green btn-sm" id="mp-saved-retry" onclick="loadMealPlans()">Try again</button>
+ </div>
  <div class="plan-grid" id="meal-plans-grid"></div>
  </div>
 
@@ -1006,7 +1021,7 @@ html.fm-authed #app-gate{display:none}
  <div class="scroll-body">
  <section class="hw-card" id="home-week" style="display:none" aria-labelledby="home-week-name"></section>
  <div class="metrics-row">
- <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" onclick="nav('portal-meals')">Log a meal →</button></div>
+ <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" id="pm-log-meal" onclick="nav('portal-meals')">Log a meal →</button></div>
  <div class="metric"><div class="metric-label">Calories</div><div class="metric-value mv-blue" id="pm-cals">0</div><div class="metric-sub" id="pm-cals-sub">today</div><button class="metric-cta" id="pm-cals-cta" onclick="openOnboarding()">Set goals →</button></div>
  <div class="metric"><div class="metric-label">Workouts</div><div class="metric-value mv-green" id="pm-workouts" style="color:var(--green2)">0</div><div class="metric-sub">this week</div><button class="metric-cta" onclick="nav('portal-workouts')">Log workout →</button></div>
  <div class="metric"><div class="metric-label">Streak</div><div class="metric-value mv-amber" id="pm-streak">0</div><div class="metric-sub">days logging</div><button class="metric-cta" onclick="nav('receipt-scanner')">Scan receipt →</button></div>
@@ -1036,9 +1051,9 @@ html.fm-authed #app-gate{display:none}
  <div class="card">
  <div class="card-header"><span class="card-title">My Meal Plan</span><button class="btn btn-ghost2 btn-sm" id="home-mealplan-btn" onclick="nav('meal-plans')">Generate</button></div>
  <div class="card-body" id="home-mealplan">
- <div class="home-plan-empty">
+ <div class="home-plan-empty" id="home-plan-empty" hidden>
  <p>No plan yet. Generate an Aussie supermarket week in up to about a minute.</p>
- <button class="btn btn-green btn-sm" onclick="nav('meal-plans')">Generate meal plan →</button>
+ <button type="button" class="btn btn-green btn-sm" onclick="nav('meal-plans')">Generate meal plan →</button>
  </div>
  </div>
  </div>
@@ -1081,7 +1096,7 @@ html.fm-authed #app-gate{display:none}
 
  <div id="portal-onboard-cta" style="margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid rgba(31,157,74,.28);display:grid;grid-template-columns:1fr 1.1fr;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));box-shadow:0 4px 20px rgba(22,163,74,.10)">
  <div style="padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:8px">
- <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--green2)">📸 Start here</div>
+ <div id="home-start-here" class="home-start-here">📸 Start here</div>
  <div style="font-size:1.02rem;font-weight:800;color:#14532d;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Scan your first receipt</div>
  <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your grocery receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
  <button class="btn btn-green" style="align-self:flex-start;margin-top:6px" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
@@ -1398,7 +1413,7 @@ html.fm-authed #app-gate{display:none}
 <div class="modal-overlay" id="modal-ai-consent">
  <div class="modal" role="dialog" aria-labelledby="ai-consent-title">
  <div class="modal-title" id="ai-consent-title">Allow AI features?</div>
- <div style="font-size:.85rem;color:var(--text2);line-height:1.5">Coach, meal plans, workout plans, reviews and receipt scans send the details you enter (and a receipt photo for scans) to an AI provider to produce your answer. Nothing is sent until you allow it. You can change this any time in Privacy. <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a></div>
+ <div style="font-size:.85rem;color:var(--text2);line-height:1.5">Coach, meal plans, workout plans, reviews and receipt scans send the details you enter (and a receipt photo for scans) to an AI provider to produce your answer. Nothing is sent until you allow it. You can change this any time in Privacy. <a id="ai-consent-privacy" href="/privacy" target="_blank" rel="noopener">Privacy policy</a></div>
  <div class="modal-actions">
  <button class="btn btn-ghost2" id="ai-consent-no">Not now</button>
  <button class="btn btn-green" id="ai-consent-yes">Allow</button>
@@ -2365,12 +2380,36 @@ async function loadMealPlans() {
  if (gg && S.goals.fitnessGoal) gg.value = S.goals.fitnessGoal;
  }
  // Meals you typed or edited are kept as entered; the server's allergenWarnings (one per meal) drive the badges.
- const r = await API('/meal-plans');
- S.mealPlans = r.plans || [];
+ // Same reader as Home: a 500, an empty 304, an abort, or a body that is not { success, plans } is a retry.
+ // A failed refresh leaves the list already on screen. "No saved plans yet." is only a successful empty load.
  const grid = document.getElementById('meal-plans-grid');
  const section = document.getElementById('mp-saved-section');
+ const empty = document.getElementById('mp-saved-empty');
+ const err = document.getElementById('mp-saved-error');
  if (!grid) return;
- if (!S.mealPlans.length) { if (section) section.style.display = 'none'; return; }
+ const parsed = await readMealPlans();
+ if (!parsed || parsed.kind === 'error' || parsed.kind === 'refetch') {
+  if (section) section.style.display = '';
+  if (empty) empty.hidden = true;
+  if (err) err.hidden = false;
+  return;
+ }
+ const plans = parsed.body && Array.isArray(parsed.body.plans) ? parsed.body.plans : null;
+ if (!plans) {
+  if (section) section.style.display = '';
+  if (empty) empty.hidden = true;
+  if (err) err.hidden = false;
+  return;
+ }
+ S.mealPlans = plans;
+ if (err) err.hidden = true;
+ if (!plans.length) {
+  grid.innerHTML = '';
+  if (section) section.style.display = '';
+  if (empty) empty.hidden = false;
+  return;
+ }
+ if (empty) empty.hidden = true;
  if (section) section.style.display = '';
  grid.innerHTML = S.mealPlans.map(p => {
  const goalLabel = {muscle_gain:'Muscle gain',weight_loss:'Weight loss',maintenance:'Maintenance',general_fitness:'Fitness'}[p.goal_type] || 'Goal';
@@ -3920,11 +3959,15 @@ async function onboardDone() {
 let S_homeWeek = null;
 let S_homeWeekReq = 0;
 let S_mealPlansCache = null;
+let S_homePlanEmpty = null;
 function paintHomeMealCard(kind, sum) {
  const el = document.getElementById('home-mealplan');
  const btn = document.getElementById('home-mealplan-btn');
+ const empty = document.getElementById('home-plan-empty') || S_homePlanEmpty;
+ if (empty) S_homePlanEmpty = empty;
  if (!el) return;
- if (S.portalData && S.portalData.mealPlan) return;
+ if (S.portalData && S.portalData.mealPlan) { if (empty) empty.hidden = true; return; }
+ if (empty) { empty.hidden = true; if (empty.parentNode === el) empty.remove(); }
  el.textContent = '';
  if (kind === 'loading') { el.textContent = 'Loading your week…'; return; }
  if (kind === 'error') {
@@ -3942,11 +3985,7 @@ function paintHomeMealCard(kind, sum) {
   if (btn) { btn.textContent = 'View'; btn.onclick = () => nav('meal-plans'); }
   return;
  }
- const wrap = document.createElement('div'); wrap.className = 'home-plan-empty';
- const p = document.createElement('p'); p.textContent = 'No plan yet. Generate an Aussie supermarket week in up to about a minute.';
- const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-green btn-sm'; b.textContent = 'Generate meal plan →';
- b.onclick = () => nav('meal-plans');
- wrap.append(p, b); el.append(wrap);
+ if (empty) { empty.hidden = false; el.append(empty); }
  if (btn) { btn.textContent = 'Generate'; btn.onclick = () => nav('meal-plans'); }
 }
 async function readMealPlans() {
