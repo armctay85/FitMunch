@@ -38,7 +38,8 @@ describe('trainer Billing', () => {
   const billing = app.slice(app.indexOf('id="view-billing"'), app.indexOf('<!-- ══ HOME'));
   test('no store names in the planner lines', () => {
     const lines = app.split('\n').filter((l) => /about a minute/.test(l));
-    expect(lines).toHaveLength(2);
+    // Static empty state, plus the same sentence painted only after a successful empty load.
+    expect(lines).toHaveLength(3);
     for (const l of lines) expect(l).not.toMatch(/Woolies|Coles|Woolworths/i);
   });
   test('no checkout for retired pt-* plans', () => {
