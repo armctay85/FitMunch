@@ -101,9 +101,9 @@ describe('dietary filter coverage and validation', () => {
   });
   it('the app offers sesame, soy and shellfish free in Meal Plans and onboarding', () => {
     const html = require('fs').readFileSync(require('path').join(__dirname, 'public/app.html'), 'utf8');
-    for (const v of ['sesame free', 'soy free', 'shellfish free']) {
+    for (const v of ['sesame free', 'soy free', 'shellfish free', 'fish free']) {
       expect(html).toContain(`data-val="${v}"`);
-      expect(html).toContain(`<option value="${v.replace(' ', '_')}">`);
+      expect(html).toMatch(new RegExp(`id="ob-diet"[\\s\\S]{0,4000}data-val="${v}"`));
     }
   });
 

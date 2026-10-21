@@ -13,11 +13,15 @@ const db = {
   plan_assignments: [],
   shopping_lists: [],
 };
+// Role lookup behind the trainer-only guard. The attacker is a trainer here so these tests keep
+// exercising the roster and plan-owner checks; test_trainer_only_pg.js covers client accounts.
+const roles = {};
 
 function query(sql, params = []) {
   const q = sql.replace(/\s+/g, ' ').trim();
   const rows = (r) => Promise.resolve({ rows: r, rowCount: r.length });
 
+  if (q === 'SELECT role FROM users WHERE id=$1') return rows(roles[params[0]] ? [{ role: roles[params[0]] }] : []);
   if (q.startsWith('SELECT * FROM meal_plans WHERE id=$1 AND (user_id=$2 OR EXISTS')) {
     const [id, me] = params;
     // Mirrors the SQL: own plan, or an active assignment to me made by the plan's owner.
@@ -76,6 +80,7 @@ const CLIENT = '00000000-0000-4000-8000-000000000004';
 const day = (item) => ({ day: 'Monday', meals: { lunch: { name: 'L', ingredients: [{ item, qty: '150g' }], calories: 500 } } });
 
 beforeEach(() => {
+  Object.assign(roles, { [PT]: 'pt', [ATTACKER]: 'pt', [VICTIM]: 'client', [CLIENT]: 'client' });
   db.meal_plans = [
     { id: 1, user_id: VICTIM, name: 'Victim private plan', meals: [day('Victim secret salmon')] },
     { id: 2, user_id: ATTACKER, name: 'Attacker plan', meals: [day('Rolled oats')] },
