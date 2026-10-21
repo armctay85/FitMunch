@@ -42,11 +42,8 @@ describe('coach: a shop lunch that passes the saved diet says it fits', () => {
       filters, calories: 2180, protein: 109, question: LUNCH, intent: 'nutrition',
     }).reply;
     expect(dietGuard.unreadable(filters)).toBe(true);
-    expect(text).toContain(dietGuard.UNREADABLE_NOTICE);
-    expect(text).toMatch(/Breakfast:/);
-    expect(text).toMatch(/Lunch:/);
-    expect(text).toMatch(/Dinner:/);
-    expect(text).not.toMatch(/This fits your filters/);
+    expect(text).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(text.split(dietGuard.UNREADABLE_NOTICE).join('')).not.toMatch(/\b(checked|fits|safe)\b|Breakfast:|Lunch:|Dinner:/i);
     for (const f of ['dairy free', 'gluten free', 'egg free', 'nut free']) {
       expect(dietGuard.textBreaksFilters(text, [f])).toBe(false);
     }
@@ -209,8 +206,8 @@ describe('coach notes are filtered before they are appended', () => {
     const day = dietGuard.addressedCoachReply({
       filters: unread, calories: 2180, protein: 180, question: 'one high-protein lunch', intent: 'nutrition',
     }).reply;
-    expect(day).toContain(dietGuard.UNREADABLE_NOTICE);
-    expect(day).not.toMatch(/This fits your filters/);
+    expect(day).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(day.split(dietGuard.UNREADABLE_NOTICE).join('')).not.toMatch(/\b(checked|fits|safe)\b|Lunch:/i);
     linesOf(day, unread);
   });
 

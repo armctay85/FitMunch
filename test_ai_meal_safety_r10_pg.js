@@ -135,7 +135,10 @@ maybe('r10 M2: typed allergies when the list cannot all be read, on real Postgre
     for (const body of [{}, { builderOnly: true }]) {
       const g = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ days: 7, calories: 2000, protein: 120, ...body });
       expect(g.status).toBe(200);
-      expect(servesFruit(g.body.plan, f)).toBe(false);
+      expect(g.body.plan).toBeUndefined();
+      expect(g.body.notice).toBe(dietGuard.UNREADABLE_NOTICE);
+      expect(g.body.provider).toBeNull();
+      expect(JSON.stringify(g.body).split(dietGuard.UNREADABLE_NOTICE).join('')).not.toMatch(new RegExp(f, 'i'));
       expect(aiClient.chatJson).not.toHaveBeenCalled();
     }
   });

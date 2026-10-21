@@ -466,7 +466,8 @@ describe('r4: fixed replies for filtered users', () => {
     account(new Error('db down'));
     const r = await chat('How many sets for squats?', { intent: 'workout' });
     expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(r.body.reply).toContain(COMING);
+    expect(r.body.reply).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.reply).not.toContain(COMING);
   });
   it.each(['before training', 'after training', 'after the gym', 'before my run', 'after squats', 'during training', 'post-gym', 'pre-run'])(
     '"What should I have %s?" counts as food', (w) => {

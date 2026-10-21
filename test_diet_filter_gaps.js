@@ -325,12 +325,12 @@ describe('generate applies fish free and typed allergies', () => {
           goal: 'maintain', days: 7, calories: 2000, protein: 120, dietary: [], ...body,
         });
         expect(r.status).toBe(200);
-        expect(JSON.stringify(r.body.plan)).not.toMatch(new RegExp(fruit, 'i'));
-        expect(JSON.stringify(r.body.plan.notes || [])).not.toMatch(/couldn't check/i);
-        if (body.builderOnly) {
-          expect(r.body.notice).toBe(dietGuard.UNREADABLE_NOTICE);
-          expect(String(r.body.notice).trim().length).toBeGreaterThan(0);
-        }
+        expect(r.body.plan).toBeUndefined();
+        expect(r.body.notice).toBe(dietGuard.UNREADABLE_NOTICE);
+        expect(r.body.provider).toBeNull();
+        const rest = JSON.stringify(r.body).split(dietGuard.UNREADABLE_NOTICE).join('');
+        expect(rest).not.toMatch(new RegExp(fruit, 'i'));
+        expect(rest).not.toMatch(/\b(checked|fits|safe)\b/i);
       }
     }
   });

@@ -447,7 +447,10 @@ describe('r2 M1: saved plus sent filters, never shrunk, saved only after consent
   it('a failed filter lookup stops the plan instead of ignoring the saved filters', async () => {
     storage.getProfile.mockRejectedValueOnce(new Error('db down'));
     const res = await gen({ dietary: [] });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
+    expect(res.body.plan).toBeUndefined();
+    expect(res.body.notice).toBe(require('./lib/diet-guard').UNREADABLE_NOTICE);
+    expect(res.body.provider).toBeNull();
   });
   it('the builder fallback after an error is checked against profile allergies too', async () => {
     profile = { allergies: ['peanuts', 'eggs', 'oats'] };
@@ -1122,7 +1125,9 @@ describe('r10 S1: a failed profile read stops /generate with 503 on all five pat
     const spy = jest.spyOn(engine, 'buildPlan');
     const res = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({ days: 7, calories: 2000, protein: 120, ...body });
     const built = spy.mock.calls.length; spy.mockRestore();
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
+    expect(res.body.notice).toBe(require('./lib/diet-guard').UNREADABLE_NOTICE);
+    expect(res.body.provider).toBeNull();
     expect(res.body.plan).toBeUndefined();
     expect(built).toBe(0);
     expect(aiClient.chatJson).not.toHaveBeenCalled();

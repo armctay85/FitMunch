@@ -104,6 +104,19 @@ maybe('unreadable profile notice on insight and weekly review', () => {
       const insightSize = await p.$eval('#ai-coach-text', (el) => parseFloat(getComputedStyle(el).fontSize));
       const refreshH = await p.$eval('#ai-coach-refresh', (el) => el.getBoundingClientRect().height);
       const reviewH = await p.$eval('#wr-btn', (el) => el.getBoundingClientRect().height);
+      const banner = await p.$eval('#home-unreadable', (el) => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, text: el.textContent, size: parseFloat(getComputedStyle(el).fontSize), display: getComputedStyle(el).display };
+      });
+      const bannerContrast = await p.evaluate(contrastOf, await p.$('#home-unreadable'));
+      const viewH = width >= 1000 ? 900 : 844;
+      expect(banner.display).not.toBe('none');
+      expect(banner.text).toBe(NOTICE);
+      expect(banner.size).toBeGreaterThanOrEqual(16);
+      expect(banner.top).toBeGreaterThanOrEqual(0);
+      expect(banner.top).toBeLessThan(viewH);
+      expect(banner.bottom).toBeLessThanOrEqual(viewH);
+      expect(bannerContrast).toBeGreaterThanOrEqual(4.5);
       expect(insight).toBeGreaterThanOrEqual(4.5);
       expect(insightSize).toBeGreaterThanOrEqual(16);
       expect(refreshH).toBeGreaterThanOrEqual(44);

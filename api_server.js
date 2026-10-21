@@ -2680,11 +2680,11 @@ router.get('/referral/code', authMiddleware, requireTrainer, async (req, res) =>
 router.post('/referral/claim', authMiddleware, requireTrainer, async (req, res) => {
   const client = await _pool.connect();
   try {
-    const code = req.body && req.body.code != null ? String(req.body.code).trim().toUpperCase() : '';
+    const code = req.body && req.body.code != null ? String(req.body.code).normalize('NFKC').trim().toUpperCase() : '';
     if (!code) return res.status(400).json({ error: 'No code provided' });
     await ensureMigrations();
     await client.query('BEGIN');
-    const ref = await client.query('SELECT * FROM pt_referrals WHERE code=$1 FOR UPDATE', [code]);
+    const ref = await client.query('SELECT * FROM pt_referrals WHERE upper(btrim(normalize(code, NFKC)))=$1 FOR UPDATE', [code]);
     if (!ref.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Invalid referral code' });
@@ -2711,7 +2711,7 @@ router.post('/referral/claim', authMiddleware, requireTrainer, async (req, res) 
       'UPDATE users SET subscription_expires_at = COALESCE(subscription_expires_at, NOW()) + INTERVAL \'30 days\' WHERE id=$1',
       [referrer.pt_id]
     );
-    await client.query('UPDATE pt_referrals SET uses=uses+1, credits=credits+1 WHERE code=$1', [code]);
+    await client.query('UPDATE pt_referrals SET uses=uses+1, credits=credits+1 WHERE code=$1', [referrer.code]);
     await client.query(
       'UPDATE users SET subscription_expires_at = COALESCE(subscription_expires_at, NOW()) + INTERVAL \'7 days\' WHERE id=$1',
       [req.user.userId]

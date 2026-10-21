@@ -465,6 +465,7 @@ html.fm-authed #app-gate{display:none}
 .ob-swaps button{font:inherit;width:100%;min-height:44px;text-align:left;padding:6px 10px;border:1px solid #dfe6df;border-radius:8px;background:#f7faf7;color:#11180f;font-size:.8rem;line-height:1.3;cursor:pointer}
 .ob-swaps button span{display:block;font-size:.72rem;color:#3f4a45}
 #wr-btn,#ai-coach-refresh{min-height:44px;min-width:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
+#home-unreadable{margin:0 0 14px;padding:14px 16px;background:#07130d;border:1px solid rgba(34,197,94,.35);border-radius:12px;color:#f8fafc;font-size:1rem;line-height:1.5}
 @media (pointer:coarse),(max-width:480px){
  #modal-ai-consent a[href="/privacy"]{display:inline-flex;align-items:center;min-height:44px;padding:8px 4px;box-sizing:border-box}
 }
@@ -1008,6 +1009,7 @@ html.fm-authed #app-gate{display:none}
  <div><div class="view-title" id="portal-greeting">Good morning</div><div class="view-sub" id="portal-pt-name">Loading your data…</div></div>
  </div>
  <div class="scroll-body">
+ <div id="home-unreadable" role="status" hidden></div>
  <section class="hw-card" id="home-week" style="display:none" aria-labelledby="home-week-name"></section>
  <div class="metrics-row">
  <div class="metric"><div class="metric-label">Meals Today</div><div class="metric-value mv-green" id="pm-meals">0</div><div class="metric-sub" id="pm-meals-sub">logged</div><button class="metric-cta" onclick="nav('portal-meals')">Log a meal →</button></div>
@@ -2862,6 +2864,12 @@ async function loadAiCoaching(todayMeals, allMeals) {
  if (insightR.insight) {
  document.getElementById('ai-coach-text').textContent = insightR.insight;
  document.getElementById('ai-coach-card').style.display = '';
+ const homeUnread = document.getElementById('home-unreadable');
+ if (homeUnread) {
+ const unread = String(insightR.insight).startsWith("We couldn't read all your allergies");
+ homeUnread.textContent = unread ? insightR.insight : '';
+ homeUnread.hidden = !unread;
+ }
  }
  } catch(e) { /* silently fail */ }
 }

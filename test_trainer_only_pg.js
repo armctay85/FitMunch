@@ -224,7 +224,8 @@ maybe('trainer-only routes (real Postgres)', () => {
           ('fm-dup', $1, '2020-01-04T00:00:00Z'),
           ('FM-OTHER', $1, '2020-01-05T00:00:00Z'),
           (NULL, $1, '2020-01-06T00:00:00Z'),
-          ('fm-dup', $2, '2020-01-01T00:00:00Z')`,
+          ('fm-dup', $2, '2020-01-01T00:00:00Z'),
+          ('\uFF26\uFF2D-DUP', $1, '2020-01-07T00:00:00Z')`,
         [C1, C2],
       );
       await pool.query(ddl);
@@ -241,8 +242,8 @@ maybe('trainer-only routes (real Postgres)', () => {
       };
       expect(rows.slice().sort(byCode)).toEqual([
         { code: 'FM-DUP', claimer: C1 },
+        { code: 'FM-DUP', claimer: C2 },
         { code: 'FM-OTHER', claimer: C1 },
-        { code: 'fm-dup', claimer: C2 },
         { code: null, claimer: C1 },
       ]);
       const idx = (await pool.query(
@@ -253,6 +254,42 @@ maybe('trainer-only routes (real Postgres)', () => {
         'INSERT INTO pt_referral_claims (code, claimer_id) VALUES ($1, $2)',
         ['fm-dup', C1],
       )).rejects.toThrow(/duplicate key|unique/i);
+    } finally {
+      await pool.query('DROP TABLE IF EXISTS pt_referral_claims');
+      await pool.query(ddl);
+    }
+  });
+
+  it('a healed claims table accepts a claim, rejects a repeat, and accepts another trainer', async () => {
+    const PT2 = '00000000-0000-4000-8000-0000000000a2';
+    const PT3 = '00000000-0000-4000-8000-0000000000a3';
+    const ddl = require('./lib/db-migrate').DDL;
+    await pool.query(
+      `insert into users(id, email, name, password_hash, role) values
+        ('${PT2}', 'pt2-heal@example.test', 'Other', 'x', 'pt'),
+        ('${PT3}', 'pt3-heal@example.test', 'Third', 'x', 'pt')`,
+    );
+    try {
+      await pool.query('DROP TABLE IF EXISTS pt_referral_claims');
+      await pool.query(`CREATE TABLE pt_referral_claims (
+        code TEXT,
+        claimer_id UUID NOT NULL,
+        created_at TIMESTAMPTZ
+      )`);
+      await pool.query(`insert into pt_referrals(pt_id, code) values ('${PT}', 'FM-178RACE')`);
+      await pool.query(ddl);
+      const wide = '\uFF26\uFF2D-178RACE';
+      const first = await request(app).post('/api/referral/claim').set('Authorization', sign(PT2, 'pt')).send({ code: wide });
+      expect(first.status).toBe(200);
+      const again = await request(app).post('/api/referral/claim').set('Authorization', sign(PT2, 'pt')).send({ code: 'fm-178race' });
+      expect(again.status).toBe(409);
+      const other = await request(app).post('/api/referral/claim').set('Authorization', sign(PT3, 'pt')).send({ code: 'FM-178RACE' });
+      expect(other.status).toBe(200);
+      const claims = (await pool.query('select code, claimer_id::text as claimer from pt_referral_claims order by claimer_id')).rows;
+      expect(claims).toEqual([
+        { code: 'FM-178RACE', claimer: PT2 },
+        { code: 'FM-178RACE', claimer: PT3 },
+      ]);
     } finally {
       await pool.query('DROP TABLE IF EXISTS pt_referral_claims');
       await pool.query(ddl);
