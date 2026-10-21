@@ -17,7 +17,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.six) {
-                    OfflineNotice(prominent: true)
+                    OfflineNotice()
 
                     dateNavigation
                     progressSection
