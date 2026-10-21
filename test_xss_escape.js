@@ -108,7 +108,10 @@ describe('legacy saved rows render inert', () => {
     const src = ['escapeHtml', 'allergenBadgeHtml', 'planMetaHtml', '_renderExList', 'savedPlanSlotLabel', 'savedPlanMealLine', 'savedPlanMealsHtml', 'loadMealPlans'].map(extractAny).join('\n')
       + '\nreturn { _renderExList, loadMealPlans };';
     builder = { day: 1, exercises: [] };
-    api = new Function('S', '_exBuilder', 'API', 'FMHomeWeek', src)({}, builder, async () => reply, require('./public/js/fm-home-week'));
+    api = new Function('S', '_exBuilder', 'API', 'FMHomeWeek', 'readMealPlans', src)({}, builder, async () => reply, require('./public/js/fm-home-week'), async () => {
+      const plans = reply && Array.isArray(reply.plans) ? reply.plans : [];
+      return { kind: plans.length ? 'ok' : 'empty', body: { success: true, plans } };
+    });
   });
 
   test.each(PAYLOADS)('exercise builder list: sets, rest and id %s', (payload) => {
