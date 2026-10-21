@@ -33,10 +33,13 @@ struct PaywallView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     headerSection
+                    if isLoadingPlans {
+                        LoadingSkeleton(rows: 3, label: "Loading plans", identifier: "paywall-loading")
+                    }
+                    benefitsSection
                     if plansLoadFailed {
                         emptyPlansSection
                     }
-                    benefitsSection
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
@@ -59,7 +62,7 @@ struct PaywallView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.body.weight(.semibold))
-                            .frame(width: 32, height: 32)
+                            .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel("Close")
                     .accessibilityIdentifier("paywall-close")
@@ -70,21 +73,6 @@ struct PaywallView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomBar
-            }
-            .overlay {
-                if isLoadingPlans && plans.isEmpty {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Loading plans…")
-                            .font(.subheadline.weight(.semibold))
-                            .accessibilityIdentifier("paywall-loading-label")
-                    }
-                    .padding(24)
-                    .background(.regularMaterial)
-                    .cornerRadius(16)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("paywall-loading")
-                }
             }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {
@@ -115,12 +103,6 @@ struct PaywallView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("paywall-headline")
-
-            if isLoadingPlans {
-                Text("Loading plans")
-                    .font(.subheadline.weight(.semibold))
-                    .accessibilityIdentifier("paywall-load-phase")
-            }
         }
     }
 
@@ -140,7 +122,7 @@ struct PaywallView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("paywall-trial-timeline")
@@ -192,6 +174,8 @@ struct PaywallView: View {
                 Task { await restore() }
             }
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityIdentifier("paywall-restore-inline")
         }
         .accessibilityIdentifier("paywall-error-state")
@@ -221,12 +205,15 @@ struct PaywallView: View {
                     .accessibilityIdentifier("paywall-renewal")
                 subscribeButton(plan)
             }
-            Button("Restore Purchases") {
-                Task { await restore() }
+            if !plansLoadFailed {
+                Button("Restore Purchases") {
+                    Task { await restore() }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("paywall-restore")
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
-            .accessibilityIdentifier("paywall-restore")
 
             HStack(spacing: 6) {
                 Button("Terms") {
@@ -428,7 +415,7 @@ private struct PackageCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? brandGreen.opacity(0.08) : Color.gray.opacity(0.08))
+            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)

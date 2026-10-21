@@ -215,8 +215,7 @@ extension XCTestCase {
         // container identifier first, or the loading line finishes before we look.
         let ready = app.buttons["paywall-close"].waitForExistence(timeout: 8)
             || app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 2)
-            || app.staticTexts["paywall-load-phase"].exists
-            || app.staticTexts["Loading plans"].exists
+            || app.descendants(matching: .any)["paywall-loading"].exists
             || app.otherElements["paywall-root"].exists
         XCTAssertTrue(ready, "Paywall did not appear after Upgrade")
     }

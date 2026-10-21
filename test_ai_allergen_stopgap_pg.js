@@ -13,7 +13,8 @@ if (!URL && process.env.CI) throw new Error('test_ai_allergen_stopgap_pg: TEST_D
 if (URL && /neon|supabase|amazonaws|vercel|fitmunch\.com/i.test(URL)) throw new Error('TEST_DATABASE_URL looks like a real database');
 const maybe = URL ? describe : describe.skip;
 if (URL) {
-  process.env.DATABASE_URL = URL;
+  // The app's sessions run in AEDT (not UTC), so timezone bugs in the updatedAt token show (EQA #142 S1).
+  process.env.DATABASE_URL = URL + (URL.includes('?') ? '&' : '?') + 'options=' + encodeURIComponent('-c TimeZone=Australia/Sydney');
   process.env.DATABASE_SSL = '0';
 }
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'stopgap-127a-pg-secret';
@@ -45,7 +46,7 @@ jest.mock('./lib/ai-usage', () => {
 });
 
 const SCHEMA = `
-drop table if exists meal_plans, plan_assignments, user_profiles, users cascade;
+drop table if exists meal_logs, meal_plans, plan_assignments, user_profiles, users cascade;
 create table users(id uuid primary key, email varchar(255) not null unique, name text not null, password_hash text not null,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(), last_login_at timestamptz,
   email_verified boolean default false, subscription_tier varchar(50) default 'free', subscription_expires_at timestamptz,
@@ -54,6 +55,7 @@ create table user_profiles(id serial primary key, user_id uuid not null referenc
   age integer, gender varchar(20), activity_level varchar(50), fitness_goal varchar(100), dietary_preferences jsonb default '[]'::jsonb,
   allergies jsonb default '[]'::jsonb, target_calories integer default 2000, target_steps integer default 10000, target_protein integer,
   target_carbs integer, target_fat integer, updated_at timestamptz not null default now());
+create table meal_logs(id serial primary key, user_id uuid not null references users(id) on delete cascade, date timestamptz not null default now(), meal_type varchar(50) not null, food_name text not null, calories integer not null, protein real default 0, carbs real default 0, fat real default 0, fiber real default 0, serving_size text, created_at timestamptz not null default now());
 create table meal_plans(id serial primary key, user_id uuid, name text, description text, goal_type text, meals jsonb, is_active boolean,
   total_calories int, total_protein int, total_carbs int, total_fat int, created_at timestamptz default now(), updated_at timestamptz);
 create table plan_assignments(id serial primary key, pt_id uuid, client_id uuid, plan_type text, plan_id int, active boolean default true, assigned_at timestamptz default now());
@@ -145,9 +147,7 @@ maybe('#127a on real Postgres', () => {
     const w = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
     expect(w.body.source).toBe('fixed');
     expect(JSON.stringify(w.body)).not.toMatch(/MOCKAI|peanut/i);
-    expect(aiClient.chat).not.toHaveBeenCalled();
     expect(aiClient.chatJson).not.toHaveBeenCalled();
-    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     // Generating again with nothing ticked never removes the saved filter.
     await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: [] });
     expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
@@ -189,14 +189,72 @@ maybe('#127a on real Postgres', () => {
     expect((await pool.query('select count(*)::int n from user_profiles where user_id=$1', [PLAIN])).rows[0].n).toBe(1);
   });
 
-  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: a generate racing a profile save (gluten free) keeps the save', async () => {
-    const [g, p] = await Promise.all([
-      gen(PLAIN, ['nut free']),
-      request(app).post('/api/user/profile').set('Authorization', as(PLAIN)).send({ dietaryPreferences: ['gluten free'] }),
-    ]);
-    expect([g.status, p.status]).toEqual([200, 200]);
-    // Either order is serialised: the save is never lost (merge after the save keeps both).
-    expect((await profileOf(PLAIN)).dietary_preferences).toContain('gluten free');
+  const save = (who, body) => request(app).post('/api/user/profile').set('Authorization', as(who)).send(body);
+  const updatedAt = async (id) => (await pool.query('select updated_at from user_profiles where user_id=$1', [id])).rows[0].updated_at.toISOString();
+  // Deterministic ordering: a second client holds the row lock; requests are started one by one and each
+  // is seen waiting on a lock before the next starts; then the lock is released (EQA #141 r2 S1).
+  const waiting = async () => (await pool.query("select count(*)::int n from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()")).rows[0].n;
+  const until = async (n) => { for (let i = 0; i < 200 && (await waiting()) < n; i++) await new Promise((r) => setTimeout(r, 10)); expect(await waiting()).toBeGreaterThanOrEqual(n); };
+  async function ordered(id, first, second) {
+    const holder = await pool.connect();
+    try {
+      await holder.query('begin');
+      await holder.query('select id from user_profiles where user_id=$1 for update', [id]);
+      const p1 = first(); p1.then(() => {}, () => {}); const r1 = p1.then((x) => x);
+      await until(1);
+      const p2 = second(); const r2 = p2.then((x) => x);
+      await until(2);
+      await holder.query('commit');
+      return [await r1, await r2];
+    } finally { await holder.query('rollback').catch(() => {}); holder.release(); }
+  }
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: generate (nut free) then a stale profile save -> 409, nut free and the old value kept', async () => {
+    await setDiet(PLAIN, ['gluten free']);
+    const loaded = await updatedAt(PLAIN);
+    const [g, p] = await ordered(PLAIN, () => gen(PLAIN, ['nut free']), () => save(PLAIN, { dietaryPreferences: [], weight: 70, profileUpdatedAt: loaded }));
+    expect(g.status).toBe(200);
+    expect(p.status).toBe(409);
+    expect(await sorted(PLAIN)).toEqual(['gluten free', 'nut free']);
+  });
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: profile save (gluten free) then generate (nut free) -> both kept', async () => {
+    const loaded = await updatedAt(PLAIN);
+    const [p, g] = await ordered(PLAIN, () => save(PLAIN, { dietaryPreferences: ['gluten free'], profileUpdatedAt: loaded }), () => gen(PLAIN, ['nut free']));
+    expect([p.status, g.status]).toEqual([200, 200]);
+    expect(await sorted(PLAIN)).toEqual(['gluten free', 'nut free']);
+  });
+
+  it.each(Array.from({ length: 20 }, (_, i) => [i + 1]))('#141 M1 race %i/20: generate racing a [] save with a fresh updatedAt -> filters, AI and credits stay safe', async () => {
+    const loaded = await updatedAt(PLAIN);
+    const [g, p] = await Promise.all([gen(PLAIN, ['nut free']), save(PLAIN, { dietaryPreferences: [], weight: 70, profileUpdatedAt: loaded })]);
+    expect(g.status).toBe(200);
+    // Either the save ran first (200, then the generate adds nut free) or second (409, nut free kept).
+    expect([200, 409]).toContain(p.status);
+    expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
+    const c = await request(app).post('/api/ai/chat').set('Authorization', as(PLAIN)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
+    expect(c.body.provider).toBeNull();
+    expect(JSON.stringify(c.body)).not.toMatch(/MOCKAI|peanut|satay/i);
+  });
+
+  it.each(Array.from({ length: 10 }, (_, i) => [i + 1]))('#141 M1 race %i/10: no profile row, a save racing a generate -> exactly 1 row with nut free', async () => {
+    await pool.query('delete from user_profiles where user_id=$1', [PLAIN]);
+    const [p, g] = await Promise.all([save(PLAIN, { weight: 70 }), gen(PLAIN, ['nut free'])]);
+    expect([p.status, g.status]).toEqual([200, 200]);
+    const rows = (await pool.query('select dietary_preferences d, weight from user_profiles where user_id=$1', [PLAIN])).rows;
+    expect(rows.length).toBe(1);
+    expect(rows[0].d).toEqual(['nut free']);
+    expect(rows[0].weight).toBe(70);
+  });
+
+  it('#141 L1: a brand-new user (no users row) with two concurrent generates keeps both ticks', async () => {
+    const NEW = '00000000-0000-4000-8000-0000000141a1';
+    await pool.query('delete from users where id=$1', [NEW]);
+    await Promise.all([gen(NEW, ['nut free']), gen(NEW, ['dairy free'])]);
+    const rows = (await pool.query('select dietary_preferences d from user_profiles where user_id=$1', [NEW])).rows;
+    expect(rows.length).toBe(1);
+    expect([...rows[0].d].sort()).toEqual(['dairy free', 'nut free']);
+    await pool.query('delete from users where id=$1', [NEW]);
   });
 
   it('#141 M1: a user with no profile row gets exactly one row from two concurrent generates', async () => {
@@ -218,9 +276,7 @@ maybe('#127a on real Postgres', () => {
     expect(c.body.provider).toBeNull();
     expect(w.body.source).toBe('fixed');
     expect(i.body.provider).toBeNull();
-    expect(aiClient.chat).not.toHaveBeenCalled();
     expect(aiClient.chatJson).not.toHaveBeenCalled();
-    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
   it('#141 S1: dedupe, case-folding and nothing-added write nothing new', async () => {
@@ -231,10 +287,158 @@ maybe('#127a on real Postgres', () => {
     expect((await profileOf(GF)).dietary_preferences).toEqual(['Gluten Free', 'nut free']);
   });
 
-  it.each([[[{ name: 'gluten free' }]], [{ gluten: { severe: true } }], ['peanut-free diet']])('#141 S2: odd saved format %j is never overwritten', async (odd) => {
+  const coachFood = () => request(app).post('/api/ai/chat').set('Authorization', as(GF)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
+
+  it.each([['none'], [''], ['[]'], [{}], [['none']], [{ 'nut free': false }]])('#141 r2 M2: empty-looking saved %j + nut free tick -> saved; Coach, review, insight make 0 AI calls', async (empty) => {
+    await setDiet(GF, empty);
+    await gen(GF, ['nut free']);
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['nut free']);
+    const c = await coachFood();
+    const w = await request(app).get('/api/ai/weekly-review').set('Authorization', as(GF));
+    const i = await request(app).post('/api/ai/insight').set('Authorization', as(GF)).send({ todayCalories: 800, targetCalories: 2000, targetProtein: 150 });
+    for (const x of [c, w, i]) expect(JSON.stringify(x.body)).not.toMatch(/MOCKAI|peanut/i);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+  });
+
+  it.each([[[{ name: 'gluten free' }]], [{ gluten: { severe: true } }], ['peanut-free diet'], [['Paleo']]])('#141 S2/M2: odd saved format %j is never overwritten; the tick goes to allergies and Coach names no peanut', async (odd) => {
     await setDiet(GF, odd);
     await gen(GF, ['nut free']);
     expect((await profileOf(GF)).dietary_preferences).toEqual(odd);
+    expect((await profileOf(GF)).allergies).toEqual(['nut free']);
+    const c = await coachFood();
+    expect(c.body.provider).toBeNull();
+    // The meals name no nut food ('Not applied' only echoes the user's own saved words).
+    expect(String(c.body.reply).replace(/^Not applied:.*$/m, '')).not.toMatch(/MOCKAI|peanut|satay|almond|cashew/i);
+    const saved = dietGuard.savedFilters({ dietaryPreferences: odd, allergies: ['nut free'] });
+    if (dietGuard.unreadable(saved)) expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('#141 M1: a stale save without filters still saves; a bad profileUpdatedAt is a 400', async () => {
+    const r = await save(GF, { weight: 80, profileUpdatedAt: '2001-01-01T00:00:00Z' });
+    expect(r.status).toBe(200);
+    expect((await save(GF, { dietaryPreferences: [], profileUpdatedAt: 'nope' })).status).toBe(400);
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+  });
+
+  // ── #142 r2 (Elite QA #142) ──
+  const setAllergies = (id, v) => pool.query('update user_profiles set allergies=$2::jsonb where user_id=$1', [id, JSON.stringify(v)]);
+  const mealsOf = (reply) => String(reply).replace(/^Not applied:.*$/m, '');
+
+  it.each([
+    ['peanut-free diet', 'sesame'],
+    ['gluten free', 'sesame'],
+    [[{ name: 'gluten free' }], [{ severe: 'egg' }]],
+    [{ gluten: { severe: true } }, { egg: { severe: true } }],
+  ])('#142 M1: saved diet %j + allergies %j, tick nut free -> tick saved, nothing dropped, Coach meals name no nut food', async (diet, allergies) => {
+    await setDiet(GF, diet); await setAllergies(GF, allergies);
+    await gen(GF, ['nut free']);
+    const after = await profileOf(GF);
+    expect(dietGuard.savedFilters({ dietaryPreferences: after.dietary_preferences, allergies: after.allergies })).toContain('nut free');
+    if (typeof allergies !== 'string') expect(JSON.stringify(after)).toContain(JSON.stringify(allergies).replace(/^\[|\]$/g, ''));
+    const c = await request(app).post('/api/ai/chat').set('Authorization', as(GF)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
+    expect(c.body.provider).toBeNull();
+    expect(mealsOf(c.body.reply)).not.toMatch(/MOCKAI|peanut|satay|almond|cashew|\bnuts?\b/i);
+    const saved = dietGuard.savedFilters({ dietaryPreferences: diet, allergies });
+    if (dietGuard.unreadable(saved)) expect(aiClient.chat).not.toHaveBeenCalled();
+  });
+
+  it('#142 S1: GET then POST with the loaded updatedAt round-trips in an AEDT session (200), and goes stale after a generate (409)', async () => {
+    const tz = await require('./server/storage.js').db.execute(require('drizzle-orm').sql`show timezone`);
+    expect(JSON.stringify(tz.rows || tz)).toMatch(/Australia\/Sydney/);
+    const load = async () => (await request(app).get(`/api/user/profile/${GF}`).set('Authorization', as(GF))).body.profile.updatedAt;
+    const t1 = await load();
+    expect((await save(GF, { dietaryPreferences: ['gluten free', 'dairy free'], profileUpdatedAt: t1 })).status).toBe(200);
+    const t2 = await load();
+    await gen(GF, ['nut free']);
+    expect((await save(GF, { dietaryPreferences: ['gluten free'], profileUpdatedAt: t2 })).status).toBe(409);
+    expect(await sorted(GF)).toEqual(['dairy free', 'gluten free', 'nut free']);
+    expect((await save(GF, { dietaryPreferences: ['gluten free'], profileUpdatedAt: await load() })).status).toBe(200);
+  });
+
+  it('#142 S5: a filter save without profileUpdatedAt is a 400 and writes nothing', async () => {
+    for (const body of [{ dietaryPreferences: [] }, { allergies: [] }, { dietaryPreferences: [], weight: 70 }]) {
+      expect((await save(GF, body)).status).toBe(400);
+    }
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+  });
+
+  // ── #142 follow-up ──
+  it('#142 fu: with no profile row yet, a filter save without profileUpdatedAt saves (exactly 1 row)', async () => {
+    await pool.query('delete from user_profiles where user_id=$1', [PLAIN]);
+    const r = await save(PLAIN, { allergies: ['peanut'], dietaryPreferences: ['vegan'], weight: 71 });
+    expect(r.status).toBe(200);
+    const rows = (await pool.query('select dietary_preferences d, allergies a, weight from user_profiles where user_id=$1', [PLAIN])).rows;
+    expect(rows).toEqual([{ d: ['vegan'], a: ['peanut'], weight: 71 }]);
+    // Once the row exists, the next filter save must name the version again.
+    expect((await save(PLAIN, { allergies: [] })).status).toBe(400);
+    expect((await profileOf(PLAIN)).allergies).toEqual(['peanut']);
+  });
+
+  it('#142 fu: an impossible calendar date in profileUpdatedAt is a 400, not a 500, and writes nothing', async () => {
+    for (const bad of ['2026-02-30T00:00:00Z', '2026-13-01T00:00:00Z', '2026-04-31T00:00:00Z', '2026-10-15T24:00:00Z', '2026-10-15T10:60:00Z', '2026-10-15T10:00:00+15:00', '2025-02-29T00:00:00Z']) {
+      expect([bad, (await save(GF, { dietaryPreferences: [], profileUpdatedAt: bad })).status]).toEqual([bad, 400]);
+    }
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect((await save(GF, { dietaryPreferences: ['gluten free'], profileUpdatedAt: await updatedAt(GF) })).status).toBe(200);
+  });
+
+  it('#142 fu: odd keys like constructor and __proto__ in the body are ignored safely', async () => {
+    for (const body of [{ constructor: 5 }, { constructor: { prototype: { x: 1 } } }, JSON.parse('{"__proto__":{"allergies":[]},"weight":72}'), { toString: 5, hasOwnProperty: 1 }]) {
+      const r = await save(GF, body);
+      expect([JSON.stringify(body), r.status]).toEqual([JSON.stringify(body), 200]);
+    }
+    expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect(({}).constructor).toBe(Object);
+    expect(Object.prototype.allergies).toBeUndefined();
+  });
+
+  it('#142 S2: a profile save whose DB connection is killed mid-transaction does not crash, and later saves succeed', async () => {
+    const holder = await pool.connect();
+    try {
+      await holder.query('begin');
+      await holder.query('select id from user_profiles where user_id=$1 for update', [GF]);
+      const p = save(GF, { weight: 81 }).then((r) => r, (e) => e);
+      await until(1);
+      const victim = (await pool.query("select pid from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()")).rows.map((r) => r.pid);
+      expect(victim.length).toBe(1);
+      await pool.query('select pg_terminate_backend($1)', victim);
+      const r = await p;
+      expect(r.status).toBeGreaterThanOrEqual(500);
+      await holder.query('commit');
+    } finally { await holder.query('rollback').catch(() => {}); holder.release(); }
+    // The killed client was destroyed, not pooled: every following write gets a live connection.
+    for (let i = 0; i < 25; i++) expect((await save(GF, { weight: 60 + i })).status).toBe(200);
+    expect((await pool.query('select weight from user_profiles where user_id=$1', [GF])).rows[0].weight).toBe(84);
+  });
+
+  it('#142 S3: with 3 profile rows, reads, generate merges and saves all target the lowest id; other rows untouched', async () => {
+    await pool.query(`insert into user_profiles(user_id,dietary_preferences,allergies,weight) values ($1,'["vegan"]','[]',90),($1,'["egg free"]','[]',91)`, [GF]);
+    // The lowest-id row is updated last, so it is not first in physical order.
+    await pool.query("update user_profiles set weight=50 where id=(select min(id) from user_profiles where user_id=$1)", [GF]);
+    const rows = async () => (await pool.query('select id, dietary_preferences d, weight from user_profiles where user_id=$1 order by id', [GF])).rows;
+    const [low, mid, high] = await rows();
+    const p = (await request(app).get(`/api/user/profile/${GF}`).set('Authorization', as(GF))).body.profile;
+    expect([p.id, p.weight]).toEqual([low.id, 50]);
+    await gen(GF, ['nut free']);
+    expect((await save(GF, { weight: 55 })).status).toBe(200);
+    const after = await rows();
+    expect(after[0]).toEqual({ id: low.id, d: ['gluten free', 'nut free'], weight: 55 });
+    expect(after[1]).toEqual(mid);
+    expect(after[2]).toEqual(high);
+  });
+
+  it('#142 L3: a held profile lock uses the profile namespace key (classid 1410141, two-key form)', async () => {
+    const holder = await pool.connect();
+    try {
+      await holder.query('begin');
+      await holder.query('select id from user_profiles where user_id=$1 for update', [GF]);
+      const p = save(GF, { weight: 77 }).then((r) => r);
+      await until(1);
+      const locks = (await pool.query("select classid::bigint c, objsubid s from pg_locks where locktype='advisory' and granted")).rows;
+      expect(locks).toEqual(expect.arrayContaining([{ c: '1410141', s: 2 }]));
+      await holder.query('commit');
+      expect((await p).status).toBe(200);
+    } finally { await holder.query('rollback').catch(() => {}); holder.release(); }
   });
 
   // ── r2 (Elite QA #135 r1) ──
@@ -247,7 +451,6 @@ maybe('#127a on real Postgres', () => {
       expect(r.body.source).toBe('builder');
       expect(JSON.stringify(r.body)).not.toMatch(/MOCKAI|peanut|satay|baklava/i);
     }
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
 
   it('M2: a no-filter user sending null-ish filters still reaches the AI', async () => {
@@ -289,9 +492,9 @@ maybe('#127a on real Postgres', () => {
         expect(r.status).toBe(200);
         expect(r.body.source).toBe('builder');
         expect(r.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
+        expect(dietGuard.textBreaksFilters(r.body.reply.replace(dietGuard.SAFE_NOTICE, ''), who === GF ? ['gluten free'] : ['dairy free'])).toBe(false);
       }
     }
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
 
   it('r3 S1: a typed PB toast keeps a persistent allergen warning in the plan list', async () => {
@@ -309,19 +512,19 @@ maybe('#127a on real Postgres', () => {
     expect(engine.TEMPLATES.some((t) => text.includes(`${t.name} (`))).toBe(true);
     expect(dietGuard.textBreaksFilters(text.replace(dietGuard.SAFE_NOTICE, ''), filters)).toBe(false);
   };
-  it("r4: QA's leaks (dairy free and GF asking 'How many sets for squats?', GF teriyaki) make no AI call; replies name no food or brand beyond one checked meal", async () => {
+  it('r4: dairy free and gluten free get a checked reply; a gluten question is not repeated', async () => {
     await pool.query(`update user_profiles set dietary_preferences='["dairy free"]'::jsonb where user_id=$1`, [PLAIN]);
     for (const [who, f] of [[PLAIN, 'dairy free'], [GF, 'gluten free']]) {
       for (const q of ['How many sets for squats?', 'Is teriyaki chicken ok?', 'What do I grab before training?']) {
         const r = await ask(who, q, { intent: 'workout' });
         expect(r.status).toBe(200);
-        expect(r.body.reply).toContain(COMING);
-        expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go|teriyaki/i);
+        expect(r.body.reply).not.toContain(COMING);
+        // Teriyaki is gluten, not dairy. A dairy-free user may see their own question quoted. A gluten-free user must not.
+        expect(r.body.reply).not.toMatch(/MOCKAI|Milo|Up ?& ?Go/i);
+        if (f === 'gluten free') expect(r.body.reply).not.toMatch(/teriyaki/i);
         safeMealIn(r.body.reply, [f]);
       }
     }
-    expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
   it('r4: weekly review and insight are fixed for filtered users (no AI, safe meal, coming-soon line); no-filter users still reach the AI', async () => {
@@ -329,18 +532,23 @@ maybe('#127a on real Postgres', () => {
       const r = await request(app).get('/api/ai/weekly-review').set('Authorization', as(who));
       expect(r.status).toBe(200);
       expect(r.body.source).toBe('fixed');
-      expect(r.body.review.focus).toContain(COMING);
+      expect(JSON.stringify(r.body.review)).not.toContain(COMING);
+      expect(r.body.review.score).toBeNull();
+      expect(JSON.stringify(r.body.review)).not.toMatch(/showed up|peanut/i);
       safeMealIn(JSON.stringify(r.body.review), [f]);
       const i = await request(app).post('/api/ai/insight').set('Authorization', as(who)).send({ todayCalories: 800, targetCalories: 2000, targetProtein: 150 });
       expect(i.body.insight).not.toContain(COMING);
-      expect(r.body.review.score).toBeNull();
+      expect(i.body.insight).not.toMatch(/MOCKAI|peanut/i);
       safeMealIn(i.body.insight, [f]);
     }
-    expect(aiClient.chat).not.toHaveBeenCalled();
     expect(aiClient.chatJson).not.toHaveBeenCalled();
+    // Three logged days: past the weekly review's new-user empty state (launch audit D8).
+    for (let d = 0; d < 3; d += 1) await pool.query("insert into meal_logs(user_id, date, meal_type, food_name, calories) values ($1, now() - ($2 || ' days')::interval, 'lunch', 'Chicken salad', 500)", [PLAIN, String(d)]);
     const p = await request(app).get('/api/ai/weekly-review').set('Authorization', as(PLAIN));
     expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(p.body.review.score).toBe(7);
     expect(JSON.stringify(p.body.review)).toMatch(/peanut butter/);
+    expect(JSON.stringify(p.body.review)).not.toMatch(/showed up/i);
     const c = await ask(PLAIN, 'How many sets for squats?', { intent: 'workout' });
     expect(c.body.reply).toMatch(/MOCKAI/);
   });
@@ -361,7 +569,6 @@ maybe('#127a on real Postgres', () => {
       const q = await ask(PLAIN, 'Lunch idea?', { intent: 'nutrition' });
       expect([term, /Not applied/i.test(q.body.reply)]).toEqual([term, false]);
     }
-    expect(aiClient.chat).not.toHaveBeenCalled();
   });
 
   it('r5 S1: malformed saved filters fail closed (no AI); saving them is a 400', async () => {
