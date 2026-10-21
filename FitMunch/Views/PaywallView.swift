@@ -368,8 +368,7 @@ struct PaywallView: View {
     /// Trial end is the intro length on the purchased product, counted from today.
     private func trialEndCopy(_ plan: PaywallPlan) -> String {
         if plan.eligibleForIntro, let intro = plan.intro, intro.isFreeTrial {
-            let days = PaywallPricing.introDays(intro)
-            if days > 0, let end = Calendar.current.date(byAdding: .day, value: days, to: .now) {
+            if let end = PaywallPricing.trialEndDate(intro) {
                 return "Your free trial ends \(end.formatted(date: .long, time: .omitted))."
             }
         }
