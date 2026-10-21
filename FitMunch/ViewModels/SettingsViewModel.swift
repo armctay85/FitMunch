@@ -100,6 +100,7 @@ class SettingsViewModel: ObservableObject {
         
         let success = await premiumManager.restorePurchases()
         if success {
+            errorMessage = nil
             noticeMessage = "Purchases restored."
         } else {
             errorMessage = premiumManager.errorMessage ?? "No purchases to restore or restore failed"
