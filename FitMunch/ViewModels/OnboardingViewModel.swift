@@ -83,7 +83,7 @@ class OnboardingViewModel: ObservableObject {
         case .week: return value == 1 ? "1 week" : "\(value) weeks"
         case .month: return value == 1 ? "1 month" : "\(value) months"
         case .year: return value == 1 ? "1 year" : "\(value) years"
-        @unknown default: return "\(value)"
+        @unknown default: return "a"
         }
     }
 
