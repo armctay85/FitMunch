@@ -385,7 +385,7 @@ describe('iOS ASC review blockers (source contract)', () => {
   });
 
   it('build number is 9 and UITests cover Upgrade + Take a photo', () => {
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"11"/);
     expect(project).toMatch(/MARKETING_VERSION:\s*"1\.0"/);
     expect(guards).toContain('testUpgradeOpensPaywallWithoutCrashing');
     expect(guards).toContain('testTakePhotoDoesNotCrashWhenCameraMissing');

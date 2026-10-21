@@ -28,7 +28,7 @@ on:
 
 jobs:
   uitest:
-    if: (github.event_name != 'workflow_dispatch' || inputs.screen_audit != true) && github.head_ref != 'cursor/b11-screen-audit-89f8'
+    if: github.event_name != 'workflow_dispatch' || inputs.screen_audit != true
     runs-on: macos-26
     timeout-minutes: 60
 
@@ -425,13 +425,14 @@ jobs:
             if [[ -d /tmp/fitmunch-audit-2026-10-15 ]]; then
               cp -R /tmp/fitmunch-audit-2026-10-15/. artifacts/audit-2026-10-15/screens/
             fi
-            return 0
+            return "$rc"
           }
 
           # Follow-up: Progress only, then StoreKit cancel and expiry. The full screen set is already in docs/audit.
-          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "progress"
-          run_audit "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-6.5in" "progress"
-          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in-storekit" "storekit-only"
+          audit_rc=0
+          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in" "progress" || audit_rc=$?
+          run_audit "iPhone 11 Pro Max" "$ELEVEN_UDID" "iphone-6.5in" "progress" || audit_rc=$?
+          run_audit "$PRO_NAME" "$PRO_UDID" "iphone-6.9in-storekit" "storekit-only" || audit_rc=$?
 
           mkdir -p artifacts/audit-2026-10-15/screens
           if [[ -d /tmp/fitmunch-audit-2026-10-15 ]]; then
@@ -443,6 +444,7 @@ jobs:
           rm -rf artifacts/audit-2026-10-15/*.xcresult
           test -d artifacts/audit-2026-10-15/screens/iphone-6.9in
           test -d artifacts/audit-2026-10-15/screens/iphone-6.5in
+          test "$audit_rc" -eq 0
 
       - name: Upload audit evidence
         if: always()
