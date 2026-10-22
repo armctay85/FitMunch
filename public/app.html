@@ -312,10 +312,19 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .hw-days{display:flex;gap:4px;margin-bottom:10px}
 .hw-days span{flex:1;min-width:0;text-align:center;font-size:.7rem;font-weight:700;padding:5px 0;border-radius:8px;color:var(--text2);background:#f3f4f6}
 .hw-days span.on{background:var(--green2);color:#fff}
+.hw-prog{margin:0 0 10px}
+.hw-prog-meta{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;font-weight:700;color:var(--text2);margin-bottom:4px}
+.hw-prog-meta span{min-width:0;overflow-wrap:anywhere}
+.hw-prog-track{height:8px;border-radius:99px;background:#e8eee9;overflow:hidden}
+.hw-prog-fill{height:100%;background:var(--green2);border-radius:99px}
+.hw-prog-fill.over{background:#1d4ed8}
+.hw-prog-meta span.over{color:#1e3a8a}
 .hw-meals{list-style:none;margin:0 0 12px;padding:0}
-.hw-meals li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.85rem;min-width:0}
-.hw-meals li b{font-weight:700;overflow-wrap:anywhere;min-width:0}
+.hw-meals li{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.85rem;min-width:0}
+.hw-meals li b{font-weight:700;overflow-wrap:anywhere;min-width:0;flex:1 1 120px}
 .hw-meals li span{color:var(--text2);white-space:nowrap;font-size:.78rem}
+.hw-meal-side{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.hw-log{min-height:44px;min-width:44px;padding:0 12px}
 .hw-warn{font-size:.8rem;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:10px}
 .hw-acts{display:flex;gap:8px;flex-wrap:wrap}
 .hw-acts .btn,#home-week-retry{min-height:44px}
@@ -1008,7 +1017,7 @@ html.fm-authed #app-gate{display:none}
  <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
- <li>Limited AI actions per month</li>
+ <li id="billing-free-ai">Free includes AI actions a month</li>
  <li>Shopping lists and favourites</li>
  </ul>
  <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" disabled>Current free plan</button>
@@ -1042,7 +1051,7 @@ html.fm-authed #app-gate{display:none}
  </div>
 
  <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong>Free includes 10 AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
+ <div><strong id="home-free-ai">Free includes AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
  <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
@@ -1923,6 +1932,7 @@ async function boot() {
  document.getElementById('btn-upgrade').style.display = '';
  const nudge = document.getElementById('home-upgrade-nudge');
  if (nudge) nudge.style.display = 'flex';
+ fillFreeAiLine();
  }
  // Show correct sidebar
  if (S.role === 'client') {
@@ -2832,7 +2842,13 @@ async function loadPortalHome() {
  }
  } catch(e) { /* ignore */ }
 
- const r = await API('/portal/me');
+ let r;
+ try { r = await API('/portal/me'); } catch (_) { r = null; }
+ if (!r || r.success !== true || !Array.isArray(r.recentMeals)) {
+  const box = document.getElementById('home-week');
+  if (box) showHomeWeekError(box, loadPortalHome);
+  return;
+ }
  if (r.success) {
  S.portalData = r;
  if (r.pt) {
@@ -2846,9 +2862,9 @@ async function loadPortalHome() {
  }
  }
  // Dashboard metrics
- const todayMeals = (r.recentMeals||[]).filter(m => new Date(m.date).toDateString()===new Date().toDateString());
+ const todayMeals = FMHomeWeek.loggedTodayMeals(r.recentMeals);
  document.getElementById('pm-meals').textContent = todayMeals.length;
- const loggedCals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
+ const loggedCals = FMHomeWeek.loggedTodayKcal(r.recentMeals);
  document.getElementById('pm-cals').textContent = FMHomeWeek.formatCount(loggedCals);
  const weekWorkouts = (r.recentWorkouts||[]).filter(w => (Date.now()-new Date(w.date)) < 7*86400000);
  document.getElementById('pm-workouts').textContent = weekWorkouts.length;
@@ -2918,7 +2934,7 @@ async function refreshAiCoaching() {
  const coachText = document.getElementById('ai-coach-text');
  coachText.textContent = 'Getting fresh tip…';
  if (S.portalData) {
- const todayMeals = (S.portalData.recentMeals||[]).filter(m=>new Date(m.date).toDateString()===new Date().toDateString());
+ const todayMeals = FMHomeWeek.loggedTodayMeals(S.portalData.recentMeals);
  await loadAiCoaching(todayMeals, S.portalData.recentMeals||[]);
  }
 }
@@ -3972,6 +3988,103 @@ async function onboardDone() {
  await loadPortalHome();
 }
 
+function freeAiActionsLine(limit) {
+ const n = Number(limit);
+ if (!Number.isFinite(n) || n < 0) return '';
+ return 'Free includes ' + n + ' AI actions a month';
+}
+function paintFreeAiLine(limit) {
+ const line = freeAiActionsLine(limit);
+ if (!line) return;
+ ['home-free-ai', 'billing-free-ai'].forEach((id) => {
+ const el = document.getElementById(id);
+ if (el) el.textContent = line;
+ });
+}
+async function fillFreeAiLine() {
+ try {
+ const r = await API('/ai/usage');
+ if (r && r.success) paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit);
+ } catch (_) {}
+}
+let S_homeWeekWarns = [];
+function homeMealHeadsUp(name) {
+ const n = String(name || '').trim().toLowerCase();
+ const groups = [];
+ (Array.isArray(S_homeWeekWarns) ? S_homeWeekWarns : []).forEach((w) => {
+  if (!w || w.unchecked || w.notice) return;
+  const meal = typeof w.meal === 'string' ? w.meal.trim().toLowerCase() : '';
+  if (!meal || meal !== n) return;
+  (Array.isArray(w.contains) ? w.contains : []).forEach((c) => {
+   if (typeof c !== 'string') return;
+   const label = c.trim();
+   if (label && groups.indexOf(label) < 0) groups.push(label);
+  });
+ });
+ return groups;
+}
+function paintLoggedCalories() {
+ const meals = S.portalData && Array.isArray(S.portalData.recentMeals) ? S.portalData.recentMeals : null;
+ if (!meals) return;
+ const logged = FMHomeWeek.loggedTodayKcal(meals);
+ const el = document.getElementById('pm-cals');
+ if (el) {
+  el.textContent = FMHomeWeek.formatCount(logged);
+  el.classList.toggle('zero-soft', logged === 0);
+ }
+ const tg = FMHomeWeek.targets(S.goals);
+ const prog = tg && tg.calories ? FMHomeWeek.calorieProgress(logged, tg.calories) : null;
+ const value = document.getElementById('home-week-progress-value');
+ const left = document.getElementById('home-week-progress-left');
+ const track = document.getElementById('home-week-progress-bar');
+ const fill = document.getElementById('home-week-progress-fill');
+ if (!prog || !value || !left || !track || !fill) return;
+ value.textContent = prog.value + ' kcal';
+ left.textContent = prog.remaining;
+ left.classList.toggle('over', !!prog.over);
+ track.setAttribute('aria-valuemin', '0');
+ track.setAttribute('aria-valuenow', String(prog.eaten));
+ track.setAttribute('aria-valuemax', String(prog.target));
+ track.setAttribute('aria-label', prog.value + ' kcal, ' + prog.remaining);
+ fill.style.width = prog.pct + '%';
+ fill.classList.toggle('over', !!prog.over);
+}
+async function logHomeMeal(btn, m) {
+ if (!S.user || !btn || btn.disabled || btn.dataset.logged === '1') return;
+ const label = btn.textContent;
+ btn.disabled = true;
+ btn.textContent = 'Logging...';
+ try {
+  const r = await API('/meals/log', { method: 'POST', body: JSON.stringify({
+   date: new Date().toISOString(),
+   mealType: m.slot || 'lunch',
+   foodName: m.name,
+   calories: m.calories || 0,
+   protein: m.protein || 0,
+  })});
+  if (!r || !r.success) {
+   btn.textContent = label;
+   toast('Could not log that meal. Please try again.', 'error');
+   return;
+  }
+  btn.dataset.logged = '1';
+  btn.textContent = 'Logged';
+  if (S.portalData) {
+   if (!Array.isArray(S.portalData.recentMeals)) S.portalData.recentMeals = [];
+   S.portalData.recentMeals.push({ date: new Date().toISOString(), calories: Number(m.calories) || 0, foodName: m.name, mealType: m.slot });
+  }
+  paintLoggedCalories();
+  const groups = homeMealHeadsUp(m.name);
+  toast(groups.length ? ('Logged. Heads up: it contains ' + groups.join(', ')) : ('Logged: ' + (m.name || 'meal')));
+  if (typeof loadTodayMeals === 'function') loadTodayMeals();
+ } catch (_) {
+  btn.textContent = label;
+  toast('Could not log that meal. Please try again.', 'error');
+ } finally {
+  btn.disabled = false;
+ }
+}
+
 // ── HOME: THIS WEEK (the saved week, targets and a one-tap shopping list) ─────
 let S_homeWeek = null;
 let S_homeWeekReq = 0;
@@ -4034,12 +4147,12 @@ function showHomeWeekSkeleton(box) {
  for (let i = 0; i < 3; i++) { const line = document.createElement('div'); line.className = 'hw-skel-line' + (i === 2 ? ' short' : ''); sk.appendChild(line); }
  box.appendChild(sk);
 }
-function showHomeWeekError(box) {
+function showHomeWeekError(box, retry) {
  box.textContent = ''; box.style.display = ''; box.removeAttribute('aria-busy'); box.removeAttribute('aria-labelledby');
  const p = document.createElement('p'); p.className = 'hw-err'; p.id = 'home-week-error';
  p.textContent = "Couldn't load your week, try again";
  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-ghost2'; b.id = 'home-week-retry'; b.textContent = 'Try again';
- b.onclick = () => { loadHomeWeek(); };
+ b.onclick = () => { (typeof retry === 'function' ? retry : loadHomeWeek)(); };
  box.append(p, b);
 }
 async function loadHomeWeek() {
@@ -4055,6 +4168,8 @@ async function loadHomeWeek() {
  const row = kind === 'ok' ? FMHomeWeek.pickListedPlan(parsed.body.plans) : null;
  const sum = row ? FMHomeWeek.summary(row) : null;
  S_homeWeek = sum;
+ S_homeWeekWarns = row && Array.isArray(row.allergenWarnings) ? row.allergenWarnings : [];
+ if (!S.portalData || !Array.isArray(S.portalData.recentMeals)) { showHomeWeekError(box, loadPortalHome); S_homeWeek = null; return false; }
  if (!sum) { hideHomeWeek(box); paintHomeMealCard('empty'); return false; }
  paintHomeMealCard('ok', sum);
  const tg = FMHomeWeek.targets(S.goals);
@@ -4099,12 +4214,28 @@ async function loadHomeWeek() {
  }
  if (sum.today && sum.today.meals && sum.today.meals.length) {
  const t = document.createElement('div'); t.className = 'hw-k'; t.style.marginBottom = '2px';
- t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
+ t.textContent = `Today: ${sum.today.day}` + (sum.today.calories ? ` · ${FMHomeWeek.formatCount(sum.today.calories)} kcal planned` : '') + (sum.today.protein ? ` · ${sum.today.protein}g protein` : '');
  box.appendChild(t);
+ if (tg && tg.calories) {
+ const wrap = document.createElement('div'); wrap.className = 'hw-prog'; wrap.id = 'home-week-progress';
+ const meta = document.createElement('div'); meta.className = 'hw-prog-meta';
+ const left = document.createElement('span'); left.id = 'home-week-progress-value';
+ const right = document.createElement('span'); right.id = 'home-week-progress-left';
+ meta.append(left, right);
+ const track = document.createElement('div'); track.className = 'hw-prog-track'; track.id = 'home-week-progress-bar'; track.setAttribute('role', 'progressbar');
+ const fill = document.createElement('div'); fill.className = 'hw-prog-fill'; fill.id = 'home-week-progress-fill';
+ track.appendChild(fill); wrap.append(meta, track); box.appendChild(wrap);
+ paintLoggedCalories();
+ }
  const ul = document.createElement('ul'); ul.className = 'hw-meals'; ul.id = 'home-week-today';
  sum.today.meals.forEach(m => {
  const li = document.createElement('li'); const b = document.createElement('b'); b.textContent = obTitle(m.name);
- const s = document.createElement('span'); s.textContent = m.calories ? m.calories + ' kcal' : ''; li.append(b, s); ul.appendChild(li);
+ const side = document.createElement('span'); side.className = 'hw-meal-side';
+ const s = document.createElement('span'); s.textContent = m.calories ? FMHomeWeek.formatCount(m.calories) + ' kcal' : '';
+ const log = document.createElement('button'); log.type = 'button'; log.className = 'btn btn-ghost2 btn-sm hw-log'; log.textContent = 'Log';
+ log.setAttribute('aria-label', 'Log ' + (m.slot || 'meal') + ': ' + obTitle(m.name));
+ log.onclick = () => logHomeMeal(log, m);
+ side.append(s, log); li.append(b, side); ul.appendChild(li);
  });
  box.appendChild(ul);
  }
@@ -4688,6 +4819,7 @@ async function loadBillingUsage() {
  try {
  const r = await API('/ai/usage');
  if (!r.success) return;
+ paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit);
  if (r.limit === null) {
  el.innerHTML = `<div style="background:rgba(31,157,74,.08);border:1px solid rgba(31,157,74,.28);border-radius:6px;padding:12px 16px;font-size:.8rem;color:#14532d"><strong>${(r.tier||'premium').charAt(0).toUpperCase()+(r.tier||'premium').slice(1)} plan</strong> · unlimited AI · ${r.used} actions this month</div>`;
  } else {
@@ -4855,13 +4987,26 @@ async function sendChat() {
 }
 
 // ── WEEKLY REVIEW ────────────────────────────────────────────────────────────
+async function fetchWeeklyReview() {
+ // Ask the server first. The empty state uses no AI, so it must not open the consent prompt.
+ const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
+ const res = await fetch('/api/ai/weekly-review', { headers });
+ const r = await res.json().catch(() => ({ success: false }));
+ if (res.status === 403 && r && (r.code === 'ai_consent_required' || r.code === 'ai_consent_off')) {
+ if (r.code === 'ai_consent_off' || !(await ensureAiConsent())) return r;
+ return API('/ai/weekly-review');
+ }
+ return r;
+}
 async function loadWeeklyReview() {
  const body = document.getElementById('wr-body');
  const btn = document.getElementById('wr-btn');
+ const idleLabel = 'Get my review →';
  btn.disabled = true;
  body.innerHTML = '<div style="text-align:center;padding:16px"><div class="loader"></div><div style="font-size:.75rem;color:var(--text3);margin-top:10px">Reading your week…</div></div>';
+ let scored = false;
  try {
- const r = await API('/ai/weekly-review');
+ const r = await fetchWeeklyReview();
  if (!r.success) {
  if (maybeUpgrade(r)) { body.innerHTML = '<div style="font-size:.78rem;color:var(--text3)">Upgrade to Premium for unlimited weekly reviews.</div>'; return; }
  throw new Error(r.error || 'failed');
@@ -4872,10 +5017,11 @@ async function loadWeeklyReview() {
  body.textContent = '';
  const h = document.createElement('div'); h.style.cssText = 'font-size:.88rem;font-weight:800;margin-bottom:8px'; h.id = 'wr-empty'; h.textContent = rev.headline; body.appendChild(h);
  const st = r.stats || {};
- if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged this week.`; body.appendChild(n); }
+ if (st.daysNeeded) { const n = document.createElement('div'); n.style.cssText = 'font-size:.78rem;color:var(--text2);margin-bottom:6px'; n.id = 'wr-empty-days'; n.textContent = `${st.daysLogged || 0} of ${st.daysNeeded} days logged in the last 7 days.`; body.appendChild(n); }
  (rev.focus || []).forEach(f => { const d = document.createElement('div'); d.style.cssText = 'font-size:.78rem;color:var(--text2);padding:2px 0'; d.textContent = '🎯 ' + f; body.appendChild(d); });
  return;
  }
+ scored = true;
  // A fixed review (allergy filters) has no score; hide the ring rather than show a made-up number.
  const hasScore = rev.score != null && Number.isFinite(parseInt(rev.score, 10));
  const score = Math.min(10, Math.max(1, parseInt(rev.score, 10) || 5));
@@ -4894,7 +5040,7 @@ async function loadWeeklyReview() {
  body.innerHTML = '<div style="font-size:.78rem;color:var(--text3)">Couldn\'t load your review - try again shortly.</div>';
  } finally {
  btn.disabled = false;
- btn.textContent = '↻ Refresh';
+ btn.textContent = scored ? '↻ Refresh' : idleLabel;
  }
 }
 
@@ -5008,8 +5154,11 @@ function toast(msg, type='success') {
  const t = document.createElement('div');
  // Toasts shown together stack instead of covering each other (a red allergen toast plus a calm note).
  const stack = document.querySelectorAll('[data-toast]').length;
+ const bg = type === 'error' ? '#991b1b' : type === 'warn' ? '#92400e' : type === 'note' ? '#334155' : '#14532d';
  t.setAttribute('data-toast', '');
- t.style.cssText = `position:fixed;bottom:${24 + stack * 76}px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${type==='error'?'#ef4444':type==='warn'?'#f59e0b':type==='note'?'#475569':'#16a34a'};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;
+ t.setAttribute('role', 'status');
+ t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+ t.style.cssText = `position:fixed;bottom:${24 + stack * 76}px;right:24px;z-index:9999;padding:12px 18px;border-radius:9px;font-size:.82rem;font-weight:600;color:#fff;background:${bg};box-shadow:0 4px 20px rgba(0,0,0,.2);animation:slideIn .2s ease;max-width:320px;line-height:1.4`;
  t.textContent = msg;
  document.body.appendChild(t);
  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3000);

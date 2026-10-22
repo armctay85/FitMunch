@@ -82,11 +82,55 @@ describe('calorie tile and load states', () => {
     expect(hw.formatCount(1858)).toBe('1,858');
     expect(hw.formatCount(0)).toBe('0');
     expect(hw.calorieTile(1858, 1860)).toEqual({ value: '1,858 of 1,860', label: 'average' });
+    expect(hw.calorieProgress(1240, 1860)).toEqual({ pct: 67, over: false, eaten: 1240, target: 1860, value: '1,240 of 1,860', remaining: '620 kcal left' });
+    expect(hw.calorieProgress(1858, 1860)).toMatchObject({ pct: 99, over: false, eaten: 1858, target: 1860, remaining: '2 kcal left' });
+    expect(hw.calorieProgress(1860, 1860)).toMatchObject({ pct: 100, over: false, remaining: '0 kcal left' });
+    expect(hw.calorieProgress(0, 1860)).toEqual({ pct: 0, over: false, eaten: 0, target: 1860, value: '0 of 1,860', remaining: '1,860 kcal left' });
+    expect(hw.calorieProgress(2400, 1860)).toMatchObject({ pct: 100, over: true, eaten: 2400, target: 1860, remaining: '540 kcal over' });
+    expect(hw.calorieProgress(2000, 1860).remaining).toBe('140 kcal over');
+    expect(hw.calorieProgress(100, 0)).toBeNull();
     expect(hw.calorieTile(1860, 1860)).toEqual({ value: '1,860 of 1,860', label: 'average' });
     expect(hw.calorieTile(0, 1860)).toEqual({ value: '1,860', label: 'cal / day' });
     const s = hw.summary(rowSafe(), new Date(2026, 9, 15, 12));
     expect(s.average.calories).toBeGreaterThan(0);
     expect(hw.calorieTile(s.average.calories, 1860).value).toBe(hw.formatCount(s.average.calories) + ' of 1,860');
+  });
+  it('logged calories for today use the same calendar day as the home metric', () => {
+    const now = new Date(2026, 9, 21, 15, 4, 0);
+    const meals = [
+      { date: new Date(2026, 9, 21, 8).toISOString(), calories: 300 },
+      { date: new Date(2026, 9, 20, 21).toISOString(), calories: 900 },
+      { date: now.toISOString(), calories: 50 },
+    ];
+    expect(hw.loggedTodayMeals(meals, now)).toHaveLength(2);
+    expect(hw.loggedTodayKcal(meals, now)).toBe(350);
+    expect(hw.loggedTodayKcal([], now)).toBe(0);
+    expect(hw.loggedTodayKcal(null, now)).toBe(0);
+  });
+  it('the home bar is fed logged calories, so pointing it back at the planned day fails', () => {
+    const i = html.indexOf('function loadHomeWeek(');
+    const block = html.slice(i, html.indexOf('function saveGoals(', i));
+    expect(block).not.toMatch(/calorieProgress\(\s*sum\.today\.calories/);
+    expect(block).toContain('paintLoggedCalories()');
+    expect(html).toContain('FMHomeWeek.loggedTodayKcal(');
+    expect(html).toContain('FMHomeWeek.calorieProgress(logged, tg.calories)');
+    const log = html.slice(html.indexOf('async function logHomeMeal('), html.indexOf('// ── HOME: THIS WEEK', html.indexOf('async function logHomeMeal(')));
+    expect(log).toContain('Logging...');
+    expect(log).toContain("toast('Could not log that meal. Please try again.', 'error')");
+    expect(log).toContain('finally');
+    expect(log).not.toMatch(/r\.error/);
+    expect(log).toContain('Logged. Heads up: it contains ');
+    expect(log.toLowerCase()).not.toContain('safe');
+    const toastFn = html.slice(html.indexOf("function toast(msg, type='success')"), html.indexOf('function shareNative(', html.indexOf("function toast(msg, type='success')")));
+    expect(toastFn).toContain("setAttribute('role', 'status')");
+    expect(toastFn).toContain("type === 'error' ? 'assertive' : 'polite'");
+    expect(toastFn).toContain('#14532d');
+    expect(toastFn).toContain('#991b1b');
+    expect(toastFn).not.toContain('#16a34a');
+    expect(toastFn).not.toContain('#ef4444');
+    expect(html).toContain("track.setAttribute('aria-valuemax', String(prog.target))");
+    expect(html).not.toMatch(/aria-valuemax',\s*String\(tg\.calories\)/);
+    expect(html).not.toMatch(/aria-valuemax',\s*String\(sum\.today\.calories\)/);
   });
   it('500, 503 and a body with no plans list are errors; an empty list is no saved week', () => {
     expect(hw.loadFailure(500, { success: false }, false)).toBe('error');

@@ -13,6 +13,7 @@ const { sendApiError } = require('./lib/public-error');
 const planEngine = require('./lib/meal-plan-engine');
 const mealSafety = require('./lib/meal-safety');
 const dietGuard = require('./lib/diet-guard');
+const { shoppingAisle } = require('./lib/grocery-aisle');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -34,22 +35,28 @@ function requireAuth(req, res, next) {
 // ── AISLES (grouping only; no prices) ────────────────────────────────────────
 const AISLE_WORDS = [
   ['Meat & Seafood', ['chicken', 'beef', 'mince', 'lamb', 'pork', 'turkey', 'salmon', 'tuna', 'barramundi', 'fish', 'prawn']],
-  ['Dairy & Eggs', ['egg', 'yoghurt', 'yogurt', 'milk', 'cheese', 'ricotta', 'butter', 'cream']],
+  ['Produce', ['banana', 'apple', 'berr', 'berry', 'broccoli', 'spinach', 'salad', 'capsicum', 'zucchini', 'tomato', 'onion', 'garlic', 'avocado', 'cucumber', 'carrot', 'potato', 'corn', 'kale', 'mango', 'orange', 'lettuce', 'eggplant', 'kiwi', 'kiwifruit']],
+  ['Dairy & Eggs', ['egg', 'yoghurt', 'yogurt', 'milk', 'buttermilk', 'cheese', 'ricotta', 'butter', 'cream']],
   ['Bakery', ['bread', 'wrap', 'roll', 'bagel']],
   ['Frozen', ['frozen']],
   ['Supplements', ['whey', 'protein powder', 'protein bar']],
-  ['Produce', ['banana', 'apple', 'berr', 'broccoli', 'spinach', 'salad', 'capsicum', 'zucchini', 'tomato', 'onion', 'garlic', 'avocado', 'cucumber', 'carrot', 'potato', 'corn', 'kale', 'mango', 'orange', 'lettuce']],
   ['Pantry', ['oats', 'rice', 'pasta', 'quinoa', 'oil', 'peanut', 'almond', 'honey', 'sauce', 'herb', 'chia', 'tuna', 'cakes']],
 ];
 const AISLE_ORDER = ['Meat & Seafood','Produce','Dairy & Eggs','Pantry','Bakery','Frozen','Supplements','Other'];
 const AISLE_ICONS = { 'Meat & Seafood':'🥩','Produce':'🥦','Dairy & Eggs':'🥚','Pantry':'🫙','Bakery':'🍞','Frozen':'🧊','Supplements':'💊','Other':'📦' };
 
-// Nut butters, butter beans and butternut aren't dairy (D7).
-const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
 function aisleFor(name) {
-  const n = String(name).toLowerCase();
-  if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'Produce' : 'Pantry';
-  for (const [aisle, words] of AISLE_WORDS) if (words.some((w) => n.includes(w))) return aisle;
+  const special = shoppingAisle(name);
+  if (special) return special;
+  const n = String(name || '').toLowerCase();
+  // Whole words, so "egg" does not match eggplant. "berr" stays a stem inside berry and strawberry.
+  // Produce is listed before dairy, so a produce word wins over egg, milk or butter.
+  const hit = (word) => {
+    const esc = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (word === 'berr') return /berr/i.test(n);
+    return new RegExp('\\b' + esc + 's?\\b', 'i').test(n);
+  };
+  for (const [aisle, words] of AISLE_WORDS) if (words.some(hit)) return aisle;
   return 'Other';
 }
 

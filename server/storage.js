@@ -262,9 +262,24 @@ async function getProfile(userId) {
 }
 
 // Meal logging operations
+const MEAL_LOG_DEDUPE_MS = 12000;
 async function logMeal(userId, mealData) {
   await ensureUserExists(userId);
-  
+  const foodName = typeof mealData.foodName === 'string' ? mealData.foodName.trim() : '';
+  const mealType = typeof mealData.mealType === 'string' ? mealData.mealType.trim() : '';
+  const calories = Math.round(Number(mealData.calories));
+  if (foodName && Number.isFinite(calories)) {
+    const since = new Date(Date.now() - MEAL_LOG_DEDUPE_MS);
+    const [existing] = await db.select().from(schema.mealLogs).where(and(
+      eq(schema.mealLogs.userId, userId),
+      eq(schema.mealLogs.calories, calories),
+      sql`lower(${schema.mealLogs.foodName}) = lower(${foodName})`,
+      sql`lower(${schema.mealLogs.mealType}) = lower(${mealType})`,
+      gte(schema.mealLogs.createdAt, since),
+    )).orderBy(desc(schema.mealLogs.id)).limit(1);
+    if (existing) return existing;
+  }
+
   const [meal] = await db.insert(schema.mealLogs).values({
     userId,
     ...mealData,
