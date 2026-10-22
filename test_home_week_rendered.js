@@ -159,15 +159,18 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     });
     app.post('/api/user/goal-weight', (req, res) => res.json({ success: true, goalWeightKg: req.body.goalWeightKg }));
     app.post('/api/meals/log', (req, res) => {
-      db.mealLogs = db.mealLogs || [];
-      db.logHits = (db.logHits || 0) + 1;
+      // Bind this request to the db object that was current when it arrived.
+      // The next test replaces db, and a delayed reply must not count there.
+      const book = db;
+      book.mealLogs = book.mealLogs || [];
+      book.logHits = (book.logHits || 0) + 1;
       const finish = () => {
-        if (db.logMode === 'text') return res.status(500).type('text/plain').send('SECRET raw body');
-        if (db.logMode === 'json') return res.status(500).json({ success: false, error: 'SECRET raw database failure' });
-        db.mealLogs.push(req.body);
-        res.json({ success: true, meal: { id: db.mealLogs.length } });
+        if (book.logMode === 'text') return res.status(500).type('text/plain').send('SECRET raw body');
+        if (book.logMode === 'json') return res.status(500).json({ success: false, error: 'SECRET raw database failure' });
+        book.mealLogs.push(req.body);
+        res.json({ success: true, meal: { id: book.mealLogs.length } });
       };
-      if (db.logDelay) return setTimeout(finish, db.logDelay);
+      if (book.logDelay) return setTimeout(finish, book.logDelay);
       finish();
     });
     app.get('/_vercel/insights/script.js', (req, res) => { res.type('application/javascript'); res.send(''); });
@@ -884,6 +887,12 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
         b.click();
       });
       await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logging...');
+      // The button says Logging as soon as the click starts. The POST is still
+      // in flight, and this handler answers 700ms later, so count the hit
+      // before asserting. A hit that arrives after the next test replaces db
+      // would be counted there instead.
+      const hitDeadline = Date.now() + 2000;
+      while (db.logHits !== 1 && Date.now() < hitDeadline) await new Promise((r) => setTimeout(r, 20));
       expect(db.logHits).toBe(1);
       await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logged');
       expect(db.logHits).toBe(1);
@@ -971,7 +980,11 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       await p.evaluate(() => nav('meal-plans'));
       await p.waitForSelector('#mp-saved-error:not([hidden])');
       expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
-      expect(await p.textContent('#mp-saved-error')).toMatch(/Couldn't load your week, try again/);
+      expect(await p.textContent('#mp-saved-error p')).toBe("Couldn't load your saved plans, try again");
+      if (width === 390 && shots) {
+        await p.locator('#mp-saved-section').scrollIntoViewIfNeeded();
+        await p.screenshot({ path: `${shots}/saved-plans-retry-390.png` });
+      }
 
       db.mealStatus = 0;
       db.meal304 = 'always';

@@ -146,7 +146,15 @@ describe('typed allergens match ingredient names', () => {
     expect(engine.textHasTypedAllergen('Soy milk', 'soy')).toBe(true);
     expect(engine.textHasTypedAllergen('whole milk', 'milk')).toBe(true);
     expect([...safety.flagsInText('Egg free mayonnaise')]).toEqual([]);
+    expect([...safety.flagsInText('egg-free mayo')]).toEqual([]);
+    expect(dietGuard.brokenGroups('egg-free mayo', ['egg free'])).toEqual([]);
+    expect(dietGuard.brokenGroups('Egg free mayo', ['egg free'])).toEqual([]);
+    expect(safety.flagsInText('mayo').has('eggs')).toBe(true);
+    expect(safety.flagsInText('egg').has('eggs')).toBe(true);
+    expect(dietGuard.brokenGroups('mayo', ['egg free'])).toEqual(['eggs']);
+    expect(dietGuard.brokenGroups('scrambled eggs', ['egg free'])).toEqual(['eggs']);
     expect(safety.flagsInText('Egg free mayonnaise and scrambled eggs').has('eggs')).toBe(true);
+    expect(safety.flagsInText('egg-free mayo and scrambled eggs').has('eggs')).toBe(true);
     expect([...safety.flagsInText('Gluten free bread')]).toEqual([]);
     expect(safety.flagsInText('Gluten free bread and pasta').has('gluten')).toBe(true);
     expect(safety.flagsInText('Dead bug').has('shellfish')).toBe(false);

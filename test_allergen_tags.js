@@ -139,6 +139,9 @@ describe('allergensOf matches the lexicon', () => {
   };
   const rows = [
     ['egg free mayonnaise', []],
+    ['egg free mayo', []],
+    ['egg-free mayo', []],
+    ['mayo', ['eggs']],
     ['gluten free bread', []],
     ['worcestershire', ['fish', 'gluten']],
     ['chestnut', ['nuts']],

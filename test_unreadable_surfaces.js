@@ -204,8 +204,11 @@ describe('Coach and ingredient checks share one lexicon', () => {
     expect(flags('shoyus')).toEqual(['gluten', 'soy']);
     expect(flags('gluten-free soy sauce')).toEqual(['gluten', 'soy']);
     expect(flags('gluten free soy sauce')).toEqual(['gluten', 'soy']);
-    expect(flags('egg-free mayo')).toContain('eggs');
-    expect(flags('egg free mayo')).toContain('eggs');
+    expect(flags('egg-free mayo')).toEqual([]);
+    expect(flags('egg free mayo')).toEqual([]);
+    expect(flags('mayo')).toContain('eggs');
+    expect(flags('egg')).toContain('eggs');
+    expect(flags('mayonnaise')).toContain('eggs');
     expect(flags('egg free mayonnaise')).toEqual([]);
     expect(mainLex.scan('fillet', { near: false }).flags.has('nuts')).toBe(false);
   });
