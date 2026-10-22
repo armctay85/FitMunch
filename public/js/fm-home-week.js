@@ -419,7 +419,10 @@
     const raw = Math.round(Number(todayCalories));
     const eaten = Number.isFinite(raw) && raw > 0 ? raw : 0;
     if (!Number.isFinite(t) || t <= 0) return null;
-    const pct = Math.max(0, Math.min(100, Math.round((eaten / t) * 100)));
+    // Round, then hold at 99 until the target is actually reached. 1,858 of 1,860
+    // would otherwise round to a full bar while 2 kcal are still left.
+    let pct = Math.max(0, Math.min(100, Math.round((eaten / t) * 100)));
+    if (eaten < t) pct = Math.min(99, pct);
     const left = t - eaten;
     return {
       pct,
@@ -442,9 +445,14 @@
     return null;
   }
 
-  /** The onboarding row to update, so a second pass does not add another "Your first week". */
+  /** The onboarding row to update, so a second pass does not add another "Your first week".
+   * A row the user has edited is left alone. Onboarding then saves a new plan. */
   function onboardingPlanId(plans) {
-    const row = (Array.isArray(plans) ? plans : []).find((p) => p && p.name === 'Your first week' && p.id != null && p.id !== '');
+    const row = (Array.isArray(plans) ? plans : []).find((p) => {
+      if (!p || p.name !== 'Your first week' || p.id == null || p.id === '') return false;
+      if (p.user_edited === true || p.userEdited === true) return false;
+      return true;
+    });
     return row ? row.id : null;
   }
 

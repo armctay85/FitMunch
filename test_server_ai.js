@@ -158,6 +158,43 @@ describe('AI routes', () => {
     aiClient.providerName.mockReturnValue('openai');
   });
 
+  it('GET /api/ai/usage fails closed for free when the counter cannot be read, and premium still answers', async () => {
+    const aiUsage = require('./lib/ai-usage');
+    const storage = require('./server/storage.js');
+    aiUsage.getUsed.mockResolvedValueOnce(null);
+    const free = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${token}`);
+    expect(free.status).toBe(503);
+    expect(free.body.error).toBe("We couldn't check your AI usage. Please try again.");
+    expect(free.headers['retry-after']).toBe('3');
+    storage.getUserById.mockResolvedValueOnce({
+      id: 'u-test', name: 'Tester', email: 't@example.com', subscriptionTier: 'premium', settings: { aiDataConsent: true },
+    });
+    aiUsage.getUsed.mockResolvedValueOnce(null);
+    const paid = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${token}`);
+    expect(paid.status).toBe(200);
+    expect(paid.body.success).toBe(true);
+    expect(paid.body.tier).toBe('premium');
+    expect(paid.body.used).toBe(0);
+    expect(paid.body.remaining).toBeNull();
+    aiUsage.getUsed.mockResolvedValue(0);
+  });
+
+  it('progress and meal logs reject impossible dates and keep a real date', async () => {
+    const storage = require('./server/storage.js');
+    storage.logProgress.mockResolvedValue({ id: 1 });
+    storage.logMeal.mockResolvedValue({ id: 2 });
+    const progressBad = await request(app).post('/api/progress/log').set('Authorization', `Bearer ${token}`).send({ weight: 80, date: '2026-02-30T00:00:00Z' });
+    expect(progressBad.status).toBe(400);
+    expect(storage.logProgress).not.toHaveBeenCalled();
+    const mealBad = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send({ name: 'Oats', calories: 300, date: '0000-01-01T00:00:00Z' });
+    expect(mealBad.status).toBe(400);
+    expect(storage.logMeal).not.toHaveBeenCalled();
+    const mealFar = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send({ foodName: 'Oats', calories: 300, date: '9999-12-31T00:00:00Z' });
+    expect(mealFar.status).toBe(200);
+    const progressOk = await request(app).post('/api/progress/log').set('Authorization', `Bearer ${token}`).send({ weight: 80, date: new Date().toISOString() });
+    expect(progressOk.status).toBe(200);
+  });
+
   it('POST /api/ai/workout-plan generates a structured program', async () => {
     const r = await request(app)
       .post('/api/ai/workout-plan')
@@ -345,6 +382,24 @@ describe('AI routes', () => {
       .set('Authorization', `Bearer ${token}`));
   });
 
+  it('POST /api/meals/log rejects 2026-02-30, 0000-01-01 and not-a-date before the name check', async () => {
+    const storage = require('./server/storage.js');
+    storage.logMeal.mockClear();
+    for (const date of ['2026-02-30', '0000-01-01', 'not-a-date']) {
+      const r = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send({
+        foodName: '', calories: -1, date,
+      });
+      expect(r.status).toBe(400);
+      expect(r.body).toEqual({ success: false, error: 'Date is not valid.' });
+    }
+    const cals = await request(app).post('/api/meals/log').set('Authorization', `Bearer ${token}`).send({
+      foodName: 'Oats', calories: -1, date: new Date().toISOString(),
+    });
+    expect(cals.status).toBe(400);
+    expect(cals.body.error).toMatch(/Calories/);
+    expect(storage.logMeal).not.toHaveBeenCalled();
+  });
+
   it('POST /api/meals/log returns 400 for a bad name or calories and does not store them', async () => {
     const storage = require('./server/storage.js');
     const api = require('./api_server');
@@ -393,6 +448,7 @@ describe('AI routes', () => {
     aiClient.chatJson.mockClear();
     const r = await request(app).get('/api/ai/weekly-review').set('Authorization', `Bearer ${token}`);
     expect(r.status).toBe(503);
+    expect(r.headers['retry-after']).toBe('3');
     expect(r.body.error).toBe("We couldn't load your meal log. Please try again.");
     expect(r.body.review).toBeUndefined();
     expect(aiClient.chatJson).not.toHaveBeenCalled();

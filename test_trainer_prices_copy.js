@@ -38,9 +38,18 @@ describe('trainer Billing', () => {
   const billing = app.slice(app.indexOf('id="view-billing"'), app.indexOf('<!-- ══ HOME'));
   test('no store names in the planner lines', () => {
     const lines = app.split('\n').filter((l) => /about a minute/.test(l));
-    // Static empty state, plus the same sentence painted only after a successful empty load.
-    expect(lines).toHaveLength(3);
+    // Generator timing line, plus the empty-state sentence shipped hidden (one copy, not a second painted sentence).
+    expect(lines).toHaveLength(2);
     for (const l of lines) expect(l).not.toMatch(/Woolies|Coles|Woolworths/i);
+    const meal = app.slice(app.indexOf('id="home-mealplan"'), app.indexOf('My Workout Plan'));
+    expect(meal).toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
+    expect(meal).toMatch(/id="home-plan-empty"[^>]*\bhidden\b/);
+    expect(app).toMatch(/\.home-plan-empty\[hidden\]\{display:none!important\}/);
+    const paint = app.slice(app.indexOf('function paintHomeMealCard('), app.indexOf('async function readMealPlans('));
+    expect(paint).not.toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
+    expect(paint).toContain('empty.hidden = true');
+    expect(paint.indexOf('empty.hidden = false')).toBeGreaterThan(paint.indexOf("kind === 'error'"));
+    expect(paint.indexOf('empty.hidden = false')).toBeGreaterThan(paint.indexOf("kind === 'loading'"));
   });
   test('no checkout for retired pt-* plans', () => {
     expect(app).not.toMatch(/startCheckout\(\s*['"]pt-/);

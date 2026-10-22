@@ -61,23 +61,38 @@ function sendError(res, err) {
   res.status(status).json(body);
 }
 
-function requirePt(req, res, next) {
+const COACH_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function requirePt(req, res, next) {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, error: 'Unauthorised' });
   }
+  let user;
   try {
-    const user = require('./lib/session-token').verifySessionToken(header.slice(7), jwtSecret());
-    if (user.preview && !store.previewEnabled()) {
-      return res.status(401).json({ success: false, error: 'Unauthorised' });
-    }
-    if (user.role !== 'pt') {
+    user = require('./lib/session-token').verifySessionToken(header.slice(7), jwtSecret());
+  } catch (_) {
+    return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+  }
+  // users.id is a UUID. A non-uuid claim would throw 22P02 and become a 500.
+  if (!user || typeof user.userId !== 'string' || !COACH_USER_ID.test(user.userId)) {
+    return res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+  if (user.preview) {
+    if (!store.previewEnabled()) return res.status(401).json({ success: false, error: 'Unauthorised' });
+    if (user.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer account required.' });
+    req.user = user;
+    return next();
+  }
+  try {
+    const role = await store.userRole(user.userId);
+    if (role !== 'pt') {
       return res.status(403).json({ success: false, error: 'Trainer account required.' });
     }
     req.user = user;
-    next();
-  } catch (_) {
-    return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    return next();
+  } catch (err) {
+    return sendError(res, err);
   }
 }
 

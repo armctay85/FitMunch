@@ -83,6 +83,8 @@ describe('calorie tile and load states', () => {
     expect(hw.formatCount(0)).toBe('0');
     expect(hw.calorieTile(1858, 1860)).toEqual({ value: '1,858 of 1,860', label: 'average' });
     expect(hw.calorieProgress(1240, 1860)).toEqual({ pct: 67, over: false, eaten: 1240, target: 1860, value: '1,240 of 1,860', remaining: '620 kcal left' });
+    expect(hw.calorieProgress(1858, 1860)).toMatchObject({ pct: 99, over: false, eaten: 1858, target: 1860, remaining: '2 kcal left' });
+    expect(hw.calorieProgress(1860, 1860)).toMatchObject({ pct: 100, over: false, remaining: '0 kcal left' });
     expect(hw.calorieProgress(0, 1860)).toEqual({ pct: 0, over: false, eaten: 0, target: 1860, value: '0 of 1,860', remaining: '1,860 kcal left' });
     expect(hw.calorieProgress(2400, 1860)).toMatchObject({ pct: 100, over: true, eaten: 2400, target: 1860, remaining: '540 kcal over' });
     expect(hw.calorieProgress(2000, 1860).remaining).toBe('140 kcal over');
@@ -159,6 +161,8 @@ describe('calorie tile and load states', () => {
     expect(hw.onboardingPlanId([{ id: 1, name: 'Your first week, 15 Oct' }])).toBeNull();
     expect(hw.onboardingPlanId([])).toBeNull();
     expect(hw.onboardingPlanId(null)).toBeNull();
+    expect(hw.onboardingPlanId([{ id: 9, name: 'Your first week', user_edited: true }, { id: 11, name: 'Your first week' }])).toBe(11);
+    expect(hw.onboardingPlanId([{ id: 9, name: 'Your first week', userEdited: true }])).toBeNull();
   });
 });
 
@@ -205,7 +209,15 @@ describe('app wiring', () => {
     expect(l).toContain("paintHomeMealCard('error')");
     expect(l).toContain("paintHomeMealCard('empty')");
     expect(fn('paintHomeMealCard')).toContain("Couldn't load your week, try again");
-    expect(fn('paintHomeMealCard')).toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
+    const paint = fn('paintHomeMealCard');
+    expect(paint).toContain('empty.hidden = true');
+    expect(paint).toContain('empty.remove()');
+    expect(paint.indexOf('empty.hidden = false')).toBeGreaterThan(paint.indexOf("kind === 'error'"));
+    expect(paint).not.toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
+    const mealCard = html.slice(html.indexOf('id="home-mealplan"'), html.indexOf('My Workout Plan'));
+    expect(mealCard).toMatch(/id="home-plan-empty"[^>]*\bhidden\b/);
+    expect(html).toMatch(/\.home-plan-empty\[hidden\]\{display:none!important\}/);
+    expect(mealCard).toContain('No plan yet. Generate an Aussie supermarket week in up to about a minute.');
     expect(fn('renderPortalPlan')).toContain('FMHomeWeek.pickListedPlan');
     expect(fn('renderPortalPlan')).toContain('readMealPlans');
     const portal = fn('renderPortalPlan');
@@ -228,6 +240,12 @@ describe('app wiring', () => {
     expect(s).toContain("method:'PUT'");
     expect(s).toContain("API('/meal-plans', { method:'POST'");
   });
+  it('editing a plan marks it so a later onboarding pass does not overwrite it', () => {
+    expect(fn('saveEditedMealPlan')).toContain('userEdited: true');
+    const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');
+    expect(src).toContain('user_edited');
+    expect(src).toContain('userEdited');
+  });
   it('the served helper has no banned words', () => {
     const src = fs.readFileSync(path.join(__dirname, 'public', 'js', 'fm-home-week.js'), 'utf8');
     expect(src).not.toMatch(/Pty Ltd|inc\. GST|Grok|OpenClaw|MRR|\bdesk\b|\bagent\b|woolworths|coles|aldi|iga\b/i);
@@ -239,7 +257,7 @@ describe('app wiring', () => {
     const body = src.slice(i, src.indexOf("\nrouter.get('/meal-plans'", i));
     expect(body).toContain('out.push({ meal, contains })');
     expect(body).toContain('unchecked: true, note: UNCHECKED_NOTE');
-    expect(body).toContain('notice: dg.UNREADABLE_NOTICE');
+    expect(body).toContain('notice: dg.unreadableNotice(filters.pastBudget)');
     expect(body).not.toMatch(/\bmessage\s*:/);
     const get = src.slice(src.indexOf("router.get('/meal-plans'"), src.indexOf("router.get('/meal-plans'") + 500);
     expect(get).toContain("res.set('Cache-Control', 'no-store')");
@@ -321,6 +339,19 @@ describe('saved plan meals, both shapes', () => {
     expect(html).not.toMatch(/\.meals\.flatMap/);
     expect(fn('savedPlanMealsHtml')).toContain('FMHomeWeek.flattenPlanMeals');
     expect(fn('loadMealPlans')).toContain('savedPlanMealsHtml(p)');
+    const listed = fn('loadMealPlans');
+    expect(listed).toContain('await readMealPlans()');
+    expect(listed).toContain("parsed.kind === 'error'");
+    expect(listed).toContain("getElementById('mp-saved-empty')");
+    expect(listed).toContain("getElementById('mp-saved-error')");
+    expect(listed.indexOf('empty.hidden = false')).toBeGreaterThan(listed.indexOf("parsed.kind === 'error'"));
+    expect(listed).not.toMatch(/S\.mealPlans = r\.plans \|\| \[\]/);
+    expect(listed).not.toMatch(/if \(!S\.mealPlans\.length\) \{ if \(section\) section\.style\.display = 'none'/);
+    expect(html).toContain('id="mp-saved-error" class="home-plan-empty" hidden');
+    expect(html).toContain('id="mp-saved-retry" onclick="loadMealPlans()">Try again</button>');
+    expect(html).toContain('id="mp-saved-empty" class="home-plan-empty" hidden');
+    expect(html).toContain('>No saved plans yet.</p>');
+    expect(html).toContain('id="mp-saved-generate" onclick="generateMealPlan()">Generate</button>');
     expect(fn('openEditMealPlan')).toContain('FMHomeWeek.editMealRows');
     expect(fn('saveEditedMealPlan')).toContain('FMHomeWeek.applyMealEdits');
     expect(fn('saveEditedMealPlan')).toContain('FMHomeWeek.planMacros');
