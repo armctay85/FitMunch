@@ -30,6 +30,8 @@ const generic = {
   plans: [plan], mealPlans: [plan], workoutPlans: [],
   clients: [{ id: 3, client_id: 3, name: 'Alex Chen', email: 'alex@example.com', status: 'active', phase: 'cut' }],
   logs: [],
+  recentMeals: [],
+  recentWorkouts: [],
 };
 const VIEWS = {
   client: ['portal-home', 'ai-coach', 'portal-meals', 'portal-workouts', 'portal-plan', 'portal-progress', 'portal-shopping', 'receipt-scanner', 'meal-plans', 'shopping-lists', 'billing'],

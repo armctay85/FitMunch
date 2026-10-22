@@ -396,6 +396,44 @@
    * The calorie tile: the week's average against the saved goal ("1,858 of 1,860"), labelled as an average.
    * Target only (no meals to average) keeps the plain daily goal.
    */
+  /**
+   * Today's meals against the daily calorie target: a 0-100 fill and the kcal still left.
+   * No target means no bar.
+   */
+  /** Meals whose local calendar day is `now`, the same filter as the home calorie metric. */
+  function loggedTodayMeals(meals, now) {
+    const day = (now || new Date()).toDateString();
+    return (Array.isArray(meals) ? meals : []).filter((m) => {
+      if (!m || m.date == null) return false;
+      const dt = new Date(m.date);
+      return !Number.isNaN(dt.getTime()) && dt.toDateString() === day;
+    });
+  }
+
+  function loggedTodayKcal(meals, now) {
+    return loggedTodayMeals(meals, now).reduce((s, m) => s + (Number(m.calories) || 0), 0);
+  }
+
+  function calorieProgress(todayCalories, target) {
+    const t = Math.round(Number(target));
+    const raw = Math.round(Number(todayCalories));
+    const eaten = Number.isFinite(raw) && raw > 0 ? raw : 0;
+    if (!Number.isFinite(t) || t <= 0) return null;
+    // Round, then hold at 99 until the target is actually reached. 1,858 of 1,860
+    // would otherwise round to a full bar while 2 kcal are still left.
+    let pct = Math.max(0, Math.min(100, Math.round((eaten / t) * 100)));
+    if (eaten < t) pct = Math.min(99, pct);
+    const left = t - eaten;
+    return {
+      pct,
+      over: left < 0,
+      eaten,
+      target: t,
+      value: formatCount(eaten) + ' of ' + formatCount(t),
+      remaining: left >= 0 ? formatCount(left) + ' kcal left' : formatCount(-left) + ' kcal over',
+    };
+  }
+
   function calorieTile(average, target) {
     const a = Math.round(Number(average));
     const t = Math.round(Number(target));
@@ -569,7 +607,7 @@
     return { notice: base.notice, notes: base.notes, lines, shown, more, text };
   }
 
-  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, onboardingPlanId, loadFailure, plansFromResponse };
+  const api = { planDays, todayIndex, dayTotals, targets, summary, pickListedPlan, warnings, allergenPreview, flattenPlanMeals, editMealRows, applyMealEdits, planMacros, formatCount, calorieTile, calorieProgress, loggedTodayMeals, loggedTodayKcal, onboardingPlanId, loadFailure, plansFromResponse };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.FMHomeWeek = api;
 }(typeof self !== 'undefined' ? self : this));
