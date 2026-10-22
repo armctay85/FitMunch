@@ -22,6 +22,13 @@ function mediaBlock(query) {
 describe('signed-in app at 390px (no horizontal overflow)', () => {
   const phone = mediaBlock('max-width: 767px');
 
+  it('keeps the #178 receipt scan macro colours', () => {
+    expect(html).toMatch(/color:#1d4ed8" id="scan-carbs"/);
+    expect(html).toMatch(/color:#b45309" id="scan-fat"/);
+    expect(html).not.toMatch(/color:#3b82f6" id="scan-carbs"/);
+    expect(html).not.toMatch(/color:#f59e0b" id="scan-fat"/);
+  });
+
   it('shows the bottom nav and hides the sidebar on phones', () => {
     expect(phone).toMatch(/\.mobile-nav\{display:block\}/);
     expect(phone).toMatch(/\.sidebar\{display:none!important\}/);

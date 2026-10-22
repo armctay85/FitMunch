@@ -741,7 +741,11 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       await p.evaluate(() => nav('meal-plans'));
       await p.waitForSelector('#mp-saved-error:not([hidden])');
       expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
-      expect(await p.textContent('#mp-saved-error')).toMatch(/Couldn't load your week, try again/);
+      expect(await p.textContent('#mp-saved-error p')).toBe("Couldn't load your saved plans, try again");
+      if (width === 390 && shots) {
+        await p.locator('#mp-saved-section').scrollIntoViewIfNeeded();
+        await p.screenshot({ path: `${shots}/saved-plans-retry-390.png` });
+      }
 
       db.mealStatus = 0;
       db.meal304 = 'always';

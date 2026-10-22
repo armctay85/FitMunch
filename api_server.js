@@ -238,7 +238,11 @@ router.post('/workouts/log', authMiddleware, async (req, res) => {
       notes: b.notes != null ? String(b.notes) : null,
       rating: b.rating != null ? parseInt(b.rating, 10) || null : null,
     };
-    if (b.date) workoutData.date = new Date(b.date);
+    // Same calendar check as meals: Date.parse rolls 2026-02-30 forward, and Postgres then 500s.
+    if (b.date) {
+      if (!isRealIsoDate(b.date)) return res.status(400).json({ success: false, error: 'Date is not valid.' });
+      workoutData.date = new Date(b.date);
+    }
     const workout = await logWorkout(req.user.userId, workoutData);
     res.json({ success: true, workout });
   } catch (error) {

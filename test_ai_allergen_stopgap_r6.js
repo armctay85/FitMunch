@@ -131,6 +131,38 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
     expect(blankStopped).not.toContain('peanut');
   });
 
+  it('listOf and past-budget detection do not depend on jsonb key order', () => {
+    const safety = require('./lib/meal-safety');
+    const long = (i) => `k${String(i).padStart(4, '0')}${'x'.repeat(80)}`;
+    const pairs = [['peanut', true], ...Array.from({ length: 300 }, (_, i) => [long(i), true])];
+    const forward = Object.fromEntries(pairs);
+    const backward = Object.fromEntries(pairs.slice().reverse());
+    expect(dietGuard.listOf(forward)).toEqual(dietGuard.listOf(backward));
+    expect(dietGuard.listOf(forward)).toContain(dietGuard.UNREADABLE);
+    const a = safety.profileFilters({ allergies: forward });
+    const b = safety.profileFilters({ allergies: backward });
+    expect(a.pastBudget).toBe(true);
+    expect(b.pastBudget).toBe(true);
+    expect(a.allergies).toEqual(b.allergies);
+    const jsonForward = JSON.stringify(forward);
+    const jsonBackward = JSON.stringify(backward);
+    expect(jsonForward).not.toBe(jsonBackward);
+    expect(dietGuard.listOf(jsonForward)).toEqual(dietGuard.listOf(jsonBackward));
+    expect(safety.profileFilters({ allergies: jsonForward }).pastBudget)
+      .toBe(safety.profileFilters({ allergies: jsonBackward }).pastBudget);
+    const smallA = { zucchini: true, apple: true, mango: false };
+    const smallB = { mango: false, apple: true, zucchini: true };
+    expect(dietGuard.listOf(smallA)).toEqual(['apple', 'zucchini']);
+    expect(dietGuard.listOf(smallB)).toEqual(dietGuard.listOf(smallA));
+    expect(safety.profileFilters({ allergies: smallA }).pastBudget).toBeUndefined();
+    expect(safety.profileFilters({ allergies: smallB }).pastBudget).toBeUndefined();
+    const nestedA = { peanut: { severe: true }, vegan: true };
+    const nestedB = { vegan: true, peanut: { severe: true } };
+    expect(dietGuard.listOf(nestedA)).toEqual(dietGuard.listOf(nestedB));
+    expect(safety.profileFilters({ allergies: nestedA }).pastBudget)
+      .toBe(safety.profileFilters({ allergies: nestedB }).pastBudget);
+  });
+
   it('listOf keeps every item within the character budget, and fails closed past it', () => {
     const list = new Array(60).fill('vegan');
     list[55] = 'peanut';

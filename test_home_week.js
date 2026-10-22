@@ -304,6 +304,7 @@ describe('saved plan meals, both shapes', () => {
     expect(listed).not.toMatch(/S\.mealPlans = r\.plans \|\| \[\]/);
     expect(listed).not.toMatch(/if \(!S\.mealPlans\.length\) \{ if \(section\) section\.style\.display = 'none'/);
     expect(html).toContain('id="mp-saved-error" class="home-plan-empty" hidden');
+    expect(html).toContain(">Couldn't load your saved plans, try again</p>");
     expect(html).toContain('id="mp-saved-retry" onclick="loadMealPlans()">Try again</button>');
     expect(html).toContain('id="mp-saved-empty" class="home-plan-empty" hidden');
     expect(html).toContain('>No saved plans yet.</p>');

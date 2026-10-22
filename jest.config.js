@@ -102,6 +102,7 @@ module.exports = {
     '**/test_ai_error_shoulds.js',
     '**/test_prod_smoke.js',
     '**/test_server_ai.js',
+    '**/test_workout_log_date.js',
     '**/test_reset_token_leak.js',
     '**/test_guest_claim_r4.js',
     '**/test_guest_claim_r5.js',
