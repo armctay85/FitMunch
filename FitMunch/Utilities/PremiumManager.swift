@@ -175,6 +175,13 @@ class PremiumManager: ObservableObject {
 
     /// Loading, one backoff retry, then the error phase. Safe to call again from Retry.
     func loadPaywallPlans() async {
+        if PaywallLaunchArgument.isForceEmpty {
+            paywallPlans = []
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            lastPlanFetchSummary = "loaded=none"
+            paywallPhase = .failed
+            return
+        }
         if paywallPlans.isEmpty {
             paywallPhase = .loading
         }
@@ -208,9 +215,7 @@ class PremiumManager: ObservableObject {
         planHandles = [:]
 
         if PaywallLaunchArgument.isForceEmpty {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard fetchToken == token else { return [] }
-            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             noteFetch([])
             return []
         }
@@ -249,6 +254,13 @@ class PremiumManager: ObservableObject {
     }
 
     private func noteFetch(_ plans: [PaywallPlan]) {
+        if PaywallLaunchArgument.isForceEmpty {
+            paywallPlans = []
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            lastPlanFetchSummary = "loaded=none"
+            paywallPhase = .failed
+            return
+        }
         paywallPlans = plans
         if plans.isEmpty {
             lastPlanFetchSummary = "loaded=none"

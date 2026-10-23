@@ -196,7 +196,9 @@ struct ReceiptScanView: View {
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Allow in Privacy") {
-                NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+                }
             }
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("scan-open-privacy")

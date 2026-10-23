@@ -37,20 +37,23 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         shot(app, "coach-blocked")
         allow.tap()
         let me = app.tabBars.buttons["Me"]
-        let more = element("me-privacy-more", in: app)
+        XCTAssertTrue(me.waitForExistence(timeout: 8))
         let deadline = Date().addingTimeInterval(8)
-        var switched = false
-        while Date() < deadline {
-            if me.isSelected || more.exists || app.navigationBars["Me"].exists {
-                switched = true
-                break
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        while Date() < deadline && !me.isSelected {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
-        XCTAssertTrue(switched, "Allow in Privacy did not open Me")
+        XCTAssertTrue(me.isSelected, "Allow in Privacy did not open Me")
+        let more = element("me-privacy-more", in: app)
         if !more.waitForExistence(timeout: 3) {
-            for _ in 0..<6 where !more.exists {
-                app.swipeUp()
+            let scrollers = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex
+            let list = scrollers.last(where: { $0.isHittable })
+            for _ in 0..<8 {
+                if more.exists { break }
+                if let list {
+                    list.swipeUp()
+                } else {
+                    app.swipeUp()
+                }
             }
         }
         XCTAssertTrue(more.waitForExistence(timeout: 6))

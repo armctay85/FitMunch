@@ -122,9 +122,18 @@ jobs:
             return "$rc"
           }
 
-          run_tests "440pt" "$WIDE_UDID" "width-440"
-          run_tests "375pt" "$NARROW_UDID" "width-375"
-          python3 scripts/check-width-screenshots.py artifacts/width-capture/screens
+          # A 440 failure must not skip 375. Both captures and the checker run,
+          # then the step fails if any of them failed.
+          rc_wide=0
+          rc_narrow=0
+          rc_check=0
+          run_tests "440pt" "$WIDE_UDID" "width-440" || rc_wide=$?
+          run_tests "375pt" "$NARROW_UDID" "width-375" || rc_narrow=$?
+          python3 scripts/check-width-screenshots.py artifacts/width-capture/screens || rc_check=$?
+          echo "width-440=$rc_wide width-375=$rc_narrow check=$rc_check" | tee -a artifacts/width-capture/destinations.txt
+          if [[ "$rc_wide" -ne 0 || "$rc_narrow" -ne 0 || "$rc_check" -ne 0 ]]; then
+            exit 1
+          fi
 
       - name: Upload width screenshots
         if: always()

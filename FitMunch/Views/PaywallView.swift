@@ -195,16 +195,12 @@ struct PaywallView: View {
             Button("Retry") {
                 Task { await loadPlansWithRetry() }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(PaywallChoiceButtonStyle())
             .accessibilityIdentifier("paywall-retry")
-            Button {
+            Button("Restore Purchases") {
                 Task { await restore() }
-            } label: {
-                Text("Restore Purchases")
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(PaywallChoiceButtonStyle())
             .accessibilityIdentifier("paywall-restore-inline")
         }
         .accessibilityIdentifier("paywall-error-state")
@@ -500,6 +496,22 @@ private struct PackageCard: View {
             }
         }
         return parts.joined(separator: ". ")
+    }
+}
+
+/// Bordered system style hides its accessibility identifier on iOS 26.
+/// Same two pills: Retry and Restore, 44pt tall, brand green label.
+private struct PaywallChoiceButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Theme.brandGreen)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.horizontal, 12)
+            .background(Capsule(style: .continuous).fill(Color(.secondarySystemBackground)))
+            .overlay(Capsule(style: .continuous).stroke(Theme.brandGreen.opacity(0.45), lineWidth: 1))
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 

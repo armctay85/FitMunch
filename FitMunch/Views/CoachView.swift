@@ -190,13 +190,11 @@ struct CoachView: View {
                 .font(.subheadline)
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Allow in Privacy") {
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
-                }
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("coach-open-privacy")
+                .accessibilityIdentifier("coach-consent-blocked")
+            Button("Allow in Privacy", action: openPrivacy)
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("coach-open-privacy")
+                .accessibilityAction(.default, openPrivacy)
         }
         .padding(Theme.Spacing.four)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,8 +202,12 @@ struct CoachView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
         .padding(.horizontal, Theme.Spacing.four)
         .padding(.bottom, Theme.Spacing.two)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("coach-consent-blocked")
+    }
+
+    private func openPrivacy() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+        }
     }
 
     private var emptyState: some View {
