@@ -26,8 +26,12 @@ struct ContentView: View {
             mainTabs
                 .tint(Theme.brandGreen)
                 .onReceive(NotificationCenter.default.publisher(for: .fitMunchOpenPrivacy)) { _ in
-                    selectedTab = .me
-                    privacyRequest += 1
+                    // A tab switch posted from the Coach button is dropped in the
+                    // same turn. Apply it on the next run loop so Me actually opens.
+                    DispatchQueue.main.async {
+                        selectedTab = .me
+                        privacyRequest += 1
+                    }
                 }
                 .onAppear {
                     ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)

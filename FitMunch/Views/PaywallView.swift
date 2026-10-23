@@ -197,12 +197,14 @@ struct PaywallView: View {
             }
             .buttonStyle(.bordered)
             .accessibilityIdentifier("paywall-retry")
-            Button("Restore Purchases") {
+            Button {
                 Task { await restore() }
+            } label: {
+                Text("Restore Purchases")
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.bordered)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
             .accessibilityIdentifier("paywall-restore-inline")
         }
         .accessibilityIdentifier("paywall-error-state")

@@ -14,6 +14,7 @@ enum AuditLaunch {
     static let todayError = "-AuditTodayError"
     static let todayEmpty = "-AuditTodayEmpty"
     static let coachLoading = "-AuditCoachLoading"
+    static let authError = "-AuditAuthError"
 
     static var isOnboarding: Bool { flag(onboarding) }
     static var isConsentPrompt: Bool { flag(consentPrompt) }
@@ -26,6 +27,7 @@ enum AuditLaunch {
     static var isTodayError: Bool { flag(todayError) }
     static var isTodayEmpty: Bool { flag(todayEmpty) }
     static var isCoachLoading: Bool { flag(coachLoading) }
+    static var isAuthError: Bool { flag(authError) }
 
     private static func flag(_ name: String) -> Bool {
         #if DEBUG

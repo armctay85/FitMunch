@@ -3,7 +3,7 @@ import XCTest
 /// Changed build 11 screens at 375pt and 440pt widths.
 final class Batch2WidthCaptureUITests: XCTestCase {
     override func setUpWithError() throws {
-        continueAfterFailure = true
+        continueAfterFailure = false
     }
 
     func testTodayEmptyOffline() {
@@ -36,9 +36,28 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(allow.waitForExistence(timeout: 8))
         shot(app, "coach-blocked")
         allow.tap()
-        let more = app.buttons["me-privacy-more"]
-        XCTAssertTrue(more.waitForExistence(timeout: 8))
+        let me = app.tabBars.buttons["Me"]
+        let more = element("me-privacy-more", in: app)
+        let deadline = Date().addingTimeInterval(8)
+        var switched = false
+        while Date() < deadline {
+            if me.isSelected || more.exists || app.navigationBars["Me"].exists {
+                switched = true
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(switched, "Allow in Privacy did not open Me")
+        if !more.waitForExistence(timeout: 3) {
+            for _ in 0..<6 where !more.exists {
+                app.swipeUp()
+            }
+        }
+        XCTAssertTrue(more.waitForExistence(timeout: 6))
         let detail = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'The server keeps at most 20'")).firstMatch
+        if !detail.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
         XCTAssertTrue(detail.waitForExistence(timeout: 4))
         shot(app, "me-privacy")
         app.terminate()
@@ -79,9 +98,30 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let upgrade = app.buttons["settings-upgrade"]
         XCTAssertTrue(upgrade.waitForExistence(timeout: 12))
         upgrade.tap()
-        let restore = app.buttons["paywall-restore-inline"]
-        XCTAssertTrue(restore.waitForExistence(timeout: 20))
+        let restore = element("paywall-restore-inline", in: app)
+        XCTAssertTrue(restore.waitForExistence(timeout: 25))
+        var hops = 0
+        while !restore.isHittable && hops < 5 {
+            app.swipeUp()
+            hops += 1
+        }
+        XCTAssertTrue(restore.isHittable)
         shot(app, "paywall-restore")
+        app.terminate()
+    }
+
+    func testAuthErrorAX5() {
+        let app = launch([
+            "-AuditAuthError",
+            "-ForceLightMode",
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryAccessibilityXXXL",
+        ])
+        let error = element("auth-error", in: app)
+        XCTAssertTrue(error.waitForExistence(timeout: 12))
+        let copy = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'invalid'")).firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 4))
+        shot(app, "auth-error-ax5")
         app.terminate()
     }
 
@@ -90,6 +130,10 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         app.launchArguments = arguments
         app.launch()
         return app
+    }
+
+    private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)[identifier]
     }
 
     private func showTab(_ name: String, in app: XCUIApplication) {

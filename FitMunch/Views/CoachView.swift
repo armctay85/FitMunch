@@ -191,7 +191,9 @@ struct CoachView: View {
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Allow in Privacy") {
-                NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
+                }
             }
             .buttonStyle(PrimaryButtonStyle())
             .accessibilityIdentifier("coach-open-privacy")

@@ -3,7 +3,7 @@ import SwiftUI
 /// Sign in / create account. Same accounts as fitmunch.com.au.
 struct AuthView: View {
     @EnvironmentObject private var auth: AuthManager
-    @State private var mode: Mode = .register
+    @State private var mode: Mode = AuditLaunch.isAuthError ? .login : .register
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -98,6 +98,11 @@ struct AuthView: View {
                 }
             }
             .scrollClearsTabBar()
+            .onAppear {
+                guard auth.errorMessage != nil else { return }
+                focused = .password
+                proxy.scrollTo("auth-error", anchor: .center)
+            }
             .onChange(of: auth.errorMessage) { _, message in
                 guard message != nil else { return }
                 focused = mode == .login ? .password : .email

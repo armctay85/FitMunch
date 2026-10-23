@@ -19,6 +19,12 @@ final class AuthManager: ObservableObject {
     }
 
     private init() {
+        if AuditLaunch.isAuthError {
+            isAuthenticated = false
+            isRestoring = false
+            errorMessage = "Invalid email or password."
+            return
+        }
         if ScreenshotLaunch.isActive {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
@@ -63,6 +69,15 @@ final class AuthManager: ObservableObject {
 
     /// Restore the session on launch.
     func bootstrap() async {
+        if AuditLaunch.isAuthError {
+            KeychainStore.token = nil
+            isAuthenticated = false
+            isRestoring = false
+            if errorMessage == nil {
+                errorMessage = "Invalid email or password."
+            }
+            return
+        }
         if ScreenshotLaunch.isActive || ReviewLaunch.isActive || AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
             isRestoring = false
             isAuthenticated = true

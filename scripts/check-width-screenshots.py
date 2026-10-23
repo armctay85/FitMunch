@@ -20,6 +20,7 @@ REQUIRED = [
     "onboarding-goals.png",
     "onboarding-plan.png",
     "paywall-restore.png",
+    "auth-error-ax5.png",
 ]
 
 
