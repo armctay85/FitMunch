@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var exportCSV: String?
     @State private var exportError: String?
     @State private var privacyExpanded = false
+    @State private var privacyRefresh = 0
     @ObservedObject private var premium = PremiumManager.shared
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
@@ -168,11 +169,9 @@ struct SettingsView: View {
                     Button(privacyExpanded || privacyRequest > 0 ? "Show less" : "Read more") {
                         privacyExpanded.toggle()
                     }
-                    .buttonStyle(.borderless)
                     .accessibilityIdentifier("me-privacy-more")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.brandGreen)
-                    .frame(minHeight: 44, alignment: .leading)
+                    .accessibilityAddTraits(.isButton)
+                    .id(privacyRefresh)
                 } header: {
                     Text("Privacy")
                 } footer: {
@@ -286,10 +285,16 @@ struct SettingsView: View {
             .floatingTabBarInset()
             .onAppear {
                 viewModel.loadPreferences()
-                revealPrivacy(proxy)
+                if privacyRequest > 0 {
+                    expandPrivacy(proxy)
+                }
             }
-            .onChange(of: privacyRequest, initial: true) { _, _ in
-                revealPrivacy(proxy)
+            .onChange(of: privacyRequest) { _, value in
+                guard value > 0 else { return }
+                expandPrivacy(proxy)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .fitMunchOpenPrivacy)) { _ in
+                expandPrivacy(proxy)
             }
             .overlay {
                 if viewModel.isLoading {
@@ -372,9 +377,9 @@ struct SettingsView: View {
         }
     }
 
-    private func revealPrivacy(_ proxy: ScrollViewProxy) {
-        guard privacyRequest > 0 else { return }
+    private func expandPrivacy(_ proxy: ScrollViewProxy) {
         privacyExpanded = true
+        privacyRefresh += 1
         DispatchQueue.main.async {
             proxy.scrollTo("me-privacy", anchor: .top)
         }

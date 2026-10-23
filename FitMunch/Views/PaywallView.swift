@@ -192,16 +192,24 @@ struct PaywallView: View {
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("paywall-error")
-            Button("Retry") {
+            Button {
                 Task { await loadPlansWithRetry() }
+            } label: {
+                Text("Retry")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .accessibilityIdentifier("paywall-retry")
             }
-            .buttonStyle(PaywallChoiceButtonStyle())
             .accessibilityIdentifier("paywall-retry")
-            Button("Restore Purchases") {
+            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-retry"))
+            Button {
                 Task { await restore() }
+            } label: {
+                Text("Restore Purchases")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .accessibilityIdentifier("paywall-restore-inline")
             }
-            .buttonStyle(PaywallChoiceButtonStyle())
             .accessibilityIdentifier("paywall-restore-inline")
+            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-restore-inline"))
         }
         .accessibilityIdentifier("paywall-error-state")
     }
@@ -502,6 +510,8 @@ private struct PackageCard: View {
 /// Bordered system style hides its accessibility identifier on iOS 26.
 /// Same two pills: Retry and Restore, 44pt tall, brand green label.
 private struct PaywallChoiceButtonStyle: ButtonStyle {
+    var identifier: String
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold))
@@ -512,6 +522,9 @@ private struct PaywallChoiceButtonStyle: ButtonStyle {
             .background(Capsule(style: .continuous).fill(Color(.secondarySystemBackground)))
             .overlay(Capsule(style: .continuous).stroke(Theme.brandGreen.opacity(0.45), lineWidth: 1))
             .opacity(configuration.isPressed ? 0.75 : 1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
     }
 }
 

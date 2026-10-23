@@ -33,6 +33,14 @@ class PremiumManager: ObservableObject {
     }
 
     private init() {
+        #if DEBUG
+        if PaywallLaunchArgument.isForceEmpty {
+            paywallPlans = []
+            paywallPhase = .failed
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            lastPlanFetchSummary = "loaded=none"
+        }
+        #endif
         if ScreenshotLaunch.isActive {
             isPremium = true
             return

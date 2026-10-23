@@ -43,12 +43,12 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         XCTAssertTrue(me.isSelected, "Allow in Privacy did not open Me")
-        let more = element("me-privacy-more", in: app)
-        if !more.waitForExistence(timeout: 3) {
+        var more = app.buttons["me-privacy-more"]
+        if !more.waitForExistence(timeout: 4) {
             let scrollers = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex
             let list = scrollers.last(where: { $0.isHittable })
             for _ in 0..<8 {
-                if more.exists { break }
+                if app.buttons["me-privacy-more"].exists { break }
                 if let list {
                     list.swipeUp()
                 } else {
@@ -56,7 +56,23 @@ final class Batch2WidthCaptureUITests: XCTestCase {
                 }
             }
         }
-        XCTAssertTrue(more.waitForExistence(timeout: 6))
+        if !app.buttons["me-privacy-more"].exists {
+            more = app.descendants(matching: .any)["me-privacy-more"]
+        }
+        if !more.waitForExistence(timeout: 2) {
+            let readMore = app.buttons["Read more"].firstMatch
+            let showLess = app.buttons["Show less"].firstMatch
+            if readMore.waitForExistence(timeout: 2) {
+                readMore.tap()
+            } else if showLess.waitForExistence(timeout: 1) {
+                showLess.tap()
+            }
+            more = app.buttons["me-privacy-more"]
+            if !more.waitForExistence(timeout: 2) {
+                more = app.descendants(matching: .any)["me-privacy-more"]
+            }
+        }
+        XCTAssertTrue(more.waitForExistence(timeout: 6), "me-privacy-more missing after Me was selected")
         let detail = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'The server keeps at most 20'")).firstMatch
         if !detail.waitForExistence(timeout: 2) {
             app.swipeUp()
@@ -101,8 +117,18 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let upgrade = app.buttons["settings-upgrade"]
         XCTAssertTrue(upgrade.waitForExistence(timeout: 12))
         upgrade.tap()
-        let restore = element("paywall-restore-inline", in: app)
-        XCTAssertTrue(restore.waitForExistence(timeout: 25))
+        let root = app.descendants(matching: .any)["paywall-root"]
+        let errorState = app.descendants(matching: .any)["paywall-error-state"]
+        let errorLine = app.descendants(matching: .any)["paywall-error"]
+        let opened = root.waitForExistence(timeout: 20)
+            || errorState.waitForExistence(timeout: 2)
+            || errorLine.waitForExistence(timeout: 2)
+        XCTAssertTrue(opened, "Paywall did not open")
+        var restore = app.buttons["paywall-restore-inline"]
+        if !restore.waitForExistence(timeout: 8) {
+            restore = app.descendants(matching: .any)["paywall-restore-inline"]
+        }
+        XCTAssertTrue(restore.waitForExistence(timeout: 8), "paywall-restore-inline missing")
         var hops = 0
         while !restore.isHittable && hops < 5 {
             app.swipeUp()
