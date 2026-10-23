@@ -75,9 +75,6 @@ struct OnboardingView: View {
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
             }
-            .task {
-                await viewModel.loadPremiumPrice()
-            }
         }
     }
     
@@ -213,6 +210,9 @@ struct OnboardingView: View {
             Text("Start with free plan, upgrade anytime")
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+        .task {
+            await viewModel.loadPremiumPrice()
         }
     }
 

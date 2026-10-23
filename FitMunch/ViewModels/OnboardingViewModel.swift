@@ -21,9 +21,11 @@ class OnboardingViewModel: ObservableObject {
     let totalSteps = 3
     
     /// Binds the Premium card to the App Store price when StoreKit returns it.
+    /// Called from the plan step. The catalog open is off the main thread so
+    /// Welcome can paint first.
     func loadPremiumPrice() async {
         #if DEBUG
-        LocalStoreKitCatalog.startIfRequested()
+        await LocalStoreKitCatalog.startIfRequested()
         #endif
         do {
             let products = try await Product.products(for: [Constants.ProductIDs.monthly])
