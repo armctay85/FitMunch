@@ -19,6 +19,12 @@ final class AuthManager: ObservableObject {
     }
 
     private init() {
+        if AuditLaunch.isAuthError {
+            isAuthenticated = false
+            isRestoring = false
+            errorMessage = "Invalid email or password."
+            return
+        }
         if ScreenshotLaunch.isActive {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
@@ -41,12 +47,38 @@ final class AuthManager: ObservableObject {
             )
             isAuthenticated = true
             isRestoring = false
+        } else if AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
+            user = APIUser(
+                id: "review-user",
+                name: "Reviewer",
+                email: "review@fitmunch.com.au",
+                subscriptionTier: "free",
+                role: "client"
+            )
+            isAuthenticated = true
+            isRestoring = false
+            UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+            if AuditLaunch.isOnboarding {
+                UserDefaults.standard.set(false, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+            } else {
+                UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+                UserDefaults.standard.removeObject(forKey: "aiDataConsent.review-user")
+            }
         }
     }
 
     /// Restore the session on launch.
     func bootstrap() async {
-        if ScreenshotLaunch.isActive || ReviewLaunch.isActive {
+        if AuditLaunch.isAuthError {
+            KeychainStore.token = nil
+            isAuthenticated = false
+            isRestoring = false
+            if errorMessage == nil {
+                errorMessage = "Invalid email or password."
+            }
+            return
+        }
+        if ScreenshotLaunch.isActive || ReviewLaunch.isActive || AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
             isRestoring = false
             isAuthenticated = true
             return

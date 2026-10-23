@@ -8,6 +8,7 @@ struct CoachView: View {
     @State private var input = ""
     @State private var intent = "general"
     @State private var isSending = false
+    @State private var isTyping = false
     @State private var remaining: Int?
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
@@ -69,6 +70,10 @@ struct CoachView: View {
                                 bubble(message)
                                     .id(message.id)
                             }
+                            if isTyping {
+                                typingBubble
+                                    .id("coach-typing-row")
+                            }
                         }
                         .padding()
                     }
@@ -81,15 +86,18 @@ struct CoachView: View {
                             withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                         }
                     }
+                    .onChange(of: isTyping) { _, typing in
+                        guard typing, !ScreenshotLaunch.isActive else { return }
+                        if reduceMotion {
+                            proxy.scrollTo("coach-typing-row", anchor: .bottom)
+                        } else {
+                            withAnimation { proxy.scrollTo("coach-typing-row", anchor: .bottom) }
+                        }
+                    }
                 }
 
-                if let consentNote {
-                    Text(consentNote)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal)
-                        .accessibilityIdentifier("coach-consent-blocked")
+                if consentNote != nil || consent.isDenied(auth.user?.id) {
+                    blockedCard
                 }
 
                 HStack(spacing: 10) {
@@ -103,9 +111,11 @@ struct CoachView: View {
                         .accessibilityIdentifier("coach-input")
                     Button(action: send) {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
+                            .font(.system(size: 28))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(input.trimmingCharacters(in: .whitespaces).isEmpty || isSending ? Color.secondary : Theme.brandGreen)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty || isSending)
                     .accessibilityLabel("Send")
@@ -141,16 +151,62 @@ struct CoachView: View {
                     },
                     onNotNow: {
                         showConsent = false
+                        input = ""
                         consent.deny(userId: auth.user?.id)
                         consentNote = AIConsentCopy.coachBlocked
                     }
                 )
             }
             .onAppear {
+                syncConsentNote()
                 if ScreenshotLaunch.isActive && messages.isEmpty {
                     messages = ScreenshotLaunch.coachMessages()
                 }
+                if AuditLaunch.isCoachLoading && messages.isEmpty {
+                    messages = [
+                        ChatMessage(role: "user", content: "What should I eat tonight?"),
+                        ChatMessage(role: "assistant", content: "…"),
+                    ]
+                    isSending = true
+                }
             }
+            .onChange(of: consent.revision) { _, _ in
+                syncConsentNote()
+            }
+        }
+    }
+
+    private func syncConsentNote() {
+        if consent.isDenied(auth.user?.id) {
+            consentNote = AIConsentCopy.coachBlocked
+        } else {
+            consentNote = nil
+        }
+    }
+
+    private var blockedCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
+            Text(AIConsentCopy.coachBlocked)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("coach-consent-blocked")
+            Button("Allow in Privacy", action: openPrivacy)
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("coach-open-privacy")
+                .accessibilityAction(.default, openPrivacy)
+        }
+        .padding(Theme.Spacing.four)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.bottom, Theme.Spacing.two)
+    }
+
+    private func openPrivacy() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .fitMunchOpenPrivacy, object: nil)
         }
     }
 
@@ -198,6 +254,20 @@ struct CoachView: View {
         .accessibilityIdentifier("coach-suggestion")
     }
 
+    private var typingBubble: some View {
+        HStack {
+            TypingDots()
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+            Spacer(minLength: 40)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Coach is typing")
+        .accessibilityIdentifier("coach-typing")
+    }
+
     private func bubble(_ message: ChatMessage) -> some View {
         HStack {
             if message.role == "user" { Spacer(minLength: 40) }
@@ -220,20 +290,23 @@ struct CoachView: View {
             return
         }
         if consent.isDenied(auth.user?.id) {
+            input = ""
             consentNote = AIConsentCopy.coachBlocked
             return
         }
         consentNote = nil
         input = ""
         messages.append(ChatMessage(role: "user", content: text))
-        let typingIndex = messages.count
-        messages.append(ChatMessage(role: "assistant", content: "…"))
         isSending = true
+        isTyping = true
 
-        let history = messages.prefix(typingIndex).suffix(12).map { ["role": $0.role, "content": $0.content] }
+        let history = messages.suffix(12).map { ["role": $0.role, "content": $0.content] }
 
         Task {
-            defer { isSending = false }
+            defer {
+                isSending = false
+                isTyping = false
+            }
             do {
                 let res = try await APIClient.request(
                     "/ai/chat",
@@ -242,27 +315,47 @@ struct CoachView: View {
                     as: ChatResponse.self
                 )
                 if res.success, let reply = res.reply {
-                    messages[typingIndex] = ChatMessage(role: "assistant", content: reply)
+                    messages.append(ChatMessage(role: "assistant", content: reply))
                     remaining = res.remaining
                 } else if res.upgrade == true {
                     freeLimitHits += 1
-                    messages[typingIndex] = ChatMessage(role: "assistant",
-                        content: res.error ?? "You've used this month's free AI actions.")
+                    messages.append(ChatMessage(role: "assistant",
+                        content: res.error ?? "You've used this month's free AI actions."))
                     showPaywall = true
                 } else {
-                    messages[typingIndex] = ChatMessage(role: "assistant",
-                        content: res.error ?? "That didn't work. Try again in a moment.")
+                    messages.append(ChatMessage(role: "assistant",
+                        content: res.error ?? "That didn't work. Try again in a moment."))
                 }
             } catch {
                 let apiError = error as? APIError
-                messages[typingIndex] = ChatMessage(role: "assistant",
-                    content: apiError?.errorDescription ?? "Network hiccup. Try again.")
+                messages.append(ChatMessage(role: "assistant",
+                    content: apiError?.errorDescription ?? "Network hiccup. Try again."))
                 if case .server(let text)? = apiError, text.lowercased().contains("upgrade") {
                     freeLimitHits += 1
                     showPaywall = true
                 }
             }
         }
+    }
+}
+
+/// Three dots while the coach reply is in flight. Still when Reduce Motion is on.
+private struct TypingDots: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.35, paused: reduceMotion)) { context in
+            let tick = Int(context.date.timeIntervalSinceReferenceDate / 0.35) % 3
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.secondary)
+                        .frame(width: 7, height: 7)
+                        .opacity(reduceMotion || tick == index ? 1 : 0.35)
+                }
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

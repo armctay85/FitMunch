@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>FitMunch: AI meal plans and a matching shopping list</title>
-<meta name="description" content="Set a goal. FitMunch plans a week of meals and training to your calorie and protein targets, writes the shopping list and scores your receipt."/>
+<title>FitMunch: Your body wrote the trolley</title>
+<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
-<meta property="og:title" content="FitMunch: AI meal plans and a matching shopping list"/>
-<meta property="og:description" content="Set a goal. FitMunch plans a week of meals and training to your calorie and protein targets, writes the shopping list and scores your receipt."/>
+<meta property="og:title" content="FitMunch: Your body wrote the trolley"/>
+<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
 <meta property="og:url" content="https://www.fitmunch.com.au/"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="FitMunch: AI meal plans and a matching shopping list"/>
-<meta name="twitter:description" content="Set a goal. FitMunch plans a week of meals and training to your calorie and protein targets, writes the shopping list and scores your receipt."/>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"19.99","priceCurrency":"AUD"},"description":"Set a goal. FitMunch plans a week of meals and training to your calorie and protein targets, writes the shopping list and scores your receipt."}</script>
+<meta name="twitter:title" content="FitMunch: Your body wrote the trolley"/>
+<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"19.99","priceCurrency":"AUD"},"description":"The health engine plans a week of meals and training from your body, then writes the shopping list."}</script>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
@@ -510,6 +510,7 @@ footer{
 .demo-error{font-size:.9rem;color:#ffb4a8;margin-top:12px}
 </style>
 <noscript><style>.receipt{opacity:1;transform:none}</style></noscript>
+<link rel="stylesheet" href="/css/fm-elite.css"/>
 </head>
 <body>
 <a class="skip" href="#loop">Skip to how FitMunch works</a>
@@ -522,10 +523,11 @@ footer{
 <nav class="site-nav" aria-label="Primary">
   <a class="brand" href="/" aria-label="FitMunch">
     <img src="/assets/logo.svg" alt="" width="32" height="32"/>
-    Fit<span>Munch</span>
+    FitMunch
   </a>
   <div class="nav-links">
     <a href="#loop">How it works</a>
+    <a href="#engine">The engine</a>
     <a href="#pricing">Pricing</a>
     <a href="/login.html" data-fm-auth="login">Sign in</a>
     <a class="nav-cta" href="/login.html#register" data-fm-auth="register">Start free</a>
@@ -535,23 +537,64 @@ footer{
 <header class="hero">
   <div class="hero-inner">
     <div class="hero-copy">
-      <p class="hero-kicker">Meal plans · Shopping list · Receipt scan</p>
-      <h1>Your week of meals, planned to your macros.</h1>
+      <p class="hero-kicker">Health engine · Meals · Trolley</p>
+      <h1 class="hero-display">Your body wrote the trolley.</h1>
+      <h2>Your week of meals, planned to your macros.</h2>
       <p class="hero-sub">Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.</p>
+      <p class="hero-lock">The sample day is 2,000 kcal and 150g protein. Pick another goal and the meals follow.</p>
       <div class="hero-ctas">
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
+      <ul class="hero-hooks">
+        <li>7 days from your body</li>
+        <li>Macros set the meals</li>
+        <li>The trolley follows</li>
+      </ul>
     </div>
     <figure class="hero-shot">
       <img class="hero-food" src="/assets/fm-hero-mealprep-web.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="900" height="600" decoding="async"/>
-      <img class="hero-app" src="/assets/fm-app-week.webp" alt="FitMunch first week built for 82kg, cutting to 78kg: Wednesday at 2005 cal and 148g protein, with Veggie Omelette with Potatoes for breakfast and its Swap list open showing three alternatives" width="1122" height="1617" fetchpriority="high"/>
+      <div class="plan-live" id="plan-demo">
+        <div class="plan-top">
+          <p class="plan-k">Sample day</p>
+          <p class="plan-day" id="plan-day">Wednesday</p>
+        </div>
+        <div class="plan-chips" role="group" aria-label="Goal">
+          <button type="button" class="goal-chip is-on" data-goal="cut" aria-pressed="true">Cut</button>
+          <button type="button" class="goal-chip" data-goal="build" aria-pressed="false">Build</button>
+          <button type="button" class="goal-chip" data-goal="hold" aria-pressed="false">Hold</button>
+        </div>
+        <div class="plan-chips" role="group" aria-label="Way of eating">
+          <button type="button" class="goal-chip is-on" data-diet="classic" aria-pressed="true">Classic</button>
+          <button type="button" class="goal-chip" data-diet="protein" aria-pressed="false">High protein</button>
+          <button type="button" class="goal-chip" data-diet="plant" aria-pressed="false">Plant</button>
+        </div>
+        <p class="plan-note" id="plan-note">Sample Wednesday. Pick a goal. This is not your week until you log your body.</p>
+        <div class="plan-bars">
+          <div class="bar"><span>Calories</span><div class="bar-track"><i id="plan-kcal-bar" style="width:62%"></i></div><b id="plan-kcal">2,000</b></div>
+          <div class="bar"><span>Protein</span><div class="bar-track"><i id="plan-pro-bar" style="width:68%"></i></div><b id="plan-pro">150g</b></div>
+        </div>
+        <ol class="plan-meals" id="plan-meals">
+          <li><span class="slot">B</span><span class="meal-name">Veggie omelette with potatoes</span><span class="meal-meta">Breakfast · 501 kcal · 38g protein</span></li>
+          <li><span class="slot">L</span><span class="meal-name">Chicken and sweet potato</span><span class="meal-meta">Lunch · 640 kcal · 48g protein</span></li>
+          <li><span class="slot">D</span><span class="meal-name">Salmon, greens and rice</span><span class="meal-meta">Dinner · 560 kcal · 42g protein</span></li>
+          <li><span class="slot">S</span><span class="meal-name">Greek yoghurt and berries</span><span class="meal-meta">Snack · 299 kcal · 22g protein</span></li>
+        </ol>
+        <div class="plan-trolley">
+          <p>Trolley</p>
+          <ul id="plan-trolley">
+            <li>Eggs</li><li>Chicken breast</li><li>Sweet potato</li><li>Salmon</li><li>Greek yoghurt</li><li>Broccoli</li><li>Berries</li>
+          </ul>
+        </div>
+      </div>
+      <img class="hero-app" src="/assets/fm-app-week.webp" alt="Preview of a generated Wednesday meal plan" width="1122" height="1617" fetchpriority="high"/>
+      <p class="hero-app-note">Your own week builds from your body, not this sample.</p>
       <figcaption>Your first week: built for 82kg cutting to 78kg, at 2,000 kcal and 150g protein, with Swap open on breakfast.</figcaption>
     </figure>
   </div>
 </header>
 </div>
 
-<section class="loop" id="loop">
+<section class="loop reveal" id="loop">
   <div class="loop-inner">
     <div class="loop-head">
       <h2>The engine writes the day.</h2>
@@ -588,7 +631,45 @@ footer{
   </div>
 </section>
 
-<section class="landers" id="plan-from-here" aria-label="Plan from here">
+<section class="engine reveal" id="engine">
+  <div class="engine-inner">
+    <p class="eyebrow">Health engine</p>
+    <h2>The week starts with your body.</h2>
+    <p class="engine-lead">Weight, goal and training set the calories and the protein. Meals hit those numbers. The trolley is the food for the meals you lock. A receipt comes after the shop.</p>
+    <img class="engine-art" src="/assets/elite/engine.svg" alt="Three steps: a body, a plate of food, then a written trolley" width="640" height="220"/>
+    <ol class="engine-steps">
+      <li>
+        <span class="step-n">01</span>
+        <h3>Body</h3>
+        <p>You log the weight you are and the weight you are heading for. The engine sets the day's calories and protein.</p>
+      </li>
+      <li>
+        <span class="step-n">02</span>
+        <h3>Meals</h3>
+        <p>Breakfast, lunch, dinner and a snack land on those targets. Swap one meal and the day stays on the same numbers.</p>
+      </li>
+      <li>
+        <span class="step-n">03</span>
+        <h3>Trolley</h3>
+        <p>The list is the ingredients for that week. You check out at the supermarket.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="coach-door reveal" id="coach-door">
+  <div class="coach-inner">
+    <div>
+      <p class="eyebrow">Coach</p>
+      <h2>For the people you train.</h2>
+      <p>A week of meals and a shopping list, in your brand, for each client. You stay the coach. FitMunch writes the plan. This is not medical nutrition.</p>
+      <a class="btn btn-ghost" href="/for-pts.html">See trainer plans</a>
+    </div>
+    <img class="coach-mark" src="/assets/elite/coach-mark.svg" alt="A dark plan card beside a light shopping list, with a tick" width="360" height="240"/>
+  </div>
+</section>
+
+<section class="landers reveal" id="plan-from-here" aria-label="Plan from here">
   <div class="landers-inner">
     <div class="landers-head">
       <h2>Plan from the shop you already do.</h2>
@@ -651,7 +732,10 @@ footer{
         <button type="button" class="btn btn-leaf" data-fs-retake hidden style="display:none;margin-top:12px">Retake</button>
       </div>
       <div class="fs-card">
-        <div data-fs-loading hidden class="fs-empty" style="display:none">Reading your receipt…</div>
+        <div data-fs-loading hidden class="fs-empty" style="display:none" aria-live="polite">
+          <div data-fs-progress>Preparing the photo</div>
+          <div style="margin:10px auto 0;max-width:200px;height:6px;border-radius:99px;background:rgba(31,157,74,.15);overflow:hidden"><div data-fs-progress-fill style="height:100%;width:8%;background:#1f9d4a;border-radius:99px"></div></div>
+        </div>
         <div data-fs-empty class="fs-empty">
           Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled from the sample supermarket shop.
         </div>
@@ -713,7 +797,30 @@ footer{
   </div>
 </section>
 
-<section class="pricing" id="pricing">
+<section class="faq reveal" id="faq">
+  <div class="faq-inner">
+    <p class="faq-k">Proof</p>
+    <h2>Straight answers.</h2>
+    <details>
+      <summary>Where does the week start?</summary>
+      <p>With the health engine. You log your body and the goal. FitMunch writes the meals and the training, then the shopping list. The receipt camera is not the first screen.</p>
+    </details>
+    <details>
+      <summary>What is in the 14-day trial?</summary>
+      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
+    </details>
+    <details>
+      <summary>Does FitMunch show shop prices?</summary>
+      <p>FitMunch does not show supermarket prices. The list is the food for the meals you locked.</p>
+    </details>
+    <details>
+      <summary>When does a receipt come in?</summary>
+      <p>After you have shopped. Photograph any supermarket receipt and FitMunch scores that haul. The sample further down is a worked example, not a demo shop.</p>
+    </details>
+  </div>
+</section>
+
+<section class="pricing reveal" id="pricing">
   <div class="pricing-inner">
     <h2>Fourteen days with the engine.</h2>
     <p class="pricing-lead">Commit to the week. Premium unlocks the coach, meal plans, training, and the drafted trolley.</p>
@@ -732,11 +839,11 @@ footer{
       </article>
       <article class="plan">
         <div class="plan-kicker">Free</div>
-        <div class="price-n">$0 <small>forever</small></div>
+        <div class="price-n"><span>A$0</span> <small>forever</small></div>
         <p>Macro logging, a starter plan allowance, and a receipt scan teaser.</p>
         <ul>
           <li>Macro and meal logging</li>
-          <li>Limited AI actions each month</li>
+          <li data-free-ai>Free includes AI actions a month</li>
           <li>Starter shopping lists</li>
         </ul>
         <a class="btn btn-ink" href="/login.html?utm_source=homepage&utm_medium=pricing&utm_campaign=free_signup#register" data-fm-auth="register">Start free</a>
@@ -746,7 +853,7 @@ footer{
   </div>
 </section>
 
-<section class="final">
+<section class="final reveal">
   <div class="final-inner">
     <h2>Your body wrote the <em>trolley.</em></h2>
     <p>14-day trial, then A$19.99 a month. Card on file.</p>
@@ -754,12 +861,13 @@ footer{
       <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="final_trial">Start the 14-day trial</a>
       <a class="btn btn-ghost" href="#first-scan" data-fm-track="final_scan_mine">After the shop: score a receipt</a>
     </div>
+    <img class="final-bowl" src="/assets/elite/bowl.svg" alt="A drawn bowl of greens, egg and fruit" width="420" height="320"/>
   </div>
 </section>
 
 <footer>
   <div class="footer-inner">
-    <div class="footer-brand">Fit<span>Munch</span></div>
+    <div class="footer-brand">FitMunch</div>
     <div class="footer-links">
       <a href="#loop">How it works</a>
       <a href="#pricing">Pricing</a>
@@ -888,6 +996,22 @@ try {
   });
 })();
 </script>
+<script>
+(function () {
+  var nodes = document.querySelectorAll('[data-free-ai]');
+  if (!nodes.length || !window.fetch) return;
+  fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (cfg) {
+      var n = cfg && Number(cfg.freeAiMonthly);
+      if (!Number.isFinite(n) || n < 0) return;
+      var line = 'Free includes ' + n + ' AI actions a month';
+      nodes.forEach(function (el) { el.textContent = line; });
+    })
+    .catch(function () {});
+})();
+</script>
+<script src="/js/fm-plan-demo.js" defer></script>
 <script src="/js/fm-item-name.js" defer></script>
 <script src="/js/fm-first-scan.js" defer></script>
 <script src="/js/fm-track.js" defer></script>

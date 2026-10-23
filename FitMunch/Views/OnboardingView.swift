@@ -13,7 +13,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<viewModel.totalSteps, id: \.self) { step in
                         Rectangle()
-                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : .gray.opacity(0.3))
+                            .fill(step <= viewModel.currentStep ? Theme.brandGreen : Color(.tertiarySystemFill))
                             .frame(height: 4)
                             .cornerRadius(2)
                     }
@@ -22,11 +22,12 @@ struct OnboardingView: View {
                 .padding(.top)
                 
                 ScrollView {
-                    VStack(spacing: 32) {
-                        // Header
-                        VStack(spacing: 16) {
+                    VStack(spacing: 20) {
+                        // Header. Compact so the goal rows and plan cards can sit
+                        // above the footer on a 375pt phone.
+                        VStack(spacing: 12) {
                             Image(systemName: "fork.knife.circle.fill")
-                                .font(.system(size: 80))
+                                .font(.system(size: 44))
                                 .foregroundColor(Theme.brandGreen)
                             
                             Text(viewModel.currentStepTitle)
@@ -40,50 +41,18 @@ struct OnboardingView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal)
                         }
-                        .padding(.top, 32)
+                        .padding(.top, 16)
                         
-                        // Step content
                         stepContent
-                        
-                        Spacer()
                     }
                     .padding()
+                    .padding(.bottom, Theme.Spacing.four)
                 }
-                .scrollClearsTabBar()
-                
-                // Navigation buttons
-                HStack {
-                    if viewModel.currentStep > 0 {
-                        Button("Back") {
-                            viewModel.previousStep()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    
-                    Spacer()
-                    
-                    if viewModel.currentStep < viewModel.totalSteps - 1 {
-                        Button("Next") {
-                            viewModel.nextStep()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.buttonFill)
-                    } else {
-                        Button("Get Started") {
-                            Task {
-                                if await viewModel.completeOnboarding() {
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.buttonFill)
-                        .disabled(viewModel.isLoading)
-                    }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    onboardingFooter
                 }
-                .padding()
-                .background(.ultraThinMaterial)
             }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationBarBackButtonHidden(true)
             .overlay {
                 if viewModel.isLoading {
@@ -105,9 +74,6 @@ struct OnboardingView: View {
             }
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
-            }
-            .task {
-                await viewModel.loadPremiumPrice()
             }
         }
     }
@@ -152,7 +118,7 @@ struct OnboardingView: View {
     
     /// Goals step content
     private var goalsStep: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 12) {
             TextField("Your Name", text: $viewModel.name)
                 .textFieldStyle(.roundedBorder)
                 .textContentType(.name)
@@ -163,27 +129,39 @@ struct OnboardingView: View {
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
             
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Fitness Goal")
                     .font(.headline)
                 
                 ForEach(Constants.FitnessGoals.allCases, id: \.self) { goal in
+                    let selected = viewModel.selectedGoal == goal
                     Button {
                         viewModel.selectedGoal = goal
                     } label: {
                         HStack {
                             Text(goal.displayName)
                                 .foregroundColor(.primary)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
                             Spacer()
-                            if viewModel.selectedGoal == goal {
+                            if selected {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(Theme.brandGreen)
                             }
                         }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
+                        .padding(.horizontal, Theme.Spacing.four)
+                        .frame(minHeight: 44)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(selected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                                .stroke(selected ? Theme.brandGreen : Color.clear, lineWidth: 2)
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("onboarding-goal-\(goal.rawValue)")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
             .sensoryFeedback(.selection, trigger: viewModel.selectedGoal)
@@ -204,6 +182,8 @@ struct OnboardingView: View {
                     "Set fitness goals"
                 ],
                 isSelected: false,
+                cardID: "onboarding-plan-free",
+                priceID: "onboarding-free-price",
                 action: {}
             )
             
@@ -211,6 +191,7 @@ struct OnboardingView: View {
                 title: "Premium",
                 price: viewModel.premiumPriceText,
                 period: viewModel.premiumPeriodText,
+                trial: viewModel.premiumTrialText,
                 features: [
                     "Unlimited meal logging",
                     "Full history & advanced charts",
@@ -219,6 +200,8 @@ struct OnboardingView: View {
                     "Personalized recommendations"
                 ],
                 isSelected: true,
+                cardID: "onboarding-plan-premium",
+                priceID: "onboarding-premium-price",
                 action: {
                     showPaywall = true
                 }
@@ -228,6 +211,46 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+        .task {
+            await viewModel.loadPremiumPrice()
+        }
+    }
+
+    /// Sits in the scroll view's bottom safe area so Back/Next cannot cover a row.
+    private var onboardingFooter: some View {
+        HStack {
+            if viewModel.currentStep > 0 {
+                Button("Back") {
+                    viewModel.previousStep()
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Spacer()
+
+            if viewModel.currentStep < viewModel.totalSteps - 1 {
+                Button("Next") {
+                    viewModel.nextStep()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.buttonFill)
+            } else {
+                Button("Get Started") {
+                    Task {
+                        if await viewModel.completeOnboarding() {
+                            dismiss()
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.buttonFill)
+                .disabled(viewModel.isLoading)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -255,7 +278,7 @@ private struct FeatureRow: View {
             Spacer()
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
 }
@@ -265,8 +288,11 @@ private struct PlanCard: View {
     let title: String
     let price: String
     let period: String
+    var trial: String = ""
     let features: [String]
     let isSelected: Bool
+    let cardID: String
+    let priceID: String
     let action: () -> Void
     
     var body: some View {
@@ -278,9 +304,13 @@ private struct PlanCard: View {
                         .fontWeight(.bold)
                     Spacer()
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(Theme.brandGreen)
-                            .font(.title2)
+                        Text("Selected")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Theme.brandGreenSoft)
+                            .foregroundStyle(Theme.brandGreen)
+                            .clipShape(Capsule())
                     }
                 }
                 
@@ -288,9 +318,16 @@ private struct PlanCard: View {
                     Text(price)
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .accessibilityIdentifier(priceID)
                     Text(period)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.secondaryText)
+                    if isSelected && !trial.isEmpty {
+                        Text(trial)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.brandGreen)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
@@ -306,14 +343,16 @@ private struct PlanCard: View {
                 }
             }
             .padding()
-            .background(isSelected ? Theme.brandGreen.opacity(0.1) : Color.gray.opacity(0.1))
-            .cornerRadius(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
                     .stroke(isSelected ? Theme.brandGreen : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(cardID)
     }
 }
 

@@ -111,9 +111,9 @@ const trustProxyBefore = app.get('trust proxy');
 beforeAll(() => app.set('trust proxy', 1));
 afterAll(() => app.set('trust proxy', trustProxyBefore));
 
-beforeEach(() => {
+beforeEach(async () => {
   stripeEvents.resetStripeEventsForTests();
-  guestClaim.resetGuestClaimsForTests();
+  await guestClaim.resetGuestClaimsForTests();
   noUsers();
 });
 afterEach(() => {
@@ -177,7 +177,9 @@ describe('claim-resend replies at one fixed time', () => {
       // Every reply waits out the full window, match or miss (server clock
       // and client clock both, so a reply can never come back early).
       for (const w of windows) expect(w.windowMs).toBe(500);
-      expect(Math.min(...server)).toBeGreaterThanOrEqual(498);
+      // setTimeout can fire a few ms early. hrtime then reads just under the window
+      // on a loaded worker. A skipped wait would be hundreds of ms short.
+      expect(Math.min(...server)).toBeGreaterThanOrEqual(490);
       expect(Math.min(...[...hits, ...misses].map((x) => x.ms))).toBeGreaterThanOrEqual(495);
       // A match (slow Stripe + 120ms send) and a miss reply within 50ms of
       // each other, on average and at the extremes.
@@ -302,6 +304,42 @@ describe('claim-resend rate limits are shared through Postgres', () => {
     expect(await counters.hitRateCounter('s', 'k', { windowMs: 1000, now: 5500 })).toBe(2);
     expect(await counters.hitRateCounter('s', 'k', { windowMs: 1000, now: 6000 })).toBe(1);
     expect(errors.mock.calls.map((c) => c.join(' ')).join('\n')).toContain('RATE_COUNTER_DB_FAILED');
+  });
+
+  test('reset clears local Postgres counter rows and refuses the wipe unless NODE_ENV is test', async () => {
+    expect(counters.clearSharedCounterRowsForTests).toBeUndefined();
+    const url = String(process.env.DATABASE_URL || '');
+    const local = /localhost|127\.0\.0\.1/.test(url) && !/neon|supabase|amazonaws|vercel|fitmunch\.com/i.test(url);
+    if (!local) {
+      const prev = process.env.NODE_ENV;
+      try {
+        process.env.NODE_ENV = 'production';
+        await counters.resetSharedCountersForTests();
+      } finally {
+        process.env.NODE_ENV = prev;
+      }
+      return;
+    }
+    await counters.hitRateCounter('claim-resend-email', 'reset-proof@example.com', { windowMs: 3600000, now: Date.now() });
+    await counters.noteStripeEventRetry('evt_reset_proof', 'customer.subscription.updated');
+    const { getPool } = require('./lib/db-migrate');
+    const pool = getPool();
+    const before = await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_counters WHERE scope = 'claim-resend-email'");
+    expect(before.rows[0].n).toBeGreaterThan(0);
+    const retry = await pool.query("SELECT retries FROM stripe_webhook_retries WHERE event_id = 'evt_reset_proof'");
+    expect(retry.rows[0].retries).toBe(1);
+    const prev = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      await counters.resetSharedCountersForTests();
+      expect((await pool.query("SELECT COUNT(*)::int AS n FROM rate_limit_counters WHERE scope = 'claim-resend-email'")).rows[0].n).toBeGreaterThan(0);
+      expect((await pool.query("SELECT retries FROM stripe_webhook_retries WHERE event_id = 'evt_reset_proof'")).rows[0].retries).toBe(1);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+    await counters.resetSharedCountersForTests();
+    expect((await pool.query('SELECT COUNT(*)::int AS n FROM rate_limit_counters')).rows[0].n).toBe(0);
+    expect((await pool.query('SELECT COUNT(*)::int AS n FROM stripe_webhook_retries')).rows[0].n).toBe(0);
   });
 
   test('the migration creates both tables', () => {
