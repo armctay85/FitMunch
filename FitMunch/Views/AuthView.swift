@@ -77,9 +77,12 @@ struct AuthView: View {
                         HStack {
                             if auth.isLoading { ProgressView().tint(.white) }
                             Text(mode == .login ? "Sign In" : "Create Free Account")
+                                .foregroundStyle(Color.white)
+                                .tint(.white)
                         }
                     }
                     .buttonStyle(PrimaryButtonStyle())
+                    .tint(.white)
                     .disabled(auth.isLoading || !formValid)
                     .padding(.horizontal, 28)
                     .accessibilityIdentifier(mode == .login ? "auth-sign-in" : "auth-create-account")

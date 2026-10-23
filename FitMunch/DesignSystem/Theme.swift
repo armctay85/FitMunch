@@ -24,13 +24,10 @@ enum Theme {
         return Color(uiColor: dynamic)
     }()
 
-    /// Filled buttons stay on the light BrandGreen (#15803D) in both appearances.
-    /// White 17pt type on that green is 5.0:1. The dark asset (#22C55E) is for icons and tints.
-    static let buttonFill: Color = {
-        let light = UITraitCollection(userInterfaceStyle: .light)
-        let resolved = UIColor(named: "BrandGreen")?.resolvedColor(with: light) ?? .systemGreen
-        return Color(uiColor: resolved)
-    }()
+    /// Filled buttons stay on light BrandGreen #15803D in both appearances.
+    /// White on that green is 5.0:1. The asset's dark color (#22C55E) and
+    /// systemGreen are too light behind a white label, so this is not the asset.
+    static let buttonFill = Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)
 
     /// 16pt cards, 12pt controls.
     enum Radius {
@@ -52,22 +49,25 @@ enum Theme {
     }
 }
 
-/// Filled BrandGreen, white 17pt semibold.
+/// Filled BrandGreen, white semibold label.
+/// The app tint is BrandGreen. A disabled fade turns that tint into light-on-green,
+/// which fails WCAG AA and gets worse at accessibility sizes. The label stays white
+/// on #15803D whether the button is enabled or not.
 struct PrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
     func makeBody(configuration: Configuration) -> some View {
+        let white = Color(uiColor: .white)
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Color.white)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(white)
+            .tint(white)
             .multilineTextAlignment(.center)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .lineLimit(2)
+            .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 14)
             .padding(.horizontal, Theme.Spacing.four)
             .background(Theme.buttonFill, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-            .opacity(!isEnabled ? 0.55 : (configuration.isPressed ? 0.88 : 1))
+            .opacity(configuration.isPressed ? 0.92 : 1)
     }
 }
 

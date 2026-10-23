@@ -97,9 +97,46 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Welcome to FitMunch"].waitForExistence(timeout: 15))
         app.buttons["Next"].tap()
         XCTAssertTrue(app.staticTexts["Set Your Goals"].waitForExistence(timeout: 6))
+        let goals = [
+            "onboarding-goal-weight_loss",
+            "onboarding-goal-muscle_gain",
+            "onboarding-goal-maintenance",
+            "onboarding-goal-endurance",
+        ]
+        let goalRows = goals.map { app.descendants(matching: .any)[$0] }
+        revealFullyAboveFooter(goalRows, in: app)
+        let goalFooter = app.buttons["Next"]
+        for id in goals {
+            let row = app.descendants(matching: .any)[id]
+            XCTAssertTrue(row.waitForExistence(timeout: 4), "Goal \(id) missing")
+            XCTAssertTrue(row.isHittable, "Goal \(id) is not readable")
+            XCTAssertGreaterThan(row.frame.height, 36, "Goal \(id) is clipped")
+            XCTAssertLessThanOrEqual(
+                row.frame.maxY,
+                goalFooter.frame.minY + 0.5,
+                "Goal \(id) is under Back/Next"
+            )
+        }
         shot(app, "onboarding-goals")
         app.buttons["Next"].tap()
         XCTAssertTrue(app.staticTexts["Choose Your Plan"].waitForExistence(timeout: 6))
+        let label = waitForMonthlyPrice(in: app)
+        print("ONBOARDING_PRICE \(label)")
+        XCTAssertTrue(
+            label.contains("19.99") && !label.contains("12.99"),
+            "Onboarding plan must show StoreKit monthly displayPrice (19.99, not 12.99). Saw \(label.isEmpty ? visibleMoney(in: app) : label)"
+        )
+        XCTAssertFalse(visibleMoney(in: app).contains("12.99"), "US storefront price is on the plan screen")
+        let free = app.descendants(matching: .any)["onboarding-plan-free"]
+        let premium = app.descendants(matching: .any)["onboarding-plan-premium"]
+        revealPlanCards(free: free, premium: premium, in: app)
+        let planFooter = app.buttons["Get Started"]
+        XCTAssertTrue(free.waitForExistence(timeout: 4), "Free card missing")
+        XCTAssertTrue(premium.waitForExistence(timeout: 4), "Premium card missing")
+        XCTAssertTrue(free.isHittable, "Free card is not readable")
+        XCTAssertLessThanOrEqual(free.frame.maxY, planFooter.frame.minY + 0.5, "Free card is under the footer")
+        XCTAssertTrue(premium.isHittable, "Premium card is not reachable")
+        XCTAssertLessThan(premium.frame.minY, planFooter.frame.minY - 4, "Premium card is covered by the footer")
         shot(app, "onboarding-plan")
         app.terminate()
     }
@@ -145,6 +182,88 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(copy.waitForExistence(timeout: 4))
         shot(app, "auth-error-ax5")
         app.terminate()
+    }
+
+    private func onboardingFooterMinY(in app: XCUIApplication) -> CGFloat {
+        let next = app.buttons["Next"]
+        if next.exists { return next.frame.minY }
+        let start = app.buttons["Get Started"]
+        if start.exists { return start.frame.minY }
+        return app.frame.maxY - 72
+    }
+
+    private func nudgeOnboarding(_ app: XCUIApplication, up: Bool) {
+        let scrollers = app.scrollViews.allElementsBoundByIndex.filter { $0.isHittable && $0.frame.height > 80 }
+        guard let list = scrollers.max(by: { $0.frame.height < $1.frame.height }) else {
+            if up { app.swipeUp() } else { app.swipeDown() }
+            return
+        }
+        let startY: CGFloat = up ? 0.62 : 0.42
+        let endY: CGFloat = up ? 0.42 : 0.62
+        let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.01, thenDragTo: end)
+    }
+
+    /// Small drags until every row sits fully above Back/Next.
+    private func revealFullyAboveFooter(_ rows: [XCUIElement], in app: XCUIApplication) {
+        func placed() -> Bool {
+            let limit = onboardingFooterMinY(in: app) - 1
+            return rows.allSatisfy { row in
+                row.exists && row.isHittable && row.frame.minY >= 4 && row.frame.maxY <= limit && row.frame.height > 36
+            }
+        }
+        if placed() { return }
+        for up in [true, true, true, true, true, true, false, false, false] {
+            if placed() { return }
+            nudgeOnboarding(app, up: up)
+        }
+    }
+
+    /// Free must clear the footer. Premium must start on screen, not under it.
+    private func revealPlanCards(free: XCUIElement, premium: XCUIElement, in app: XCUIApplication) {
+        func placed() -> Bool {
+            guard free.exists, premium.exists else { return false }
+            let limit = onboardingFooterMinY(in: app) - 1
+            let freeClear = free.isHittable && free.frame.minY >= 0 && free.frame.maxY <= limit
+            let premiumIn = premium.isHittable && premium.frame.minY >= 0 && premium.frame.minY < limit - 4
+            return freeClear && premiumIn
+        }
+        if placed() { return }
+        for up in [true, true, true, true, true, true, true, false, false] {
+            if placed() { return }
+            nudgeOnboarding(app, up: up)
+        }
+    }
+
+    /// StoreKit displayPrice from the premium card. Polls so "See plans" can update.
+    private func waitForMonthlyPrice(in app: XCUIApplication) -> String {
+        let deadline = Date().addingTimeInterval(25)
+        var latest = ""
+        while Date() < deadline {
+            latest = currentMonthlyPrice(in: app)
+            if latest.contains("19.99"), !latest.contains("12.99") {
+                return latest
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return latest
+    }
+
+    private func currentMonthlyPrice(in app: XCUIApplication) -> String {
+        let tagged = app.descendants(matching: .any)["onboarding-premium-price"]
+        if tagged.exists, !tagged.label.isEmpty { return tagged.label }
+        let card = app.descendants(matching: .any)["onboarding-plan-premium"]
+        if card.exists, !card.label.isEmpty { return card.label }
+        return visibleMoney(in: app)
+    }
+
+    private func visibleMoney(in app: XCUIApplication) -> String {
+        let hits = app.staticTexts.allElementsBoundByIndex.map(\.label).filter { label in
+            label.contains("19.99") || label.contains("12.99") || label.contains("99.99")
+                || label.contains("149.99") || label.contains("See plans")
+        }
+        return hits.joined(separator: " | ")
     }
 
     /// Me is showing when a Settings marker is on screen, not merely loaded under Coach.

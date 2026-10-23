@@ -22,11 +22,12 @@ struct OnboardingView: View {
                 .padding(.top)
                 
                 ScrollView {
-                    VStack(spacing: 32) {
-                        // Header
-                        VStack(spacing: 16) {
+                    VStack(spacing: 20) {
+                        // Header. Compact so the goal rows and plan cards can sit
+                        // above the footer on a 375pt phone.
+                        VStack(spacing: 12) {
                             Image(systemName: "fork.knife.circle.fill")
-                                .font(.system(size: 80))
+                                .font(.system(size: 44))
                                 .foregroundColor(Theme.brandGreen)
                             
                             Text(viewModel.currentStepTitle)
@@ -40,50 +41,18 @@ struct OnboardingView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal)
                         }
-                        .padding(.top, 32)
+                        .padding(.top, 16)
                         
-                        // Step content
                         stepContent
-                        
-                        Spacer()
                     }
                     .padding()
+                    .padding(.bottom, Theme.Spacing.four)
                 }
-                .scrollClearsTabBar()
-                
-                // Navigation buttons
-                HStack {
-                    if viewModel.currentStep > 0 {
-                        Button("Back") {
-                            viewModel.previousStep()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    
-                    Spacer()
-                    
-                    if viewModel.currentStep < viewModel.totalSteps - 1 {
-                        Button("Next") {
-                            viewModel.nextStep()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.buttonFill)
-                    } else {
-                        Button("Get Started") {
-                            Task {
-                                if await viewModel.completeOnboarding() {
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Theme.buttonFill)
-                        .disabled(viewModel.isLoading)
-                    }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    onboardingFooter
                 }
-                .padding()
-                .background(.ultraThinMaterial)
             }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationBarBackButtonHidden(true)
             .overlay {
                 if viewModel.isLoading {
@@ -152,7 +121,7 @@ struct OnboardingView: View {
     
     /// Goals step content
     private var goalsStep: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 12) {
             TextField("Your Name", text: $viewModel.name)
                 .textFieldStyle(.roundedBorder)
                 .textContentType(.name)
@@ -163,7 +132,7 @@ struct OnboardingView: View {
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
             
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Fitness Goal")
                     .font(.headline)
                 
@@ -175,6 +144,8 @@ struct OnboardingView: View {
                         HStack {
                             Text(goal.displayName)
                                 .foregroundColor(.primary)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
                             Spacer()
                             if selected {
                                 Image(systemName: "checkmark.circle.fill")
@@ -192,6 +163,7 @@ struct OnboardingView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("onboarding-goal-\(goal.rawValue)")
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
@@ -213,6 +185,8 @@ struct OnboardingView: View {
                     "Set fitness goals"
                 ],
                 isSelected: false,
+                cardID: "onboarding-plan-free",
+                priceID: "onboarding-free-price",
                 action: {}
             )
             
@@ -229,6 +203,8 @@ struct OnboardingView: View {
                     "Personalized recommendations"
                 ],
                 isSelected: true,
+                cardID: "onboarding-plan-premium",
+                priceID: "onboarding-premium-price",
                 action: {
                     showPaywall = true
                 }
@@ -238,6 +214,43 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    /// Sits in the scroll view's bottom safe area so Back/Next cannot cover a row.
+    private var onboardingFooter: some View {
+        HStack {
+            if viewModel.currentStep > 0 {
+                Button("Back") {
+                    viewModel.previousStep()
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Spacer()
+
+            if viewModel.currentStep < viewModel.totalSteps - 1 {
+                Button("Next") {
+                    viewModel.nextStep()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.buttonFill)
+            } else {
+                Button("Get Started") {
+                    Task {
+                        if await viewModel.completeOnboarding() {
+                            dismiss()
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.buttonFill)
+                .disabled(viewModel.isLoading)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -278,6 +291,8 @@ private struct PlanCard: View {
     var trial: String = ""
     let features: [String]
     let isSelected: Bool
+    let cardID: String
+    let priceID: String
     let action: () -> Void
     
     var body: some View {
@@ -303,6 +318,7 @@ private struct PlanCard: View {
                     Text(price)
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .accessibilityIdentifier(priceID)
                     Text(period)
                         .font(.subheadline)
                         .foregroundColor(Theme.secondaryText)
@@ -336,6 +352,7 @@ private struct PlanCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(cardID)
     }
 }
 
