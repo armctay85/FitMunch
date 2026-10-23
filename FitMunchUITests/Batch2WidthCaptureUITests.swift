@@ -43,41 +43,34 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         XCTAssertTrue(me.isSelected, "Allow in Privacy did not open Me")
-        var more = app.buttons["me-privacy-more"]
-        if !more.waitForExistence(timeout: 4) {
-            let scrollers = app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex
-            let list = scrollers.last(where: { $0.isHittable })
-            for _ in 0..<8 {
-                if app.buttons["me-privacy-more"].exists { break }
-                if let list {
-                    list.swipeUp()
-                } else {
-                    app.swipeUp()
-                }
-            }
+        if !settingsIsLive(app) {
+            XCTFail("Settings was not on screen after Me was selected\n\(privacyAXDump(app))")
+            return
         }
-        if !app.buttons["me-privacy-more"].exists {
-            more = app.descendants(matching: .any)["me-privacy-more"]
+
+        let detail = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS 'The server keeps at most 20'")
+        ).firstMatch
+        let expanded = detail.waitForExistence(timeout: 4) || privacyMore(in: app).waitForExistence(timeout: 2)
+        if !expanded {
+            revealOnMeList(app) { detail.exists || privacyMore(in: app).exists }
         }
-        if !more.waitForExistence(timeout: 2) {
-            let readMore = app.buttons["Read more"].firstMatch
-            let showLess = app.buttons["Show less"].firstMatch
-            if readMore.waitForExistence(timeout: 2) {
-                readMore.tap()
-            } else if showLess.waitForExistence(timeout: 1) {
-                showLess.tap()
-            }
-            more = app.buttons["me-privacy-more"]
-            if !more.waitForExistence(timeout: 2) {
-                more = app.descendants(matching: .any)["me-privacy-more"]
-            }
+        var more = privacyMore(in: app)
+        if !more.waitForExistence(timeout: 3) {
+            revealOnMeList(app) { privacyMore(in: app).exists }
+            more = privacyMore(in: app)
         }
-        XCTAssertTrue(more.waitForExistence(timeout: 6), "me-privacy-more missing after Me was selected")
-        let detail = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'The server keeps at most 20'")).firstMatch
-        if !detail.waitForExistence(timeout: 2) {
-            app.swipeUp()
+        if !more.waitForExistence(timeout: 6) {
+            XCTFail("me-privacy-more missing after Me was selected\n\(privacyAXDump(app))")
+            return
         }
-        XCTAssertTrue(detail.waitForExistence(timeout: 4))
+        if !detail.exists {
+            revealOnMeList(app) { detail.exists }
+        }
+        if !detail.waitForExistence(timeout: 4) {
+            XCTFail("Privacy detail missing after Me was selected\n\(privacyAXDump(app))")
+            return
+        }
         shot(app, "me-privacy")
         app.terminate()
     }
@@ -152,6 +145,105 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(copy.waitForExistence(timeout: 4))
         shot(app, "auth-error-ax5")
         app.terminate()
+    }
+
+    /// Me is showing when a Settings marker is on screen, not merely loaded under Coach.
+    private func settingsIsLive(_ app: XCUIApplication) -> Bool {
+        let consent = app.descendants(matching: .any)["me-ai-consent"]
+        if consent.waitForExistence(timeout: 4), consent.isHittable { return true }
+        let features = app.staticTexts["AI features"]
+        if features.waitForExistence(timeout: 2), features.isHittable { return true }
+        let nav = app.navigationBars["Me"]
+        if nav.waitForExistence(timeout: 2) {
+            if nav.isHittable { return true }
+            let title = nav.staticTexts["Me"].firstMatch
+            if title.exists, title.isHittable { return true }
+        }
+        let version = app.staticTexts["Version"]
+        if version.waitForExistence(timeout: 2), version.isHittable { return true }
+        let dark = app.staticTexts["Dark Mode"]
+        if dark.exists, dark.isHittable { return true }
+        return false
+    }
+
+    /// Button query first, then any element with the identifier.
+    private func privacyMore(in app: XCUIApplication) -> XCUIElement {
+        let button = app.buttons["me-privacy-more"]
+        if button.exists { return button }
+        return app.descendants(matching: .any)["me-privacy-more"]
+    }
+
+    /// Hittable Settings list. Skips the Coach scroller, including a full-window one.
+    private func meList(in app: XCUIApplication) -> XCUIElement? {
+        let scrollers = (app.collectionViews.allElementsBoundByIndex + app.tables.allElementsBoundByIndex)
+            .filter { $0.isHittable && $0.frame.height > 80 && $0.frame.width > 80 }
+        func looksLikeCoach(_ row: XCUIElement) -> Bool {
+            row.buttons["coach-suggestion"].exists
+                || row.buttons["coach-open-privacy"].exists
+                || row.descendants(matching: .any)["coach-open-privacy"].exists
+                || row.staticTexts["Your AI training partner"].exists
+        }
+        func looksLikeMe(_ row: XCUIElement) -> Bool {
+            row.staticTexts["Version"].exists
+                || row.staticTexts["Dark Mode"].exists
+                || row.staticTexts["AI features"].exists
+                || row.staticTexts["Privacy"].exists
+                || row.descendants(matching: .any)["me-ai-consent"].exists
+                || row.descendants(matching: .any)["me-dark-mode"].exists
+                || row.descendants(matching: .any)["me-privacy-more"].exists
+        }
+        let mine = scrollers.filter { looksLikeMe($0) && !looksLikeCoach($0) }
+        if let tightest = mine.min(by: { $0.frame.height < $1.frame.height }) {
+            return tightest
+        }
+        return scrollers.filter { !looksLikeCoach($0) }.min(by: { $0.frame.height < $1.frame.height })
+    }
+
+    private func revealOnMeList(_ app: XCUIApplication, _ seen: () -> Bool) {
+        if seen() { return }
+        for up in [true, true, true, true, true, true, false, false, false, false] {
+            if seen() { return }
+            nudgeMeList(app, up: up)
+        }
+    }
+
+    private func nudgeMeList(_ app: XCUIApplication, up: Bool) {
+        guard let list = meList(in: app) else {
+            if up { app.swipeUp() } else { app.swipeDown() }
+            return
+        }
+        let startY: CGFloat = up ? 0.72 : 0.38
+        let endY: CGFloat = up ? 0.38 : 0.72
+        let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.01, thenDragTo: end)
+    }
+
+    /// Failure-only snapshot. Not printed when the handoff passes.
+    private func privacyAXDump(_ app: XCUIApplication) -> String {
+        let pool = app.buttons.allElementsBoundByIndex
+            + app.staticTexts.allElementsBoundByIndex
+            + app.switches.allElementsBoundByIndex
+            + app.navigationBars.allElementsBoundByIndex
+        let lines = pool.compactMap { element -> String? in
+            let label = element.label
+            let identifier = element.identifier
+            let interesting = identifier.contains("me-")
+                || identifier.contains("coach-")
+                || identifier.contains("privacy")
+                || label.contains("Read more")
+                || label.contains("Show less")
+                || label.contains("AI features")
+                || label.contains("Privacy")
+                || label.contains("Version")
+                || label.contains("Dark Mode")
+                || label == "Me"
+                || label == "Coach"
+            guard interesting else { return nil }
+            return "\(element.elementType.rawValue) id=\(identifier) label=\(label.prefix(90)) hittable=\(element.isHittable)"
+        }
+        let clipped = lines.prefix(40)
+        return clipped.isEmpty ? "(no privacy or Me elements in buttons, text, switches, or nav bars)" : clipped.joined(separator: "\n")
     }
 
     private func launch(_ arguments: [String]) -> XCUIApplication {

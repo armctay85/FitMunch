@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// Settings screen for user preferences and app management
 struct SettingsView: View {
@@ -14,7 +15,6 @@ struct SettingsView: View {
     @State private var exportCSV: String?
     @State private var exportError: String?
     @State private var privacyExpanded = false
-    @State private var privacyRefresh = 0
     @ObservedObject private var premium = PremiumManager.shared
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
@@ -160,25 +160,27 @@ struct SettingsView: View {
                         }
                     ))
                     .accessibilityIdentifier("me-ai-consent")
+                    // List buttons drop their accessibilityIdentifier on iOS 26.
+                    // The id sits on this label, above the paragraph, so the row
+                    // stays in the tree whenever Me is on screen.
+                    PrivacyMoreRow(
+                        title: privacyExpanded || privacyRequest > 0 ? "Show less" : "Read more"
+                    ) {
+                        privacyExpanded.toggle()
+                    }
                     if privacyExpanded || privacyRequest > 0 {
                         Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Button(privacyExpanded || privacyRequest > 0 ? "Show less" : "Read more") {
-                        privacyExpanded.toggle()
-                    }
-                    .accessibilityIdentifier("me-privacy-more")
-                    .accessibilityAddTraits(.isButton)
-                    .id(privacyRefresh)
                 } header: {
                     Text("Privacy")
+                        .accessibilityIdentifier("me-privacy")
                 } footer: {
                     Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review.")
                 }
                 .id("me-privacy")
-                .accessibilityIdentifier("me-privacy")
                 
                 // Subscription section
                 Section("Subscription") {
@@ -379,11 +381,13 @@ struct SettingsView: View {
 
     private func expandPrivacy(_ proxy: ScrollViewProxy) {
         privacyExpanded = true
-        privacyRefresh += 1
         DispatchQueue.main.async {
             proxy.scrollTo("me-privacy", anchor: .top)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            proxy.scrollTo("me-privacy", anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             proxy.scrollTo("me-privacy", anchor: .top)
         }
     }
@@ -431,6 +435,61 @@ struct SettingsView: View {
             ]
         }
         return MealCSV.document(rows: rows)
+    }
+}
+
+/// Disclosure label for the privacy paragraph. A List `Button` does not
+/// publish `me-privacy-more` to XCTest. The id is on the text, and on a
+/// UIKit label behind it, so one of them stays in the tree on Me.
+private struct PrivacyMoreRow: View {
+    var title: String
+    var action: () -> Void
+
+    var body: some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.brandGreen)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: action)
+            .accessibilityLabel(title)
+            .accessibilityIdentifier("me-privacy-more")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, action)
+            .background {
+                PrivacyMoreAnchor(title: title)
+            }
+    }
+}
+
+/// Clear label with the same identifier. Created once so List updates do not
+/// rebuild the accessibility node. It does not draw its own title.
+private struct PrivacyMoreAnchor: UIViewRepresentable {
+    var title: String
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.backgroundColor = .clear
+        label.textColor = .clear
+        label.font = .preferredFont(forTextStyle: .footnote)
+        label.isUserInteractionEnabled = false
+        label.isAccessibilityElement = true
+        label.accessibilityIdentifier = "me-privacy-more"
+        label.accessibilityTraits = .button
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) {
+        label.text = title
+        label.textColor = .clear
+        label.accessibilityLabel = title
+        label.accessibilityIdentifier = "me-privacy-more"
+        label.accessibilityTraits = .button
+        label.isAccessibilityElement = true
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 44, height: max(proposal.height ?? 44, 44))
     }
 }
 
