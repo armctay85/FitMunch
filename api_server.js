@@ -32,6 +32,8 @@ const {
 } = require('./server/storage.js');
 const { eq, and, desc, gte } = require('drizzle-orm');
 const { consentResponse, choiceFromSettings } = require('./lib/ai-data-consent');
+const { shoppingCategory } = require('./lib/grocery-aisle');
+const { loggedSydneyDays, mealsInReviewWindow } = require('./lib/review-window');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -190,14 +192,68 @@ router.post('/user/profile', authMiddleware, async (req, res) => {
 });
 
 // Meal Logging API routes
+const MAX_MEAL_CALORIES = 20000;
+const MEAL_CALORIE_ERROR = 'Calories must be a number from 0 to 20,000.';
+const MEAL_NAME_ERROR = 'Enter a food name.';
+const MEAL_LOG_DEDUPE_MS = 12000;
+const recentMealPosts = new Map();
+function mealLogInputError(body) {
+  const b = body && typeof body === 'object' ? body : {};
+  const name = b.foodName != null ? b.foodName : b.food_name;
+  if (typeof name !== 'string' || !name.trim()) return MEAL_NAME_ERROR;
+  if (name.trim().length > MAX_NAME_LENGTH) return NAME_TOO_LONG;
+  const cal = b.calories;
+  if (typeof cal !== 'number' && typeof cal !== 'string') return MEAL_CALORIE_ERROR;
+  if (typeof cal === 'string' && !cal.trim()) return MEAL_CALORIE_ERROR;
+  const n = typeof cal === 'number' ? cal : Number(cal);
+  if (!Number.isFinite(n) || n < 0 || n > MAX_MEAL_CALORIES) return MEAL_CALORIE_ERROR;
+  return null;
+}
+function mealPostKey(userId, meal) {
+  const name = String(meal.foodName || '').trim().toLowerCase();
+  const type = String(meal.mealType || '').trim().toLowerCase();
+  return userId + '\n' + name + '\n' + Math.round(Number(meal.calories)) + '\n' + type;
+}
+function freshMealPost(key) {
+  const hit = recentMealPosts.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > MEAL_LOG_DEDUPE_MS) { recentMealPosts.delete(key); return null; }
+  return hit;
+}
 router.post('/meals/log', authMiddleware, async (req, res) => {
   try {
-    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
     const mealData = stripNames({ ...req.body });
     delete mealData.userId; // ignore body userId — use token
-    if (mealData.date) mealData.date = new Date(mealData.date);
-    const meal = await logMeal(req.user.userId, mealData);
-    res.json({ success: true, meal });
+    // Date first, then the name and calorie checks, then the 12s duplicate window.
+    if (mealData.date) {
+      if (!isRealIsoDate(mealData.date)) return res.status(400).json({ success: false, error: 'Date is not valid.' });
+      mealData.date = new Date(mealData.date);
+    }
+    if (nameTooLong(req.body)) return res.status(400).json({ success: false, error: NAME_TOO_LONG });
+    const invalid = mealLogInputError(req.body);
+    if (invalid) return res.status(400).json({ success: false, error: invalid });
+    mealData.foodName = String(mealData.foodName || mealData.food_name || '').trim();
+    mealData.calories = Math.round(Number(mealData.calories));
+    const key = mealPostKey(req.user.userId, mealData);
+    const hit = freshMealPost(key);
+    if (hit) {
+      const meal = hit.pending ? await hit.pending : hit.meal;
+      return res.json({ success: true, meal });
+    }
+    let settle;
+    const pending = new Promise((resolve, reject) => { settle = { resolve, reject }; });
+    pending.catch(() => {});
+    recentMealPosts.set(key, { at: Date.now(), pending });
+    try {
+      const meal = await logMeal(req.user.userId, mealData);
+      recentMealPosts.set(key, { at: Date.now(), meal });
+      settle.resolve(meal);
+      return res.json({ success: true, meal });
+    } catch (error) {
+      recentMealPosts.delete(key);
+      settle.reject(error);
+      throw error;
+    }
   } catch (error) {
     console.error('Error logging meal:', error);
     sendApiError(res, error);
@@ -235,7 +291,11 @@ router.post('/workouts/log', authMiddleware, async (req, res) => {
       notes: b.notes != null ? String(b.notes) : null,
       rating: b.rating != null ? parseInt(b.rating, 10) || null : null,
     };
-    if (b.date) workoutData.date = new Date(b.date);
+    // Same calendar check as meals: Date.parse rolls 2026-02-30 forward, and Postgres then 500s.
+    if (b.date) {
+      if (!isRealIsoDate(b.date)) return res.status(400).json({ success: false, error: 'Date is not valid.' });
+      workoutData.date = new Date(b.date);
+    }
     const workout = await logWorkout(req.user.userId, workoutData);
     res.json({ success: true, workout });
   } catch (error) {
@@ -285,9 +345,8 @@ function progressInput(body) {
     out.notes = b.notes.slice(0, 1000);
   }
   if (b.date !== undefined && b.date !== null && b.date !== '') {
+    if (!isRealIsoDate(b.date)) return { error: 'Date is not valid.' };
     const d = new Date(b.date);
-    if (typeof b.date !== 'string' && typeof b.date !== 'number') return { error: 'Date is not valid.' };
-    if (Number.isNaN(d.getTime()) || d.getFullYear() < 1900) return { error: 'Date is not valid.' };
     if (d.getTime() > Date.now() + 24 * 3600 * 1000) return { error: 'Date can be at most a day ahead.' };
     out.date = d;
   }
@@ -521,6 +580,7 @@ async function ensureMigrations() {
         );
         CREATE UNIQUE INDEX IF NOT EXISTS favourites_user_type_item_uidx
           ON favourites (user_id, item_type, item_id);
+        ALTER TABLE meal_plans ADD COLUMN IF NOT EXISTS user_edited BOOLEAN NOT NULL DEFAULT FALSE;
         -- pt_id must be UUID (users.id is UUID). Drop broken integer-FK versions if present.
         CREATE TABLE IF NOT EXISTS pt_referrals (
           id SERIAL PRIMARY KEY,
@@ -530,6 +590,13 @@ async function ensureMigrations() {
           credits INTEGER DEFAULT 0,
           created_at TIMESTAMPTZ DEFAULT now()
         );
+        CREATE TABLE IF NOT EXISTS pt_referral_claims (
+          code TEXT NOT NULL,
+          claimer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          PRIMARY KEY (code, claimer_id)
+        );
+        ${require('./lib/db-migrate').CLAIMS_HEAL}
       `);
     } catch (err) {
       console.error('[ensureMigrations]', err.message);
@@ -1243,7 +1310,11 @@ function authMiddleware(req, res, next) {
 // can be stale). Coach preview sessions keep their existing behaviour when preview is on.
 async function requireTrainer(req, res, next) {
   try {
-    if (req.user && req.user.preview) {
+    // users.id is a UUID. A non-uuid claim would throw 22P02 and become a 500.
+    if (!req.user || typeof req.user.userId !== 'string' || !UUID_RE.test(req.user.userId)) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    if (req.user.preview) {
       if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
       return next();
     }
@@ -1337,21 +1408,23 @@ router.get('/clients/:clientId', authMiddleware, requireTrainer, async (req, res
 router.patch('/clients/:clientId', authMiddleware, requireTrainer, async (req, res) => {
   try {
     const { phase, notes, status } = req.body;
+    const current = await _pool.query(
+      'SELECT status FROM pt_clients WHERE pt_id=$1 AND client_id=$2',
+      [req.user.userId, req.params.clientId]
+    );
+    if (!current.rows[0]) return res.status(403).json({ error: 'Not your client' });
     if (status === 'active') {
-      const current = await _pool.query(
-        'SELECT status FROM pt_clients WHERE pt_id=$1 AND client_id=$2',
-        [req.user.userId, req.params.clientId]
-      );
-      const alreadyActive = current.rows[0] && (current.rows[0].status || 'active') === 'active';
+      const alreadyActive = (current.rows[0].status || 'active') === 'active';
       if (!alreadyActive) {
         const gate = await coachGateForPt(req.user.userId);
         if (!gate.allowed) return res.status(409).json(coachGateHttpBody(gate));
       }
     }
-    await _pool.query(
-      'UPDATE pt_clients SET phase=$1, notes=$2, status=$3 WHERE pt_id=$4 AND client_id=$5',
+    const updated = await _pool.query(
+      'UPDATE pt_clients SET phase=$1, notes=$2, status=$3 WHERE pt_id=$4 AND client_id=$5 RETURNING client_id',
       [phase, notes, status, req.user.userId, req.params.clientId]
     );
+    if (!updated.rows[0]) return res.status(403).json({ error: 'Not your client' });
     res.json({ success: true });
   } catch (err) { sendApiError(res, err); }
 });
@@ -1414,9 +1487,9 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
       other: [],
     };
     function categorise(itemName) {
+      const special = shoppingCategory(itemName);
+      if (special) return special;
       const n = itemName.toLowerCase();
-      // Nut butters, butter beans and butternut aren't dairy (D7).
-      if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'vegetables' : 'pantry';
       for (const [cat, words] of Object.entries(CATEGORIES)) {
         if (words.some(w => n.includes(w))) return cat;
       }
@@ -1586,8 +1659,7 @@ function mealWarnings(meals, filters) {
   if (typeof m0 === 'string') { try { m0 = JSON.parse(m0); } catch (_) { m0 = null; } }
   const guard = (filters && Array.isArray(filters.guard)) ? filters.guard : [];
   const noWarning = (k, x) => (k === 'allergenWarning' ? undefined : x);
-  // Meals to judge: every meal #127's check put a warning on, plus main's list of meals (#127a), so a meal
-  // main would flag is always judged by both checks.
+  // Meals to judge: every meal the ingredient check put a warning on, plus the saved list.
   const seen = new Set(); const meals2 = [];
   const add = (v) => { if (v && typeof v === 'object' && !Array.isArray(v) && !seen.has(v) && meals2.length < 200) { seen.add(v); meals2.push(v); } };
   const walk = (v, depth) => {
@@ -1605,9 +1677,21 @@ function mealWarnings(meals, filters) {
   for (const v of meals2) {
     const w = (v.allergenWarning && typeof v.allergenWarning === 'object') ? v.allergenWarning : {};
     const ours = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
-    // Main's check on the same meal: any hit from either side is red.
-    const mains = guard.length ? dg.brokenGroups(JSON.stringify(v, noWarning), guard) : [];
-    const contains = [...new Set([...ours, ...mains])];
+    // A meal the ingredient check accepted stays accepted ("Tofu fried rice" is not eggs; "Dead bug" is not shellfish).
+    // A name it could not read can still go red when the other scanner names a group (a brand, a dish).
+    const extra = (w.unrecognised && guard.length) ? dg.brokenGroups(JSON.stringify(v, noWarning), guard) : [];
+    // The ingredient check skips swaps. A swap that names an excluded food still makes this meal red
+    // ("Rice bowl" with a peanut satay swap). The same check is used, so a stated stand-in stays clear.
+    const fromSwaps = [];
+    if (Array.isArray(v.swaps)) {
+      const excluded = mealSafety.excludedFlags(filters || {});
+      const terms = mealSafety.customTerms(filters || {});
+      for (const swap of v.swaps) {
+        const problems = mealSafety.mealProblems(swap, excluded, terms);
+        if (problems) fromSwaps.push(...mealSafety.warningFor(problems).allergens);
+      }
+    }
+    const contains = [...new Set([...ours, ...fromSwaps, ...extra])];
     const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
     if (contains.length) out.push({ meal, contains });
     // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
@@ -1615,7 +1699,7 @@ function mealWarnings(meals, filters) {
     else if (w.unrecognised || (filters && filters.pastBudget)) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
   }
   // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
-  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.UNREADABLE_NOTICE });
+  if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.unreadableNotice(filters.pastBudget) });
   return out.slice(0, 50);
 }
 
@@ -1668,14 +1752,17 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
       calcCarbs = sums.carbs;
       calcFat = sums.fat;
     }
+    await ensureMigrations();
+    const userEdited = req.body && req.body.userEdited === true;
     const r = await _pool.query(
       `UPDATE meal_plans SET name=COALESCE($1,name), description=COALESCE($2,description),
        goal_type=COALESCE($3,goal_type), meals=COALESCE($4,meals),
        total_calories=COALESCE($5,total_calories), total_protein=COALESCE($6,total_protein),
-       total_carbs=COALESCE($7,total_carbs), total_fat=COALESCE($8,total_fat), updated_at=NOW()
+       total_carbs=COALESCE($7,total_carbs), total_fat=COALESCE($8,total_fat),
+       user_edited = COALESCE(user_edited, FALSE) OR $11, updated_at=NOW()
        WHERE id=$9 AND user_id=$10 RETURNING *`,
       [name, description, goalType, meals ? JSON.stringify(meals) : null,
-       calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId]
+       calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId, userEdited]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
     res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, await userFilters(req.user.userId)) : [] });
@@ -1828,7 +1915,8 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
       const mealFilters = insightUnread
         ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
         : insightFilters;
-      const insight = dietGuard.safeInsight({ filters: mealFilters, calories: insightCalories, protein: insightProtein });
+      const pastBudget = !insightUnread && !!mealSafety.profileFilters(insightProfile).pastBudget;
+      const insight = dietGuard.safeInsight({ filters: mealFilters, calories: insightCalories, protein: insightProtein, pastBudget });
       return res.json({ success: true, insight, provider: null });
     }
     const filters = mealSafety.profileFilters(insightProfile);
@@ -1843,6 +1931,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {
@@ -2137,8 +2226,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 
     // Saved filters are read, never written. An unreadable profile or filter list fails closed with no AI.
     // A readable diet or allergy list still gets a real answer, then a fail-closed food check.
-    const ctxObj = context && typeof context === 'object' ? context : {};
-    const sentFilters = [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)];
+    const ctxObj = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
+    // A bare string ("peanut") is the same guard as { allergies: ['peanut'] }.
+    const sentFilters = typeof context === 'string'
+      ? dietGuard.listOf(context)
+      : [...dietGuard.listOf(ctxObj.dietary), ...dietGuard.listOf(ctxObj.allergies)];
     const filters = dietGuard.combineFilters(profile, sentFilters);
     const latestUser = [...safeMessages].reverse().find((m) => m.role === 'user').content;
     // The early return still keys off profileUnread. The reply itself uses every allergen-free filter, or the day plan names dairy, gluten and eggs.
@@ -2151,6 +2243,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       protein: (profile && profile.targetProtein) || ctxObj.targetProtein,
       question: latestUser,
       intent,
+      pastBudget: !!(profile && !profileUnread && mealSafety.profileFilters(profile).pastBudget),
     };
     const hardBlocked = profileUnread || dietGuard.unreadable(filters);
     if (hardBlocked) {
@@ -2163,7 +2256,9 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.json({ success: true, reply: dietGuard.safeTrainingReply(safeOpts), source: 'fixed', provider: null });
     }
 
-    const aiFilters = chatAiFilters(profile, ctxObj);
+    const aiFilters = typeof context === 'string'
+      ? mealSafety.mergeFilters(mealSafety.profileFilters(profile), { dietary: [], allergies: dietGuard.listOf(context) })
+      : chatAiFilters(profile, ctxObj);
     const filtered = filters.length > 0;
     if (filtered && !aiClient.hasProvider()) {
       const fb = dietGuard.addressedCoachReply(safeOpts);
@@ -2175,6 +2270,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'chat' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {
@@ -2285,9 +2381,9 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
         tier: 'smoke',
         period: 'day',
         day: aiUsage.sydneyDay(),
+        freeMonthly: aiUsage.freeMonthlyLimit(),
       });
     }
-    const used = await aiUsage.getUsed(userId);
     const limit = aiUsage.freeMonthlyLimit();
     let tier = 'free';
     try {
@@ -2295,11 +2391,19 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
       tier = effectiveTier(user);
     } catch (_) {}
     const isPaid = tier && tier !== 'free';
+    const used = await aiUsage.getUsed(userId);
+    // Free accounts stop when the counter cannot be read. Paid accounts keep the old display (EQA #163).
+    if (used == null && !isPaid) {
+      res.set('Retry-After', '3');
+      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+    }
+    const shown = used == null ? 0 : used;
     res.json({
       success: true,
-      used,
+      used: shown,
       limit: isPaid ? null : limit,
-      remaining: isPaid ? null : Math.max(0, limit - used),
+      remaining: isPaid ? null : Math.max(0, limit - shown),
+      freeMonthly: limit,
       tier,
       month: aiUsage.monthKey(),
     });
@@ -2343,6 +2447,7 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
+      res.set('Retry-After', '3');
       return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
     }
     if (!gate.allowed && gate.smoke) {
@@ -2402,26 +2507,25 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
 });
 
 // ── AI WEEKLY REVIEW ──────────────────────────────────────────────────────────
-const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
-// New users (under 3 logged days this week) get an honest empty state: no score, no filler wins, no AI call,
-// no credit (D8).
+// Under 3 logged Sydney dates in the last 7 days: honest empty state, no score, no AI call, no credit.
 const REVIEW_MIN_DAYS = 3;
 const REVIEW_EMPTY = {
-  headline: "Log 3 days of meals and I'll score your week.",
+  headline: "Log 3 days of meals in the last 7 days and I'll score them.",
   wins: [],
-  focus: ['Log what you eat on 3 days this week, even roughly.', 'Weigh in once so the trend has a starting point.'],
+  focus: ['Log what you eat on 3 days in the last 7 days, even roughly.', 'Weigh in once so the trend has a starting point.'],
   score: null,
   empty: true,
 };
+const USAGE_STORE_DOWN = "We couldn't check your AI usage. Please try again.";
+const MEAL_LOG_DOWN = "We couldn't load your meal log. Please try again.";
 router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
   let reviewUnread = false;
   try {
     let tier = 'free';
     let profile = null;
+    let user = null;
     try {
-      const user = await getUserById(req.user.userId);
-      const denied = consentResponse(user && user.settings);
-      if (denied) return res.status(denied.status).json(denied.body);
+      user = await getUserById(req.user.userId);
       tier = effectiveTier(user);
       profile = await getProfile(req.user.userId).catch(() => { reviewUnread = true; return null; });
     } catch (_) {
@@ -2430,24 +2534,46 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // An unreadable profile fails closed with no AI. Everyone else is scored only after 3 logged days.
+    // An unreadable profile fails closed with no AI. That review is personal, so consent still applies.
     const reviewFilters = dietGuard.savedFilters(profile);
-    if (reviewUnread || dietGuard.unreadable(reviewFilters)) {
+    const unreadableReview = reviewUnread || dietGuard.unreadable(reviewFilters);
+    // Last 7 Sydney dates. A meal-log outage is a 503, never an empty "log 3 days".
+    const since = new Date(Date.now() - 7 * 86400000);
+    const mealSince = new Date(Date.now() - 8 * 86400000);
+    let weekMeals = [];
+    let days0 = 0;
+    if (!unreadableReview) {
+      let meals;
+      try {
+        meals = await getMealLogsForPeriod(req.user.userId, mealSince, new Date());
+      } catch (_) {
+        res.set('Retry-After', '3');
+        return res.status(503).json({ success: false, error: MEAL_LOG_DOWN });
+      }
+      weekMeals = mealsInReviewWindow(meals, new Date(), 7);
+      days0 = loggedSydneyDays(weekMeals, new Date(), 7);
+    }
+    const filteredReview = reviewFilters.length > 0;
+    const daysLogged = days0;
+    // The empty state uses no AI, so it is returned before the consent check.
+    if (days0 < REVIEW_MIN_DAYS && !filteredReview && !unreadableReview) {
+      return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+    }
+    const denied = consentResponse(user && user.settings);
+    if (denied) return res.status(denied.status).json(denied.body);
+    if (unreadableReview) {
       const mealFilters = reviewUnread
         ? dietGuard.savedFilters({ dietaryPreferences: [dietGuard.UNREADABLE] })
         : reviewFilters;
-      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein }), source: 'fixed', provider: null });
+      const pastBudget = !reviewUnread && !!mealSafety.profileFilters(profile).pastBudget;
+      return res.json({ success: true, review: dietGuard.safeWeeklyReview({ filters: mealFilters, calories: profile && profile.targetCalories, protein: profile && profile.targetProtein, pastBudget }), source: 'fixed', provider: null });
     }
-    // Gather the last 7 days of real data before deciding whether this week can be scored.
-    const since = new Date(Date.now() - 7 * 86400000);
-    const meals = await getMealLogsForPeriod(req.user.userId, since, new Date()).catch(() => []);
     const workouts = await getRecentWorkouts(req.user.userId, 20).catch(() => []);
     const progress = await getProgressHistory(req.user.userId, 5).catch(() => []);
 
     const weekWorkouts = (workouts || []).filter(w => new Date(w.date) >= since);
-    const totCal = (meals || []).reduce((s, m) => s + (m.calories || 0), 0);
-    const totProt = (meals || []).reduce((s, m) => s + (Number(m.protein) || 0), 0);
-    const daysLogged = new Set((meals || []).map(m => new Date(m.date).toDateString())).size;
+    const totCal = weekMeals.reduce((s, m) => s + (m.calories || 0), 0);
+    const totProt = weekMeals.reduce((s, m) => s + (Number(m.protein) || 0), 0);
     const stats = { daysLogged, totalCalories: totCal, totalProtein: Math.round(totProt), workouts: weekWorkouts.length };
     const reviewOpts = {
       filters: reviewFilters,
@@ -2456,15 +2582,9 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
       daysLogged,
       workouts: weekWorkouts.length,
     };
-    const filteredReview = reviewFilters.length > 0;
-    // Too little logged to judge the week: no model call and no credit.
-    // Filtered users get the checked first-week review. Everyone else gets the empty state.
-    const days0 = daysLogged;
+    // Filtered users with too few days get the checked first-week review. No model call and no credit.
     if (days0 < REVIEW_MIN_DAYS) {
-      if (filteredReview) {
-        return res.json({ success: true, review: dietGuard.firstWeekReview(reviewOpts), stats, source: 'fixed', provider: null });
-      }
-      return res.json({ success: true, review: { ...REVIEW_EMPTY, focus: [...REVIEW_EMPTY.focus] }, stats: { daysLogged: days0, daysNeeded: REVIEW_MIN_DAYS }, source: 'empty', provider: null });
+      return res.json({ success: true, review: dietGuard.firstWeekReview(reviewOpts), stats, source: 'fixed', provider: null });
     }
     if (!aiClient.hasProvider()) {
       if (filteredReview) {
@@ -2475,7 +2595,8 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
 
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'weekly_review' });
     if (!gate.allowed && gate.unavailable) {
-      return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
+      res.set('Retry-After', '3');
+      return res.status(503).json({ success: false, error: USAGE_STORE_DOWN });
     }
     if (!gate.allowed && gate.smoke) {
       return res.status(429).json({ success: false, upgrade: false, limit: gate.limit, used: gate.used, error: 'Smoke account daily AI cap reached.' });
@@ -2549,8 +2670,18 @@ Cite the calorie and protein targets. Do not award a win for showing up, opening
       });
     }
 
-    const r = await callReview();
+    const refundWeekly = () => (typeof aiUsage.refundAiCall === 'function'
+      ? aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'weekly_review' })
+      : Promise.resolve(false));
+    let r;
+    try {
+      r = await callReview();
+    } catch (callErr) {
+      await refundWeekly();
+      throw callErr;
+    }
     if (!r.ok) {
+      await refundWeekly();
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
     if (!reviewDataText(r.data)) {
@@ -2574,7 +2705,11 @@ Cite the calorie and protein targets. Do not award a win for showing up, opening
 // ── CLIENT PORTAL (for clients to get their assigned data) ───────────────────
 router.get('/portal/me', authMiddleware, async (req, res) => {
   try {
-    if (req.user && req.user.preview) {
+    if (!req.user || typeof req.user.userId !== 'string' || !UUID_RE.test(req.user.userId)) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    if (req.user.preview) {
+      if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
       return res.json({
         success: true,
         user: { id: req.user.userId, name: req.user.name, email: req.user.email },
@@ -2652,28 +2787,53 @@ router.get('/referral/code', authMiddleware, requireTrainer, async (req, res) =>
 
 // Claim a referral code at signup (extends trial by 30 days for referrer)
 router.post('/referral/claim', authMiddleware, requireTrainer, async (req, res) => {
+  const client = await _pool.connect();
   try {
-    const { code } = req.body;
+    const code = req.body && req.body.code != null ? String(req.body.code).normalize('NFKC').trim().toUpperCase() : '';
     if (!code) return res.status(400).json({ error: 'No code provided' });
-    const pool = _pool;
-    const ref = await pool.query('SELECT * FROM pt_referrals WHERE code=$1', [code.toUpperCase()]);
-    if (!ref.rows.length) return res.status(404).json({ error: 'Invalid referral code' });
+    await ensureMigrations();
+    await client.query('BEGIN');
+    const ref = await client.query('SELECT * FROM pt_referrals WHERE upper(btrim(normalize(code, NFKC)))=$1 FOR UPDATE', [code]);
+    if (!ref.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Invalid referral code' });
+    }
     const referrer = ref.rows[0];
-    if (referrer.pt_id === req.user.userId) return res.status(400).json({ error: 'Cannot use your own code' });
-    // Give referrer 30 extra days
-    await pool.query(
+    if (referrer.pt_id === req.user.userId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Cannot use your own code' });
+    }
+    const owner = await client.query('SELECT role FROM users WHERE id=$1', [referrer.pt_id]);
+    if (!owner.rows[0] || owner.rows[0].role !== 'pt') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Referral code is not from a trainer' });
+    }
+    const claim = await client.query(
+      'INSERT INTO pt_referral_claims (code, claimer_id) VALUES ($1,$2) ON CONFLICT (code, claimer_id) DO NOTHING RETURNING code',
+      [code, req.user.userId]
+    );
+    if (!claim.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'You have already claimed this code' });
+    }
+    await client.query(
       'UPDATE users SET subscription_expires_at = COALESCE(subscription_expires_at, NOW()) + INTERVAL \'30 days\' WHERE id=$1',
       [referrer.pt_id]
     );
-    await pool.query('UPDATE pt_referrals SET uses=uses+1, credits=credits+1 WHERE code=$1', [code.toUpperCase()]);
-    // Give new PT 7 extra trial days (on top of 14-day default)
-    await pool.query(
+    await client.query('UPDATE pt_referrals SET uses=uses+1, credits=credits+1 WHERE code=$1', [referrer.code]);
+    await client.query(
       'UPDATE users SET subscription_expires_at = COALESCE(subscription_expires_at, NOW()) + INTERVAL \'7 days\' WHERE id=$1',
       [req.user.userId]
     );
-    console.log(`[referral] ${code} used by user ${req.user.userId} — referrer ${referrer.pt_id} gets +30 days`);
+    await client.query('COMMIT');
+    console.log(`[referral] code claimed by user ${req.user.userId}; referrer ${referrer.pt_id} gets +30 days`);
     res.json({ success: true, bonus: '7 extra trial days added to your account' });
-  } catch (err) { sendApiError(res, err); }
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) { /* already closed */ }
+    sendApiError(res, err);
+  } finally {
+    client.release();
+  }
 });
 
 
@@ -2708,6 +2868,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports.__pool = _pool; // test seam: Postgres suites must end this pool
   module.exports._endDbForTests = _endDbForTests;
   module.exports._coachListOf = listOf; // test hook (EQA #140 r1 S1)
+  module.exports.mealLogInputError = mealLogInputError;
   // Read by the store-name sweep test.
   router.AI_PROMPTS = { CHAT_GLOBAL_RULES, CHAT_INTENTS };
 }

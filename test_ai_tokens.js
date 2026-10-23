@@ -200,11 +200,104 @@ describe('smoke account cap', () => {
       const { usage } = load({ SMOKE_DAILY_AI_CAP: raw });
       expect(usage.smokeDailyCap()).toBe(want);
     });
+  it('a customer refund logs the failure, retries once, and never throws', async () => {
+    const { usage } = load();
+    const errs = [];
+    jest.spyOn(console, 'error').mockImplementation((m) => errs.push(String(m)));
+    let calls = 0;
+    usage._setQueryForTests(async (sql) => {
+      if (!/count = count - 1/.test(sql)) return { rows: [] };
+      calls += 1;
+      if (calls === 1) throw new Error('refund down');
+      return { rows: [{ count: 2 }] };
+    });
+    await expect(usage.refundAiCall({ allowed: true }, { userId: 'u1', feature: 'weekly_review' })).resolves.toBe(true);
+    expect(calls).toBe(2);
+    expect(errs.join(' ')).toMatch(/refund/i);
+    calls = 0;
+    usage._setQueryForTests(async (sql) => {
+      if (/count = count - 1/.test(sql)) { calls += 1; throw new Error('still down'); }
+      return { rows: [] };
+    });
+    await expect(usage.refundAiCall({ allowed: true }, { userId: 'u1', feature: 'weekly_review' })).resolves.toBe(false);
+    expect(calls).toBe(2);
+  });
+  it('keeps a refund that already landed when the retry also fails, and does not subtract twice', async () => {
+    const { usage } = load();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    let count = 3;
+    let updates = 0;
+    usage._setQueryForTests(async (sql) => {
+      if (/SELECT count FROM ai_usage_monthly/.test(sql)) return { rows: [{ count }] };
+      if (/count = count - 1/.test(sql)) {
+        updates += 1;
+        if (updates === 1) {
+          count -= 1;
+          throw new Error('connection reset');
+        }
+        count -= 1;
+        throw new Error('still down');
+      }
+      return { rows: [] };
+    });
+    await expect(usage.refundAiCall({ allowed: true }, { userId: 'u1', feature: 'weekly_review' })).resolves.toBe(true);
+    expect(updates).toBe(1);
+    expect(count).toBe(2);
+    count = 4;
+    updates = 0;
+    usage._setQueryForTests(async (sql) => {
+      if (/SELECT count FROM ai_usage_monthly/.test(sql)) return { rows: [{ count }] };
+      if (/count = count - 1/.test(sql)) {
+        updates += 1;
+        if (updates === 1) throw new Error('not stored');
+        count -= 1;
+        throw new Error('reply lost');
+      }
+      return { rows: [] };
+    });
+    await expect(usage.refundAiCall({ allowed: true }, { userId: 'u1', feature: 'weekly_review' })).resolves.toBe(true);
+    expect(updates).toBe(2);
+    expect(count).toBe(3);
+  });
   it('fails closed when the store errors', async () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-f' });
     jest.spyOn(console, 'error').mockImplementation(() => {});
     usage._setQueryForTests(async (sql) => { if (/CREATE/.test(sql)) return { rows: [] }; throw new Error('down'); });
     expect(await usage.checkAndConsume({ userId: 'u-f', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, smoke: true, unavailable: true });
+  });
+  it('a free account fails closed when the usage read errors', async () => {
+    const { usage } = load({ AI_FREE_MONTHLY_LIMIT: '10', DATABASE_URL: 'postgres://mocked/usage' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    usage._setQueryForTests(async (sql) => {
+      if (/CREATE/.test(sql)) return { rows: [] };
+      if (/SELECT COALESCE\(SUM/.test(sql)) throw new Error('usage read failed');
+      return { rows: [{ total: 0 }] };
+    });
+    expect(await usage.checkAndConsume({ userId: 'u-free', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, unavailable: true });
+  });
+  it('a free account fails closed when the usage increment errors', async () => {
+    const { usage } = load({ AI_FREE_MONTHLY_LIMIT: '10', DATABASE_URL: 'postgres://mocked/usage' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    usage._setQueryForTests(async (sql) => {
+      if (/CREATE/.test(sql)) return { rows: [] };
+      if (/SELECT COALESCE\(SUM/.test(sql)) return { rows: [{ total: 1 }] };
+      if (/INSERT INTO ai_usage_monthly/.test(sql)) throw new Error('increment failed');
+      return { rows: [] };
+    });
+    expect(await usage.checkAndConsume({ userId: 'u-free', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, unavailable: true, used: 1 });
+  });
+  it('a cancelled usage statement fails closed for free and still allows premium', async () => {
+    const { usage } = load({ AI_FREE_MONTHLY_LIMIT: '10', DATABASE_URL: 'postgres://mocked/usage' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const cancel = Object.assign(new Error('canceling statement due to user request'), { code: '57014' });
+    usage._setQueryForTests(async (sql) => {
+      if (/CREATE/.test(sql)) return { rows: [] };
+      if (/SELECT COALESCE\(SUM/.test(sql)) throw cancel;
+      if (/INSERT INTO ai_usage_monthly/.test(sql)) throw cancel;
+      return { rows: [] };
+    });
+    expect(await usage.checkAndConsume({ userId: 'u-free', tier: 'free', feature: 'chat' })).toMatchObject({ allowed: false, unavailable: true });
+    expect(await usage.checkAndConsume({ userId: 'u-paid', tier: 'premium', feature: 'chat' })).toMatchObject({ allowed: true, remaining: null });
   });
   it('fails closed with no store at all', async () => {
     const { usage } = load({ SMOKE_ACCOUNT_IDS: 'u-f' });

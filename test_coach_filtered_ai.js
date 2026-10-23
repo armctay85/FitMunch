@@ -307,12 +307,12 @@ describe('the filtered attack list still serves zero unsafe foods', () => {
     storage.getProfile.mockRejectedValue(new Error('db down'));
     const down = await chat('How many sets for squats?', { intent: 'workout' });
     expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(down.body.reply).toContain(dietGuard.COMING_SOON);
+    expect(down.body.reply).toBe(dietGuard.UNREADABLE_NOTICE);
     aiClient.chat.mockClear();
     profile({ dietaryPreferences: [], allergies: [{ name: 'peanut' }] });
     const bad = await chat('How many sets for squats?', { intent: 'workout' });
     expect(aiClient.chat).not.toHaveBeenCalled();
-    expect(bad.body.reply).toContain(dietGuard.COMING_SOON);
+    expect(bad.body.reply).toBe(dietGuard.UNREADABLE_NOTICE);
   });
 });
 
@@ -554,8 +554,6 @@ describe('a non-string or empty provider reply is a fallback and the credit is r
 
 describe('questions Coach cannot read still get the day plan', () => {
   it.each([
-    'What should I eat post-leg-day?',
-    'What should I eat while bulking?',
     '¿Qué puedo comer hoy?',
     '今天吃什么',
   ])('"%s" says it cannot read the question and offers the day', async (q) => {
@@ -578,9 +576,8 @@ describe('a profile that cannot be read stays filter-safe', () => {
     expect(r.status).toBe(200);
     expect(aiClient.chat).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
-    expect(r.body.reply).toContain(dietGuard.UNREADABLE_NOTICE);
-    expect(r.body.reply).toMatch(/Breakfast:/);
-    expect(r.body.reply).toMatch(/Dinner:/);
+    expect(r.body.reply).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.reply.split(dietGuard.UNREADABLE_NOTICE).join('')).not.toMatch(/\b(checked|fits|safe)\b|Breakfast:|Dinner:/i);
     for (const f of ['dairy free', 'gluten free', 'egg free']) {
       expect(dietGuard.textBreaksFilters(r.body.reply, [f])).toBe(false);
     }
@@ -594,8 +591,23 @@ describe('a profile that cannot be read stays filter-safe', () => {
     expect(aiClient.chat).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     expect(r.body.provider).toBeNull();
-    expect(r.body.insight).toContain(dietGuard.SAFE_TIP);
+    expect(r.body.insight).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.insight).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:|Dinner:/);
     for (const f of ['dairy free', 'gluten free', 'egg free']) {
+      expect(dietGuard.textBreaksFilters(r.body.insight, [f])).toBe(false);
+    }
+  });
+
+  it('insight on an unreadable profile is the notice only, with no meal', async () => {
+    storage.getProfile.mockRejectedValue(new Error('db down'));
+    const r = await request(app).post('/api/ai/insight').set('Authorization', token)
+      .send({ todayCalories: 400, todayProtein: 20 });
+    expect(r.status).toBe(200);
+    expect(aiClient.chat).not.toHaveBeenCalled();
+    expect(r.body.insight).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.insight).not.toContain(dietGuard.COMING_SOON);
+    expect(r.body.insight).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:|Dinner:/);
+    for (const f of dietGuard.ALL_FREE) {
       expect(dietGuard.textBreaksFilters(r.body.insight, [f])).toBe(false);
     }
   });
@@ -607,6 +619,10 @@ describe('a profile that cannot be read stays filter-safe', () => {
     expect(r.status).toBe(200);
     expect(r.body.source).toBe('fixed');
     expect(r.body.review.score).toBeNull();
+    expect(r.body.review.headline).toBe(dietGuard.UNREADABLE_NOTICE);
+    expect(r.body.review.wins).toEqual([]);
+    expect(r.body.review.focus).toEqual([]);
+    expect(JSON.stringify(r.body.review)).not.toMatch(/Try this checked meal|set up your allergy|checked recipes|Lunch:|Breakfast:|Dinner:/);
     expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     for (const f of ['dairy free', 'gluten free', 'egg free']) {

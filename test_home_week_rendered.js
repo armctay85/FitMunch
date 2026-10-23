@@ -132,15 +132,22 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       res.set('Cache-Control', 'no-store');
       res.json({ success: true, plans: db.plans.map((p) => ({ ...p, allergenWarnings: db.warningsFromMeals ? allergenWarningsFor(p.meals) : (db.warnings || []) })) });
     });
-    app.get('/api/portal/me', (req, res) => res.json({
-      success: true,
-      pt: db.pt || null,
-      mealPlan: db.trainerMeal || null,
-      workoutPlan: null,
-      recentMeals: db.todayCals ? [{ date: new Date().toISOString(), calories: db.todayCals }] : [],
-      recentWorkouts: [],
-      shoppingLists: [],
-    }));
+    app.get('/api/portal/me', (req, res) => {
+      if (db.portalDown === 'text') return res.status(500).type('text/plain').send('database offline trace');
+      if (db.portalDown) return res.status(500).json({ success: false, error: 'database offline trace' });
+      const recentMeals = Array.isArray(db.recentMeals)
+        ? db.recentMeals
+        : (db.todayCals ? [{ date: new Date().toISOString(), calories: db.todayCals }] : []);
+      res.json({
+        success: true,
+        pt: db.pt || null,
+        mealPlan: db.trainerMeal || null,
+        workoutPlan: null,
+        recentMeals,
+        recentWorkouts: [],
+        shoppingLists: [],
+      });
+    });
     app.post('/api/meal-plan/generate', (req, res) => {
       const dietary = engine.normaliseDiet(req.body.dietary || []);
       res.json({ success: true, source: 'builder', plan: engine.withSwaps(engine.buildPlan({ calories: req.body.calories, protein: req.body.protein, days: 7, dietary }), dietary, req.body.calories) });
@@ -151,6 +158,21 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       res.json({ success: true, list: { name: 'Your first week: shopping list', itemCount: items.length, items, byAisle: { pantry: items }, aisleOrder: ['pantry'], aisleIcons: {} } });
     });
     app.post('/api/user/goal-weight', (req, res) => res.json({ success: true, goalWeightKg: req.body.goalWeightKg }));
+    app.post('/api/meals/log', (req, res) => {
+      // Bind this request to the db object that was current when it arrived.
+      // The next test replaces db, and a delayed reply must not count there.
+      const book = db;
+      book.mealLogs = book.mealLogs || [];
+      book.logHits = (book.logHits || 0) + 1;
+      const finish = () => {
+        if (book.logMode === 'text') return res.status(500).type('text/plain').send('SECRET raw body');
+        if (book.logMode === 'json') return res.status(500).json({ success: false, error: 'SECRET raw database failure' });
+        book.mealLogs.push(req.body);
+        res.json({ success: true, meal: { id: book.mealLogs.length } });
+      };
+      if (book.logDelay) return setTimeout(finish, book.logDelay);
+      finish();
+    });
     app.get('/_vercel/insights/script.js', (req, res) => { res.type('application/javascript'); res.send(''); });
     app.use('/api', (req, res) => res.json(req.path.includes('/auth/me')
       ? { success: true, user: { id: 7, name: 'Sam Rivers', email: 'sam@example.com', role: 'client', subscriptionTier: 'free', settings: {} } }
@@ -223,6 +245,15 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       expect(await p.textContent('#pm-cals')).toBe(hw.formatCount(1858));
       expect(await p.textContent('#pm-cals-sub')).toBe(`of ${hw.formatCount(calories)} goal`);
       expect(card.meals).toBe(4);
+      const prog = await p.evaluate(() => ({
+        text: document.getElementById('home-week-progress') ? document.getElementById('home-week-progress').textContent : '',
+        logs: document.querySelectorAll('#home-week-today .hw-log').length,
+        label: document.querySelector('#home-week-today .hw-log') ? document.querySelector('#home-week-today .hw-log').textContent : '',
+      }));
+      expect(prog.logs).toBe(4);
+      expect(prog.label).toBe('Log');
+      expect(prog.text).toMatch(/kcal left|kcal over/);
+      expect(prog.text).toMatch(/\d/);
       expect([card.days, card.on]).toEqual([7, 1]);
       expect(card.firstOnScreen).toBe(true);
       expect(card.nudge).toBe('none');
@@ -259,11 +290,17 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
         return res.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
       });
       expect(homeAxe).toEqual([]);
-      const homeTap = await p.evaluate(() => [...document.querySelectorAll('#home-mealplan-btn, #home-week-shop, #home-mealplan button')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
+      const homeTap = await p.evaluate(() => [...document.querySelectorAll('#home-mealplan-btn, #home-week-shop, #home-mealplan button, #home-week-today .hw-log')].filter((e) => e.offsetParent).map((e) => e.getBoundingClientRect().height));
       for (const h of homeTap) expect(h).toBeGreaterThanOrEqual(minTap);
       expect(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       expect(await p.evaluate(() => { const b = document.getElementById('home-week'); return b.scrollWidth > b.clientWidth + 1; })).toBe(false);
       if (shots) await p.screenshot({ path: `${shots}/home-week-${width}.png` });
+      await p.click('#home-week-today .hw-log');
+      await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logged');
+      expect(db.mealLogs.length).toBe(1);
+      expect(db.mealLogs[0].foodName).toBeTruthy();
+      expect(db.mealLogs[0].mealType).toBeTruthy();
+      expect(db.mealLogs[0].calories).toBeGreaterThan(0);
 
       // One tap: the shopping list for the saved week.
       await p.click('#home-week-shop');
@@ -679,6 +716,208 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     await ctx.close();
   });
 
+  function seedLoggedWeek(extra) {
+    const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
+    db = Object.assign({
+      profile: { targetCalories: 1860, targetProtein: 140, targetCarbs: 180, targetFat: 60 },
+      profileSaves: [], plans: [{
+        id: 3, name: 'This week',
+        meals: [{ day, meals: [
+          { slot: 'breakfast', name: 'Peanut butter toast', calories: 400, protein: 14 },
+          { slot: 'lunch', name: 'Rice bowl', calories: 1458, protein: 40 },
+        ] }],
+      }],
+      puts: 0, posts: 0, shopping: 0, warnings: [], recentMeals: [],
+    }, extra || {});
+  }
+  async function openSeededHome(width) {
+    const ctx = await browser.newContext({ viewport: { width, height: width >= 1000 ? 900 : 844 }, hasTouch: width < 1000 });
+    await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
+    await ctx.route(/^(?!http:\/\/127\.0\.0\.1).*/, (r) => r.abort());
+    const p = await ctx.newPage();
+    const shots = process.env.QA183_SHOTS;
+    if (shots) await p.emulateMedia({ reducedMotion: 'reduce' });
+    await p.goto(`${base}/app.html`);
+    await p.waitForFunction(() => typeof FMHomeWeek === 'object' && S && S.user);
+    await p.waitForFunction(() => {
+      const box = document.getElementById('home-week');
+      return box && box.getAttribute('aria-busy') !== 'true';
+    });
+    return { ctx, p, shots };
+  }
+
+  for (const width of [320, 390, 1440]) {
+    it(`${width}px: the calorie bar follows logged kcal, including after one Log and with nothing logged`, async () => {
+      seedLoggedWeek();
+      const { ctx, p, shots } = await openSeededHome(width);
+      await p.waitForSelector('#home-week-progress-value');
+      const before = await p.evaluate(() => ({
+        bar: document.getElementById('home-week-progress-value').textContent,
+        left: document.getElementById('home-week-progress-left').textContent,
+        fill: document.getElementById('home-week-progress-fill').style.width,
+        metric: document.getElementById('pm-cals').textContent,
+        max: document.getElementById('home-week-progress-bar').getAttribute('aria-valuemax'),
+        now: document.getElementById('home-week-progress-bar').getAttribute('aria-valuenow'),
+        planned: [...document.querySelectorAll('#home-week .hw-k')].map((e) => e.textContent).join(' '),
+        navs: performance.getEntriesByType('navigation').length,
+      }));
+      expect(before.bar).toBe('0 of 1,860 kcal');
+      expect(before.left).toBe('1,860 kcal left');
+      expect(before.fill).toBe('0%');
+      expect(before.metric).toBe('0');
+      expect(before.now).toBe('0');
+      expect(Number(before.max)).toBe(1860);
+      expect(before.max).toBe('1860');
+      expect(before.planned).toContain('1,858 kcal planned');
+      expect(before.bar).not.toContain('1,858');
+      if (shots) await p.screenshot({ path: `${shots}/logged-none-${width}.png` });
+      await p.click('#home-week-today .hw-log');
+      await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logged');
+      const after = await p.evaluate(() => ({
+        bar: document.getElementById('home-week-progress-value').textContent,
+        left: document.getElementById('home-week-progress-left').textContent,
+        metric: document.getElementById('pm-cals').textContent,
+        now: document.getElementById('home-week-progress-bar').getAttribute('aria-valuenow'),
+        navs: performance.getEntriesByType('navigation').length,
+        toast: document.querySelector('[data-toast]') ? document.querySelector('[data-toast]').textContent : '',
+      }));
+      expect(after.navs).toBe(before.navs);
+      expect(after.bar).toBe('400 of 1,860 kcal');
+      expect(after.left).toBe('1,460 kcal left');
+      expect(after.metric).toBe('400');
+      expect(after.now).toBe('400');
+      expect(after.bar.startsWith(after.metric)).toBe(true);
+      expect(db.logHits).toBe(1);
+      expect(after.toast).toBe('Logged: Peanut butter toast');
+      expect(after.toast.toLowerCase()).not.toContain('safe');
+      if (shots) await p.screenshot({ path: `${shots}/logged-one-${width}.png` });
+      await ctx.close();
+    });
+
+    it(`${width}px: over target is its own state and agrees with the metric`, async () => {
+      seedLoggedWeek({ recentMeals: [{ date: new Date().toISOString(), calories: 2400 }] });
+      const { ctx, p, shots } = await openSeededHome(width);
+      await p.waitForSelector('#home-week-progress-left.over');
+      const over = await p.evaluate(() => {
+        const left = document.getElementById('home-week-progress-left');
+        const fill = document.getElementById('home-week-progress-fill');
+        const bar = document.getElementById('home-week-progress-bar');
+        return {
+          bar: document.getElementById('home-week-progress-value').textContent,
+          left: left.textContent,
+          metric: document.getElementById('pm-cals').textContent,
+          over: left.classList.contains('over') && fill.classList.contains('over'),
+          color: getComputedStyle(left).color,
+          fill: getComputedStyle(fill).backgroundColor,
+          max: bar.getAttribute('aria-valuemax'),
+          now: bar.getAttribute('aria-valuenow'),
+        };
+      });
+      expect(over.bar).toBe('2,400 of 1,860 kcal');
+      expect(over.left).toBe('540 kcal over');
+      expect(over.left.toLowerCase()).toContain('over');
+      expect(over.metric).toBe('2,400');
+      expect(over.over).toBe(true);
+      expect(over.color).toBe('rgb(30, 58, 138)');
+      expect(over.fill).toBe('rgb(29, 78, 216)');
+      expect(over.max).toBe('1860');
+      expect(over.now).toBe('2400');
+      if (shots) await p.screenshot({ path: `${shots}/logged-over-${width}.png` });
+      await ctx.close();
+    });
+
+    it(`${width}px: a failed meal load shows the error and not a calorie bar`, async () => {
+      seedLoggedWeek({ portalDown: width === 320 ? 'text' : true });
+      const { ctx, p } = await openSeededHome(width);
+      await p.waitForSelector('#home-week-error');
+      const state = await p.evaluate(() => ({
+        err: document.getElementById('home-week-error').textContent,
+        bar: !!document.getElementById('home-week-progress'),
+        text: document.getElementById('home-week').textContent,
+      }));
+      expect(state.err).toBe("Couldn't load your week, try again");
+      expect(state.bar).toBe(false);
+      expect(state.text).not.toContain('database offline trace');
+      expect(state.text).not.toMatch(/kcal left|kcal over/);
+      await ctx.close();
+    });
+
+    it(`${width}px: JSON 500, text 500 and offline re-enable Log and toast a retry, and a double tap is one request`, async () => {
+      seedLoggedWeek({ logMode: 'json' });
+      const { ctx, p, shots } = await openSeededHome(width);
+      await p.waitForSelector('#home-week-today .hw-log');
+      const clickLog = () => p.click('#home-week-today .hw-log');
+      const toastOf = () => p.evaluate(() => {
+        const all = [...document.querySelectorAll('[data-toast]')];
+        const t = all[all.length - 1];
+        if (!t) return null;
+        return { text: t.textContent, live: t.getAttribute('aria-live'), role: t.getAttribute('role'), bg: t.style.backgroundColor };
+      });
+      await clickLog();
+      await p.waitForSelector('[data-toast]');
+      let toast = await toastOf();
+      expect(toast.text).toBe('Could not log that meal. Please try again.');
+      expect(toast.role).toBe('status');
+      expect(toast.live).toBe('assertive');
+      expect(toast.bg).toBe('rgb(153, 27, 27)');
+      expect(toast.text).not.toContain('SECRET');
+      expect(await p.locator('#home-week-today .hw-log').first().textContent()).toBe('Log');
+      expect(await p.locator('#home-week-today .hw-log').first().isEnabled()).toBe(true);
+      if (shots) await p.screenshot({ path: `${shots}/log-error-${width}.png` });
+      db.logMode = 'text';
+      await p.evaluate(() => document.querySelectorAll('[data-toast]').forEach((n) => n.remove()));
+      await clickLog();
+      await p.waitForFunction(() => { const t = document.querySelector('[data-toast]'); return t && t.textContent === 'Could not log that meal. Please try again.'; });
+      expect(await p.evaluate(() => document.body.innerText)).not.toContain('SECRET');
+      expect(await p.locator('#home-week-today .hw-log').first().isEnabled()).toBe(true);
+      await ctx.setOffline(true);
+      await p.evaluate(() => document.querySelectorAll('[data-toast]').forEach((n) => n.remove()));
+      await clickLog();
+      await p.waitForFunction(() => { const t = document.querySelector('[data-toast]'); return t && t.textContent === 'Could not log that meal. Please try again.'; });
+      expect(await p.locator('#home-week-today .hw-log').first().textContent()).toBe('Log');
+      expect(await p.locator('#home-week-today .hw-log').first().isEnabled()).toBe(true);
+      await ctx.setOffline(false);
+      await p.evaluate(() => document.querySelectorAll('[data-toast]').forEach((n) => n.remove()));
+      db.logMode = '';
+      db.logDelay = 700;
+      db.logHits = 0;
+      await p.evaluate(() => {
+        const b = document.querySelector('#home-week-today .hw-log');
+        b.click();
+        b.click();
+      });
+      await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logging...');
+      // The button says Logging as soon as the click starts. The POST is still
+      // in flight, and this handler answers 700ms later, so count the hit
+      // before asserting. A hit that arrives after the next test replaces db
+      // would be counted there instead.
+      const hitDeadline = Date.now() + 2000;
+      while (db.logHits !== 1 && Date.now() < hitDeadline) await new Promise((r) => setTimeout(r, 20));
+      expect(db.logHits).toBe(1);
+      await p.waitForFunction(() => document.querySelector('#home-week-today .hw-log').textContent === 'Logged');
+      expect(db.logHits).toBe(1);
+      const ok = await toastOf();
+      expect(ok.live).toBe('polite');
+      expect(ok.role).toBe('status');
+      expect(ok.bg).toBe('rgb(20, 83, 45)');
+
+      await ctx.close();
+    });
+  }
+
+  it('390px: a warned meal says so in the toast and does not say safe', async () => {
+    seedLoggedWeek({ warnings: [{ meal: 'Peanut butter toast', contains: ['nuts'] }] });
+    const { ctx, p } = await openSeededHome(390);
+    await p.waitForSelector('#home-week-warn');
+    expect(await p.textContent('#home-week-warn')).toContain('contains nuts');
+    await p.click('#home-week-today .hw-log');
+    await p.waitForSelector('[data-toast]');
+    const text = await p.locator('[data-toast]').textContent();
+    expect(text).toBe('Logged. Heads up: it contains nuts');
+    expect(text.toLowerCase()).not.toContain('safe');
+    await ctx.close();
+  });
+
   it('empty sentence stays hidden until a successful empty load; Start here contrast and shell taps hold at 390 and 1440', async () => {
     for (const width of [390, 1440]) {
       db = { profile: {}, profileSaves: [], plans: [], puts: 0, shopping: 0, warnings: [], mealStatus: 500 };
@@ -741,7 +980,11 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
       await p.evaluate(() => nav('meal-plans'));
       await p.waitForSelector('#mp-saved-error:not([hidden])');
       expect(await p.locator('#mp-saved-empty').isVisible()).toBe(false);
-      expect(await p.textContent('#mp-saved-error')).toMatch(/Couldn't load your week, try again/);
+      expect(await p.textContent('#mp-saved-error p')).toBe("Couldn't load your saved plans, try again");
+      if (width === 390 && shots) {
+        await p.locator('#mp-saved-section').scrollIntoViewIfNeeded();
+        await p.screenshot({ path: `${shots}/saved-plans-retry-390.png` });
+      }
 
       db.mealStatus = 0;
       db.meal304 = 'always';
@@ -832,4 +1075,5 @@ maybe('Save and build my week -> Home shows the week, the targets and a one-tap 
     }
     await ctx.close();
   });
+
 });

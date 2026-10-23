@@ -144,10 +144,10 @@ html,body{max-width:100%;overflow-x:hidden}
       <article class="plan">
         <div class="p-name">Free</div>
         <div class="p-price"><span>A$0</span> <small>forever</small></div>
-        <p class="p-desc">Try food logging and a starter plan. Limited AI actions each month.</p>
+        <p class="p-desc">Try food logging and a starter plan.</p>
         <ul>
           <li>Macro and food logging</li>
-          <li>Limited AI actions per month</li>
+          <li data-free-ai hidden>Free includes AI actions a month</li>
           <li>Receipt scan teaser</li>
           <li>Starter meal planning</li>
           <li class="muted">Weekly AI plans need Premium</li>
@@ -236,6 +236,11 @@ try {
   fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
     .then((r) => (r.ok ? r.json() : null))
     .then((cfg) => {
+      const freeCount = cfg && Number(cfg.freeAiMonthly);
+      if (Number.isFinite(freeCount) && freeCount >= 0) {
+        const line = 'Free includes ' + freeCount + ' AI actions a month';
+        document.querySelectorAll('[data-free-ai]').forEach((el) => { el.textContent = line; el.hidden = false; });
+      }
       if (!cfg || cfg.premiumAnnual !== true) return;
       box.hidden = false;
       box.style.display = "flex";

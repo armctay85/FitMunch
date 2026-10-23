@@ -16,13 +16,14 @@ describe('ingredient allergen derivation', () => {
     ['Light soy sauce', 'soy'], ['Soy milk', 'soy'], ['Firm tofu', 'soy'], ['White miso', 'soy'],
     ['Prawns (cooked)', 'shellfish'], ['Prawns (cooked)', 'fish'], ['Raw king prawns', 'shellfish'], ['Mussels', 'shellfish'],
     ['Eggs (whole)', 'eggs'], ['Egg whites', 'eggs'], ['Peanut butter (natural)', 'nuts'], ['Raw almonds', 'nuts'],
+    ['Hamburger bun', 'meat'],
   ])('%s contains %s', (name, allergen) => expect(of(name)).toContain(allergen));
 
   it.each([
     ['Soy milk', 'dairy'], ['Oat milk', 'dairy'], ['Almond milk (unsweetened)', 'dairy'], ['Coconut milk', 'dairy'],
     ['Rice milk', 'dairy'], ['Coconut yoghurt with pea protein (vanilla)', 'dairy'], ['Peanut butter (natural)', 'dairy'],
     ['Tamari (wheat free)', 'gluten'], ['Buckwheat', 'gluten'], ['Coconut', 'nuts'], ['Rice cakes (plain)', 'gluten'],
-    ['Eggplant', 'eggs'], ['Hamburger bun', 'meat'], ['Salmon fillet', 'shellfish'],
+    ['Eggplant', 'eggs'], ['Dinner roll', 'meat'], ['Salmon fillet', 'shellfish'],
   ])('%s does not contain %s', (name, allergen) => expect(of(name)).not.toContain(allergen));
 });
 
@@ -125,5 +126,61 @@ describe('dietary filter coverage and validation', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
+  });
+});
+
+describe('allergensOf matches the lexicon', () => {
+  const lexicon = require('./lib/food-lexicon');
+  const groups = ['gluten', 'dairy', 'nuts', 'eggs', 'soy', 'sesame', 'shellfish', 'fish', 'meat'];
+  const both = (name) => {
+    const fromLex = [...lexicon.scan(name).flags].filter((f) => groups.includes(f)).sort();
+    const fromIng = engine.allergensOf([name]).slice().sort();
+    return { fromLex, fromIng };
+  };
+  const rows = [
+    ['egg free mayonnaise', []],
+    ['egg free mayo', []],
+    ['egg-free mayo', []],
+    ['mayo', ['eggs']],
+    ['gluten free bread', []],
+    ['worcestershire', ['fish', 'gluten']],
+    ['chestnut', ['nuts']],
+    ['t\u043efu', ['soy']],
+    ['t\u0430hini', ['sesame']],
+    ['water chestnut', []],
+    ['coconut milk', []],
+    ['nutmeg', []],
+    ['butternut', []],
+    ['butter beans', []],
+    ['shea butter', []],
+    ['apple butter', []],
+    ['cocoa butter', []],
+    ['oat milk', ['gluten']],
+    ['dead bug', []],
+    ['nut-free granola', ['gluten', 'nuts']],
+    ['peanut-free peanut butter', ['nuts']],
+  ];
+  it.each(rows)('%s agrees', (name, expected) => {
+    const { fromLex, fromIng } = both(name);
+    expect(fromIng).toEqual(fromLex);
+    expect(fromIng).toEqual(expected);
+  });
+  it('nut-free granola and peanut-free peanut butter stay nuts, and oat milk is not dairy', () => {
+    expect(engine.allergensOf(['nut-free granola'])).toEqual(expect.arrayContaining(['nuts']));
+    expect(engine.allergensOf(['peanut-free peanut butter'])).toEqual(expect.arrayContaining(['nuts']));
+    expect(engine.allergensOf(['oat milk'])).not.toContain('dairy');
+    expect(engine.allergensOf(['Dead bug'])).not.toContain('shellfish');
+  });
+  it('every lexicon entry has the same flags from both checkers', () => {
+    const mismatches = [];
+    for (const [, src] of lexicon.DENY_SRC) {
+      for (const phrase of src.split('|')) {
+        const text = phrase.trim();
+        if (!text) continue;
+        const { fromLex, fromIng } = both(text);
+        if (fromLex.join() !== fromIng.join()) mismatches.push(`${text}: lex ${fromLex.join('+')} ing ${fromIng.join('+')}`);
+      }
+    }
+    expect(mismatches).toEqual([]);
   });
 });

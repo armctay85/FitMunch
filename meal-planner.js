@@ -13,6 +13,7 @@ const { sendApiError } = require('./lib/public-error');
 const planEngine = require('./lib/meal-plan-engine');
 const mealSafety = require('./lib/meal-safety');
 const dietGuard = require('./lib/diet-guard');
+const { shoppingAisle } = require('./lib/grocery-aisle');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -34,22 +35,28 @@ function requireAuth(req, res, next) {
 // ── AISLES (grouping only; no prices) ────────────────────────────────────────
 const AISLE_WORDS = [
   ['Meat & Seafood', ['chicken', 'beef', 'mince', 'lamb', 'pork', 'turkey', 'salmon', 'tuna', 'barramundi', 'fish', 'prawn']],
-  ['Dairy & Eggs', ['egg', 'yoghurt', 'yogurt', 'milk', 'cheese', 'ricotta', 'butter', 'cream']],
+  ['Produce', ['banana', 'apple', 'berr', 'berry', 'broccoli', 'spinach', 'salad', 'capsicum', 'zucchini', 'tomato', 'onion', 'garlic', 'avocado', 'cucumber', 'carrot', 'potato', 'corn', 'kale', 'mango', 'orange', 'lettuce', 'eggplant', 'kiwi', 'kiwifruit']],
+  ['Dairy & Eggs', ['egg', 'yoghurt', 'yogurt', 'milk', 'buttermilk', 'cheese', 'ricotta', 'butter', 'cream']],
   ['Bakery', ['bread', 'wrap', 'roll', 'bagel']],
   ['Frozen', ['frozen']],
   ['Supplements', ['whey', 'protein powder', 'protein bar']],
-  ['Produce', ['banana', 'apple', 'berr', 'broccoli', 'spinach', 'salad', 'capsicum', 'zucchini', 'tomato', 'onion', 'garlic', 'avocado', 'cucumber', 'carrot', 'potato', 'corn', 'kale', 'mango', 'orange', 'lettuce']],
   ['Pantry', ['oats', 'rice', 'pasta', 'quinoa', 'oil', 'peanut', 'almond', 'honey', 'sauce', 'herb', 'chia', 'tuna', 'cakes']],
 ];
 const AISLE_ORDER = ['Meat & Seafood','Produce','Dairy & Eggs','Pantry','Bakery','Frozen','Supplements','Other'];
 const AISLE_ICONS = { 'Meat & Seafood':'🥩','Produce':'🥦','Dairy & Eggs':'🥚','Pantry':'🫙','Bakery':'🍞','Frozen':'🧊','Supplements':'💊','Other':'📦' };
 
-// Nut butters, butter beans and butternut aren't dairy (D7).
-const NOT_DAIRY_BUTTER = /\b(?:peanut|almond|cashew|nut|cocoa|apple|shea)\s+butter\b|\bbutter\s*beans?\b|\bbutternut\b/i;
 function aisleFor(name) {
-  const n = String(name).toLowerCase();
-  if (NOT_DAIRY_BUTTER.test(n)) return n.includes('butternut') ? 'Produce' : 'Pantry';
-  for (const [aisle, words] of AISLE_WORDS) if (words.some((w) => n.includes(w))) return aisle;
+  const special = shoppingAisle(name);
+  if (special) return special;
+  const n = String(name || '').toLowerCase();
+  // Whole words, so "egg" does not match eggplant. "berr" stays a stem inside berry and strawberry.
+  // Produce is listed before dairy, so a produce word wins over egg, milk or butter.
+  const hit = (word) => {
+    const esc = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (word === 'berr') return /berr/i.test(n);
+    return new RegExp('\\b' + esc + 's?\\b', 'i').test(n);
+  };
+  for (const [aisle, words] of AISLE_WORDS) if (words.some(hit)) return aisle;
   return 'Other';
 }
 
@@ -181,9 +188,32 @@ function builderDietary(filters) {
   return extra.length ? [...known, ...extra] : known;
 }
 
-function builtPlan(input, filters) {
+const UNCHECKED_PLAN_NOTE = "We couldn't check these meals against your allergies, so check the ingredients.";
+/** Past the allergy read budget, meals are still built, and each one is marked not checked (EQA #127 r11 S1). */
+function markPlanUnchecked(plan) {
+  if (!plan || !Array.isArray(plan.days)) return plan;
+  const notes = (Array.isArray(plan.notes) ? plan.notes : []).filter((n) => n !== UNCHECKED_PLAN_NOTE);
+  notes.push(UNCHECKED_PLAN_NOTE);
+  return {
+    ...plan,
+    notes,
+    days: plan.days.map((d) => {
+      if (!d || !d.meals || typeof d.meals !== 'object' || Array.isArray(d.meals)) return d;
+      const meals = {};
+      for (const [slot, m] of Object.entries(d.meals)) {
+        if (!m || typeof m !== 'object') { meals[slot] = m; continue; }
+        const swaps = Array.isArray(m.swaps) ? m.swaps.map((s) => (s && typeof s === 'object' ? { ...s, unchecked: true } : s)) : m.swaps;
+        meals[slot] = { ...m, unchecked: true, swaps };
+      }
+      return { ...d, meals };
+    }),
+  };
+}
+
+function builtPlan(input, filters, pastBudget) {
   const dietary = builderDietary(filters);
-  return safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan({ ...input, dietary }), input), dietary, input.calories), input);
+  const plan = safeSwaps(planEngine.withSwaps(safePlan(planEngine.buildPlan({ ...input, dietary }), input), dietary, input.calories), input);
+  return pastBudget ? markPlanUnchecked(plan) : plan;
 }
 
 /** Every plan leaves this route through the ingredient-derived allergen and diet check. */
@@ -192,6 +222,18 @@ function safePlan(plan, input) {
 }
 
 /** Swap options go through the same check (allergies from the profile aren't builder filters). */
+function profilePastBudget(profile) {
+  return !!(profile && mealSafety.profileFilters(profile).pastBudget);
+}
+function unreadPlan(res) {
+  return res.json({
+    success: true,
+    source: 'fixed',
+    notice: dietGuard.UNREADABLE_NOTICE,
+    provider: null,
+  });
+}
+
 function safeSwaps(plan, input) {
   const excluded = mealSafety.excludedFlags(input);
   // r9: typed allergies with no flag ("banana", "lupin") are checked on swaps too.
@@ -210,9 +252,9 @@ router.post('/generate', requireAuth, async (req, res) => {
   let profile = null; let profileRead = false;
   const early = (req.body && req.body.builderOnly === true) || parsed.dietary.length > 0;
   if (early) try { profile = await require('./server/storage.js').getProfile(req.user.userId); profileRead = true; } catch (_) {
-    if (process.env.DATABASE_URL) return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+    if (process.env.DATABASE_URL) return unreadPlan(res);
   }
-  const stored = mealSafety.profileFilters(profile);
+  let stored = mealSafety.profileFilters(profile);
   const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary });
   const input = { ...parsed, dietary: parsed.dietary, allergies: merged.allergies };
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
@@ -222,32 +264,37 @@ router.post('/generate', requireAuth, async (req, res) => {
     // so no consent or usage check applies.
     if (profileRead) await rememberFilters(req.user.userId, input.dietary);
     const combined = dietGuard.combineFilters(profile, input.dietary);
+    if (dietGuard.unreadable(combined) && !profilePastBudget(profile)) return unreadPlan(res);
     input.dietary = dietGuard.planFilters(combined);
     // Each meal carries up to three builder swaps so the app can swap instantly, offline.
-    const plan = builtPlan(input, combined);
+    const past = !!(stored && stored.pastBudget);
+    const plan = builtPlan(input, combined, past);
     const body = { success: true, plan, source: 'builder' };
     // Only when the allergy list could not be read. An empty notice would show as a blank line.
-    if (dietGuard.unreadable(combined)) body.notice = dietGuard.UNREADABLE_NOTICE;
+    if (dietGuard.unreadable(combined)) body.notice = dietGuard.unreadableNotice(past);
     return res.json(body);
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
   // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
   // weekly review see them too and stay off the AI (live hotfix after #135).
-  const filteredPlan = (dietary) => {
+  const filteredPlan = (dietary, pastBudget) => {
+    if (dietGuard.unreadable(dietary) && !pastBudget) return unreadPlan(res);
     input.dietary = dietGuard.planFilters(dietary);
     return res.json({
       success: true,
       // r8: the builder week also goes through #127's ingredient check (meals and swaps), so a typed allergy
       // with no builder filter (lupin, kiwi) is honoured too.
-      plan: builtPlan(input, dietary),
+      plan: builtPlan(input, dietary, pastBudget),
       source: 'builder',
-      notice: dietGuard.unreadable(dietary) ? `${dietGuard.UNREADABLE_NOTICE} ${dietGuard.PLAN_NOTICE}` : dietGuard.PLAN_NOTICE,
+      notice: dietGuard.unreadable(dietary)
+        ? (pastBudget ? dietGuard.unreadableNotice(true) : dietGuard.unreadableNotice(false) + ' ' + dietGuard.PLAN_NOTICE)
+        : dietGuard.PLAN_NOTICE,
       dietary: input.dietary,
     });
   };
   if (input.dietary.length) {
     if (profileRead) await rememberFilters(req.user.userId, input.dietary);
-    return filteredPlan(dietGuard.combineFilters(profile, input.dietary));
+    return filteredPlan(dietGuard.combineFilters(profile, input.dietary), !!(stored && stored.pastBudget));
   }
   try {
     let gate = null;
@@ -275,18 +322,21 @@ router.post('/generate', requireAuth, async (req, res) => {
       profile = await require('./server/storage.js').getProfile(req.user.userId);
       saved = dietGuard.savedFilters(profile);
       // Typed allergies from the profile go into the AI meal check too (#127).
-      input.allergies = mealSafety.profileFilters(profile).allergies;
+      const read = mealSafety.profileFilters(profile);
+      input.allergies = read.allergies;
+      stored = read;
     } catch (_) {
-      // #127: never plan without the user's allergies when a database is configured.
-      if (process.env.DATABASE_URL) return res.status(503).json({ success: false, error: "We couldn't load your diet filters. Please try again." });
+      // A configured database that cannot be read is the notice only. No week, and no model call.
+      if (process.env.DATABASE_URL) return unreadPlan(res);
       saved = null;
     }
-    if (saved === null || saved.length) return await filteredPlan(saved || []);
+    if (saved === null || saved.length) return await filteredPlan(saved || [], !!(stored && stored.pastBudget));
     if (hasAi) {
       // Free-tier gating — plan generation is a heavyweight AI call.
       const tier = await userTier(req.user.userId);
       gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'meal_plan' });
       if (!gate.allowed && gate.unavailable) {
+        res.set('Retry-After', '3');
         return res.status(503).json({ success: false, error: "We couldn't check your AI usage. Please try again." });
       }
       if (!gate.allowed && gate.smoke) {

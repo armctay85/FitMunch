@@ -674,6 +674,24 @@ describe('receipt scan upload and vision payload', () => {
     if (typeof aiUsage._endPoolForTests === 'function') await aiUsage._endPoolForTests();
   });
 
+  it('does not call vision when a free usage increment fails', async () => {
+    storage.getUserById.mockResolvedValue({ subscriptionTier: 'free', settings: { aiDataConsent: true } });
+    aiUsage.checkAndConsume.mockResolvedValue({ allowed: false, unavailable: true, limit: 10, used: 1, upgrade: false });
+    let calls = 0;
+    receiptRouter._setVisionForTests(async () => {
+      calls += 1;
+      return { ok: true, text: '[]' };
+    });
+    const res = await request(app)
+      .post('/api/receipt/scan')
+      .set('Authorization', `Bearer ${token()}`)
+      .attach('receipt', jpegOf(320, 240, 80), { filename: 'receipt.jpg', contentType: 'image/jpeg' });
+    expect(calls).toBe(0);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe("We couldn't check your AI usage. Please try again.");
+    expect(res.headers['retry-after']).toBe('3');
+  });
+
   it('sends the downscaled bytes to the vision provider', async () => {
     const source = jpegOf(2200, 1600, 95);
     let seen = null;
