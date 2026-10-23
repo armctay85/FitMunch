@@ -22,6 +22,9 @@ class OnboardingViewModel: ObservableObject {
     
     /// Binds the Premium card to the App Store price when StoreKit returns it.
     func loadPremiumPrice() async {
+        #if DEBUG
+        LocalStoreKitCatalog.startIfRequested()
+        #endif
         do {
             let products = try await Product.products(for: [Constants.ProductIDs.monthly])
             if let product = products.first {

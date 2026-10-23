@@ -43,15 +43,10 @@ jobs:
       - name: Generate Xcode project
         run: |
           xcodegen generate
-          # Unit-test schemes stay without a StoreKit file (that reference breaks
-          # SKTestSession). Width capture launches the app with FitMunchStoreKit
-          # so Product.displayPrice comes from FitMunchProducts.storekit (AUS 19.99),
-          # not the unsigned simulator's US storefront ($12.99).
-          scheme="FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme"
-          cp "$scheme" /tmp/FitMunchStoreKit.xcscheme
+          # Xcode 26 does not apply a scheme StoreKit file to the app, and leaving
+          # the reference in makes SKTestSession fail (Code=3) back to US $12.99.
+          # The onboarding launch starts that session from the bundled catalog.
           python3 scripts/ensure-storekit-scheme.py
-          cp /tmp/FitMunchStoreKit.xcscheme "$scheme"
-          grep -q StoreKitConfigurationFileReference "$scheme"
 
       - name: Capture 375pt and 440pt
         run: |
@@ -108,7 +103,7 @@ jobs:
             set +e
             xcodebuild test \
               -project FitMunch.xcodeproj \
-              -scheme FitMunchStoreKit \
+              -scheme FitMunch \
               -destination "platform=iOS Simulator,id=$udid" \
               -derivedDataPath "$DERIVED" \
               -only-testing:"FitMunchUITests/Batch2WidthCaptureUITests" \
