@@ -95,7 +95,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
     func testOnboardingCards() {
         let app = launch(["-AuditOnboarding", "-ForceLightMode"])
         XCTAssertTrue(app.staticTexts["Welcome to FitMunch"].waitForExistence(timeout: 15))
-        app.buttons["Next"].tap()
+        tapOnboardingNext(in: app)
         XCTAssertTrue(app.staticTexts["Set Your Goals"].waitForExistence(timeout: 6))
         let goals = [
             "onboarding-goal-weight_loss",
@@ -118,7 +118,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             )
         }
         shot(app, "onboarding-goals")
-        app.buttons["Next"].tap()
+        tapOnboardingNext(in: app)
         XCTAssertTrue(app.staticTexts["Choose Your Plan"].waitForExistence(timeout: 6))
         let label = waitForMonthlyPrice(in: app)
         print("ONBOARDING_PRICE \(label)")
@@ -130,7 +130,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let free = app.descendants(matching: .any)["onboarding-plan-free"]
         let premium = app.descendants(matching: .any)["onboarding-plan-premium"]
         revealPlanCards(free: free, premium: premium, in: app)
-        let planFooter = app.buttons["Get Started"]
+        let planFooter = app.buttons["onboarding-get-started"]
         XCTAssertTrue(free.waitForExistence(timeout: 4), "Free card missing")
         XCTAssertTrue(premium.waitForExistence(timeout: 4), "Premium card missing")
         XCTAssertTrue(free.isHittable, "Free card is not readable")
@@ -184,10 +184,19 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Next sits outside the scroll view, so a tap has to land on this button.
+    private func tapOnboardingNext(in app: XCUIApplication) {
+        let next = app.buttons["onboarding-next"]
+        XCTAssertTrue(next.waitForExistence(timeout: 4), "Next missing")
+        XCTAssertTrue(next.isEnabled, "Next is disabled")
+        XCTAssertTrue(next.isHittable, "Next is not hittable")
+        next.tap()
+    }
+
     private func onboardingFooterMinY(in app: XCUIApplication) -> CGFloat {
-        let next = app.buttons["Next"]
+        let next = app.buttons["onboarding-next"]
         if next.exists { return next.frame.minY }
-        let start = app.buttons["Get Started"]
+        let start = app.buttons["onboarding-get-started"]
         if start.exists { return start.frame.minY }
         return app.frame.maxY - 72
     }

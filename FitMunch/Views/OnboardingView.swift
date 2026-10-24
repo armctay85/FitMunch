@@ -21,36 +21,45 @@ struct OnboardingView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Header. Compact so the goal rows and plan cards can sit
-                        // above the footer on a 375pt phone.
-                        VStack(spacing: 12) {
-                            Image(systemName: "fork.knife.circle.fill")
-                                .font(.system(size: 44))
-                                .foregroundColor(Theme.brandGreen)
-                            
-                            Text(viewModel.currentStepTitle)
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
-                                .multilineTextAlignment(.center)
-                            
-                            Text(viewModel.currentStepDescription)
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Header. Compact so the goal rows and plan cards can sit
+                            // above the footer on a 375pt phone.
+                            VStack(spacing: 12) {
+                                Image(systemName: "fork.knife.circle.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundColor(Theme.brandGreen)
+
+                                Text(viewModel.currentStepTitle)
+                                    .font(.largeTitle)
+                                    .fontWeight(.bold)
+                                    .multilineTextAlignment(.center)
+
+                                Text(viewModel.currentStepDescription)
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                            .padding(.top, 16)
+                            .id("onboarding-top")
+
+                            stepContent
                         }
-                        .padding(.top, 16)
-                        
-                        stepContent
+                        .padding()
+                        .padding(.bottom, Theme.Spacing.six)
                     }
-                    .padding()
-                    .padding(.bottom, Theme.Spacing.four)
+                    .onChange(of: viewModel.currentStep) { _, _ in
+                        proxy.scrollTo("onboarding-top", anchor: .top)
+                    }
                 }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    onboardingFooter
-                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // Outside the scroll view. A footer inside the scroll view's
+                // inset is drawn at the bottom, but the scroll view keeps the hit.
+                // Next then looks tappable and the step never changes.
+                onboardingFooter
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationBarBackButtonHidden(true)
@@ -216,7 +225,7 @@ struct OnboardingView: View {
         }
     }
 
-    /// Sits in the scroll view's bottom safe area so Back/Next cannot cover a row.
+    /// Pinned under the scroll view so Back and Next take the tap.
     private var onboardingFooter: some View {
         HStack {
             if viewModel.currentStep > 0 {
@@ -224,6 +233,7 @@ struct OnboardingView: View {
                     viewModel.previousStep()
                 }
                 .buttonStyle(.bordered)
+                .accessibilityIdentifier("onboarding-back")
             }
 
             Spacer()
@@ -234,6 +244,7 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.buttonFill)
+                .accessibilityIdentifier("onboarding-next")
             } else {
                 Button("Get Started") {
                     Task {
@@ -245,6 +256,7 @@ struct OnboardingView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.buttonFill)
                 .disabled(viewModel.isLoading)
+                .accessibilityIdentifier("onboarding-get-started")
             }
         }
         .padding(.horizontal)
