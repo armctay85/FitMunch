@@ -56,13 +56,15 @@ enum LocalStoreKitCatalog {
 
 /// StoreKit monthly price for the plan card. Not isolated to the main actor,
 /// so Product.products cannot stall the plan frame.
-private struct MonthlyOffer: Sendable {
+/// Internal: OnboardingViewModel reads the price, period, and trial.
+internal struct MonthlyOffer: Sendable {
     var price: String
     var period: String
     var trial: String
 }
 
-private enum MonthlyOfferLoader {
+/// Internal: OnboardingViewModel.loadPremiumPrice calls load() from another file.
+internal enum MonthlyOfferLoader {
     static func load() async -> MonthlyOffer? {
         #if DEBUG
         await LocalStoreKitCatalog.startIfRequested()
