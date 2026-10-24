@@ -122,6 +122,7 @@ jobs:
               mkdir -p artifacts/width-capture/screens
               cp -R /tmp/fitmunch-width-capture/. artifacts/width-capture/screens/ || true
             fi
+            bash scripts/collect-width-logs.sh "$folder" "$udid" || true
             return "$rc"
           }
 

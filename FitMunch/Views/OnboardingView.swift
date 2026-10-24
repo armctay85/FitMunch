@@ -21,39 +21,34 @@ struct OnboardingView: View {
                 .padding(.horizontal)
                 .padding(.top)
                 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            // Header. Compact so the goal rows and plan cards can sit
-                            // above the footer on a 375pt phone.
-                            VStack(spacing: 12) {
-                                Image(systemName: "fork.knife.circle.fill")
-                                    .font(.system(size: 44))
-                                    .foregroundColor(Theme.brandGreen)
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Header. Compact so the goal rows and plan cards can sit
+                        // above the footer on a 375pt phone.
+                        VStack(spacing: 12) {
+                            Image(systemName: "fork.knife.circle.fill")
+                                .font(.system(size: 44))
+                                .foregroundColor(Theme.brandGreen)
 
-                                Text(viewModel.currentStepTitle)
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .multilineTextAlignment(.center)
+                            Text(viewModel.currentStepTitle)
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                                .multilineTextAlignment(.center)
 
-                                Text(viewModel.currentStepDescription)
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                            }
-                            .padding(.top, 16)
-                            .id("onboarding-top")
-
-                            stepContent
+                            Text(viewModel.currentStepDescription)
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
                         }
-                        .padding()
-                        .padding(.bottom, Theme.Spacing.six)
+                        .padding(.top, 16)
+
+                        stepContent
                     }
-                    .onChange(of: viewModel.currentStep) { _, _ in
-                        proxy.scrollTo("onboarding-top", anchor: .top)
-                    }
+                    .padding()
+                    .padding(.bottom, Theme.Spacing.six)
                 }
+                .id(viewModel.currentStep)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 // Outside the scroll view. A footer inside the scroll view's
@@ -220,7 +215,13 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+        .onAppear {
+            print("ONBOARDING_PLAN visible")
+        }
         .task {
+            // The title and cards are already on screen. Yield so that frame
+            // commits before any StoreKit work is scheduled.
+            await Task.yield()
             await viewModel.loadPremiumPrice()
         }
     }

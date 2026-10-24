@@ -1,5 +1,4 @@
 import Foundation
-import StoreKit
 import SwiftUI
 
 /// ViewModel for the onboarding/paywall screen
@@ -20,25 +19,15 @@ class OnboardingViewModel: ObservableObject {
     /// Total number of onboarding steps
     let totalSteps = 3
     
-    /// Binds the Premium card to the App Store price when StoreKit returns it.
-    /// Called from the plan step. The catalog open is off the main thread so
-    /// Welcome can paint first.
+    /// Fills the Premium card after the plan step is on screen.
+    /// The fetch itself is not on the main actor. This method only assigns
+    /// the returned displayPrice.
     func loadPremiumPrice() async {
-        #if DEBUG
-        await LocalStoreKitCatalog.startIfRequested()
-        #endif
-        do {
-            let products = try await Product.products(for: [Constants.ProductIDs.monthly])
-            if let product = products.first {
-                premiumPriceText = product.displayPrice
-                premiumPeriodText = "per month"
-                if let offer = product.subscription?.introductoryOffer, offer.paymentMode == .freeTrial {
-                    premiumTrialText = "\(Self.introLength(offer)) free trial, then \(product.displayPrice) per month"
-                }
-            }
-        } catch {
-            print("Onboarding monthly price failed: \(error)")
-        }
+        guard let offer = await MonthlyOfferLoader.load() else { return }
+        premiumPriceText = offer.price
+        premiumPeriodText = offer.period
+        premiumTrialText = offer.trial
+        print("ONBOARDING_PRICE \(offer.price)")
     }
 
     /// Move to the next onboarding step
@@ -81,17 +70,6 @@ class OnboardingViewModel: ObservableObject {
         return true
     }
     
-    private static func introLength(_ offer: Product.SubscriptionOffer) -> String {
-        let value = offer.period.value
-        switch offer.period.unit {
-        case .day: return value == 1 ? "1 day" : "\(value) days"
-        case .week: return value == 1 ? "1 week" : "\(value) weeks"
-        case .month: return value == 1 ? "1 month" : "\(value) months"
-        case .year: return value == 1 ? "1 year" : "\(value) years"
-        @unknown default: return "a"
-        }
-    }
-
     /// Check if email is valid
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
