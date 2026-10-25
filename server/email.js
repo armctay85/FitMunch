@@ -219,6 +219,56 @@ const TRIAL_USED_COPY = {
   'premium-annual': 'Your trial was used; Premium starts today at A$149.99 a year.',
 };
 
+/** Signed-in Billing. The app opens /api/billing-portal from that page. */
+const BILLING_CARD_URL = 'https://www.fitmunch.com.au/app.html#billing';
+
+/**
+ * Card charge failed. accessContinues is true only when the caller has
+ * checked the live subscription. willRetry is Stripe's next_payment_attempt.
+ */
+async function sendPaymentFailedEmail(customerEmail, { accessContinues = false, willRetry = false } = {}) {
+  const lead = ['Your latest FitMunch payment did not go through.'];
+  if (accessContinues) lead.push('Your access continues for now.');
+  if (willRetry) lead.push('Stripe will try the charge again. Update your card so that try can go through.');
+  else lead.push('Update your card in Billing.');
+  const { bodyHtml, bodyText } = simpleEmail({
+    lead,
+    buttonUrl: BILLING_CARD_URL,
+    buttonLabel: 'Update your card',
+    footer: "Sign in and open Billing. That page updates your card through Stripe. If you can't sign in, email support@fitmunch.com.au.",
+  });
+  return sendEmail({
+    to: customerEmail,
+    subject: 'Your FitMunch payment did not go through',
+    bodyHtml,
+    bodyText,
+  });
+}
+
+function paymentFailedOwnerLines({ invoiceId, customerId, attempt, willRetry, customerNotified }) {
+  const attemptLabel = attempt == null || attempt === '' ? 'unknown' : String(attempt);
+  return [
+    'A FitMunch payment did not go through.',
+    `Invoice ${invoiceId || 'unknown'} for customer ${customerId || 'unknown'}.`,
+    `Attempt ${attemptLabel}. ${willRetry ? 'Stripe will try the charge again.' : 'Stripe will not try this charge again.'}`,
+    customerNotified
+      ? 'The customer was emailed a link to update their card in Billing.'
+      : 'The customer was not emailed.',
+  ];
+}
+
+/** Operator alert. Caller chooses the address (ALERT_EMAIL_TO). No default recipient. */
+async function sendPaymentFailedOwnerAlert(to, details) {
+  const lines = paymentFailedOwnerLines(details || {});
+  const bodyHtml = lines.map((line) => `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escapeHtml(line)}</p>`).join('');
+  return sendEmail({
+    to,
+    subject: 'FitMunch: a payment did not go through',
+    bodyHtml,
+    bodyText: lines.join('\n\n'),
+  });
+}
+
 /** Email-first trial: the Stripe Checkout link goes to the typed address only. */
 /** A live subscriber typed their email on the signed-out trial page. */
 async function sendSignInToManageEmail(customerEmail) {
@@ -236,6 +286,9 @@ module.exports = {
   sendWelcomeEmail,
   sendClaimLinkEmail,
   sendSignInToManageEmail,
+  sendPaymentFailedEmail,
+  sendPaymentFailedOwnerAlert,
+  BILLING_CARD_URL,
   CLAIM_LINK_WINDOW_COPY,
   TRIAL_USED_COPY,
   REUSED_CARD_COPY,

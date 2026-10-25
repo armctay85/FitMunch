@@ -1024,6 +1024,8 @@ html.fm-authed #app-gate{display:none}
  </div>
  </div>
  </div>
+ <p style="max-width:700px;margin:16px 0 0;font-size:.8rem;color:var(--text2)">Already subscribed? Update the card or cancel in Stripe Billing.</p>
+ <button type="button" class="btn btn-ghost2" id="billing-update-card" style="display:block;width:100%;max-width:700px;min-height:44px;margin-top:8px" onclick="openBillingPortal(this)">Update your card</button>
  </div>
 </div>
 
@@ -1896,7 +1898,11 @@ window.onerror = (msg, src, line) => console.error('[FitMunch error]', msg, 'lin
 window.onunhandledrejection = e => console.error('[FitMunch promise]', e.reason?.message || e.reason);
 
 async function boot() {
- if (!S.token) { window.location.replace('/login.html'); return; }
+ if (!S.token) {
+  if (location.hash === '#billing') window.location.replace('/login.html?next=billing');
+  else window.location.replace('/login.html');
+  return;
+ }
  try {
  // Returning from Stripe checkout: sync tier from Stripe directly so the
  // upgrade shows even if the webhook is delayed or misrouted.
@@ -1944,6 +1950,7 @@ async function boot() {
  }
  // Deep link: /app.html#shopping opens the shopping list.
  if (location.hash === '#shopping') setTimeout(() => nav(S.role === 'client' ? 'portal-shopping' : 'shopping-lists'), 0);
+ if (location.hash === '#billing') setTimeout(() => nav('billing'), 0);
  } catch { logout(); }
 }
 
