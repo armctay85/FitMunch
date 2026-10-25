@@ -46,7 +46,7 @@ class PremiumManager: ObservableObject {
             return
         }
         // -UseLocalStoreKit skips RevenueCat so the paywall reads StoreKit
-        // product prices directly. The app does not start an SKTestSession.
+        // product prices directly.
         if PaywallLaunchArgument.isLocalStoreKit {
             print("RevenueCat skipped: -UseLocalStoreKit")
             return

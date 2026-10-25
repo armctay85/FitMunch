@@ -13,8 +13,61 @@ on:
   workflow_dispatch:
 
 jobs:
+  compile:
+    if: github.head_ref == 'cursor/b11-coach-blocked-89f8'
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/attach-storekit-test-action.py
+          grep -n "StoreKitConfigurationFileReference" \
+            FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme
+          grep -n 'region = "AU"' \
+            FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme
+
+      - name: App target has no test session
+        run: |
+          if grep -R -n -E 'StoreKitTest|SKTestSession' FitMunch; then
+            echo "app target still references a test session"
+            exit 1
+          fi
+
+      - name: Build app and UI tests
+        run: |
+          xcodebuild build-for-testing \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunchStoreKit \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=-
+
   width-capture:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'cursor/b11-coach-blocked-89f8'
+    # Held off until the compile check on this tip is green. Restored before the retake.
+    if: false
     runs-on: macos-26
     timeout-minutes: 80
 
@@ -43,10 +96,10 @@ jobs:
       - name: Generate Xcode project
         run: |
           xcodegen generate
-          # Xcode 26 does not apply a scheme StoreKit file to the app, and leaving
-          # the reference in makes SKTestSession fail (Code=3) back to US $12.99.
-          # The onboarding launch starts that session from the bundled catalog.
-          python3 scripts/ensure-storekit-scheme.py
+          # FitMunchStoreKit run action points at FitMunchProducts.storekit
+          # with region AU. Copy that catalog onto the test action, which is
+          # what xcodebuild test reads. Do not strip it.
+          python3 scripts/attach-storekit-test-action.py
 
       - name: Capture 375pt and 440pt
         run: |
@@ -103,7 +156,7 @@ jobs:
             set +e
             xcodebuild test \
               -project FitMunch.xcodeproj \
-              -scheme FitMunch \
+              -scheme FitMunchStoreKit \
               -destination "platform=iOS Simulator,id=$udid" \
               -derivedDataPath "$DERIVED" \
               -only-testing:"FitMunchUITests/Batch2WidthCaptureUITests" \

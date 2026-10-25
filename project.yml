@@ -18,19 +18,25 @@ schemes:
       targets:
         - FitMunchTests
         - FitMunchUITests
-  # Local products for the pre-ASC audit only. The FitMunch scheme stays clean so
-  # App Store screenshot capture and archive do not attach a StoreKit config.
+  # Local products for the pre-ASC audit and the width capture. The FitMunch
+  # scheme stays clean so screenshot capture and archive do not attach a catalog.
+  # storeKitConfiguration belongs on run. A top-level key is ignored.
   FitMunchStoreKit:
     build:
       targets:
         FitMunch: all
         FitMunchTests: [test]
         FitMunchUITests: [test]
+    run:
+      language: en
+      region: AU
+      storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
     test:
       targets:
         - FitMunchTests
         - FitMunchUITests
-    storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
+      language: en
+      region: AU
   # Same app, no StoreKit configuration, so Product.products hits sandbox/App Store.
   FitMunchSandboxProbe:
     build:
@@ -49,10 +55,6 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FitMunch
-      # Bundled so a debug onboarding launch can open SKTestSession in the app.
-      # Xcode 26 does not apply the scheme StoreKit file to the running app.
-      - path: FitMunchUITests/FitMunchProducts.storekit
-        buildPhase: resources
     info:
       path: FitMunch/Resources/Info.plist
       properties:
@@ -93,10 +95,6 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_NSCameraUsageDescription: "FitMunch needs the camera to photograph grocery receipts for nutrition scanning."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "FitMunch lets you pick a receipt photo from your library to analyse your shop's nutrition."
-      configs:
-        Debug:
-          # StoreKitTest is a simulator/test framework. Release does not link it.
-          OTHER_LDFLAGS: "$(inherited) -framework StoreKitTest"
     dependencies:
       - framework: RevenueCat.xcframework
         embed: true
@@ -116,10 +114,12 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         TEST_TARGET_NAME: FitMunch
+    configFiles:
+      Debug: FitMunchTests/UnitTestLink.xcconfig
+      Release: FitMunchTests/UnitTestLink.xcconfig
     dependencies:
       - target: FitMunch
       - sdk: StoreKit.framework
-      - sdk: StoreKitTest.framework
 
   FitMunchUITests:
     type: bundle.ui-testing
@@ -140,4 +140,3 @@ targets:
         TEST_TARGET_NAME: FitMunch
     dependencies:
       - target: FitMunch
-      - sdk: StoreKitTest.framework

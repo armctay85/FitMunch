@@ -1,7 +1,7 @@
 import Foundation
 
 /// Debug-only launch hooks for the build 11 screen audit.
-/// Release builds ignore every flag. The app does not start an SKTestSession.
+/// Release builds ignore every flag.
 enum AuditLaunch {
     static let onboarding = "-AuditOnboarding"
     static let consentPrompt = "-AuditConsentPrompt"

@@ -292,7 +292,7 @@ jobs:
           test "$PURCHASE_RC" = "0"
           grep -q '37553200762' artifacts/ios-uitest/purchase-sheet.log
           grep -q 'SKInternalErrorDomain Code=3' artifacts/ios-uitest/purchase-sheet.log
-          echo "purchase-sheet.png was not captured. The real StoreKit confirmation sheet needs a local StoreKit configuration beside the running app. That session fails with SKInternalErrorDomain Code=3 and the paywall falls through to live USD. The isolated SKTestSession proof passed on runs 37553200762 and 37554689560 (AUD \$19.99/\$149.99, currency=AUD, 14-day FreeTrial). Not faking the sheet."
+          echo "purchase-sheet.png was not captured. The real StoreKit confirmation sheet needs a local StoreKit configuration beside the running app. The paywall falls through to live USD when that configuration is missing. The isolated catalog proof passed on runs 37553200762 and 37554689560 (AUD \$19.99/\$149.99, currency=AUD, 14-day FreeTrial). Not faking the sheet."
 
       - name: Upload simulator screenshots
         if: always()

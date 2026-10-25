@@ -3,7 +3,7 @@
 # An unsigned simulator storefront follows the device region. The GitHub
 # runner default is US, and that storefront returns USD $12.99 / $99.99.
 # Australia is the storefront whose App Store prices are 19.99 / 149.99.
-# This does not start SKTestSession and does not invent a price.
+# The scheme catalog is FitMunchProducts.storekit. This script does not invent a price.
 set -euo pipefail
 
 UDID="${1:?simulator udid}"
