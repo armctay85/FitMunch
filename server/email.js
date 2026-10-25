@@ -204,7 +204,7 @@ function simpleEmail({ lead, buttonUrl, buttonLabel, footer }) {
     </p>
     <p style="font-size:14px;color:#5c6d64;line-height:1.6">${escapeHtml(footer)}</p>
     <p style="font-size:13px;color:#8a9a91;border-top:1px solid #cfd9d2;padding-top:16px;margin-top:24px">
-      Questions? <a href="https://www.fitmunch.com.au/support" style="color:#16803c">fitmunch.com.au/support</a>
+      Questions? <a href="https://www.fitmunch.com.au/support" style="color:#16803c;display:inline-block;padding:14px 8px;line-height:20px">fitmunch.com.au/support</a>
     </p>
   </div>
 </div>

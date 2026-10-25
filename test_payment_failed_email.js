@@ -12,7 +12,8 @@ process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_
 const app = require('./server.js');
 const emailApi = require('./server/email.js');
 const { PRICE_IDS } = require('./lib/fitmunch-checkout');
-const { paymentFailedCustomerFlags } = require('./lib/stripe-webhook');
+const { paymentFailedCustomerFlags, paymentFailedSendKey } = require('./lib/stripe-webhook');
+const stripeEvents = require('./lib/stripe-events');
 
 function makeStripe(status) {
   const sub = {
@@ -219,6 +220,34 @@ describe('invoice.payment_failed emails', () => {
     expect(warnText(warn)).toContain('[payment-failed] owner alert skipped: ALERT_EMAIL_TO is unset');
   });
 
+  test('a 503 whose claim release throws stays pending, and the stale retry sends once', async () => {
+    process.env.ALERT_EMAIL_TO = 'ops@example.com';
+    customer.mockResolvedValueOnce({ success: false, error: 'Resend error: 503 {}' });
+    const release = jest.spyOn(stripeEvents, 'releaseNotificationSend').mockRejectedValueOnce(
+      Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' })
+    );
+    const event = failedEvent('evt_stuck');
+    const customerKey = paymentFailedSendKey(event, event.data.object, 'customer');
+    try {
+      expect((await post(event)).status).toBe(500);
+      expect(customer).toHaveBeenCalledTimes(1);
+      expect(owner).not.toHaveBeenCalled();
+      expect((await post(event)).status).toBe(500);
+      expect(customer).toHaveBeenCalledTimes(1);
+      expect(owner).not.toHaveBeenCalled();
+      await stripeEvents.ageNotificationSendForTests(customerKey, stripeEvents.STALE_CLAIM_MS + 1000);
+      expect((await post(event)).status).toBe(200);
+      expect(customer).toHaveBeenCalledTimes(2);
+      expect(owner).toHaveBeenCalledTimes(1);
+      expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+      expect((await post(failedEvent('evt_stuck_again'))).status).toBe(200);
+      expect(customer).toHaveBeenCalledTimes(2);
+      expect(owner).toHaveBeenCalledTimes(1);
+    } finally {
+      release.mockRestore();
+    }
+  });
+
   test('a transient subscription re-read does not send, and the retry does', async () => {
     process.env.ALERT_EMAIL_TO = 'ops@example.com';
     const stripe = makeStripe('active');
@@ -283,6 +312,11 @@ describe('payment failed email copy', () => {
     expect(text).toContain(emailApi.BILLING_CARD_URL);
     expect(text).toContain('support@fitmunch.com.au');
     expect(sent[0].html).toContain(`>${'Update your card'}</a>`);
+    const supportLink = sent[0].html.match(/<a href="https:\/\/www\.fitmunch\.com\.au\/support"[^>]*>/);
+    expect(supportLink).not.toBeNull();
+    expect(supportLink[0]).toContain('display:inline-block');
+    expect(supportLink[0]).toContain('padding:14px 8px');
+    expect(supportLink[0]).toContain('line-height:20px');
     expect(sent[0].text).toContain(`Update your card: ${emailApi.BILLING_CARD_URL}`);
     expect(text).not.toMatch(/—| -- /);
     expect(text).not.toMatch(/Pty Ltd|inc\. GST|\$|A\$/i);
@@ -326,6 +360,8 @@ describe('cancel copy', () => {
     const support = fs.readFileSync(path.join(__dirname, 'public/support.html'), 'utf8');
     expect(support).toContain('Sign in and open Billing.');
     expect(support).toContain('You can cancel at any time in Billing.');
+    const refund = fs.readFileSync(path.join(__dirname, 'public/refund.html'), 'utf8');
+    expect(refund).toContain('You can cancel at any time in Billing.');
     expect(support).toContain('Cancel before the trial ends and you are not charged.');
     expect(support).toContain("If you can't sign in, email");
     expect(support).not.toMatch(/process cancellations/i);

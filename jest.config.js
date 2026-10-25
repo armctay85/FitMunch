@@ -87,6 +87,7 @@ module.exports = {
     '**/test_meal_plan_owner.js',
     '**/test_stripe_webhook.js',
     '**/test_payment_failed_email.js',
+    '**/test_payment_failed_email_pg.js',
     '**/test_coach_billing.js',
     '**/test_comp_expiry.js',
     '**/test_ios_store_art.js',
