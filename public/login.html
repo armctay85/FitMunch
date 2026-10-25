@@ -557,6 +557,10 @@
    await openClaimConfirm(token);
    return;
   }
+  if (!plan && urlParams.get('next') === 'billing') {
+   window.location.href = '/app.html#billing';
+   return;
+  }
   if (!plan) {
  window.location.href = '/app.html';
  return;
