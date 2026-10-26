@@ -14,6 +14,7 @@ const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
+const resendInbound = require('./lib/resend-inbound');
 require('./lib/guest-claim').warnMissingGuestClaimSecret();
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
@@ -187,6 +188,8 @@ configureCustomDomain(app);
 
 // Stripe webhooks must see the raw request body. Register this before global JSON parsing.
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+// Resend inbound webhooks are Svix-signed over the raw body. Same rule.
+app.use('/api/resend-inbound', express.raw({ type: 'application/json', limit: '1mb' }));
 
 // Add body size limits for security and parse JSON/URL-encoded data
 app.use(express.json({ limit: '15mb' }));
@@ -295,6 +298,18 @@ function finishWebhook(res, err, event) {
       res.json({ received: true });
     });
 }
+
+// Resend Receiving: forward support@ once. Signature is checked on the raw body.
+app.post('/api/resend-inbound', async (req, res) => {
+  try {
+    const result = await resendInbound.handleResendInbound(req);
+    if (res.headersSent) return;
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    console.error('[resend-inbound]', webhookHandlerErrorLabel(err));
+    if (!res.headersSent) res.status(500).json({ error: 'unavailable' });
+  }
+});
 
 // Add API router before auth middleware
 const apiRouter = require('./api_server');

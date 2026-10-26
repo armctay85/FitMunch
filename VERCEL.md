@@ -29,6 +29,15 @@ Then `vercel ls --scope armctay85s-projects` shows Production deployments (custo
 
 Optional: **Settings → Domains** attach `fitmunch.com.au` (or keep the `.vercel.app` URL only).
 
+## Inbound support mail
+
+Mail to `support@fitmunch.com.au` already arrives in Resend Receiving. Forwarding it needs two env vars (listed in `.env.example`):
+
+- `RESEND_INBOUND_WEBHOOK_SECRET`: Svix signing secret for the inbound webhook. If this is unset, `POST /api/resend-inbound` returns 401.
+- `SUPPORT_FORWARD_TO`: address that receives the forward. If this is unset, the webhook is accepted and nothing is sent.
+
+After those are set, create a Resend webhook for the event `email.received` with endpoint `https://fitmunch.com.au/api/resend-inbound`. No DNS change.
+
 ## After custom domain DNS propagates
 
 1. Vercel **Domains** should show **Valid** for `fitmunch.com.au` / `www`.
