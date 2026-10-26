@@ -5,8 +5,17 @@
  * takeover window does not send and does not say the customer was emailed.
  * Once that pending claim is stale, the retry sends once.
  *
+ * Also covers the three claim races that a memory map cannot prove:
+ * a stale takeover while the first send is still in flight, a fresh
+ * in-flight claim, and a send that succeeded while mark-sent failed.
+ * The provider double follows Resend: one Idempotency-Key is one delivery,
+ * an in-flight repeat is concurrent_idempotent_requests, and a later repeat
+ * replays the first acceptance.
+ *
  * Needs TEST_DATABASE_URL (CI runs a postgres service). Skipped locally
- * without it; fails in CI if it is missing.
+ * without it; fails in CI if it is missing. Real Postgres, not pg-mem:
+ * the claim SQL uses INSERT ON CONFLICT, UPDATE ... WHERE claimed_at <
+ * NOW() - INTERVAL, and rowCount, which is what production runs.
  */
 const URL = process.env.TEST_DATABASE_URL;
 if (!URL && process.env.CI) throw new Error('test_payment_failed_email_pg: TEST_DATABASE_URL is required in CI');
@@ -91,12 +100,72 @@ async function wipe() {
   const pool = getPool();
   await pool.query(
     `DELETE FROM stripe_welcome_sends
-     WHERE send_key LIKE 'payment_failed:in_fail_release%'
-        OR send_key LIKE 'payment_failed:in_fail_race%'`
+     WHERE send_key LIKE 'payment_failed:in_fail_%'`
   );
   await pool.query(`DELETE FROM stripe_events WHERE event_id LIKE 'evt_pf_%'`);
   await pool.query(`DELETE FROM stripe_webhook_retries WHERE event_id LIKE 'evt_pf_%'`);
 }
+
+async function claimRow(sendKey) {
+  const found = await getPool().query(
+    'SELECT status, claim_token FROM stripe_welcome_sends WHERE send_key = $1',
+    [sendKey]
+  );
+  return found.rows[0] || null;
+}
+
+async function ageEvent(eventId) {
+  await getPool().query(
+    `UPDATE stripe_events
+     SET received_at = NOW() - ($2::bigint * INTERVAL '1 millisecond')
+     WHERE event_id = $1 AND processed_at IS NULL`,
+    [eventId, stripeEvents.STALE_CLAIM_MS + 1000]
+  );
+}
+
+async function waitFor(predicate, label) {
+  const start = Date.now();
+  while (Date.now() - start < 5000) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  }
+  throw new Error(label || 'timed out');
+}
+
+// supertest does not send until something awaits the request.
+function start(pending) {
+  pending.then(() => {}, () => {});
+  return pending;
+}
+
+// Same rules Resend documents for Idempotency-Key. begin() is the request
+// arriving. finish() is that request being accepted. A second begin while
+// the first is in flight is not a second delivery.
+function resendDouble() {
+  const keys = new Map();
+  let deliveries = 0;
+  return {
+    get deliveries() { return deliveries; },
+    begin(key) {
+      const row = keys.get(key);
+      if (row && row.status === 'inflight') return { concurrent: true };
+      if (row && row.status === 'sent') return { replay: true, messageId: row.id };
+      keys.set(key, { status: 'inflight' });
+      return { started: true };
+    },
+    finish(key) {
+      const row = keys.get(key);
+      if (!row || row.status !== 'inflight') throw new Error('finish without an in-flight send');
+      deliveries += 1;
+      const id = `msg_${deliveries}`;
+      row.status = 'sent';
+      row.id = id;
+      return { success: true, messageId: id };
+    },
+  };
+}
+
+const CONCURRENT_ERROR = 'Resend error: 409 {"name":"concurrent_idempotent_requests","message":"in progress"}';
 
 maybe('payment failed send claims (postgres)', () => {
   jest.setTimeout(30000);
@@ -191,5 +260,181 @@ maybe('payment failed send claims (postgres)', () => {
       'customer'
     );
     expect(await sendStatus(customerKey)).toBe('sent');
+  });
+
+  test('a fresh in-flight claim does not send a second delivery', async () => {
+    process.env.ALERT_EMAIL_TO = 'ops@example.com';
+    let release = () => {};
+    const held = new Promise((resolve) => { release = resolve; });
+    let calls = 0;
+    customer.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) await held;
+      return { success: true };
+    });
+    const overrides = { id: 'in_fail_inflight' };
+    const firstEvent = failedEvent('evt_pf_inflight_a', overrides);
+    const customerKey = paymentFailedSendKey(firstEvent, firstEvent.data.object, 'customer');
+    let first = Promise.resolve();
+    try {
+      first = start(post(firstEvent));
+      await waitFor(() => calls === 1, 'first send did not start');
+      expect(await sendStatus(customerKey)).toBe('pending');
+      const second = await post(failedEvent('evt_pf_inflight_b', overrides));
+      expect(second.status).toBe(500);
+      expect(calls).toBe(1);
+      expect(owner).not.toHaveBeenCalled();
+      expect(await sendStatus(customerKey)).toBe('pending');
+      release();
+      expect((await first).status).toBe(200);
+      expect(calls).toBe(1);
+      expect(customer.mock.calls[0][1].idempotencyKey).toBe(customerKey);
+      expect(owner).toHaveBeenCalledTimes(1);
+      expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+      expect(await sendStatus(customerKey)).toBe('sent');
+      expect((await post(failedEvent('evt_pf_inflight_b', overrides))).status).toBe(200);
+      expect(calls).toBe(1);
+      expect(owner).toHaveBeenCalledTimes(1);
+      for (const call of owner.mock.calls) expect(call[1].customerNotified).toBe(true);
+    } finally {
+      release();
+      await first.catch(() => {});
+    }
+  });
+
+  test('a stale takeover cannot double-deliver or let the old claim mark or release', async () => {
+    process.env.ALERT_EMAIL_TO = 'ops@example.com';
+    const gate = resendDouble();
+    let calls = 0;
+    let releaseFirst = () => {};
+    let releaseSecond = () => {};
+    const firstHeld = new Promise((resolve) => { releaseFirst = resolve; });
+    const secondHeld = new Promise((resolve) => { releaseSecond = resolve; });
+    customer.mockImplementation(async (_to, opts) => {
+      calls += 1;
+      const key = opts.idempotencyKey;
+      const attempt = gate.begin(key);
+      if (attempt.started) {
+        await firstHeld;
+        return gate.finish(key);
+      }
+      if (attempt.concurrent) {
+        await secondHeld;
+        return { success: false, error: CONCURRENT_ERROR };
+      }
+      return { success: true, messageId: attempt.messageId };
+    });
+    const overrides = { id: 'in_fail_takeover' };
+    const event = failedEvent('evt_pf_takeover', overrides);
+    const customerKey = paymentFailedSendKey(event, event.data.object, 'customer');
+    let first = Promise.resolve();
+    let second = Promise.resolve();
+    try {
+      first = start(post(event));
+      await waitFor(() => calls === 1, 'first send did not start');
+      const original = await claimRow(customerKey);
+      expect(original.status).toBe('pending');
+      expect(original.claim_token).toEqual(expect.any(String));
+      await stripeEvents.ageNotificationSendForTests(customerKey, stripeEvents.STALE_CLAIM_MS + 1000);
+      await ageEvent('evt_pf_takeover');
+      second = start(post(event));
+      await waitFor(() => calls === 2, 'takeover did not send');
+      const taken = await claimRow(customerKey);
+      expect(taken.status).toBe('pending');
+      expect(taken.claim_token).toEqual(expect.any(String));
+      expect(taken.claim_token).not.toBe(original.claim_token);
+      await stripeEvents.releaseNotificationSend(customerKey, original.claim_token);
+      expect(await claimRow(customerKey)).toEqual({
+        status: 'pending',
+        claim_token: taken.claim_token,
+      });
+      await expect(stripeEvents.markNotificationSent(customerKey, original.claim_token))
+        .rejects.toThrow(/sent mark failed/);
+      expect(await claimRow(customerKey)).toEqual({
+        status: 'pending',
+        claim_token: taken.claim_token,
+      });
+      expect(customer.mock.calls[0][1].idempotencyKey).toBe(customerKey);
+      expect(customer.mock.calls[1][1].idempotencyKey).toBe(customerKey);
+      expect(owner).not.toHaveBeenCalled();
+
+      releaseSecond();
+      expect((await second).status).toBe(500);
+      expect(owner).not.toHaveBeenCalled();
+      expect(gate.deliveries).toBe(0);
+      releaseFirst();
+      expect((await first).status).toBe(500);
+      expect(gate.deliveries).toBe(1);
+      expect(owner).not.toHaveBeenCalled();
+      expect(await sendStatus(customerKey)).toBeNull();
+
+      expect((await post(event)).status).toBe(200);
+      expect(gate.deliveries).toBe(1);
+      expect(calls).toBe(3);
+      expect(customer.mock.calls[2][1].idempotencyKey).toBe(customerKey);
+      expect(owner).toHaveBeenCalledTimes(1);
+      expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+      expect(owner.mock.calls[0][1].idempotencyKey).toBe(
+        paymentFailedSendKey(event, event.data.object, 'owner:ops@example.com')
+      );
+      expect(await sendStatus(customerKey)).toBe('sent');
+
+      expect((await post(failedEvent('evt_pf_takeover_2', overrides))).status).toBe(200);
+      expect(calls).toBe(3);
+      expect(gate.deliveries).toBe(1);
+      expect(owner).toHaveBeenCalledTimes(1);
+    } finally {
+      releaseFirst();
+      releaseSecond();
+      await Promise.allSettled([first, second]);
+    }
+  });
+
+  test('a successful send whose mark fails is delivered once on the later retry', async () => {
+    process.env.ALERT_EMAIL_TO = 'ops@example.com';
+    const gate = resendDouble();
+    customer.mockImplementation(async (_to, opts) => {
+      const attempt = gate.begin(opts.idempotencyKey);
+      if (attempt.concurrent) return { success: false, error: CONCURRENT_ERROR };
+      if (attempt.replay) return { success: true, messageId: attempt.messageId };
+      return gate.finish(opts.idempotencyKey);
+    });
+    const mark = jest.spyOn(stripeEvents, 'markNotificationSent').mockRejectedValueOnce(
+      Object.assign(new Error('write failed'), { code: 'WEBHOOK_RETRY' })
+    );
+    const overrides = { id: 'in_fail_mark' };
+    const event = failedEvent('evt_pf_mark', overrides);
+    const customerKey = paymentFailedSendKey(event, event.data.object, 'customer');
+    try {
+      expect((await post(event)).status).toBe(500);
+      expect(gate.deliveries).toBe(1);
+      expect(customer).toHaveBeenCalledTimes(1);
+      expect(customer.mock.calls[0][1].idempotencyKey).toBe(customerKey);
+      expect(owner).not.toHaveBeenCalled();
+      expect(await sendStatus(customerKey)).toBe('pending');
+
+      expect((await post(event)).status).toBe(500);
+      expect(customer).toHaveBeenCalledTimes(1);
+      expect(gate.deliveries).toBe(1);
+      expect(owner).not.toHaveBeenCalled();
+      expect(await sendStatus(customerKey)).toBe('pending');
+
+      await stripeEvents.ageNotificationSendForTests(customerKey, stripeEvents.STALE_CLAIM_MS + 1000);
+      expect((await post(event)).status).toBe(200);
+      expect(customer).toHaveBeenCalledTimes(2);
+      expect(customer.mock.calls[1][1].idempotencyKey).toBe(customerKey);
+      expect(gate.deliveries).toBe(1);
+      expect(owner).toHaveBeenCalledTimes(1);
+      expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+      expect(await sendStatus(customerKey)).toBe('sent');
+
+      expect((await post(failedEvent('evt_pf_mark_2', overrides))).status).toBe(200);
+      expect(customer).toHaveBeenCalledTimes(2);
+      expect(gate.deliveries).toBe(1);
+      expect(owner).toHaveBeenCalledTimes(1);
+      for (const call of owner.mock.calls) expect(call[1].customerNotified).toBe(true);
+    } finally {
+      mark.mockRestore();
+    }
   });
 });

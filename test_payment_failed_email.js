@@ -120,10 +120,15 @@ describe('invoice.payment_failed emails', () => {
 
   test('handler sends the customer email and the owner alert', async () => {
     process.env.ALERT_EMAIL_TO = 'ops@example.com, lead@example.com';
-    const res = await post(failedEvent('evt_send'));
+    const event = failedEvent('evt_send');
+    const res = await post(event);
     expect(res.status).toBe(200);
     expect(customer).toHaveBeenCalledTimes(1);
-    expect(customer).toHaveBeenCalledWith('member@example.com', { accessContinues: true, willRetry: true });
+    expect(customer).toHaveBeenCalledWith('member@example.com', {
+      accessContinues: true,
+      willRetry: true,
+      idempotencyKey: paymentFailedSendKey(event, event.data.object, 'customer'),
+    });
     expect(owner).toHaveBeenCalledTimes(2);
     expect(owner.mock.calls.map((call) => call[0]).sort()).toEqual(['lead@example.com', 'ops@example.com']);
     for (const call of owner.mock.calls) {
@@ -133,6 +138,7 @@ describe('invoice.payment_failed emails', () => {
         attempt: 1,
         willRetry: true,
         customerNotified: true,
+        idempotencyKey: paymentFailedSendKey(event, event.data.object, `owner:${call[0]}`),
       });
       const packed = JSON.stringify(call[1]);
       expect(packed).not.toContain('member@example.com');
@@ -143,17 +149,27 @@ describe('invoice.payment_failed emails', () => {
   test('a past_due retry does not say access continues', async () => {
     process.env.ALERT_EMAIL_TO = 'ops@example.com';
     app._private.setStripeForTests(makeStripe('past_due'));
-    const res = await post(failedEvent('evt_due'));
+    const event = failedEvent('evt_due');
+    const res = await post(event);
     expect(res.status).toBe(200);
-    expect(customer).toHaveBeenCalledWith('member@example.com', { accessContinues: false, willRetry: true });
+    expect(customer).toHaveBeenCalledWith('member@example.com', {
+      accessContinues: false,
+      willRetry: true,
+      idempotencyKey: paymentFailedSendKey(event, event.data.object, 'customer'),
+    });
   });
 
   test('a final attempt does not promise a retry or continued access', async () => {
     process.env.ALERT_EMAIL_TO = 'ops@example.com';
     app._private.setStripeForTests(makeStripe('canceled'));
-    const res = await post(failedEvent('evt_final', { next_payment_attempt: null }));
+    const event = failedEvent('evt_final', { next_payment_attempt: null });
+    const res = await post(event);
     expect(res.status).toBe(200);
-    expect(customer).toHaveBeenCalledWith('member@example.com', { accessContinues: false, willRetry: false });
+    expect(customer).toHaveBeenCalledWith('member@example.com', {
+      accessContinues: false,
+      willRetry: false,
+      idempotencyKey: paymentFailedSendKey(event, event.data.object, 'customer'),
+    });
   });
 
   test('a retried event and a duplicate invoice attempt do not resend', async () => {
@@ -240,11 +256,75 @@ describe('invoice.payment_failed emails', () => {
       expect(customer).toHaveBeenCalledTimes(2);
       expect(owner).toHaveBeenCalledTimes(1);
       expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+      expect(customer.mock.calls[0][1].idempotencyKey).toBe(customerKey);
+      expect(customer.mock.calls[1][1].idempotencyKey).toBe(customerKey);
       expect((await post(failedEvent('evt_stuck_again'))).status).toBe(200);
       expect(customer).toHaveBeenCalledTimes(2);
       expect(owner).toHaveBeenCalledTimes(1);
     } finally {
       release.mockRestore();
+    }
+  });
+
+  test('an in-flight provider key is retried, and a different payload counts as already emailed', async () => {
+    process.env.ALERT_EMAIL_TO = 'ops@example.com';
+    const concurrent = failedEvent('evt_concurrent');
+    const customerKey = paymentFailedSendKey(concurrent, concurrent.data.object, 'customer');
+    customer.mockResolvedValueOnce({
+      success: false,
+      error: 'Resend error: 409 {"name":"concurrent_idempotent_requests","message":"in progress"}',
+    });
+    expect((await post(concurrent)).status).toBe(500);
+    expect(customer).toHaveBeenCalledTimes(1);
+    expect(owner).not.toHaveBeenCalled();
+    expect((await post(concurrent)).status).toBe(200);
+    expect(customer).toHaveBeenCalledTimes(2);
+    expect(customer.mock.calls[0][1].idempotencyKey).toBe(customerKey);
+    expect(customer.mock.calls[1][1].idempotencyKey).toBe(customerKey);
+    expect(owner).toHaveBeenCalledTimes(1);
+    expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+
+    customer.mockReset();
+    owner.mockReset();
+    customer.mockResolvedValue({ success: true });
+    owner.mockResolvedValue({ success: true });
+    const mismatched = failedEvent('evt_mismatch', { id: 'in_fail_mismatch' });
+    customer.mockResolvedValueOnce({
+      success: false,
+      error: 'Resend error: 409 {"name":"invalid_idempotent_request","message":"different payload"}',
+    });
+    expect((await post(mismatched)).status).toBe(200);
+    expect(customer).toHaveBeenCalledTimes(1);
+    expect(owner).toHaveBeenCalledTimes(1);
+    expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+    expect((await post(failedEvent('evt_mismatch_2', { id: 'in_fail_mismatch' }))).status).toBe(200);
+    expect(customer).toHaveBeenCalledTimes(1);
+    expect(owner).toHaveBeenCalledTimes(1);
+  });
+
+  test('a successful send whose mark fails does not say the customer was skipped', async () => {
+    process.env.ALERT_EMAIL_TO = 'ops@example.com';
+    const event = failedEvent('evt_mark_fail');
+    const customerKey = paymentFailedSendKey(event, event.data.object, 'customer');
+    const mark = jest.spyOn(stripeEvents, 'markNotificationSent').mockRejectedValueOnce(
+      Object.assign(new Error('write failed'), { code: 'WEBHOOK_RETRY' })
+    );
+    try {
+      expect((await post(event)).status).toBe(500);
+      expect(customer).toHaveBeenCalledTimes(1);
+      expect(owner).not.toHaveBeenCalled();
+      expect((await post(event)).status).toBe(500);
+      expect(customer).toHaveBeenCalledTimes(1);
+      expect(owner).not.toHaveBeenCalled();
+      await stripeEvents.ageNotificationSendForTests(customerKey, stripeEvents.STALE_CLAIM_MS + 1000);
+      expect((await post(event)).status).toBe(200);
+      expect(customer).toHaveBeenCalledTimes(2);
+      expect(customer.mock.calls[0][1].idempotencyKey).toBe(customerKey);
+      expect(customer.mock.calls[1][1].idempotencyKey).toBe(customerKey);
+      expect(owner).toHaveBeenCalledTimes(1);
+      expect(owner.mock.calls[0][1].customerNotified).toBe(true);
+    } finally {
+      mark.mockRestore();
     }
   });
 
@@ -293,6 +373,38 @@ describe('payment failed email copy', () => {
     const msg = sent[0];
     return `${msg.subject}\n${msg.html}\n${msg.text}`;
   }
+
+  test('the idempotency key is a header and does not change the copy', async () => {
+    const start = global.fetch.mock.calls.length;
+    const plain = await emailApi.sendPaymentFailedEmail('member@example.com', {
+      accessContinues: true,
+      willRetry: true,
+    });
+    const keyed = await emailApi.sendPaymentFailedEmail('member@example.com', {
+      accessContinues: true,
+      willRetry: true,
+      idempotencyKey: 'payment_failed:in_fail_1:1:customer',
+    });
+    expect(plain.success).toBe(true);
+    expect(keyed.success).toBe(true);
+    expect(sent).toHaveLength(2);
+    expect(sent[1].subject).toBe(sent[0].subject);
+    expect(sent[1].html).toBe(sent[0].html);
+    expect(sent[1].text).toBe(sent[0].text);
+    expect(sent[1].html).not.toContain('payment_failed:');
+    const calls = () => global.fetch.mock.calls.slice(start);
+    expect(calls()[0][1].headers['Idempotency-Key']).toBeUndefined();
+    expect(calls()[1][1].headers['Idempotency-Key']).toBe('payment_failed:in_fail_1:1:customer');
+    const longKey = `payment_failed:${'in_'.padEnd(300, 'x')}:1:customer`;
+    await emailApi.sendPaymentFailedEmail('member@example.com', {
+      accessContinues: false,
+      willRetry: false,
+      idempotencyKey: longKey,
+    });
+    const hashed = calls()[2][1].headers['Idempotency-Key'];
+    expect(hashed).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashed).not.toBe(longKey);
+  });
 
   test('customer email is plain, from hello@, with one billing button', async () => {
     const result = await emailApi.sendPaymentFailedEmail('member@example.com', {

@@ -2,7 +2,18 @@
  * FitMunch transactional email via Resend only.
  * Requires RESEND_API_KEY. Optional RESEND_FROM (default hello@fitmunch.com.au).
  */
+const crypto = require('crypto');
 const RESEND_API = 'https://api.resend.com/emails';
+
+// Resend stores this header for 24 hours. A repeat with the same key returns
+// the original email instead of sending another. A different body with the
+// same key is rejected. Over 256 characters is hashed so the header stays valid.
+function resendIdempotencyKey(value) {
+  const key = String(value || '').trim().replace(/[\r\n]/g, '');
+  if (!key) return '';
+  if (key.length <= 256) return key;
+  return crypto.createHash('sha256').update(key).digest('hex');
+}
 
 function fromAddress() {
   return process.env.RESEND_FROM || 'FitMunch <hello@fitmunch.com.au>';
@@ -19,13 +30,17 @@ async function sendEmail(opts) {
   const to = opts.to;
   if (!to) return { success: false, error: 'Missing to address' };
 
+  const idempotencyKey = resendIdempotencyKey(opts.idempotencyKey);
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+  };
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+
   try {
     const resp = await fetch(RESEND_API, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         from: fromAddress(),
         to: [to],
@@ -226,7 +241,9 @@ const BILLING_CARD_URL = 'https://www.fitmunch.com.au/app.html#billing';
  * Card charge failed. accessContinues is true only when the caller has
  * checked the live subscription. willRetry is Stripe's next_payment_attempt.
  */
-async function sendPaymentFailedEmail(customerEmail, { accessContinues = false, willRetry = false } = {}) {
+async function sendPaymentFailedEmail(customerEmail, options = {}) {
+  const accessContinues = Boolean(options.accessContinues);
+  const willRetry = Boolean(options.willRetry);
   const lead = ['Your latest FitMunch payment did not go through.'];
   if (accessContinues) lead.push('Your access continues for now.');
   if (willRetry) lead.push('Stripe will try the charge again. Update your card so that try can go through.');
@@ -242,6 +259,7 @@ async function sendPaymentFailedEmail(customerEmail, { accessContinues = false, 
     subject: 'Your FitMunch payment did not go through',
     bodyHtml,
     bodyText,
+    idempotencyKey: options.idempotencyKey,
   });
 }
 
@@ -259,13 +277,15 @@ function paymentFailedOwnerLines({ invoiceId, customerId, attempt, willRetry, cu
 
 /** Operator alert. Caller chooses the address (ALERT_EMAIL_TO). No default recipient. */
 async function sendPaymentFailedOwnerAlert(to, details) {
-  const lines = paymentFailedOwnerLines(details || {});
+  const info = details || {};
+  const lines = paymentFailedOwnerLines(info);
   const bodyHtml = lines.map((line) => `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escapeHtml(line)}</p>`).join('');
   return sendEmail({
     to,
     subject: 'FitMunch: a payment did not go through',
     bodyHtml,
     bodyText: lines.join('\n\n'),
+    idempotencyKey: info.idempotencyKey,
   });
 }
 
