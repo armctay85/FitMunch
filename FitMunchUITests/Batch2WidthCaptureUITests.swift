@@ -22,6 +22,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         created.locale = Locale(identifier: "en_AU")
         storeKit = created
         print("WIDTH_STOREKIT file=\(url.path) storefront=\(created.storefront) locale=\(created.locale.identifier)")
+        assertAustraliaStorefrontBeforeLaunch()
     }
 
     override func tearDownWithError() throws {
@@ -397,10 +398,21 @@ final class Batch2WidthCaptureUITests: XCTestCase {
     }
 
     private func launch(_ arguments: [String]) -> XCUIApplication {
+        assertAustraliaStorefrontBeforeLaunch()
         let app = XCUIApplication()
         app.launchArguments = arguments
         app.launch()
         return app
+    }
+
+    private func assertAustraliaStorefrontBeforeLaunch() {
+        let storefront = storeKit?.storefront ?? ""
+        let locale = storeKit?.locale.identifier ?? ""
+        XCTAssertEqual(
+            storefront,
+            "AUS",
+            "StoreKit test session must read back storefront AUS before launch. Read storefront=\(storefront) locale=\(locale)"
+        )
     }
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
