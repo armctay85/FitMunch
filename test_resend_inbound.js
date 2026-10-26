@@ -368,6 +368,7 @@ describe('forward payload', () => {
     expect(receiving.href).toContain('html_format=cid');
     const cdn = calls.find((call) => call.href.includes('inbound-cdn.resend.com'));
     expect(cdn.opts.headers).toBeUndefined();
+    expect(cdn.opts.redirect).toBe('manual');
     expect(logged()).not.toContain(BODY_MARKER);
     expect(logged()).not.toContain(SECRET);
     expect(logged()).not.toContain('re_test_inbound');
@@ -419,6 +420,63 @@ describe('forward payload', () => {
     expect(sent[0].attachments.map((item) => item.filename)).toEqual(['note.txt']);
     expect(sent[0].text).toContain('Attachment omitted because it is over the size limit: scan.pdf');
     expect(calls.some((call) => call.href.includes('scan.pdf'))).toBe(false);
+  });
+
+  test.each([
+    ['[support@] Need a hand'],
+    ['Re: [support@] Need a hand'],
+  ])('does not add a second [support@] prefix to %s', async (subject) => {
+    const sent = [];
+    const { fetchImpl } = mockFetch({
+      email: receivedEmail({ subject }),
+      onSend: (body) => sent.push(body),
+    });
+    const res = await postInbound(receivedEvent(), { fetchImpl, claims: memoryClaims() });
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].subject).toBe(subject);
+  });
+
+  test('an attachment redirect is not followed off resend', async () => {
+    const seen = [];
+    const sent = [];
+    const fetchImpl = jest.fn(async (url, opts = {}) => {
+      const href = String(url);
+      seen.push({ href, redirect: opts.redirect });
+      if (href.includes('/attachments')) {
+        return jsonResult(200, { object: 'list', has_more: false, data: [attachmentRow()] });
+      }
+      if (href.includes('/emails/receiving/')) {
+        return jsonResult(200, receivedEmail({
+          attachments: [{ id: attachmentRow().id, filename: 'note.txt' }],
+        }));
+      }
+      if (href.includes('inbound-cdn.resend.com')) {
+        return {
+          ok: false,
+          status: 302,
+          headers: {
+            get: (name) => (String(name).toLowerCase() === 'location' ? 'https://evil.example/steal' : null),
+          },
+          arrayBuffer: async () => bytesOf('should-not-be-attached'),
+          json: async () => ({}),
+        };
+      }
+      if (href === SEND_URL) {
+        sent.push(JSON.parse(opts.body));
+        return jsonResult(200, { id: 'sent_1' });
+      }
+      throw new Error(`unexpected fetch ${href}`);
+    });
+    const claims = memoryClaims();
+    const res = await postInbound(receivedEvent(), { fetchImpl, claims });
+    expect(res.status).toBe(500);
+    expect(sent).toHaveLength(0);
+    expect(seen.some((call) => call.href.includes('evil.example'))).toBe(false);
+    expect(seen.find((call) => call.href.includes('inbound-cdn.resend.com')).redirect).toBe('manual');
+    expect(claims.rows.size).toBe(0);
+    expect(logged()).not.toContain('should-not-be-attached');
+    expect(logged()).not.toContain('evil.example');
   });
 
   test('unset SUPPORT_FORWARD_TO is a no-op and does not log the subject or body', async () => {
@@ -520,13 +578,42 @@ describe('duplicate delivery', () => {
     expect(refusedFetch).not.toHaveBeenCalled();
     expect(logged()).toContain('database unavailable');
   });
+
+  test('passes the claim token through mark and release', async () => {
+    const token = '11111111-2222-4333-8444-555555555555';
+    const claim = jest.spyOn(stripeEvents, 'claimNotificationSend').mockResolvedValue({ claimed: true, token });
+    const mark = jest.spyOn(stripeEvents, 'markNotificationSent').mockResolvedValue();
+    const release = jest.spyOn(stripeEvents, 'releaseNotificationSend').mockResolvedValue();
+    const retryId = 'retry-email-id-404';
+    try {
+      const { fetchImpl } = mockFetch({ email: receivedEmail() });
+      const sent = await postInbound(receivedEvent(), { fetchImpl, env: testEnv() });
+      expect(sent.status).toBe(200);
+      expect(claim).toHaveBeenCalledWith(`support_forward:${EMAIL_ID}`);
+      expect(mark).toHaveBeenCalledWith(`support_forward:${EMAIL_ID}`, token);
+      expect(release).not.toHaveBeenCalled();
+
+      mark.mockClear();
+      const missing = jest.fn(async (url) => {
+        if (String(url).includes('/emails/receiving/')) return { ok: false, status: 404, json: async () => ({}) };
+        throw new Error(`unexpected fetch ${url}`);
+      });
+      const retry = await postInbound(receivedEvent({ email_id: retryId }), { fetchImpl: missing, env: testEnv() });
+      expect(retry.status).toBe(500);
+      expect(release).toHaveBeenCalledWith(`support_forward:${retryId}`, token);
+      expect(mark).not.toHaveBeenCalled();
+    } finally {
+      claim.mockRestore();
+      mark.mockRestore();
+      release.mockRestore();
+    }
+  });
 });
 
 describe('loop guard', () => {
   test.each([
     ['header', { headers: { 'X-FitMunch-Support-Relay': '1', from: 'Ada <ada@example.com>', date: 'Tue, 22 Oct 2026 09:00:00 +0000' } }],
     ['from address', { from: 'relay@fitmunch.com.au', headers: { from: 'FitMunch Support Relay <relay@fitmunch.com.au>' } }],
-    ['body marker', { text: `Hello\n${RELAY_MARKER}\n`, html: '<p>Hello</p>' }],
   ])('does not forward a relay message (%s)', async (_label, overrides) => {
     const sent = [];
     const { fetchImpl } = mockFetch({
@@ -541,5 +628,22 @@ describe('loop guard', () => {
     const again = await postInbound(receivedEvent(), { fetchImpl, claims });
     expect(again.status).toBe(200);
     expect(sent).toHaveLength(0);
+  });
+
+  test('a body that quotes the relay marker is still forwarded', async () => {
+    const sent = [];
+    const { fetchImpl } = mockFetch({
+      email: receivedEmail({
+        text: `Hello\n${RELAY_MARKER}\n`,
+        html: `<p>Hello</p><!-- ${RELAY_MARKER} -->`,
+      }),
+      onSend: (body) => sent.push(body),
+    });
+    const claims = memoryClaims();
+    const res = await postInbound(receivedEvent(), { fetchImpl, claims });
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].text).toContain(RELAY_MARKER);
+    expect(claims.rows.get(`support_forward:${EMAIL_ID}`)).toBe('sent');
   });
 });
