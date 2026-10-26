@@ -129,6 +129,7 @@ targets:
       - path: FitMunchUITests
         excludes:
           - "*.storekit"
+          - "*.xcconfig"
       - path: FitMunchUITests/FitMunchProducts.storekit
         buildPhase: resources
     settings:
@@ -138,5 +139,8 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         TEST_TARGET_NAME: FitMunch
+    configFiles:
+      Debug: FitMunchUITests/UITestLink.xcconfig
+      Release: FitMunchUITests/UITestLink.xcconfig
     dependencies:
       - target: FitMunch

@@ -1,9 +1,31 @@
+import StoreKitTest
 import XCTest
 
 /// Changed build 11 screens at 375pt and 440pt widths.
 final class Batch2WidthCaptureUITests: XCTestCase {
+    /// Lives in this UI test process, which is an XCTest host. The app target does not open a session.
+    private var storeKit: SKTestSession?
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+        storeKit = nil
+        let url = try XCTUnwrap(
+            Bundle(for: Batch2WidthCaptureUITests.self)
+                .url(forResource: "FitMunchProducts", withExtension: "storekit"),
+            "FitMunchProducts.storekit is not in the UI test bundle"
+        )
+        let created = try SKTestSession(contentsOf: url)
+        created.disableDialogs = true
+        created.resetToDefaultState()
+        created.clearTransactions()
+        created.storefront = "AUS"
+        created.locale = Locale(identifier: "en_AU")
+        storeKit = created
+        print("WIDTH_STOREKIT file=\(url.path) storefront=\(created.storefront) locale=\(created.locale.identifier)")
+    }
+
+    override func tearDownWithError() throws {
+        storeKit = nil
     }
 
     func testTodayEmptyOffline() {
