@@ -114,7 +114,8 @@ maybe('weekly review (real SQL)', () => {
       throw new Error('no Sydney instant');
     };
     let stamps = null;
-    for (let i = 0; i < dates.length - 2; i += 1) {
+    // Start at yesterday: today's 12:00 can still be in the future, and the route only reads meals up to now.
+    for (let i = 1; i < dates.length - 2; i += 1) {
       const trio = [atSydney(dates[i + 2], '23:00'), atSydney(dates[i + 1], '00:30'), atSydney(dates[i], '12:00')];
       if (new Set(trio.map((d) => d.toDateString())).size === 2) { stamps = trio; break; }
     }

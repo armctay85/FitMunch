@@ -10,6 +10,7 @@ on:
       - "FitMunchUITests/**"
       - "scripts/check-width-screenshots.py"
       - "scripts/log-storekit-scheme-path.py"
+      - "scripts/ios-simulator-on-version.py"
       - ".github/workflows/ios-width-capture.yml"
   workflow_dispatch:
 
@@ -92,14 +93,32 @@ jobs:
             echo "$udid"
           }
 
+          # iOS 26.5 SKTestSession returns SKInternalErrorDomain Code=3 when the
+          # storefront is set. Pin 375pt to the 26.2 runtime, which reads AUS back.
+          # 440pt keeps the first matching Pro Max (that capture already passes on 26.2).
+          NARROW_RUNTIME="$(python3 scripts/ios-simulator-on-version.py runtime 26.2)"
+          test -n "$NARROW_RUNTIME"
+          ensure_on_narrow_runtime() {
+            local name="$1"
+            local type="$2"
+            local udid
+            udid="$(python3 scripts/ios-simulator-on-version.py udid "$name" 26.2)"
+            if [[ -z "$udid" ]]; then
+              udid="$(xcrun simctl create "$name" "$type" "$NARROW_RUNTIME")"
+            fi
+            echo "$udid"
+          }
+
           WIDE_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
           if [[ -z "${WIDE_UDID:-}" ]]; then
             WIDE_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
           fi
-          NARROW_UDID="$(ensure_device "iPhone SE (3rd generation)" "iPhone SE (3rd generation)" || true)"
+          NARROW_UDID="$(ensure_on_narrow_runtime "iPhone SE (3rd generation)" "iPhone SE (3rd generation)" || true)"
           if [[ -z "${NARROW_UDID:-}" ]]; then
-            NARROW_UDID="$(ensure_device "iPhone 13 mini" "iPhone 13 mini")"
+            NARROW_UDID="$(ensure_on_narrow_runtime "iPhone 13 mini" "iPhone 13 mini")"
           fi
+          echo "width-440 udid=$WIDE_UDID" | tee artifacts/width-capture/destinations.txt
+          echo "width-375 udid=$NARROW_UDID runtime=$NARROW_RUNTIME" | tee -a artifacts/width-capture/destinations.txt
 
           DERIVED="$RUNNER_TEMP/DerivedDataWidth"
           run_tests() {

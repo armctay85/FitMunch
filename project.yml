@@ -20,7 +20,6 @@ schemes:
         - FitMunchUITests
   # Local products for the pre-ASC audit and the width capture. The FitMunch
   # scheme stays clean so screenshot capture and archive do not attach a catalog.
-  # storeKitConfiguration belongs on run. A top-level key is ignored.
   FitMunchStoreKit:
     build:
       targets:
@@ -28,6 +27,7 @@ schemes:
         FitMunchTests: [test]
         FitMunchUITests: [test]
     run:
+      # The catalog file belongs on this scheme's run action. A top-level scheme key is ignored.
       language: en
       region: AU
       storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
