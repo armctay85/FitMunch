@@ -1,0 +1,158 @@
+name: Meal log speed
+
+# Launch to a logged meal on the same 375pt and 440pt simulators as the
+# width capture. 375 stays on the iOS 26.2 runtime. Does not archive,
+# upload, or submit. Does not edit ios-archive.yml.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - "scripts/ios-simulator-on-version.py"
+      - ".github/workflows/ios-meal-log-speed.yml"
+
+jobs:
+  meal-log-speed:
+    runs-on: macos-26
+    timeout-minutes: 70
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Time one meal at 375pt and 440pt
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/meal-log-speed
+
+          udid_for() {
+            xcrun simctl list devices available \
+              | grep -F "$1 (" \
+              | head -1 \
+              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
+              | head -1
+          }
+
+          latest_runtime() {
+            xcrun simctl list runtimes available \
+              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
+              | tail -1
+          }
+
+          ensure_device() {
+            local name="$1"
+            local type="$2"
+            local udid
+            udid="$(udid_for "$name" || true)"
+            if [[ -z "$udid" ]]; then
+              local runtime
+              runtime="$(latest_runtime)"
+              test -n "$runtime"
+              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
+            fi
+            echo "$udid"
+          }
+
+          # Same destinations as ios-width-capture.yml. 375pt is pinned to
+          # the 26.2 runtime. 440pt is the first available Pro Max.
+          NARROW_RUNTIME="$(python3 scripts/ios-simulator-on-version.py runtime 26.2)"
+          test -n "$NARROW_RUNTIME"
+          ensure_on_narrow_runtime() {
+            local name="$1"
+            local type="$2"
+            local udid
+            udid="$(python3 scripts/ios-simulator-on-version.py udid "$name" 26.2)"
+            if [[ -z "$udid" ]]; then
+              udid="$(xcrun simctl create "$name" "$type" "$NARROW_RUNTIME")"
+            fi
+            echo "$udid"
+          }
+
+          WIDE_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
+          if [[ -z "${WIDE_UDID:-}" ]]; then
+            WIDE_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
+          fi
+          NARROW_UDID="$(ensure_on_narrow_runtime "iPhone SE (3rd generation)" "iPhone SE (3rd generation)" || true)"
+          if [[ -z "${NARROW_UDID:-}" ]]; then
+            NARROW_UDID="$(ensure_on_narrow_runtime "iPhone 13 mini" "iPhone 13 mini")"
+          fi
+          echo "width-440 udid=$WIDE_UDID" | tee artifacts/meal-log-speed/destinations.txt
+          echo "width-375 udid=$NARROW_UDID runtime=$NARROW_RUNTIME" | tee -a artifacts/meal-log-speed/destinations.txt
+
+          DERIVED="$RUNNER_TEMP/DerivedDataMealLog"
+          run_tests() {
+            local name="$1"
+            local udid="$2"
+            local folder="$3"
+            local bundle="artifacts/meal-log-speed/${folder}.xcresult"
+            rm -rf "$bundle"
+            set +e
+            xcodebuild test \
+              -project FitMunch.xcodeproj \
+              -scheme FitMunch \
+              -destination "platform=iOS Simulator,id=$udid" \
+              -derivedDataPath "$DERIVED" \
+              -only-testing:FitMunchUITests/MealLogSpeedUITests \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "$bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=- \
+              | tee "artifacts/meal-log-speed/${folder}.log"
+            local rc=${PIPESTATUS[0]}
+            set -e
+            echo "$name exit=$rc" | tee -a artifacts/meal-log-speed/destinations.txt
+            grep "MEAL_LOG_" "artifacts/meal-log-speed/${folder}.log" \
+              | tee -a artifacts/meal-log-speed/timings.txt \
+              || true
+            return "$rc"
+          }
+
+          rc_wide=0
+          rc_narrow=0
+          run_tests "440pt" "$WIDE_UDID" "width-440" || rc_wide=$?
+          run_tests "375pt" "$NARROW_UDID" "width-375" || rc_narrow=$?
+          echo "width-440=$rc_wide width-375=$rc_narrow" | tee -a artifacts/meal-log-speed/destinations.txt
+          {
+            echo "### Meal log speed"
+            echo
+            echo '```'
+            cat artifacts/meal-log-speed/timings.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$rc_wide" -ne 0 || "$rc_narrow" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Upload meal log timing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meal-log-speed
+          path: artifacts/meal-log-speed/
+          if-no-files-found: warn
+          retention-days: 14
