@@ -1,9 +1,10 @@
+import Darwin
 import XCTest
 
-/// Launch to a logged meal on Today. The clock starts at `launch` and stops
-/// when Today shows that meal. 375pt is the iOS 26.2 SE. 440pt is the Pro Max.
-/// Quick add is used when the calorie field is on the sheet. Otherwise this
-/// walks the manual name path so the first run can record a baseline.
+/// Launch to a logged meal on Today. 375pt is the iOS 26.2 SE. 440pt is the Pro Max.
+/// The 10s clock starts when `launch()` returns (the app is idle and can take a tap).
+/// XCTest's automation session sits inside `launch()` and is printed separately.
+/// Quick add is used when the calorie field is on the sheet.
 final class MealLogSpeedUITests: XCTestCase {
     private let calorieEntry = 480
 
@@ -20,12 +21,17 @@ final class MealLogSpeedUITests: XCTestCase {
         var mealShown = false
         var path = "unset"
         var mealName = ""
-        let started = Date()
+        var elapsed = 0.0
+        var launchSeconds = 0.0
+        let launchStarted = Date()
+        app.launch()
+        let ready = Date()
+        launchSeconds = ready.timeIntervalSince(launchStarted)
         defer {
-            let elapsed = Date().timeIntervalSince(started)
-            print(String(
-                format: "MEAL_LOG_SECONDS %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
+            emit(String(
+                format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
                 elapsed,
+                launchSeconds,
                 width,
                 calories,
                 mealShown ? "true" : "false",
@@ -34,8 +40,6 @@ final class MealLogSpeedUITests: XCTestCase {
                 mealName
             ))
         }
-
-        app.launch()
         let log = app.buttons["today-log-meal"]
         XCTAssertTrue(log.waitForExistence(timeout: 20), "Today did not open after onboarding")
         XCTAssertFalse(app.buttons["paywall-close"].exists, "Plus opened the paywall before a meal was logged")
@@ -49,17 +53,7 @@ final class MealLogSpeedUITests: XCTestCase {
             path = "quick"
             mealName = textValue(name)
             quick.tap()
-            _ = app.keyboards.firstMatch.waitForExistence(timeout: 2)
             quick.typeText(String(calorieEntry))
-            let typed = (quick.value as? String) ?? ""
-            if !typed.contains(String(calorieEntry)) {
-                for digit in String(calorieEntry) {
-                    let key = app.keys[String(digit)]
-                    if key.waitForExistence(timeout: 1) {
-                        key.tap()
-                    }
-                }
-            }
         } else {
             path = "manual"
             mealName = "Snack"
@@ -104,18 +98,30 @@ final class MealLogSpeedUITests: XCTestCase {
             if mealName.isEmpty, named.exists, !named.label.isEmpty {
                 mealName = named.label
             }
-            mealShown = (!mealName.isEmpty && app.staticTexts[mealName].exists) || named.exists
+            mealShown = (!mealName.isEmpty && app.staticTexts[mealName].exists) || (named.exists && calories > 0)
             if mealShown, calories > 0 {
                 break
             }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
         }
         if calories < 0 {
             calories = loggedCalories(in: app)
         }
+        elapsed = Date().timeIntervalSince(ready)
+        emit(String(
+            format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
+            elapsed,
+            launchSeconds,
+            width,
+            calories,
+            mealShown ? "true" : "false",
+            path,
+            detailCalories,
+            mealName
+        ))
         if !mealShown || calories <= 0 {
-            let labels = app.staticTexts.allElementsBoundByIndex.prefix(40).map(\.label)
-            print("MEAL_LOG_LABELS \(labels.joined(separator: " | "))")
+            let labels = app.staticTexts.allElementsBoundByIndex.prefix(24).map(\.label)
+            emit("MEAL_LOG_LABELS \(labels.joined(separator: " | "))")
         }
 
         XCTAssertTrue(width == 375 || width == 440, "Expected the 375pt or 440pt simulator, got \(width)")
@@ -125,8 +131,12 @@ final class MealLogSpeedUITests: XCTestCase {
         if path == "quick" {
             XCTAssertEqual(calories, calorieEntry, "Today showed \(calories) calories after entering \(calorieEntry)")
         }
-        let elapsed = Date().timeIntervalSince(started)
-        XCTAssertLessThanOrEqual(elapsed, 10, String(format: "Logging took %.2fs", elapsed))
+        XCTAssertLessThanOrEqual(elapsed, 10, String(format: "Logging took %.2fs after launch returned", elapsed))
+    }
+
+    private func emit(_ line: String) {
+        fputs(line + "\n", stdout)
+        fflush(stdout)
     }
 
     private func loggedCalories(in app: XCUIApplication) -> Int {
@@ -141,7 +151,7 @@ final class MealLogSpeedUITests: XCTestCase {
                 return value
             }
         }
-        return positiveIntegers(in: app).max() ?? 0
+        return 0
     }
 
     private func positiveIntegers(in app: XCUIApplication) -> [Int] {

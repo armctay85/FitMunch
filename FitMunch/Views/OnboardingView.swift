@@ -368,13 +368,13 @@ private struct PlanCard: View {
                         .font(.subheadline)
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-                        .modifier(OptionalAccessibilityID(periodID))
+                        .modifier(OptionalAccessibilityID(identifier: periodID))
                     if isSelected && !trial.isEmpty {
                         Text(trial)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.brandGreen)
                             .fixedSize(horizontal: false, vertical: true)
-                            .modifier(OptionalAccessibilityID(trialID))
+                            .modifier(OptionalAccessibilityID(identifier: trialID))
                     }
                 }
                 
