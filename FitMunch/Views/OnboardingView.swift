@@ -278,7 +278,9 @@ struct OnboardingView: View {
         .padding(.top, 12)
         .padding(.bottom, 12)
         .background(.ultraThinMaterial)
-        .accessibilityIdentifier("onboarding-footer")
+        // No identifier on this stack. It replaces onboarding-next, so the
+        // width test cannot find Next. Footer top is the button top minus
+        // this 12pt padding.
     }
 }
 
