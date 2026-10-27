@@ -76,6 +76,8 @@ module.exports = {
     '**/test_funnel_events.js',
     '**/test_funnel_page_header.js',
     '**/test_account_created_event.js',
+    '**/test_activation_events.js',
+    '**/test_activation_events_pg.js',
     '**/test_vercel_analytics.js',
     '**/test_checkout_duplicates.js',
     '**/test_app_load.js',
