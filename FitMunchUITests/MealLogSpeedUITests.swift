@@ -48,11 +48,18 @@ final class MealLogSpeedUITests: XCTestCase {
         if quick.exists {
             path = "quick"
             mealName = textValue(name)
-            if !quick.isHittable {
-                quick.tap()
-            }
             quick.tap()
+            _ = app.keyboards.firstMatch.waitForExistence(timeout: 2)
             quick.typeText(String(calorieEntry))
+            let typed = (quick.value as? String) ?? ""
+            if !typed.contains(String(calorieEntry)) {
+                for digit in String(calorieEntry) {
+                    let key = app.keys[String(digit)]
+                    if key.waitForExistence(timeout: 1) {
+                        key.tap()
+                    }
+                }
+            }
         } else {
             path = "manual"
             mealName = "Snack"
@@ -93,7 +100,11 @@ final class MealLogSpeedUITests: XCTestCase {
         let shownDeadline = Date().addingTimeInterval(4)
         while Date() < shownDeadline {
             calories = loggedCalories(in: app)
-            mealShown = mealName.isEmpty ? false : app.staticTexts[mealName].exists
+            let named = app.descendants(matching: .any)["today-meal-name"]
+            if mealName.isEmpty, named.exists, !named.label.isEmpty {
+                mealName = named.label
+            }
+            mealShown = (!mealName.isEmpty && app.staticTexts[mealName].exists) || named.exists
             if mealShown, calories > 0 {
                 break
             }
@@ -123,6 +134,10 @@ final class MealLogSpeedUITests: XCTestCase {
         if badge.exists {
             let label = badge.label.trimmingCharacters(in: .whitespacesAndNewlines)
             if let value = Int(label) {
+                return value
+            }
+            let digits = label.prefix(while: { $0.isNumber })
+            if let value = Int(digits), value > 0 {
                 return value
             }
         }

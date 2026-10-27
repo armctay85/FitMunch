@@ -55,7 +55,9 @@ struct HomeView: View {
                 }
             }
             .sensoryFeedback(.warning, trigger: freeLimitHits)
-            .sheet(isPresented: $showLogMeal) {
+            .sheet(isPresented: $showLogMeal, onDismiss: {
+                viewModel.loadMealsForSelectedDate()
+            }) {
                 DetailView(modelContext: modelContext)
             }
             .fullScreenCover(isPresented: $showPaywall) {
@@ -371,6 +373,7 @@ private struct MealCard: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.one) {
                     Text(meal.name)
                         .font(.headline)
+                        .accessibilityIdentifier("today-meal-name")
                     Text(Constants.timeFormatter.string(from: meal.date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -390,7 +393,12 @@ private struct MealCard: View {
             }
 
             HStack {
-                NutritionBadge(value: meal.totalCalories, unit: "cal", color: .red)
+                NutritionBadge(
+                    value: meal.totalCalories,
+                    unit: "cal",
+                    color: .red,
+                    identifier: "today-meal-calories"
+                )
                 NutritionBadge(value: meal.totalProtein, unit: "P", color: Theme.brandGreen)
                 NutritionBadge(value: meal.totalCarbs, unit: "C", color: .orange)
                 NutritionBadge(value: meal.totalFats, unit: "F", color: .mint)
@@ -419,6 +427,7 @@ private struct NutritionBadge: View {
     let value: Int
     let unit: String
     let color: Color
+    var identifier: String? = nil
 
     var body: some View {
         HStack(spacing: 2) {
@@ -434,6 +443,26 @@ private struct NutritionBadge: View {
         .background(color.opacity(0.1))
         .foregroundStyle(color)
         .cornerRadius(Theme.Spacing.one)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value)")
+        .modifier(MealBadgeID(identifier))
+    }
+}
+
+private struct MealBadgeID: ViewModifier {
+    let identifier: String?
+
+    init(_ identifier: String?) {
+        self.identifier = identifier
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 

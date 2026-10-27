@@ -15,10 +15,13 @@ class DetailViewModel: ObservableObject {
     
     private let modelContext: ModelContext
     private var existingMeal: Meal?
+    /// The quick-add row, so typing calories updates one item instead of appending.
+    private var quickEntryID: UUID?
     
-    /// Initialize for creating a new meal
-    init(modelContext: ModelContext) {
+    /// Initialize for creating a new meal. The name is the time-of-day slot.
+    init(modelContext: ModelContext, now: Date = Date()) {
         self.modelContext = modelContext
+        self.mealName = MealTimeName.name(for: now)
     }
     
     /// Initialize for editing an existing meal
@@ -37,6 +40,7 @@ class DetailViewModel: ObservableObject {
     }
 
     /// Manual entry. Used until a real nutrition source is wired up.
+    /// Calories stay 0: there is no food database to look up.
     func addManualFood(name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -45,6 +49,93 @@ class DetailViewModel: ObservableObject {
         )
         searchQuery = ""
         searchResults = []
+    }
+
+    /// One-step entry. The numbers are what the person typed. The name is the
+    /// meal slot, not a food looked up from anywhere.
+    func setQuickEntry(calories: Int, protein: Int, carbs: Int, fats: Int) {
+        let label = mealName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard calories > 0, !label.isEmpty else {
+            removeQuickEntry()
+            return
+        }
+        if let id = quickEntryID, let index = foodItems.firstIndex(where: { $0.id == id }) {
+            let item = foodItems[index]
+            item.name = label
+            item.quantity = 1
+            item.calories = calories
+            item.protein = max(protein, 0)
+            item.carbs = max(carbs, 0)
+            item.fats = max(fats, 0)
+            return
+        }
+        let item = FoodItem(
+            name: label,
+            quantity: 1,
+            calories: calories,
+            protein: max(protein, 0),
+            carbs: max(carbs, 0),
+            fats: max(fats, 0)
+        )
+        quickEntryID = item.id
+        foodItems.append(item)
+    }
+
+    /// Saved meals with real calories, newest first, one row per name.
+    func recentLogs(limit: Int = 4) -> [Meal] {
+        var descriptor = FetchDescriptor<Meal>(
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        descriptor.fetchLimit = 24
+        let meals = (try? modelContext.fetch(descriptor)) ?? []
+        var seen = Set<String>()
+        var picked: [Meal] = []
+        for meal in meals where meal.totalCalories > 0 {
+            let key = meal.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !key.isEmpty, seen.insert(key).inserted else { continue }
+            picked.append(meal)
+            if picked.count == limit { break }
+        }
+        return picked
+    }
+
+    /// Copies a saved meal's name and macros into a new meal. One tap.
+    func relog(_ source: Meal) async -> Bool {
+        existingMeal = nil
+        quickEntryID = nil
+        mealName = source.name
+        let copies = source.foodItems.map { item in
+            FoodItem(
+                name: item.name,
+                quantity: item.quantity,
+                calories: item.calories,
+                protein: item.protein,
+                carbs: item.carbs,
+                fats: item.fats
+            )
+        }
+        if copies.isEmpty {
+            foodItems = [
+                FoodItem(
+                    name: source.name,
+                    quantity: 1,
+                    calories: source.totalCalories,
+                    protein: source.totalProtein,
+                    carbs: source.totalCarbs,
+                    fats: source.totalFats
+                )
+            ]
+        } else {
+            foodItems = copies
+        }
+        return await saveMeal()
+    }
+
+    private func removeQuickEntry() {
+        if let id = quickEntryID, let index = foodItems.firstIndex(where: { $0.id == id }) {
+            foodItems.remove(at: index)
+        }
+        quickEntryID = nil
     }
     
     /// Add a food item to the meal
@@ -73,6 +164,9 @@ class DetailViewModel: ObservableObject {
     /// Remove a food item from the meal
     func removeFoodItem(at index: Int) {
         guard index < foodItems.count else { return }
+        if foodItems[index].id == quickEntryID {
+            quickEntryID = nil
+        }
         foodItems.remove(at: index)
     }
     
@@ -124,8 +218,14 @@ class DetailViewModel: ObservableObject {
                     totalCarbs: totalNutrition.carbs,
                     totalFats: totalNutrition.fats
                 )
-                meal.foodItems = foodItems
                 modelContext.insert(meal)
+                for item in foodItems {
+                    item.meal = meal
+                    if item.modelContext == nil {
+                        modelContext.insert(item)
+                    }
+                }
+                meal.foodItems = foodItems
             }
             
             try modelContext.save()
