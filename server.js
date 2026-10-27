@@ -37,6 +37,14 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 const app = express();
 
+// Activation day7_return. Header check only; the write is scheduled and
+// never awaited. Invalid tokens are ignored here (the route still decides auth).
+const { noteAuthenticatedRequest } = require('./lib/activation-events');
+app.use((req, res, next) => {
+  try { noteAuthenticatedRequest(req); } catch (_) { /* tracking must not affect the request */ }
+  next();
+});
+
 app.use(attachApiJsonSanitizer);
 
 const parseAllowedOrigins = () => {

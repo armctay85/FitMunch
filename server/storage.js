@@ -284,6 +284,13 @@ async function logMeal(userId, mealData) {
     userId,
     ...mealData,
   }).returning();
+  // After the row is committed. Not awaited: a tracking failure must not
+  // fail or slow the meal the user just logged.
+  try {
+    require('../lib/activation-events').scheduleFirstMealLogged(userId, meal && meal.id);
+  } catch (_) {
+    console.error('[activation] first_meal_logged schedule');
+  }
   return meal;
 }
 
