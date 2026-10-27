@@ -4,18 +4,18 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>FitMunch: Your body wrote the trolley</title>
-<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
+<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
 <meta property="og:title" content="FitMunch: Your body wrote the trolley"/>
-<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
+<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
 <meta property="og:url" content="https://www.fitmunch.com.au/"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="FitMunch: Your body wrote the trolley"/>
-<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"19.99","priceCurrency":"AUD"},"description":"The health engine plans a week of meals and training from your body, then writes the shopping list."}</script>
+<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","description":"The health engine plans a week of meals and training from your body, then writes the shopping list."}</script>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
@@ -628,18 +628,7 @@ footer{
 @media(prefers-reduced-motion:reduce){
   .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
-.demo-items{list-style:none;margin:0;padding:6px 0 0;font-size:.86rem;columns:2;column-gap:18px}
-.demo-items li{padding:5px 0;border-bottom:1px dashed var(--line);break-inside:avoid}
-.receipt.scored .demo-items{display:none}
-.demo-reasons{list-style:none;margin:10px 0 14px;padding:0;font-size:.86rem;line-height:1.45}
-.demo-reasons li{padding:6px 0 6px 22px;position:relative}
-.demo-reasons li::before{content:'+';position:absolute;left:4px;font-weight:800;color:#1f9d4a}
-.demo-reasons li.bad::before{content:'\2212';color:#c0392b}
-.demo-cta{display:flex;align-items:center;justify-content:center;text-align:center;background:#15803d;color:#fff}
-.demo-cta:hover{background:#166534}
-.demo-own{margin-top:12px;font-size:.9rem}
-.demo-own a{color:inherit}
-.demo-error{font-size:.9rem;color:#ffb4a8;margin-top:12px}
+[data-fm-price]{display:inline-block;min-width:16ch}
 </style>
 <style id="fm-critical">
 /* Above-the-fold layout. Kept in sync with the fold rules in fm-elite.css.
@@ -798,11 +787,11 @@ footer{
   padding:7px 10px;
   background:rgba(7,19,13,.35);
 }
-.btn-leaf,.demo-cta,.skip{
+.btn-leaf,.skip{
   background:#0f7a32;
   color:#fff;
 }
-.btn-leaf:hover,.btn-leaf:focus-visible,.demo-cta:hover,.demo-cta:focus-visible,.skip:focus{
+.btn-leaf:hover,.btn-leaf:focus-visible,.skip:focus{
   background:#0c6428;
   color:#fff;
 }
@@ -1078,16 +1067,15 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   }
 }
 </style>
-<noscript><style>.receipt{opacity:1;transform:none}</style></noscript>
-<link rel="stylesheet" href="/css/fm-elite.css" media="print" onload="this.media='all'"/>
-<noscript><link rel="stylesheet" href="/css/fm-elite.css"/></noscript>
+<link rel="stylesheet" href="/css/fm-elite.css?v=5ff0512c40be" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="/css/fm-elite.css?v=5ff0512c40be"/></noscript>
 </head>
 <body>
 <a class="skip" href="#loop">Skip to how FitMunch works</a>
 
 <div class="fold">
 <aside class="trial-bar">
-  14-day trial, then <span>A$19.99 a month</span>. Card on file. <a href="#pricing">See pricing</a>
+  14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. <a href="#pricing">See pricing</a>
 </aside>
 
 <nav class="site-nav" aria-label="Primary">
@@ -1111,7 +1099,6 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       <h1 class="hero-display">Your body wrote the trolley.</h1>
       <h2>Your week of meals, planned to your macros.</h2>
       <p class="hero-sub">Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.</p>
-      <p class="hero-lock">The sample day is 2,000 kcal and 150g protein. Pick another goal and the meals follow.</p>
       <div class="hero-ctas">
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
@@ -1123,44 +1110,11 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     </div>
     <figure class="hero-shot">
       <img class="hero-food" src="/assets/fm-hero-mealprep-web.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="900" height="600" decoding="async" loading="lazy"/>
-      <div class="plan-live" id="plan-demo">
-        <div class="plan-top">
-          <p class="plan-k">Sample day</p>
-          <p class="plan-day" id="plan-day">Wednesday</p>
-        </div>
-        <div class="plan-chips" role="group" aria-label="Goal">
-          <button type="button" class="goal-chip is-on" data-goal="cut" aria-pressed="true">Cut</button>
-          <button type="button" class="goal-chip" data-goal="build" aria-pressed="false">Build</button>
-          <button type="button" class="goal-chip" data-goal="hold" aria-pressed="false">Hold</button>
-        </div>
-        <div class="plan-chips" role="group" aria-label="Way of eating">
-          <button type="button" class="goal-chip is-on" data-diet="classic" aria-pressed="true">Classic</button>
-          <button type="button" class="goal-chip" data-diet="protein" aria-pressed="false">High protein</button>
-          <button type="button" class="goal-chip" data-diet="plant" aria-pressed="false">Plant</button>
-        </div>
-        <p class="plan-note" id="plan-note">Sample Wednesday. Pick a goal. This is not your week until you log your body.</p>
-        <div class="plan-bars">
-          <div class="bar"><span>Calories</span><div class="bar-track"><i id="plan-kcal-bar" style="width:62%"></i></div><b id="plan-kcal">2,000</b></div>
-          <div class="bar"><span>Protein</span><div class="bar-track"><i id="plan-pro-bar" style="width:68%"></i></div><b id="plan-pro">150g</b></div>
-        </div>
-        <ol class="plan-meals" id="plan-meals">
-          <li><span class="slot">B</span><span class="meal-name">Veggie omelette with potatoes</span><span class="meal-meta">Breakfast · 501 kcal · 38g protein</span></li>
-          <li><span class="slot">L</span><span class="meal-name">Chicken and sweet potato</span><span class="meal-meta">Lunch · 640 kcal · 48g protein</span></li>
-          <li><span class="slot">D</span><span class="meal-name">Salmon, greens and rice</span><span class="meal-meta">Dinner · 560 kcal · 42g protein</span></li>
-          <li><span class="slot">S</span><span class="meal-name">Greek yoghurt and berries</span><span class="meal-meta">Snack · 299 kcal · 22g protein</span></li>
-        </ol>
-        <div class="plan-trolley">
-          <p>Trolley</p>
-          <ul id="plan-trolley">
-            <li>Eggs</li><li>Chicken breast</li><li>Sweet potato</li><li>Salmon</li><li>Greek yoghurt</li><li>Broccoli</li><li>Berries</li>
-          </ul>
-        </div>
-      </div>
       <picture>
         <source media="(max-width: 859px)" srcset="/assets/fm-app-week-mobile.webp" type="image/webp"/>
         <img class="hero-app" src="/assets/fm-app-week.webp" alt="Preview of a generated Wednesday meal plan" width="1122" height="1617" fetchpriority="high"/>
       </picture>
-      <p class="hero-app-note">Your own week builds from your body, not this sample.</p>
+      <p class="hero-app-note">Your own week builds from your body.</p>
       <figcaption>Your first week: built for 82kg cutting to 78kg, at 2,000 kcal and 150g protein, with Swap open on breakfast.</figcaption>
     </figure>
   </div>
@@ -1194,7 +1148,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       <p class="butler-k">Fitness Butler</p>
       <h3>Commit to the week. We write the trolley; you check out.</h3>
       <p>You approve the plan. FitMunch writes the list. You check out at the supermarket.</p>
-      <div class="trolley-draft" aria-label="Draft trolley, sample week">
+      <div class="trolley-draft" aria-label="Draft trolley">
         <div class="row"><span>Chicken breast 1kg</span><span class="row-val">4 dinners</span></div>
         <div class="row"><span>Eggs x12</span><span class="row-val">6 lunches</span></div>
         <div class="row"><span>Rolled oats 500g</span><span class="row-val">7 breakfasts</span></div>
@@ -1246,7 +1200,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   <div class="landers-inner">
     <div class="landers-head">
       <h2>Plan from the shop you already do.</h2>
-      <p>Four ways into the same health engine. Premium is A$19.99 a month after a 14-day trial.</p>
+      <p>Four ways into the same health engine. Premium is <span data-fm-price="premiumMonthly"></span> after a 14-day trial.</p>
     </div>
     <div class="lander-grid">
       <article class="lander-card">
@@ -1262,15 +1216,14 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
         <p>Photograph the receipt. Get macros and the next plan.</p>
       </article>
     </div>
-    <p class="landers-proof">Worked supermarket example: <a href="/haul-teardown">haul teardown</a>.</p>
+    <p class="landers-proof"><a href="/haul-teardown">Haul teardown</a></p>
   </div>
 </section>
 
 <section class="trust" aria-label="Product proof">
   <div class="trust-inner">
     <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph any supermarket receipt. The score is from that trolley.</div>
-    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a labelled supermarket example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
-    <div class="trust-item"><strong>Premium trial</strong>14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
+    <div class="trust-item"><strong>Premium trial</strong>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
     <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
   </div>
 </section>
@@ -1279,7 +1232,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   <div class="first-scan-inner">
     <div class="first-scan-head">
       <h2>After the shop.</h2>
-      <p>A receipt closes what you actually bought. It is not the first screen. Photograph any supermarket receipt. FitMunch scores that haul from the lines it found. The sample card further down is a worked example, not a demo shop.</p>
+      <p>A receipt closes what you actually bought. It is not the first screen. Photograph any supermarket receipt. FitMunch scores that haul from the lines it found. Nothing is filled in until you photograph a receipt. This is not a demo shop.</p>
     </div>
     <div class="fs-grid">
       <div class="fs-card">
@@ -1310,7 +1263,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
           <div style="margin:10px auto 0;max-width:200px;height:6px;border-radius:99px;background:rgba(31,157,74,.15);overflow:hidden"><div data-fs-progress-fill style="height:100%;width:8%;background:#1f9d4a;border-radius:99px"></div></div>
         </div>
         <div data-fs-empty class="fs-empty">
-          Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled from the sample supermarket shop.
+          Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled.
         </div>
         <div data-fs-results hidden style="display:none">
           <div class="fs-result-head">
@@ -1330,41 +1283,8 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
             <ul class="fs-uses" data-fs-uses></ul>
           </div>
           <a class="btn btn-leaf" data-fs-trial data-fm-auth="register" data-fm-plan="premium" href="/login.html?plan=premium#register">Start the 14-day trial</a>
-          <p class="fs-trial-note">14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
+          <p class="fs-trial-note">14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="proof" id="proof">
-  <div class="proof-inner">
-    <div class="proof-copy">
-      <h2>Try a sample receipt.</h2>
-      <p>No sign-up. One tap scores a sample shop with the same maths as your own scans. No AI, nothing uploaded.</p>
-      <button type="button" class="btn btn-leaf" id="demo-run" data-fm-track="demo_sample_run">Score the sample receipt</button>
-      <p class="demo-error" id="demo-error" role="alert" hidden>Could not score the sample right now. Try again in a moment.</p>
-      <p class="demo-own"><a href="#first-scan" data-fm-track="proof_scan_mine">Or score your own shop</a></p>
-    </div>
-    <div class="receipt" id="proof-device" aria-live="polite" aria-label="Sample receipt and its haul score">
-      <div class="device-top">
-        <span class="device-store">SAMPLE RECEIPT</span>
-        <span id="demo-count">10 items</span>
-      </div>
-      <ol class="demo-items" id="demo-items">
-        <li>Chicken breast 1kg</li><li>Free range eggs x12</li><li>Greek yoghurt 1kg</li><li>Brown rice 1kg</li><li>Rolled oats 750g</li>
-        <li>Broccoli 500g</li><li>Baby spinach 120g</li><li>Bananas 1kg</li><li>Chocolate biscuits</li><li>Cola 10 pack</li>
-      </ol>
-      <div class="demo-result" id="demo-result" hidden>
-        <div class="haul">
-          <div>
-            <div class="score-n" id="demo-score">0</div>
-            <div class="haul-label">HAUL SCORE <span id="demo-grade"></span></div>
-          </div>
-          <div class="haul-meta"><strong id="demo-protein"></strong>Sample receipt, not your shop</div>
-        </div>
-        <ul class="demo-reasons" id="demo-reasons"></ul>
-        <a class="btn btn-leaf demo-cta" href="/login.html?plan=premium#register" data-fm-track="demo_sample_trial">Start the 14-day trial</a>
       </div>
     </div>
   </div>
@@ -1380,7 +1300,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     </details>
     <details>
       <summary>What is in the 14-day trial?</summary>
-      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
     </details>
     <details>
       <summary>Does FitMunch show shop prices?</summary>
@@ -1388,7 +1308,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     </details>
     <details>
       <summary>When does a receipt come in?</summary>
-      <p>After you have shopped. Photograph any supermarket receipt and FitMunch scores that haul. The sample further down is a worked example, not a demo shop.</p>
+      <p>After you have shopped. Photograph any supermarket receipt and FitMunch scores that haul. This is not a demo shop.</p>
     </details>
   </div>
 </section>
@@ -1400,8 +1320,8 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     <div class="plans">
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
-        <div class="price-n">A$19.99 <small>a month</small></div>
-        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
+        <div class="price-n"><span data-fm-price="premiumAmount"></span> <small>a month</small></div>
+        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
         <ul>
           <li>Unlimited AI coach grounded in your logs</li>
           <li>Meal plans and shopping lists from your shop</li>
@@ -1422,14 +1342,14 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
         <a class="btn btn-ink" href="/login.html?utm_source=homepage&utm_medium=pricing&utm_campaign=free_signup#register" data-fm-auth="register">Start free</a>
       </article>
     </div>
-    <p style="margin-top:18px;font-size:.9rem;color:var(--mute)">See a worked supermarket example: <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">haul teardown</a>.</p>
+    <p style="margin-top:18px;font-size:.9rem;color:var(--mute)"><a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">Haul teardown</a></p>
   </div>
 </section>
 
 <section class="final reveal">
   <div class="final-inner">
     <h2>Your body wrote the <em>trolley.</em></h2>
-    <p>14-day trial, then A$19.99 a month. Card on file.</p>
+    <p>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file.</p>
     <div class="final-ctas">
       <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="final_trial">Start the 14-day trial</a>
       <a class="btn btn-ghost" href="#first-scan" data-fm-track="final_scan_mine">After the shop: score a receipt</a>
@@ -1508,86 +1428,38 @@ try {
   }, { threshold: 0.25 });
   io.observe(document.getElementById('loop-rail'));
 })();
-
-(function sampleReceiptDemo() {
-  const btn = document.getElementById('demo-run');
-  const out = document.getElementById('demo-result');
-  if (!btn || !out) return;
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Reveal the sample receipt as soon as it scrolls into view (or at once),
-  // so the item list is visible before the tap.
-  const device = document.getElementById('proof-device');
-  if (device) {
-    const reveal = () => device.classList.add('in');
-    if (reduced || !('IntersectionObserver' in window)) reveal();
-    else {
-      const io = new IntersectionObserver((entries) => {
-        if (entries.some((e) => e.isIntersecting)) { reveal(); io.disconnect(); }
-      }, { threshold: 0.15 });
-      io.observe(device);
-    }
-  }
-  const scoreEl = document.getElementById('demo-score');
-  const err = document.getElementById('demo-error');
-  const countUp = (target) => {
-    if (reduced) { scoreEl.textContent = String(target); return; }
-    const start = performance.now();
-    const tick = (now) => {
-      const t = Math.min(1, (now - start) / 900);
-      scoreEl.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 3))));
-      if (t < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  };
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    btn.textContent = 'Scoring...';
-    err.hidden = true;
-    try {
-      const r = await fetch('/api/receipt/demo', { headers: { accept: 'application/json' } });
-      const d = await r.json();
-      if (!r.ok || !d || !d.success) throw new Error('demo');
-      document.getElementById('demo-grade').textContent = '· ' + d.grade;
-      document.getElementById('demo-protein').textContent = d.protein + 'g protein in this shop';
-      const ul = document.getElementById('demo-reasons');
-      ul.textContent = '';
-      (d.reasons || []).forEach((x) => {
-        const li = document.createElement('li');
-        li.className = x.tone === 'bad' ? 'bad' : 'good';
-        li.textContent = x.text;
-        ul.appendChild(li);
-      });
-      document.getElementById('proof-device').classList.add('in', 'scored');
-      out.hidden = false;
-      countUp(Number(d.haulScore) || 0);
-      btn.textContent = 'Scored';
-    } catch (_) {
-      err.hidden = false;
-      btn.disabled = false;
-      btn.textContent = 'Score the sample receipt';
-    }
-  });
-})();
 </script>
 <script>
 (function () {
-  var nodes = document.querySelectorAll('[data-free-ai]');
-  if (!nodes.length || !window.fetch) return;
-  fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
+  if (!window.fetch) return;
+  fetch('/api/pricing/config', { headers: { Accept: 'application/json' }, cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (cfg) {
-      var n = cfg && Number(cfg.freeAiMonthly);
-      if (!Number.isFinite(n) || n < 0) return;
-      var line = 'Free includes ' + n + ' AI actions a month';
-      nodes.forEach(function (el) { el.textContent = line; });
+      if (!cfg) return;
+      var n = Number(cfg.freeAiMonthly);
+      if (Number.isFinite(n) && n >= 0) {
+        var line = 'Free includes ' + n + ' AI actions a month';
+        document.querySelectorAll('[data-free-ai]').forEach(function (el) { el.textContent = line; });
+      }
+      document.querySelectorAll('[data-fm-price]').forEach(function (el) {
+        var key = el.getAttribute('data-fm-price');
+        if (cfg[key]) el.textContent = cfg[key];
+      });
+      var offer = document.querySelector('script[type="application/ld+json"]');
+      if (offer && cfg.premiumMonthlyAmount && cfg.premiumCurrency) {
+        try {
+          var data = JSON.parse(offer.textContent);
+          data.offers = { '@type': 'Offer', price: cfg.premiumMonthlyAmount, priceCurrency: cfg.premiumCurrency };
+          offer.textContent = JSON.stringify(data);
+        } catch (e) {}
+      }
     })
     .catch(function () {});
 })();
 </script>
-<script src="/js/fm-plan-demo.js" defer></script>
-<script src="/js/fm-item-name.js" defer></script>
-<script src="/js/fm-first-scan.js" defer></script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-item-name.js?v=e88e8ebb27f3" defer></script>
+<script src="/js/fm-first-scan.js?v=96a3a80471ad" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

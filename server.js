@@ -12,15 +12,20 @@ const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
 const {
-  MARKETING_CACHE,
-  MARKETING_CDN,
-  ASSET_CACHE,
-  ASSET_CDN,
   isPrivatePath,
-  isPrivateFile,
   isMarketingDocument,
+  normalizePath,
   lockNoStore,
+  applyDocumentCache,
+  applyFileCache,
 } = require('./lib/http-cache');
+const {
+  PREMIUM_MONTHLY_LABEL,
+  PREMIUM_AMOUNT_LABEL,
+  PREMIUM_ANNUAL_LABEL,
+  PREMIUM_MONTHLY_AMOUNT,
+  PREMIUM_CURRENCY,
+} = require('./lib/public-prices');
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
@@ -186,25 +191,26 @@ app.use((req, res, next) => {
     return next();
   }
   if ((req.method === 'GET' || req.method === 'HEAD') && isMarketingDocument(req.path)) {
-    res.setHeader('Cache-Control', MARKETING_CACHE);
-    res.setHeader('Vercel-CDN-Cache-Control', MARKETING_CDN);
+    applyDocumentCache(res, req.path);
   }
   next();
+});
+
+// public/404.html would be a CDN 200. The page lives beside the funnel shell
+// and this route answers 404 before static files or the catch-all.
+const NOT_FOUND_PAGE = path.join(__dirname, 'private', '404.html');
+app.use((req, res, next) => {
+  const pathOnly = normalizePath(req.path);
+  if (pathOnly !== '/404' && pathOnly !== '/404.html') return next();
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(404).sendFile(NOT_FOUND_PAGE);
 });
 
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   index: 'index.html',
   setHeaders: (res, filePath) => {
-    if (isPrivateFile(filePath)) {
-      res.setHeader('Cache-Control', 'no-store');
-    } else if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', MARKETING_CACHE);
-      res.setHeader('Vercel-CDN-Cache-Control', MARKETING_CDN);
-    } else {
-      res.setHeader('Cache-Control', ASSET_CACHE);
-      res.setHeader('Vercel-CDN-Cache-Control', ASSET_CDN);
-    }
+    applyFileCache(res, filePath);
     if (
       filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html') ||
       filePath.endsWith(`${path.sep}success.html`) || filePath.endsWith('/success.html')
@@ -216,8 +222,7 @@ app.use(express.static(PUBLIC_DIR, {
 
 // Explicit root — Vercel rewrites can normalize "/" so static fallthrough may miss it.
 app.get('/', (req, res) => {
-  res.set('Cache-Control', MARKETING_CACHE);
-  res.set('Vercel-CDN-Cache-Control', MARKETING_CDN);
+  applyDocumentCache(res, '/');
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
@@ -390,8 +395,8 @@ app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-tear
 for (const route of ['/shopper', '/shopper.html', '/fitness-butler', '/butler']) {
   app.get(route, (req, res) => res.redirect(301, '/app.html#shopping'));
 }
-// /demo retired: the homepage worked example (#proof) replaces it.
-app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#proof'));
+// /demo retired: the sample receipt is gone. Send people to their own scan.
+app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#first-scan'));
 // SEO pack 2 landers (new routes only)
 // Store names are out of marketing slugs (Wilson, PR 76). Old URLs 301 here and in vercel.json.
 app.get('/supermarket-meal-planner', (req, res) => res.sendFile('supermarket-meal-planner.html', { root: 'public' }));
@@ -708,11 +713,16 @@ function quickCheckoutCancelPath(plan) {
 
 // Public pricing switches. Annual shows only when its Stripe price is set.
 app.get('/api/pricing/config', (_req, res) => {
-  res.set('Cache-Control', 'public, max-age=300');
+  res.set('Cache-Control', 'no-store');
   res.json({
     success: true,
     premiumAnnual: premiumAnnualAvailable(),
     freeAiMonthly: require('./lib/ai-usage').freeMonthlyLimit(),
+    premiumMonthly: PREMIUM_MONTHLY_LABEL,
+    premiumAmount: PREMIUM_AMOUNT_LABEL,
+    premiumAnnualLabel: PREMIUM_ANNUAL_LABEL,
+    premiumMonthlyAmount: PREMIUM_MONTHLY_AMOUNT,
+    premiumCurrency: PREMIUM_CURRENCY,
   });
 });
 
@@ -1402,7 +1412,7 @@ app.use((err, req, res, next) => {
 app.use((req, res, next) => {
   if (res.headersSent) return next();
   res.set('Cache-Control', 'no-store');
-  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+  res.status(404).sendFile(NOT_FOUND_PAGE);
 });
 
 const port = process.env.PORT || 5000;

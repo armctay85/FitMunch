@@ -34,17 +34,17 @@
     },
     {
       "source": "/demo",
-      "destination": "/#proof",
+      "destination": "/#first-scan",
       "statusCode": 301
     },
     {
       "source": "/demo.html",
-      "destination": "/#proof",
+      "destination": "/#first-scan",
       "statusCode": 301
     },
     {
       "source": "/try",
-      "destination": "/#proof",
+      "destination": "/#first-scan",
       "statusCode": 301
     },
     {
@@ -96,7 +96,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "private/funnel.html",
+      "includeFiles": "private/**/*.html",
       "maxDuration": 90
     }
   },
@@ -155,7 +155,7 @@
       ]
     },
     {
-      "source": "/404.html",
+      "source": "/",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -168,6 +168,19 @@
         {
           "key": "Vercel-CDN-Cache-Control",
           "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/404.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
         }
       ]
     },
@@ -180,11 +193,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -197,11 +206,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -287,11 +292,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -321,11 +322,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -338,11 +335,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -355,11 +348,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -389,11 +378,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -406,11 +391,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -423,11 +404,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -440,11 +417,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -504,11 +477,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -521,11 +490,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -538,11 +503,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -555,11 +516,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -572,11 +529,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -606,11 +559,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -623,11 +572,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -674,11 +619,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+          "value": "no-store"
         }
       ]
     },
@@ -1081,19 +1022,6 @@
       ]
     },
     {
-      "source": "/css/fm-home-critical.css",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=86400, stale-while-revalidate=604800"
-        }
-      ]
-    },
-    {
       "source": "/css/fm-lander.css",
       "headers": [
         {
@@ -1355,19 +1283,6 @@
     },
     {
       "source": "/js/fm-item-name.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=86400, stale-while-revalidate=604800"
-        }
-      ]
-    },
-    {
-      "source": "/js/fm-plan-demo.js",
       "headers": [
         {
           "key": "Cache-Control",

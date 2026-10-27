@@ -13,8 +13,8 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<link rel="stylesheet" href="/css/fm-shell.css"/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<link rel="stylesheet" href="/css/fm-shell.css?v=2697209bf6c2"/>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html,body{max-width:100%;overflow-x:hidden}
@@ -104,17 +104,8 @@ html,body{max-width:100%;overflow-x:hidden}
     <h2>Works with Australian supermarket receipts</h2>
     <p>Paper receipts and digital e-receipts are supported. OCR plus AI handles crumpled paper, faded ink and long scrolls.</p>
 
-    <h2>Worked example: what a scan can show</h2>
-    <div class="fm-score-row">
-      <div>
-        <div class="fm-score-n">92</div>
-        <div class="fm-note" style="margin:8px 0 0;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;letter-spacing:.08em">HAUL SCORE</div>
-      </div>
-      <div class="fm-score-meta">
-        <strong>987g protein · 22 items</strong>
-        Worked example of a supermarket shop. Not a live scan of your trolley.
-      </div>
-    </div>
+    <h2>What a scan can show</h2>
+    <p class="fm-note">Your haul score and the protein total come from the receipt you photograph. Nothing below is a stand-in score.</p>
     <div class="fm-table-wrap">
       <table class="fm-table">
         <thead>
@@ -234,7 +225,7 @@ try {
   });
 })();
 </script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>
