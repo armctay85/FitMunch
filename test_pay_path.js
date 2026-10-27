@@ -434,7 +434,7 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
     const listenerEnd = html.indexOf(' });', html.indexOf("window.addEventListener('hashchange'"));
     const topLevel = html.indexOf(" else if (pendingClaim) showTab('register');");
     expect(topLevel).toBeGreaterThan(listenerEnd);
-    expect(html.match(/<script src="\/js\/fm-track\.js" defer><\/script>/g)).toHaveLength(1);
+    expect(html.match(/<script src="\/js\/fm-track\.js\?v=[0-9a-f]{12}" defer><\/script>/g)).toHaveLength(1);
   });
 
   it('Yearly toggle: unselected button is fm-btn-ink, 4.5:1 or better, with a focus ring (QA r2 M2)', async () => {

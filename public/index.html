@@ -4,31 +4,163 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>FitMunch: Your body wrote the trolley</title>
-<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
+<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
 <meta property="og:title" content="FitMunch: Your body wrote the trolley"/>
-<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
+<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
 <meta property="og:url" content="https://www.fitmunch.com.au/"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="FitMunch: Your body wrote the trolley"/>
-<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, then A$19.99 a month."/>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"19.99","priceCurrency":"AUD"},"description":"The health engine plans a week of meals and training from your body, then writes the shopping list."}</script>
+<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","description":"The health engine plans a week of meals and training from your body, then writes the shopping list."}</script>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
+<link rel="preload" href="/fonts/bricolage-grotesque-800-home.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href="/fonts/literata-400-home.woff2" as="font" type="font/woff2" crossorigin/>
+<style id="fm-fonts">
+/* Latin variable subsets already cut to the letters these pages use.
+   Bricolage Grotesque 268 glyphs, Literata 300, IBM Plex Mono 280.
+   font-display:swap plus a metric-matched local fallback so the swap does not move the hero. */
+@font-face{
+  font-family:'Bricolage Grotesque';
+  font-style:normal;
+  font-weight:700 800;
+  font-display:swap;
+  src:url('/fonts/bricolage-grotesque-800-home.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Bricolage Grotesque Fallback';
+  font-style:normal;
+  font-weight:700 800;
+  src:local('Arial'),local('Arimo'),local('Liberation Sans');
+  size-adjust:100%;
+  ascent-override:93%;
+  descent-override:27%;
+  line-gap-override:0%;
+}
+@font-face{
+  font-family:'Literata';
+  font-style:normal;
+  font-weight:400 600;
+  font-display:swap;
+  src:url('/fonts/literata-400-home.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Literata Fallback';
+  font-style:normal;
+  font-weight:400 600;
+  src:local('Georgia'),local('Liberation Serif');
+  size-adjust:119%;
+  ascent-override:99%;
+  descent-override:26%;
+  line-gap-override:0%;
+}
+@font-face{
+  font-family:'IBM Plex Mono';
+  font-style:normal;
+  font-weight:500;
+  font-display:swap;
+  src:url('/fonts/ibm-plex-mono-500.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'IBM Plex Mono';
+  font-style:normal;
+  font-weight:600;
+  font-display:swap;
+  src:url('/fonts/ibm-plex-mono-600.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'IBM Plex Mono Fallback';
+  font-style:normal;
+  font-weight:500 600;
+  src:local('Liberation Mono'),local('Courier New');
+  size-adjust:100%;
+  ascent-override:102.5%;
+  descent-override:27.5%;
+  line-gap-override:0%;
+}
+
+
+/* FitMunch shared UI tokens: marketing + app shell (index, app, for-pts). */
+:root {
+  /* Receipt cinema */
+  --fridge: #07130d;
+  --fridge2: #0c1c14;
+  --leaf: #1f9d4a;
+  /* Darker than --leaf so green text on cream and paper clears 4.5:1. */
+  --leaf2: #0c6428;
+  --leaf-glow: rgba(31, 157, 74, 0.35);
+  --paper: #eef2ee;
+  --paper2: #e4ebe4;
+  --ink: #0c1210;
+  --mute: #5c6d64;
+  --mute2: #54655c;
+  --line: #cfd9d2;
+
+  /* App shell aliases (mapped to cinema) */
+  --green: #2bbf5a;
+  --green2: var(--leaf);
+  --green3: var(--leaf2);
+  --bg: var(--paper);
+  --bg2: var(--paper2);
+  --dark: var(--fridge);
+  --dark2: var(--fridge2);
+  --text: var(--ink);
+  --text2: var(--mute);
+  --text3: var(--mute2);
+  --border: var(--line);
+  --border2: #b7c4bc;
+  --surface: #ffffff;
+  --radius: 10px;
+  --purple: #7c3aed;
+  --amber: #c47a12;
+  --red: #c23b3b;
+  --blue: #2f6fed;
+
+  /* Type, space and motion scale. Colours above stay the brand. */
+  --fm-font-display: "Bricolage Grotesque", "Bricolage Grotesque Fallback", system-ui, sans-serif;
+  --fm-font-body: "Literata", Georgia, serif;
+  --fm-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --fm-step--1: 0.875rem;
+  --fm-step-0: 1rem;
+  --fm-step-1: 1.25rem;
+  --fm-step-2: 1.6rem;
+  --fm-step-3: 2.05rem;
+  --fm-step-4: 2.7rem;
+  --fm-step-5: 3.6rem;
+  --fm-space-1: 4px;
+  --fm-space-2: 8px;
+  --fm-space-3: 12px;
+  --fm-space-4: 16px;
+  --fm-space-5: 24px;
+  --fm-space-6: 40px;
+  --fm-space-7: 64px;
+  --fm-space-8: 96px;
+  --fm-ease: cubic-bezier(.2, .7, .3, 1);
+  --fm-shadow: 0 18px 50px rgba(7, 19, 13, .16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .metric, .plan-card, .btn, .nav-btn, .sb-item, .topnav, .shop-item, .fm-btn, .fm-nav-cta {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+</style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 html,body{max-width:100%;overflow-x:hidden}
 body{
-  font-family:'Literata',Georgia,serif;
+  font-family:'Literata','Literata Fallback',Georgia,serif;
   background:var(--paper);
   color:var(--ink);
   -webkit-font-smoothing:antialiased;
@@ -40,15 +172,15 @@ body{
 .skip{
   position:absolute;left:16px;top:12px;z-index:40;
   background:var(--leaf);color:#fff;padding:10px 14px;
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700;font-size:.85rem;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:700;font-size:.85rem;
   text-decoration:none;border-radius:4px;
   transform:translateY(-140%);transition:transform .2s;
 }
 .skip:focus{transform:none}
 h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker,.haul-label,.footer-brand,.footer-links a,.nav-links a,.hero-kicker,.today-k,.today-top,.trial-bar,.beat h3,.butler-k,.lander-card a{
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
 }
-.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.score-n,.price-n,.step-n,.row-val,.week-k,.trial-bar span,.phone-status{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace}
 
 /* FIRST FOLD: studio product sheet. Price only in this thin bar. */
 .fold{
@@ -156,7 +288,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   background:#fff;border:1px solid var(--line);padding:22px 20px;
 }
 .fs-drop{border:2px dashed rgba(31,157,74,.32);border-radius:8px;padding:22px 16px;text-align:center;background:rgba(31,157,74,.06)}
-.fs-drop strong{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1rem;margin-bottom:6px}
+.fs-drop strong{display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem;margin-bottom:6px}
 .fs-drop p{color:var(--mute);font-size:.88rem;line-height:1.5;margin-bottom:16px}
 .fs-actions{display:flex;flex-direction:column;gap:8px}
 .fs-preview-wrap img{width:100%;height:220px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
@@ -164,7 +296,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .fs-consent{margin-top:10px;font-size:.84rem;line-height:1.5;color:var(--mute)}
 .fs-empty{color:var(--mute);font-size:.95rem;line-height:1.6}
 .fs-result-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:16px}
-.fs-score{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;line-height:.88;color:var(--leaf2);letter-spacing:-.06em}
+.fs-score{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:3.4rem;font-weight:600;line-height:.88;color:var(--leaf2);letter-spacing:-.06em}
 .fs-meta{text-align:right;font-size:.88rem;color:var(--mute);line-height:1.45}
 .fs-meta strong{display:block;color:var(--ink);font-size:1rem;margin-bottom:2px}
 .fs-meal{
@@ -387,7 +519,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   padding-left:12px;border-left:2px solid var(--leaf);
 }
 .trust-item strong{
-  display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.88rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin-bottom:3px;
 }
 
@@ -496,28 +628,454 @@ footer{
 @media(prefers-reduced-motion:reduce){
   .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
-.demo-items{list-style:none;margin:0;padding:6px 0 0;font-size:.86rem;columns:2;column-gap:18px}
-.demo-items li{padding:5px 0;border-bottom:1px dashed var(--line);break-inside:avoid}
-.receipt.scored .demo-items{display:none}
-.demo-reasons{list-style:none;margin:10px 0 14px;padding:0;font-size:.86rem;line-height:1.45}
-.demo-reasons li{padding:6px 0 6px 22px;position:relative}
-.demo-reasons li::before{content:'+';position:absolute;left:4px;font-weight:800;color:#1f9d4a}
-.demo-reasons li.bad::before{content:'\2212';color:#c0392b}
-.demo-cta{display:flex;align-items:center;justify-content:center;text-align:center;background:#15803d;color:#fff}
-.demo-cta:hover{background:#166534}
-.demo-own{margin-top:12px;font-size:.9rem}
-.demo-own a{color:inherit}
-.demo-error{font-size:.9rem;color:#ffb4a8;margin-top:12px}
+[data-fm-price]{display:inline-block;min-width:16ch}
 </style>
-<noscript><style>.receipt{opacity:1;transform:none}</style></noscript>
-<link rel="stylesheet" href="/css/fm-elite.css"/>
+<style id="fm-critical">
+/* Above-the-fold layout. Kept in sync with the fold rules in fm-elite.css.
+   Below-fold section rules stay in that file and load after first paint. */
+/* Homepage elite pass. Loaded after the locked base rules, so it can restyle without deleting them. */
+
+.fold{
+  min-height:100svh;
+  display:flex;
+  flex-direction:column;
+  background-color:#07130d;
+  background-image:
+    radial-gradient(920px 520px at 92% 8%, rgba(31,157,74,.28), transparent 58%),
+    radial-gradient(640px 420px at 0% 100%, rgba(125,255,163,.1), transparent 55%),
+    url("/assets/elite/ground.svg");
+  background-size:auto, auto, 280px 280px;
+  color:#f4f7f4;
+  overflow:visible;
+}
+.trial-bar{
+  position:sticky;
+  top:0;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:4px 8px;
+  min-height:44px;
+  padding:10px 16px;
+  background:#04100a;
+  color:#e8efe6;
+  font-size:.84rem;
+  line-height:1.4;
+  letter-spacing:0;
+  text-align:center;
+  border-bottom:1px solid rgba(125,255,163,.16);
+  overflow:visible;
+}
+.trial-bar span{
+  color:#07130d;
+  background:#7dffa3;
+  border-radius:999px;
+  padding:1px 8px;
+  font-weight:600;
+}
+.trial-bar a{color:#fff}
+
+.site-nav{
+  position:relative;
+  z-index:20;
+  padding:14px 20px;
+}
+.brand,.footer-brand{font-size:1.15rem;white-space:nowrap;letter-spacing:-.04em}
+.brand{min-height:44px}
+.skip{min-height:44px;display:inline-flex;align-items:center}
+.nav-links a{min-height:44px;display:inline-flex;align-items:center;padding:10px 12px}
+.nav-cta,
+.nav-links a.nav-cta{
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding:0 14px;
+  margin-left:6px;
+  border-radius:999px;
+  background:#0f7a32;
+  color:#fff;
+}
+.nav-cta:hover,
+.nav-cta:focus,
+.nav-cta:focus-visible,
+.nav-links a.nav-cta:hover,
+.nav-links a.nav-cta:focus,
+.nav-links a.nav-cta:focus-visible{background:#0c6428;color:#fff}
+
+.fold .hero{
+  flex:1 1 auto;
+  display:flex;
+  align-items:stretch;
+  min-height:0;
+  padding:8px 16px 20px;
+}
+.fold .hero-inner{
+  width:min(1180px,100%);
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:18px;
+  align-items:stretch;
+  min-height:100%;
+}
+.hero-copy{min-width:0;display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start}
+.fold .hero-kicker{
+  display:inline-flex;
+  align-items:center;
+  align-self:flex-start;
+  width:fit-content;
+  max-width:100%;
+  white-space:nowrap;
+  font-size:.75rem;
+  letter-spacing:.08em;
+  color:#07130d;
+  background:#7dffa3;
+  border-radius:999px;
+  padding:6px 12px;
+  margin-bottom:12px;
+}
+.fold .hero h1.hero-display{
+  font-size:clamp(2.2rem, 8.4vw, 4.6rem);
+  font-weight:800;
+  letter-spacing:-.065em;
+  line-height:.92;
+  max-width:7.029em;
+  margin:0 0 12px;
+  color:#f7faf7;
+}
+.fold .hero-copy h2{
+  font-size:clamp(1.15rem, 2.4vw, 1.45rem);
+  font-weight:700;
+  letter-spacing:-.03em;
+  line-height:1.25;
+  max-width:28ch;
+  margin:0 0 12px;
+  color:#d5e6d8;
+}
+.hero-lock{
+  font-size:.95rem;
+  line-height:1.45;
+  max-width:36ch;
+  margin:0 0 16px;
+  color:#dce6de;
+}
+.fold .hero-sub{
+  font-size:1rem;
+  line-height:1.5;
+  max-width:38ch;
+  margin:0 0 16px;
+  color:#dce6de;
+}
+.hero-hooks{
+  list-style:none;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:14px 0 0;
+  padding:0;
+}
+.hero-hooks li{
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-size:.75rem;
+  font-weight:500;
+  letter-spacing:.02em;
+  color:#d7e7db;
+  border:1px solid rgba(125,255,163,.28);
+  border-radius:999px;
+  padding:7px 10px;
+  background:rgba(7,19,13,.35);
+}
+.btn-leaf,.skip{
+  background:#0f7a32;
+  color:#fff;
+}
+.btn-leaf:hover,.btn-leaf:focus-visible,.skip:focus{
+  background:#0c6428;
+  color:#fff;
+}
+.fold .btn-leaf{
+  border-radius:999px;
+  min-height:52px;
+  padding:0 22px;
+  box-shadow:0 10px 24px rgba(15,122,50,.28);
+}
+.fold .btn-leaf:hover{transform:translateY(-2px)}
+.fold .btn-leaf:active{transform:translateY(0)}
+
+.fold .hero-shot{
+  position:relative;
+  display:grid;
+  grid-template-rows:148px auto auto auto;
+  width:100%;
+  max-width:none;
+  margin:0;
+  min-width:0;
+  height:auto;
+  background:#0c1c14;
+  border:1px solid rgba(125,255,163,.22);
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+}
+.fold .hero-food{
+  width:100%;
+  height:148px;
+  max-width:none;
+  aspect-ratio:auto;
+  object-fit:cover;
+  object-position:center;
+  border-radius:0;
+}
+.plan-live{
+  min-width:0;
+  min-height:436px;
+  background:#f6f3ea;
+  color:#101614;
+  padding:14px 14px 12px;
+}
+.plan-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px}
+.plan-k{
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-size:.75rem;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#0c6428;
+}
+.plan-day{
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
+  font-weight:800;
+  letter-spacing:-.03em;
+  font-size:1rem;
+}
+.plan-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.goal-chip{
+  appearance:none;
+  border:1px solid #cfd9d2;
+  background:#fff;
+  color:#101614;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:-.02em;
+  min-height:44px;
+  min-width:44px;
+  padding:0 12px;
+  border-radius:999px;
+  cursor:pointer;
+}
+.goal-chip:hover{border-color:#1f9d4a}
+.goal-chip.is-on{background:#10261a;color:#f4f7f4;border-color:#10261a}
+.plan-note{font-size:.78rem;line-height:1.45;color:#5c6d64;margin:2px 0 10px;max-width:46ch}
+.plan-bars{display:grid;gap:8px;margin-bottom:12px}
+.bar{display:grid;grid-template-columns:72px 1fr auto;gap:8px;align-items:center}
+.bar span,.bar b{
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-size:.75rem;
+  font-weight:600;
+}
+.bar b{color:#0c6428}
+.bar-track{height:8px;border-radius:99px;background:#e4ebe4;overflow:hidden}
+.bar-track i{
+  display:block;
+  height:100%;
+  width:0;
+  border-radius:99px;
+  background:linear-gradient(90deg,#16803c,#7dffa3);
+  transition:width .55s cubic-bezier(.2,.7,.3,1);
+}
+.plan-meals{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.plan-meals li{
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr);
+  column-gap:10px;
+  row-gap:1px;
+  align-items:center;
+  padding-bottom:8px;
+  border-bottom:1px dashed #d5ddd6;
+}
+.plan-meals li:last-child{border-bottom:0;padding-bottom:0}
+.slot{
+  grid-row:1 / span 2;
+  width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;
+  background:#10261a;color:#b6f5c8;
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-size:.75rem;font-weight:600;
+}
+.meal-name{
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
+  font-weight:800;letter-spacing:-.02em;font-size:.92rem;line-height:1.2;
+}
+.meal-meta{font-size:.75rem;color:#5c6d64;line-height:1.3}
+.plan-trolley{margin-top:10px;padding-top:10px;border-top:1px solid #e4ebe4}
+.plan-trolley p{
+  font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
+  font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:#0c6428;margin-bottom:8px;
+}
+.plan-trolley ul{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
+.plan-trolley li{
+  font-size:.78rem;
+  background:#fff;
+  border:1px solid #d5ddd6;
+  border-radius:999px;
+  padding:5px 9px;
+}
+html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) both}
+@keyframes mealIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.fold .hero-app{
+  display:block;
+  width:100%;
+  max-width:none;
+  height:168px;
+  margin:0;
+  aspect-ratio:auto;
+  object-fit:cover;
+  object-position:center 68%;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:#0c1c14;
+  filter:blur(18px);
+  opacity:.4;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+  mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+}
+.hero-app-note{
+  position:relative;
+  z-index:1;
+  margin:0;
+  padding:8px 14px 2px;
+  background:#0c1c14;
+  color:#d7e7db;
+  font-size:.75rem;
+  line-height:1.45;
+}
+.fold .hero-shot figcaption{
+  margin:0;
+  padding:2px 14px 14px;
+  max-width:none;
+  background:transparent;
+  color:#d7e7db;
+  font-size:.75rem;
+  line-height:1.45;
+}
+
+@media(min-width:860px){
+  .fold{height:100svh;min-height:100svh}
+  .trial-bar{min-height:40px;padding:8px 16px}
+  .site-nav{padding:10px 40px}
+  .fold .hero{padding:6px 40px 16px}
+  .fold .hero-copy{justify-content:space-between;height:100%;padding:8px 0 4px}
+  .fold .hero h1.hero-display{font-size:clamp(3rem, 4.2vw, 4.7rem)}
+  .fold .hero-copy h2{font-size:clamp(1.2rem, 1.7vw, 1.55rem)}
+  .fold .hero-inner{
+    grid-template-columns:minmax(0,1.02fr) minmax(320px,.96fr);
+    gap:32px;
+  }
+  .fold .hero-shot{
+    height:100%;
+    min-height:0;
+    grid-template-rows:64px minmax(0,1fr) 176px auto;
+  }
+  .fold .hero-food{height:100%;min-height:72px}
+  .fold .plan-live{padding:10px 12px 8px}
+  .plan-chips{margin-bottom:4px}
+  .goal-chip{min-height:44px}
+  .plan-note{margin-bottom:6px}
+  .plan-bars{margin-bottom:6px}
+  .plan-meals{gap:2px}
+  .plan-meals li{padding-bottom:4px}
+  .plan-trolley{margin-top:6px;padding-top:6px}
+  .fold .hero-app{
+    position:relative;
+    top:auto;right:auto;
+    width:100%;
+    height:176px;
+    border:0;border-radius:0;box-shadow:none;
+  }
+  .engine-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .coach-inner{grid-template-columns:1.1fr .9fr;gap:40px}
+  .beats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hero-ctas .btn{width:auto}
+}
+@media(max-width:859px){
+  .fold{height:auto;min-height:100svh}
+  .trial-bar{font-size:.78rem;padding:8px 12px;min-height:44px}
+  .site-nav{padding:8px 16px}
+  .fold .hero{padding:4px 16px 16px}
+  .fold .hero h1.hero-display{font-size:2.15rem;margin-bottom:8px}
+  .fold .hero-copy h2{font-size:1.05rem;margin-bottom:8px}
+  .hero-lock{font-size:.88rem;margin-bottom:10px}
+  .fold .hero-sub{font-size:.92rem;margin-bottom:10px}
+  .hero-hooks{margin-top:8px}
+  .fold .hero-ctas .btn{width:100%}
+  .hero-hooks li{flex:1 1 auto}
+  .fold .hero-shot{grid-template-rows:auto}
+  .plan-live{order:1;min-height:555px}
+  .fold .hero-food{order:2;height:88px}
+  .fold .hero-shot picture{order:3}
+  .fold .hero-app{order:3;position:relative;top:auto;right:auto;width:100%;height:168px;border:0;border-radius:0;box-shadow:none}
+  .hero-app-note{order:4}
+  .fold .hero-shot figcaption{order:5}
+}
+@media(max-width:359px){
+  .fold .hero{padding-left:12px;padding-right:12px}
+  .fold .hero-kicker{letter-spacing:.04em;font-size:.75rem}
+  .plan-live{padding:12px}
+  .goal-chip{padding:0 12px;font-size:.78rem;min-width:44px;min-height:44px}
+  .hero-hooks li{letter-spacing:0;font-size:.75rem}
+  .bar{grid-template-columns:58px minmax(0,1fr) auto}
+  .meal-name{font-size:.86rem}
+}
+.trial-bar a{
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding:0 4px;
+}
+.footer-links{gap:4px 8px}
+.footer-links a{
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding:10px 8px;
+  color:#d7e7db;
+}
+.lander-card a,.faq summary,
+.engine a,.loop a,.proof a,.pricing a,.final a,.first-scan a,.trust a,.landers a{
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  padding:8px 2px;
+}
+@media(max-width:859px){
+  .final-inner{text-align:center}
+  .final-ctas{justify-content:center}
+  .final h2,.final p{margin-left:auto;margin-right:auto}
+}
+@media(prefers-reduced-motion:reduce){
+  .fold .btn-leaf,.lander-card,.bar-track i,.plan-meals li,.reveal{
+    animation:none!important;
+    transition:none!important;
+    transform:none;
+    opacity:1;
+  }
+}
+</style>
+<link rel="stylesheet" href="/css/fm-elite.css?v=5ff0512c40be" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="/css/fm-elite.css?v=5ff0512c40be"/></noscript>
 </head>
 <body>
 <a class="skip" href="#loop">Skip to how FitMunch works</a>
 
 <div class="fold">
 <aside class="trial-bar">
-  14-day trial, then <span>A$19.99 a month</span>. Card on file. <a href="#pricing">See pricing</a>
+  14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. <a href="#pricing">See pricing</a>
 </aside>
 
 <nav class="site-nav" aria-label="Primary">
@@ -541,7 +1099,6 @@ footer{
       <h1 class="hero-display">Your body wrote the trolley.</h1>
       <h2>Your week of meals, planned to your macros.</h2>
       <p class="hero-sub">Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.</p>
-      <p class="hero-lock">The sample day is 2,000 kcal and 150g protein. Pick another goal and the meals follow.</p>
       <div class="hero-ctas">
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
       </div>
@@ -552,42 +1109,12 @@ footer{
       </ul>
     </div>
     <figure class="hero-shot">
-      <img class="hero-food" src="/assets/fm-hero-mealprep-web.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="900" height="600" decoding="async"/>
-      <div class="plan-live" id="plan-demo">
-        <div class="plan-top">
-          <p class="plan-k">Sample day</p>
-          <p class="plan-day" id="plan-day">Wednesday</p>
-        </div>
-        <div class="plan-chips" role="group" aria-label="Goal">
-          <button type="button" class="goal-chip is-on" data-goal="cut" aria-pressed="true">Cut</button>
-          <button type="button" class="goal-chip" data-goal="build" aria-pressed="false">Build</button>
-          <button type="button" class="goal-chip" data-goal="hold" aria-pressed="false">Hold</button>
-        </div>
-        <div class="plan-chips" role="group" aria-label="Way of eating">
-          <button type="button" class="goal-chip is-on" data-diet="classic" aria-pressed="true">Classic</button>
-          <button type="button" class="goal-chip" data-diet="protein" aria-pressed="false">High protein</button>
-          <button type="button" class="goal-chip" data-diet="plant" aria-pressed="false">Plant</button>
-        </div>
-        <p class="plan-note" id="plan-note">Sample Wednesday. Pick a goal. This is not your week until you log your body.</p>
-        <div class="plan-bars">
-          <div class="bar"><span>Calories</span><div class="bar-track"><i id="plan-kcal-bar" style="width:62%"></i></div><b id="plan-kcal">2,000</b></div>
-          <div class="bar"><span>Protein</span><div class="bar-track"><i id="plan-pro-bar" style="width:68%"></i></div><b id="plan-pro">150g</b></div>
-        </div>
-        <ol class="plan-meals" id="plan-meals">
-          <li><span class="slot">B</span><span class="meal-name">Veggie omelette with potatoes</span><span class="meal-meta">Breakfast · 501 kcal · 38g protein</span></li>
-          <li><span class="slot">L</span><span class="meal-name">Chicken and sweet potato</span><span class="meal-meta">Lunch · 640 kcal · 48g protein</span></li>
-          <li><span class="slot">D</span><span class="meal-name">Salmon, greens and rice</span><span class="meal-meta">Dinner · 560 kcal · 42g protein</span></li>
-          <li><span class="slot">S</span><span class="meal-name">Greek yoghurt and berries</span><span class="meal-meta">Snack · 299 kcal · 22g protein</span></li>
-        </ol>
-        <div class="plan-trolley">
-          <p>Trolley</p>
-          <ul id="plan-trolley">
-            <li>Eggs</li><li>Chicken breast</li><li>Sweet potato</li><li>Salmon</li><li>Greek yoghurt</li><li>Broccoli</li><li>Berries</li>
-          </ul>
-        </div>
-      </div>
-      <img class="hero-app" src="/assets/fm-app-week.webp" alt="Preview of a generated Wednesday meal plan" width="1122" height="1617" fetchpriority="high"/>
-      <p class="hero-app-note">Your own week builds from your body, not this sample.</p>
+      <img class="hero-food" src="/assets/fm-hero-mealprep-web.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="900" height="600" decoding="async" loading="lazy"/>
+      <picture>
+        <source media="(max-width: 859px)" srcset="/assets/fm-app-week-mobile.webp" type="image/webp"/>
+        <img class="hero-app" src="/assets/fm-app-week.webp" alt="Preview of a generated Wednesday meal plan" width="1122" height="1617" fetchpriority="high"/>
+      </picture>
+      <p class="hero-app-note">Your own week builds from your body.</p>
       <figcaption>Your first week: built for 82kg cutting to 78kg, at 2,000 kcal and 150g protein, with Swap open on breakfast.</figcaption>
     </figure>
   </div>
@@ -621,7 +1148,7 @@ footer{
       <p class="butler-k">Fitness Butler</p>
       <h3>Commit to the week. We write the trolley; you check out.</h3>
       <p>You approve the plan. FitMunch writes the list. You check out at the supermarket.</p>
-      <div class="trolley-draft" aria-label="Draft trolley, sample week">
+      <div class="trolley-draft" aria-label="Draft trolley">
         <div class="row"><span>Chicken breast 1kg</span><span class="row-val">4 dinners</span></div>
         <div class="row"><span>Eggs x12</span><span class="row-val">6 lunches</span></div>
         <div class="row"><span>Rolled oats 500g</span><span class="row-val">7 breakfasts</span></div>
@@ -673,7 +1200,7 @@ footer{
   <div class="landers-inner">
     <div class="landers-head">
       <h2>Plan from the shop you already do.</h2>
-      <p>Four ways into the same health engine. Premium is A$19.99 a month after a 14-day trial.</p>
+      <p>Four ways into the same health engine. Premium is <span data-fm-price="premiumMonthly"></span> after a 14-day trial.</p>
     </div>
     <div class="lander-grid">
       <article class="lander-card">
@@ -689,15 +1216,14 @@ footer{
         <p>Photograph the receipt. Get macros and the next plan.</p>
       </article>
     </div>
-    <p class="landers-proof">Worked supermarket example: <a href="/haul-teardown">haul teardown</a>.</p>
+    <p class="landers-proof"><a href="/haul-teardown">Haul teardown</a></p>
   </div>
 </section>
 
 <section class="trust" aria-label="Product proof">
   <div class="trust-inner">
     <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph any supermarket receipt. The score is from that trolley.</div>
-    <div class="trust-item"><strong>Worked haul example</strong>Score 92 · 987g protein on a labelled supermarket example. <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">See teardown</a>.</div>
-    <div class="trust-item"><strong>Premium trial</strong>14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
+    <div class="trust-item"><strong>Premium trial</strong>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
     <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
   </div>
 </section>
@@ -706,7 +1232,7 @@ footer{
   <div class="first-scan-inner">
     <div class="first-scan-head">
       <h2>After the shop.</h2>
-      <p>A receipt closes what you actually bought. It is not the first screen. Photograph any supermarket receipt. FitMunch scores that haul from the lines it found. The sample card further down is a worked example, not a demo shop.</p>
+      <p>A receipt closes what you actually bought. It is not the first screen. Photograph any supermarket receipt. FitMunch scores that haul from the lines it found. Nothing is filled in until you photograph a receipt. This is not a demo shop.</p>
     </div>
     <div class="fs-grid">
       <div class="fs-card">
@@ -737,7 +1263,7 @@ footer{
           <div style="margin:10px auto 0;max-width:200px;height:6px;border-radius:99px;background:rgba(31,157,74,.15);overflow:hidden"><div data-fs-progress-fill style="height:100%;width:8%;background:#1f9d4a;border-radius:99px"></div></div>
         </div>
         <div data-fs-empty class="fs-empty">
-          Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled from the sample supermarket shop.
+          Your haul score and tonight's dinner appear here after you photograph a receipt. Nothing is pre-filled.
         </div>
         <div data-fs-results hidden style="display:none">
           <div class="fs-result-head">
@@ -757,41 +1283,8 @@ footer{
             <ul class="fs-uses" data-fs-uses></ul>
           </div>
           <a class="btn btn-leaf" data-fs-trial data-fm-auth="register" data-fm-plan="premium" href="/login.html?plan=premium#register">Start the 14-day trial</a>
-          <p class="fs-trial-note">14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
+          <p class="fs-trial-note">14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="proof" id="proof">
-  <div class="proof-inner">
-    <div class="proof-copy">
-      <h2>Try a sample receipt.</h2>
-      <p>No sign-up. One tap scores a sample shop with the same maths as your own scans. No AI, nothing uploaded.</p>
-      <button type="button" class="btn btn-leaf" id="demo-run" data-fm-track="demo_sample_run">Score the sample receipt</button>
-      <p class="demo-error" id="demo-error" role="alert" hidden>Could not score the sample right now. Try again in a moment.</p>
-      <p class="demo-own"><a href="#first-scan" data-fm-track="proof_scan_mine">Or score your own shop</a></p>
-    </div>
-    <div class="receipt" id="proof-device" aria-live="polite" aria-label="Sample receipt and its haul score">
-      <div class="device-top">
-        <span class="device-store">SAMPLE RECEIPT</span>
-        <span id="demo-count">10 items</span>
-      </div>
-      <ol class="demo-items" id="demo-items">
-        <li>Chicken breast 1kg</li><li>Free range eggs x12</li><li>Greek yoghurt 1kg</li><li>Brown rice 1kg</li><li>Rolled oats 750g</li>
-        <li>Broccoli 500g</li><li>Baby spinach 120g</li><li>Bananas 1kg</li><li>Chocolate biscuits</li><li>Cola 10 pack</li>
-      </ol>
-      <div class="demo-result" id="demo-result" hidden>
-        <div class="haul">
-          <div>
-            <div class="score-n" id="demo-score">0</div>
-            <div class="haul-label">HAUL SCORE <span id="demo-grade"></span></div>
-          </div>
-          <div class="haul-meta"><strong id="demo-protein"></strong>Sample receipt, not your shop</div>
-        </div>
-        <ul class="demo-reasons" id="demo-reasons"></ul>
-        <a class="btn btn-leaf demo-cta" href="/login.html?plan=premium#register" data-fm-track="demo_sample_trial">Start the 14-day trial</a>
       </div>
     </div>
   </div>
@@ -807,7 +1300,7 @@ footer{
     </details>
     <details>
       <summary>What is in the 14-day trial?</summary>
-      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
     </details>
     <details>
       <summary>Does FitMunch show shop prices?</summary>
@@ -815,7 +1308,7 @@ footer{
     </details>
     <details>
       <summary>When does a receipt come in?</summary>
-      <p>After you have shopped. Photograph any supermarket receipt and FitMunch scores that haul. The sample further down is a worked example, not a demo shop.</p>
+      <p>After you have shopped. Photograph any supermarket receipt and FitMunch scores that haul. This is not a demo shop.</p>
     </details>
   </div>
 </section>
@@ -827,8 +1320,8 @@ footer{
     <div class="plans">
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
-        <div class="price-n">A$19.99 <small>a month</small></div>
-        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</p>
+        <div class="price-n"><span data-fm-price="premiumAmount"></span> <small>a month</small></div>
+        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
         <ul>
           <li>Unlimited AI coach grounded in your logs</li>
           <li>Meal plans and shopping lists from your shop</li>
@@ -849,14 +1342,14 @@ footer{
         <a class="btn btn-ink" href="/login.html?utm_source=homepage&utm_medium=pricing&utm_campaign=free_signup#register" data-fm-auth="register">Start free</a>
       </article>
     </div>
-    <p style="margin-top:18px;font-size:.9rem;color:var(--mute)">See a worked supermarket example: <a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">haul teardown</a>.</p>
+    <p style="margin-top:18px;font-size:.9rem;color:var(--mute)"><a href="/haul-teardown" style="color:var(--leaf2);font-weight:700">Haul teardown</a></p>
   </div>
 </section>
 
 <section class="final reveal">
   <div class="final-inner">
     <h2>Your body wrote the <em>trolley.</em></h2>
-    <p>14-day trial, then A$19.99 a month. Card on file.</p>
+    <p>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file.</p>
     <div class="final-ctas">
       <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="final_trial">Start the 14-day trial</a>
       <a class="btn btn-ghost" href="#first-scan" data-fm-track="final_scan_mine">After the shop: score a receipt</a>
@@ -935,86 +1428,38 @@ try {
   }, { threshold: 0.25 });
   io.observe(document.getElementById('loop-rail'));
 })();
-
-(function sampleReceiptDemo() {
-  const btn = document.getElementById('demo-run');
-  const out = document.getElementById('demo-result');
-  if (!btn || !out) return;
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Reveal the sample receipt as soon as it scrolls into view (or at once),
-  // so the item list is visible before the tap.
-  const device = document.getElementById('proof-device');
-  if (device) {
-    const reveal = () => device.classList.add('in');
-    if (reduced || !('IntersectionObserver' in window)) reveal();
-    else {
-      const io = new IntersectionObserver((entries) => {
-        if (entries.some((e) => e.isIntersecting)) { reveal(); io.disconnect(); }
-      }, { threshold: 0.15 });
-      io.observe(device);
-    }
-  }
-  const scoreEl = document.getElementById('demo-score');
-  const err = document.getElementById('demo-error');
-  const countUp = (target) => {
-    if (reduced) { scoreEl.textContent = String(target); return; }
-    const start = performance.now();
-    const tick = (now) => {
-      const t = Math.min(1, (now - start) / 900);
-      scoreEl.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 3))));
-      if (t < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  };
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    btn.textContent = 'Scoring...';
-    err.hidden = true;
-    try {
-      const r = await fetch('/api/receipt/demo', { headers: { accept: 'application/json' } });
-      const d = await r.json();
-      if (!r.ok || !d || !d.success) throw new Error('demo');
-      document.getElementById('demo-grade').textContent = '· ' + d.grade;
-      document.getElementById('demo-protein').textContent = d.protein + 'g protein in this shop';
-      const ul = document.getElementById('demo-reasons');
-      ul.textContent = '';
-      (d.reasons || []).forEach((x) => {
-        const li = document.createElement('li');
-        li.className = x.tone === 'bad' ? 'bad' : 'good';
-        li.textContent = x.text;
-        ul.appendChild(li);
-      });
-      document.getElementById('proof-device').classList.add('in', 'scored');
-      out.hidden = false;
-      countUp(Number(d.haulScore) || 0);
-      btn.textContent = 'Scored';
-    } catch (_) {
-      err.hidden = false;
-      btn.disabled = false;
-      btn.textContent = 'Score the sample receipt';
-    }
-  });
-})();
 </script>
 <script>
 (function () {
-  var nodes = document.querySelectorAll('[data-free-ai]');
-  if (!nodes.length || !window.fetch) return;
-  fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
+  if (!window.fetch) return;
+  fetch('/api/pricing/config', { headers: { Accept: 'application/json' }, cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (cfg) {
-      var n = cfg && Number(cfg.freeAiMonthly);
-      if (!Number.isFinite(n) || n < 0) return;
-      var line = 'Free includes ' + n + ' AI actions a month';
-      nodes.forEach(function (el) { el.textContent = line; });
+      if (!cfg) return;
+      var n = Number(cfg.freeAiMonthly);
+      if (Number.isFinite(n) && n >= 0) {
+        var line = 'Free includes ' + n + ' AI actions a month';
+        document.querySelectorAll('[data-free-ai]').forEach(function (el) { el.textContent = line; });
+      }
+      document.querySelectorAll('[data-fm-price]').forEach(function (el) {
+        var key = el.getAttribute('data-fm-price');
+        if (cfg[key]) el.textContent = cfg[key];
+      });
+      var offer = document.querySelector('script[type="application/ld+json"]');
+      if (offer && cfg.premiumMonthlyAmount && cfg.premiumCurrency) {
+        try {
+          var data = JSON.parse(offer.textContent);
+          data.offers = { '@type': 'Offer', price: cfg.premiumMonthlyAmount, priceCurrency: cfg.premiumCurrency };
+          offer.textContent = JSON.stringify(data);
+        } catch (e) {}
+      }
     })
     .catch(function () {});
 })();
 </script>
-<script src="/js/fm-plan-demo.js" defer></script>
-<script src="/js/fm-item-name.js" defer></script>
-<script src="/js/fm-first-scan.js" defer></script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-item-name.js?v=e88e8ebb27f3" defer></script>
+<script src="/js/fm-first-scan.js?v=96a3a80471ad" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

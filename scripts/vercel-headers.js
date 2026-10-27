@@ -22,6 +22,15 @@ const {
   HSTS,
   CONTENT_TYPE_OPTIONS,
 } = require('../lib/security-headers');
+const {
+  MARKETING_CACHE,
+  MARKETING_CDN,
+  ASSET_CACHE,
+  ASSET_CDN,
+  isPrivatePath,
+  isPriceDocument,
+  publicAssetPaths,
+} = require('../lib/http-cache');
 
 const SITE_ORIGIN = 'https://www.fitmunch.com.au';
 
@@ -49,7 +58,7 @@ function staticHtmlPaths(dir = PUBLIC_DIR, prefix = '/') {
       out.push(...staticHtmlPaths(path.join(dir, entry.name), `${prefix}${entry.name}/`));
     } else if (entry.name.endsWith('.html')) {
       out.push(prefix + entry.name);
-      if (entry.name === 'index.html' && prefix !== '/') out.push(prefix);
+      if (entry.name === 'index.html') out.push(prefix === '/' ? '/' : prefix);
     }
   }
   return out;
@@ -77,6 +86,9 @@ function buildHeaderRules() {
     },
   ];
   const htmlPaths = staticHtmlPaths();
+  // The file lives outside public/ so the CDN cannot answer 200. Express
+  // returns 404. The header still has to say no-store for that response.
+  if (!htmlPaths.includes('/404.html')) htmlPaths.push('/404.html');
   const sources = [...new Set([...htmlPaths, ...NO_REFERRER_PATHS])].sort();
   for (const source of sources) {
     const headers = [];
@@ -86,7 +98,26 @@ function buildHeaderRules() {
     if (NO_REFERRER_PATHS.includes(source)) {
       headers.push({ key: 'Referrer-Policy', value: 'no-referrer' });
     }
+    const priced = source.endsWith('.html') || source === '/' || source.endsWith('/');
+    if (isPrivatePath(source) || isPriceDocument(source)) {
+      headers.push({ key: 'Cache-Control', value: 'no-store' });
+    } else if (priced) {
+      headers.push({ key: 'Cache-Control', value: MARKETING_CACHE });
+      headers.push({ key: 'Vercel-CDN-Cache-Control', value: MARKETING_CDN });
+    }
     rules.push({ source, headers });
+  }
+  for (const source of publicAssetPaths()) {
+    if (/[()*:?+]/.test(source)) {
+      throw new Error(`asset path is not a literal header source: ${source}`);
+    }
+    rules.push({
+      source,
+      headers: [
+        { key: 'Cache-Control', value: ASSET_CACHE },
+        { key: 'Vercel-CDN-Cache-Control', value: ASSET_CDN },
+      ],
+    });
   }
   return rules;
 }

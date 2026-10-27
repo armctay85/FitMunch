@@ -137,7 +137,7 @@ describe('builderOnly week with no AI consent', () => {
 describe('onboarding UI wiring', () => {
   const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
   it('loads the shared targets maths and collects every input', () => {
-    expect(html).toContain('<script src="/js/fm-targets.js"></script>');
+    expect(html).toMatch(/<script src="\/js\/fm-targets\.js\?v=[0-9a-f]{12}"><\/script>/);
     for (const id of ['ob-age', 'ob-sex', 'ob-height', 'ob-weight', 'ob-activity', 'ob-goal', 'ob-diet', 'ob-cals', 'ob-prot']) {
       expect(html).toContain(`id="${id}"`);
     }

@@ -8,10 +8,10 @@
 <link rel="canonical" href="https://fitmunch.com.au/pricing"/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<link rel="stylesheet" href="/css/fm-shell.css"/>
+<link rel="preload" href="/fonts/bricolage-grotesque-800.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href="/fonts/literata-400.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<link rel="stylesheet" href="/css/fm-shell.css?v=2697209bf6c2"/>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html,body{max-width:100%;overflow-x:hidden}
@@ -27,7 +27,7 @@ html,body{max-width:100%;overflow-x:hidden}
   background-size:auto, 220px 220px, auto;
 }
 .pr-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
   color:#7dffa3;border:1px solid rgba(125,255,163,.4);border-radius:999px;
   padding:6px 12px;margin-bottom:20px;width:fit-content;
@@ -39,10 +39,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .plan{padding:30px 26px;border-right:1px solid var(--line);position:relative}
 .plan:last-child{border-right:0}
 .plan.main{background:linear-gradient(180deg, rgba(31,157,74,.08), transparent 42%)}
-.badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:#0f7a32;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
-.p-name{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
-.p-price{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.05em;line-height:1;margin-bottom:10px}
-.p-price small{display:block;margin-top:6px;font-family:'Literata',Georgia,serif;font-size:.82rem;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--mute)}
+.badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:#0f7a32;color:#fff;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
+.p-name{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
+.p-price{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.05em;line-height:1;margin-bottom:10px}
+.p-price small{display:block;margin-top:6px;font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.82rem;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--mute)}
 .p-desc{color:var(--mute);font-size:.86rem;line-height:1.55;min-height:52px;margin-bottom:18px}
 .plan ul{list-style:none;display:grid;gap:8px;margin-bottom:22px}
 .plan li{font-size:.86rem;color:var(--ink);padding-left:14px;position:relative}
@@ -53,11 +53,11 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .proof-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:20px;margin-top:44px}
 .pbox{background:#fff;border:1px solid var(--line);padding:24px}
-.pbox h2{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1.1rem;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.pbox h2{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1.1rem;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
 .pbox p{color:var(--mute);font-size:.9rem;line-height:1.65}
 .checks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .check{border:1px solid var(--line);padding:12px 14px}
-.check strong{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.84rem;margin-bottom:3px}
+.check strong{display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.84rem;margin-bottom:3px}
 .check span{font-size:.78rem;color:var(--mute);line-height:1.45}
 .footnote{font-size:.8rem;color:var(--mute);margin-top:28px}
 
@@ -70,7 +70,7 @@ html,body{max-width:100%;overflow-x:hidden}
   font-size:.82rem;line-height:1.45;color:rgba(238,242,238,.78);
 }
 .trust-strip .t strong{
-  display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.86rem;font-weight:800;color:#fff;margin-bottom:2px;
 }
 
@@ -114,7 +114,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <div class="trust-strip" aria-label="Product proof">
     <div class="t"><strong>Eat + train + shop</strong>The engine writes the day from your body.</div>
     <div class="t"><strong>14-day trial</strong>Card on file. Cancel before the trial ends and you are not charged.</div>
-    <div class="t"><strong>Worked example</strong>92 haul score on a labelled example.</div>
+    <div class="t"><strong>Your receipt</strong>The score comes from the shop you photograph.</div>
     <div class="t"><strong>AU-built</strong>AUD prices. Any Australian supermarket.</div>
   </div>
 </header>
@@ -275,7 +275,7 @@ try {
   });
 })();
 </script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

@@ -126,6 +126,10 @@ describe('FitMunch Coach landers', () => {
   it('does not retitle the homepage or reprice the consumer plan', () => {
     const home = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
     expect(home).toContain('<h2>Your week of meals, planned to your macros.</h2>');
-    expect(home).toContain('$19.99');
+    const { PREMIUM_MONTHLY_LABEL, PREMIUM_AMOUNT_LABEL } = require('./lib/public-prices');
+    expect(PREMIUM_MONTHLY_LABEL).toBe('A$19.99 a month');
+    expect(PREMIUM_AMOUNT_LABEL).toBe('A$19.99');
+    const pricing = fs.readFileSync(path.join(__dirname, 'public', 'pricing.html'), 'utf8');
+    expect(pricing).toContain('data-monthly="A$19.99 <small>a month</small>"');
   });
 });

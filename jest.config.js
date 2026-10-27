@@ -115,6 +115,7 @@ module.exports = {
     '**/test_rate_limit_ip.js',
     '**/test_public_copy_hotfix.js',
     '**/test_ship_safety.js',
+    '**/test_mobile_speed.js',
     '**/test_xss_escape.js',
     '**/test_stored_xss.js',
     '**/test_xss_handlers.js',

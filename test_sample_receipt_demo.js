@@ -32,13 +32,14 @@ describe('Homepage sample receipt demo', () => {
     expect(names).not.toMatch(/woolworths|woolies|coles|aldi|iga|costco/i);
   });
 
-  it('GET /api/receipt/demo works without auth, is cacheable and calls no AI', async () => {
+  it('GET /api/receipt/demo works without auth, is not cached, and calls no AI', async () => {
     const app = require('./server');
     const res = await request(app).get('/api/receipt/demo').expect(200);
     expect(res.body.success).toBe(true);
     expect(res.body.sample).toBe(true);
     expect(typeof res.body.haulScore).toBe('number');
-    expect(res.headers['cache-control']).toMatch(/public/);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['cache-control']).not.toMatch(/s-maxage|public/);
   });
 
   it('demo route and module have no AI, credit or auth hooks', () => {
@@ -52,19 +53,15 @@ describe('Homepage sample receipt demo', () => {
 
 describe('sample receipt demo r2', () => {
   const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  it('reveals the receipt card on load or scroll, not only after a score', () => {
-    const js = html.slice(html.indexOf('(function sampleReceiptDemo()'));
-    expect(js).toMatch(/IntersectionObserver/);
-    expect(js).toMatch(/device\.classList\.add\('in'\)/);
-    expect(html).toContain('<noscript><style>.receipt{opacity:1;transform:none}</style></noscript>');
+  it('the cached homepage does not embed the sample receipt scorer', () => {
+    expect(html).not.toContain('id="demo-run"');
+    expect(html).not.toContain('Score the sample receipt');
+    expect(html).not.toContain('SAMPLE RECEIPT');
+    expect(html).not.toContain('/api/receipt/demo');
+    expect(html).not.toContain('fm-plan-demo.js');
+    expect(html).not.toMatch(/sample wednesday/i);
   });
-  it('the error sits outside the receipt card', () => {
-    const card = html.slice(html.indexOf('id="proof-device"'), html.indexOf('</section>', html.indexOf('id="proof-device"')));
-    expect(card).not.toContain('id="demo-error"');
-    expect(html).toContain('id="demo-error"');
-  });
-  it('labels protein as this shop, and the number matches the sample', () => {
-    expect(html).toContain("d.protein + 'g protein in this shop'");
+  it('the bundled sample still scores the same protein', () => {
     expect(sampleReceiptDemo().protein).toBe(638);
   });
   it('drops tonightDinner from the payload', () => {

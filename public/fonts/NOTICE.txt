@@ -1,4 +1,6 @@
-Latin subsets used by the FitMunch Coach landers. Unmodified font files.
+Latin subsets used by FitMunch pages.
+bricolage-grotesque-800-home.woff2 and literata-400-home.woff2 are smaller
+subsets of the variable files, for the homepage only. The other files are unmodified.
 
 Bricolage Grotesque. Copyright 2022 The Bricolage Grotesque Project Authors.
 Literata. Copyright 2017 The Literata Project Authors (https://github.com/googlefonts/literata).

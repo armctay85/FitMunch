@@ -13,10 +13,8 @@
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<link rel="stylesheet" href="/css/fm-shell.css"/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<link rel="stylesheet" href="/css/fm-shell.css?v=2697209bf6c2"/>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html,body{max-width:100%;overflow-x:hidden}
@@ -24,7 +22,7 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .rn-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(48px,7vw,72px)}
 .rn-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
   padding:6px 12px;margin-bottom:20px;
@@ -43,15 +41,15 @@ html,body{max-width:100%;overflow-x:hidden}
   .step-card{padding:18px 12px 8px 0}
   .step-card:nth-child(2n){border-right:0;padding-right:0}
 }
-.step-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.76rem;font-weight:600;color:var(--leaf2);letter-spacing:.1em;display:block;margin-bottom:14px}
-.step-card h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.98rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.step-n{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.76rem;font-weight:600;color:var(--leaf2);letter-spacing:.1em;display:block;margin-bottom:14px}
+.step-card h3{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.98rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
 .step-card p{color:var(--mute);font-size:.85rem;line-height:1.55;max-width:20ch}
 
 
 .get-list li{margin-bottom:14px;color:var(--mute);line-height:1.65}
 .get-list li strong{color:var(--ink)}
 
-.faq dt{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:.95rem}
+.faq dt{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:800;color:var(--ink);margin-top:22px;font-size:.95rem}
 .faq dd{color:var(--mute);margin:6px 0 0 0;line-height:1.65;font-size:.9rem}
 
 .rn-final{text-align:center;margin:52px 0 8px}
@@ -106,17 +104,8 @@ html,body{max-width:100%;overflow-x:hidden}
     <h2>Works with Australian supermarket receipts</h2>
     <p>Paper receipts and digital e-receipts are supported. OCR plus AI handles crumpled paper, faded ink and long scrolls.</p>
 
-    <h2>Worked example: what a scan can show</h2>
-    <div class="fm-score-row">
-      <div>
-        <div class="fm-score-n">92</div>
-        <div class="fm-note" style="margin:8px 0 0;font-family:'Bricolage Grotesque',system-ui,sans-serif;letter-spacing:.08em">HAUL SCORE</div>
-      </div>
-      <div class="fm-score-meta">
-        <strong>987g protein · 22 items</strong>
-        Worked example of a supermarket shop. Not a live scan of your trolley.
-      </div>
-    </div>
+    <h2>What a scan can show</h2>
+    <p class="fm-note">Your haul score and the protein total come from the receipt you photograph. Nothing below is a stand-in score.</p>
     <div class="fm-table-wrap">
       <table class="fm-table">
         <thead>
@@ -236,7 +225,7 @@ try {
   });
 })();
 </script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

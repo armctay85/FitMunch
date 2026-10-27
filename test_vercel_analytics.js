@@ -56,12 +56,13 @@ describe('Vercel Web Analytics', () => {
   it('privacy policy discloses Vercel Web Analytics', () => {
     const html = fs.readFileSync(path.join(PUBLIC_DIR, 'privacy.html'), 'utf8');
     expect(html).toContain('Vercel Web Analytics counts page views without cookies and without identifying you. Vercel is based in the United States.');
-    expect(html).toContain('Google (web fonts) and Vercel (website analytics) may also process your data in the United States.');
+    expect(html).toContain('the font host (web fonts) and Vercel (website analytics) may also process your data in the United States.');
+    expect(html).not.toMatch(/Google/);
   });
 
   it('login.html loads fm-track.js once', () => {
     const html = fs.readFileSync(path.join(PUBLIC_DIR, 'login.html'), 'utf8');
-    expect(html.split('<script src="/js/fm-track.js" defer></script>').length - 1).toBe(1);
+    expect(html.match(/<script src="\/js\/fm-track\.js\?v=[0-9a-f]{12}" defer><\/script>/g)).toHaveLength(1);
   });
 
   it('CSP already allows the same-origin script and beacon', () => {

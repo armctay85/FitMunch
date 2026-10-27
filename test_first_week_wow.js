@@ -19,7 +19,7 @@ describe('personal header line', () => {
   });
   it('the UI fills it from the plan’s real averages, not the targets', () => {
     const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
-    expect(html).toContain('<script src="/js/fm-week-wow.js"></script>');
+    expect(html).toMatch(/<script src="\/js\/fm-week-wow\.js\?v=[0-9a-f]{12}"><\/script>/);
     expect(html).toContain('id="ob-goal-weight"');
     expect(html).toMatch(/const a = FMWeekWow\.weekAverages\(plan\);[\s\S]{0,300}calories: FMWeekWow\.shownTarget\(a\.calories, tg\.calories\), protein: FMWeekWow\.shownTarget\(a\.protein, tg\.protein\)/);
   });

@@ -6,23 +6,23 @@
 <title>FitMunch - Your AI Health Partner</title>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<script src="/js/chart.umd.min.js"></script>
-<script src="/js/fm-targets.js"></script>
-<script src="/js/fm-item-name.js"></script>
-<script src="/js/fm-week-wow.js"></script>
-<script src="/js/fm-home-week.js"></script>
+<link rel="preload" href="/fonts/bricolage-grotesque-800.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href="/fonts/literata-400.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="stylesheet" href="/css/fm-fonts.css?v=b02c36607739"/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<script src="/js/chart.umd.min.js?v=84d0e233daba"></script>
+<script src="/js/fm-targets.js?v=ef3a49db2f5a"></script>
+<script src="/js/fm-item-name.js?v=e88e8ebb27f3"></script>
+<script src="/js/fm-week-wow.js?v=17ebe9d7753e"></script>
+<script src="/js/fm-home-week.js?v=cbb2c5cef0c6"></script>
 <style>
 /* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
 :root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
-body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--ink);font-size:13px;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
-.view-title,.logo-w,.modal-title,.ft-label,.plan-card-name,.meal-name,.empty-state .et,.btn,.sb-item,.nav-btn,.card-title,.metric-label{font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.metric-value,.food-cals,.sl-item-price,.billing-price,.c-stat-v,.shop-qty,.food-macro,.meal-macro,.mono-num{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+body{font-family:'Literata','Literata Fallback',Georgia,serif;background:var(--paper);color:var(--ink);font-size:13px;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+.view-title,.logo-w,.modal-title,.ft-label,.plan-card-name,.meal-name,.empty-state .et,.btn,.sb-item,.nav-btn,.card-title,.metric-label{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
+.metric-value,.food-cals,.sl-item-price,.billing-price,.c-stat-v,.shop-qty,.food-macro,.meal-macro,.mono-num{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 :focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
 
 /* NAV */
@@ -36,8 +36,8 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .logo-w{font-size:1rem;font-weight:800;color:var(--ink);letter-spacing:-.03em}
 .logo-w span{color:var(--leaf)}
 .nav-spacer{flex:1}
-.nav-plan{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:4px;background:rgba(31,157,74,.1);color:var(--leaf2);border:1px solid rgba(31,157,74,.25);margin-right:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.nav-user{font-size:.82rem;font-weight:600;color:var(--mute);display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.nav-plan{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:4px;background:rgba(31,157,74,.1);color:var(--leaf2);border:1px solid rgba(31,157,74,.25);margin-right:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
+.nav-user{font-size:.82rem;font-weight:600;color:var(--mute);display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .nav-av{width:28px;height:28px;border-radius:50%;background:var(--leaf);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 0 0 2px #fff,0 0 0 3px rgba(31,157,74,.35)}
 .nav-btn{padding:5px 12px;border-radius:4px;font-size:.78rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
 .btn-logout{background:transparent;color:var(--mute2);min-height:44px;min-width:44px}
@@ -51,7 +51,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);
  display:flex;flex-direction:column;padding:12px 8px;overflow-y:auto;
 }
-.sb-section-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mute2);padding:8px 8px 4px;margin-top:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.sb-section-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mute2);padding:8px 8px 4px;margin-top:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .sb-item{
  display:flex;align-items:center;gap:9px;padding:7px 10px;
  border-radius:4px;cursor:pointer;font-size:.8rem;font-weight:500;
@@ -103,7 +103,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .client-row:last-child{border:none}
 .client-row:hover{background:var(--paper)}
 .c-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#fff;flex-shrink:0}
-.c-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.c-name{font-size:.85rem;font-weight:700;color:var(--ink);margin-bottom:2px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .c-meta{font-size:.72rem;color:var(--mute2)}
 .c-stats{display:flex;gap:14px;margin-left:auto;align-items:center}
 .c-stat{text-align:center}
@@ -111,7 +111,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .c-stat-l{font-size:.6rem;color:var(--mute2)}
 .compliance-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .comp-high{background:var(--green)}.comp-mid{background:var(--amber)}.comp-low{background:var(--red)}
-.phase-chip{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.phase-chip{font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .phase-deficit{background:rgba(196,122,18,.12);color:#92400e}
 .phase-bulk{background:rgba(47,111,237,.1);color:#1e40af}
 .phase-maintain{background:rgba(31,157,74,.1);color:var(--leaf2)}
@@ -129,7 +129,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 }
 
 .shop-category{margin-bottom:16px}
-.shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.shop-cat-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .shop-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:4px;border:1px solid var(--line);background:var(--surface);margin-bottom:6px;transition:all .15s}
 .shop-item.checked{background:var(--paper2)}
 .shop-item.checked .shop-name{text-decoration:line-through;color:#4a5751}
@@ -143,12 +143,12 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .fav-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;position:relative;transition:border-color .15s}
 .fav-card:hover{border-color:var(--border2)}
 .fav-heart{position:absolute;top:8px;right:8px;cursor:pointer;font-size:14px;color:var(--red)}
-.fav-type{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);margin-bottom:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.fav-type{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);margin-bottom:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .fav-name{font-size:.82rem;font-weight:600;color:var(--ink)}
 
 .progress-form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
 .form-field{display:flex;flex-direction:column;gap:4px}
-.form-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.form-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .form-input{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:.82rem;color:var(--ink);outline:none;transition:border-color .15s;font-family:inherit}
 .form-input:focus{border-color:var(--leaf)}
 /* Meal plan generator at 320px: goal and days stack so "7 days (full week)" isn't cut off (EQA #135 r5 L3). */
@@ -156,7 +156,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .form-select{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:.82rem;color:var(--ink);outline:none;font-family:inherit}
 
 .meal-section{margin-bottom:16px}
-.meal-section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.meal-section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .food-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-bottom:6px}
 .food-name{flex:1;font-size:.82rem;font-weight:500}
 .food-cals{font-size:.78rem;font-weight:600;color:var(--ink)}
@@ -180,28 +180,28 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
  padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px;
 }
 .invite-link{font-size:.75rem;font-family:'IBM Plex Mono',monospace;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:5px 10px;flex:1;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.copy-btn{font-size:.75rem;font-weight:700;padding:5px 12px;background:var(--leaf);color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.copy-btn{font-size:.75rem;font-weight:700;padding:5px 12px;background:var(--leaf);color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .copy-btn:active{transform:scale(.97)}
 
 .detail-panel{display:flex;flex-direction:column;height:100%;overflow:hidden}
 .detail-header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--surface)}
-.back-btn{background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--mute2);padding:4px 8px;border-radius:4px;display:flex;align-items:center;gap:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.back-btn{background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--mute2);padding:4px 8px;border-radius:4px;display:flex;align-items:center;gap:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .back-btn:hover{color:var(--ink);background:var(--paper2)}
 .detail-tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--surface);flex-shrink:0}
-.detail-tab{padding:10px 14px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--mute2);border-bottom:2px solid transparent;transition:all .15s;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.detail-tab{padding:10px 14px;font-size:.78rem;font-weight:600;cursor:pointer;color:var(--mute2);border-bottom:2px solid transparent;transition:all .15s;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .detail-tab.active{color:var(--leaf2);border-bottom-color:var(--leaf)}
 .detail-body{flex:1;overflow-y:auto;padding:16px 20px}
 
 .portal-plan{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
-.portal-plan-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
-.portal-plan-name{font-size:.95rem;font-weight:800;color:var(--ink);margin-bottom:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.portal-plan-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mute2);margin-bottom:8px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
+.portal-plan-name{font-size:.95rem;font-weight:800;color:var(--ink);margin-bottom:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .portal-plan-meta{font-size:.75rem;color:var(--mute)}
 
 .workout-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-bottom:6px}
-.exercise-name{flex:1;font-size:.82rem;font-weight:600;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.exercise-name{flex:1;font-size:.82rem;font-weight:600;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .exercise-detail{font-size:.72rem;color:var(--mute2);font-family:'IBM Plex Mono',monospace}
 
-.tag{display:inline-block;font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.tag{display:inline-block;font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .tag-green{background:rgba(31,157,74,.1);color:var(--leaf2);border:1px solid rgba(31,157,74,.25)}
 .tag-amber{background:rgba(196,122,18,.12);color:#92400e}
 .tag-red{background:rgba(194,59,59,.1);color:#991b1b}
@@ -220,20 +220,20 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .food-result{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;border-bottom:1px dashed var(--line);transition:background .1s;-webkit-tap-highlight-color:transparent}
 .food-result:last-child{border-bottom:none}
 .food-result:hover,.food-result.focused{background:var(--paper)}
-.food-result-name{font-size:.82rem;font-weight:700;color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.food-result-name{font-size:.82rem;font-weight:700;color:var(--ink);font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .food-result-serving{font-size:.68rem;color:var(--mute2)}
 .food-result-macros{display:flex;gap:6px;flex-shrink:0}
 .food-result-macro{font-size:.65rem;font-weight:600;padding:2px 6px;border-radius:3px;font-family:'IBM Plex Mono',monospace}
 .frmcal{background:rgba(196,122,18,.12);color:#92400e}
 .frmpro{background:rgba(47,111,237,.1);color:#1e40af}
-.diet-tag{padding:5px 12px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-size:.72rem;font-weight:600;cursor:pointer;color:var(--mute);transition:all .15s;-webkit-tap-highlight-color:transparent;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.diet-tag{padding:5px 12px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-size:.72rem;font-weight:600;cursor:pointer;color:var(--mute);transition:all .15s;-webkit-tap-highlight-color:transparent;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .allergen-warn{font-size:.75rem;line-height:1.4;color:#7c2d12;background:#ffedd5;border:1px solid #fdba74;border-radius:6px;padding:6px 8px;margin-top:6px;overflow-wrap:anywhere}
 @media (max-width:480px){#meal-plans-grid{grid-template-columns:1fr}}
 .diet-tag.active{background:var(--leaf);color:#fff;border-color:var(--leaf)}
-.mp-day-tab{flex-shrink:0;padding:6px 14px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-size:.75rem;font-weight:700;cursor:pointer;color:var(--mute);transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.mp-day-tab{flex-shrink:0;padding:6px 14px;border-radius:4px;border:1px solid var(--line);background:var(--surface);font-size:.75rem;font-weight:700;cursor:pointer;color:var(--mute);transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .mp-day-tab.active{background:var(--leaf);color:#fff;border-color:var(--leaf)}
 .meal-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
-.meal-type-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.meal-type-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute2);margin-bottom:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .meal-name{font-size:.88rem;font-weight:800;color:var(--ink);margin-bottom:8px}
 .meal-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .meal-macro{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:3px}
@@ -243,7 +243,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .meal-m-f{background:rgba(124,58,237,.08);color:#6b21a8}
 .meal-m-time{background:var(--paper2);color:var(--mute2)}
 .meal-ings{font-size:.72rem;color:var(--mute);line-height:1.7}
-.sl-aisle-header{display:flex;align-items:center;gap:8px;padding:10px 0 6px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mute2);border-bottom:1px solid var(--line);margin-bottom:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.sl-aisle-header{display:flex;align-items:center;gap:8px;padding:10px 0 6px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mute2);border-bottom:1px solid var(--line);margin-bottom:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .sl-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line)}
 .sl-item input[type=checkbox]{accent-color:var(--leaf);width:18px;height:18px;flex-shrink:0;cursor:pointer}
 .sl-item.checked .sl-item-name{text-decoration:line-through;color:var(--mute2)}
@@ -253,26 +253,26 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);z-index:100;padding:0 4px env(safe-area-inset-bottom,0)}
 .mob-nav-items{display:flex;justify-content:space-around;align-items:stretch}
-.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px 10px;border:none;background:none;cursor:pointer;color:var(--mute2);font-size:.58rem;font-weight:600;gap:3px;min-height:56px;-webkit-tap-highlight-color:transparent;border-radius:0;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px 10px;border:none;background:none;cursor:pointer;color:var(--mute2);font-size:.58rem;font-weight:600;gap:3px;min-height:56px;-webkit-tap-highlight-color:transparent;border-radius:0;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .mob-nav-btn .mn-icon{font-size:20px;line-height:1}
 .mob-nav-btn.active{color:var(--leaf2)}
 .mob-nav-more{position:fixed;bottom:56px;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px 12px;z-index:99;display:none;flex-wrap:wrap;gap:8px}
 .mob-nav-more.open{display:flex}
-.mob-more-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:4px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--ink);flex:1;min-width:140px;-webkit-tap-highlight-color:transparent;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.mob-more-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:4px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--ink);flex:1;min-width:140px;-webkit-tap-highlight-color:transparent;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 
 .empty-state{text-align:center;padding:36px 20px;color:var(--mute2);background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
 .empty-state .ei{font-size:32px;margin-bottom:10px;line-height:1}
 .empty-state .et{font-size:.9rem;font-weight:800;color:var(--ink);margin-bottom:6px;letter-spacing:-.02em}
 .empty-state .es{font-size:.78rem;line-height:1.55;color:var(--mute2);max-width:320px;margin:0 auto 14px}
 .empty-state .ea{display:inline-flex}
-.metric-cta{font-size:.68rem;font-weight:700;color:var(--leaf2);margin-top:6px;cursor:pointer;background:none;border:none;padding:0;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.metric-cta{font-size:.68rem;font-weight:700;color:var(--leaf2);margin-top:6px;cursor:pointer;background:none;border:none;padding:0;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .metric-cta:hover{text-decoration:underline}
 .home-plan-empty{display:flex;flex-direction:column;gap:8px}
 .home-plan-empty[hidden]{display:none!important}
 .home-plan-empty p{font-size:.78rem;color:var(--mute2);line-height:1.45;margin:0}
-.home-start-here{font-size:.875rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#14532d;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.home-start-here{font-size:.875rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#14532d;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .meal-section-title{justify-content:space-between}
-.meal-add-btn{background:none;border:none;color:var(--leaf2);font-size:.72rem;font-weight:800;cursor:pointer;padding:2px 6px;border-radius:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.meal-add-btn{background:none;border:none;color:var(--leaf2);font-size:.72rem;font-weight:800;cursor:pointer;padding:2px 6px;border-radius:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .meal-add-btn:hover{background:rgba(31,157,74,.1)}
 .meal-empty-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:4px;background:var(--paper);color:var(--mute2);font-size:.78rem}
 .meal-empty-row button{flex-shrink:0}
@@ -281,7 +281,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .chat-bubble.assistant{align-self:flex-start;background:var(--surface);border:1px solid var(--line);color:var(--ink);border-bottom-left-radius:3px;box-shadow:none}
 .chat-bubble.assistant .md-p{margin:0 0 8px}
 .chat-bubble.assistant .md-p:last-child{margin-bottom:0}
-.chat-bubble.assistant .md-h{font-weight:800;font-size:.9rem;margin:10px 0 6px;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.chat-bubble.assistant .md-h{font-weight:800;font-size:.9rem;margin:10px 0 6px;letter-spacing:-.02em;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .chat-bubble.assistant .md-ul,.chat-bubble.assistant .md-ol{margin:6px 0 8px 18px;padding:0}
 .chat-bubble.assistant li{margin:3px 0}
 .chat-bubble.assistant strong{font-weight:800;color:var(--leaf2)}
@@ -330,7 +330,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .hw-acts .btn,#home-week-retry{min-height:44px}
 .hw-acts .btn{flex:1 1 140px}
 .goals-nudge{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid rgba(31,157,74,.28);background:rgba(31,157,74,.08);margin-bottom:14px}
-.goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.goals-nudge strong{display:block;font-size:.82rem;color:var(--leaf2);margin-bottom:2px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .goals-nudge span{font-size:.75rem;color:#4b5a52}
 .receipt-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
 .receipt-empty-panel{height:100%;min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 22px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
@@ -343,7 +343,7 @@ body{font-family:'Literata',Georgia,serif;background:var(--paper);color:var(--in
 .quick-action{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 10px;text-align:center;cursor:pointer;transition:border-color .15s,transform .15s}
 .quick-action:hover{border-color:var(--leaf);box-shadow:none;transform:translateY(-1px)}
 .quick-action .qi{font-size:18px;margin-bottom:4px}
-.quick-action .ql{font-size:.72rem;font-weight:700;color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.quick-action .ql{font-size:.72rem;font-weight:700;color:var(--ink);font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif}
 .metric .metric-value:empty::after,.metric-value.zero-soft{opacity:.55}
 #view-billing .card{border-radius:var(--radius)}
 #view-billing .card[style*="border:2px"]{border:1px solid var(--leaf)!important;background:linear-gradient(180deg,rgba(31,157,74,.07),transparent 48%)!important;box-shadow:none!important}
@@ -440,9 +440,9 @@ html.fm-authed #app-gate{display:none}
  width:min(420px,100%);background:var(--surface);border:1px solid var(--line);
  border-radius:var(--radius);padding:32px 28px;text-align:center;
 }
-.gate-card h1{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1.35rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
+.gate-card h1{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1.35rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
 .gate-card p{color:var(--mute);font-size:.9rem;line-height:1.55;margin-bottom:18px}
-.gate-card a{display:block;text-align:center;text-decoration:none;min-height:44px;line-height:44px;border-radius:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:700}
+.gate-card a{display:block;text-align:center;text-decoration:none;min-height:44px;line-height:44px;border-radius:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:700}
 .gate-card .gate-in{background:var(--leaf);color:#fff;margin-bottom:8px}
 .gate-card .gate-reg{border:1px solid var(--line);color:var(--ink)}
 /* Onboarding: 44px fields, 48px buttons, step progress, week cards with macro bars. */
@@ -974,7 +974,7 @@ html.fm-authed #app-gate{display:none}
  <div class="scroll-body">
  <div id="billing-usage" style="max-width:700px;margin-bottom:14px"></div>
  <div id="billing-coach" hidden style="max-width:700px;margin-bottom:24px">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Coach plans for trainers</div>
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif">Coach plans for trainers</div>
  <div id="billing-coach-status" style="font-size:.8rem;color:var(--text2);margin-bottom:10px"></div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
  <div class="card" data-coach-card="coach-39">
@@ -999,7 +999,7 @@ html.fm-authed #app-gate{display:none}
  <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:14px;max-width:700px">
  <div class="card" style="border:1px solid var(--leaf)">
  <div class="card-body">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Premium</div>
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--leaf2);margin-bottom:8px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif">Premium</div>
  <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$19.99<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> a month</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li><strong>Unlimited</strong> AI coach chat</li>
@@ -1013,7 +1013,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div class="card">
  <div class="card-body">
- <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Free</div>
+ <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif">Free</div>
  <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
@@ -1114,7 +1114,7 @@ html.fm-authed #app-gate{display:none}
  <div id="portal-onboard-cta" style="margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid rgba(31,157,74,.28);display:grid;grid-template-columns:1fr 1.1fr;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));box-shadow:0 4px 20px rgba(22,163,74,.10)">
  <div style="padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:8px">
  <div id="home-start-here" class="home-start-here">📸 Start here</div>
- <div style="font-size:1.02rem;font-weight:800;color:#14532d;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Scan your first receipt</div>
+ <div style="font-size:1.02rem;font-weight:800;color:#14532d;letter-spacing:-.02em;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif">Scan your first receipt</div>
  <div style="font-size:.78rem;color:#166534;line-height:1.55">Snap your grocery receipt - full macro breakdown, haul score and meal ideas in seconds.</div>
  <button class="btn btn-green" style="align-self:flex-start;margin-top:6px" onclick="nav('receipt-scanner')">Try receipt scanner →</button>
  </div>
@@ -1141,7 +1141,7 @@ html.fm-authed #app-gate{display:none}
  <div id="chat-thread" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px">
  <div id="chat-empty" style="margin:auto;text-align:center;max-width:420px">
  <div style="width:64px;height:64px;margin:0 auto 12px;border-radius:20px;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));border:1px solid rgba(31,157,74,.28);display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 8px 24px rgba(22,163,74,.12)">🤖</div>
- <div style="font-size:1rem;font-weight:800;margin-bottom:6px;font-family:'Bricolage Grotesque',system-ui,sans-serif;letter-spacing:-.02em">Your AI training partner</div>
+ <div style="font-size:1rem;font-weight:800;margin-bottom:6px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;letter-spacing:-.02em">Your AI training partner</div>
  <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
  <div style="display:flex;flex-direction:column;gap:8px">
  <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
@@ -1380,7 +1380,7 @@ html.fm-authed #app-gate{display:none}
  </div>
  <div id="scan-empty" class="receipt-empty-panel">
  <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,rgba(31,157,74,.08),rgba(31,157,74,.12));border:1px solid rgba(31,157,74,.28);display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:14px">🧾</div>
- <div style="font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.02em;font-family:'Bricolage Grotesque',system-ui,sans-serif">Your macro breakdown appears here</div>
+ <div style="font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.02em;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif">Your macro breakdown appears here</div>
  <div style="font-size:.78rem;color:var(--text3);line-height:1.55;max-width:280px;margin:0 auto 14px">Take a photo or choose a supermarket receipt. We'll score the haul and list protein, calories, carbs and fat.</div>
  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
  <button type="button" class="btn btn-green btn-sm" onclick="openReceiptCamera(event)">📷 Take photo</button>
@@ -1391,7 +1391,7 @@ html.fm-authed #app-gate{display:none}
  <!-- Score card -->
  <div class="haul-score-card" style="display:flex;align-items:center;justify-content:space-between">
  <div>
- <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(238,242,238,.7);margin-bottom:4px;font-family:'Bricolage Grotesque',system-ui,sans-serif">Weekly haul score</div>
+ <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(238,242,238,.7);margin-bottom:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif">Weekly haul score</div>
  <div class="score-n" id="scan-grade"> - </div>
  </div>
  <div style="display:flex;gap:16px">
@@ -5197,7 +5197,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 boot();
 </script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

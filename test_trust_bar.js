@@ -75,7 +75,9 @@ describe('Trust bar 3: funnel is not a public analytics UI', () => {
     expect(fs.existsSync(path.join(__dirname, 'public/funnel.html'))).toBe(false);
     expect(fs.existsSync(path.join(__dirname, 'private/funnel.html'))).toBe(true);
     const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
-    expect(vercel.functions['api/index.js'].includeFiles).toBe('private/funnel.html');
+    expect(vercel.functions['api/index.js'].includeFiles).toBe('private/**/*.html');
+    expect(fs.existsSync(path.join(__dirname, 'private/404.html'))).toBe(true);
+    expect(fs.existsSync(path.join(__dirname, 'public/404.html'))).toBe(false);
   });
 
   it('GET /api/analytics/funnel stays unauthorized without the key', async () => {
@@ -135,29 +137,26 @@ describe('Trust bar 5: web app, not store', () => {
   });
 });
 
-describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
-  const surfaces = [
-    ['/haul-teardown', ['92', '987']],
-    ['/receipt-nutrition-scanner', ['92', '987']],
-    ['/pricing', ['92']],
-  ];
+describe('Trust bar 6: public pages do not ship a stand-in haul score', () => {
+  const surfaces = ['/haul-teardown', '/receipt-nutrition-scanner', '/pricing', '/'];
 
-  it.each(surfaces)('%s labels those numbers as an example', async (route, tokens) => {
+  it.each(surfaces)('%s has no sample haul score', async (route) => {
     const res = await request(app).get(route).expect(200);
-    for (const token of tokens) {
-      expect(res.text).toContain(token);
-    }
-    expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
+    expect(res.text).not.toMatch(/92 haul score|haul score 92/i);
+    expect(res.text).not.toContain('Score the sample receipt');
+    expect(res.text).not.toMatch(/sample wednesday/i);
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
   });
 });
 
-describe('Trust bar 6b: homepage proof is a labelled sample receipt, not a claimed real shop', () => {
-  it('homepage offers the no-sign-up sample receipt demo', async () => {
+describe('Trust bar 6b: homepage proof is the visitor receipt, not a sample shop', () => {
+  it('homepage does not embed the sample receipt scorer', async () => {
     const res = await request(app).get('/').expect(200);
-    expect(res.text).toContain('id="demo-run"');
-    expect(res.text).toContain('SAMPLE RECEIPT');
-    expect(res.text).toContain('/api/receipt/demo');
+    expect(res.text).not.toContain('id="demo-run"');
+    expect(res.text).not.toContain('SAMPLE RECEIPT');
+    expect(res.text).not.toContain('/api/receipt/demo');
+    expect(res.text).toContain('id="first-scan"');
+    expect(res.text).toContain('not a demo shop');
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
   });
 });
@@ -216,7 +215,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     const fold = home.text.split('<div class="fold">')[1].split('</div>\n\n<section')[0];
     const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
     expect(fold).toContain('class="trial-bar"');
-    expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then A$19.99 a month');
+    expect(fold).toContain('data-fm-price="premiumMonthly"');
+    expect(fold).not.toContain('A$19.99');
     expect(fold).toContain('Card on file');
     expect(hero).toContain('Your week of meals, planned to your macros.');
     expect(hero).toContain('Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.');
@@ -235,7 +235,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('id="first-scan"');
     expect(home.text).toContain('data-first-scan');
     expect(home.text).toContain('/js/fm-first-scan.js');
-    expect(home.text).toContain('14-day trial, then A$19.99 a month');
+    expect(home.text).toContain('data-fm-price="premiumMonthly"');
+    expect(home.text).not.toContain('A$19.99');
     expect(home.text).toContain('Start the 14-day trial');
     const trialHrefs = [];
     const trialRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;

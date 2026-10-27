@@ -140,6 +140,9 @@ maybe('contrast guards, measured', () => {
     const app = express();
     app.use('/api', (req, res) => res.json({}));
     app.use(express.static(path.join(__dirname, 'public')));
+    app.get(['/404', '/404.html'], (req, res) => {
+      res.status(404).sendFile(path.join(__dirname, 'private', '404.html'));
+    });
     await new Promise((r) => { server = app.listen(0, '127.0.0.1', r); });
     base = `http://127.0.0.1:${server.address().port}`;
     browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
@@ -165,13 +168,12 @@ maybe('contrast guards, measured', () => {
     });
   }
 
-  it('Cut chip is at least 44x44 at 320px', async () => {
+  it('homepage has no sample-day goal chips', async () => {
     const ctx = await browser.newContext({ viewport: { width: 320, height: 900 } });
     const p = await ctx.newPage();
     await p.goto(`${base}/`);
-    const box = await p.locator('.goal-chip', { hasText: 'Cut' }).first().boundingBox();
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(await p.locator('.goal-chip').count()).toBe(0);
+    expect(await p.locator('#plan-demo').count()).toBe(0);
     await ctx.close();
   });
 
