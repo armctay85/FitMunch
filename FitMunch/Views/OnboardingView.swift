@@ -22,26 +22,12 @@ struct OnboardingView: View {
                 .padding(.top)
                 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        // Header. Compact so the goal rows and plan cards can sit
-                        // above the footer on a 375pt phone.
-                        VStack(spacing: 12) {
-                            Image(systemName: "fork.knife.circle.fill")
-                                .font(.system(size: 44))
-                                .foregroundColor(Theme.brandGreen)
-
-                            Text(viewModel.currentStepTitle)
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
-                                .multilineTextAlignment(.center)
-
-                            Text(viewModel.currentStepDescription)
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                        .padding(.top, 16)
+                    VStack(spacing: viewModel.currentStep == 2 ? 12 : 20) {
+                        // Welcome and goals keep the large header. The plan step
+                        // drops the icon and title size so the premium price,
+                        // "per month", and trial line sit above the footer on a
+                        // 375pt phone without the footer covering them.
+                        planHeader
 
                         stepContent
                     }
@@ -54,6 +40,7 @@ struct OnboardingView: View {
                 // Outside the scroll view. A footer inside the scroll view's
                 // inset is drawn at the bottom, but the scroll view keeps the hit.
                 // Next then looks tappable and the step never changes.
+                // The inset's top edge is the line the price and trial must clear.
                 onboardingFooter
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -82,6 +69,31 @@ struct OnboardingView: View {
         }
     }
     
+    @ViewBuilder
+    private var planHeader: some View {
+        let plan = viewModel.currentStep == 2
+        VStack(spacing: plan ? 6 : 12) {
+            if !plan {
+                Image(systemName: "fork.knife.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundColor(Theme.brandGreen)
+            }
+
+            Text(viewModel.currentStepTitle)
+                .font(plan ? .title2 : .largeTitle)
+                .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+
+            Text(viewModel.currentStepDescription)
+                .font(plan ? .subheadline : .body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, plan ? 4 : 16)
+    }
+
     /// Content for the current step
     @ViewBuilder
     private var stepContent: some View {
@@ -174,7 +186,7 @@ struct OnboardingView: View {
     
     /// Plan step content
     private var planStep: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 12) {
             PlanCard(
                 title: "Free",
                 price: "Free",
@@ -206,6 +218,8 @@ struct OnboardingView: View {
                 isSelected: true,
                 cardID: "onboarding-plan-premium",
                 priceID: "onboarding-premium-price",
+                periodID: "onboarding-premium-period",
+                trialID: "onboarding-premium-trial",
                 action: {
                     showPaywall = true
                 }
@@ -264,6 +278,7 @@ struct OnboardingView: View {
         .padding(.top, 12)
         .padding(.bottom, 12)
         .background(.ultraThinMaterial)
+        .accessibilityIdentifier("onboarding-footer")
     }
 }
 
@@ -296,6 +311,20 @@ private struct FeatureRow: View {
     }
 }
 
+/// Skips an empty identifier so the free card does not publish a blank id.
+private struct OptionalAccessibilityID: ViewModifier {
+    let identifier: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if identifier.isEmpty {
+            content
+        } else {
+            content.accessibilityIdentifier(identifier)
+        }
+    }
+}
+
 /// Plan card for plan selection
 private struct PlanCard: View {
     let title: String
@@ -306,11 +335,13 @@ private struct PlanCard: View {
     let isSelected: Bool
     let cardID: String
     let priceID: String
+    var periodID: String = ""
+    var trialID: String = ""
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(title)
                         .font(.title2)
@@ -327,23 +358,27 @@ private struct PlanCard: View {
                     }
                 }
                 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(price)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(.title.weight(.bold))
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                         .accessibilityIdentifier(priceID)
                     Text(period)
                         .font(.subheadline)
                         .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .modifier(OptionalAccessibilityID(periodID))
                     if isSelected && !trial.isEmpty {
                         Text(trial)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.brandGreen)
                             .fixedSize(horizontal: false, vertical: true)
+                            .modifier(OptionalAccessibilityID(trialID))
                     }
                 }
                 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     ForEach(features, id: \.self) { feature in
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")

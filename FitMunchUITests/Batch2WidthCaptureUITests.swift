@@ -252,19 +252,84 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         }
     }
 
-    /// Free must clear the footer. Premium must start on screen, not under it.
+    /// Top of the footer material, not the button inside it.
+    private func onboardingFooterTop(in app: XCUIApplication) -> CGFloat {
+        let footer = app.descendants(matching: .any)["onboarding-footer"]
+        if footer.exists, footer.frame.height > 1 {
+            return footer.frame.minY
+        }
+        // Button sits 12pt below the material. The offer has to clear the material.
+        return onboardingFooterMinY(in: app) - 12
+    }
+
+    /// The price text and the trial sentence. Prefer the glyph frame when the
+    /// identifier's frame is the whole card.
+    private func offerLine(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let marked = app.descendants(matching: .any)[identifier]
+        guard marked.exists else { return marked }
+        let text = app.staticTexts[marked.label].firstMatch
+        if text.exists, text.frame.height > 8, text.frame.height + 8 < marked.frame.height {
+            return text
+        }
+        return marked
+    }
+
+    /// Free must clear the footer. Premium must start on screen, and the
+    /// StoreKit price plus the trial line must both sit above the footer.
     private func revealPlanCards(free: XCUIElement, premium: XCUIElement, in app: XCUIApplication) {
+        func priceLine() -> XCUIElement { offerLine("onboarding-premium-price", in: app) }
+        func trialLine() -> XCUIElement { offerLine("onboarding-premium-trial", in: app) }
+        func offerClearsFooter() -> Bool {
+            let limit = onboardingFooterTop(in: app)
+            let price = priceLine()
+            let trial = trialLine()
+            guard price.exists, trial.exists else { return false }
+            guard price.frame.height > 8, trial.frame.height > 8 else { return false }
+            return price.frame.maxY <= limit && trial.frame.maxY <= limit
+        }
         func placed() -> Bool {
             guard free.exists, premium.exists else { return false }
             let limit = onboardingFooterMinY(in: app) - 1
             let freeClear = free.isHittable && free.frame.minY >= 0 && free.frame.maxY <= limit
             let premiumIn = premium.isHittable && premium.frame.minY >= 0 && premium.frame.minY < limit - 4
-            return freeClear && premiumIn
+            return freeClear && premiumIn && offerClearsFooter()
         }
-        if placed() { return }
-        for up in [true, true, true, true, true, true, true, false, false] {
-            if placed() { return }
-            nudgeOnboarding(app, up: up)
+        _ = app.descendants(matching: .any)["onboarding-premium-price"].waitForExistence(timeout: 6)
+        _ = app.descendants(matching: .any)["onboarding-premium-trial"].waitForExistence(timeout: 6)
+        if !placed() {
+            for up in [true, true, true, true, true, true, true, false, false] {
+                if placed() { break }
+                nudgeOnboarding(app, up: up)
+            }
+        }
+        let price = priceLine()
+        let trial = trialLine()
+        let limit = onboardingFooterTop(in: app)
+        print(String(
+            format: "ONBOARDING_OFFER priceBottom=%.1f trialBottom=%.1f footerTop=%.1f",
+            price.frame.maxY,
+            trial.frame.maxY,
+            limit
+        ))
+        XCTAssertTrue(price.exists, "Premium price missing")
+        XCTAssertTrue(trial.exists, "Trial line missing")
+        XCTAssertGreaterThan(price.frame.height, 8, "Price has no height")
+        XCTAssertGreaterThan(trial.frame.height, 8, "Trial line has no height")
+        XCTAssertLessThanOrEqual(
+            price.frame.maxY,
+            limit,
+            "Price is clipped by the footer (price \(price.frame) footer top \(limit))"
+        )
+        XCTAssertLessThanOrEqual(
+            trial.frame.maxY,
+            limit,
+            "Trial line is clipped by the footer (trial \(trial.frame) footer top \(limit))"
+        )
+        if price.exists, trial.exists, !price.label.isEmpty, price.label.count <= 32 {
+            XCTAssertTrue(
+                trial.label.contains(price.label),
+                "Trial line must repeat the StoreKit displayPrice"
+            )
         }
     }
 
