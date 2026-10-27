@@ -22,6 +22,14 @@ const {
   HSTS,
   CONTENT_TYPE_OPTIONS,
 } = require('../lib/security-headers');
+const {
+  MARKETING_CACHE,
+  MARKETING_CDN,
+  ASSET_CACHE,
+  ASSET_CDN,
+  isPrivatePath,
+  publicAssetPaths,
+} = require('../lib/http-cache');
 
 const SITE_ORIGIN = 'https://www.fitmunch.com.au';
 
@@ -86,7 +94,25 @@ function buildHeaderRules() {
     if (NO_REFERRER_PATHS.includes(source)) {
       headers.push({ key: 'Referrer-Policy', value: 'no-referrer' });
     }
+    if (isPrivatePath(source)) {
+      headers.push({ key: 'Cache-Control', value: 'no-store' });
+    } else if (source.endsWith('.html') || source.endsWith('/')) {
+      headers.push({ key: 'Cache-Control', value: MARKETING_CACHE });
+      headers.push({ key: 'Vercel-CDN-Cache-Control', value: MARKETING_CDN });
+    }
     rules.push({ source, headers });
+  }
+  for (const source of publicAssetPaths()) {
+    if (/[()*:?+]/.test(source)) {
+      throw new Error(`asset path is not a literal header source: ${source}`);
+    }
+    rules.push({
+      source,
+      headers: [
+        { key: 'Cache-Control', value: ASSET_CACHE },
+        { key: 'Vercel-CDN-Cache-Control', value: ASSET_CDN },
+      ],
+    });
   }
   return rules;
 }

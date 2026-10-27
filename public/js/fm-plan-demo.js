@@ -196,8 +196,8 @@
     }
   });
 
-  paint(false);
-
+  // The cut/classic sample is already in the HTML. Rebuilding it after first
+  // paint empties the meal card for a frame and shifts the hero.
   var motionOk = !reduced && 'IntersectionObserver' in window;
   if (motionOk) document.documentElement.classList.add('fm-motion');
   var nodes = document.querySelectorAll('.reveal');

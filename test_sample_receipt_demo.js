@@ -32,13 +32,14 @@ describe('Homepage sample receipt demo', () => {
     expect(names).not.toMatch(/woolworths|woolies|coles|aldi|iga|costco/i);
   });
 
-  it('GET /api/receipt/demo works without auth, is cacheable and calls no AI', async () => {
+  it('GET /api/receipt/demo works without auth, is not cached, and calls no AI', async () => {
     const app = require('./server');
     const res = await request(app).get('/api/receipt/demo').expect(200);
     expect(res.body.success).toBe(true);
     expect(res.body.sample).toBe(true);
     expect(typeof res.body.haulScore).toBe('number');
-    expect(res.headers['cache-control']).toMatch(/public/);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['cache-control']).not.toMatch(/s-maxage|public/);
   });
 
   it('demo route and module have no AI, credit or auth hooks', () => {

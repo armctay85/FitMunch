@@ -8,15 +8,82 @@
  <title>FitMunch - Sign In</title>
  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
- <link rel="preconnect" href="https://fonts.googleapis.com"/>
- <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
- <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet"/>
+ <link rel="preload" href="/fonts/bricolage-grotesque-800.woff2" as="font" type="font/woff2" crossorigin/>
+ <link rel="preload" href="/fonts/literata-400.woff2" as="font" type="font/woff2" crossorigin/>
+ <style id="fm-fonts">
+/* Latin variable subsets already cut to the letters these pages use.
+   Bricolage Grotesque 268 glyphs, Literata 300, IBM Plex Mono 280.
+   font-display:swap plus a metric-matched local fallback so the swap does not move the hero. */
+@font-face{
+  font-family:'Bricolage Grotesque';
+  font-style:normal;
+  font-weight:700 800;
+  font-display:swap;
+  src:url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Bricolage Grotesque Fallback';
+  font-style:normal;
+  font-weight:700 800;
+  src:local('Arial'),local('Arimo'),local('Liberation Sans');
+  size-adjust:100%;
+  ascent-override:93%;
+  descent-override:27%;
+  line-gap-override:0%;
+}
+@font-face{
+  font-family:'Literata';
+  font-style:normal;
+  font-weight:400 600;
+  font-display:swap;
+  src:url('/fonts/literata-400.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Literata Fallback';
+  font-style:normal;
+  font-weight:400 600;
+  src:local('Georgia'),local('Liberation Serif');
+  size-adjust:119%;
+  ascent-override:99%;
+  descent-override:26%;
+  line-gap-override:0%;
+}
+@font-face{
+  font-family:'IBM Plex Mono';
+  font-style:normal;
+  font-weight:500;
+  font-display:swap;
+  src:url('/fonts/ibm-plex-mono-500.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'IBM Plex Mono';
+  font-style:normal;
+  font-weight:600;
+  font-display:swap;
+  src:url('/fonts/ibm-plex-mono-600.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'IBM Plex Mono Fallback';
+  font-style:normal;
+  font-weight:500 600;
+  src:local('Liberation Mono'),local('Courier New');
+  size-adjust:100%;
+  ascent-override:102.5%;
+  descent-override:27.5%;
+  line-gap-override:0%;
+}
+
+</style>
  <link rel="stylesheet" href="/css/fm-tokens-auth.css"/>
  <style>
  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
  body {
- font-family: 'Literata', Georgia, serif;
+ font-family: 'Literata','Literata Fallback',Georgia,serif;
  background: var(--bg); color: var(--text);
  min-height: 100vh; display: flex; align-items: center; justify-content: center;
  padding: 20px;
@@ -38,7 +105,7 @@
  display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center;
  }
  .logo img { width: 44px; height: 44px; border-radius: 8px; box-shadow: 0 4px 18px rgba(31,157,74,.28); }
- .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque', system-ui, sans-serif; letter-spacing: -.03em; }
+ .logo-text { font-size: 1.5rem; font-weight: 800; color: var(--text); font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif; letter-spacing: -.03em; }
  .logo-text span { color: var(--green); }
 
  .tabs {
@@ -49,7 +116,7 @@
  flex: 1; text-align: center; padding: 9px; border-radius: 3px;
  font-size: 0.88rem; font-weight: 600; cursor: pointer;
  color: var(--muted); transition: all 0.2s;
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
  }
  .tab.active {
  background: var(--green2); color: white;
@@ -61,7 +128,7 @@
  display: block; font-size: 0.76rem; font-weight: 700;
  text-transform: uppercase; letter-spacing: 0.06em;
  color: var(--sub); margin-bottom: 7px;
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
  }
  input {
  width: 100%; background: #0a1610; border: 1px solid var(--border);
@@ -78,7 +145,7 @@
  font-size: 0.95rem; font-weight: 700; cursor: pointer;
  transition: background 0.2s, transform 0.1s; margin-top: 6px;
  letter-spacing: 0.02em;
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
  }
  .btn:hover { background: #16803c; }
  .btn:active { transform: scale(0.98); }
@@ -126,7 +193,7 @@
  border-radius: 4px;
  }
  .claim-card h2, .claim-kicker {
- font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+ font-family: 'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
  font-size: .78rem; font-weight: 700; letter-spacing: .04em;
  text-transform: uppercase; margin-bottom: 8px;
  }
@@ -147,7 +214,48 @@
  .claim-resend .btn { margin-top: 0; }
  .claim-resend-status { font-size: .82rem; color: var(--sub); line-height: 1.45; min-height: 1em; }
  </style>
- <link rel="stylesheet" href="/css/fm-auth-elite.css"/>
+ <style id="fm-auth-critical">
+/* Sign-in door. Loaded after the page styles. */
+body{
+  background-color:#06110c;
+  background-image:
+    radial-gradient(ellipse 70% 45% at 8% 0%, rgba(125,255,163,.16), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(31,157,74,.14), transparent 50%);
+  background-size:auto, auto;
+}
+.card{
+  border-radius:18px;
+  border-color:rgba(125,255,163,.2);
+  box-shadow:0 28px 70px rgba(0,0,0,.45);
+  padding:36px 28px;
+}
+.logo img{border-radius:12px}
+.tabs{border-radius:999px;padding:4px}
+.logo-text{white-space:nowrap}
+.logo-text span{color:inherit}
+.tab{border-radius:999px;min-height:44px;color:#9aafa4}
+.tab.active{background:#0f7a32;color:#fff}
+#email-first-note{color:#9aafa4;font-size:.75rem;line-height:1.45}
+.foot{color:#9aafa4}
+.foot a{color:#d7e7db;display:inline-flex;align-items:center;min-height:44px;padding:8px 4px}
+.btn{
+  border-radius:999px;
+  min-height:52px;
+  background:#0f7a32;
+  color:#fff;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
+}
+.btn:hover,.btn:focus-visible{background:#0c6428;color:#fff}
+input{border-radius:12px;min-height:48px}
+@media(max-width:390px){
+  .card{padding:28px 18px}
+}
+@media(prefers-reduced-motion:reduce){
+  .card{animation:none}
+}
+</style>
+<link rel="stylesheet" href="/css/fm-auth-elite.css" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="/css/fm-auth-elite.css"/></noscript>
 </head>
 <body>
 
@@ -158,11 +266,11 @@
  </div>
 
  <div id="premium-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(31,157,74,.35);background:rgba(31,157,74,.1);border-radius:4px">
- <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
+ <div style="font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</div>
  </div>
  <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
- <div style="font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
+ <div style="font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
  <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
  </div>
  <div id="claim-intent" class="claim-card" style="display:none">

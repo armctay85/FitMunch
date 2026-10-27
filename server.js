@@ -11,6 +11,16 @@ const { attachApiJsonSanitizer, sendStripeJson } = require('./lib/sanitize-api-j
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+const {
+  MARKETING_CACHE,
+  MARKETING_CDN,
+  ASSET_CACHE,
+  ASSET_CDN,
+  isPrivatePath,
+  isPrivateFile,
+  isMarketingDocument,
+  lockNoStore,
+} = require('./lib/http-cache');
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
@@ -167,14 +177,33 @@ app.use((req, res, next) => {
   return res.sendFile(FUNNEL_PAGE);
 });
 
+// Marketing HTML and static assets are the same for every visitor, so the
+// Vercel CDN may cache them. Personal, auth, API and checkout responses are
+// locked to no-store even if a handler later asks for a public cache.
+app.use((req, res, next) => {
+  if (isPrivatePath(req.path)) {
+    lockNoStore(res);
+    return next();
+  }
+  if ((req.method === 'GET' || req.method === 'HEAD') && isMarketingDocument(req.path)) {
+    res.setHeader('Cache-Control', MARKETING_CACHE);
+    res.setHeader('Vercel-CDN-Cache-Control', MARKETING_CDN);
+  }
+  next();
+});
+
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   index: 'index.html',
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    if (isPrivateFile(filePath)) {
+      res.setHeader('Cache-Control', 'no-store');
+    } else if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', MARKETING_CACHE);
+      res.setHeader('Vercel-CDN-Cache-Control', MARKETING_CDN);
     } else {
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Cache-Control', ASSET_CACHE);
+      res.setHeader('Vercel-CDN-Cache-Control', ASSET_CDN);
     }
     if (
       filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html') ||
@@ -187,7 +216,8 @@ app.use(express.static(PUBLIC_DIR, {
 
 // Explicit root — Vercel rewrites can normalize "/" so static fallthrough may miss it.
 app.get('/', (req, res) => {
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Cache-Control', MARKETING_CACHE);
+  res.set('Vercel-CDN-Cache-Control', MARKETING_CDN);
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
@@ -1371,6 +1401,7 @@ app.use((err, req, res, next) => {
 // Catch-all for unmatched non-API routes → custom 404 page
 app.use((req, res, next) => {
   if (res.headersSent) return next();
+  res.set('Cache-Control', 'no-store');
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
