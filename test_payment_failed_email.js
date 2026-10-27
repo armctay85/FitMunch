@@ -496,7 +496,8 @@ describe('cancel copy', () => {
     expect(appHtml).toContain('openBillingPortal(this)');
     expect(appHtml).toContain("location.hash === '#billing'");
     expect(appHtml).toContain("/login.html?next=billing");
-    expect(appHtml).toContain("location.replace('/login.html')");
+    expect(appHtml).toContain("window.location.replace('/login.html?next=billing')");
+    expect(appHtml).not.toContain("location.replace('/login.html')");
     expect(login).toContain("window.location.href = '/app.html#billing'");
     expect(appHtml).toContain("API('/billing-portal', { method: 'POST', body: JSON.stringify({ returnTo: 'app' }) })");
   });

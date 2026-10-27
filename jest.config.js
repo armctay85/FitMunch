@@ -73,6 +73,7 @@ module.exports = {
     '**/test_store_name_sweep.js',
     '**/test_public_price_ban.js',
     '**/test_pay_path.js',
+    '**/test_first_run_preview.js',
     '**/test_funnel_events.js',
     '**/test_funnel_page_header.js',
     '**/test_account_created_event.js',

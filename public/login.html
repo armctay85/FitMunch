@@ -183,6 +183,24 @@
 
  .panel { display: none; }
  .panel.active { display: block; }
+ .card.review-open { max-width: 520px; }
+ .review-kicker {
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-size: .78rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--green); margin-bottom: 8px;
+ }
+ .review-list { margin: 0 0 14px; }
+ .review-list div {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+ }
+ .review-list dt { font-size: .78rem; color: var(--muted); }
+ .review-list dd { margin: 0; font-size: .95rem; font-weight: 700; text-align: right; }
+ #review-cancel { font-size: .9rem; line-height: 1.5; color: var(--sub); margin: 0 0 12px; }
+ #panel-review h2 {
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-size: 1.25rem; letter-spacing: -.02em; margin-bottom: 12px;
+ }
 
  .strength-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
  .strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; width: 0%; }
@@ -386,11 +404,29 @@ input{border-radius:12px;min-height:48px}
  </div>
 
  <button class="btn" id="register-btn" onclick="doRegister()">Create Free Account</button>
- <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">Stripe Checkout opens next. You set your password after checkout from the link we email you.</p>
+ <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">Next you review the plan, the price and the first billing date. Stripe Checkout opens only after you confirm. You set your password after checkout from the link we email you.</p>
 
  <div class="foot">
  Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
  </div>
+ </div>
+
+ <!-- REVIEW: shown before any Stripe Checkout session is created -->
+ <div class="panel" id="panel-review">
+  <div class="error-msg" id="review-error"></div>
+  <div class="success-msg" id="review-success"></div>
+  <p class="review-kicker">Review before payment</p>
+  <h2>Confirm your trial</h2>
+  <dl class="review-list">
+   <div><dt>Plan</dt><dd id="review-plan">Premium</dd></div>
+   <div><dt>Price</dt><dd id="review-price">A$19.99 a month</dd></div>
+   <div><dt>Today</dt><dd id="review-today">A$0</dd></div>
+   <div><dt>Trial</dt><dd id="review-terms">14-day trial, card on file.</dd></div>
+   <div><dt>First billing date</dt><dd id="review-date"></dd></div>
+  </dl>
+  <p id="review-cancel">Cancel before that date and you are not charged.</p>
+  <button class="btn" id="review-confirm" type="button" onclick="confirmCheckoutReview()">Confirm and continue to Stripe</button>
+  <button class="btn btn-quiet" id="review-back" type="button" onclick="hideCheckoutReview()">Back</button>
  </div>
 </div>
 
@@ -430,6 +466,8 @@ input{border-radius:12px;min-height:48px}
  // unless STRIPE_PRICE_PREMIUM_ANNUAL is set, so a stale link fails safe.
  const annualBilling = plan === 'premium' && urlParams.get('billing') === 'annual';
  const premiumCheckoutPlan = annualBilling ? 'premium-annual' : 'premium';
+ // Same length as TRIAL_PERIOD_DAYS in lib/fitmunch-checkout.js. Do not change it here.
+ const TRIAL_DAYS = 14;
  // Email-first trial: a signed-out Premium visitor gives only an email, pays
  // Stripe Checkout straight away, then sets a password from the emailed link.
  let emailFirst = false;
@@ -461,11 +499,11 @@ input{border-radius:12px;min-height:48px}
   if (regBtn && plan === 'premium') regBtn.textContent = registerLabel;
   if (banner && plan === 'premium') {
     const priceLine = annualBilling ? 'A$149.99 a year' : 'A$19.99 a month';
-    const firstCharge = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    const firstCharge = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
       .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     banner.querySelector('div').textContent = '14-day free trial';
     banner.querySelectorAll('div')[1].textContent = (emailFirst
-      ? 'Enter your email and secure Stripe Checkout opens next. '
+      ? 'Enter your email, then review the plan before any payment. '
       : 'Create your account, then Stripe opens. ') + '14-day free trial, then ' + priceLine + ' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: ' + firstCharge + '.';
   }
   if (emailFirst) {
@@ -783,12 +821,18 @@ input{border-radius:12px;min-height:48px}
  finally { btn.disabled = false; btn.textContent = 'Set new password'; }
  }
 
+ function idleLabel(btnId) {
+  if (btnId === 'login-btn') return 'Sign In';
+  if (btnId === 'review-confirm') return 'Confirm and continue to Stripe';
+  return registerLabel;
+ }
  function setLoading(btnId, loading) {
  const btn = document.getElementById(btnId);
+ if (!btn) return;
  btn.disabled = loading;
  btn.innerHTML = loading
  ? '<span class="spinner"></span>Please wait...'
- : (btnId === 'login-btn' ? 'Sign In' : registerLabel);
+ : idleLabel(btnId);
  }
 
  function showError(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
@@ -840,15 +884,71 @@ input{border-radius:12px;min-height:48px}
  }
  }
 
- async function doEmailFirstTrial() {
+ function reviewIsOpen() {
+  const review = document.getElementById('panel-review');
+  return !!(review && review.classList.contains('active'));
+ }
+ function trialBtnId() {
+  return reviewIsOpen() ? 'review-confirm' : 'register-btn';
+ }
+ function showCheckoutReview() {
   hideMsg('register');
+  hideMsg('review');
   const email = document.getElementById('reg-email').value.trim().toLowerCase();
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
    showError('register-error', 'Enter the email you want on the account.');
    return;
   }
+  const priceLine = annualBilling ? 'A$149.99 a year' : 'A$19.99 a month';
+  const firstLabel = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+   .toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  document.getElementById('review-plan').textContent = 'Premium';
+  document.getElementById('review-price').textContent = priceLine;
+  document.getElementById('review-today').textContent = 'A$0';
+  document.getElementById('review-terms').textContent = TRIAL_DAYS + '-day trial, card on file.';
+  document.getElementById('review-date').textContent = firstLabel;
+  document.getElementById('review-cancel').textContent = 'Cancel before ' + firstLabel + ' and you are not charged.';
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.style.display = 'none';
+  const intent = document.getElementById('premium-intent');
+  if (intent) intent.style.display = 'none';
+  ['panel-register', 'panel-login', 'panel-forgot', 'panel-reset'].forEach((id) => {
+   const panel = document.getElementById(id);
+   if (panel) panel.classList.remove('active');
+  });
+  document.getElementById('panel-review').classList.add('active');
+  const card = document.querySelector('.card');
+  if (card) card.classList.add('review-open');
+ }
+ function hideCheckoutReview() {
+  hideMsg('review');
+  const review = document.getElementById('panel-review');
+  if (review) review.classList.remove('active');
+  const card = document.querySelector('.card');
+  if (card) card.classList.remove('review-open');
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.style.display = '';
+  const intent = document.getElementById('premium-intent');
+  if (intent && paidPlan) intent.style.display = 'block';
+  showTab('register');
+ }
+ function confirmCheckoutReview() {
+  if (authInFlight || checkoutInFlight) return;
+  return doEmailFirstTrial();
+ }
+
+ async function doEmailFirstTrial() {
+  hideMsg('register');
+  hideMsg('review');
+  const email = document.getElementById('reg-email').value.trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+   showError('register-error', 'Enter the email you want on the account.');
+   showError('review-error', 'Enter the email you want on the account.');
+   return;
+  }
   authInFlight = true;
-  setLoading('register-btn', true);
+  const btnId = trialBtnId();
+  setLoading(btnId, true);
   let leaving = false;
   try {
    const r = await fetch('/api/quick-checkout', {
@@ -859,18 +959,20 @@ input{border-radius:12px;min-height:48px}
    const d = await parseApiJson(r);
    if (!d.success) throw new Error(d.error || 'Something went wrong. Please try again.');
    try { if (window.FMTrack) window.FMTrack.send('trial_email_submit', { plan: premiumCheckoutPlan }); } catch (e) {}
-   const btn = document.getElementById('register-btn');
+   const btn = document.getElementById(btnId);
    if (d.signIn) {
     // Already a member: no second subscription. The sign-in link is in the inbox.
     leaving = true;
-    ['reg-email', 'register-btn'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
+    ['reg-email', 'register-btn', 'review-confirm'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = true; });
     if (btn) btn.textContent = 'Check your email';
     const signInNote = document.getElementById('email-first-note');
     if (signInNote) signInNote.style.display = 'none';
     // The trial banner does not apply to a member who already has Premium.
     const signInIntent = document.getElementById('premium-intent');
     if (signInIntent) signInIntent.style.display = 'none';
-    showSuccess('register-success', d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.');
+    const signedIn = d.message || 'You already have FitMunch Premium on this email. We sent you a sign-in link.';
+    showSuccess('register-success', signedIn);
+    showSuccess('review-success', signedIn);
     return;
    }
    if (!d.url || !/^https:\/\//.test(d.url)) throw new Error('Could not open Stripe checkout.');
@@ -880,13 +982,18 @@ input{border-radius:12px;min-height:48px}
     // No trial applies, so the banner and note must not promise one.
     const intent = document.getElementById('premium-intent');
     if (intent) {
+     intent.style.display = 'block';
      intent.querySelector('div').textContent = 'PREMIUM';
      intent.querySelectorAll('div')[1].textContent = d.notice + ' Card required. Cancel anytime from Billing.';
     }
     const paidNote = document.getElementById('email-first-note');
     if (paidNote) paidNote.textContent = 'Secure Stripe Checkout opens next. Your first charge is today.';
+    const today = document.getElementById('review-today');
+    if (today) today.textContent = annualBilling ? 'A$149.99 a year' : 'A$19.99 a month';
+    const cancel = document.getElementById('review-cancel');
+    if (cancel) cancel.textContent = 'Your first charge is today. Cancel anytime from Billing.';
     if (btn) {
-     setLoading('register-btn', false);
+     setLoading(btnId, false);
      btn.textContent = 'Continue to secure checkout';
      btn.onclick = (ev) => { ev.preventDefault(); window.location.href = d.url; };
     }
@@ -895,16 +1002,18 @@ input{border-radius:12px;min-height:48px}
    if (btn) btn.textContent = 'Opening Stripe...';
    window.location.href = d.url;
   } catch (error) {
-   showError('register-error', error.message || 'Could not open Stripe checkout.');
+   const msg = error.message || 'Could not open Stripe checkout.';
+   showError('register-error', msg);
+   showError('review-error', msg);
   } finally {
    authInFlight = false;
-   if (!leaving) setLoading('register-btn', false);
+   if (!leaving) setLoading(btnId, false);
   }
  }
 
  async function doRegister() {
  if (authInFlight || checkoutInFlight) return;
- if (emailFirst && !pendingClaim) return doEmailFirstTrial();
+ if (emailFirst && !pendingClaim) return showCheckoutReview();
  hideMsg('register');
  let name = document.getElementById('reg-name').value.trim();
  const nameGroupEl = document.getElementById('reg-name-group');

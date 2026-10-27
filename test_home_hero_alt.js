@@ -3,7 +3,7 @@
 // 150g protein week: the personal opening line, Wednesday's totals and its breakfast with Swap open.
 // Render script: /workspace/shots/pr87-r6/render-hero.js; its measurements are in
 // scripts/fixtures/hero-app-render.json. Figcaption and pixel sizes stay pinned to the builder.
-// The alt is numberless so it does not disagree with the sample-day card.
+// The alt names the Wednesday screen and the open Swap list, without the fixture numbers.
 const fs = require('fs');
 const path = require('path');
 const engine = require('./lib/meal-plan-engine');
@@ -17,17 +17,17 @@ const wed = plan.days.find((d) => d.day === 'Wednesday');
 
 describe('home hero app render alt text and caption', () => {
   it('the alt describes the preview and does not repeat the card totals', () => {
-    expect(alt).toBe('Preview of a generated Wednesday meal plan');
+    expect(alt).toBe('Wednesday meal plan in the FitMunch app, with breakfast and Swap open');
     expect(alt).not.toMatch(/\d/);
     expect(FX.dayTotals).toEqual({ calories: wed.dailyTotals.calories, protein: wed.dailyTotals.protein });
     expect(wed.meals.breakfast.name).toBe(FX.breakfast);
   });
-  it('the figcaption numbers are the builder inputs (EQA L1)', () => {
+  it('the figcaption does not repeat a sample day', () => {
     const cap = (html.match(/<figure class="hero-shot">[\s\S]*?<figcaption>([^<]*)<\/figcaption>/) || [])[1] || '';
-    const kcal = Number((cap.match(/([\d,]+) kcal/) || [])[1].replace(/,/g, ''));
-    const prot = Number((cap.match(/(\d+)g protein/) || [])[1]);
-    expect([kcal, prot]).toEqual([FX.inputs.calories, FX.inputs.protein]);
-    expect(cap).toContain(`${FX.inputs.weightKg}kg cutting to ${FX.inputs.goalKg}kg`);
+    expect(cap).toBe('The week screen in the FitMunch app.');
+    expect(cap).not.toMatch(/\d/);
+    expect(html).not.toContain('Sample Wednesday');
+    expect(html).not.toContain('id="plan-demo"');
   });
   it('declares the real pixel size of the webp, and the CSS aspect ratio matches', () => {
     const buf = fs.readFileSync(path.join(__dirname, 'public', 'assets', 'fm-app-week.webp'));

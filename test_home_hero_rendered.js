@@ -177,6 +177,16 @@ maybe('contrast guards, measured', () => {
     await ctx.close();
   });
 
+  it('hero trial button is at least 44px tall at 320px', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 900 } });
+    const p = await ctx.newPage();
+    await p.goto(`${base}/`);
+    const box = await p.locator('.hero-ctas .btn').first().boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await ctx.close();
+  });
+
   it('trial door note is at least 4.5:1 and 12px', async () => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } });
     const p = await ctx.newPage();

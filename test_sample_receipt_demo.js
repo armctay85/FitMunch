@@ -57,6 +57,7 @@ describe('sample receipt demo r2', () => {
     expect(html).not.toContain('id="demo-run"');
     expect(html).not.toContain('Score the sample receipt');
     expect(html).not.toContain('SAMPLE RECEIPT');
+    expect(html).not.toContain('function sampleReceiptDemo');
     expect(html).not.toContain('/api/receipt/demo');
     expect(html).not.toContain('fm-plan-demo.js');
     expect(html).not.toMatch(/sample wednesday/i);

@@ -22,13 +22,22 @@ function startFreeHrefs(html) {
 }
 
 describe('Trust bar 1: app is gated', () => {
-  it('GET /app.html hides the cockpit until fm-authed and sends visitors to login', async () => {
+  it('GET /app.html hides the cockpit until fm-authed and shows a signed-out first run', async () => {
     const res = await request(app).get('/app.html').expect(200);
     expect(res.text).toContain('id="app-gate"');
-    expect(res.text).toContain('Sign in to FitMunch');
+    expect(res.text).toContain('Build your first week');
+    expect(res.text).toContain('id="fr-goal"');
+    expect(res.text).toContain('id="fr-weight"');
+    expect(res.text).toContain('id="fr-target"');
+    expect(res.text).toContain('id="fr-training"');
+    expect(res.text).toContain('No card is needed.');
+    expect(res.text).toContain('A card is needed for the trial.');
     expect(res.text).toContain('html:not(.fm-authed) .shell');
     expect(res.text).toContain('display:none!important');
-    expect(res.text).toContain("location.replace('/login.html')");
+    expect(res.text).toContain("classList.add('fm-guest')");
+    expect(res.text).toContain("location.hash === '#billing'");
+    expect(res.text).toContain("window.location.replace('/login.html?next=billing')");
+    expect(res.text).not.toContain("location.replace('/login.html')");
     expect(res.text).toContain("role: 'client'");
     expect(res.text).not.toMatch(/<html[^>]*\bfm-authed\b/);
     const meIdx = res.text.indexOf("API('/auth/me')");
@@ -156,8 +165,14 @@ describe('Trust bar 6b: homepage proof is the visitor receipt, not a sample shop
     expect(res.text).not.toContain('SAMPLE RECEIPT');
     expect(res.text).not.toContain('/api/receipt/demo');
     expect(res.text).toContain('id="first-scan"');
+    expect(res.text).not.toContain('Score the sample receipt');
+    expect(res.text).not.toContain('Sample Wednesday');
+    expect(res.text).not.toContain('92 haul');
     expect(res.text).toContain('not a demo shop');
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+    const pricing = await request(app).get('/pricing').expect(200);
+    expect(pricing.text).not.toContain('92 haul');
+    expect(pricing.text).not.toContain('92 haul score');
   });
 });
 

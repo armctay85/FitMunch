@@ -776,6 +776,37 @@ async function quickCheckoutEmailLimited(canonical) {
   }
 }
 
+// Signed-out first week. No account, no AI, no saved sample day.
+const { previewWeek } = require('./lib/first-run-plan');
+const firstRunLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many previews. Please try again later.' },
+});
+app.post('/api/first-run/preview', firstRunLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const out = previewWeek({
+      goal: body.goal,
+      weightKg: body.weightKg,
+      targetWeightKg: body.targetWeightKg,
+      training: body.training,
+    });
+    res.set('Cache-Control', 'no-store');
+    res.json(out);
+  } catch (err) {
+    const status = Number(err && err.status) || 500;
+    if (status >= 500) {
+      console.error('[first-run] preview failed');
+      return res.status(500).json({ success: false, error: 'Could not build your day. Try again.' });
+    }
+    res.status(status).json({ success: false, error: err.message || 'Check those numbers and try again.' });
+  }
+});
+
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
 app.post('/api/quick-checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ success: false, error: 'Stripe not configured.' });
