@@ -146,7 +146,7 @@ describe('XcodeGen info.properties launch screen and RevenueCat key', () => {
     expect(properties.ITSAppUsesNonExemptEncryption).toBe(false);
     expect(properties.REVENUECAT_API_KEY.startsWith('appl_')).toBe(true);
     expect(properties.REVENUECAT_API_KEY).not.toBe('appl_xxx');
-    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"10"/);
+    expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"11"/);
   });
 
   it('rejects a plist spec that drops the launch screen, the key, or adds Health', () => {

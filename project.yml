@@ -18,19 +18,25 @@ schemes:
       targets:
         - FitMunchTests
         - FitMunchUITests
-  # Local products for the pre-ASC audit only. The FitMunch scheme stays clean so
-  # App Store screenshot capture and archive do not attach a StoreKit config.
+  # Local products for the pre-ASC audit and the width capture. The FitMunch
+  # scheme stays clean so screenshot capture and archive do not attach a catalog.
   FitMunchStoreKit:
     build:
       targets:
         FitMunch: all
         FitMunchTests: [test]
         FitMunchUITests: [test]
+    run:
+      # The catalog file belongs on this scheme's run action. A top-level scheme key is ignored.
+      language: en
+      region: AU
+      storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
     test:
       targets:
         - FitMunchTests
         - FitMunchUITests
-    storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
+      language: en
+      region: AU
   # Same app, no StoreKit configuration, so Product.products hits sandbox/App Store.
   FitMunchSandboxProbe:
     build:
@@ -108,10 +114,12 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         TEST_TARGET_NAME: FitMunch
+    configFiles:
+      Debug: FitMunchTests/UnitTestLink.xcconfig
+      Release: FitMunchTests/UnitTestLink.xcconfig
     dependencies:
       - target: FitMunch
       - sdk: StoreKit.framework
-      - sdk: StoreKitTest.framework
 
   FitMunchUITests:
     type: bundle.ui-testing
@@ -121,6 +129,7 @@ targets:
       - path: FitMunchUITests
         excludes:
           - "*.storekit"
+          - "*.xcconfig"
       - path: FitMunchUITests/FitMunchProducts.storekit
         buildPhase: resources
     settings:
@@ -130,6 +139,8 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         TEST_TARGET_NAME: FitMunch
+    configFiles:
+      Debug: FitMunchUITests/UITestLink.xcconfig
+      Release: FitMunchUITests/UITestLink.xcconfig
     dependencies:
       - target: FitMunch
-      - sdk: StoreKitTest.framework

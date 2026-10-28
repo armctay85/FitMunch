@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Keep StoreKit configuration files off the generated schemes.
 
-xcodebuild test on Xcode 26.6 does not apply StoreKitConfigurationFileReference.
-With that reference present, SKTestSession fails to save the catalog
-(SKInternalErrorDomain Code=3) and Product.products stays on the live US store.
-Without it, SKTestSession(contentsOf:) in the test process loads FitMunchProducts.storekit.
-The app does not start that session. Checks that need it beside the app are skipped.
+Jobs that want the Australia catalog attach it themselves. This script
+removes the configuration so the remaining schemes do not override product
+requests.
 """
 
 from pathlib import Path

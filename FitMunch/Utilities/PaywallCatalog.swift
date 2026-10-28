@@ -70,7 +70,6 @@ enum PaywallLoadPolicy {
 enum PaywallLaunchArgument {
     static let forceEmpty = "-PaywallForceEmpty"
     /// Skips RevenueCat so StoreKit product prices are what the paywall shows.
-    /// Does not start an SKTestSession in the app.
     static let localStoreKit = "-UseLocalStoreKit"
     static let sandboxProbe = "-SandboxProductProbe"
 
@@ -178,13 +177,31 @@ enum PaywallPricing {
         "\(intro.periodValue)-\(billingPeriodWord(intro.periodUnit))"
     }
 
-    static func introDays(_ intro: PaywallIntroOffer) -> Int {
+    /// Trial end from the StoreKit intro period. A month lands on the same day next month.
+    static func trialEndDate(
+        _ intro: PaywallIntroOffer,
+        from start: Date = .now,
+        calendar: Calendar = .current
+    ) -> Date? {
+        let component: Calendar.Component
         switch intro.periodUnit {
-        case .day: return intro.periodValue
-        case .week: return intro.periodValue * 7
-        case .month: return intro.periodValue * 30
-        case .year: return intro.periodValue * 365
+        case .day: component = .day
+        case .week: component = .weekOfYear
+        case .month: component = .month
+        case .year: component = .year
         }
+        let startDay = calendar.startOfDay(for: start)
+        return calendar.date(byAdding: component, value: intro.periodValue, to: startDay)
+    }
+
+    static func introDays(
+        _ intro: PaywallIntroOffer,
+        from start: Date = .now,
+        calendar: Calendar = .current
+    ) -> Int {
+        guard let end = trialEndDate(intro, from: start, calendar: calendar) else { return 0 }
+        let startDay = calendar.startOfDay(for: start)
+        return calendar.dateComponents([.day], from: startDay, to: end).day ?? 0
     }
 
     /// Trial button only when StoreKit has a free intro and the account is eligible.

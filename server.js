@@ -656,7 +656,11 @@ function quickCheckoutCancelPath(plan) {
 // Public pricing switches. Annual shows only when its Stripe price is set.
 app.get('/api/pricing/config', (_req, res) => {
   res.set('Cache-Control', 'public, max-age=300');
-  res.json({ success: true, premiumAnnual: premiumAnnualAvailable() });
+  res.json({
+    success: true,
+    premiumAnnual: premiumAnnualAvailable(),
+    freeAiMonthly: require('./lib/ai-usage').freeMonthlyLimit(),
+  });
 });
 
 // Signed-out checkout (Wilson's ruling, PR 78 r2): go straight to Stripe.
@@ -1323,6 +1327,14 @@ app.use((err, req, res, next) => {
   if (jsonParseError) {
     console.error('Invalid JSON body');
     return res.status(400).json({ success: false, error: 'Invalid JSON' });
+  }
+  const receiptPath = String(req.originalUrl || req.url || '').split('?')[0];
+  const tooLarge = err && (err.type === 'entity.too.large' || Number(err.status || err.statusCode) === 413);
+  if (tooLarge && /\/api\/receipt(?:\/|$)/.test(receiptPath)) {
+    return res.status(413).json({
+      success: false,
+      error: require('./lib/receipt-image').TOO_LARGE_MESSAGE,
+    });
   }
   console.error(err);
   let code = Number(err.status || err.statusCode);

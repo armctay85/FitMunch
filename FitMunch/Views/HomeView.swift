@@ -5,7 +5,6 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: HomeViewModel
-    @ObservedObject private var network = NetworkMonitor.shared
     @State private var showLogMeal = false
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
@@ -18,12 +17,18 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.six) {
-                    OfflineNotice(prominent: true)
+                    OfflineNotice()
 
                     dateNavigation
-                    progressSection
-                    summarySection
-                    mealsSection
+                    if viewModel.isLoading {
+                        LoadingSkeleton(rows: 4, label: "Loading today", identifier: "today-loading")
+                    } else if showsEmptyMeals {
+                        mealsSection
+                    } else {
+                        progressSection
+                        summarySection
+                        mealsSection
+                    }
                 }
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
@@ -50,20 +55,13 @@ struct HomeView: View {
                 }
             }
             .sensoryFeedback(.warning, trigger: freeLimitHits)
-            .sheet(isPresented: $showLogMeal) {
+            .sheet(isPresented: $showLogMeal, onDismiss: {
+                viewModel.loadMealsForSelectedDate()
+            }) {
                 DetailView(modelContext: modelContext)
             }
             .fullScreenCover(isPresented: $showPaywall) {
                 PaywallView()
-            }
-            .overlay {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(Theme.Radius.large)
-                }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") {
@@ -81,6 +79,11 @@ struct HomeView: View {
         }
     }
 
+    /// Zero rings were pushing "No meals logged today" below the fold.
+    private var showsEmptyMeals: Bool {
+        viewModel.meals.isEmpty && !viewModel.isLoading
+    }
+
     private var dateNavigation: some View {
         HStack {
             Button {
@@ -88,6 +91,8 @@ struct HomeView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.headline)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Previous day")
 
@@ -116,6 +121,8 @@ struct HomeView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.headline)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .disabled(viewModel.isToday)
             .accessibilityLabel("Next day")
@@ -227,9 +234,7 @@ struct HomeView: View {
                 }
             }
 
-            if viewModel.meals.isEmpty && !network.isOnline {
-                OfflineNotice(prominent: true)
-            } else if viewModel.meals.isEmpty {
+            if viewModel.meals.isEmpty {
                 ContentUnavailableView {
                     Label("No meals logged today", systemImage: "fork.knife")
                 } description: {
@@ -368,6 +373,7 @@ private struct MealCard: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.one) {
                     Text(meal.name)
                         .font(.headline)
+                        .accessibilityIdentifier("today-meal-name")
                     Text(Constants.timeFormatter.string(from: meal.date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -387,7 +393,12 @@ private struct MealCard: View {
             }
 
             HStack {
-                NutritionBadge(value: meal.totalCalories, unit: "cal", color: .red)
+                NutritionBadge(
+                    value: meal.totalCalories,
+                    unit: "cal",
+                    color: .red,
+                    identifier: "today-meal-calories"
+                )
                 NutritionBadge(value: meal.totalProtein, unit: "P", color: Theme.brandGreen)
                 NutritionBadge(value: meal.totalCarbs, unit: "C", color: .orange)
                 NutritionBadge(value: meal.totalFats, unit: "F", color: .mint)
@@ -416,6 +427,7 @@ private struct NutritionBadge: View {
     let value: Int
     let unit: String
     let color: Color
+    var identifier: String? = nil
 
     var body: some View {
         HStack(spacing: 2) {
@@ -431,6 +443,26 @@ private struct NutritionBadge: View {
         .background(color.opacity(0.1))
         .foregroundStyle(color)
         .cornerRadius(Theme.Spacing.one)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value)")
+        .modifier(MealBadgeID(identifier))
+    }
+}
+
+private struct MealBadgeID: ViewModifier {
+    let identifier: String?
+
+    init(_ identifier: String?) {
+        self.identifier = identifier
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 

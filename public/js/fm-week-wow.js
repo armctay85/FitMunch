@@ -95,6 +95,17 @@
     return t;
   }
 
+  /**
+   * The number the step 3 header shows: the target from step 2 when the week's average rounds to within 1% of it
+   * (so 1,859 vs 1,860 never shows two numbers), else the week's real average (eg after swaps move it).
+   */
+  function shownTarget(avg, target) {
+    const a = Number(avg); const t = Number(target);
+    if (!(a > 0)) return t > 0 ? t : 0;
+    if (t > 0 && Math.abs(a - t) <= t * 0.01) return t;
+    return a;
+  }
+
   /** Week averages of the (possibly swapped) days. */
   function weekAverages(plan) {
     const days = (plan && plan.days) || [];
@@ -119,5 +130,5 @@
     return day;
   }
 
-  return { RATES, MAX_WEEKS, GOAL_MIN_KG, GOAL_MAX_KG, GOAL_MAX_SHARE, validGoalWeight, direction, projectWeight, headerLine, dayTotals, weekAverages, swapMeal, thousands };
+  return { RATES, MAX_WEEKS, GOAL_MIN_KG, GOAL_MAX_KG, GOAL_MAX_SHARE, validGoalWeight, direction, projectWeight, headerLine, dayTotals, weekAverages, shownTarget, swapMeal, thousands };
 }));

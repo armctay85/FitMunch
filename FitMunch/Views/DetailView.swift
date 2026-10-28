@@ -8,9 +8,15 @@ struct DetailView: View {
     @StateObject private var viewModel: DetailViewModel
     @State private var quantity: String = "1.0"
     @State private var manualName: String = ""
+    @State private var quickCalories: String = ""
+    @State private var quickProtein: String = ""
+    @State private var quickCarbs: String = ""
+    @State private var quickFat: String = ""
+    @State private var recentLogs: [Meal] = []
     @State private var selectedFoodItem: FoodItem?
     @State private var showQuantitySheet = false
     @State private var mealSavedTick = 0
+    @FocusState private var caloriesFocused: Bool
     
     init(modelContext: ModelContext, meal: Meal? = nil) {
         if let meal = meal {
@@ -28,6 +34,53 @@ struct DetailView: View {
                     TextField("Meal name (e.g., Breakfast, Lunch)", text: $viewModel.mealName)
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("meal-name")
+                }
+
+                Section {
+                    TextField("Calories", text: $quickCalories)
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($caloriesFocused)
+                        .accessibilityIdentifier("meal-quick-calories")
+                    Text("Protein, carbs, and fat are optional.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: Theme.Spacing.two) {
+                        macroField("Protein", text: $quickProtein, id: "meal-quick-protein")
+                        macroField("Carbs", text: $quickCarbs, id: "meal-quick-carbs")
+                        macroField("Fat", text: $quickFat, id: "meal-quick-fat")
+                    }
+                } header: {
+                    Text("Quick add")
+                }
+                .onAppear {
+                    caloriesFocused = true
+                    recentLogs = viewModel.recentLogs()
+                }
+
+                if !recentLogs.isEmpty {
+                    Section("Log again") {
+                        ForEach(recentLogs) { meal in
+                            Button {
+                                Task {
+                                    if await viewModel.relog(meal) {
+                                        mealSavedTick += 1
+                                        try? await Task.sleep(for: .milliseconds(160))
+                                        dismiss()
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(meal.name)
+                                    Spacer()
+                                    Text("\(meal.totalCalories) cal")
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                }
+                            }
+                            .accessibilityIdentifier("meal-relog")
+                        }
+                    }
                 }
                 
                 // No nutrition search source is connected. Do not show invented foods.
@@ -141,6 +194,7 @@ struct DetailView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
+                        syncQuickEntry()
                         Task {
                             if await viewModel.saveMeal() {
                                 mealSavedTick += 1
@@ -149,7 +203,7 @@ struct DetailView: View {
                             }
                         }
                     }
-                    .disabled(!viewModel.canSave)
+                    .disabled(!canCommitMeal)
                     .accessibilityIdentifier("meal-save")
                 }
             }
@@ -162,6 +216,11 @@ struct DetailView: View {
                         .cornerRadius(16)
                 }
             }
+            .onChange(of: quickCalories) { _, _ in syncQuickEntry() }
+            .onChange(of: quickProtein) { _, _ in syncQuickEntry() }
+            .onChange(of: quickCarbs) { _, _ in syncQuickEntry() }
+            .onChange(of: quickFat) { _, _ in syncQuickEntry() }
+            .onChange(of: viewModel.mealName) { _, _ in syncQuickEntry() }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") {
                     viewModel.errorMessage = nil
@@ -192,6 +251,36 @@ struct DetailView: View {
                 }
             }
         }
+    }
+
+    private func macroField(_ title: String, text: Binding<String>, id: String) -> some View {
+        TextField(title, text: text)
+            .keyboardType(.numberPad)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityIdentifier(id)
+    }
+
+    /// Digits the person typed. Empty stays 0. Nothing here is looked up.
+    private func wholeNumber(_ text: String) -> Int {
+        Int(text.filter(\.isNumber)) ?? 0
+    }
+
+    /// Quick add can save from the typed calories before the row is committed.
+    /// Manual add still needs a food row, and still stores no looked-up calories.
+    private var canCommitMeal: Bool {
+        let named = !viewModel.mealName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if !named { return false }
+        if wholeNumber(quickCalories) > 0 { return true }
+        return viewModel.canSave
+    }
+
+    private func syncQuickEntry() {
+        viewModel.setQuickEntry(
+            calories: wholeNumber(quickCalories),
+            protein: wholeNumber(quickProtein),
+            carbs: wholeNumber(quickCarbs),
+            fats: wholeNumber(quickFat)
+        )
     }
 }
 
@@ -352,7 +441,7 @@ private struct QuantitySheet: View {
                                 }
                             }
                             .padding()
-                            .background(Color.gray.opacity(0.1))
+                            .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
                         }
                     }

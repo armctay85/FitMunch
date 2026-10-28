@@ -10,6 +10,7 @@ class SettingsViewModel: ObservableObject {
     @Published var useMetricUnits: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var noticeMessage: String?
     @Published var showContactSupport: Bool = false
     @Published var showPrivacyPolicy: Bool = false
     @Published var showTermsOfService: Bool = false
@@ -62,12 +63,11 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
-    /// Toggle notifications
-    func toggleNotifications() {
-        notificationsEnabled.toggle()
+    /// The toggle binding already stored the new value. Do not flip it again.
+    func setNotificationsEnabled(_ enabled: Bool) {
+        notificationsEnabled = enabled
         savePreferences()
-        
-        if notificationsEnabled {
+        if enabled {
             requestNotificationPermission()
         }
     }
@@ -86,9 +86,9 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
-    /// Toggle metric units
-    func toggleMetricUnits() {
-        useMetricUnits.toggle()
+    /// The toggle binding already stored the new value. Do not flip it again.
+    func setMetricUnits(_ enabled: Bool) {
+        useMetricUnits = enabled
         savePreferences()
     }
     
@@ -99,9 +99,10 @@ class SettingsViewModel: ObservableObject {
         
         let success = await premiumManager.restorePurchases()
         if success {
-            errorMessage = "Purchases restored successfully"
+            errorMessage = nil
+            noticeMessage = "Purchases restored."
         } else {
-            errorMessage = "No purchases to restore or restore failed"
+            errorMessage = premiumManager.errorMessage ?? "No purchases to restore or restore failed"
         }
     }
     
