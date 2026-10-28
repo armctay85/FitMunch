@@ -52,12 +52,6 @@ final class MealLogTiming: ObservableObject {
     func disarmWaits() {
         guard Self.isEnabled else { return }
         UIView.setAnimationsEnabled(false)
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        for scene in scenes {
-            for window in scene.windows {
-                window.layer.speed = 100
-            }
-        }
     }
 
     func markFirstFrame(width: Int) {

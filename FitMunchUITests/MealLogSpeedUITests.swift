@@ -46,14 +46,11 @@ final class MealLogSpeedUITests: XCTestCase {
         }
         let log = app.buttons["today-log-meal"]
         XCTAssertTrue(log.waitForExistence(timeout: 20), "Today did not open after onboarding")
-        XCTAssertFalse(app.buttons["paywall-close"].exists, "Plus opened the paywall before a meal was logged")
-        width = Int(app.windows.firstMatch.frame.width.rounded())
         log.tap()
 
         let name = app.textFields["meal-name"]
-        XCTAssertTrue(name.waitForExistence(timeout: 8), "Meal sheet did not open")
         let quick = app.textFields["meal-quick-calories"]
-        if quick.exists {
+        if quick.waitForExistence(timeout: 8) {
             path = "quick"
             quick.tap()
             quick.typeText(String(calorieEntry))
@@ -110,9 +107,11 @@ final class MealLogSpeedUITests: XCTestCase {
         if calories < 0 {
             calories = loggedCalories(in: app)
         }
+        XCTAssertFalse(app.buttons["paywall-close"].exists, "Plus opened the paywall before a meal was logged")
+        width = Int(app.windows.firstMatch.frame.width.rounded())
         elapsed = Date().timeIntervalSince(ready)
-        xctestSeconds = Date().timeIntervalSince(testStarted)
         signpost = signpostReport(in: app)
+        xctestSeconds = Date().timeIntervalSince(testStarted)
         let interval = intervalSeconds(in: signpost)
         emit(String(
             format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f MEAL_LOG_XCTEST %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",

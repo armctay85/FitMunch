@@ -49,6 +49,18 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/meal-log-speed
 
+          # Launch the test without LLDB. The debugger version store stalls
+          # "Setting up automation session" for about 30s, and that wait is
+          # inside the XCTest clock.
+          SCHEME="FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunch.xcscheme"
+          if [[ -f "$SCHEME" ]]; then
+            sed -i '' \
+              -e 's/selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"/selectedDebuggerIdentifier = ""/g' \
+              -e 's/selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"/selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"/g' \
+              "$SCHEME"
+            grep -n "selectedDebuggerIdentifier\|selectedLauncherIdentifier" "$SCHEME" || true
+          fi
+
           udid_for() {
             xcrun simctl list devices available \
               | grep -F "$1 (" \
@@ -105,7 +117,9 @@ jobs:
 
           # Boot before xcodebuild so "Setting up automation session" is not
           # the simulator's first boot. The speed test's XCTest clock includes that wait.
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool YES || true
           defaults write com.apple.dt.Xcode DVTIgnoreDebuggerVersionMismatch -bool YES || true
+          open -a Simulator || true
           boot_sim() {
             local udid="$1"
             xcrun simctl boot "$udid" >/dev/null 2>&1 || true

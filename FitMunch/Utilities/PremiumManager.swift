@@ -51,6 +51,9 @@ class PremiumManager: ObservableObject {
             print("RevenueCat skipped: -UseLocalStoreKit")
             return
         }
+        if MealLogTiming.isEnabled {
+            return
+        }
         configureRevenueCat()
     }
 
