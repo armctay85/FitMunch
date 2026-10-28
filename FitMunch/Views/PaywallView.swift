@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Paywall screen for subscription purchases. Prices and trial copy come from StoreKit.
 struct PaywallView: View {
@@ -370,11 +369,19 @@ struct PaywallView: View {
         return "Premium is on."
     }
 
-    /// 44pt target on the control XCTest taps. A SwiftUI Button drops its
-    /// identifier on iOS 26, and a bordered style measured about 20pt.
+    /// 44pt target. The width test measures the element that carries the identifier.
+    /// children: .ignore collapsed that element to the footnote line, about 20pt.
     private func legalButton(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
-        PaywallLegalButton(title: title, identifier: identifier, action: action)
-            .frame(maxWidth: .infinity, minHeight: 44)
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(identifier)
+        }
+        .buttonStyle(PaywallLegalButtonStyle(identifier: identifier))
+        .accessibilityIdentifier(identifier)
     }
 
     private func open(_ string: String) {
@@ -487,48 +494,21 @@ private struct PackageCard: View {
     }
 }
 
-/// Real 44pt control. The identifier sits on this button, which is what gets tapped.
-private struct PaywallLegalButton: UIViewRepresentable {
-    var title: String
+/// Fixed 44pt hit target. Combine keeps the laid-out frame. Ignore shrank it to the text line.
+private struct PaywallLegalButtonStyle: ButtonStyle {
     var identifier: String
-    var action: () -> Void
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(action: action)
-    }
-
-    func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .system)
-        button.titleLabel?.font = .preferredFont(forTextStyle: .footnote)
-        button.titleLabel?.adjustsFontForContentSizeCategory = true
-        button.setTitleColor(Self.secondary, for: .normal)
-        button.addTarget(context.coordinator, action: #selector(Coordinator.tap), for: .touchUpInside)
-        return button
-    }
-
-    func updateUIView(_ button: UIButton, context: Context) {
-        context.coordinator.action = action
-        button.setTitle(title, for: .normal)
-        button.setTitleColor(Self.secondary, for: .normal)
-        button.accessibilityIdentifier = identifier
-        button.accessibilityLabel = title
-        button.isAccessibilityElement = true
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
-        CGSize(width: proposal.width ?? 44, height: max(proposal.height ?? 44, 44))
-    }
-
-    private static let secondary = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 184.0 / 255.0, green: 184.0 / 255.0, blue: 184.0 / 255.0, alpha: 1)
-            : UIColor(red: 89.0 / 255.0, green: 89.0 / 255.0, blue: 89.0 / 255.0, alpha: 1)
-    }
-
-    final class Coordinator: NSObject {
-        var action: () -> Void
-        init(action: @escaping () -> Void) { self.action = action }
-        @objc func tap() { action() }
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 
