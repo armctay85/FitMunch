@@ -369,18 +369,17 @@ struct PaywallView: View {
         return "Premium is on."
     }
 
-    /// 44pt target on the text itself. A Button style was measuring as the glyph height.
+    /// 44pt target. The width run measured this button's Terms label at 44pt.
+    /// A bordered button style measured Restore at about 20pt, so this stays a plain button.
     private func legalButton(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
-        Text(title)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
-            .accessibilityLabel(title)
-            .accessibilityIdentifier(identifier)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction(.default, action)
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier(identifier)
     }
 
     private func open(_ string: String) {
