@@ -16,7 +16,7 @@ on:
 
 jobs:
   width-capture:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'cursor/b11-coach-blocked-89f8'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'cursor/b11-coach-blocked-89f8' || github.head_ref == 'cursor/b11-design-gaps-ce84'
     runs-on: macos-26
     timeout-minutes: 80
 

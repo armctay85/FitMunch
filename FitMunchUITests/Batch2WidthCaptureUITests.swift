@@ -43,6 +43,12 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Version"].waitForExistence(timeout: 12))
         XCTAssertFalse(app.staticTexts["March 2025"].exists)
         shot(app, "me-about")
+        showTab("Plan", in: app)
+        let training = app.buttons["Training"]
+        XCTAssertTrue(training.waitForExistence(timeout: 8), "Training segment missing")
+        training.tap()
+        XCTAssertTrue(app.staticTexts["Weekly plan"].waitForExistence(timeout: 8))
+        shot(app, "plan-training")
         app.terminate()
     }
 
@@ -104,6 +110,18 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["scan-offline"].waitForExistence(timeout: 12))
         shot(app, "scan-offline")
         app.terminate()
+
+        let loading = launch(["-ReviewGuards", "-AuditScanLoading", "-ForceLightMode"])
+        showTab("Scan", in: loading)
+        XCTAssertTrue(loading.staticTexts["Reading your receipt…"].waitForExistence(timeout: 8))
+        shot(loading, "scan-loading")
+        loading.terminate()
+
+        let plan = launch(["-ReviewGuards", "-AuditPlanLoading", "-ForceLightMode"])
+        showTab("Plan", in: plan)
+        XCTAssertTrue(plan.descendants(matching: .any)["plan-loading"].waitForExistence(timeout: 8))
+        shot(plan, "plan-loading")
+        plan.terminate()
     }
 
     func testScanFinishedOffline() {
@@ -220,8 +238,55 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             hops += 1
         }
         XCTAssertTrue(restore.isHittable)
+        let terms = app.buttons["Terms"]
+        XCTAssertTrue(terms.waitForExistence(timeout: 4), "Terms missing")
+        print(String(
+            format: "PAYWALL_TARGETS restoreH=%.1f termsH=%.1f",
+            restore.frame.height,
+            terms.frame.height
+        ))
         shot(app, "paywall-restore")
         app.terminate()
+        capturePaywallPlans()
+    }
+
+    /// Loaded AU catalog. One subscribe control. Price text is StoreKit displayPrice.
+    private func capturePaywallPlans() {
+        let app = launch(["-ReviewGuards", "-UseLocalStoreKit", "-ForceLightMode"])
+        showTab("Me", in: app)
+        let upgrade = app.buttons["settings-upgrade"]
+        XCTAssertTrue(upgrade.waitForExistence(timeout: 12))
+        upgrade.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["paywall-root"].waitForExistence(timeout: 20))
+        let price = waitForPaywallPrice(in: app)
+        print("PAYWALL_PRICE \(price)")
+        XCTAssertTrue(
+            price.contains("19.99") && !price.contains("12.99"),
+            "Paywall must show StoreKit monthly displayPrice (19.99, not 12.99). Saw \(price)"
+        )
+        XCTAssertTrue(app.staticTexts["Best value"].waitForExistence(timeout: 4))
+        let subscribe = app.buttons["paywall-subscribe"]
+        XCTAssertEqual(subscribe.waitForExistence(timeout: 6) ? 1 : 0, 1, "Expected one subscribe control")
+        let trialButtons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'free trial'"))
+        XCTAssertLessThanOrEqual(trialButtons.count, 1, "More than one trial CTA")
+        shot(app, "paywall-plans")
+        app.terminate()
+    }
+
+    private func waitForPaywallPrice(in app: XCUIApplication) -> String {
+        let monthly = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let deadline = Date().addingTimeInterval(25)
+        var latest = ""
+        while Date() < deadline {
+            if monthly.exists, !monthly.label.isEmpty {
+                latest = monthly.label
+            }
+            if latest.contains("19.99"), !latest.contains("12.99") {
+                return latest
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return latest
     }
 
     func testAuthErrorAX5() {
@@ -235,6 +300,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(error.waitForExistence(timeout: 12))
         let copy = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'invalid'")).firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 4))
+        XCTAssertFalse(app.alerts.firstMatch.exists, "Sign-in error must be inline, not an alert")
         shot(app, "auth-error-ax5")
         app.terminate()
     }
