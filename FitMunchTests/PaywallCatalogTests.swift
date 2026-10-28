@@ -95,6 +95,7 @@ final class PaywallCatalogTests: XCTestCase {
         XCTAssertEqual(cta.subline, "then A$19.99/month · cancel anytime")
         let timeline = PaywallPricing.trialTimeline(intro: intro, eligible: true)
         XCTAssertEqual(timeline?.today, "Today full access")
+        XCTAssertEqual(timeline?.reminder, "Day 12 reminder")
         XCTAssertEqual(timeline?.billed, "Day 14 billed")
         XCTAssertFalse(PaywallPricing.renewalTerms(
             displayPrice: "A$19.99",

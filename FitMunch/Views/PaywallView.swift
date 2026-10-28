@@ -144,18 +144,19 @@ struct PaywallView: View {
     @ViewBuilder
     private func trialTimelineSection(_ timeline: PaywallPricing.TrialTimeline) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            timelineRow("1", timeline.today)
-            timelineRow("2", timeline.billed)
+            timelineRow("1", timeline.today, identifier: "paywall-trial-today")
+            timelineRow("2", timeline.reminder, identifier: "paywall-trial-reminder")
+            timelineRow("3", timeline.billed, identifier: "paywall-trial-billing")
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall-trial-timeline")
     }
 
-    private func timelineRow(_ step: String, _ text: String) -> some View {
+    private func timelineRow(_ step: String, _ text: String, identifier: String) -> some View {
         HStack(spacing: 12) {
             Text(step)
                 .font(.caption.weight(.bold))
@@ -166,6 +167,8 @@ struct PaywallView: View {
             Text(text)
                 .font(.subheadline)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 
     @ViewBuilder
@@ -239,26 +242,20 @@ struct PaywallView: View {
                 subscribeButton(plan)
             }
             if !plansLoadFailed {
-                Button("Restore Purchases") {
+                legalButton("Restore Purchases", identifier: "paywall-restore") {
                     Task { await restore() }
                 }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.secondaryText)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("paywall-restore")
             }
 
             HStack(spacing: 6) {
-                Button("Terms") {
+                legalButton("Terms", identifier: "paywall-terms") {
                     open("https://fitmunch.com.au/terms")
                 }
                 Text("·")
-                Button("Privacy") {
+                legalButton("Privacy", identifier: "paywall-privacy") {
                     open("https://fitmunch.com.au/privacy")
                 }
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -278,17 +275,13 @@ struct PaywallView: View {
             Task { await purchase(plan) }
         } label: {
             if premiumManager.isLoading {
-                VStack(spacing: 6) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    Text("Confirming with the App Store")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .accessibilityIdentifier("paywall-confirming")
+                Text("Confirming with the App Store")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .accessibilityIdentifier("paywall-confirming")
             } else {
                 VStack(spacing: 2) {
                     Text(cta.title)
@@ -333,6 +326,7 @@ struct PaywallView: View {
         }
         if let timeline = trialTimeline {
             parts.append(timeline.today)
+            parts.append(timeline.reminder)
             parts.append(timeline.billed)
         }
         return parts.joined(separator: ". ")
@@ -379,6 +373,18 @@ struct PaywallView: View {
             }
         }
         return "Premium is on."
+    }
+
+    /// 44pt tap target. The label stays the visible name so existing queries still find Terms.
+    private func legalButton(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier(identifier)
     }
 
     private func open(_ string: String) {
@@ -500,6 +506,7 @@ private struct PackageCard: View {
             }
             if let timeline = PaywallPricing.trialTimeline(intro: plan.intro, eligible: plan.eligibleForIntro) {
                 parts.append(timeline.today)
+                parts.append(timeline.reminder)
                 parts.append(timeline.billed)
             }
         }

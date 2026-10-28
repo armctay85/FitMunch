@@ -119,13 +119,25 @@ struct SettingsView: View {
                     Text("Profile")
                 }
 
-                Section("About") {
+                Section {
                     HStack {
                         Text("Version")
                         Spacer()
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
                             .foregroundColor(.secondary)
                     }
+                    .accessibilityIdentifier("me-about-version")
+                    aboutRow("Privacy", identifier: "me-about-privacy") {
+                        viewModel.viewPrivacyPolicy()
+                    }
+                    aboutRow("Terms", identifier: "me-about-terms") {
+                        viewModel.viewTermsOfService()
+                    }
+                    aboutRow("Support", identifier: "me-about-support") {
+                        viewModel.contactSupport()
+                    }
+                } header: {
+                    Text("About")
                 }
                 .accessibilityIdentifier("me-about")
 
@@ -300,11 +312,7 @@ struct SettingsView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 3, label: "Loading", identifier: "me-loading")
                 }
             }
             .alert("Purchases", isPresented: Binding(
@@ -377,6 +385,20 @@ struct SettingsView: View {
             }
             }
         }
+    }
+
+    /// The identifier sits on the text. A List button drops its identifier on iOS 26.
+    private func aboutRow(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+        Text(title)
+            .font(.body)
+            .foregroundStyle(Theme.brandGreen)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: action)
+            .accessibilityLabel(title)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, action)
     }
 
     private func expandPrivacy(_ proxy: ScrollViewProxy) {

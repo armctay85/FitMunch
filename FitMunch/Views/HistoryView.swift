@@ -81,11 +81,7 @@ struct HistoryView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 4, label: "Loading history", identifier: "history-loading")
                 }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {

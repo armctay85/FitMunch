@@ -107,6 +107,7 @@ enum PaywallPricing {
 
     struct TrialTimeline: Equatable {
         var today: String
+        var reminder: String
         var billed: String
     }
 
@@ -222,13 +223,15 @@ enum PaywallPricing {
     }
 
     /// Trial timeline only when StoreKit has a free intro and the account is eligible.
-    /// No reminder row: nothing on this screen schedules a local notification.
+    /// The reminder row names the day to check the subscription. It does not schedule a notification.
     static func trialTimeline(intro: PaywallIntroOffer?, eligible: Bool) -> TrialTimeline? {
         guard eligible, let intro, intro.isFreeTrial else { return nil }
         let days = introDays(intro)
         guard days >= 1 else { return nil }
+        let reminderDay = max(1, days - 2)
         return TrialTimeline(
             today: "Today full access",
+            reminder: "Day \(reminderDay) reminder",
             billed: "Day \(days) billed"
         )
     }

@@ -42,12 +42,26 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         showTab("Me", in: app)
         XCTAssertTrue(app.staticTexts["Version"].waitForExistence(timeout: 12))
         XCTAssertFalse(app.staticTexts["March 2025"].exists)
+        revealOnMeList(app) {
+            app.descendants(matching: .any)["me-about-support"].exists
+                && app.descendants(matching: .any)["me-about-privacy"].exists
+                && app.descendants(matching: .any)["me-about-terms"].exists
+        }
+        for identifier in ["me-about-privacy", "me-about-terms", "me-about-support"] {
+            let row = app.descendants(matching: .any)[identifier]
+            XCTAssertTrue(row.waitForExistence(timeout: 4), "\(identifier) missing")
+            XCTAssertGreaterThanOrEqual(row.frame.height, 44, "\(identifier) is under 44pt")
+        }
         shot(app, "me-about")
         showTab("Plan", in: app)
         let training = app.buttons["Training"]
         XCTAssertTrue(training.waitForExistence(timeout: 8), "Training segment missing")
         training.tap()
         XCTAssertTrue(app.staticTexts["Weekly plan"].waitForExistence(timeout: 8))
+        let duration = app.descendants(matching: .any)["training-duration"].firstMatch
+        XCTAssertTrue(duration.waitForExistence(timeout: 6), "Training duration missing")
+        let placeholder = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH '· ~1 min'"))
+        XCTAssertEqual(placeholder.count, 0, "Training still shows the one minute placeholder")
         shot(app, "plan-training")
         app.terminate()
     }
@@ -238,13 +252,18 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             hops += 1
         }
         XCTAssertTrue(restore.isHittable)
-        let terms = app.buttons["Terms"]
-        XCTAssertTrue(terms.waitForExistence(timeout: 4), "Terms missing")
+        var terms = app.buttons["paywall-terms"]
+        if !terms.waitForExistence(timeout: 4) {
+            terms = app.buttons["Terms"]
+        }
+        XCTAssertTrue(terms.waitForExistence(timeout: 2), "Terms missing")
         print(String(
             format: "PAYWALL_TARGETS restoreH=%.1f termsH=%.1f",
             restore.frame.height,
             terms.frame.height
         ))
+        XCTAssertGreaterThanOrEqual(restore.frame.height, 44, "Restore tap target is under 44pt")
+        XCTAssertGreaterThanOrEqual(terms.frame.height, 44, "Terms tap target is under 44pt")
         shot(app, "paywall-restore")
         app.terminate()
         capturePaywallPlans()
@@ -265,10 +284,29 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             "Paywall must show StoreKit monthly displayPrice (19.99, not 12.99). Saw \(price)"
         )
         XCTAssertTrue(app.staticTexts["Best value"].waitForExistence(timeout: 4))
+        let reminder = app.descendants(matching: .any)["paywall-trial-reminder"]
+        XCTAssertTrue(reminder.waitForExistence(timeout: 6), "Trial reminder row missing")
+        XCTAssertTrue(reminder.label.localizedCaseInsensitiveContains("reminder"))
+        XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-today"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-billing"].exists)
         let subscribe = app.buttons["paywall-subscribe"]
         XCTAssertEqual(subscribe.waitForExistence(timeout: 6) ? 1 : 0, 1, "Expected one subscribe control")
         let trialButtons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'free trial'"))
         XCTAssertLessThanOrEqual(trialButtons.count, 1, "More than one trial CTA")
+        var planTerms = app.buttons["paywall-terms"]
+        if !planTerms.waitForExistence(timeout: 4) {
+            planTerms = app.buttons["Terms"]
+        }
+        let planRestore = app.buttons["paywall-restore"]
+        XCTAssertTrue(planTerms.waitForExistence(timeout: 2))
+        XCTAssertTrue(planRestore.waitForExistence(timeout: 4))
+        print(String(
+            format: "PAYWALL_PLAN_TARGETS restoreH=%.1f termsH=%.1f",
+            planRestore.frame.height,
+            planTerms.frame.height
+        ))
+        XCTAssertGreaterThanOrEqual(planRestore.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(planTerms.frame.height, 44)
         shot(app, "paywall-plans")
         app.terminate()
     }

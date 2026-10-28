@@ -209,11 +209,7 @@ struct DetailView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 3, label: "Saving meal", identifier: "meal-loading")
                 }
             }
             .onChange(of: quickCalories) { _, _ in syncQuickEntry() }

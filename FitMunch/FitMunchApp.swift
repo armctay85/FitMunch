@@ -41,7 +41,7 @@ struct FitMunchApp: App {
         WindowGroup {
             Group {
                 if auth.isRestoring {
-                    ProgressView()
+                    LoadingSkeletonScreen(rows: 4, label: "Loading FitMunch", identifier: "launch-loading")
                         .task { await auth.bootstrap() }
                 } else if auth.isAuthenticated {
                     ContentView()

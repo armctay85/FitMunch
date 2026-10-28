@@ -74,12 +74,9 @@ struct AuthView: View {
                     }
 
                     Button(action: submit) {
-                        HStack {
-                            if auth.isLoading { ProgressView().tint(.white) }
-                            Text(mode == .login ? "Sign In" : "Create Free Account")
-                                .foregroundStyle(Color.white)
-                                .tint(.white)
-                        }
+                        Text(mode == .login ? "Sign In" : "Create Free Account")
+                            .foregroundStyle(Color.white)
+                            .tint(.white)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .tint(.white)

@@ -47,11 +47,7 @@ struct OnboardingView: View {
             .navigationBarBackButtonHidden(true)
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 3, label: "Saving your plan", identifier: "onboarding-loading")
                 }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {

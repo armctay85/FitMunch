@@ -7,11 +7,13 @@ import UIKit
 /// apps in compatibility mode. This is a plain UIViewController + AVCaptureSession.
 struct SafeCameraPicker: UIViewControllerRepresentable {
     let onImage: (UIImage) -> Void
+    var requestsPermission: Bool = true
     var onUnavailable: (String) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> SafeCameraViewController {
         let controller = SafeCameraViewController()
+        controller.requestsPermission = requestsPermission
         controller.modalPresentationStyle = .fullScreen
         controller.isModalInPresentation = true
         controller.onImage = { image in
@@ -35,6 +37,7 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
     var onImage: ((UIImage) -> Void)?
     var onCancel: (() -> Void)?
     var onUnavailable: ((String) -> Void)?
+    var requestsPermission = true
 
     private let session = AVCaptureSession()
     private let photoOutput = AVCapturePhotoOutput()
@@ -137,6 +140,10 @@ final class SafeCameraViewController: UIViewController, AVCapturePhotoCaptureDel
         case .authorized:
             configureAndStart()
         case .notDetermined:
+            guard requestsPermission else {
+                fail("Receipt scan stays off until you allow it in Me, Privacy.")
+                return
+            }
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 DispatchQueue.main.async {
                     if granted {

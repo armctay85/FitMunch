@@ -201,9 +201,7 @@ struct MealPlanView: View {
             Task { await generate() }
         } label: {
             if isLoading {
-                ProgressView()
-                    .tint(.white)
-                    .accessibilityIdentifier("plan-loading")
+                Text("Building your week")
             } else {
                 Text("Generate 7-day plan")
             }
