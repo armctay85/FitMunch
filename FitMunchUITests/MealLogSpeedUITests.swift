@@ -14,7 +14,7 @@ final class MealLogSpeedUITests: XCTestCase {
 
     func testLaunchToLoggedMeal() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-ReviewGuards", "-ForceLightMode"]
+        app.launchArguments = ["-ReviewGuards", "-ForceLightMode", "-MealLogTiming"]
         var width = 0
         var calories = -1
         var detailCalories = -1
@@ -108,6 +108,7 @@ final class MealLogSpeedUITests: XCTestCase {
             calories = loggedCalories(in: app)
         }
         elapsed = Date().timeIntervalSince(ready)
+        let signpost = signpostReport(in: app)
         emit(String(
             format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
             elapsed,
@@ -119,6 +120,9 @@ final class MealLogSpeedUITests: XCTestCase {
             detailCalories,
             mealName
         ))
+        if !signpost.isEmpty {
+            emit("MEAL_LOG_SIGNPOST \(signpost)")
+        }
         if !mealShown || calories <= 0 {
             let labels = app.staticTexts.allElementsBoundByIndex.prefix(24).map(\.label)
             emit("MEAL_LOG_LABELS \(labels.joined(separator: " | "))")
@@ -132,6 +136,14 @@ final class MealLogSpeedUITests: XCTestCase {
             XCTAssertEqual(calories, calorieEntry, "Today showed \(calories) calories after entering \(calorieEntry)")
         }
         XCTAssertLessThanOrEqual(elapsed, 10, String(format: "Logging took %.2fs after launch returned", elapsed))
+    }
+
+    /// The app writes the signpost report onto this accessibility label.
+    /// One query, after `elapsed` is captured, so the harness clock stays put.
+    private func signpostReport(in app: XCUIApplication) -> String {
+        let probe = app.descendants(matching: .any)["meal-log-signpost"]
+        guard probe.exists else { return "" }
+        return probe.label
     }
 
     private func emit(_ line: String) {

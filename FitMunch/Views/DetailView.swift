@@ -56,6 +56,12 @@ struct DetailView: View {
                 .onAppear {
                     caloriesFocused = true
                     recentLogs = viewModel.recentLogs()
+                    MealLogTiming.shared.mark("sheetOpen")
+                }
+                .onChange(of: caloriesFocused) { _, focused in
+                    if focused {
+                        MealLogTiming.shared.mark("caloriesFocused")
+                    }
                 }
 
                 if !recentLogs.isEmpty {

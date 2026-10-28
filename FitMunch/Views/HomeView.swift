@@ -39,6 +39,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
+                        MealLogTiming.shared.mark("logTapped")
                         if viewModel.canLogMeal {
                             showLogMeal = true
                         } else {
@@ -76,6 +77,9 @@ struct HomeView: View {
                 viewModel.loadMealsForSelectedDate()
             }
             .floatingTabBarInset()
+            .onAppear {
+                MealLogTiming.shared.mark("todayReady")
+            }
         }
     }
 
@@ -446,6 +450,10 @@ private struct NutritionBadge: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(value)")
         .modifier(MealBadgeID(identifier))
+        .onAppear {
+            guard identifier == "today-meal-calories", value > 0 else { return }
+            MealLogTiming.shared.markRowShown(calories: value)
+        }
     }
 }
 

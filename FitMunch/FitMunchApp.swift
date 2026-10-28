@@ -10,15 +10,19 @@ struct FitMunchApp: App {
     @StateObject private var auth: AuthManager
 
     init() {
+        MealLogTiming.shared.mark("initBegan")
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
         #endif
         AppearanceLaunch.prepare()
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
+        MealLogTiming.shared.mark("premiumReady")
         _auth = StateObject(wrappedValue: AuthManager.shared)
+        MealLogTiming.shared.mark("authReady")
     }
     
     var sharedModelContainer: ModelContainer = {
+        MealLogTiming.shared.mark("containerBegan")
         let schema = Schema([
             UserProfile.self,
             Meal.self,
@@ -29,10 +33,13 @@ struct FitMunchApp: App {
             schema: schema,
             isStoredInMemoryOnly: ScreenshotLaunch.isActive
         )
-        
+
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            MealLogTiming.shared.mark("containerEnded")
+            return container
         } catch {
+            MealLogTiming.shared.mark("containerFailed")
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
@@ -55,9 +62,20 @@ struct FitMunchApp: App {
             .tint(Theme.brandGreen)
             .preferredColorScheme(AppearanceLaunch.colorScheme)
             .background(Theme.surface)
+            .background {
+                MealLogTimingHost()
+            }
             .onAppear {
                 AppearanceLaunch.applyWindows()
                 ScreenFill.apply()
+                var width: CGFloat = 0
+                for scene in UIApplication.shared.connectedScenes {
+                    guard let windowScene = scene as? UIWindowScene else { continue }
+                    for window in windowScene.windows where window.bounds.width > width {
+                        width = window.bounds.width
+                    }
+                }
+                MealLogTiming.shared.markFirstFrame(width: Int(width.rounded()))
             }
         }
     }

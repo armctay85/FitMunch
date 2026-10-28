@@ -126,6 +126,13 @@ jobs:
             local rc=${PIPESTATUS[0]}
             set -e
             echo "$name exit=$rc" | tee -a artifacts/meal-log-speed/destinations.txt
+            local simroot="$HOME/Library/Developer/CoreSimulator/Devices/$udid"
+            if [[ -d "$simroot" ]]; then
+              find "$simroot" -name meal-log-signpost.txt -print 2>/dev/null | while read -r found; do
+                echo "SIGNPOST_FILE $found" | tee -a "artifacts/meal-log-speed/${folder}.log"
+                cat "$found" | tee -a "artifacts/meal-log-speed/${folder}.log"
+              done
+            fi
             grep "MEAL_LOG_" "artifacts/meal-log-speed/${folder}.log" \
               | tee -a artifacts/meal-log-speed/timings.txt \
               || true
