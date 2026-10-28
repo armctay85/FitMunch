@@ -160,6 +160,38 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertLessThanOrEqual(free.frame.maxY, planFooter.frame.minY + 0.5, "Free card is under the footer")
         XCTAssertTrue(premium.isHittable, "Premium card is not reachable")
         XCTAssertLessThan(premium.frame.minY, planFooter.frame.minY - 4, "Premium card is covered by the footer")
+        // Price and trial have to clear the footer material, not merely start on screen.
+        let price = offerLine("onboarding-premium-price", in: app)
+        let trial = offerLine("onboarding-premium-trial", in: app)
+        let footerTop = onboardingFooterTop(in: app)
+        print(String(
+            format: "ONBOARDING_OFFER priceBottom=%.1f trialBottom=%.1f footerTop=%.1f priceFrame=%@ trialFrame=%@",
+            price.frame.maxY,
+            trial.frame.maxY,
+            footerTop,
+            NSCoder.string(for: price.frame),
+            NSCoder.string(for: trial.frame)
+        ))
+        XCTAssertTrue(price.exists, "Premium price missing")
+        XCTAssertTrue(trial.exists, "Trial line missing")
+        XCTAssertGreaterThan(price.frame.height, 8, "Price has no height")
+        XCTAssertGreaterThan(trial.frame.height, 8, "Trial line has no height")
+        XCTAssertLessThanOrEqual(
+            price.frame.maxY,
+            footerTop,
+            "Price is clipped by the footer (price \(price.frame) footer top \(footerTop))"
+        )
+        XCTAssertLessThanOrEqual(
+            trial.frame.maxY,
+            footerTop,
+            "Trial line is clipped by the footer (trial \(trial.frame) footer top \(footerTop))"
+        )
+        if price.exists, trial.exists, !price.label.isEmpty, price.label.count <= 32 {
+            XCTAssertTrue(
+                trial.label.contains(price.label),
+                "Trial line must repeat the StoreKit displayPrice"
+            )
+        }
         shot(app, "onboarding-plan")
         app.terminate()
     }
@@ -301,35 +333,6 @@ final class Batch2WidthCaptureUITests: XCTestCase {
                 if placed() { break }
                 nudgeOnboarding(app, up: up)
             }
-        }
-        let price = priceLine()
-        let trial = trialLine()
-        let limit = onboardingFooterTop(in: app)
-        print(String(
-            format: "ONBOARDING_OFFER priceBottom=%.1f trialBottom=%.1f footerTop=%.1f",
-            price.frame.maxY,
-            trial.frame.maxY,
-            limit
-        ))
-        XCTAssertTrue(price.exists, "Premium price missing")
-        XCTAssertTrue(trial.exists, "Trial line missing")
-        XCTAssertGreaterThan(price.frame.height, 8, "Price has no height")
-        XCTAssertGreaterThan(trial.frame.height, 8, "Trial line has no height")
-        XCTAssertLessThanOrEqual(
-            price.frame.maxY,
-            limit,
-            "Price is clipped by the footer (price \(price.frame) footer top \(limit))"
-        )
-        XCTAssertLessThanOrEqual(
-            trial.frame.maxY,
-            limit,
-            "Trial line is clipped by the footer (trial \(trial.frame) footer top \(limit))"
-        )
-        if price.exists, trial.exists, !price.label.isEmpty, price.label.count <= 32 {
-            XCTAssertTrue(
-                trial.label.contains(price.label),
-                "Trial line must repeat the StoreKit displayPrice"
-            )
         }
     }
 
