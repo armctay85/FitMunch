@@ -209,7 +209,7 @@ struct DetailView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    LoadingSkeletonScreen(rows: 3, label: "Saving meal", identifier: "meal-loading")
+                    LoadingSkeletonScreen(rows: 3, label: "Loading meal", identifier: "meal-loading")
                 }
             }
             .onChange(of: quickCalories) { _, _ in syncQuickEntry() }
