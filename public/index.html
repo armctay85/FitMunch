@@ -245,7 +245,7 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
   font-size:1.05rem;line-height:1.5;color:#dce6de;
   max-width:28ch;margin-bottom:20px;
 }
-.hero-ctas{display:grid;max-width:20rem}
+.hero-ctas{display:grid;width:100%;max-width:22rem;gap:10px;align-self:stretch}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;
   min-height:52px;padding:0 22px;border-radius:4px;
@@ -579,7 +579,7 @@ footer{
   .hero-inner{grid-template-columns:1fr .92fr;gap:64px;align-items:center}
   .hero-kicker{font-size:.72rem;margin-bottom:14px}
   .hero-sub{max-width:38ch}
-  .hero-ctas{display:flex;max-width:none}
+  .hero-ctas{display:flex;flex-wrap:wrap;align-items:center;max-width:none;gap:10px}
 }
 /* 860-1100: two columns are narrow, so the H1 is smaller and wider to stay at 3 lines. */
 @media(min-width:860px) and (max-width:1100px){
@@ -1076,6 +1076,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 <div class="fold">
 <aside class="trial-bar">
   14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. <a href="#pricing">See pricing</a>
+  <noscript><a href="/pricing.html">See current plans and prices</a></noscript>
 </aside>
 
 <nav class="site-nav" aria-label="Primary">
@@ -1101,6 +1102,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       <p class="hero-sub">Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.</p>
       <div class="hero-ctas">
         <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="hero_trial">Start the 14-day trial</a>
+        <a class="btn btn-ghost" href="/app.html?start=goal#goal">See your week</a>
       </div>
       <ul class="hero-hooks">
         <li>7 days from your body</li>
@@ -1112,10 +1114,10 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       <img class="hero-food" src="/assets/fm-hero-mealprep-web.webp" alt="Meal-prep containers of chicken, rice, broccoli, yoghurt and berries" width="900" height="600" decoding="async" loading="lazy"/>
       <picture>
         <source media="(max-width: 859px)" srcset="/assets/fm-app-week-mobile.webp" type="image/webp"/>
-        <img class="hero-app" src="/assets/fm-app-week.webp" alt="Preview of a generated Wednesday meal plan" width="1122" height="1617" fetchpriority="high"/>
+        <img class="hero-app" src="/assets/fm-app-week.webp" alt="FitMunch app meal plan screen" width="1122" height="1617" fetchpriority="high"/>
       </picture>
       <p class="hero-app-note">Your own week builds from your body.</p>
-      <figcaption>Your first week: built for 82kg cutting to 78kg, at 2,000 kcal and 150g protein, with Swap open on breakfast.</figcaption>
+      <figcaption>The week screen in the FitMunch app.</figcaption>
     </figure>
   </div>
 </header>
@@ -1320,7 +1322,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     <div class="plans">
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
-        <div class="price-n"><span data-fm-price="premiumAmount"></span> <small>a month</small></div>
+        <div class="price-n"><span data-fm-price="premiumAmount"></span> <small>a month</small> <noscript><a href="/pricing.html">See current plans and prices</a></noscript></div>
         <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
         <ul>
           <li>Unlimited AI coach grounded in your logs</li>
@@ -1332,7 +1334,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       </article>
       <article class="plan">
         <div class="plan-kicker">Free</div>
-        <div class="price-n"><span>A$0</span> <small>forever</small></div>
+        <div class="price-n"><span>Free</span></div>
         <p>Macro logging, a starter plan allowance, and a receipt scan teaser.</p>
         <ul>
           <li>Macro and meal logging</li>

@@ -26,8 +26,19 @@ describe('mobile speed cache policy', () => {
       expect(res.headers['cache-control']).toMatch(/s-maxage=\d+/);
       expect(res.headers['vercel-cdn-cache-control']).toMatch(/s-maxage=\d+/);
       expect(res.text).not.toMatch(/A\$19\.99|"price"\s*:\s*"19\.99"/);
+      expect(res.text).not.toMatch(/A\$0\b/);
+      expect(res.text).toContain('<span>Free</span>');
       expect(res.text).toContain('data-fm-price="premiumMonthly"');
       expect(res.text).toContain("cache: 'no-store'");
+      expect(res.text).toContain('<a href="/pricing.html">See current plans and prices</a>');
+      const prices = require('./lib/public-prices');
+      const noscripts = res.text.match(/<noscript>[\s\S]*?<\/noscript>/g) || [];
+      expect(noscripts.length).toBeGreaterThan(0);
+      for (const block of noscripts) {
+        expect(block).not.toContain(prices.PREMIUM_MONTHLY_LABEL);
+        expect(block).not.toContain(prices.PREMIUM_AMOUNT_LABEL);
+        expect(block).not.toContain(prices.PREMIUM_ANNUAL_LABEL);
+      }
     }
   });
 

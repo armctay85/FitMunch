@@ -41,7 +41,8 @@ describe('Server API shell', () => {
 
   it('GET /app.html is a login wall until the client has a session', async () => {
     const res = await request(app).get('/app.html').expect(200);
-    expect(res.text).toContain('Sign in to FitMunch');
+    expect(res.text).toContain('Build your first week');
+    expect(res.text).toContain('id="fr-form"');
     expect(res.text).toContain('html:not(.fm-authed)');
     expect(res.text).toContain("localStorage.getItem('fm_token')");
   });
@@ -58,6 +59,7 @@ describe('Server API shell', () => {
     expect(res.text).toContain('web app');
     expect(res.text).not.toContain('SAMPLE RECEIPT');
     expect(res.text).toContain('id="first-scan"');
+    expect(res.text).not.toContain('Score the sample receipt');
     expect(res.text).not.toContain('snap the paper from the checkout');
     expect(res.text).toContain('App Store listing is not live');
     expect(res.text).not.toContain('Download on the App Store');

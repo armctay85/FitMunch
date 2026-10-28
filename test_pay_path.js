@@ -59,7 +59,12 @@ describe('Public Premium CTA', () => {
     expect(login.text).toContain('Stripe opens');
     expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial')");
     expect(login.text).toMatch(/await fetch\('\/api\/quick-checkout'/);
-    expect(login.text).toContain('if (emailFirst && !pendingClaim) return doEmailFirstTrial();');
+    expect(login.text).toContain('if (emailFirst && !pendingClaim) return showCheckoutReview();');
+    expect(login.text).toContain('function confirmCheckoutReview()');
+    expect(login.text).toContain('return doEmailFirstTrial();');
+    const reviewFn = login.text.slice(login.text.indexOf('function showCheckoutReview()'), login.text.indexOf('function hideCheckoutReview()'));
+    expect(reviewFn).not.toContain('/api/quick-checkout');
+    expect(login.text.indexOf('function confirmCheckoutReview()')).toBeLessThan(login.text.indexOf("await fetch('/api/quick-checkout'"));
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);
     expect(login.text).toContain('await redirectAfterAuth(data.token)');
     expect(login.text).toContain('Checkout did not return a Stripe card form URL');

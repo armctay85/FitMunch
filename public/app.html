@@ -436,10 +436,34 @@ html:not(.fm-authed) .mob-nav-more{display:none!important}
  padding:32px 20px;background:var(--paper);
 }
 html.fm-authed #app-gate{display:none}
+html.fm-pending #app-gate{visibility:hidden}
+html.fm-guest,html.fm-guest body{height:auto;min-height:100%;overflow:auto}
+html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16px 48px}
 .gate-card{
  width:min(420px,100%);background:var(--surface);border:1px solid var(--line);
  border-radius:var(--radius);padding:32px 28px;text-align:center;
 }
+#app-gate .fr-card{width:min(640px,100%);text-align:left}
+#app-gate .fr-brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;min-height:44px;margin-bottom:12px;line-height:1.2;font-weight:800}
+#app-gate .fr-card h1{font-size:1.55rem;line-height:1.15;margin-bottom:8px}
+#app-gate .fr-card h2{font-size:1.05rem;margin:0 0 8px}
+#app-gate .fr-card p{margin-bottom:12px}
+#app-gate .fr-card label{display:block;font-size:.78rem;font-weight:700;margin:12px 0 6px;color:#3f4a45}
+#app-gate .fr-card input,#app-gate .fr-card select{width:100%;min-height:48px;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink);font-family:inherit}
+#app-gate .fr-go{width:100%;margin-top:8px;min-height:48px;border:0;border-radius:4px;background:#15803d;color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+#app-gate .fr-go:disabled{opacity:.65;cursor:wait}
+#app-gate .fr-err{color:#c0392b;font-size:.9rem;min-height:1.2em;margin:8px 0}
+#app-gate .fr-meal{padding:10px 0;border-top:1px solid #e4ebe4}
+#app-gate .fr-meal b{display:block;font-size:.95rem}
+#app-gate .fr-meal span{color:#3f4a45;font-size:.85rem}
+#app-gate .fr-paths{display:grid;gap:12px;margin-top:8px}
+#app-gate .fr-path{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fff}
+#app-gate .fr-path a{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:4px;text-decoration:none;font-weight:700;line-height:1.2}
+#app-gate .fr-trial{background:#15803d;color:#fff}
+#app-gate .fr-free{background:#fff;color:#11180f;border:1px solid var(--line)}
+#app-gate .fr-signin{display:inline;background:none;border:0;padding:0;color:#166534;font-weight:700;line-height:1.4;min-height:44px;cursor:pointer;font:inherit}
+#app-gate .fr-week{margin-top:8px}
+#app-gate .fr-week li{margin:8px 0;line-height:1.4}
 .gate-card h1{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1.35rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
 .gate-card p{color:var(--mute);font-size:.9rem;line-height:1.55;margin-bottom:18px}
 .gate-card a{display:block;text-align:center;text-decoration:none;min-height:44px;line-height:44px;border-radius:4px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:700}
@@ -488,12 +512,13 @@ html.fm-authed #app-gate{display:none}
 </style>
 <script>
 (function () {
+  // Signed-out visitors see the first-run week before any account screen.
+  // A saved token only hides that form. The cockpit stays hidden until /auth/me.
   try {
-    if (!localStorage.getItem('fm_token')) {
-      location.replace('/login.html');
-    }
+    if (localStorage.getItem('fm_token')) document.documentElement.classList.add('fm-pending');
+    else document.documentElement.classList.add('fm-guest');
   } catch (e) {
-    location.replace('/login.html');
+    document.documentElement.classList.add('fm-guest');
   }
 })();
 </script>
@@ -501,11 +526,58 @@ html.fm-authed #app-gate{display:none}
 <body>
 
 <div id="app-gate">
- <div class="gate-card">
-  <h1>Sign in to FitMunch</h1>
-  <p>The product cockpit is for signed-in accounts. Create a free account or sign in to continue.</p>
-  <a class="gate-in" href="/login.html">Sign in</a>
-  <a class="gate-reg" href="/login.html#register">Create a free account</a>
+ <div class="gate-card fr-card">
+  <a class="fr-brand" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28"/>FitMunch</a>
+  <div id="fr-step-1">
+   <h1 id="goal">Build your first week</h1>
+   <p>Goal, weight and training come first. The next screen is one day and the rest of the week, worked out from those numbers.</p>
+   <form id="fr-form">
+    <label for="fr-goal">Goal</label>
+    <select id="fr-goal" name="goal" required>
+     <option value="">Choose a goal</option>
+     <option value="lose_weight">Lose fat</option>
+     <option value="maintain">Maintain</option>
+     <option value="muscle_gain">Build muscle</option>
+     <option value="general_fitness">General fitness</option>
+    </select>
+    <label for="fr-weight">Current weight (kg)</label>
+    <input id="fr-weight" name="weightKg" type="number" inputmode="decimal" min="35" max="300" step="0.1" required/>
+    <label for="fr-target">Target weight (kg)</label>
+    <input id="fr-target" name="targetWeightKg" type="number" inputmode="decimal" min="35" max="300" step="0.1" required/>
+    <label for="fr-training">Training</label>
+    <select id="fr-training" name="training" required>
+     <option value="">How often you train</option>
+     <option value="sedentary">Mostly sitting, little exercise</option>
+     <option value="light">Train 1-3 times a week</option>
+     <option value="moderate">Train 3-5 times a week</option>
+     <option value="active">Train 6-7 times a week</option>
+     <option value="very_active">Physical job plus training</option>
+    </select>
+    <p id="fr-err" class="fr-err" role="alert"></p>
+    <button class="fr-go" id="fr-submit" type="submit">Show my day</button>
+   </form>
+   <p>Already have an account? <a class="fr-signin" href="/login.html">Sign in</a></p>
+  </div>
+  <div id="fr-step-2" hidden>
+   <h1 id="fr-head">Your first week</h1>
+   <p id="fr-note"></p>
+   <div id="fr-day"></div>
+   <div id="fr-week" class="fr-week"></div>
+   <div class="fr-paths">
+    <section class="fr-path">
+     <h2>Create a free account</h2>
+     <p>This creates a free account. No card is needed.</p>
+     <a class="fr-free" href="/login.html#register">Create a free account</a>
+    </section>
+    <section class="fr-path">
+     <h2>Start the 14-day trial</h2>
+     <p>A card is needed for the trial. Cancel before the trial ends and you are not charged.</p>
+     <a class="fr-trial" href="/login.html?plan=premium#register">Start the 14-day trial</a>
+    </section>
+   </div>
+   <p><button type="button" class="fr-signin" id="fr-back">Change my numbers</button></p>
+   <p>Already have an account? <a class="fr-signin" href="/login.html">Sign in</a></p>
+  </div>
  </div>
 </div>
 
@@ -1897,10 +1969,106 @@ function showErr(msg) { console.error('[FitMunch]', msg); }
 window.onerror = (msg, src, line) => console.error('[FitMunch error]', msg, 'line', line);
 window.onunhandledrejection = e => console.error('[FitMunch promise]', e.reason?.message || e.reason);
 
+const FR_SLOTS = [['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner'], ['snack', 'Snack']];
+function renderFirstRun(data) {
+ const head = document.getElementById('fr-head');
+ const note = document.getElementById('fr-note');
+ if (head) head.textContent = data.header || 'Your first week';
+ if (note) note.textContent = data.note || '';
+ const dayBox = document.getElementById('fr-day');
+ const weekBox = document.getElementById('fr-week');
+ if (dayBox) dayBox.textContent = '';
+ if (weekBox) weekBox.textContent = '';
+ const day = data.day || {};
+ const h = document.createElement('h2');
+ h.textContent = day.day || 'Day 1';
+ if (dayBox) dayBox.appendChild(h);
+ FR_SLOTS.forEach(([slot, label]) => {
+  const meal = day.meals && day.meals[slot];
+  if (!meal || !dayBox) return;
+  const row = document.createElement('div');
+  row.className = 'fr-meal';
+  const name = document.createElement('b');
+  name.textContent = label + ': ' + (meal.name || '');
+  const meta = document.createElement('span');
+  const bits = [];
+  if (meal.calories) bits.push(meal.calories + ' kcal');
+  if (meal.protein) bits.push(meal.protein + 'g protein');
+  meta.textContent = bits.join(' · ');
+  row.append(name, meta);
+  dayBox.appendChild(row);
+ });
+ const wh = document.createElement('h2');
+ wh.textContent = 'The rest of the week';
+ if (weekBox) weekBox.appendChild(wh);
+ const ul = document.createElement('ul');
+ (data.days || []).slice(1).forEach((d) => {
+  const li = document.createElement('li');
+  const names = FR_SLOTS.map(([slot]) => d.meals && d.meals[slot] && d.meals[slot].name).filter(Boolean);
+  li.textContent = (d.day || 'Day') + ': ' + names.join(', ');
+  ul.appendChild(li);
+ });
+ if (weekBox) weekBox.appendChild(ul);
+ const step1 = document.getElementById('fr-step-1');
+ const step2 = document.getElementById('fr-step-2');
+ if (step1) step1.hidden = true;
+ if (step2) step2.hidden = false;
+ window.scrollTo(0, 0);
+}
+function bindFirstRun() {
+ const form = document.getElementById('fr-form');
+ if (!form || form.dataset.bound) return;
+ form.dataset.bound = '1';
+ form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const err = document.getElementById('fr-err');
+  const btn = document.getElementById('fr-submit');
+  if (err) err.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Building your day…'; }
+  try {
+   const r = await fetch('/api/first-run/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+     goal: document.getElementById('fr-goal').value,
+     weightKg: document.getElementById('fr-weight').value,
+     targetWeightKg: document.getElementById('fr-target').value,
+     training: document.getElementById('fr-training').value,
+    }),
+   });
+   const data = await r.json().catch(() => ({}));
+   if (!r.ok || !data.success || !data.day) throw new Error((data && data.error) || 'Could not build your day. Try again.');
+   renderFirstRun(data);
+  } catch (e) {
+   if (err) err.textContent = (e && e.message) || 'Could not build your day. Try again.';
+  } finally {
+   if (btn) { btn.disabled = false; btn.textContent = 'Show my day'; }
+  }
+ });
+ const back = document.getElementById('fr-back');
+ if (back) back.addEventListener('click', () => {
+  const step1 = document.getElementById('fr-step-1');
+  const step2 = document.getElementById('fr-step-2');
+  if (step2) step2.hidden = true;
+  if (step1) step1.hidden = false;
+  const goal = document.getElementById('fr-goal');
+  if (goal) goal.focus();
+ });
+ const params = new URLSearchParams(location.search);
+ if (params.get('start') === 'goal' || location.hash === '#goal') {
+  const focusGoal = () => {
+   const goal = document.getElementById('fr-goal');
+   if (goal) goal.focus();
+  };
+  focusGoal();
+  window.addEventListener('load', focusGoal);
+  setTimeout(focusGoal, 0);
+ }
+}
 async function boot() {
  if (!S.token) {
   if (location.hash === '#billing') window.location.replace('/login.html?next=billing');
-  else window.location.replace('/login.html');
+  else bindFirstRun();
   return;
  }
  try {

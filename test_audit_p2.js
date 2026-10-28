@@ -35,11 +35,14 @@ describe('yearly "Save N%" badge', () => {
 });
 
 describe('A$0', () => {
-  it('Free shows A$0 on the pricing page, the home page and the billing view', () => {
-    for (const [f, html] of [['pricing', pricing], ['index', read('public', 'index.html')], ['app', app]]) {
+  it('Free shows A$0 on the pricing page and the billing view, and the cached homepage says Free', () => {
+    for (const [f, html] of [['pricing', pricing], ['app', app]]) {
       expect([f, /A\$0\b/.test(html)]).toEqual([f, true]);
       expect([f, /(^|[^A-Za-z])\$0(<| )/.test(html.replace(/A\$0/g, ''))]).toEqual([f, false]);
     }
+    const home = read('public', 'index.html');
+    expect(home).not.toMatch(/A\$0\b/);
+    expect(home).toContain('<span>Free</span>');
   });
 });
 

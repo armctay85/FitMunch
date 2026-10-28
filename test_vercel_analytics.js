@@ -56,8 +56,10 @@ describe('Vercel Web Analytics', () => {
   it('privacy policy discloses Vercel Web Analytics', () => {
     const html = fs.readFileSync(path.join(PUBLIC_DIR, 'privacy.html'), 'utf8');
     expect(html).toContain('Vercel Web Analytics counts page views without cookies and without identifying you. Vercel is based in the United States.');
-    expect(html).toContain('the font host (web fonts) and Vercel (website analytics) may also process your data in the United States.');
-    expect(html).not.toMatch(/Google/);
+    expect(html).toContain('Fonts are served from our own site, and no third party font host is used.');
+    expect(html).toContain('Fonts: served from our own site. When you load a FitMunch web page, your browser requests font files from FitMunch. No third party font host is used.');
+    expect(html).not.toContain('the font host');
+    expect(html).not.toMatch(/Google/i);
   });
 
   it('login.html loads fm-track.js once', () => {
