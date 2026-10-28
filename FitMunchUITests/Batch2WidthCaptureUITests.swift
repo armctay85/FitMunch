@@ -48,7 +48,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
                 && app.descendants(matching: .any)["me-about-terms"].exists
         }
         for identifier in ["me-about-privacy", "me-about-terms", "me-about-support"] {
-            let row = app.descendants(matching: .any)[identifier]
+            let row = tallest(identifier, in: app)
             XCTAssertTrue(row.waitForExistence(timeout: 4), "\(identifier) missing")
             XCTAssertGreaterThanOrEqual(row.frame.height, 44, "\(identifier) is under 44pt")
         }
@@ -241,7 +241,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             || errorState.waitForExistence(timeout: 2)
             || errorLine.waitForExistence(timeout: 2)
         XCTAssertTrue(opened, "Paywall did not open")
-        var restore = app.descendants(matching: .any)["paywall-restore-inline"]
+        var restore = tallest("paywall-restore-inline", in: app)
         if !restore.waitForExistence(timeout: 8) {
             restore = app.buttons["paywall-restore-inline"]
         }
@@ -252,7 +252,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             hops += 1
         }
         XCTAssertTrue(restore.isHittable)
-        var terms = app.descendants(matching: .any)["paywall-terms"]
+        var terms = tallest("paywall-terms", in: app)
         if !terms.waitForExistence(timeout: 4) {
             terms = app.buttons["Terms"]
         }
@@ -296,11 +296,11 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         print("TRIAL_CTAS \(trialLabels.joined(separator: " | "))")
         shot(app, "paywall-plans")
         XCTAssertEqual(trialButtons.count, 1, "Trial CTAs: \(trialLabels)")
-        var planTerms = app.descendants(matching: .any)["paywall-terms"]
+        var planTerms = tallest("paywall-terms", in: app)
         if !planTerms.waitForExistence(timeout: 4) {
             planTerms = app.buttons["Terms"]
         }
-        var planRestore = app.descendants(matching: .any)["paywall-restore"]
+        var planRestore = tallest("paywall-restore", in: app)
         if !planRestore.waitForExistence(timeout: 2) {
             planRestore = app.buttons["paywall-restore"]
         }
@@ -594,6 +594,15 @@ final class Batch2WidthCaptureUITests: XCTestCase {
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)[identifier]
+    }
+
+    /// List rows publish the identifier twice. Use the taller frame.
+    private func tallest(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let matches = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", identifier)
+        )
+        _ = matches.firstMatch.waitForExistence(timeout: 2)
+        return matches.allElementsBoundByIndex.max(by: { $0.frame.height < $1.frame.height }) ?? matches.firstMatch
     }
 
     private func showTab(_ name: String, in app: XCUIApplication) {
