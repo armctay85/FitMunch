@@ -51,6 +51,9 @@ class PremiumManager: ObservableObject {
             print("RevenueCat skipped: -UseLocalStoreKit")
             return
         }
+        if MealLogTiming.isEnabled {
+            return
+        }
         configureRevenueCat()
     }
 
@@ -63,6 +66,8 @@ class PremiumManager: ObservableObject {
     /// Configure RevenueCat with API key. A missing key stays on StoreKit 2.
     /// Nothing user-facing is shown for that case.
     private func configureRevenueCat() {
+        MealLogTiming.shared.mark("revenueCatBegan")
+        defer { MealLogTiming.shared.mark("revenueCatReturned") }
         guard Constants.isRevenueCatConfigured else {
             print("RevenueCat not configured: missing REVENUECAT_API_KEY. Falling back to StoreKit 2.")
             return
@@ -73,9 +78,12 @@ class PremiumManager: ObservableObject {
         Purchases.logLevel = .debug
         #endif
         Purchases.configure(withAPIKey: Constants.revenueCatApiKey)
+        MealLogTiming.shared.mark("revenueCatConfigured")
 
         Task {
+            MealLogTiming.shared.mark("subscriptionBegan")
             await checkSubscriptionStatus()
+            MealLogTiming.shared.mark("subscriptionEnded")
         }
     }
 

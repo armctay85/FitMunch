@@ -56,6 +56,12 @@ struct DetailView: View {
                 .onAppear {
                     caloriesFocused = true
                     recentLogs = viewModel.recentLogs()
+                    MealLogTiming.shared.mark("sheetOpen")
+                }
+                .onChange(of: caloriesFocused) { _, focused in
+                    if focused {
+                        MealLogTiming.shared.mark("caloriesFocused")
+                    }
                 }
 
                 if !recentLogs.isEmpty {
@@ -198,7 +204,9 @@ struct DetailView: View {
                         Task {
                             if await viewModel.saveMeal() {
                                 mealSavedTick += 1
-                                try? await Task.sleep(for: .milliseconds(160))
+                                if !MealLogTiming.isEnabled {
+                                    try? await Task.sleep(for: .milliseconds(160))
+                                }
                                 dismiss()
                             }
                         }

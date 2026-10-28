@@ -108,7 +108,7 @@ struct MacroNumber: View {
 
     private func apply(_ newValue: Int) {
         guard shown != newValue else { return }
-        if reduceMotion || ScreenshotLaunch.isActive {
+        if reduceMotion || ScreenshotLaunch.isActive || MealLogTiming.isEnabled {
             shown = newValue
         } else {
             withAnimation(.spring(duration: 0.8)) {

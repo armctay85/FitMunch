@@ -54,6 +54,7 @@ class DetailViewModel: ObservableObject {
     /// One-step entry. The numbers are what the person typed. The name is the
     /// meal slot, not a food looked up from anywhere.
     func setQuickEntry(calories: Int, protein: Int, carbs: Int, fats: Int) {
+        MealLogTiming.shared.markCaloriesTyped(calories)
         let label = mealName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard calories > 0, !label.isEmpty else {
             removeQuickEntry()
@@ -184,6 +185,9 @@ class DetailViewModel: ObservableObject {
     
     /// Save the meal
     func saveMeal() async -> Bool {
+        MealLogTiming.shared.mark("saveBegan")
+        var saved = false
+        defer { MealLogTiming.shared.mark(saved ? "saveEnded" : "saveFailed") }
         isLoading = true
         defer { isLoading = false }
         
@@ -229,6 +233,7 @@ class DetailViewModel: ObservableObject {
             }
             
             try modelContext.save()
+            saved = true
             // Mirror to the FitMunch backend so web + AI coach see this meal.
             MealSync.push(
                 name: meal.name,
