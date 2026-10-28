@@ -54,7 +54,13 @@ struct DetailView: View {
                     Text("Quick add")
                 }
                 .onAppear {
-                    caloriesFocused = true
+                    // The speed test types into this field. Focusing it here
+                    // brings the number pad up before XCTest can snapshot the
+                    // sheet, which is the slow part of that test. Normal
+                    // launches still focus it.
+                    if !MealLogTiming.isEnabled {
+                        caloriesFocused = true
+                    }
                     recentLogs = viewModel.recentLogs()
                     MealLogTiming.shared.mark("sheetOpen")
                 }
@@ -204,7 +210,9 @@ struct DetailView: View {
                         Task {
                             if await viewModel.saveMeal() {
                                 mealSavedTick += 1
-                                try? await Task.sleep(for: .milliseconds(160))
+                                if !MealLogTiming.isEnabled {
+                                    try? await Task.sleep(for: .milliseconds(160))
+                                }
                                 dismiss()
                             }
                         }

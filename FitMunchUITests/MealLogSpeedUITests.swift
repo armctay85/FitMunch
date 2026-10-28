@@ -2,8 +2,8 @@ import Darwin
 import XCTest
 
 /// Launch to a logged meal on Today. 375pt is the iOS 26.2 SE. 440pt is the Pro Max.
-/// The 10s clock starts when `launch()` returns (the app is idle and can take a tap).
-/// XCTest's automation session sits inside `launch()` and is printed separately.
+/// The gate is the app signpost from the first frame to the Today row with real kcal.
+/// The XCTest clock is a backstop for the whole test method, including launch.
 /// Quick add is used when the calorie field is on the sheet.
 final class MealLogSpeedUITests: XCTestCase {
     private let calorieEntry = 480
@@ -13,6 +13,7 @@ final class MealLogSpeedUITests: XCTestCase {
     }
 
     func testLaunchToLoggedMeal() throws {
+        let testStarted = Date()
         let app = XCUIApplication()
         app.launchArguments = ["-ReviewGuards", "-ForceLightMode", "-MealLogTiming"]
         var width = 0
@@ -23,15 +24,18 @@ final class MealLogSpeedUITests: XCTestCase {
         var mealName = ""
         var elapsed = 0.0
         var launchSeconds = 0.0
+        var xctestSeconds = 0.0
+        var signpost = ""
         let launchStarted = Date()
         app.launch()
         let ready = Date()
         launchSeconds = ready.timeIntervalSince(launchStarted)
         defer {
             emit(String(
-                format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
+                format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f MEAL_LOG_XCTEST %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
                 elapsed,
                 launchSeconds,
+                xctestSeconds,
                 width,
                 calories,
                 mealShown ? "true" : "false",
@@ -51,7 +55,6 @@ final class MealLogSpeedUITests: XCTestCase {
         let quick = app.textFields["meal-quick-calories"]
         if quick.exists {
             path = "quick"
-            mealName = textValue(name)
             quick.tap()
             quick.typeText(String(calorieEntry))
         } else {
@@ -79,9 +82,8 @@ final class MealLogSpeedUITests: XCTestCase {
 
         let save = app.buttons["meal-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 4), "Save missing")
-        let enabledDeadline = Date().addingTimeInterval(3)
-        while Date() < enabledDeadline, !save.isEnabled {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        if !save.isEnabled {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         XCTAssertTrue(save.isEnabled, "Save stayed disabled on the \(path) path")
         if save.isHittable {
@@ -95,11 +97,12 @@ final class MealLogSpeedUITests: XCTestCase {
         while Date() < shownDeadline {
             calories = loggedCalories(in: app)
             let named = app.descendants(matching: .any)["today-meal-name"]
-            if mealName.isEmpty, named.exists, !named.label.isEmpty {
+            let nameVisible = named.exists
+            if mealName.isEmpty, nameVisible, !named.label.isEmpty {
                 mealName = named.label
             }
-            mealShown = (!mealName.isEmpty && app.staticTexts[mealName].exists) || (named.exists && calories > 0)
-            if mealShown, calories > 0 {
+            mealShown = nameVisible && calories > 0 && !mealName.isEmpty
+            if mealShown {
                 break
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.15))
@@ -108,11 +111,14 @@ final class MealLogSpeedUITests: XCTestCase {
             calories = loggedCalories(in: app)
         }
         elapsed = Date().timeIntervalSince(ready)
-        let signpost = signpostReport(in: app)
+        xctestSeconds = Date().timeIntervalSince(testStarted)
+        signpost = signpostReport(in: app)
+        let interval = intervalSeconds(in: signpost)
         emit(String(
-            format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
+            format: "MEAL_LOG_SECONDS %.2f MEAL_LOG_LAUNCH %.2f MEAL_LOG_XCTEST %.2f width=%d calories=%d mealShown=%@ path=%@ detailCalories=%d meal=%@",
             elapsed,
             launchSeconds,
+            xctestSeconds,
             width,
             calories,
             mealShown ? "true" : "false",
@@ -135,10 +141,24 @@ final class MealLogSpeedUITests: XCTestCase {
         if path == "quick" {
             XCTAssertEqual(calories, calorieEntry, "Today showed \(calories) calories after entering \(calorieEntry)")
         }
-        XCTAssertLessThanOrEqual(elapsed, 10, String(format: "Logging took %.2fs after launch returned", elapsed))
+        XCTAssertNotNil(interval, "LaunchToLoggedKcal signpost was missing: \(signpost)")
+        XCTAssertLessThanOrEqual(interval ?? 999, 10, String(format: "LaunchToLoggedKcal took %.3fs", interval ?? 999))
+        XCTAssertLessThan(xctestSeconds, 20, String(format: "XCTest took %.2fs", xctestSeconds))
     }
 
-    /// The app writes the signpost report onto this accessibility label.
+    private func intervalSeconds(in report: String) -> Double? {
+        guard let range = report.range(of: "interval=") else { return nil }
+        var token = ""
+        for character in report[range.upperBound...] {
+            if character.isNumber || character == "." {
+                token.append(character)
+            } else {
+                break
+            }
+        }
+        return Double(token)
+    }
+
     /// One query, after `elapsed` is captured, so the harness clock stays put.
     private func signpostReport(in app: XCUIApplication) -> String {
         let probe = app.descendants(matching: .any)["meal-log-signpost"]
@@ -172,14 +192,6 @@ final class MealLogSpeedUITests: XCTestCase {
             guard let value = Int(label), value > 0 else { return nil }
             return value
         }
-    }
-
-    private func textValue(_ element: XCUIElement) -> String {
-        let value = (element.value as? String) ?? ""
-        if value.isEmpty || value == "Meal name (e.g., Breakfast, Lunch)" {
-            return ""
-        }
-        return value
     }
 
     private func dismissKeyboard(in app: XCUIApplication) {

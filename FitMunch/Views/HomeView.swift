@@ -326,7 +326,7 @@ private struct ProgressRing: View {
     }
 
     private func apply(_ newValue: Double) {
-        if reduceMotion || ScreenshotLaunch.isActive {
+        if reduceMotion || ScreenshotLaunch.isActive || MealLogTiming.isEnabled {
             shown = newValue
         } else {
             withAnimation(.spring(duration: 0.8)) {

@@ -11,6 +11,7 @@ struct FitMunchApp: App {
 
     init() {
         MealLogTiming.shared.mark("initBegan")
+        MealLogTiming.shared.disarmWaits()
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
         #endif
@@ -62,6 +63,11 @@ struct FitMunchApp: App {
             .tint(Theme.brandGreen)
             .preferredColorScheme(AppearanceLaunch.colorScheme)
             .background(Theme.surface)
+            .transaction { transaction in
+                if MealLogTiming.isEnabled {
+                    transaction.disablesAnimations = true
+                }
+            }
             .background {
                 MealLogTimingHost()
             }

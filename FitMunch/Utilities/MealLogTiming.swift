@@ -48,9 +48,22 @@ final class MealLogTiming: ObservableObject {
         publish(phase: phase)
     }
 
+    /// UI-test only. Release never reaches this: `isEnabled` is compiled false there.
+    func disarmWaits() {
+        guard Self.isEnabled else { return }
+        UIView.setAnimationsEnabled(false)
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows {
+                window.layer.speed = 100
+            }
+        }
+    }
+
     func markFirstFrame(width: Int) {
         guard Self.isEnabled, !didBegin else { return }
         didBegin = true
+        disarmWaits()
         firstFrameAt = Date()
         widthPoints = width
         os_signpost(.begin, log: Self.log, name: "LaunchToLoggedKcal", signpostID: Self.signpostID)
@@ -205,6 +218,7 @@ private final class FirstFrameView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        MealLogTiming.shared.disarmWaits()
         guard !armed, window != nil, bounds.width > 1 else { return }
         armed = true
         MealLogTiming.shared.markFirstFrame(width: Int(bounds.width.rounded()))

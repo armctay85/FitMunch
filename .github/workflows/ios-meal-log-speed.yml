@@ -103,6 +103,18 @@ jobs:
           echo "width-440 udid=$WIDE_UDID" | tee artifacts/meal-log-speed/destinations.txt
           echo "width-375 udid=$NARROW_UDID runtime=$NARROW_RUNTIME" | tee -a artifacts/meal-log-speed/destinations.txt
 
+          # Boot before xcodebuild so "Setting up automation session" is not
+          # the simulator's first boot. The speed test's XCTest clock includes that wait.
+          defaults write com.apple.dt.Xcode DVTIgnoreDebuggerVersionMismatch -bool YES || true
+          boot_sim() {
+            local udid="$1"
+            xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+            xcrun simctl bootstatus "$udid" -b || true
+            xcrun simctl spawn "$udid" launchctl kickstart -kp system/com.apple.accessibility.AccessibilityUIServer >/dev/null 2>&1 || true
+          }
+          boot_sim "$WIDE_UDID"
+          boot_sim "$NARROW_UDID"
+
           DERIVED="$RUNNER_TEMP/DerivedDataMealLog"
           run_tests() {
             local name="$1"
