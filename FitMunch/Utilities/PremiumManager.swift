@@ -35,8 +35,10 @@ class PremiumManager: ObservableObject {
     private init() {
         #if DEBUG
         if PaywallLaunchArgument.isForceEmpty {
+            // Stay on loading until loadPaywallPlans finishes its short hold.
+            // Failing in init skipped the skeleton the audit looks for.
             paywallPlans = []
-            paywallPhase = .failed
+            paywallPhase = .loading
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             lastPlanFetchSummary = "loaded=none"
         }
@@ -187,6 +189,10 @@ class PremiumManager: ObservableObject {
             paywallPlans = []
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             lastPlanFetchSummary = "loaded=none"
+            paywallPhase = .loading
+            // Let the skeleton land, then the same error state the paywall already shows.
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
             paywallPhase = .failed
             return
         }

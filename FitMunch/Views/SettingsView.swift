@@ -138,8 +138,8 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("About")
+                        .accessibilityIdentifier("me-about")
                 }
-                .accessibilityIdentifier("me-about")
 
                 // Preferences section
                 Section("Preferences") {
@@ -387,22 +387,21 @@ struct SettingsView: View {
         }
     }
 
-    /// The identifier sits on the text and on a UIKit label. A List row drops
-    /// a SwiftUI identifier on iOS 26, which is why me-privacy-more uses the same anchor.
+    /// Upgrade uses a borderless list button and XCTest can see that identifier.
+    /// A background label in this section did not publish me-about-privacy.
+    /// The id sits on the 44pt label and on the button that receives the tap.
     private func aboutRow(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
-        Text(title)
-            .font(.body)
-            .foregroundStyle(Theme.brandGreen)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
-            .accessibilityLabel(title)
-            .accessibilityIdentifier(identifier)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction(.default, action)
-            .background {
-                AboutRowAnchor(title: title, identifier: identifier)
-            }
+        Button(action: action) {
+            Text(title)
+                .font(.body)
+                .foregroundStyle(Theme.brandGreen)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(identifier)
+        }
+        .buttonStyle(.borderless)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .accessibilityIdentifier(identifier)
     }
 
     private func expandPrivacy(_ proxy: ScrollViewProxy) {
@@ -461,38 +460,6 @@ struct SettingsView: View {
             ]
         }
         return MealCSV.document(rows: rows)
-    }
-}
-
-/// Clear label with the About row identifier. Created once so List updates
-/// do not rebuild the accessibility node. It does not draw its own title.
-private struct AboutRowAnchor: UIViewRepresentable {
-    var title: String
-    var identifier: String
-
-    func makeUIView(context: Context) -> UILabel {
-        let label = UILabel()
-        label.backgroundColor = .clear
-        label.textColor = .clear
-        label.font = .preferredFont(forTextStyle: .body)
-        label.isUserInteractionEnabled = false
-        label.isAccessibilityElement = true
-        label.accessibilityIdentifier = identifier
-        label.accessibilityTraits = .button
-        return label
-    }
-
-    func updateUIView(_ label: UILabel, context: Context) {
-        label.text = title
-        label.textColor = .clear
-        label.accessibilityLabel = title
-        label.accessibilityIdentifier = identifier
-        label.accessibilityTraits = .button
-        label.isAccessibilityElement = true
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
-        CGSize(width: proposal.width ?? 44, height: max(proposal.height ?? 44, 44))
     }
 }
 

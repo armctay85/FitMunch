@@ -141,6 +141,7 @@ struct ReceiptScanView: View {
                 beginScan(.camera)
             } label: {
                 Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
+                    .accessibilityIdentifier("scan-take-photo")
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(isRequestingCamera)
