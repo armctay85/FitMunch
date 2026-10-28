@@ -46,6 +46,27 @@ describe('signed-out first run', () => {
   });
 });
 
+describe('homepage path into the signed-out week', () => {
+  it('the hero offers the goal step beside the trial, and the app focuses that step', async () => {
+    const home = await request(app).get('/').expect(200);
+    const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
+    expect(hero.indexOf('Start the 14-day trial')).toBeLessThan(hero.indexOf('See your week'));
+    expect(hero).toContain('href="/app.html?start=goal#goal"');
+    expect(hero).not.toMatch(/A\$\d|sample|demo/i);
+    const appHtml = await request(app).get('/app.html?start=goal').expect(200);
+    expect(appHtml.headers['cache-control']).toBe('no-store');
+    expect(appHtml.text).toContain('id="goal"');
+    expect(appHtml.text).toContain('id="fr-goal"');
+    expect(appHtml.text).toContain('id="fr-weight"');
+    expect(appHtml.text).toContain("params.get('start') === 'goal'");
+    expect(appHtml.text).toContain("location.hash === '#goal'");
+    expect(appHtml.text).toContain("getElementById('fr-goal')");
+    const focusFn = appHtml.text.slice(appHtml.text.indexOf('function bindFirstRun()'), appHtml.text.indexOf('async function boot()'));
+    expect(focusFn).toContain('goal.focus()');
+    expect(focusFn).toContain("fetch('/api/first-run/preview'");
+  });
+});
+
 describe('checkout review before Stripe', () => {
   it('the email step shows the review, and only confirm posts to quick-checkout', async () => {
     const login = await request(app).get('/login.html?plan=premium').expect(200);

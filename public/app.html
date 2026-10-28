@@ -529,7 +529,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <div class="gate-card fr-card">
   <a class="fr-brand" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28"/>FitMunch</a>
   <div id="fr-step-1">
-   <h1>Build your first week</h1>
+   <h1 id="goal">Build your first week</h1>
    <p>Goal, weight and training come first. The next screen is one day and the rest of the week, worked out from those numbers.</p>
    <form id="fr-form">
     <label for="fr-goal">Goal</label>
@@ -2051,7 +2051,19 @@ function bindFirstRun() {
   const step2 = document.getElementById('fr-step-2');
   if (step2) step2.hidden = true;
   if (step1) step1.hidden = false;
+  const goal = document.getElementById('fr-goal');
+  if (goal) goal.focus();
  });
+ const params = new URLSearchParams(location.search);
+ if (params.get('start') === 'goal' || location.hash === '#goal') {
+  const focusGoal = () => {
+   const goal = document.getElementById('fr-goal');
+   if (goal) goal.focus();
+  };
+  focusGoal();
+  window.addEventListener('load', focusGoal);
+  setTimeout(focusGoal, 0);
+ }
 }
 async function boot() {
  if (!S.token) {
