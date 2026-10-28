@@ -204,15 +204,9 @@ struct PaywallView: View {
             }
             .accessibilityIdentifier("paywall-retry")
             .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-retry"))
-            Button {
+            legalButton("Restore Purchases", identifier: "paywall-restore-inline") {
                 Task { await restore() }
-            } label: {
-                Text("Restore Purchases")
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .accessibilityIdentifier("paywall-restore-inline")
             }
-            .accessibilityIdentifier("paywall-restore-inline")
-            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-restore-inline"))
         }
         .accessibilityIdentifier("paywall-error-state")
     }
@@ -375,16 +369,18 @@ struct PaywallView: View {
         return "Premium is on."
     }
 
-    /// 44pt tap target. The label stays the visible name so existing queries still find Terms.
+    /// 44pt target on the text itself. A Button style was measuring as the glyph height.
     private func legalButton(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.secondaryText)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .accessibilityIdentifier(identifier)
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: action)
+            .accessibilityLabel(title)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, action)
     }
 
     private func open(_ string: String) {
@@ -492,23 +488,6 @@ private struct PackageCard: View {
         }
         if let savingsPercent {
             parts.append("Save \(savingsPercent) percent")
-        }
-        let cta = PaywallPricing.cta(
-            displayPrice: plan.priceString,
-            periodUnit: plan.periodUnit,
-            intro: plan.intro,
-            eligible: plan.eligibleForIntro
-        )
-        if plan.intro != nil {
-            parts.append(cta.title)
-            if let subline = cta.subline {
-                parts.append(subline)
-            }
-            if let timeline = PaywallPricing.trialTimeline(intro: plan.intro, eligible: plan.eligibleForIntro) {
-                parts.append(timeline.today)
-                parts.append(timeline.reminder)
-                parts.append(timeline.billed)
-            }
         }
         return parts.joined(separator: ". ")
     }

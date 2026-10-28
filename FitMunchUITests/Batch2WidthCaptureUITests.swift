@@ -241,9 +241,9 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             || errorState.waitForExistence(timeout: 2)
             || errorLine.waitForExistence(timeout: 2)
         XCTAssertTrue(opened, "Paywall did not open")
-        var restore = app.buttons["paywall-restore-inline"]
+        var restore = app.descendants(matching: .any)["paywall-restore-inline"]
         if !restore.waitForExistence(timeout: 8) {
-            restore = app.descendants(matching: .any)["paywall-restore-inline"]
+            restore = app.buttons["paywall-restore-inline"]
         }
         XCTAssertTrue(restore.waitForExistence(timeout: 8), "paywall-restore-inline missing")
         var hops = 0
@@ -252,7 +252,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             hops += 1
         }
         XCTAssertTrue(restore.isHittable)
-        var terms = app.buttons["paywall-terms"]
+        var terms = app.descendants(matching: .any)["paywall-terms"]
         if !terms.waitForExistence(timeout: 4) {
             terms = app.buttons["Terms"]
         }
@@ -290,14 +290,20 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-today"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-billing"].exists)
         let subscribe = app.buttons["paywall-subscribe"]
-        XCTAssertEqual(subscribe.waitForExistence(timeout: 6) ? 1 : 0, 1, "Expected one subscribe control")
+        XCTAssertTrue(subscribe.waitForExistence(timeout: 6), "Expected one subscribe control")
         let trialButtons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'free trial'"))
-        XCTAssertLessThanOrEqual(trialButtons.count, 1, "More than one trial CTA")
-        var planTerms = app.buttons["paywall-terms"]
+        let trialLabels = trialButtons.allElementsBoundByIndex.map(\.label)
+        print("TRIAL_CTAS \(trialLabels.joined(separator: " | "))")
+        shot(app, "paywall-plans")
+        XCTAssertEqual(trialButtons.count, 1, "Trial CTAs: \(trialLabels)")
+        var planTerms = app.descendants(matching: .any)["paywall-terms"]
         if !planTerms.waitForExistence(timeout: 4) {
             planTerms = app.buttons["Terms"]
         }
-        let planRestore = app.buttons["paywall-restore"]
+        var planRestore = app.descendants(matching: .any)["paywall-restore"]
+        if !planRestore.waitForExistence(timeout: 2) {
+            planRestore = app.buttons["paywall-restore"]
+        }
         XCTAssertTrue(planTerms.waitForExistence(timeout: 2))
         XCTAssertTrue(planRestore.waitForExistence(timeout: 4))
         print(String(
@@ -307,7 +313,6 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         ))
         XCTAssertGreaterThanOrEqual(planRestore.frame.height, 44)
         XCTAssertGreaterThanOrEqual(planTerms.frame.height, 44)
-        shot(app, "paywall-plans")
         app.terminate()
     }
 
