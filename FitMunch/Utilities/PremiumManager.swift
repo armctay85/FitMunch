@@ -190,9 +190,13 @@ class PremiumManager: ObservableObject {
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             lastPlanFetchSummary = "loaded=none"
             paywallPhase = .loading
-            // Let the skeleton land, then the same error state the paywall already shows.
+            // The skeleton has to still be up when the audit looks. XCTest finds
+            // Close, then its next poll for paywall-loading is about 3s after the
+            // sheet appears. A 1.2s hold had already moved on to the error, so
+            // both devices reported the loading state missing. The audit allows
+            // 12s for the error copy after it sees the skeleton.
             await Task.yield()
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
             paywallPhase = .failed
             return
         }

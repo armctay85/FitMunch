@@ -208,7 +208,9 @@ struct PaywallView: View {
                 Task { await restore() }
             }
         }
-        .accessibilityIdentifier("paywall-error-state")
+        // No identifier on this stack. On iOS 26 a container identifier replaces
+        // the identifiers of its buttons, so Restore was published as
+        // paywall-error-state and the width test could not find paywall-restore-inline.
     }
 
     @ViewBuilder
