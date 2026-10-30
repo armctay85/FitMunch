@@ -102,7 +102,7 @@ class SettingsViewModel: ObservableObject {
             errorMessage = nil
             noticeMessage = "Purchases restored."
         } else {
-            errorMessage = premiumManager.errorMessage ?? "No purchases to restore or restore failed"
+            errorMessage = premiumManager.errorMessage ?? "No purchases to restore"
         }
     }
     

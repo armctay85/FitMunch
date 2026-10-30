@@ -166,7 +166,7 @@ class PremiumManager: ObservableObject {
         }
 
         if errorMessage == nil {
-            errorMessage = "No purchases to restore or restore failed"
+            errorMessage = "No purchases to restore"
         }
         return false
     }
@@ -486,7 +486,7 @@ class PremiumManager: ObservableObject {
     private func restoreFromStoreKit() async -> Bool {
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if !localOnly {
-            _ = await withTimeout(seconds: 8) {
+            let synced: Bool? = await withTimeout(seconds: 8) {
                 do {
                     try await AppStore.sync()
                     return true
@@ -495,6 +495,9 @@ class PremiumManager: ObservableObject {
                     print("StoreKit restore error: \(error)")
                     return false
                 }
+            }
+            if synced == nil, errorMessage == nil {
+                errorMessage = "Restore failed"
             }
         }
 

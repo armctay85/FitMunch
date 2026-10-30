@@ -344,7 +344,7 @@ struct PaywallView: View {
         let success = await premiumManager.restorePurchases()
         restoreMessage = success
             ? "Purchases restored successfully!"
-            : (premiumManager.errorMessage ?? "No purchases to restore or restore failed")
+            : (premiumManager.errorMessage ?? "No purchases to restore")
         showRestoreAlert = true
     }
 

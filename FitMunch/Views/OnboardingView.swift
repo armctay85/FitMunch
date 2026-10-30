@@ -189,8 +189,7 @@ struct OnboardingView: View {
                 period: "forever",
                 features: [
                     "Log up to 3 meals per day",
-                    "7-day history view",
-                    "Basic food database",
+                    "Today's calories and macros",
                     "Set fitness goals"
                 ],
                 isSelected: false,
@@ -206,10 +205,9 @@ struct OnboardingView: View {
                 trial: viewModel.premiumTrialText,
                 features: [
                     "Unlimited meal logging",
-                    "Full history & advanced charts",
-                    "Premium food database with recipes",
-                    "Data export & insights",
-                    "Personalized recommendations"
+                    "Full history and charts",
+                    "AI meal plans and coach",
+                    "Data export"
                 ],
                 isSelected: true,
                 cardID: "onboarding-plan-premium",

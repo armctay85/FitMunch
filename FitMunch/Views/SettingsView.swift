@@ -235,21 +235,6 @@ struct SettingsView: View {
                 
                 // Support section
                 Section("Support") {
-                    Button("Contact Support") {
-                        viewModel.contactSupport()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
-                    Button("Privacy Policy") {
-                        viewModel.viewPrivacyPolicy()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
-                    Button("Terms of Service") {
-                        viewModel.viewTermsOfService()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
                     Button("Rate the App") {
                         if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)

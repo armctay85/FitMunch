@@ -34,6 +34,7 @@ struct HomeView: View {
                 .padding(.bottom, Theme.Spacing.eight)
             }
             .scrollClearsTabBar()
+            .safeAreaPadding(.bottom, 88)
             .background(Theme.surface)
             .navigationTitle("Today")
             .toolbar {
@@ -139,10 +140,7 @@ struct HomeView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: Theme.Spacing.four) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Theme.Spacing.two), count: 4), spacing: Theme.Spacing.two) {
                 ProgressRing(
                     title: "Calories",
                     value: viewModel.totalCalories,
@@ -280,31 +278,33 @@ private struct ProgressRing: View {
     }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.two) {
+        VStack(spacing: Theme.Spacing.one) {
             ZStack {
                 Circle()
-                    .stroke(color.opacity(0.2), lineWidth: 8)
-                    .frame(width: 80, height: 80)
+                    .stroke(color.opacity(0.2), lineWidth: 6)
+                    .frame(width: 64, height: 64)
 
                 Circle()
                     .trim(from: 0, to: shown)
-                    .stroke(color, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .frame(width: 80, height: 80)
+                    .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .frame(width: 64, height: 64)
                     .rotationEffect(.degrees(-90))
 
-                VStack {
-                    MacroNumber(value: value, style: .headline)
+                VStack(spacing: 0) {
+                    MacroNumber(value: value, style: .caption)
                     if !unit.isEmpty {
                         Text(unit)
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
 
             Text(title)
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             Text("\(Int(progress * 100))%")
                 .font(.caption2.monospacedDigit())

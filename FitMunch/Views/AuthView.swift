@@ -86,7 +86,7 @@ struct AuthView: View {
 
                     if mode == .login {
                         Link("Forgot your password?",
-                             destination: URL(string: "https://www.fitmunch.com.au/")!)
+                             destination: URL(string: "https://fitmunch.com.au/login.html#forgot")!)
                             .font(.footnote)
                             .foregroundStyle(Theme.brandGreen)
                     }

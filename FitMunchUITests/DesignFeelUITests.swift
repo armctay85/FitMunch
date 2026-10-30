@@ -61,7 +61,7 @@ final class DesignFeelUITests: XCTestCase {
 
         let manual = app.textFields["meal-manual-name"]
         XCTAssertTrue(manual.waitForExistence(timeout: 6), "Manual food field missing")
-        XCTAssertTrue(app.staticTexts["Search coming soon"].waitForExistence(timeout: 4))
+        XCTAssertFalse(app.staticTexts["Search coming soon"].exists)
         XCTAssertFalse(app.staticTexts["Chicken Breast"].exists, "Sample foods must not appear")
         XCTAssertFalse(app.buttons["food-Eggs"].exists)
         manual.tap()

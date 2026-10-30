@@ -122,7 +122,7 @@ final class PaywallCatalogTests: XCTestCase {
                 intro: intro,
                 eligible: true
             ),
-            "14-day free trial, then A$149.99/year. Renews automatically. Cancel anytime in Settings."
+            "14-day free trial, then A$149.99/year. Renews automatically. Cancel anytime in Settings. \(PaywallPricing.appStoreBillingSentence)"
         )
         XCTAssertEqual(
             PaywallPricing.renewalTerms(
@@ -131,7 +131,15 @@ final class PaywallCatalogTests: XCTestCase {
                 intro: intro,
                 eligible: false
             ),
-            "A$19.99/month. Renews automatically. Cancel anytime in Settings."
+            "A$19.99/month. Renews automatically. Cancel anytime in Settings. \(PaywallPricing.appStoreBillingSentence)"
+        )
+        XCTAssertTrue(
+            PaywallPricing.renewalTerms(
+                displayPrice: "A$19.99",
+                periodUnit: .month,
+                intro: nil,
+                eligible: false
+            ).contains("at least 24 hours before renewal in Settings")
         )
     }
 }
