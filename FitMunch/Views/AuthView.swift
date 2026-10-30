@@ -84,13 +84,6 @@ struct AuthView: View {
                     .padding(.horizontal, 28)
                     .accessibilityIdentifier(mode == .login ? "auth-sign-in" : "auth-create-account")
 
-                    if mode == .login {
-                        Link("Forgot your password?",
-                             destination: URL(string: "https://fitmunch.com.au/login.html#forgot")!)
-                            .font(.footnote)
-                            .foregroundStyle(Theme.brandGreen)
-                    }
-
                     Text("Free to start. Premium trial available in-app.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
