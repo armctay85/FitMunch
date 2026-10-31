@@ -124,19 +124,22 @@ extension XCTestCase {
         let table = app.tables.firstMatch
         let scroller: XCUIElement = list.exists ? list : (table.exists ? table : app)
 
+        let glassTop = tabButtonTop(in: app)
         for _ in 0..<attempts {
             if let row = firstExistingRow() {
-                if row.isHittable { return row }
+                if rowClearsTabBar(row, glassTop: glassTop) { return row }
                 let frame = row.frame
                 let bounds = app.windows.firstMatch.exists ? app.windows.firstMatch.frame : app.frame
                 let hasFrame = frame.width > 1 && frame.height > 1
-                // iPhone failure frame was {{19.5, 246.9}, {351, 63.4}} with visible
-                // point {-1,-1}. The same row was hittable at y=556. Nudge a
-                // high row down. A 320x480 app.frame must not shrink this band.
+                // iPhone failure frame was {{16, 759.7}, {358, 52}}: isHittable was
+                // true while the row sat in the floating glass, so the tap hit the bar.
+                // A high row (under the nav bar) still needs a downward nudge.
                 let band = max(bounds.height, 700) * 0.45
+                let underGlass = hasFrame && frame.maxY > glassTop - 4
                 let tooHigh = !hasFrame || frame.midY < band
-                nudgeScroll(scroller, fraction: tooHigh ? 0.22 : -0.18)
-                if let row = firstExistingRow(), row.isHittable { return row }
+                let fraction: CGFloat = underGlass ? -0.20 : (tooHigh ? 0.22 : -0.18)
+                nudgeScroll(scroller, fraction: fraction)
+                if let row = firstExistingRow(), rowClearsTabBar(row, glassTop: glassTop) { return row }
                 if firstExistingRow() == nil {
                     nudgeScroll(scroller, fraction: tooHigh ? -0.12 : 0.16)
                 }
@@ -144,8 +147,31 @@ extension XCTestCase {
                 nudgeScroll(scroller, fraction: -0.28)
             }
         }
-        if let row = firstExistingRow(), row.isHittable { return row }
+        if let row = firstExistingRow(), rowClearsTabBar(row, glassTop: glassTop) { return row }
         return nil
+    }
+
+    /// Tab button top. The bar container starts lower than the floating glass.
+    /// A missing or covered bar (full-screen paywall) uses the window bottom.
+    func tabButtonTop(in app: XCUIApplication) -> CGFloat {
+        let windowBottom = app.windows.firstMatch.exists ? app.windows.firstMatch.frame.maxY : app.frame.maxY
+        let bar = app.tabBars.firstMatch
+        guard bar.exists, bar.isHittable, bar.frame.height > 1, bar.frame.minY < windowBottom - 20 else { return windowBottom }
+        var top = bar.frame.minY
+        for name in ["Today", "Plan", "Scan", "Coach", "Me"] {
+            let button = bar.buttons[name]
+            if button.exists, button.frame.height > 1, button.frame.minY < windowBottom {
+                top = min(top, button.frame.minY)
+            }
+        }
+        return top
+    }
+
+    private func rowClearsTabBar(_ row: XCUIElement, glassTop: CGFloat) -> Bool {
+        guard row.isHittable else { return false }
+        let frame = row.frame
+        guard frame.width > 1, frame.height > 1 else { return false }
+        return frame.maxY <= glassTop - 4
     }
 
     /// fraction < 0 moves the finger up and reveals rows below.

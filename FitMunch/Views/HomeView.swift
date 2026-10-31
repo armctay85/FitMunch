@@ -33,10 +33,9 @@ struct HomeView: View {
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
             }
-            .scrollClearsTabBar()
-            // Layout inset, not safe-area padding. The floating bar ignores safe-area
-            // padding and was painting the Lunch chips through the glass.
-            .padding(.bottom, 96)
+            // Margin inside the scroll, not a frame inset. The scroll view stays
+            // full height so rows can pass behind the translucent tab bar.
+            .contentMargins(.bottom, Theme.Spacing.tabClearance, for: .scrollContent)
             .background(Theme.surface)
             .navigationTitle("Today")
             .toolbar {
@@ -78,7 +77,6 @@ struct HomeView: View {
             .refreshable {
                 viewModel.loadMealsForSelectedDate()
             }
-            .floatingTabBarInset()
         }
     }
 
@@ -415,6 +413,8 @@ private struct MealCard: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(Theme.Radius.medium)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-meal-card")
         .alert("Delete Meal", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive, action: onDelete)

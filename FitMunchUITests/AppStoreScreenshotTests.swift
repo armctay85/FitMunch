@@ -37,6 +37,9 @@ final class AppStoreScreenshotTests: XCTestCase {
             )
             assertScreenLooksInUse(screen.file)
             assertNoRejectedCopy(on: screen.file)
+            if screen.file == "home" {
+                alignWholeMealCardsAboveTabBar()
+            }
             savePNG(named: screen.file)
         }
     }
@@ -75,6 +78,76 @@ final class AppStoreScreenshotTests: XCTestCase {
                 return
             }
         }
+    }
+
+    /// Scroll Today so the last card above the tab bar is whole and flush with it.
+    /// A card crossing the glass is a half-cut card. A gap under the last whole
+    /// card is an empty band.
+    private func alignWholeMealCardsAboveTabBar() {
+        let scroll = tallestScroll()
+        XCTAssertTrue(scroll.waitForExistence(timeout: 4), "Today scroll view missing")
+        let topLimit: CGFloat = 96
+        for _ in 0..<8 {
+            let barTop = tabButtonTop(in: app)
+            let cards = mealCards().sorted { $0.frame.minY < $1.frame.minY }
+            if cards.isEmpty { break }
+
+            if let cut = cards.first(where: { $0.frame.minY < barTop - 1 && $0.frame.maxY > barTop + 1 }) {
+                let hidden = cut.frame.maxY - barTop
+                let shown = barTop - cut.frame.minY
+                let fitsAboveTitle = cut.frame.minY - hidden >= topLimit
+                if shown >= hidden && fitsAboveTitle {
+                    drag(scroll, points: -(hidden + 1))
+                } else {
+                    drag(scroll, points: shown + 1)
+                }
+                continue
+            }
+
+            let above = cards.filter { $0.frame.maxY <= barTop + 1 && $0.frame.minY >= topLimit }
+            guard let last = above.max(by: { $0.frame.maxY < $1.frame.maxY }) else { break }
+            let gap = barTop - last.frame.maxY
+            if gap <= 8 { break }
+            let room = last.frame.minY - topLimit
+            let shift = min(gap, max(0, room))
+            if shift <= 8 { break }
+            drag(scroll, points: shift)
+        }
+
+        let barTop = tabButtonTop(in: app)
+        let cards = mealCards().sorted { $0.frame.minY < $1.frame.minY }
+        XCTAssertFalse(cards.isEmpty, "Today meal cards missing")
+        let cut = cards.first { $0.frame.minY < barTop - 2 && $0.frame.maxY > barTop + 2 }
+        XCTAssertNil(cut, "A meal card is cut by the tab bar \(cut?.frame ?? .zero) bar=\(barTop)")
+        let whole = cards.filter { $0.frame.maxY <= barTop + 2 && $0.frame.minY >= topLimit }
+        XCTAssertFalse(whole.isEmpty, "No whole meal card above the tab bar")
+        if let last = whole.last {
+            let gap = barTop - last.frame.maxY
+            XCTAssertLessThanOrEqual(gap, 12, "Empty band under the last meal card \(last.frame) bar=\(barTop)")
+        }
+    }
+
+    private func mealCards() -> [XCUIElement] {
+        app.descendants(matching: .any)
+            .matching(identifier: "today-meal-card")
+            .allElementsBoundByIndex
+            .filter { $0.frame.width > 80 && $0.frame.height > 40 }
+    }
+
+    private func tallestScroll() -> XCUIElement {
+        let scrolls = app.scrollViews.allElementsBoundByIndex.filter { $0.frame.height > 120 }
+        return scrolls.max(by: { $0.frame.height < $1.frame.height }) ?? app.scrollViews.firstMatch
+    }
+
+    /// points > 0 moves the finger down, so content moves down toward the tab bar.
+    private func drag(_ element: XCUIElement, points: CGFloat) {
+        let height = max(element.frame.height, 1)
+        guard abs(points) > 1 else { return }
+        let startY: CGFloat = points > 0 ? 0.38 : 0.72
+        let endY = min(0.90, max(0.10, startY + points / height))
+        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     private func openTab(_ name: String) {
