@@ -34,8 +34,9 @@ struct HomeView: View {
                 .padding(.bottom, Theme.Spacing.eight)
             }
             .scrollClearsTabBar()
-            // Clears the floating tab bar at 6.7 and 6.9. 88pt still left the Lunch chips in the glass.
-            .safeAreaPadding(.bottom, 176)
+            // Layout inset, not safe-area padding. The floating bar ignores safe-area
+            // padding and was painting the Lunch chips through the glass.
+            .padding(.bottom, 96)
             .background(Theme.surface)
             .navigationTitle("Today")
             .toolbar {
