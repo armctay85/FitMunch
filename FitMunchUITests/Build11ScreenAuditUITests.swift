@@ -225,8 +225,8 @@ final class Build11ScreenAuditUITests: XCTestCase {
 
     func testLoadingHolds() {
         var app = launch([ReviewLaunchArgument.flag, AuditLaunchArgument.todayLoading, "-ForceLightMode"])
-        let todayLoading = app.activityIndicators.firstMatch.waitForExistence(timeout: 8) || app.progressIndicators.firstMatch.waitForExistence(timeout: 2)
-        mark("Today", "loading", todayLoading ? "PASS" : "FAIL", todayLoading ? "Spinner held" : "No spinner", shot(app, "today-loading"))
+        let todayLoading = app.descendants(matching: .any)["today-loading"].waitForExistence(timeout: 8)
+        mark("Today", "loading", todayLoading ? "PASS" : "FAIL", todayLoading ? "Loading skeleton visible" : "No skeleton", shot(app, "today-loading"))
         app.terminate()
 
         app = launch([ReviewLaunchArgument.flag, AuditLaunchArgument.todayError, "-ForceLightMode"])

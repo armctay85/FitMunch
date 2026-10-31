@@ -114,6 +114,7 @@ run_xcode() {
     rm -rf "$bundle"
     boot_sim "$udid"
     echo "=== xcodebuild test scheme=$scheme label=$label mode=$mode attempt=$attempt ==="
+    # stderr has the destination miss. tee only sees stdout unless it is merged.
     xcodebuild test \
       -project FitMunch.xcodeproj \
       -scheme "$scheme" \
@@ -125,7 +126,7 @@ run_xcode() {
       CODE_SIGNING_ALLOWED=NO \
       CODE_SIGNING_REQUIRED=NO \
       CODE_SIGN_IDENTITY=- \
-      | tee "$log"
+      2>&1 | tee "$log"
     rc=${PIPESTATUS[0]}
     if [[ "$rc" -eq 0 ]]; then
       break
@@ -138,10 +139,39 @@ run_xcode() {
   return "$rc"
 }
 
+# SKTestSession.buyProduct throws notEntitled on the iOS 26.5 runtime and
+# Product.products then falls through to the live store, which has fitmunch_weekly.
+# The same session on iOS 26.2 loads only the local catalog and entitles the purchase.
+# The catalog proof already runs on 26.2. These unit tests use that runtime too.
+storekit_udid() {
+  local udid runtime
+  udid="$(python3 scripts/ios-simulator-on-version.py udid "iPhone 17 Pro" 26.2 || true)"
+  if [[ -n "$udid" ]]; then
+    echo "$udid"
+    return 0
+  fi
+  runtime="$(python3 scripts/ios-simulator-on-version.py runtime 26.2 || true)"
+  if [[ -z "$runtime" ]]; then
+    return 1
+  fi
+  xcrun simctl create "FitMunch StoreKit 26.2" "iPhone 17 Pro" "$runtime"
+}
+
 set +e
+STOREKIT_UDID="$(storekit_udid || true)"
+if [[ -z "${STOREKIT_UDID:-}" ]]; then
+  echo "iOS 26.2 simulator is required for StoreKitLifecycleTests" | tee "$OUT/storekit-runtime.txt"
+  STOREKIT_RC=1
+else
+  echo "storekit_unit udid=$STOREKIT_UDID os=26.2" | tee "$OUT/storekit-runtime.txt"
+  run_xcode "iphone-storekit" "iphone" "$STOREKIT_UDID" "FitMunch" "local" \
+    -only-testing:FitMunchTests \
+    -skip-testing:FitMunchTests/FitMunchProductsStoreKitTests \
+    -parallel-testing-enabled NO
+  STOREKIT_RC=$?
+fi
+
 run_xcode "iphone" "iphone" "$IPHONE_UDID" "FitMunchStoreKit" "local" \
-  -only-testing:FitMunchTests \
-  -skip-testing:FitMunchTests/FitMunchProductsStoreKitTests \
   -only-testing:FitMunchUITests/PreASCDeviceAuditTests \
   -only-testing:FitMunchUITests/ReviewCrashGuardTests
 IPHONE_RC=$?
@@ -200,6 +230,8 @@ set -e
   echo "iphone=$IPHONE_NAME"
   echo "iphone_udid=$IPHONE_UDID"
   echo "iphone_exit=$IPHONE_RC"
+  echo "storekit_unit_udid=${STOREKIT_UDID:-missing}"
+  echo "storekit_unit_exit=$STOREKIT_RC"
   echo "ipad=$IPAD_NAME"
   echo "ipad_udid=$IPAD_UDID"
   echo "ipad_exit=$IPAD_RC"
@@ -224,7 +256,7 @@ set -e
 } | tee "$OUT/summary.txt"
 
 fail=0
-for code in "$IPHONE_RC" "$IPAD_RC" "$IPHONE_SANDBOX_RC" "$IPAD_SANDBOX_RC" "$TABLE_RC"; do
+for code in "$STOREKIT_RC" "$IPHONE_RC" "$IPAD_RC" "$IPHONE_SANDBOX_RC" "$IPAD_SANDBOX_RC" "$TABLE_RC"; do
   if [[ "$code" -ne 0 ]]; then
     fail=1
   fi

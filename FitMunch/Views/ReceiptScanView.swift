@@ -92,6 +92,7 @@ struct ReceiptScanView: View {
                         receiptImage = image
                         startScan(image)
                     },
+                    requestsPermission: consent.allows(auth.user?.id),
                     onUnavailable: { message in
                         presentCameraFallback(message)
                     }
@@ -140,6 +141,7 @@ struct ReceiptScanView: View {
                 beginScan(.camera)
             } label: {
                 Text(isRequestingCamera ? "Opening camera…" : "Take a photo")
+                    .accessibilityIdentifier("scan-take-photo")
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(isRequestingCamera)
@@ -155,8 +157,8 @@ struct ReceiptScanView: View {
     }
 
     private var scanLoading: some View {
-        VStack(spacing: 12) {
-            ProgressView()
+        VStack(alignment: .leading, spacing: 12) {
+            LoadingSkeleton(rows: 3, label: "Reading your receipt", identifier: "scan-loading-rows")
             Text("Reading your receipt…")
                 .font(.subheadline.weight(.semibold))
         }
@@ -323,10 +325,7 @@ struct ReceiptScanView: View {
                 Button {
                     logAll(scan)
                 } label: {
-                    HStack {
-                        if isLogging { ProgressView().tint(.white) }
-                        Text("Log haul to today's meals")
-                    }
+                    Text(isLogging ? "Logging haul…" : "Log haul to today's meals")
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(isLogging)
@@ -419,6 +418,7 @@ struct ReceiptScanView: View {
     @MainActor
     private func openCameraSafely() async {
         errorMessage = nil
+        guard consent.allows(auth.user?.id) else { return }
         guard CameraAvailability.hasCameraHardware else {
             presentCameraFallback("This device has no camera. Choose a receipt photo from your library instead.")
             return
@@ -431,6 +431,7 @@ struct ReceiptScanView: View {
         case .authorized:
             showCamera = true
         case .notDetermined:
+            guard consent.allows(auth.user?.id) else { return }
             let granted = await AVCaptureDevice.requestAccess(for: .video)
             if granted {
                 showCamera = true

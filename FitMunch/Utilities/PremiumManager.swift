@@ -35,8 +35,10 @@ class PremiumManager: ObservableObject {
     private init() {
         #if DEBUG
         if PaywallLaunchArgument.isForceEmpty {
+            // Stay on loading until loadPaywallPlans finishes its short hold.
+            // Failing in init skipped the skeleton the audit looks for.
             paywallPlans = []
-            paywallPhase = .failed
+            paywallPhase = .loading
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             lastPlanFetchSummary = "loaded=none"
         }
@@ -164,7 +166,7 @@ class PremiumManager: ObservableObject {
         }
 
         if errorMessage == nil {
-            errorMessage = "No purchases to restore or restore failed"
+            errorMessage = "No purchases to restore"
         }
         return false
     }
@@ -187,6 +189,14 @@ class PremiumManager: ObservableObject {
             paywallPlans = []
             errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             lastPlanFetchSummary = "loaded=none"
+            paywallPhase = .loading
+            // The skeleton has to still be up when the audit looks. XCTest finds
+            // Close, then its next poll for paywall-loading is about 3s after the
+            // sheet appears. A 1.2s hold had already moved on to the error, so
+            // both devices reported the loading state missing. The audit allows
+            // 12s for the error copy after it sees the skeleton.
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
             paywallPhase = .failed
             return
         }
@@ -476,7 +486,7 @@ class PremiumManager: ObservableObject {
     private func restoreFromStoreKit() async -> Bool {
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if !localOnly {
-            _ = await withTimeout(seconds: 8) {
+            let synced: Bool? = await withTimeout(seconds: 8) {
                 do {
                     try await AppStore.sync()
                     return true
@@ -485,6 +495,9 @@ class PremiumManager: ObservableObject {
                     print("StoreKit restore error: \(error)")
                     return false
                 }
+            }
+            if synced == nil, errorMessage == nil {
+                errorMessage = "Restore failed"
             }
         }
 

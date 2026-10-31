@@ -54,10 +54,22 @@ final class FullScreenWindowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
         let renewal = app.staticTexts["paywall-renewal"]
         XCTAssertTrue(renewal.waitForExistence(timeout: 8), "Renewal term missing from the bottom bar")
-        XCTAssertTrue(renewal.label.contains("Renews automatically"), renewal.label)
+        XCTAssertTrue(
+            renewal.label.contains("charged to your Apple ID within 24 hours before renewal"),
+            renewal.label
+        )
         XCTAssertTrue(app.buttons["paywall-restore"].exists, "Restore Purchases missing from the bottom bar")
-        XCTAssertTrue(app.buttons["Terms"].exists, "Terms missing from the bottom bar")
-        XCTAssertTrue(app.buttons["Privacy"].exists, "Privacy missing from the bottom bar")
+        XCTAssertTrue(
+            app.buttons["paywall-terms"].exists || app.buttons["Terms"].exists,
+            "Terms missing from the bottom bar"
+        )
+        XCTAssertTrue(
+            app.buttons["paywall-privacy"].exists || app.buttons["Privacy"].exists,
+            "Privacy missing from the bottom bar"
+        )
+        XCTAssertGreaterThanOrEqual(app.buttons["paywall-restore"].frame.height, 44)
+        let terms = app.buttons["paywall-terms"].exists ? app.buttons["paywall-terms"] : app.buttons["Terms"]
+        XCTAssertGreaterThanOrEqual(terms.frame.height, 44)
         XCTAssertEqual(app.state, .runningForeground)
         let paywallShot = try assertFullScreen(app, slug: slug, phase: "paywall")
         saveShot(paywallShot, name: "paywall-\(tag)")

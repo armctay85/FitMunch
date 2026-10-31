@@ -16,7 +16,7 @@ on:
       - "docs/PRE_ASC_DEVICE_AUDIT.md"
       - ".github/workflows/ios-build.yml"
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, cursor/b11-coach-blocked-89f8 ]
     paths:
       - "FitMunch/**"
       - "FitMunchTests/**"

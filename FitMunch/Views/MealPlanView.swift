@@ -38,6 +38,48 @@ struct MealPlanView: View {
     }
 
     private var planContent: some View {
+        VStack(spacing: 0) {
+            planScroll
+            generateButton
+                .padding(.horizontal, Theme.Spacing.four)
+                .padding(.top, Theme.Spacing.two)
+                .padding(.bottom, Theme.Spacing.three)
+                .background(Theme.surface)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Theme.surface)
+        .sensoryFeedback(.selection, trigger: goal)
+        .sensoryFeedback(.success, trigger: plansGenerated)
+        .sensoryFeedback(.warning, trigger: freeLimitHits)
+        .fullScreenCover(isPresented: $showPaywall) {
+            PaywallView()
+        }
+        .sheet(isPresented: $showConsent) {
+            AIDataConsentSheet(
+                onAllow: {
+                    showConsent = false
+                    consent.allow(userId: auth.user?.id)
+                    Task { await generate() }
+                },
+                onNotNow: {
+                    showConsent = false
+                    consent.deny(userId: auth.user?.id)
+                    errorMessage = AIConsentCopy.planBlocked
+                }
+            )
+        }
+        .onAppear {
+            if ScreenshotLaunch.isActive && plan == nil {
+                plan = ScreenshotLaunch.mealPlan()
+            }
+            if AuditLaunch.isPlanLoading {
+                isLoading = true
+            }
+        }
+    }
+
+    /// The generate control sits under the scroll, so Monday dinner is not drawn through the button.
+    private var planScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.five) {
                 OfflineNotice()
@@ -88,46 +130,10 @@ struct MealPlanView: View {
                 }
             }
             .padding()
+            .padding(.bottom, Theme.Spacing.four)
         }
         .defaultScrollAnchor(.top)
-        .scrollClearsTabBar()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            generateButton
-                .padding(.horizontal, Theme.Spacing.four)
-                .padding(.top, Theme.Spacing.two)
-                .padding(.bottom, Theme.Spacing.three)
-                .background(Theme.surface)
-        }
-        .background(Theme.surface)
-        .sensoryFeedback(.selection, trigger: goal)
-        .sensoryFeedback(.success, trigger: plansGenerated)
-        .sensoryFeedback(.warning, trigger: freeLimitHits)
-        .fullScreenCover(isPresented: $showPaywall) {
-            PaywallView()
-        }
-        .sheet(isPresented: $showConsent) {
-            AIDataConsentSheet(
-                onAllow: {
-                    showConsent = false
-                    consent.allow(userId: auth.user?.id)
-                    Task { await generate() }
-                },
-                onNotNow: {
-                    showConsent = false
-                    consent.deny(userId: auth.user?.id)
-                    errorMessage = AIConsentCopy.planBlocked
-                }
-            )
-        }
-        .onAppear {
-            if ScreenshotLaunch.isActive && plan == nil {
-                plan = ScreenshotLaunch.mealPlan()
-            }
-            if AuditLaunch.isPlanLoading {
-                isLoading = true
-            }
-        }
     }
 
     private func planSummary(_ plan: MealPlanPayload) -> some View {
@@ -201,9 +207,7 @@ struct MealPlanView: View {
             Task { await generate() }
         } label: {
             if isLoading {
-                ProgressView()
-                    .tint(.white)
-                    .accessibilityIdentifier("plan-loading")
+                Text("Building your week")
             } else {
                 Text("Generate 7-day plan")
             }

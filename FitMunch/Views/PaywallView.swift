@@ -144,18 +144,19 @@ struct PaywallView: View {
     @ViewBuilder
     private func trialTimelineSection(_ timeline: PaywallPricing.TrialTimeline) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            timelineRow("1", timeline.today)
-            timelineRow("2", timeline.billed)
+            timelineRow("1", timeline.today, identifier: "paywall-trial-today")
+            timelineRow("2", timeline.reminder, identifier: "paywall-trial-reminder")
+            timelineRow("3", timeline.billed, identifier: "paywall-trial-billing")
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall-trial-timeline")
     }
 
-    private func timelineRow(_ step: String, _ text: String) -> some View {
+    private func timelineRow(_ step: String, _ text: String, identifier: String) -> some View {
         HStack(spacing: 12) {
             Text(step)
                 .font(.caption.weight(.bold))
@@ -166,6 +167,8 @@ struct PaywallView: View {
             Text(text)
                 .font(.subheadline)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 
     @ViewBuilder
@@ -201,17 +204,13 @@ struct PaywallView: View {
             }
             .accessibilityIdentifier("paywall-retry")
             .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-retry"))
-            Button {
+            legalButton("Restore Purchases", identifier: "paywall-restore-inline") {
                 Task { await restore() }
-            } label: {
-                Text("Restore Purchases")
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .accessibilityIdentifier("paywall-restore-inline")
             }
-            .accessibilityIdentifier("paywall-restore-inline")
-            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-restore-inline"))
         }
-        .accessibilityIdentifier("paywall-error-state")
+        // No identifier on this stack. On iOS 26 a container identifier replaces
+        // the identifiers of its buttons, so Restore was published as
+        // paywall-error-state and the width test could not find paywall-restore-inline.
     }
 
     @ViewBuilder
@@ -239,26 +238,20 @@ struct PaywallView: View {
                 subscribeButton(plan)
             }
             if !plansLoadFailed {
-                Button("Restore Purchases") {
+                legalButton("Restore Purchases", identifier: "paywall-restore") {
                     Task { await restore() }
                 }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.secondaryText)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("paywall-restore")
             }
 
             HStack(spacing: 6) {
-                Button("Terms") {
+                legalButton("Terms", identifier: "paywall-terms") {
                     open("https://fitmunch.com.au/terms")
                 }
                 Text("·")
-                Button("Privacy") {
+                legalButton("Privacy", identifier: "paywall-privacy") {
                     open("https://fitmunch.com.au/privacy")
                 }
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -278,17 +271,13 @@ struct PaywallView: View {
             Task { await purchase(plan) }
         } label: {
             if premiumManager.isLoading {
-                VStack(spacing: 6) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    Text("Confirming with the App Store")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .accessibilityIdentifier("paywall-confirming")
+                Text("Confirming with the App Store")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .accessibilityIdentifier("paywall-confirming")
             } else {
                 VStack(spacing: 2) {
                     Text(cta.title)
@@ -333,6 +322,7 @@ struct PaywallView: View {
         }
         if let timeline = trialTimeline {
             parts.append(timeline.today)
+            parts.append(timeline.reminder)
             parts.append(timeline.billed)
         }
         return parts.joined(separator: ". ")
@@ -354,7 +344,7 @@ struct PaywallView: View {
         let success = await premiumManager.restorePurchases()
         restoreMessage = success
             ? "Purchases restored successfully!"
-            : (premiumManager.errorMessage ?? "No purchases to restore or restore failed")
+            : (premiumManager.errorMessage ?? "No purchases to restore")
         showRestoreAlert = true
     }
 
@@ -379,6 +369,21 @@ struct PaywallView: View {
             }
         }
         return "Premium is on."
+    }
+
+    /// 44pt target. The width test measures the element that carries the identifier.
+    /// children: .ignore collapsed that element to the footnote line, about 20pt.
+    private func legalButton(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(identifier)
+        }
+        .buttonStyle(PaywallLegalButtonStyle(identifier: identifier))
+        .accessibilityIdentifier(identifier)
     }
 
     private func open(_ string: String) {
@@ -487,23 +492,25 @@ private struct PackageCard: View {
         if let savingsPercent {
             parts.append("Save \(savingsPercent) percent")
         }
-        let cta = PaywallPricing.cta(
-            displayPrice: plan.priceString,
-            periodUnit: plan.periodUnit,
-            intro: plan.intro,
-            eligible: plan.eligibleForIntro
-        )
-        if plan.intro != nil {
-            parts.append(cta.title)
-            if let subline = cta.subline {
-                parts.append(subline)
-            }
-            if let timeline = PaywallPricing.trialTimeline(intro: plan.intro, eligible: plan.eligibleForIntro) {
-                parts.append(timeline.today)
-                parts.append(timeline.billed)
-            }
-        }
         return parts.joined(separator: ". ")
+    }
+}
+
+/// Fixed 44pt hit target. Combine keeps the laid-out frame. Ignore shrank it to the text line.
+private struct PaywallLegalButtonStyle: ButtonStyle {
+    var identifier: String
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 

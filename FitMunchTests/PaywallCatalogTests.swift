@@ -95,6 +95,7 @@ final class PaywallCatalogTests: XCTestCase {
         XCTAssertEqual(cta.subline, "then A$19.99/month · cancel anytime")
         let timeline = PaywallPricing.trialTimeline(intro: intro, eligible: true)
         XCTAssertEqual(timeline?.today, "Today full access")
+        XCTAssertEqual(timeline?.reminder, "Day 12 reminder")
         XCTAssertEqual(timeline?.billed, "Day 14 billed")
         XCTAssertFalse(PaywallPricing.renewalTerms(
             displayPrice: "A$19.99",
@@ -114,6 +115,8 @@ final class PaywallCatalogTests: XCTestCase {
             "A$19.99/month"
         )
         let intro = PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true)
+        let sentence = "Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Settings > Apple ID > Subscriptions."
+        XCTAssertEqual(PaywallPricing.appStoreBillingSentence, sentence)
         XCTAssertEqual(
             PaywallPricing.renewalTerms(
                 displayPrice: "A$149.99",
@@ -121,7 +124,7 @@ final class PaywallCatalogTests: XCTestCase {
                 intro: intro,
                 eligible: true
             ),
-            "14-day free trial, then A$149.99/year. Renews automatically. Cancel anytime in Settings."
+            sentence
         )
         XCTAssertEqual(
             PaywallPricing.renewalTerms(
@@ -130,7 +133,7 @@ final class PaywallCatalogTests: XCTestCase {
                 intro: intro,
                 eligible: false
             ),
-            "A$19.99/month. Renews automatically. Cancel anytime in Settings."
+            sentence
         )
     }
 }

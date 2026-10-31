@@ -107,6 +107,7 @@ enum PaywallPricing {
 
     struct TrialTimeline: Equatable {
         var today: String
+        var reminder: String
         var billed: String
     }
 
@@ -159,18 +160,18 @@ enum PaywallPricing {
         "\(displayPrice)/\(billingPeriodWord(periodUnit))"
     }
 
-    /// One-line auto-renew disclosure. The price and period come from the loaded product.
+    /// Same sentence as the iOS paragraph on the terms page the paywall opens.
+    static let appStoreBillingSentence = "Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Settings > Apple ID > Subscriptions."
+
+    /// Renewal line under the button. The price stays on the StoreKit displayPrice control.
     static func renewalTerms(
         displayPrice: String,
         periodUnit: PaywallPeriodUnit,
         intro: PaywallIntroOffer?,
         eligible: Bool
     ) -> String {
-        let price = priceWithPeriod(displayPrice: displayPrice, periodUnit: periodUnit)
-        if let intro, intro.isFreeTrial, eligible {
-            return "\(introLengthLabel(intro)) free trial, then \(price). Renews automatically. Cancel anytime in Settings."
-        }
-        return "\(price). Renews automatically. Cancel anytime in Settings."
+        _ = (displayPrice, periodUnit, intro, eligible)
+        return appStoreBillingSentence
     }
 
     static func introLengthLabel(_ intro: PaywallIntroOffer) -> String {
@@ -222,13 +223,15 @@ enum PaywallPricing {
     }
 
     /// Trial timeline only when StoreKit has a free intro and the account is eligible.
-    /// No reminder row: nothing on this screen schedules a local notification.
+    /// The reminder row names the day to check the subscription. It does not schedule a notification.
     static func trialTimeline(intro: PaywallIntroOffer?, eligible: Bool) -> TrialTimeline? {
         guard eligible, let intro, intro.isFreeTrial else { return nil }
         let days = introDays(intro)
         guard days >= 1 else { return nil }
+        let reminderDay = max(1, days - 2)
         return TrialTimeline(
             today: "Today full access",
+            reminder: "Day \(reminderDay) reminder",
             billed: "Day \(days) billed"
         )
     }

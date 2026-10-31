@@ -42,7 +42,27 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         showTab("Me", in: app)
         XCTAssertTrue(app.staticTexts["Version"].waitForExistence(timeout: 12))
         XCTAssertFalse(app.staticTexts["March 2025"].exists)
+        revealOnMeList(app) {
+            app.descendants(matching: .any)["me-about-support"].exists
+                && app.descendants(matching: .any)["me-about-privacy"].exists
+                && app.descendants(matching: .any)["me-about-terms"].exists
+        }
+        for identifier in ["me-about-privacy", "me-about-terms", "me-about-support"] {
+            let row = tallest(identifier, in: app)
+            XCTAssertTrue(row.waitForExistence(timeout: 4), "\(identifier) missing")
+            XCTAssertGreaterThanOrEqual(row.frame.height, 44, "\(identifier) is under 44pt")
+        }
         shot(app, "me-about")
+        showTab("Plan", in: app)
+        let training = app.buttons["Training"]
+        XCTAssertTrue(training.waitForExistence(timeout: 8), "Training segment missing")
+        training.tap()
+        XCTAssertTrue(app.staticTexts["Weekly plan"].waitForExistence(timeout: 8))
+        let duration = app.descendants(matching: .any)["training-duration"].firstMatch
+        XCTAssertTrue(duration.waitForExistence(timeout: 6), "Training duration missing")
+        let placeholder = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH '· ~1 min'"))
+        XCTAssertEqual(placeholder.count, 0, "Training still shows the one minute placeholder")
+        shot(app, "plan-training")
         app.terminate()
     }
 
@@ -104,6 +124,18 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["scan-offline"].waitForExistence(timeout: 12))
         shot(app, "scan-offline")
         app.terminate()
+
+        let loading = launch(["-ReviewGuards", "-AuditScanLoading", "-ForceLightMode"])
+        showTab("Scan", in: loading)
+        XCTAssertTrue(loading.staticTexts["Reading your receipt…"].waitForExistence(timeout: 8))
+        shot(loading, "scan-loading")
+        loading.terminate()
+
+        let plan = launch(["-ReviewGuards", "-AuditPlanLoading", "-ForceLightMode"])
+        showTab("Plan", in: plan)
+        XCTAssertTrue(plan.descendants(matching: .any)["plan-loading"].waitForExistence(timeout: 8))
+        shot(plan, "plan-loading")
+        plan.terminate()
     }
 
     func testScanFinishedOffline() {
@@ -209,9 +241,9 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             || errorState.waitForExistence(timeout: 2)
             || errorLine.waitForExistence(timeout: 2)
         XCTAssertTrue(opened, "Paywall did not open")
-        var restore = app.buttons["paywall-restore-inline"]
+        var restore = tallest("paywall-restore-inline", in: app)
         if !restore.waitForExistence(timeout: 8) {
-            restore = app.descendants(matching: .any)["paywall-restore-inline"]
+            restore = app.buttons["paywall-restore-inline"]
         }
         XCTAssertTrue(restore.waitForExistence(timeout: 8), "paywall-restore-inline missing")
         var hops = 0
@@ -220,8 +252,84 @@ final class Batch2WidthCaptureUITests: XCTestCase {
             hops += 1
         }
         XCTAssertTrue(restore.isHittable)
+        var terms = tallest("paywall-terms", in: app)
+        if !terms.waitForExistence(timeout: 4) {
+            terms = app.buttons["Terms"]
+        }
+        XCTAssertTrue(terms.waitForExistence(timeout: 2), "Terms missing")
+        print(String(
+            format: "PAYWALL_TARGETS restoreH=%.1f termsH=%.1f",
+            restore.frame.height,
+            terms.frame.height
+        ))
+        XCTAssertGreaterThanOrEqual(restore.frame.height, 44, "Restore tap target is under 44pt")
+        XCTAssertGreaterThanOrEqual(terms.frame.height, 44, "Terms tap target is under 44pt")
         shot(app, "paywall-restore")
         app.terminate()
+        capturePaywallPlans()
+    }
+
+    /// Loaded AU catalog. One subscribe control. Price text is StoreKit displayPrice.
+    private func capturePaywallPlans() {
+        let app = launch(["-ReviewGuards", "-UseLocalStoreKit", "-ForceLightMode"])
+        showTab("Me", in: app)
+        let upgrade = app.buttons["settings-upgrade"]
+        XCTAssertTrue(upgrade.waitForExistence(timeout: 12))
+        upgrade.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["paywall-root"].waitForExistence(timeout: 20))
+        let price = waitForPaywallPrice(in: app)
+        print("PAYWALL_PRICE \(price)")
+        XCTAssertTrue(
+            price.contains("19.99") && !price.contains("12.99"),
+            "Paywall must show StoreKit monthly displayPrice (19.99, not 12.99). Saw \(price)"
+        )
+        XCTAssertTrue(app.staticTexts["Best value"].waitForExistence(timeout: 4))
+        let reminder = app.descendants(matching: .any)["paywall-trial-reminder"]
+        XCTAssertTrue(reminder.waitForExistence(timeout: 6), "Trial reminder row missing")
+        XCTAssertTrue(reminder.label.localizedCaseInsensitiveContains("reminder"))
+        XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-today"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-billing"].exists)
+        let subscribe = app.buttons["paywall-subscribe"]
+        XCTAssertTrue(subscribe.waitForExistence(timeout: 6), "Expected one subscribe control")
+        let trialButtons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'free trial'"))
+        let trialLabels = trialButtons.allElementsBoundByIndex.map(\.label)
+        print("TRIAL_CTAS \(trialLabels.joined(separator: " | "))")
+        shot(app, "paywall-plans")
+        XCTAssertEqual(trialButtons.count, 1, "Trial CTAs: \(trialLabels)")
+        var planTerms = tallest("paywall-terms", in: app)
+        if !planTerms.waitForExistence(timeout: 4) {
+            planTerms = app.buttons["Terms"]
+        }
+        var planRestore = tallest("paywall-restore", in: app)
+        if !planRestore.waitForExistence(timeout: 2) {
+            planRestore = app.buttons["paywall-restore"]
+        }
+        XCTAssertTrue(planTerms.waitForExistence(timeout: 2))
+        XCTAssertTrue(planRestore.waitForExistence(timeout: 4))
+        print(String(
+            format: "PAYWALL_PLAN_TARGETS restoreH=%.1f termsH=%.1f",
+            planRestore.frame.height,
+            planTerms.frame.height
+        ))
+        XCTAssertGreaterThanOrEqual(planRestore.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(planTerms.frame.height, 44)
+        app.terminate()
+    }
+
+    private func waitForPaywallPrice(in app: XCUIApplication) -> String {
+        let monthly = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let deadline = Date().addingTimeInterval(25)
+        var latest = ""
+        while Date() < deadline {
+            if monthly.exists, !monthly.label.isEmpty {
+                latest = monthly.label
+            }
+            if latest.contains("19.99"), !latest.contains("12.99") {
+                return latest
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return latest
     }
 
     func testAuthErrorAX5() {
@@ -235,6 +343,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         XCTAssertTrue(error.waitForExistence(timeout: 12))
         let copy = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'invalid'")).firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 4))
+        XCTAssertFalse(app.alerts.firstMatch.exists, "Sign-in error must be inline, not an alert")
         shot(app, "auth-error-ax5")
         app.terminate()
     }
@@ -485,6 +594,15 @@ final class Batch2WidthCaptureUITests: XCTestCase {
 
     private func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)[identifier]
+    }
+
+    /// List rows publish the identifier twice. Use the taller frame.
+    private func tallest(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let matches = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", identifier)
+        )
+        _ = matches.firstMatch.waitForExistence(timeout: 2)
+        return matches.allElementsBoundByIndex.max(by: { $0.frame.height < $1.frame.height }) ?? matches.firstMatch
     }
 
     private func showTab(_ name: String, in app: XCUIApplication) {

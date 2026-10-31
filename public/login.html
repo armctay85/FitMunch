@@ -825,6 +825,7 @@
 
  // Hash-based tab switching (#register activates register panel)
  window.addEventListener('hashchange', () => {
+ if (window.location.hash === '#forgot') { showForgot(); return; }
  if (window.location.hash === '#register') showTab('register');
  // Arriving from the emailed trial link: most people are new, so open Create account.
  if (pendingClaim && window.location.hash !== '#login') showTab('register');
@@ -832,9 +833,10 @@
  });
  if (window.location.hash === '#register') showTab('register');
  else if (pendingClaim) showTab('register');
- if (plan === 'premium' && window.location.hash !== '#login') showTab('register');
+ if (plan === 'premium' && window.location.hash !== '#login' && window.location.hash !== '#forgot') showTab('register');
  // Fragment #reset=TOKEN is the email link. Legacy ?reset= is stripped above.
  if (resetToken) showReset();
+ else if (window.location.hash === '#forgot') showForgot();
  // Fragment #verify=TOKEN is the welcome email's confirm link.
  (function confirmEmailFromLink() {
  let vt = '';

@@ -34,6 +34,9 @@ final class TabBarClearanceUITests: XCTestCase {
 
         for item in controls {
             openTab(item.tab, in: app)
+            if item.identifier == "scan-take-photo" {
+                revealScanPhoto(in: app)
+            }
             let control = primaryControl(item.identifier, in: app)
             XCTAssertTrue(
                 control.waitForExistence(timeout: 8),
@@ -56,6 +59,22 @@ final class TabBarClearanceUITests: XCTestCase {
                 barTop - 4,
                 "\(item.identifier) sits under the tab bar (control \(control.frame), tab buttons top \(barTop))"
             )
+        }
+    }
+
+    /// Screenshot launch already allows AI data. If the consent sheet is still up,
+    /// allow it, then scroll so a short phone can reach Take a photo.
+    private func revealScanPhoto(in app: XCUIApplication) {
+        let photo = app.descendants(matching: .any)["scan-take-photo"]
+        if photo.waitForExistence(timeout: 2) { return }
+        let allow = app.buttons["ai-consent-allow"]
+        if allow.waitForExistence(timeout: 2) {
+            allow.tap()
+        }
+        var hops = 0
+        while !photo.exists && hops < 3 {
+            app.swipeUp()
+            hops += 1
         }
     }
 

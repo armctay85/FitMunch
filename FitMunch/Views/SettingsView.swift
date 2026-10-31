@@ -119,15 +119,27 @@ struct SettingsView: View {
                     Text("Profile")
                 }
 
-                Section("About") {
+                Section {
                     HStack {
                         Text("Version")
                         Spacer()
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
                             .foregroundColor(.secondary)
                     }
+                    .accessibilityIdentifier("me-about-version")
+                    aboutRow("Privacy", identifier: "me-about-privacy") {
+                        viewModel.viewPrivacyPolicy()
+                    }
+                    aboutRow("Terms", identifier: "me-about-terms") {
+                        viewModel.viewTermsOfService()
+                    }
+                    aboutRow("Support", identifier: "me-about-support") {
+                        viewModel.contactSupport()
+                    }
+                } header: {
+                    Text("About")
+                        .accessibilityIdentifier("me-about")
                 }
-                .accessibilityIdentifier("me-about")
 
                 // Preferences section
                 Section("Preferences") {
@@ -223,21 +235,6 @@ struct SettingsView: View {
                 
                 // Support section
                 Section("Support") {
-                    Button("Contact Support") {
-                        viewModel.contactSupport()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
-                    Button("Privacy Policy") {
-                        viewModel.viewPrivacyPolicy()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
-                    Button("Terms of Service") {
-                        viewModel.viewTermsOfService()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
                     Button("Rate the App") {
                         if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)
@@ -300,11 +297,7 @@ struct SettingsView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 3, label: "Loading", identifier: "me-loading")
                 }
             }
             .alert("Purchases", isPresented: Binding(
@@ -377,6 +370,23 @@ struct SettingsView: View {
             }
             }
         }
+    }
+
+    /// Upgrade uses a borderless list button and XCTest can see that identifier.
+    /// A background label in this section did not publish me-about-privacy.
+    /// The id sits on the 44pt label and on the button that receives the tap.
+    private func aboutRow(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.body)
+                .foregroundStyle(Theme.brandGreen)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(identifier)
+        }
+        .buttonStyle(.borderless)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .accessibilityIdentifier(identifier)
     }
 
     private func expandPrivacy(_ proxy: ScrollViewProxy) {

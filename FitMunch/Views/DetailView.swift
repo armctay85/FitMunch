@@ -85,15 +85,9 @@ struct DetailView: View {
                 
                 // No nutrition search source is connected. Do not show invented foods.
                 Section("Add Food") {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.two) {
-                        Label("Search coming soon", systemImage: "magnifyingglass")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.brandGreen)
-                        Text("Add a food manually.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .accessibilityIdentifier("meal-search-soon")
+                    Text("Add a food manually.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
                     TextField("Food name", text: $manualName)
                         .textFieldStyle(.roundedBorder)
@@ -209,11 +203,7 @@ struct DetailView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 3, label: "Loading meal", identifier: "meal-loading")
                 }
             }
             .onChange(of: quickCalories) { _, _ in syncQuickEntry() }
