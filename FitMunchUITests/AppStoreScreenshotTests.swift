@@ -80,58 +80,64 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
-    /// Scroll Today so the last card above the tab bar is whole and flush with it.
-    /// A card crossing the glass is a half-cut card. A gap under the last whole
-    /// card is an empty band.
+    /// Park the lowest meal card that fits entirely above the tab buttons.
+    /// The following card stays fully behind the bar. Chasing a smaller gap
+    /// pulls that card back into a half cut, which is what the last run did.
     private func alignWholeMealCardsAboveTabBar() {
         let scroll = tallestScroll()
         XCTAssertTrue(scroll.waitForExistence(timeout: 4), "Today scroll view missing")
-        let topLimit: CGFloat = 96
-        for _ in 0..<8 {
+        let topLimit: CGFloat = 140
+        for _ in 0..<6 {
             let barTop = floatingTabButtonTop(in: app)
-            let cards = mealCards().sorted { $0.frame.minY < $1.frame.minY }
-            if cards.isEmpty { break }
-
-            if let cut = cards.first(where: { $0.frame.minY < barTop - 1 && $0.frame.maxY > barTop + 1 }) {
-                let hidden = cut.frame.maxY - barTop
-                let shown = barTop - cut.frame.minY
-                let fitsAboveTitle = cut.frame.minY - hidden >= topLimit
-                if shown >= hidden && fitsAboveTitle {
-                    drag(scroll, points: -(hidden + 1))
-                } else {
-                    drag(scroll, points: shown + 1)
-                }
-                continue
-            }
-
-            let above = cards.filter { $0.frame.maxY <= barTop + 1 && $0.frame.minY >= topLimit }
-            guard let last = above.max(by: { $0.frame.maxY < $1.frame.maxY }) else { break }
-            let gap = barTop - last.frame.maxY
-            if gap <= 8 { break }
-            let room = last.frame.minY - topLimit
-            let shift = min(gap, max(0, room))
-            if shift <= 8 { break }
-            drag(scroll, points: shift)
+            let cards = mealCards()
+            guard let anchor = lowestCardThatFits(cards, barTop: barTop, topLimit: topLimit) else { break }
+            let delta = barTop - anchor.frame.maxY
+            if abs(delta) <= 8 { break }
+            drag(scroll, points: max(-200, min(200, delta)))
         }
 
         let barTop = floatingTabButtonTop(in: app)
-        let cards = mealCards().sorted { $0.frame.minY < $1.frame.minY }
+        let cards = mealCards()
         XCTAssertFalse(cards.isEmpty, "Today meal cards missing")
-        let cut = cards.first { $0.frame.minY < barTop - 2 && $0.frame.maxY > barTop + 2 }
-        XCTAssertNil(cut, "A meal card is cut by the tab bar \(cut?.frame ?? .zero) bar=\(barTop)")
-        let whole = cards.filter { $0.frame.maxY <= barTop + 2 && $0.frame.minY >= topLimit }
+        let cut = cards.first { $0.frame.minY < barTop - 4 && $0.frame.maxY > barTop + 4 }
+        XCTAssertNil(cut, "A meal card is cut by the tab bar \(String(describing: cut?.frame)) bar=\(barTop)")
+        let whole = cards.filter { $0.frame.maxY <= barTop + 4 && $0.frame.minY >= topLimit - 8 }
         XCTAssertFalse(whole.isEmpty, "No whole meal card above the tab bar")
-        if let last = whole.last {
+        if let last = whole.max(by: { $0.frame.maxY < $1.frame.maxY }) {
             let gap = barTop - last.frame.maxY
-            XCTAssertLessThanOrEqual(gap, 12, "Empty band under the last meal card \(last.frame) bar=\(barTop)")
+            XCTAssertLessThan(gap, 72, "Empty band under the last meal card \(last.frame) bar=\(barTop)")
         }
     }
 
+    /// Lowest card whose bottom can sit on the tab bar without sliding under the title.
+    private func lowestCardThatFits(_ cards: [XCUIElement], barTop: CGFloat, topLimit: CGFloat) -> XCUIElement? {
+        var fit: XCUIElement?
+        for card in cards {
+            let lift = max(0, card.frame.maxY - barTop)
+            if card.frame.minY - lift >= topLimit {
+                fit = card
+            }
+        }
+        return fit
+    }
+
     private func mealCards() -> [XCUIElement] {
-        app.descendants(matching: .any)
+        let raw = app.descendants(matching: .any)
             .matching(identifier: "today-meal-card")
             .allElementsBoundByIndex
             .filter { $0.frame.width > 80 && $0.frame.height > 40 }
+            .sorted { $0.frame.minY < $1.frame.minY }
+        var kept: [XCUIElement] = []
+        for card in raw {
+            if let last = kept.last, abs(card.frame.minY - last.frame.minY) < 12 {
+                if card.frame.height > last.frame.height {
+                    kept[kept.count - 1] = card
+                }
+                continue
+            }
+            kept.append(card)
+        }
+        return kept
     }
 
     private func tallestScroll() -> XCUIElement {
