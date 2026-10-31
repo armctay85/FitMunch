@@ -54,7 +54,10 @@ final class FullScreenWindowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
         let renewal = app.staticTexts["paywall-renewal"]
         XCTAssertTrue(renewal.waitForExistence(timeout: 8), "Renewal term missing from the bottom bar")
-        XCTAssertTrue(renewal.label.contains("Renews automatically"), renewal.label)
+        XCTAssertTrue(
+            renewal.label.contains("charged to your Apple ID within 24 hours before renewal"),
+            renewal.label
+        )
         XCTAssertTrue(app.buttons["paywall-restore"].exists, "Restore Purchases missing from the bottom bar")
         XCTAssertTrue(
             app.buttons["paywall-terms"].exists || app.buttons["Terms"].exists,

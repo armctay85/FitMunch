@@ -1,0 +1,57 @@
+name: iOS flow recording
+
+# Simulator recording of onboarding, the StoreKit paywall, and the five tabs.
+# Separate from ios-archive.yml. Does not upload to App Store Connect.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-flow-recording.yml"
+      - "scripts/run-flow-recording.sh"
+      - "scripts/set-simulator-region-au.sh"
+
+jobs:
+  flow-recording:
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Record main flows
+        run: bash scripts/run-flow-recording.sh
+
+      - name: Upload flow recording
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitmunch-flow-recording
+          path: artifacts/flow-recording/*.mp4
+          if-no-files-found: error
+          retention-days: 14

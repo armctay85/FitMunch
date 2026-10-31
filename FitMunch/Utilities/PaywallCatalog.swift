@@ -161,23 +161,17 @@ enum PaywallPricing {
     }
 
     /// Same sentence as the iOS paragraph on the terms page the paywall opens.
-    static let appStoreBillingSentence = "Subscriptions bought in the app are billed to your Apple ID, and you can cancel at least 24 hours before renewal in Settings."
+    static let appStoreBillingSentence = "Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Settings > Apple ID > Subscriptions."
 
-    /// One-line auto-renew disclosure. The price and period come from the loaded product.
+    /// Renewal line under the button. The price stays on the StoreKit displayPrice control.
     static func renewalTerms(
         displayPrice: String,
         periodUnit: PaywallPeriodUnit,
         intro: PaywallIntroOffer?,
         eligible: Bool
     ) -> String {
-        let price = priceWithPeriod(displayPrice: displayPrice, periodUnit: periodUnit)
-        let offer: String
-        if let intro, intro.isFreeTrial, eligible {
-            offer = "\(introLengthLabel(intro)) free trial, then \(price). Renews automatically. Cancel anytime in Settings."
-        } else {
-            offer = "\(price). Renews automatically. Cancel anytime in Settings."
-        }
-        return "\(offer) \(appStoreBillingSentence)"
+        _ = (displayPrice, periodUnit, intro, eligible)
+        return appStoreBillingSentence
     }
 
     static func introLengthLabel(_ intro: PaywallIntroOffer) -> String {
