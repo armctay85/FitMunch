@@ -124,7 +124,7 @@ extension XCTestCase {
         let table = app.tables.firstMatch
         let scroller: XCUIElement = list.exists ? list : (table.exists ? table : app)
 
-        let glassTop = tabButtonTop(in: app)
+        let glassTop = floatingTabButtonTop(in: app)
         for _ in 0..<attempts {
             if let row = firstExistingRow() {
                 if rowClearsTabBar(row, glassTop: glassTop) { return row }
@@ -153,7 +153,7 @@ extension XCTestCase {
 
     /// Tab button top. The bar container starts lower than the floating glass.
     /// A missing or covered bar (full-screen paywall) uses the window bottom.
-    func tabButtonTop(in app: XCUIApplication) -> CGFloat {
+    func floatingTabButtonTop(in app: XCUIApplication) -> CGFloat {
         let windowBottom = app.windows.firstMatch.exists ? app.windows.firstMatch.frame.maxY : app.frame.maxY
         let bar = app.tabBars.firstMatch
         guard bar.exists, bar.isHittable, bar.frame.height > 1, bar.frame.minY < windowBottom - 20 else { return windowBottom }

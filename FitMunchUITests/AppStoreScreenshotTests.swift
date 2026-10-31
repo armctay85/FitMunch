@@ -88,7 +88,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         XCTAssertTrue(scroll.waitForExistence(timeout: 4), "Today scroll view missing")
         let topLimit: CGFloat = 96
         for _ in 0..<8 {
-            let barTop = tabButtonTop(in: app)
+            let barTop = floatingTabButtonTop(in: app)
             let cards = mealCards().sorted { $0.frame.minY < $1.frame.minY }
             if cards.isEmpty { break }
 
@@ -114,7 +114,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             drag(scroll, points: shift)
         }
 
-        let barTop = tabButtonTop(in: app)
+        let barTop = floatingTabButtonTop(in: app)
         let cards = mealCards().sorted { $0.frame.minY < $1.frame.minY }
         XCTAssertFalse(cards.isEmpty, "Today meal cards missing")
         let cut = cards.first { $0.frame.minY < barTop - 2 && $0.frame.maxY > barTop + 2 }
