@@ -252,7 +252,7 @@ struct MealPlanView: View {
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .contain)
-            .modifier(MealRowIdentifier(identifier))
+            .modifier(MealRowIdentifier(identifier: identifier))
         }
     }
 

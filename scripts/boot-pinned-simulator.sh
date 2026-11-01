@@ -55,7 +55,8 @@ xcrun simctl shutdown all >/dev/null 2>&1 || true
 
 boot_once() {
   xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-  xcrun simctl bootstatus "$udid" -b
+  # bootstatus writes its progress to stdout. Callers capture stdout as the UDID.
+  xcrun simctl bootstatus "$udid" -b >&2
 }
 
 if ! boot_once; then

@@ -15,7 +15,7 @@ boot_ready() {
   local attempt
   for attempt in 1 2; do
     xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
-    if xcrun simctl bootstatus "$UDID" -b; then
+    if xcrun simctl bootstatus "$UDID" -b >&2; then
       return 0
     fi
     echo "bootstatus failed for $UDID (attempt $attempt)" >&2
