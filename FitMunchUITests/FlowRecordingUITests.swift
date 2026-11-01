@@ -85,6 +85,7 @@ final class FlowRecordingUITests: XCTestCase {
         let mealName = app.textFields["meal-name"]
         XCTAssertTrue(mealName.waitForExistence(timeout: 8), "Meal name field missing")
         mealName.tap()
+        clearField(mealName, in: app)
         mealName.typeText("Lunch")
         dismissKeyboard(in: app)
         let manual = app.textFields["meal-manual-name"]
@@ -133,6 +134,22 @@ final class FlowRecordingUITests: XCTestCase {
         if allow.waitForExistence(timeout: 2) {
             allow.tap()
         }
+    }
+
+    /// The log sheet prefills the time-of-day name. Typing without clearing
+    /// turns Snack into SnackLunch.
+    private func clearField(_ field: XCUIElement, in app: XCUIApplication) {
+        guard let value = field.value as? String else { return }
+        let existing = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !existing.isEmpty, existing != field.placeholderValue else { return }
+        field.press(forDuration: 1.1)
+        let selectAll = app.menuItems["Select All"]
+        if selectAll.waitForExistence(timeout: 1.5) {
+            selectAll.tap()
+            field.typeText(XCUIKeyboardKey.delete.rawValue)
+            return
+        }
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
     }
 
     private func dismissKeyboard(in app: XCUIApplication) {

@@ -203,7 +203,7 @@ final class Build11ScreenAuditUITests: XCTestCase {
         openTab("Coach", in: app)
         mark("Coach", "dark", app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 6) ? "PASS" : "FAIL", copyNote(app), shot(app, "coach-dark"))
         openTab("Me", in: app)
-        mark("Me", "dark", app.staticTexts["Sample profile"].waitForExistence(timeout: 6) ? "PASS" : "FAIL", copyNote(app), shot(app, "me-dark"))
+        mark("Me", "dark", app.staticTexts["Alex Morgan"].waitForExistence(timeout: 6) ? "PASS" : "FAIL", copyNote(app), shot(app, "me-dark"))
         app.terminate()
         XCUIDevice.shared.appearance = .light
     }

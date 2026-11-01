@@ -20,11 +20,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
 
     /// Signed-in name and email. Blank accounts and the old placeholder stay empty.
-    /// Screenshot capture uses a marked sample, never a fake person.
     private var signedInProfile: (name: String, email: String)? {
-        if ScreenshotLaunch.isActive {
-            return ("Sample", "sample.account@fitmunch.com.au")
-        }
         guard let user = auth.user else { return nil }
         let name = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -60,11 +56,6 @@ struct SettingsView: View {
                                 Text(profile.name)
                                     .font(.headline)
                                     .lineLimit(1)
-                                if ScreenshotLaunch.isActive {
-                                    Text("Sample profile")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Theme.brandGreen)
-                                }
                                 if !profile.email.isEmpty {
                                     Text(profile.email)
                                         .font(.caption)

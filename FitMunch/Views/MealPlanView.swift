@@ -38,14 +38,14 @@ struct MealPlanView: View {
     }
 
     private var planContent: some View {
-        VStack(spacing: 0) {
-            planScroll
-            generateButton
-                .padding(.horizontal, Theme.Spacing.four)
-                .padding(.top, Theme.Spacing.two)
-                .padding(.bottom, Theme.Spacing.three)
-                .background(Theme.surface)
-        }
+        planScroll
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                generateButton
+                    .padding(.horizontal, Theme.Spacing.four)
+                    .padding(.top, Theme.Spacing.two)
+                    .padding(.bottom, Theme.Spacing.three)
+                    .background(Theme.surface)
+            }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.surface)
         .sensoryFeedback(.selection, trigger: goal)
@@ -78,10 +78,10 @@ struct MealPlanView: View {
         }
     }
 
-    /// The generate control sits under the scroll, so Monday dinner is not drawn through the button.
+    /// Generate is a bottom safe-area inset, so Monday dinner is not drawn through the button.
     private var planScroll: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.five) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.three) {
                 OfflineNotice()
 
                 Text("Build a week from your calorie and protein targets.")
@@ -129,15 +129,16 @@ struct MealPlanView: View {
                     planEmptyState
                 }
             }
-            .padding()
-            .padding(.bottom, Theme.Spacing.four)
+            .padding(.horizontal, Theme.Spacing.four)
+            .padding(.top, Theme.Spacing.two)
+            .padding(.bottom, Theme.Spacing.six)
         }
         .defaultScrollAnchor(.top)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .contentMargins(.bottom, Theme.Spacing.four, for: .scrollContent)
     }
 
     private func planSummary(_ plan: MealPlanPayload) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.five) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
         VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             Text(plan.planName ?? "Your plan")
                 .font(.title3.bold())
