@@ -413,6 +413,7 @@ private struct MealCard: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .cornerRadius(Theme.Radius.medium)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-meal-card")
         .alert("Delete Meal", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }

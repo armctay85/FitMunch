@@ -180,6 +180,24 @@ xcodebuild test \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY=-
 CLEAR_65=$?
+if [[ "$CLEAR_65" -eq 70 ]]; then
+  echo "6.5 simulator $UDID_65 disappeared (exit 70). Booting it again."
+  xcrun simctl list devices >/dev/null 2>&1 || true
+  xcrun simctl shutdown "$UDID_65" >/dev/null 2>&1 || true
+  xcrun simctl boot "$UDID_65" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "$UDID_65" -b || true
+  xcodebuild test \
+    -project FitMunch.xcodeproj \
+    -scheme FitMunch \
+    -destination "platform=iOS Simulator,id=$UDID_65" \
+    -derivedDataPath "$DERIVED" \
+    -only-testing:FitMunchUITests/TabBarClearanceUITests \
+    -resultBundlePath "$OUT/screenshots/TabBarClearance-6.5.xcresult" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY=-
+  CLEAR_65=$?
+fi
 set -e
 if [[ "$CLEAR_65" -ne 0 ]]; then
   echo "6.5 tab bar clearance UI test failed ($CLEAR_65)"
