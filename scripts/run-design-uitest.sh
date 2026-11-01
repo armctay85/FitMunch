@@ -182,7 +182,13 @@ xcodebuild test \
 CLEAR_65=$?
 if [[ "$CLEAR_65" -ne 0 ]]; then
   echo "6.5 tab bar clearance failed ($CLEAR_65). Booting the simulator again."
-  xcrun simctl list devices >/dev/null 2>&1 || true
+  rm -rf "$OUT/screenshots/TabBarClearance-6.5.xcresult"
+  if ! xcrun simctl list devices available | grep -q "$UDID_65"; then
+    killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1 || true
+    sleep 3
+    UDID_65="$(find_udid "iPhone 11 Pro Max" "iPhone XS Max" || create_udid "iPhone 11 Pro Max" "iPhone XS Max")"
+    echo "Using replacement 6.5 simulator $UDID_65"
+  fi
   xcrun simctl shutdown "$UDID_65" >/dev/null 2>&1 || true
   sleep 2
   xcrun simctl boot "$UDID_65" >/dev/null 2>&1 || true
