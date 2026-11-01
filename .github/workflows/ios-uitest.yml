@@ -174,10 +174,12 @@ jobs:
               if [[ "$rc" -eq 0 ]]; then
                 break
               fi
-              if ! grep -q "Unable to find a device matching" "artifacts/ios-uitest/${slug}.log"; then
+              if ! grep -q -e "Unable to find a device matching" -e "Failed to get background assertion" "artifacts/ios-uitest/${slug}.log"; then
                 break
               fi
-              echo "destination miss for $slug attempt $attempt"
+              echo "simulator attach miss for $slug attempt $attempt"
+              xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+              sleep 2
               xcrun simctl boot "$udid" >/dev/null 2>&1 || true
               xcrun simctl bootstatus "$udid" -b || true
               sleep 5

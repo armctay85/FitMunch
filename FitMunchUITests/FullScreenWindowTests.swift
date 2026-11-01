@@ -13,6 +13,7 @@ final class FullScreenWindowTests: XCTestCase {
         throw XCTSkip(StoreKitBesideApp.skipReason)
     }
 
+    /// A missing background assertion is the simulator failing to attach, not a layout miss.
     func testFullScreenWindow() throws {
         let slug = deviceSlug()
         let tag = shotTag()
