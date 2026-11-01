@@ -341,7 +341,7 @@ private struct HistoryMealCard: View {
                 
                 Spacer()
                 
-                Text("\(meal.foodItems.count) items")
+                Text(MealItemCount.label(for: meal.foodItems.count))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

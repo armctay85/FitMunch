@@ -38,6 +38,10 @@ struct HomeView: View {
             .contentMargins(.bottom, Theme.Spacing.tabClearance, for: .scrollContent)
             .background(Theme.surface)
             .navigationTitle("Today")
+            // The date row scrolls under this bar once Dinner sits on the tab
+            // bar. An opaque surface hides that date and its chevron.
+            .toolbarBackground(Theme.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -405,7 +409,7 @@ private struct MealCard: View {
 
                 Spacer()
 
-                Text("\(meal.foodItems.count) items")
+                Text(MealItemCount.label(for: meal.foodItems.count))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
