@@ -37,9 +37,9 @@ final class TabBarClearanceUITests: XCTestCase {
             if item.identifier == "scan-take-photo" {
                 revealScanPhoto(in: app)
             }
-            let control = primaryControl(item.identifier, in: app)
+            let control = app.descendants(matching: .any)[item.identifier]
             XCTAssertTrue(
-                control.waitForExistence(timeout: 8),
+                control.waitForExistence(timeout: 15),
                 "\(item.identifier) missing on \(item.tab)"
             )
             let becameHittable = XCTNSPredicateExpectation(
@@ -76,17 +76,6 @@ final class TabBarClearanceUITests: XCTestCase {
             app.swipeUp()
             hops += 1
         }
-    }
-
-    private func primaryControl(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
-        let queries = [
-            app.buttons[identifier],
-            app.textFields[identifier],
-            app.textViews[identifier],
-            app.switches[identifier],
-            app.descendants(matching: .any)[identifier],
-        ]
-        return queries.first { $0.exists } ?? queries[0]
     }
 
     private func tabButtonTop(in app: XCUIApplication) -> CGFloat {

@@ -174,7 +174,7 @@ jobs:
               if [[ "$rc" -eq 0 ]]; then
                 break
               fi
-              if ! grep -q -e "Unable to find a device matching" -e "Failed to get background assertion" "artifacts/ios-uitest/${slug}.log"; then
+              if ! grep -q -e "Unable to find a device matching" -e "Failed to get background assertion" -e "Timed out while launching" "artifacts/ios-uitest/${slug}.log"; then
                 break
               fi
               echo "simulator attach miss for $slug attempt $attempt"

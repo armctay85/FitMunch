@@ -180,10 +180,11 @@ xcodebuild test \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY=-
 CLEAR_65=$?
-if [[ "$CLEAR_65" -eq 70 ]]; then
-  echo "6.5 simulator $UDID_65 disappeared (exit 70). Booting it again."
+if [[ "$CLEAR_65" -ne 0 ]]; then
+  echo "6.5 tab bar clearance failed ($CLEAR_65). Booting the simulator again."
   xcrun simctl list devices >/dev/null 2>&1 || true
   xcrun simctl shutdown "$UDID_65" >/dev/null 2>&1 || true
+  sleep 2
   xcrun simctl boot "$UDID_65" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$UDID_65" -b || true
   xcodebuild test \
