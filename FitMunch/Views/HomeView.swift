@@ -8,6 +8,8 @@ struct HomeView: View {
     @State private var showLogMeal = false
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
+    /// Bottom scroll margin. Replaced by the tab bar overlap once that frame is known.
+    @State private var tabClearance: CGFloat = Theme.Spacing.tabClearance
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(modelContext: modelContext))
@@ -33,9 +35,17 @@ struct HomeView: View {
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
             }
-            // Margin inside the scroll, not a frame inset. The scroll view stays
-            // full height so rows can pass behind the translucent tab bar.
-            .contentMargins(.bottom, Theme.Spacing.tabClearance, for: .scrollContent)
+            // Measured from the tab button frame, so the last card can rest above the bar.
+            .contentMargins(.bottom, tabClearance, for: .scrollContent)
+            .background {
+                HomeTabClearanceReader { measured in
+                    guard abs(measured - tabClearance) > 0.5 else { return }
+                    tabClearance = measured
+                }
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
             .background(Theme.surface)
             .navigationTitle("Today")
             // The date row scrolls under this bar once Dinner sits on the tab
@@ -419,6 +429,9 @@ private struct MealCard: View {
         .cornerRadius(Theme.Radius.medium)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-meal-card")
+        .background {
+            MealCardFrameMarker()
+        }
         .alert("Delete Meal", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive, action: onDelete)

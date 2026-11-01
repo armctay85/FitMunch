@@ -241,18 +241,29 @@ struct MealPlanView: View {
         .accessibilityLabel("\(label) \(value)")
     }
 
+    /// `.contain` groups the two lines. The identifier is on the row container,
+    /// outside that group, so the row is its own element.
     @ViewBuilder
     private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(label): \(meal.name ?? "Meal")")
-                    .font(.subheadline.weight(.semibold))
-                Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let identifier {
+                mealRowLabel(label, meal)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier(identifier)
+            } else {
+                mealRowLabel(label, meal)
+                    .accessibilityElement(children: .contain)
             }
-            .accessibilityElement(children: .contain)
-            .modifier(MealRowIdentifier(identifier: identifier))
+        }
+    }
+
+    private func mealRowLabel(_ label: String, _ meal: MealPlanMeal) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(label): \(meal.name ?? "Meal")")
+                .font(.subheadline.weight(.semibold))
+            Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -293,19 +304,6 @@ struct MealPlanView: View {
             plansGenerated += 1
         } catch {
             errorMessage = error.localizedDescription
-        }
-    }
-}
-
-private struct MealRowIdentifier: ViewModifier {
-    let identifier: String?
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if let identifier {
-            content.accessibilityIdentifier(identifier)
-        } else {
-            content
         }
     }
 }

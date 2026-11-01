@@ -107,6 +107,21 @@ jobs:
           echo "pro=$PRO_NAME $PRO_UDID os=26.2" | tee artifacts/ios-uitest/destinations.txt
           echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID os=26.2" | tee -a artifacts/ios-uitest/destinations.txt
 
+          # Same one-retry boot as boot-pinned-simulator.sh. A stale "already booted"
+          # simulator timed out launching the app. Tests are not retried.
+          boot_with_retry() {
+            local udid="$1"
+            xcrun simctl shutdown all >/dev/null 2>&1 || true
+            xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+            if ! xcrun simctl bootstatus "$udid" -b >&2; then
+              echo "Boot failed for $udid. Retrying the boot once." >&2
+              xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+              sleep 2
+              xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+              xcrun simctl bootstatus "$udid" -b >&2 || return 1
+            fi
+          }
+
           run_one() {
             local name="$1"
             local udid="$2"
@@ -115,8 +130,7 @@ jobs:
             local rc=0
             rm -rf "$bundle"
             bash scripts/set-simulator-region-au.sh "$udid"
-            xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-            xcrun simctl bootstatus "$udid" -b
+            boot_with_retry "$udid" || return 1
             local cand="artifacts/ios-uitest/launch-candidates-${slug}"
             rm -rf "$cand"
             mkdir -p "$cand"
