@@ -37,7 +37,9 @@ final class TabBarClearanceUITests: XCTestCase {
             if item.identifier == "scan-take-photo" {
                 revealScanPhoto(in: app)
             }
-            let control = app.descendants(matching: .any)[item.identifier]
+            let control = app.descendants(matching: .any)
+                .matching(identifier: item.identifier)
+                .firstMatch
             XCTAssertTrue(
                 control.waitForExistence(timeout: 15),
                 "\(item.identifier) missing on \(item.tab)"
