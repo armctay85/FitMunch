@@ -39,6 +39,7 @@ struct MealPlanView: View {
 
     private var planContent: some View {
         planScroll
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 generateButton
                     .padding(.horizontal, Theme.Spacing.four)
@@ -78,7 +79,8 @@ struct MealPlanView: View {
         }
     }
 
-    /// Generate is a bottom safe-area inset, so Monday dinner is not drawn through the button.
+    /// The scroll view takes the leftover height and Generate stays in the bottom
+    /// safe-area inset, so Monday dinner ends above the button instead of collapsing it.
     private var planScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.three) {
@@ -162,7 +164,7 @@ struct MealPlanView: View {
                     .font(.headline)
                 mealRow("Breakfast", day.meals?.breakfast)
                 mealRow("Lunch", day.meals?.lunch)
-                mealRow("Dinner", day.meals?.dinner)
+                mealRow("Dinner", day.meals?.dinner, identifier: day.day == "Monday" ? "plan-monday-dinner" : nil)
                 mealRow("Snack", day.meals?.snack)
                 if let totals = day.dailyTotals {
                     Text("Day total · \(totals.calories ?? 0) kcal · \(totals.protein ?? 0)g protein")
@@ -215,6 +217,7 @@ struct MealPlanView: View {
         }
         .buttonStyle(PrimaryButtonStyle())
         .disabled(isLoading)
+        .accessibilityLabel("Generate 7-day plan")
         .accessibilityIdentifier("plan-generate")
     }
 
@@ -239,7 +242,7 @@ struct MealPlanView: View {
     }
 
     @ViewBuilder
-    private func mealRow(_ label: String, _ meal: MealPlanMeal?) -> some View {
+    private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(label): \(meal.name ?? "Meal")")
@@ -248,6 +251,8 @@ struct MealPlanView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .contain)
+            .modifier(MealRowIdentifier(identifier))
         }
     }
 
@@ -288,6 +293,19 @@ struct MealPlanView: View {
             plansGenerated += 1
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct MealRowIdentifier: ViewModifier {
+    let identifier: String?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
         }
     }
 }

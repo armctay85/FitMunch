@@ -56,8 +56,8 @@ struct HomeView: View {
                             .font(.title2)
                             .symbolRenderingMode(.hierarchical)
                     }
-                    .accessibilityIdentifier("today-log-meal")
                     .accessibilityLabel("Log a meal")
+                    .uniqueButtonIdentifier("today-log-meal")
                 }
             }
             .sensoryFeedback(.warning, trigger: freeLimitHits)

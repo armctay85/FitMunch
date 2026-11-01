@@ -101,43 +101,11 @@ jobs:
           xcrun simctl list devices available | tee artifacts/ios-uitest/simulators.txt
           xcrun simctl list devicetypes | grep -E 'iPhone (17|16|11) Pro Max' | tee artifacts/ios-uitest/devicetypes.txt || true
 
-          udid_for() {
-            xcrun simctl list devices available \
-              | grep -F "$1 (" \
-              | head -1 \
-              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-              | head -1
-          }
-
-          latest_runtime() {
-            xcrun simctl list runtimes available \
-              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-              | tail -1
-          }
-
-          ensure_device() {
-            local name="$1"
-            local type="$2"
-            local udid
-            udid="$(udid_for "$name" || true)"
-            if [[ -z "$udid" ]]; then
-              local runtime
-              runtime="$(latest_runtime)"
-              test -n "$runtime"
-              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
-            fi
-            echo "$udid"
-          }
-
           PRO_NAME="iPhone 17 Pro Max"
-          PRO_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
-          if [[ -z "${PRO_UDID:-}" ]]; then
-            PRO_NAME="iPhone 16 Pro Max"
-            PRO_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
-          fi
-          ELEVEN_UDID="$(ensure_device "iPhone 11 Pro Max" "iPhone 11 Pro Max")"
-          echo "pro=$PRO_NAME $PRO_UDID" | tee artifacts/ios-uitest/destinations.txt
-          echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID" | tee -a artifacts/ios-uitest/destinations.txt
+          PRO_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+          ELEVEN_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 11 Pro Max" "iPhone XS Max")"
+          echo "pro=$PRO_NAME $PRO_UDID os=26.2" | tee artifacts/ios-uitest/destinations.txt
+          echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID os=26.2" | tee -a artifacts/ios-uitest/destinations.txt
 
           run_one() {
             local name="$1"
@@ -147,43 +115,30 @@ jobs:
             local rc=0
             rm -rf "$bundle"
             bash scripts/set-simulator-region-au.sh "$udid"
+            xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+            xcrun simctl bootstatus "$udid" -b
             local cand="artifacts/ios-uitest/launch-candidates-${slug}"
             rm -rf "$cand"
             mkdir -p "$cand"
             bash scripts/capture-launch-frame.sh "$udid" "$cand" \
               > "artifacts/ios-uitest/launch-capture-${slug}.log" 2>&1 &
             local watch_pid=$!
-            local attempt
-            for attempt in 1 2 3; do
-              rm -rf "$bundle"
-              set +e
-              xcodebuild test \
-                -project FitMunch.xcodeproj \
-                -scheme FitMunchStoreKit \
-                -destination "platform=iOS Simulator,id=$udid" \
-                -only-testing:FitMunchUITests/FullScreenWindowTests \
-                -testLanguage en \
-                -testRegion AU \
-                -resultBundlePath "$bundle" \
-                CODE_SIGNING_ALLOWED=NO \
-                CODE_SIGNING_REQUIRED=NO \
-                CODE_SIGN_IDENTITY=- \
-                | tee "artifacts/ios-uitest/${slug}.log"
-              rc=${PIPESTATUS[0]}
-              set -e
-              if [[ "$rc" -eq 0 ]]; then
-                break
-              fi
-              if ! grep -q -e "Unable to find a device matching" -e "Failed to get background assertion" -e "Timed out while launching" "artifacts/ios-uitest/${slug}.log"; then
-                break
-              fi
-              echo "simulator attach miss for $slug attempt $attempt"
-              xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
-              sleep 2
-              xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-              xcrun simctl bootstatus "$udid" -b || true
-              sleep 5
-            done
+            rm -rf "$bundle"
+            set +e
+            xcodebuild test \
+              -project FitMunch.xcodeproj \
+              -scheme FitMunchStoreKit \
+              -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
+              -only-testing:FitMunchUITests/FullScreenWindowTests \
+              -testLanguage en \
+              -testRegion AU \
+              -resultBundlePath "$bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=- \
+              | tee "artifacts/ios-uitest/${slug}.log"
+            rc=${PIPESTATUS[0]}
+            set -e
             echo "$name exit=$rc" | tee -a artifacts/ios-uitest/destinations.txt
             mkdir -p "artifacts/ios-uitest/screenshots"
             if [[ -d /tmp/fitmunch-b10-screenshots ]]; then
@@ -277,11 +232,13 @@ jobs:
           # XCTSkipped. Do not require a purchase-sheet.png and do not fake one.
           PURCHASE_BUNDLE="artifacts/ios-uitest/purchase-sheet.xcresult"
           rm -rf "$PURCHASE_BUNDLE"
+          PRO_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+          bash scripts/set-simulator-region-au.sh "$PRO_UDID"
           set +e
           xcodebuild test \
             -project FitMunch.xcodeproj \
             -scheme FitMunchStoreKit \
-            -destination "platform=iOS Simulator,id=$PRO_UDID" \
+            -destination "platform=iOS Simulator,id=$PRO_UDID,arch=arm64" \
             -only-testing:FitMunchUITests/PaywallPurchaseSheetTests \
             -resultBundlePath "$PURCHASE_BUNDLE" \
             CODE_SIGNING_ALLOWED=NO \
@@ -343,43 +300,11 @@ jobs:
           rm -rf /tmp/fitmunch-audit-2026-10-15
           xcrun simctl list devices available | tee artifacts/audit-2026-10-15/simulators.txt
 
-          udid_for() {
-            xcrun simctl list devices available \
-              | grep -F "$1 (" \
-              | head -1 \
-              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-              | head -1
-          }
-
-          latest_runtime() {
-            xcrun simctl list runtimes available \
-              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-              | tail -1
-          }
-
-          ensure_device() {
-            local name="$1"
-            local type="$2"
-            local udid
-            udid="$(udid_for "$name" || true)"
-            if [[ -z "$udid" ]]; then
-              local runtime
-              runtime="$(latest_runtime)"
-              test -n "$runtime"
-              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
-            fi
-            echo "$udid"
-          }
-
           PRO_NAME="iPhone 17 Pro Max"
-          PRO_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
-          if [[ -z "${PRO_UDID:-}" ]]; then
-            PRO_NAME="iPhone 16 Pro Max"
-            PRO_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
-          fi
-          ELEVEN_UDID="$(ensure_device "iPhone 11 Pro Max" "iPhone 11 Pro Max")"
-          echo "pro=$PRO_NAME $PRO_UDID" | tee artifacts/audit-2026-10-15/destinations.txt
-          echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID" | tee -a artifacts/audit-2026-10-15/destinations.txt
+          PRO_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+          ELEVEN_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 11 Pro Max" "iPhone XS Max")"
+          echo "pro=$PRO_NAME $PRO_UDID os=26.2" | tee artifacts/audit-2026-10-15/destinations.txt
+          echo "eleven=iPhone 11 Pro Max $ELEVEN_UDID os=26.2" | tee -a artifacts/audit-2026-10-15/destinations.txt
 
           DERIVED="$RUNNER_TEMP/DerivedDataAudit"
 
@@ -404,7 +329,7 @@ jobs:
               xcodebuild test
               -project FitMunch.xcodeproj
               -scheme FitMunch
-              -destination "platform=iOS Simulator,id=$udid"
+              -destination "platform=iOS Simulator,id=$udid,arch=arm64"
               -derivedDataPath "$DERIVED"
               "${only_testing[@]}"
               -testLanguage en

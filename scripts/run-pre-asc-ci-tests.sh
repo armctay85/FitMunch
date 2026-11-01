@@ -22,76 +22,11 @@ mkdir -p "$OUT" /tmp/pre-asc-audit/screenshots
   xcrun simctl list devicetypes | grep -E 'iPhone|iPad Air 11' || true
 } | tee "$OUT/simulators.txt"
 
-udid_for() {
-  local name="$1"
-  xcrun simctl list devices available \
-    | grep -F "$name (" \
-    | head -1 \
-    | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-    | head -1
-}
-
-find_udid() {
-  local candidate udid
-  for candidate in "$@"; do
-    udid="$(udid_for "$candidate")"
-    if [[ -n "$udid" ]]; then
-      echo "$candidate|$udid"
-      return 0
-    fi
-  done
-  return 1
-}
-
-latest_ios_runtime() {
-  xcrun simctl list runtimes available \
-    | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-    | tail -1
-}
-
-create_named() {
-  local type="$1"
-  local runtime
-  runtime="$(latest_ios_runtime)"
-  [[ -n "$runtime" ]] || return 1
-  xcrun simctl list devicetypes | grep -F "$type" >/dev/null || return 1
-  local udid
-  if ! udid="$(xcrun simctl create "FitMunch Audit $type" "$type" "$runtime" 2>/dev/null)"; then
-    return 1
-  fi
-  [[ -n "$udid" ]] || return 1
-  echo "$type|$udid"
-}
-
-# 390pt phones: iPhone 12, 13, 14 (and 13 mini is 375, 14 Plus is 428). Prefer those.
-IPHONE_PICK="$(find_udid "iPhone 14" "iPhone 13" "iPhone 12" \
-  || create_named "iPhone 14" \
-  || create_named "iPhone 13" \
-  || create_named "iPhone 12" \
-  || find_udid "iPhone 16" "iPhone 17" "iPhone 17 Pro" "iPhone 16 Pro" "iPhone 15" \
-  || create_named "iPhone 17" \
-  || create_named "iPhone 16" \
-  || true)"
-
-IPAD_PICK="$(find_udid "iPad Air 11-inch (M3)" \
-  || create_named "iPad Air 11-inch (M3)" \
-  || true)"
-
-if [[ -z "${IPHONE_PICK:-}" ]]; then
-  echo "No iPhone simulator available" | tee "$OUT/summary.txt"
-  exit 1
-fi
-if [[ -z "${IPAD_PICK:-}" ]]; then
-  echo "iPad Air 11-inch (M3) simulator is not available on this runner" | tee "$OUT/summary.txt"
-  exit 1
-fi
-
-IPHONE_NAME="${IPHONE_PICK%%|*}"
-IPHONE_UDID="${IPHONE_PICK##*|}"
-IPAD_NAME="${IPAD_PICK%%|*}"
-IPAD_UDID="${IPAD_PICK##*|}"
-echo "iPhone=$IPHONE_NAME udid=$IPHONE_UDID" | tee "$OUT/destination-iphone.txt"
-echo "iPad=$IPAD_NAME udid=$IPAD_UDID" | tee "$OUT/destination-ipad.txt"
+# 390pt phones: iPhone 14, 13, 12. Pinned to iOS 26.2 with the iPad.
+IPHONE_UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 14" "iPhone 13" "iPhone 12" "iPhone 17" "iPhone 16")"
+IPAD_UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPad Air 11-inch (M3)")"
+echo "iPhone udid=$IPHONE_UDID os=26.2" | tee "$OUT/destination-iphone.txt"
+echo "iPad udid=$IPAD_UDID os=26.2" | tee "$OUT/destination-ipad.txt"
 
 boot_sim() {
   local udid="$1"
@@ -106,36 +41,26 @@ run_xcode() {
   local mode="$5"
   shift 5
   local bundle="$OUT/${label}.xcresult"
-  local attempt rc=1
+  local rc=1
   local log="$OUT/${label}.log"
   echo "$mode" > /tmp/pre-asc-audit-mode
   echo "$device" > /tmp/pre-asc-audit-device
-  for attempt in 1 2; do
-    rm -rf "$bundle"
-    boot_sim "$udid"
-    echo "=== xcodebuild test scheme=$scheme label=$label mode=$mode attempt=$attempt ==="
-    # stderr has the destination miss. tee only sees stdout unless it is merged.
-    xcodebuild test \
-      -project FitMunch.xcodeproj \
-      -scheme "$scheme" \
-      -destination "platform=iOS Simulator,id=$udid" \
-      -testLanguage en \
-      -testRegion AU \
-      -resultBundlePath "$bundle" \
-      "$@" \
-      CODE_SIGNING_ALLOWED=NO \
-      CODE_SIGNING_REQUIRED=NO \
-      CODE_SIGN_IDENTITY=- \
-      2>&1 | tee "$log"
-    rc=${PIPESTATUS[0]}
-    if [[ "$rc" -eq 0 ]]; then
-      break
-    fi
-    if ! grep -q "Unable to find a device matching" "$log"; then
-      break
-    fi
-    echo "destination miss for $label attempt $attempt"
-  done
+  rm -rf "$bundle"
+  boot_sim "$udid"
+  echo "=== xcodebuild test scheme=$scheme label=$label mode=$mode ==="
+  xcodebuild test \
+    -project FitMunch.xcodeproj \
+    -scheme "$scheme" \
+    -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
+    -testLanguage en \
+    -testRegion AU \
+    -resultBundlePath "$bundle" \
+    "$@" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY=- \
+    2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
   return "$rc"
 }
 
@@ -144,17 +69,7 @@ run_xcode() {
 # The same session on iOS 26.2 loads only the local catalog and entitles the purchase.
 # The catalog proof already runs on 26.2. These unit tests use that runtime too.
 storekit_udid() {
-  local udid runtime
-  udid="$(python3 scripts/ios-simulator-on-version.py udid "iPhone 17 Pro" 26.2 || true)"
-  if [[ -n "$udid" ]]; then
-    echo "$udid"
-    return 0
-  fi
-  runtime="$(python3 scripts/ios-simulator-on-version.py runtime 26.2 || true)"
-  if [[ -z "$runtime" ]]; then
-    return 1
-  fi
-  xcrun simctl create "FitMunch StoreKit 26.2" "iPhone 17 Pro" "$runtime"
+  bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 17 Pro" "iPhone 17 Pro Max"
 }
 
 set +e
@@ -227,12 +142,12 @@ set -e
 
 {
   echo "evidence_class=CI macos Simulator / unit+UI"
-  echo "iphone=$IPHONE_NAME"
+  echo "iphone=iOS-26.2"
   echo "iphone_udid=$IPHONE_UDID"
   echo "iphone_exit=$IPHONE_RC"
   echo "storekit_unit_udid=${STOREKIT_UDID:-missing}"
   echo "storekit_unit_exit=$STOREKIT_RC"
-  echo "ipad=$IPAD_NAME"
+  echo "ipad=iPad Air 11-inch (M3)"
   echo "ipad_udid=$IPAD_UDID"
   echo "ipad_exit=$IPAD_RC"
   echo "iphone_sandbox_exit=$IPHONE_SANDBOX_RC"
@@ -282,5 +197,5 @@ if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi
 
-echo "PRE-ASC simulator audit passed on $IPHONE_NAME and $IPAD_NAME"
+echo "PRE-ASC simulator audit passed on iOS 26.2 iPhone $IPHONE_UDID and iPad $IPAD_UDID"
 exit 0

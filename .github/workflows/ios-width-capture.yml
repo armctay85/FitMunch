@@ -65,60 +65,12 @@ jobs:
           mkdir -p artifacts/width-capture
           rm -rf /tmp/fitmunch-width-capture
 
-          udid_for() {
-            xcrun simctl list devices available \
-              | grep -F "$1 (" \
-              | head -1 \
-              | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-              | head -1
-          }
-
-          latest_runtime() {
-            xcrun simctl list runtimes available \
-              | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-              | tail -1
-          }
-
-          ensure_device() {
-            local name="$1"
-            local type="$2"
-            local udid
-            udid="$(udid_for "$name" || true)"
-            if [[ -z "$udid" ]]; then
-              local runtime
-              runtime="$(latest_runtime)"
-              test -n "$runtime"
-              udid="$(xcrun simctl create "$name" "$type" "$runtime")"
-            fi
-            echo "$udid"
-          }
-
           # iOS 26.5 SKTestSession returns SKInternalErrorDomain Code=3 when the
-          # storefront is set. Pin 375pt to the 26.2 runtime, which reads AUS back.
-          # 440pt keeps the first matching Pro Max (that capture already passes on 26.2).
-          NARROW_RUNTIME="$(python3 scripts/ios-simulator-on-version.py runtime 26.2)"
-          test -n "$NARROW_RUNTIME"
-          ensure_on_narrow_runtime() {
-            local name="$1"
-            local type="$2"
-            local udid
-            udid="$(python3 scripts/ios-simulator-on-version.py udid "$name" 26.2)"
-            if [[ -z "$udid" ]]; then
-              udid="$(xcrun simctl create "$name" "$type" "$NARROW_RUNTIME")"
-            fi
-            echo "$udid"
-          }
-
-          WIDE_UDID="$(ensure_device "iPhone 17 Pro Max" "iPhone 17 Pro Max" || true)"
-          if [[ -z "${WIDE_UDID:-}" ]]; then
-            WIDE_UDID="$(ensure_device "iPhone 16 Pro Max" "iPhone 16 Pro Max")"
-          fi
-          NARROW_UDID="$(ensure_on_narrow_runtime "iPhone SE (3rd generation)" "iPhone SE (3rd generation)" || true)"
-          if [[ -z "${NARROW_UDID:-}" ]]; then
-            NARROW_UDID="$(ensure_on_narrow_runtime "iPhone 13 mini" "iPhone 13 mini")"
-          fi
-          echo "width-440 udid=$WIDE_UDID" | tee artifacts/width-capture/destinations.txt
-          echo "width-375 udid=$NARROW_UDID runtime=$NARROW_RUNTIME" | tee -a artifacts/width-capture/destinations.txt
+          # storefront is set. Both widths stay on the 26.2 runtime.
+          WIDE_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+          NARROW_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone SE (3rd generation)" "iPhone 13 mini")"
+          echo "width-440 udid=$WIDE_UDID os=26.2" | tee artifacts/width-capture/destinations.txt
+          echo "width-375 udid=$NARROW_UDID os=26.2" | tee -a artifacts/width-capture/destinations.txt
 
           DERIVED="$RUNNER_TEMP/DerivedDataWidth"
           run_tests() {
@@ -133,7 +85,7 @@ jobs:
             xcodebuild test \
               -project FitMunch.xcodeproj \
               -scheme FitMunchStoreKit \
-              -destination "platform=iOS Simulator,id=$udid" \
+              -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
               -derivedDataPath "$DERIVED" \
               -only-testing:"FitMunchUITests/Batch2WidthCaptureUITests" \
               -testLanguage en \

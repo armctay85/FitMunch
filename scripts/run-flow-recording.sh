@@ -10,58 +10,7 @@ OUT="$ROOT/artifacts/flow-recording"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-latest_ios_runtime() {
-  xcrun simctl list runtimes available \
-    | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-    | tail -1
-}
-
-udid_for() {
-  local name="$1"
-  xcrun simctl list devices available \
-    | grep -F "$name (" \
-    | head -1 \
-    | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-    | head -1
-}
-
-find_udid() {
-  local candidate udid
-  for candidate in "$@"; do
-    udid="$(udid_for "$candidate")"
-    if [[ -n "$udid" ]]; then
-      echo "$udid"
-      return 0
-    fi
-  done
-  return 1
-}
-
-create_udid() {
-  local runtime type udid
-  runtime="$(latest_ios_runtime)"
-  if [[ -z "$runtime" ]]; then
-    echo "No iOS simulator runtime" >&2
-    return 1
-  fi
-  for type in "$@"; do
-    if xcrun simctl list devicetypes | grep -F "$type" >/dev/null; then
-      echo "Creating simulator '$type' on $runtime" >&2
-      if udid="$(xcrun simctl create "FitMunch Flow $type" "$type" "$runtime")"; then
-        echo "$udid"
-        return 0
-      fi
-    fi
-  done
-  return 1
-}
-
-UDID="$(find_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || create_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || true)"
-if [[ -z "${UDID:-}" ]]; then
-  echo "No iPhone 17 Pro Max or iPhone 16 Pro Max simulator."
-  exit 1
-fi
-
+UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
 echo "Using simulator $UDID"
 bash "$ROOT/scripts/set-simulator-region-au.sh" "$UDID"
 
@@ -71,11 +20,12 @@ mkdir -p /tmp/fitmunch-flow-recording
 VIDEO="$OUT/main-flows.mp4"
 rm -f /tmp/fitmunch-flow-recording/app-ready /tmp/fitmunch-flow-recording/record-ready
 
+rm -rf "$OUT/Test.xcresult"
 set +e
 xcodebuild test \
   -project FitMunch.xcodeproj \
   -scheme FitMunchStoreKit \
-  -destination "platform=iOS Simulator,id=$UDID" \
+  -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
   -derivedDataPath "$OUT/DerivedData" \
   -only-testing:FitMunchUITests/FlowRecordingUITests/testMainFlowsForRecording \
   -testLanguage en \
