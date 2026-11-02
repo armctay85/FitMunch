@@ -49,6 +49,7 @@ final class HomeTabClearanceProbe: UIView {
     private var stopWaits = 0
     private var correcting = false
     private var lastReported: CGFloat = -1
+    private var addedInset: CGFloat = 0
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -110,7 +111,8 @@ final class HomeTabClearanceProbe: UIView {
             guard frame.width > 80, frame.width < window.bounds.width,
                   frame.height > 40, frame.height < 180 else { continue }
             let under = frame.maxY - buttonTop
-            guard under > 4, under < frame.height * 0.45 else { continue }
+            // Any card that starts above the buttons and ends below them is cut.
+            guard under > 4, under < frame.height else { continue }
             lift = min(lift ?? under, under)
         }
         guard let lift else { return }
@@ -119,7 +121,20 @@ final class HomeTabClearanceProbe: UIView {
         defer { correcting = false }
 
         let proposed = scroll.contentOffset.y + lift
-        let limit = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
+        var limit = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
+        if proposed > limit + 0.5, addedInset < 80 {
+            let extra = min(80 - addedInset, proposed - limit)
+            addedInset += extra
+            var inset = scroll.contentInset
+            inset.bottom += extra
+            scroll.contentInset = inset
+            limit = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
+            let report = onClearance
+            let total = max(lastReported, 0) + extra
+            DispatchQueue.main.async {
+                report?(total)
+            }
+        }
         let targetY = min(max(proposed, -scroll.adjustedContentInset.top), max(scroll.contentOffset.y, limit))
         guard targetY > scroll.contentOffset.y + 0.5 else { return }
         UIView.performWithoutAnimation {
@@ -159,11 +174,11 @@ final class HomeTabClearanceProbe: UIView {
         let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
         func consider(_ view: UIView) {
             let frame = view.convert(view.bounds, to: window)
-            guard frame.height > 16, frame.width > 24, frame.width < 200 else { return }
-            guard frame.minY >= window.bounds.maxY - 220, frame.maxY <= window.bounds.maxY + 2 else { return }
+            guard frame.minY >= window.bounds.maxY - 200, frame.maxY <= window.bounds.maxY + 4 else { return }
             let className = NSStringFromClass(type(of: view))
             let label = view.accessibilityLabel ?? ""
-            if className.contains("Button") || names.contains(label) {
+            let buttonSized = frame.height > 16 && frame.height < 90 && frame.width > 24 && frame.width < 160
+            if buttonSized || className.contains("Button") || names.contains(label) {
                 top = min(top, frame.minY)
             }
         }
