@@ -484,6 +484,9 @@ describe('cancel copy', () => {
     expect(support).toContain('You can cancel at any time in Billing.');
     const refund = fs.readFileSync(path.join(__dirname, 'public/refund.html'), 'utf8');
     expect(refund).toContain('You can cancel at any time in Billing.');
+    expect(refund).toContain('billed monthly or yearly, depending on your plan');
+    expect(refund).not.toContain('billed monthly via Stripe');
+    expect(refund).not.toMatch(/Pty Ltd|inc\. GST/i);
     expect(support).toContain('Cancel before the trial ends and you are not charged.');
     expect(support).toContain("If you can't sign in, email");
     expect(support).not.toMatch(/process cancellations/i);

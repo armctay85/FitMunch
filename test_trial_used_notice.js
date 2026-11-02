@@ -27,8 +27,10 @@ describe('trial-used and subscriber screens, homepage fold (post PR 78)', () => 
 describe('pricing page meta description', () => {
   it('is exact, and no og/twitter description drifts from it', () => {
     const html = read('pricing.html');
-    expect(html).toContain('<meta name="description" content="FitMunch pricing: Premium A$19.99 a month with a 14-day trial, free plan, and Coach plans for personal trainers."/>');
+    expect(html).toContain('<meta name="description" content="FitMunch pricing: Premium with a 14-day trial, free plan, and Coach plans for personal trainers."/>');
+    const desc = html.match(/<meta name="description" content="([^"]*)"/);
+    expect(desc[1]).not.toMatch(/\$|\b\d+\.\d{2}\b/);
     const og = html.match(/<meta[^>]+(?:og|twitter):description[^>]+content="([^"]*)"/g) || [];
-    for (const tag of og) expect(tag).toContain('FitMunch pricing: Premium A$19.99 a month with a 14-day trial, free plan, and Coach plans for personal trainers.');
+    for (const tag of og) expect(tag).toContain('FitMunch pricing: Premium with a 14-day trial, free plan, and Coach plans for personal trainers.');
   });
 });
