@@ -9,6 +9,9 @@
   --fridge: #07130d;
 }
 * { box-sizing: border-box; }
+/* Author display rules such as .stack must not show a signed-out form. */
+[hidden]{display:none!important}
+
 html, body { margin: 0; max-width: 100%; overflow-x: hidden; }
 body {
   font-family: Georgia, "Iowan Old Style", serif;

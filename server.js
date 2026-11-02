@@ -18,6 +18,7 @@ const {
   lockNoStore,
   applyDocumentCache,
   applyFileCache,
+  applyMarketingCache,
 } = require('./lib/http-cache');
 const {
   PREMIUM_MONTHLY_LABEL,
@@ -448,6 +449,11 @@ app.get('/signup', (req, res) => res.redirect(301, registerRedirectTarget(req)))
 app.get('/sign-up', (req, res) => res.redirect(301, registerRedirectTarget(req)));
 app.get('/app', (req, res) => res.redirect(302, '/app.html' + authQuery(req)));
 app.get('/checkout', (req, res) => res.redirect(302, '/pricing'));
+app.get('/help', (req, res) => {
+  applyMarketingCache(res);
+  const q = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(301, '/support' + q);
+});
 app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
 app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));

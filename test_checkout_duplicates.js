@@ -1404,6 +1404,26 @@ describe('welcome email after a no-trial checkout (Maximus, PR 78)', () => {
     expect(out).toContain('No charge until the trial ends.');
   });
 
+  test('the HTML greeting escapes the customer name and the text part does not', async () => {
+    process.env.RESEND_API_KEY = 'test-key';
+    const calls = [];
+    const prev = global.fetch;
+    global.fetch = jest.fn(async (_url, opts) => {
+      calls.push(JSON.parse(opts.body));
+      return { ok: true, json: async () => ({ id: 'e1' }) };
+    });
+    const raw = `Sam <img src=x onerror=alert(1)>&'"`;
+    try {
+      await emailApi.sendWelcomeEmail('a@example.com', raw, 'Premium');
+    } finally {
+      global.fetch = prev;
+      delete process.env.RESEND_API_KEY;
+    }
+    expect(calls[0].html).toContain('Hi Sam &lt;img src=x onerror=alert(1)&gt;&amp;&#39;&quot;,');
+    expect(calls[0].html).not.toContain('<img');
+    expect(calls[0].text).toContain(`Hi ${raw},`);
+  });
+
   test('a no-trial Checkout carries metadata trial=0 for the webhook', () => {
     const p = buildSubscriptionCheckoutParams({ customerId: 'cus_x', priceId: PRICE_IDS.premium, plan: 'premium', trial: false });
     expect(p.metadata.trial).toBe('0');

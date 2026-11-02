@@ -470,6 +470,16 @@ describe('payment failed email copy', () => {
 describe('cancel copy', () => {
   test('support tells people to cancel in Billing, and no public page says we process cancellations by email', () => {
     const support = fs.readFileSync(path.join(__dirname, 'public/support.html'), 'utf8');
+    expect(support).toContain('id="support-answers"');
+    expect(support).toContain('How do I cancel?');
+    expect(support).toContain('14-day trial');
+    expect(support).toContain('Receipts or invoices');
+    expect(support).toContain('Paid plans start with a 14-day trial.');
+    expect(support).toContain('Stripe collects a card before the trial begins.');
+    expect(support).toContain('It is not a 14-day refund after a paid charge.');
+    expect(support).toContain('href="/refund"');
+    expect(support).toContain('mailto:support@fitmunch.com.au');
+    expect(support).not.toMatch(/Pty Ltd|inc\. GST/i);
     expect(support).toContain('Sign in and open Billing.');
     expect(support).toContain('You can cancel at any time in Billing.');
     const refund = fs.readFileSync(path.join(__dirname, 'public/refund.html'), 'utf8');

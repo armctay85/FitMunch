@@ -107,6 +107,14 @@ function buildHeaderRules() {
     }
     rules.push({ source, headers });
   }
+  // /help is not a file. The 301 to /support still has to send Cache-Control.
+  rules.push({
+    source: '/help',
+    headers: [
+      { key: 'Cache-Control', value: MARKETING_CACHE },
+      { key: 'Vercel-CDN-Cache-Control', value: MARKETING_CDN },
+    ],
+  });
   for (const source of publicAssetPaths()) {
     if (/[()*:?+]/.test(source)) {
       throw new Error(`asset path is not a literal header source: ${source}`);
