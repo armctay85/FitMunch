@@ -9,8 +9,9 @@ struct HomeView: View {
     @State private var showLogMeal = false
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
-    /// Bottom scroll margin. Replaced by the tab bar overlap once that frame is known.
-    @State private var tabClearance: CGFloat = Theme.Spacing.tabClearance
+    /// How far the scroll view extends below the tab buttons. Grows to the
+    /// measured overlap and does not shrink.
+    @State private var tabClearance: CGFloat = 0
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(modelContext: modelContext))
@@ -36,11 +37,14 @@ struct HomeView: View {
                 .padding()
                 .padding(.bottom, Theme.Spacing.eight)
             }
-            // Measured from the tab button frame, so the last card can rest above the bar.
-            .contentMargins(.bottom, tabClearance, for: .scrollContent)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: tabClearance)
+                    .accessibilityHidden(true)
+            }
             .background {
                 HomeTabClearanceReader { measured in
-                    guard abs(measured - tabClearance) > 0.5 else { return }
+                    guard measured > tabClearance + 0.5 else { return }
                     tabClearance = measured
                 }
                 .frame(width: 0, height: 0)

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// AI meal planner. Same `/api/meal-plan/generate` rail as the web app.
 struct MealPlanView: View {
@@ -257,37 +256,38 @@ struct MealPlanView: View {
         .accessibilityLabel("\(label) \(value)")
     }
 
-    /// One spoken row. The two lines combine, and the same id is written onto
-    /// that row's view. No extra control is added.
+    /// The id is on the meal-name text, a leaf static text. Container ids were
+    /// not in the XCTest tree.
     @ViewBuilder
     private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
             if let identifier {
-                let spoken = "\(label): \(meal.name ?? "Meal"). \(meal.calories ?? 0) kcal, \(meal.protein ?? 0) grams protein"
-                mealRowLabel(label, meal)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(spoken)
-                    .accessibilityIdentifier(identifier)
-                    .background {
-                        MealRowAccessibility(identifier: identifier, label: spoken)
-                            .frame(width: 0, height: 0)
-                    }
+                mealRowLabel(label, meal, identifier: identifier)
                     .id(identifier)
             } else {
-                mealRowLabel(label, meal)
+                mealRowLabel(label, meal, identifier: nil)
                     .accessibilityElement(children: .contain)
             }
         }
     }
 
-    private func mealRowLabel(_ label: String, _ meal: MealPlanMeal) -> some View {
+    private func mealRowLabel(_ label: String, _ meal: MealPlanMeal, identifier: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(label): \(meal.name ?? "Meal")")
-                .font(.subheadline.weight(.semibold))
+            mealName(label, meal, identifier: identifier)
             Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func mealName(_ label: String, _ meal: MealPlanMeal, identifier: String?) -> some View {
+        let line = Text("\(label): \(meal.name ?? "Meal")")
+            .font(.subheadline.weight(.semibold))
+        if let identifier {
+            line.accessibilityIdentifier(identifier)
+        } else {
+            line
         }
     }
 
@@ -328,68 +328,6 @@ struct MealPlanView: View {
             plansGenerated += 1
         } catch {
             errorMessage = error.localizedDescription
-        }
-    }
-}
-
-/// Writes the row id onto the view that holds the two lines.
-/// SwiftUI's combined element was not appearing in the XCTest tree.
-private struct MealRowAccessibility: UIViewRepresentable {
-    var identifier: String
-    var label: String
-
-    func makeUIView(context: Context) -> Probe {
-        let view = Probe()
-        view.identifier = identifier
-        view.rowLabel = label
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        view.isAccessibilityElement = false
-        return view
-    }
-
-    func updateUIView(_ uiView: Probe, context: Context) {
-        uiView.identifier = identifier
-        uiView.rowLabel = label
-        uiView.stamp()
-    }
-
-    final class Probe: UIView {
-        var identifier = ""
-        var rowLabel = ""
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            stamp()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            stamp()
-        }
-
-        func stamp() {
-            let identifier = identifier
-            let rowLabel = rowLabel
-            DispatchQueue.main.async { [weak self] in
-                guard let self, !identifier.isEmpty else { return }
-                var view: UIView? = self.superview
-                while let current = view {
-                    let height = current.bounds.height
-                    let width = current.bounds.width
-                    if height > 28, height < 120, width > 80 {
-                        current.isAccessibilityElement = true
-                        current.accessibilityIdentifier = identifier
-                        current.accessibilityLabel = rowLabel
-                        var traits = current.accessibilityTraits
-                        traits.remove(.button)
-                        current.accessibilityTraits = traits
-                        return
-                    }
-                    if height >= 120 { return }
-                    view = current.superview
-                }
-            }
         }
     }
 }

@@ -146,14 +146,11 @@ final class HomeTabClearanceProbe: UIView {
         guard let scroll = scrollView ?? enclosingScroll(from: self), let window = window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
         let obscured = Self.obscuredHeight(in: scroll, window: window, buttonTop: buttonTop)
-        // Never shrink below the shared clearance. A short measurement left the
-        // last meal card about 46pt under the tab buttons.
-        let clearance = max(obscured, Theme.Spacing.tabClearance)
-        guard abs(clearance - lastReported) > 0.5 else { return }
-        lastReported = clearance
+        guard obscured > 1, obscured > lastReported + 0.5 else { return }
+        lastReported = obscured
         let report = onClearance
         DispatchQueue.main.async {
-            report?(clearance)
+            report?(obscured)
         }
     }
 

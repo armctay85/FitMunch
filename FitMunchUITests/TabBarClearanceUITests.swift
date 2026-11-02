@@ -76,8 +76,15 @@ final class TabBarClearanceUITests: XCTestCase {
     /// The plan is generated first. An empty Plan has no Monday row to measure.
     private func assertMondayDinnerClearsGenerate(_ generate: XCUIElement, in app: XCUIApplication) {
         generatePlanIfNeeded(generate, in: app)
-        let dinner = app.descendants(matching: .any)["plan-monday-dinner"]
-        scrollMondayDinnerAbove(generate, dinner: dinner, in: app)
+        print("PLAN_AX_DUMP_BEGIN")
+        print(app.debugDescription)
+        print("PLAN_AX_DUMP_END")
+        let dinner = app.staticTexts["plan-monday-dinner"]
+        var swipes = 0
+        while !dinner.exists && swipes < 6 {
+            app.swipeUp()
+            swipes += 1
+        }
         XCTAssertTrue(dinner.waitForExistence(timeout: 8), "Monday dinner missing")
         XCTAssertGreaterThan(dinner.frame.height, 8, "Monday dinner has no frame \(dinner.frame)")
         XCTAssertLessThanOrEqual(
@@ -104,34 +111,6 @@ final class TabBarClearanceUITests: XCTestCase {
             generate.tap()
         }
         _ = week.waitForExistence(timeout: 8)
-    }
-
-    /// Bring the Monday dinner container fully above Generate. Off-screen rows
-    /// are not in the element tree until the plan is scrolled.
-    private func scrollMondayDinnerAbove(_ generate: XCUIElement, dinner: XCUIElement, in app: XCUIApplication) {
-        let scroll = planScroller(in: app)
-        var hops = 0
-        while hops < 8 {
-            let clears = dinner.exists
-                && dinner.frame.height > 8
-                && dinner.frame.minY >= 96
-                && dinner.frame.maxY <= generate.frame.minY + 1
-            if clears { return }
-            let tooLow = !dinner.exists
-                || dinner.frame.height < 8
-                || dinner.frame.maxY > generate.frame.minY + 1
-            let startY: CGFloat = tooLow ? 0.72 : 0.42
-            let endY: CGFloat = tooLow ? 0.50 : 0.62
-            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
-            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
-            start.press(forDuration: 0.05, thenDragTo: end)
-            hops += 1
-        }
-    }
-
-    private func planScroller(in app: XCUIApplication) -> XCUIElement {
-        let scrolls = app.scrollViews.allElementsBoundByIndex.filter { $0.frame.height > 120 }
-        return scrolls.max(by: { $0.frame.height < $1.frame.height }) ?? app.scrollViews.firstMatch
     }
 
     /// Screenshot launch already allows AI data. If the consent sheet is still up,
