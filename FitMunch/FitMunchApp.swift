@@ -8,7 +8,9 @@ import RevenueCat
 struct FitMunchApp: App {
     @StateObject private var premiumManager: PremiumManager
     @StateObject private var auth: AuthManager
+    #if DEBUG
     @State private var showingLaunchHold = LaunchFrameCapture.isRequested
+    #endif
 
     init() {
         #if DEBUG
@@ -61,13 +63,15 @@ struct FitMunchApp: App {
                 AppearanceLaunch.applyWindows()
                 ScreenFill.apply()
             }
+            #if DEBUG
             .overlay {
-                if showingLaunchHold {
+                if LaunchFrameCapture.isRequested && showingLaunchHold {
                     LaunchFrameCover {
                         showingLaunchHold = false
                     }
                 }
             }
+            #endif
         }
     }
 }

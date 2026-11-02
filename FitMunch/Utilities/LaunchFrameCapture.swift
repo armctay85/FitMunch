@@ -45,8 +45,10 @@ enum LaunchFrameCapture {
     }
 }
 
+#if DEBUG
 /// White field and the launch mark. Same pixels the system launch screen uses,
 /// shown while the run loop stays free so `app.launch()` can return.
+/// Release and App Store builds do not compile this view.
 struct LaunchFrameCover: View {
     var onFinished: () -> Void
 
@@ -68,3 +70,4 @@ struct LaunchFrameCover: View {
         }
     }
 }
+#endif
