@@ -300,7 +300,9 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(res.text).toContain('data-fm-price="coach79Monthly"');
     expect(res.text).toContain('up to 10 clients');
     expect(res.text).toContain('14-day trial');
-    expect(res.text).toContain('A$19.99');
+    expect(res.text).toContain('data-fm-price="premiumAmount"');
+    const pricingMeta = res.text.match(/<meta name="description" content="([^"]*)"/);
+    expect(pricingMeta[1]).not.toMatch(/\$|\b\d+\.\d{2}\b/);
     expect(res.text).toContain('No GST is charged.');
     expect(res.text).toContain('href="/terms"');
     expect(res.text).toContain('within 1 business day');
