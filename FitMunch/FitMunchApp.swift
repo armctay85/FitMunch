@@ -72,6 +72,8 @@ enum OpaqueBars {
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor(named: "Surface") ?? .systemBackground
         appearance.shadowColor = .clear
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
         let nav = UINavigationBar.appearance()
         nav.standardAppearance = appearance
         nav.scrollEdgeAppearance = appearance

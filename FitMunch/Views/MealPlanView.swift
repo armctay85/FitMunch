@@ -256,22 +256,26 @@ struct MealPlanView: View {
         .accessibilityLabel("\(label) \(value)")
     }
 
-    /// The two lines stay in a `.contain` group. The identifier is on the outer
-    /// row, which is one element. `.contain` on that same view is a Group or is
-    /// dropped, so XCTest never sees `otherElements["plan-monday-dinner"]`.
+    /// Same container as a Today meal card, which XCTest finds as an Other element.
+    /// A text-only `.contain` group is not that element, so the id never shows up.
     @ViewBuilder
     private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
             if let identifier {
-                VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: Theme.Spacing.two) {
                     mealRowLabel(label, meal)
-                        .accessibilityElement(children: .contain)
+                    Spacer(minLength: 0)
+                    Button(action: {}) {
+                        Color.clear.frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(label)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .ignore)
+                .padding(.vertical, 2)
+                .background(Color.clear)
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier(identifier)
-                .accessibilityRemoveTraits(.isStaticText)
-                .accessibilityRemoveTraits(.isButton)
                 .id(identifier)
             } else {
                 mealRowLabel(label, meal)
