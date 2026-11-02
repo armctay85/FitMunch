@@ -50,7 +50,6 @@ final class HomeTabClearanceProbe: UIView {
     private var correcting = false
     private var lastReported: CGFloat = -1
     private var addedInset: CGFloat = 0
-    private var didAlignForScreenshot = false
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -65,47 +64,9 @@ final class HomeTabClearanceProbe: UIView {
     func refresh() {
         attachIfNeeded()
         publishClearance()
-        alignLastMealCardIfNeeded()
-        // The screenshot test drags after this park. Snapping back to an
-        // earlier button line undoes that drag and leaves the empty band.
-        guard !didAlignForScreenshot else { return }
         guard let scroll = scrollView, !scroll.isTracking, !scroll.isDragging, !scroll.isDecelerating else { return }
         guard scroll.contentOffset.y > 1 else { return }
         correctSmallUnderlap()
-    }
-
-    /// The screenshot test does not scroll to the end. It measures the lowest
-    /// today-meal-card that can sit on the tab-button line, then drags by the
-    /// gap. A short drag does not move this scroll, so the card has to already
-    /// be on that line. The line is the floating tab buttons, not a higher
-    /// view that happens to share a tab name.
-    private func alignLastMealCardIfNeeded() {
-        guard !didAlignForScreenshot, ScreenshotLaunch.isActive else { return }
-        guard let scroll = scrollView, !scroll.isDragging, !scroll.isTracking, !scroll.isDecelerating else { return }
-        guard let window, let buttonTop = Self.tabButtonTop(in: window) else { return }
-        let cards = markers(in: window).filter { marker in
-            let frame = marker.convert(marker.bounds, to: window)
-            return frame.width > 80 && frame.width < window.bounds.width
-                && frame.height > 40 && frame.height < 180
-        }
-        guard let last = cards.max(by: {
-            $0.convert($0.bounds, to: window).maxY < $1.convert($1.bounds, to: window).maxY
-        }) else { return }
-        let maxY = last.convert(last.bounds, to: window).maxY
-        let delta = maxY - (buttonTop - 4)
-        if abs(delta) <= 2 {
-            didAlignForScreenshot = true
-            return
-        }
-        let minOffset = -scroll.adjustedContentInset.top
-        let limit = scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom
-        let proposed = scroll.contentOffset.y + delta
-        guard proposed <= limit + 1 else { return }
-        let target = min(max(proposed, minOffset), max(minOffset, limit))
-        UIView.performWithoutAnimation {
-            scroll.setContentOffset(CGPoint(x: scroll.contentOffset.x, y: target), animated: false)
-        }
-        didAlignForScreenshot = true
     }
 
     private func attachIfNeeded() {
@@ -141,7 +102,6 @@ final class HomeTabClearanceProbe: UIView {
 
     /// Move the nearest card that still crosses the tab buttons up onto that line.
     private func correctSmallUnderlap() {
-        guard !didAlignForScreenshot else { return }
         guard !correcting, let scroll = scrollView, let window = window else { return }
         guard scroll.contentOffset.y > 1, scroll.contentSize.height > scroll.bounds.height else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
@@ -182,13 +142,16 @@ final class HomeTabClearanceProbe: UIView {
         }
     }
 
+    /// Distance the glass sits above the window's bottom safe area.
+    /// The scroll view already honors that safe area, so the inset is only the
+    /// extra overlap. Using the scroll view's bottom instead counts the safe
+    /// area twice and leaves a band taller than the tab bar.
     private func publishClearance() {
         guard let window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
-        let scroll = scrollView ?? enclosingScroll(from: self)
-        let bottom = scroll.map { $0.convert($0.bounds, to: window).maxY } ?? window.bounds.maxY
-        let overlap = (bottom - buttonTop).rounded()
-        guard overlap > 1, overlap > lastReported + 0.5 else { return }
+        let safeBottom = window.bounds.maxY - window.safeAreaInsets.bottom
+        let overlap = max(0, safeBottom - buttonTop).rounded()
+        guard abs(overlap - lastReported) > 0.5 else { return }
         lastReported = overlap
         let report = onClearance
         DispatchQueue.main.async {
@@ -206,11 +169,9 @@ final class HomeTabClearanceProbe: UIView {
 
     /// Top of the floating tab buttons, in window points.
     ///
-    /// The UI test reads `tabBars.buttons[Today|Plan|Scan|Coach|Me]` and uses
-    /// the smallest minY. A scan of every view with those labels also hits a
-    /// higher copy (about y=722 on 16 Plus while the buttons are at 849).
-    /// Parking on that copy leaves a 131pt gap, and the test's drag does not
-    /// close it. Take the cluster nearest the bottom, which is the glass.
+    /// The buttons sit about 80pt from the bottom of the screen. A view that
+    /// shares a tab name higher up is not the bar, and insetting to it leaves
+    /// the empty band under the last meal card.
     private static func tabButtonTop(in window: UIWindow) -> CGFloat? {
         let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
         let bottom = window.bounds.maxY
@@ -221,9 +182,9 @@ final class HomeTabClearanceProbe: UIView {
             let label = view.accessibilityLabel ?? ""
             guard names.contains(label) else { return }
             for frame in [view.convert(view.bounds, to: window), accessibilityFrame(of: view, in: window)] {
-                guard frame.height > 20, frame.width > 24, frame.width < 220 else { continue }
+                guard frame.height > 20, frame.width > 24, frame.width < 180 else { continue }
                 let fromBottom = bottom - frame.minY
-                guard fromBottom > 12, fromBottom < 200 else { continue }
+                guard fromBottom > 20, fromBottom < 120 else { continue }
                 tops.append(frame.minY)
                 seen.insert(label)
             }

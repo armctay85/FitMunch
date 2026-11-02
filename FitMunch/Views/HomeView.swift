@@ -9,8 +9,7 @@ struct HomeView: View {
     @State private var showLogMeal = false
     @State private var showPaywall = false
     @State private var freeLimitHits = 0
-    /// How far the scroll view extends below the tab buttons. Grows to the
-    /// measured overlap and does not shrink.
+    /// How far the floating tab buttons sit above the bottom safe area.
     @State private var tabClearance: CGFloat = 0
 
     init(modelContext: ModelContext) {
@@ -44,7 +43,7 @@ struct HomeView: View {
             }
             .background {
                 HomeTabClearanceReader { measured in
-                    guard measured > tabClearance + 0.5 else { return }
+                    guard abs(measured - tabClearance) > 0.5 else { return }
                     tabClearance = measured
                 }
                 .allowsHitTesting(false)

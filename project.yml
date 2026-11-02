@@ -107,12 +107,6 @@ targets:
       - path: FitMunchTests
       - path: FitMunchUITests/FitMunchProducts.storekit
         buildPhase: resources
-      # Copied, not compiled, so the test can prove the launch hold is
-      # inside #if DEBUG and absent from Release.
-      - path: FitMunch/Utilities/LaunchFrameCapture.swift
-        buildPhase: resources
-      - path: FitMunch/FitMunchApp.swift
-        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fitmunch.app.tests
