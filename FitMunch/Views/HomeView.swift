@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// Today screen with the daily dashboard.
 struct HomeView: View {
@@ -49,9 +50,13 @@ struct HomeView: View {
             .background(Theme.surface)
             .navigationTitle("Today")
             // The date row scrolls under this bar once Dinner sits on the tab
-            // bar. An opaque surface hides that date and its chevron.
+            // bar. An opaque bar hides that date. iOS 26 glass still shows it
+            // through toolbarBackground, so the live bar is set opaque too.
             .toolbarBackground(Theme.surface, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .background {
+                OpaqueNavigationBar()
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -481,6 +486,58 @@ private struct MealBadgeID: ViewModifier {
             content.accessibilityIdentifier(identifier)
         } else {
             content
+        }
+    }
+}
+
+/// Forces the navigation bar to an opaque surface. The iOS 26 scroll-edge
+/// material leaves the date readable behind the Today title.
+private struct OpaqueNavigationBar: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+
+    func updateUIViewController(_ uiViewController: Controller, context: Context) {
+        uiViewController.apply()
+    }
+
+    final class Controller: UIViewController {
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            apply()
+        }
+
+        func apply() {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor(named: "Surface") ?? .systemBackground
+            appearance.shadowColor = .clear
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                let bars = Self.navigationBars(from: self)
+                for bar in bars {
+                    bar.isTranslucent = false
+                    bar.standardAppearance = appearance
+                    bar.scrollEdgeAppearance = appearance
+                    bar.compactAppearance = appearance
+                }
+            }
+        }
+
+        private static func navigationBars(from controller: UIViewController) -> [UINavigationBar] {
+            var found: [UINavigationBar] = []
+            if let bar = controller.navigationController?.navigationBar {
+                found.append(bar)
+            }
+            guard let root = controller.view.window?.rootViewController else { return found }
+            func walk(_ candidate: UIViewController) {
+                if let nav = candidate as? UINavigationController {
+                    found.append(nav.navigationBar)
+                }
+                for child in candidate.children {
+                    walk(child)
+                }
+            }
+            walk(root)
+            return found
         }
     }
 }
