@@ -90,6 +90,7 @@ module.exports = {
     '**/test_meal_plan_owner.js',
     '**/test_stripe_webhook.js',
     '**/test_payment_failed_email.js',
+    '**/test_support_confirm.js',
     '**/test_payment_failed_email_pg.js',
     '**/test_resend_inbound.js',
     '**/test_resend_inbound_pg.js',

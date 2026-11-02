@@ -295,7 +295,16 @@ describe('Coach plan HTTP', () => {
   it('serves the builder from the trainer dashboard without touching shopper or the homepage', async () => {
     const page = await request(app).get('/coach').expect(200);
     expect(page.text).toContain('Coach plan builder');
-    expect(page.text).toMatch(/id="coach-form"[^>]*\bhidden\b/);
+    expect(page.text).not.toContain('id="coach-form"');
+    expect(page.text).toContain('id="coach-preview"');
+    expect(page.text).toContain('data-fm-price="coach39Amount"');
+    expect(page.text).toContain('data-fm-price="coach79Amount"');
+    expect(page.text).toContain('data-fm-price="coach39Monthly"');
+    expect(page.text).toContain('data-fm-price="coach79Monthly"');
+    expect(page.text).not.toMatch(/A\$39|A\$79/);
+    expect(read('public/js/fm-coach.js')).toContain("api('/api/coach/preview-session'");
+    expect(read('public/js/fm-coach.js')).toContain('id="coach-form"');
+    expect(read('public/js/fm-coach.js')).toContain('value="fish-free"');
     expect(read('public/css/fm-coach.css')).toContain('[hidden]{display:none!important}');
     expect(page.text).not.toContain('Prices vary by store and week.');
     expect(page.text).not.toContain('Estimated from public catalogue specials');

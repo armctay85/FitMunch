@@ -42,7 +42,7 @@ async function sendEmail(opts) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        from: fromAddress(),
+        from: opts.from || fromAddress(),
         to: [to],
         subject: opts.subject,
         html: opts.bodyHtml,
@@ -301,6 +301,59 @@ async function sendSignInToManageEmail(customerEmail) {
   return sendEmail({ to: customerEmail, subject: 'Sign in to FitMunch', bodyHtml, bodyText });
 }
 
+const SUPPORT_FROM = 'FitMunch <support@fitmunch.com.au>';
+const SUPPORT_HELP_LINKS = [
+  ['https://www.fitmunch.com.au/support#billing', 'Billing'],
+  ['https://www.fitmunch.com.au/support#trial', 'Trial'],
+  ['https://www.fitmunch.com.au/support#cancel', 'Cancel'],
+];
+
+/**
+ * Instant confirmation for a help-centre form. `to` is the only recipient.
+ * Callers pass the already validated submitter address and nothing else.
+ */
+async function sendSupportReceivedEmail(customerEmail, options = {}) {
+  const to = String(customerEmail || '').trim();
+  if (!to || /[\s,;<>]/.test(to) || (to.match(/@/g) || []).length !== 1) {
+    return { success: false, error: 'Missing to address' };
+  }
+  const name = String((options && options.name) || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 80);
+  const lead = ["We've got your message.", 'We reply within 1-2 business days.'];
+  if (name) lead.unshift(`Hi ${name}.`);
+  lead.push('These help centre answers cover billing, the trial, and how to cancel.');
+  const linkHtml = SUPPORT_HELP_LINKS.map(([href, label]) => (
+    `<li style="margin:0 0 8px"><a href="${escapeHtml(href)}" style="color:#16803c;font-weight:700">${escapeHtml(label)}</a></li>`
+  )).join('');
+  const linkText = SUPPORT_HELP_LINKS.map(([href, label]) => `${label}: ${href}`).join('\n');
+  const bodyHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:Georgia,serif;background:#eef2ee;padding:0;margin:0">
+<div style="max-width:560px;margin:40px auto;background:#fff;border:1px solid #cfd9d2;overflow:hidden">
+  <div style="background:#07130d;padding:28px">
+    <div style="font-family:system-ui,sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.03em">Fit<span style="color:#1f9d4a">Munch</span></div>
+  </div>
+  <div style="padding:28px">
+    ${lead.map((line) => `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escapeHtml(line)}</p>`).join('\n    ')}
+    <ul style="margin:16px 0 0;padding-left:20px">${linkHtml}</ul>
+    <p style="font-size:13px;color:#8a9a91;border-top:1px solid #cfd9d2;padding-top:16px;margin-top:24px">
+      FitMunch. Made in Australia for Australian shops.
+    </p>
+  </div>
+</div>
+</body>
+</html>`.trim();
+  const bodyText = `${lead.join('\n\n')}\n\n${linkText}\n`;
+  return sendEmail({
+    to,
+    from: SUPPORT_FROM,
+    subject: "We've got your message",
+    bodyHtml,
+    bodyText,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
@@ -308,6 +361,10 @@ module.exports = {
   sendSignInToManageEmail,
   sendPaymentFailedEmail,
   sendPaymentFailedOwnerAlert,
+  sendSupportReceivedEmail,
+  SUPPORT_FROM,
+  SUPPORT_HELP_LINKS,
+  escapeHtml,
   BILLING_CARD_URL,
   CLAIM_LINK_WINDOW_COPY,
   TRIAL_USED_COPY,

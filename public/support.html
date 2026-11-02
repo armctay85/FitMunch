@@ -3,20 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Support | FitMunch</title>
-<meta name="description" content="Get FitMunch support for receipt scanning, meal planning, billing, cancellation, privacy, and personal trainer account questions.">
+<title>Help centre | FitMunch</title>
+<meta name="description" content="Search FitMunch help for billing, trial, cancel, account, and app questions. Manage or cancel a subscription from Billing.">
 <link rel="canonical" href="https://fitmunch.com.au/support">
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
 <link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
 <link rel="stylesheet" href="/css/fm-shell.css?v=2697209bf6c2"/>
 <style>
-.fm-doc{padding-top:16px}
-.fm-back{margin-bottom:8px}
-.fm-doc h1{margin-bottom:6px;font-size:1.55rem}
-.fm-doc>p{margin:0 0 8px}
-#support-answers h2{margin:0 0 4px;font-size:1.05rem}
-#support-answers h3{margin:8px 0 0;font-size:1rem;line-height:1.2}
-#support-answers p{margin:0 0 6px;line-height:1.35;font-size:.95rem}
+[hidden]{display:none!important}
+.help-hero{padding-top:28px}
+.help-hero h1{margin-bottom:8px}
+.help-search{margin:8px 0 14px}
+.help-search label{display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mute2);margin-bottom:6px}
+.help-search input{width:100%;min-height:48px;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font:16px/1.4 'Literata','Literata Fallback',Georgia,serif;color:var(--ink);background:#fff}
+.help-count{min-height:1.4em;margin:0 0 10px;font-size:.9rem;color:var(--mute)}
+.help-topics{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.help-topics a{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.84rem;font-weight:700;text-decoration:none;color:#0c1210;background:#fff;border:1px solid var(--line);border-radius:999px;padding:10px 14px;min-height:44px}
+.help-serve{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 22px}
+.help-serve .fm-btn{width:auto}
+.help-serve a.fm-btn-leaf,
+.help-serve a.fm-btn-leaf:hover,
+.help-serve a.fm-btn-leaf:focus,
+.help-serve a.fm-btn-leaf:focus-visible{background:#0f7a32;color:#fff}
+.help-serve a.fm-btn-ink,
+.help-serve a.fm-btn-ink:hover,
+.help-serve a.fm-btn-ink:focus,
+.help-serve a.fm-btn-ink:focus-visible{background:#fff;color:#0c1210;border:1px solid #1c3328}
+.help-section{margin:0 0 22px;padding-top:4px}
+.help-section h2{margin:0 0 8px}
+.help-item{border-top:1px solid var(--line);padding:10px 0}
+.help-item h3{margin:0 0 4px;font-size:1.02rem;line-height:1.3}
+.help-item p{margin:0 0 8px}
+.help-form{margin-top:8px;padding:18px 16px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.help-form h2{margin-top:0}
+.help-form label{display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;margin:12px 0 6px}
+.help-form input,.help-form select,.help-form textarea{width:100%;max-width:100%;min-height:48px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:16px/1.4 'Literata','Literata Fallback',Georgia,serif;color:var(--ink);background:#fff}
+.help-form textarea{min-height:120px;resize:vertical}
+.help-form button{margin-top:14px;width:100%;min-height:48px;border:0;border-radius:999px;background:#0f7a32;color:#fff;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem;font-weight:700;cursor:pointer}
+.help-form button:disabled{opacity:.6}
+#support-form-status{margin-top:10px}
+:focus-visible{outline:2px solid #0c6428;outline-offset:3px}
 </style>
 </head>
 <body class="fm-body">
@@ -31,35 +57,120 @@
   </div>
 </nav>
 
-<main class="fm-doc">
+<main class="fm-doc help-hero">
 <a class="fm-back" href="/">&larr; FitMunch</a>
-<h1>Support</h1>
-
-<section id="support-answers">
-<h2>Cancel, trial, and receipts</h2>
-<h3>How do I cancel?</h3>
-<p>Sign in and open Billing. You can cancel at any time in Billing. Stripe handles it. Cancel before the trial ends and you are not charged. After the first charge, subscriptions auto-renew unless you cancel. Cancel anytime in Billing; access continues to the end of the paid period. If you can't sign in, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</p>
-
-<h3>14-day trial</h3>
-<p>Paid plans start with a 14-day trial. Stripe collects a card before the trial begins. Cancel before the trial ends and you are not charged. That is how Stripe runs the trial. It is not a 14-day refund after a paid charge. Refunds after a charge are at our discretion. See the <a href="/refund">refund policy</a>.</p>
-
-<h3>Receipts or invoices</h3>
-<p>For a receipt or an invoice, see the <a href="/refund">refund policy</a> or email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a> with your account email address and the reason for your request. If we approve a refund, it is processed via Stripe and typically appears in your account within 5&ndash;10 business days, depending on your bank.</p>
-</section>
+<h1>Help centre</h1>
 <p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. Response time: 1&ndash;2 business days.</p>
 
-<h2>Getting started</h2>
-<p>FitMunch helps you track nutrition, scan receipts, plan meals, and stay on top of your food goals. New to FitMunch? Start with our <a href="/">homepage</a> or check <a href="/pricing">pricing</a>.</p>
+<form class="help-search" role="search" onsubmit="return false">
+  <label for="help-search">Search questions</label>
+  <input id="help-search" type="search" placeholder="Billing, trial, cancel, account, app" autocomplete="off" enterkeyhint="search"/>
+</form>
+<p class="help-count" id="help-search-count" aria-live="polite"></p>
 
-<h2>Common questions</h2>
-<h3>How does receipt scanning work?</h3>
-<p>Upload a photo of your supermarket receipt in the browser. FitMunch extracts items and matches nutrition data. The photo is processed and not stored on our servers. Saved meals and plans stay with your account.</p>
+<nav class="help-topics" aria-label="Help topics">
+  <a href="#billing">Billing</a>
+  <a href="#trial">Trial</a>
+  <a href="#cancel">Cancel</a>
+  <a href="#account">Account</a>
+  <a href="#app">App</a>
+</nav>
 
-<h3>Can my personal trainer see my data?</h3>
-<p>Only if you connect your account to their PT dashboard via an invite link. You control sharing at all times.</p>
+<div class="help-serve">
+  <a class="fm-btn fm-btn-leaf" href="/login.html?next=billing" data-billing-portal>Manage subscription</a>
+  <a class="fm-btn fm-btn-ink" href="/login.html?next=billing" data-billing-portal>Cancel subscription</a>
+</div>
 
-<h3>Data and privacy</h3>
-<p>See our <a href="/privacy">privacy policy</a> and <a href="/terms">terms of service</a>.</p>
+<div id="support-answers">
+<section class="help-section" id="billing" data-help-section>
+  <h2>Billing</h2>
+  <article class="help-item" data-help-item>
+    <h3>How do I manage my subscription?</h3>
+    <p>Sign in and open Billing. Billing opens the Stripe customer portal, where you update the card, see invoices, and cancel. Use <a href="/login.html?next=billing" data-billing-portal>Manage subscription</a> on this page. That link signs you in, then Billing calls the existing portal route.</p>
+  </article>
+  <article class="help-item" data-help-item>
+    <h3>How are payments taken?</h3>
+    <p>All payments are processed securely via Stripe. Paid plans use a 14-day trial with a card on file. You can cancel at any time in Billing. Cancel before the trial ends and you are not charged.</p>
+  </article>
+  <article class="help-item" data-help-item>
+    <h3>Receipts or invoices</h3>
+    <p>For a receipt or an invoice, see the <a href="/refund">refund policy</a> or email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a> with your account email address and the reason for your request. If we approve a refund, it is processed via Stripe and typically appears in your account within 5&ndash;10 business days, depending on your bank.</p>
+  </article>
+</section>
+
+<section class="help-section" id="trial" data-help-section>
+  <h2>Trial</h2>
+  <article class="help-item" data-help-item>
+    <h3>14-day trial</h3>
+    <p>Paid plans start with a 14-day trial. Stripe collects a card before the trial begins. Cancel before the trial ends and you are not charged. That is how Stripe runs the trial. It is not a 14-day refund after a paid charge. Refunds after a charge are at our discretion. See the <a href="/refund">refund policy</a>.</p>
+  </article>
+  <article class="help-item" data-help-item>
+    <h3>What happens when the trial ends?</h3>
+    <p>If you have not cancelled, the subscription continues and Stripe bills the card on file. Cancel before the trial ends and you are not charged.</p>
+  </article>
+</section>
+
+<section class="help-section" id="cancel" data-help-section>
+  <h2>Cancel</h2>
+  <article class="help-item" data-help-item>
+    <h3>How do I cancel?</h3>
+    <p>Sign in and open Billing. You can cancel at any time in Billing. Stripe handles it. Cancel before the trial ends and you are not charged. After the first charge, subscriptions auto-renew unless you cancel. Cancel anytime in Billing; access continues to the end of the paid period. If you can't sign in, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. The <a href="/login.html?next=billing" data-billing-portal>Cancel subscription</a> button on this page opens that same Billing path.</p>
+  </article>
+</section>
+
+<section class="help-section" id="account" data-help-section>
+  <h2>Account</h2>
+  <article class="help-item" data-help-item>
+    <h3>Can my personal trainer see my data?</h3>
+    <p>Only if you connect your account to their PT dashboard via an invite link. You control sharing at all times.</p>
+  </article>
+  <article class="help-item" data-help-item>
+    <h3>How do I sign in?</h3>
+    <p>Use <a href="/login.html">Sign in</a>. Forgot the password? The sign-in page can email you a reset link.</p>
+  </article>
+  <article class="help-item" data-help-item>
+    <h3>Data and privacy</h3>
+    <p>See our <a href="/privacy">privacy policy</a> and <a href="/terms">terms of service</a>. For a copy of your data or a deletion request, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>.</p>
+  </article>
+</section>
+
+<section class="help-section" id="app" data-help-section>
+  <h2>App</h2>
+  <article class="help-item" data-help-item>
+    <h3>Getting started</h3>
+    <p>FitMunch helps you track nutrition, scan receipts, plan meals, and stay on top of your food goals. New to FitMunch? Start with our <a href="/">homepage</a> or check <a href="/pricing">pricing</a>. FitMunch is a browser web app. On iPhone, Add to Home Screen. An App Store listing is not live yet.</p>
+  </article>
+  <article class="help-item" data-help-item>
+    <h3>How does receipt scanning work?</h3>
+    <p>Upload a photo of your supermarket receipt in the browser. FitMunch extracts items and matches nutrition data. The photo is processed and not stored on our servers. Saved meals and plans stay with your account.</p>
+  </article>
+</section>
+</div>
+
+<p id="help-none" hidden>No questions match that search. Try billing, trial, cancel, account, or app, or send a message below.</p>
+
+<section class="help-form" id="contact">
+  <h2>Send a message</h2>
+  <p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. Response time: 1&ndash;2 business days.</p>
+  <form id="support-form">
+    <label for="support-name">Name</label>
+    <input id="support-name" name="name" type="text" maxlength="80" autocomplete="name"/>
+    <label for="support-email">Email</label>
+    <input id="support-email" name="email" type="email" required maxlength="254" autocomplete="email" inputmode="email"/>
+    <label for="support-topic">Topic</label>
+    <select id="support-topic" name="topic">
+      <option value="billing">Billing</option>
+      <option value="trial">Trial</option>
+      <option value="cancel">Cancel</option>
+      <option value="account">Account</option>
+      <option value="app">App</option>
+    </select>
+    <label for="support-message">Message</label>
+    <textarea id="support-message" name="message" required maxlength="4000"></textarea>
+    <button type="submit">Send message</button>
+  </form>
+  <p id="support-form-status" hidden role="status"></p>
+</section>
 
 <p style="margin-top:32px;color:var(--mute2);font-size:.9rem">General food planning support only. Not medical advice.</p>
 </main>
@@ -83,6 +194,95 @@
   </div>
 </footer>
 
+<script>
+(function () {
+  var input = document.getElementById('help-search');
+  var count = document.getElementById('help-search-count');
+  var none = document.getElementById('help-none');
+  var items = Array.prototype.slice.call(document.querySelectorAll('[data-help-item]'));
+  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-help-section]'));
+
+  function applySearch() {
+    var q = input.value.trim().toLowerCase();
+    var shown = 0;
+    items.forEach(function (item) {
+      var match = !q || item.textContent.toLowerCase().indexOf(q) !== -1;
+      item.hidden = !match;
+      if (match) shown += 1;
+    });
+    sections.forEach(function (section) {
+      section.hidden = !section.querySelector('[data-help-item]:not([hidden])');
+    });
+    none.hidden = shown !== 0;
+    count.textContent = q ? (shown + (shown === 1 ? ' answer' : ' answers')) : '';
+  }
+  input.addEventListener('input', applySearch);
+
+  function openPortal(event) {
+    var token = '';
+    try { token = localStorage.getItem('fm_token') || ''; } catch (e) { token = ''; }
+    if (!token) return;
+    event.preventDefault();
+    var link = event.currentTarget;
+    if (link.getAttribute('aria-busy') === 'true') return;
+    link.setAttribute('aria-busy', 'true');
+    fetch('/api/billing-portal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({ returnTo: 'app' })
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    }).then(function (result) {
+      if (result.ok && result.data && result.data.url) {
+        window.location.href = result.data.url;
+        return;
+      }
+      window.location.href = link.getAttribute('href');
+    }).catch(function () {
+      link.removeAttribute('aria-busy');
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-billing-portal]'), function (link) {
+    link.addEventListener('click', openPortal);
+  });
+
+  var form = document.getElementById('support-form');
+  var status = document.getElementById('support-form-status');
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var button = form.querySelector('button');
+    button.disabled = true;
+    status.hidden = false;
+    status.textContent = 'Sending your message.';
+    fetch('/api/support', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        name: document.getElementById('support-name').value,
+        email: document.getElementById('support-email').value,
+        topic: document.getElementById('support-topic').value,
+        message: document.getElementById('support-message').value
+      })
+    }).then(function (res) {
+      return res.json().then(function (data) { return { status: res.status, data: data }; });
+    }).then(function (result) {
+      if (result.status === 200 && result.data && result.data.success) {
+        form.reset();
+        status.textContent = "We've got your message. We reply within 1-2 business days. A confirmation is on its way to your email.";
+        return;
+      }
+      status.textContent = (result.data && result.data.error) || 'Could not send that message.';
+    }).catch(function () {
+      status.textContent = 'Could not send that message.';
+    }).then(function () {
+      button.disabled = false;
+    });
+  });
+})();
+</script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

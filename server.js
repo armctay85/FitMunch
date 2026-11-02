@@ -26,6 +26,10 @@ const {
   PREMIUM_ANNUAL_LABEL,
   PREMIUM_MONTHLY_AMOUNT,
   PREMIUM_CURRENCY,
+  COACH_39_AMOUNT_LABEL,
+  COACH_39_MONTHLY_LABEL,
+  COACH_79_AMOUNT_LABEL,
+  COACH_79_MONTHLY_LABEL,
 } = require('./lib/public-prices');
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
@@ -729,6 +733,10 @@ app.get('/api/pricing/config', (_req, res) => {
     premiumAnnualLabel: PREMIUM_ANNUAL_LABEL,
     premiumMonthlyAmount: PREMIUM_MONTHLY_AMOUNT,
     premiumCurrency: PREMIUM_CURRENCY,
+    coach39Amount: COACH_39_AMOUNT_LABEL,
+    coach39Monthly: COACH_39_MONTHLY_LABEL,
+    coach79Amount: COACH_79_AMOUNT_LABEL,
+    coach79Monthly: COACH_79_MONTHLY_LABEL,
   });
 });
 
@@ -757,6 +765,24 @@ const quickCheckoutLimiter = rateLimit({
   message: { success: false, error: QUICK_CHECKOUT_LIMITED },
 });
 app.use('/api/quick-checkout', quickCheckoutLimiter);
+
+const supportFormLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many messages. Try again later.' },
+});
+app.post('/api/support', supportFormLimiter, async (req, res) => {
+  try {
+    const { sendSupportConfirmation } = require('./lib/support-confirm');
+    const result = await sendSupportConfirmation(req.body || {});
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    sendApiError(res, err, 'Support form error');
+  }
+});
 
 /** Sends work past the response on Vercel (waitUntil); off Vercel it just runs. */
 function runInBackground(promise) {
