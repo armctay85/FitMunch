@@ -146,13 +146,14 @@ final class HomeTabClearanceProbe: UIView {
         guard let scroll = scrollView ?? enclosingScroll(from: self), let window = window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
         let obscured = Self.obscuredHeight(in: scroll, window: window, buttonTop: buttonTop)
-        // A partial layout can report a few points. Ignore that and keep the
-        // previous margin until the overlap is at least a tab button tall.
-        guard obscured >= 44, abs(obscured - lastReported) > 0.5 else { return }
-        lastReported = obscured
+        // Never shrink below the shared clearance. A short measurement left the
+        // last meal card about 46pt under the tab buttons.
+        let clearance = max(obscured, Theme.Spacing.tabClearance)
+        guard abs(clearance - lastReported) > 0.5 else { return }
+        lastReported = clearance
         let report = onClearance
         DispatchQueue.main.async {
-            report?(obscured)
+            report?(clearance)
         }
     }
 
@@ -172,13 +173,16 @@ final class HomeTabClearanceProbe: UIView {
         guard barFrame.height > 20, barFrame.minY > 1 else { return nil }
         var top = barFrame.minY
         let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
+        let bottom = window.bounds.maxY
         func consider(_ view: UIView) {
             let frame = view.convert(view.bounds, to: window)
-            guard frame.minY >= window.bounds.maxY - 200, frame.maxY <= window.bounds.maxY + 4 else { return }
+            // Chrome that reaches the bottom band. The bar container sits below
+            // the buttons, and aligning to that container leaves the card cut.
+            guard frame.maxY >= bottom - 48, frame.minY >= bottom - 130 else { return }
+            guard frame.height >= 20, frame.width >= 36 else { return }
             let className = NSStringFromClass(type(of: view))
             let label = view.accessibilityLabel ?? ""
-            let buttonSized = frame.height > 16 && frame.height < 90 && frame.width > 24 && frame.width < 160
-            if buttonSized || className.contains("Button") || names.contains(label) {
+            if className.contains("Button") || className.contains("Tab") || names.contains(label) || frame.width < 200 {
                 top = min(top, frame.minY)
             }
         }
