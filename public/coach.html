@@ -13,8 +13,12 @@
 [hidden]{display:none!important}
 .pitch{display:grid;gap:14px}
 .pitch h2{margin:8px 0 0;font-size:1.2rem;letter-spacing:-.03em}
-.pitch p,.pitch li{font-size:1rem;line-height:1.5}
-.pitch ul{margin:0;padding-left:1.15rem;display:grid;gap:8px}
+.pitch p,.pitch li{font-size:1rem;line-height:1.55;max-width:65ch}
+.pitch ul,.pitch ol{margin:0;padding-left:1.15rem;display:grid;gap:8px}
+.outcome{font-weight:700;color:#0c1210}
+.sample{margin:0}
+.sample img{display:block;width:100%;max-width:780px;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+.sample figcaption{font-size:1rem;line-height:1.5;margin-top:8px;max-width:65ch}
 .tiers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .tier{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px}
 .tier h3{margin:0 0 6px;font-size:1rem}
@@ -24,7 +28,8 @@
 [data-fm-price]{display:inline-block;min-width:5ch;min-height:1em}
 .actions{display:grid;gap:8px}
 a.btn,button.btn{text-decoration:none}
-header a{display:inline-flex;align-items:center;min-height:44px}
+header a{display:inline-flex;align-items:center;min-height:44px;font-size:1rem}
+header p,footer p{font-size:1rem;line-height:1.5}
 footer p{color:#1c3328}
 button.btn,a.btn.primary{background:#0f7a32;color:#fff}
 :focus-visible{outline:2px solid #0c6428;outline-offset:3px}
@@ -43,6 +48,7 @@ button.btn,a.btn.primary{background:#0f7a32;color:#fff}
   <p class="error" id="coach-error" hidden></p>
   <section class="pitch" id="coach-pitch">
     <h2>What a trainer gets</h2>
+    <p class="outcome">The trainer gets a meal plan for that client, a draft supermarket list, and a share link or PDF.</p>
     <p>FitMunch Coach is the plan builder for a personal trainer. You work from your client roster, not a blank spreadsheet.</p>
     <ul>
       <li>A 7-day meal plan from the calorie, protein, carb, and fat targets you set for that client.</li>
@@ -53,6 +59,18 @@ button.btn,a.btn.primary{background:#0f7a32;color:#fff}
       <li>A share link you send, plus a PDF the client can download.</li>
       <li>Adherence from the last 7 days of meal logs: days logged and average macros against the plan.</li>
     </ul>
+    <h2>How Coach works</h2>
+    <ol>
+      <li>Pick a client.</li>
+      <li>Set calorie, protein, carb and fat targets, or fill them from that client's meal logs.</li>
+      <li>Choose dietary flags and household size, then generate the 7-day plan and the draft supermarket list.</li>
+      <li>Add your practice name, accent colour and logo, then send a share link or a PDF.</li>
+    </ol>
+    <h2>Sample plan</h2>
+    <figure class="sample">
+      <img src="/assets/coach-plan-client-a.webp" width="728" height="1728" alt="FitMunch Coach plan builder for placeholder client Client A, with the generated meal plan and draft supermarket list." decoding="async"/>
+      <figcaption>The plan builder for placeholder client Client A.</figcaption>
+    </figure>
     <h2>Two Coach plans</h2>
     <p>Both plans include a 14-day trial. A card is required. Cancel before the trial ends and you are not charged. You pay the Coach subscription. The client gets the week by share link or PDF.</p>
     <div class="tiers">

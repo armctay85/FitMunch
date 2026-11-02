@@ -128,6 +128,15 @@ describe('Trust bar 4: one Stripe trial story', () => {
     expect(refund.text).toContain('card on file');
     expect(refund.text).toContain('It is not a 14-day refund after a paid charge');
     expect(refund.text).toContain('support@fitmunch.com.au');
+    expect(refund.text).toContain('No GST is charged.');
+    expect(refund.text).toContain('within 1 business day');
+    expect(refund.text).toContain('href="#billing"');
+    expect(refund.text).toContain('href="#trial"');
+    expect(refund.text).toContain('href="#after-charge"');
+    expect(refund.text).toContain('href="#request"');
+    expect(refund.text).toContain('href="#processing"');
+    expect(refund.text).not.toContain('1-2 business days');
+    expect(refund.text).not.toContain('1&ndash;2 business days');
   });
 });
 
@@ -285,10 +294,16 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(res.text).not.toContain('Unlimited weekly AI plans');
     expect(res.text).toContain('Free includes AI actions a month');
     expect(res.text).not.toContain('Limited AI actions per month');
-    expect(res.text).toContain('Weekly AI plans need Premium');
-    expect(res.text).toContain('A$39 a month for up to 10 clients, or A$79 a month unlimited.');
+    expect(res.text).toContain('Counted in the monthly allowance');
+    expect(res.text).toContain('data-fm-price="premiumMonthly"');
+    expect(res.text).toContain('data-fm-price="coach39Monthly"');
+    expect(res.text).toContain('data-fm-price="coach79Monthly"');
+    expect(res.text).toContain('up to 10 clients');
     expect(res.text).toContain('14-day trial');
     expect(res.text).toContain('A$19.99');
+    expect(res.text).toContain('No GST is charged.');
+    expect(res.text).toContain('href="/terms"');
+    expect(res.text).toContain('within 1 business day');
     expect(res.text).not.toContain('Most popular');
   });
 

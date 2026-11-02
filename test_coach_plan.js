@@ -161,7 +161,7 @@ describe('Coach plan HTTP', () => {
   it('lets a PT test account create, brand, send, and open a plan logged out', async () => {
     const token = await session();
     const clients = await request(app).get('/api/coach/clients').set(auth(token)).expect(200);
-    expect(clients.body.clients[0].label).toBe('Sample client');
+    expect(clients.body.clients[0].label).toBe('Client A');
     const targets = await request(app)
       .get(`/api/coach/clients/${clients.body.clients[0].id}/targets`)
       .set(auth(token))
@@ -311,6 +311,13 @@ describe('Coach plan HTTP', () => {
     expect(read('public/js/fm-coach.js').split('Prices vary by store and week.').length - 1).toBe(1);
     expect(page.text).not.toContain('Client count gate: open.');
     expect(page.text).toContain('See a dietitian for medical nutrition.');
+    expect(page.text).toContain('The trainer gets a meal plan for that client, a draft supermarket list, and a share link or PDF.');
+    expect(page.text).toContain('How Coach works');
+    expect(page.text).toContain('Sample plan');
+    expect(page.text).toContain('src="/assets/coach-plan-client-a.webp"');
+    expect(page.text).toMatch(/<img[^>]*width="\d+"[^>]*height="\d+"/);
+    expect(page.text).toContain('Client A');
+    expect(page.text).not.toMatch(/\b(testimonial|customers say|rated|stars)\b/i);
     expect(read('public/app.html')).toContain("location.href='/coach'");
     expect(read('public/app.html')).toContain('Coach plans');
     expect(read('lib/db-migrate.js')).toContain('CREATE TABLE IF NOT EXISTS coach_plans');

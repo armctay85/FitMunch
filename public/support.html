@@ -60,7 +60,7 @@
 <main class="fm-doc help-hero">
 <a class="fm-back" href="/">&larr; FitMunch</a>
 <h1>Help centre</h1>
-<p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. Response time: 1&ndash;2 business days.</p>
+<p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. Response time: within 1 business day.</p>
 
 <form class="help-search" role="search" onsubmit="return false">
   <label for="help-search">Search questions</label>
@@ -151,7 +151,7 @@
 
 <section class="help-form" id="contact">
   <h2>Send a message</h2>
-  <p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. Response time: 1&ndash;2 business days.</p>
+  <p>Email: <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. Response time: within 1 business day.</p>
   <form id="support-form">
     <label for="support-name">Name</label>
     <input id="support-name" name="name" type="text" maxlength="80" autocomplete="name"/>
@@ -271,7 +271,7 @@
     }).then(function (result) {
       if (result.status === 200 && result.data && result.data.success) {
         form.reset();
-        status.textContent = "We've got your message. We reply within 1-2 business days. A confirmation is on its way to your email.";
+        status.textContent = "We've got your message. We reply within 1 business day. A confirmation is on its way to your email.";
         return;
       }
       status.textContent = (result.data && result.data.error) || 'Could not send that message.';

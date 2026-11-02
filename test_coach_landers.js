@@ -130,6 +130,7 @@ describe('FitMunch Coach landers', () => {
     expect(PREMIUM_MONTHLY_LABEL).toBe('A$19.99 a month');
     expect(PREMIUM_AMOUNT_LABEL).toBe('A$19.99');
     const pricing = fs.readFileSync(path.join(__dirname, 'public', 'pricing.html'), 'utf8');
-    expect(pricing).toContain('data-monthly="A$19.99 <small>a month</small>"');
+    expect(pricing).toContain('data-fm-price="premiumMonthly"');
+    expect(pricing).toContain('data-fm-price="premiumAmount"');
   });
 });

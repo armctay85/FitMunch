@@ -51,7 +51,8 @@ describe('support confirmation email', () => {
     expect(blob).not.toContain('victim@example.net');
     expect(blob).not.toContain('other@example.net');
     expect(sent[0].text).toContain("We've got your message.");
-    expect(sent[0].text).toContain('1-2 business days');
+    expect(sent[0].text).toContain('within 1 business day');
+    expect(sent[0].text).not.toContain('1-2 business days');
     expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#billing');
     expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#trial');
     expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#cancel');
@@ -99,7 +100,9 @@ describe('help centre page', () => {
     expect(html).toContain('id="account"');
     expect(html).toContain('id="app"');
     expect(html).toContain('[hidden]{display:none!important}');
-    expect(html).toContain('Response time: 1&ndash;2 business days.');
+    expect(html).toContain('Response time: within 1 business day.');
+    expect(html).not.toContain('1-2 business days');
+    expect(html).not.toContain('1&ndash;2 business days');
     expect(html).toContain('href="/login.html?next=billing"');
     expect(html).toContain("fetch('/api/billing-portal'");
     expect(html).toContain('id="support-form"');
