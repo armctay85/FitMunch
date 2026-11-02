@@ -169,13 +169,20 @@ final class HomeTabClearanceProbe: UIView {
     private static func tabButtonTop(in window: UIWindow) -> CGFloat? {
         let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
         var labeled: CGFloat?
+        let bottom = window.bounds.maxY
         func scan(_ view: UIView) {
+            let frame = view.convert(view.bounds, to: window)
             let label = view.accessibilityLabel ?? ""
-            if names.contains(label) {
-                let frame = view.convert(view.bounds, to: window)
-                if frame.height > 20, frame.width > 20, frame.minY > window.bounds.height * 0.5 {
-                    labeled = min(labeled ?? frame.minY, frame.minY)
-                }
+            let fromBottom = bottom - frame.minY
+            // Tab buttons are about 85 by 54 and sit in the bottom band.
+            // The bar container starts lower, and aligning to it cuts the card.
+            let buttonSized = frame.height > 36 && frame.height < 80
+                && frame.width > 50 && frame.width < 140
+                && fromBottom > 50 && fromBottom < 140
+            if names.contains(label) && frame.height > 20 && frame.minY > window.bounds.height * 0.5 {
+                labeled = min(labeled ?? frame.minY, frame.minY)
+            } else if buttonSized {
+                labeled = min(labeled ?? frame.minY, frame.minY)
             }
             for subview in view.subviews {
                 scan(subview)
@@ -188,7 +195,6 @@ final class HomeTabClearanceProbe: UIView {
         let barFrame = tabBar.convert(tabBar.bounds, to: window)
         guard barFrame.height > 20, barFrame.minY > 1 else { return nil }
         var top = barFrame.minY
-        let bottom = window.bounds.maxY
         func consider(_ view: UIView) {
             let frame = view.convert(view.bounds, to: window)
             // Chrome that reaches the bottom band. The bar container sits below

@@ -47,7 +47,6 @@ struct HomeView: View {
                     guard measured > tabClearance + 0.5 else { return }
                     tabClearance = measured
                 }
-                .frame(width: 0, height: 0)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
