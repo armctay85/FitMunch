@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// AI meal planner. Same `/api/meal-plan/generate` rail as the web app.
 struct MealPlanView: View {
@@ -241,15 +242,20 @@ struct MealPlanView: View {
         .accessibilityLabel("\(label) \(value)")
     }
 
-    /// `.contain` groups the two lines. The identifier is on the row container,
-    /// outside that group, so the row is its own element.
+    /// `.contain` groups the two lines. The identifier is on the outer row
+    /// container, not on that group. iOS 26 drops an id placed on the contain view.
     @ViewBuilder
     private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
             if let identifier {
-                mealRowLabel(label, meal)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier(identifier)
+                VStack(alignment: .leading, spacing: 0) {
+                    mealRowLabel(label, meal)
+                        .accessibilityElement(children: .contain)
+                }
+                .accessibilityIdentifier(identifier)
+                .background {
+                    MealRowContainerID(identifier: identifier)
+                }
             } else {
                 mealRowLabel(label, meal)
                     .accessibilityElement(children: .contain)
@@ -304,6 +310,69 @@ struct MealPlanView: View {
             plansGenerated += 1
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+/// Publishes the row id from the container behind the `.contain` group.
+/// iOS 26 does not expose an identifier placed on that group.
+private struct MealRowContainerID: UIViewRepresentable {
+    var identifier: String
+
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe()
+        view.identifier = identifier
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.isAccessibilityElement = true
+        view.accessibilityIdentifier = identifier
+        return view
+    }
+
+    func updateUIView(_ uiView: Probe, context: Context) {
+        uiView.identifier = identifier
+        uiView.isAccessibilityElement = true
+        uiView.accessibilityIdentifier = identifier
+        uiView.stamp()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: Probe, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 0, height: proposal.height ?? 0)
+    }
+
+    final class Probe: UIView {
+        var identifier = ""
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            stamp()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            isAccessibilityElement = true
+            accessibilityIdentifier = identifier
+            stamp()
+        }
+
+        /// The `.contain` group drops a SwiftUI identifier. Put the same id on
+        /// the row-sized container that actually sits in the accessibility tree.
+        func stamp() {
+            let identifier = identifier
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !identifier.isEmpty else { return }
+                var view: UIView? = self.superview
+                while let current = view {
+                    let height = current.bounds.height
+                    let width = current.bounds.width
+                    if height > 24, height < 140, width > 80 {
+                        current.accessibilityIdentifier = identifier
+                        return
+                    }
+                    if height >= 140 { return }
+                    view = current.superview
+                }
+            }
         }
     }
 }
