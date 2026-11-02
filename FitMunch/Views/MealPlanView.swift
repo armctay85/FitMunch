@@ -139,7 +139,6 @@ struct MealPlanView: View {
 
                 if let plan {
                     planSummary(plan)
-                        .accessibilityIdentifier("plan-preview")
                 } else if isLoading {
                     LoadingSkeleton(rows: 3, label: "Loading your week", identifier: "plan-loading")
                 } else {
@@ -159,6 +158,7 @@ struct MealPlanView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             Text(plan.planName ?? "Your plan")
                 .font(.title3.bold())
+                .accessibilityIdentifier("plan-preview")
             if let summary = plan.summary {
                 Text(summary)
                     .foregroundStyle(.secondary)

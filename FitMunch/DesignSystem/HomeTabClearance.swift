@@ -143,14 +143,16 @@ final class HomeTabClearanceProbe: UIView {
     }
 
     private func publishClearance() {
-        guard let scroll = scrollView ?? enclosingScroll(from: self), let window = window else { return }
+        guard let window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
-        let obscured = Self.obscuredHeight(in: scroll, window: window, buttonTop: buttonTop)
-        guard obscured > 1, obscured > lastReported + 0.5 else { return }
-        lastReported = obscured
+        let scroll = scrollView ?? enclosingScroll(from: self)
+        let bottom = scroll.map { $0.convert($0.bounds, to: window).maxY } ?? window.bounds.maxY
+        let overlap = (bottom - buttonTop).rounded()
+        guard overlap > 1, overlap > lastReported + 0.5 else { return }
+        lastReported = overlap
         let report = onClearance
         DispatchQueue.main.async {
-            report?(obscured)
+            report?(overlap)
         }
     }
 
@@ -165,11 +167,27 @@ final class HomeTabClearanceProbe: UIView {
     /// Highest of the tab bar container and its buttons. Matches the UI test,
     /// which uses the button top when the glass sits above the bar bounds.
     private static func tabButtonTop(in window: UIWindow) -> CGFloat? {
+        let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
+        var labeled: CGFloat?
+        func scan(_ view: UIView) {
+            let label = view.accessibilityLabel ?? ""
+            if names.contains(label) {
+                let frame = view.convert(view.bounds, to: window)
+                if frame.height > 20, frame.width > 20, frame.minY > window.bounds.height * 0.5 {
+                    labeled = min(labeled ?? frame.minY, frame.minY)
+                }
+            }
+            for subview in view.subviews {
+                scan(subview)
+            }
+        }
+        scan(window)
+        if let labeled { return labeled }
+
         guard let tabBar = findTabBar(in: window) else { return nil }
         let barFrame = tabBar.convert(tabBar.bounds, to: window)
         guard barFrame.height > 20, barFrame.minY > 1 else { return nil }
         var top = barFrame.minY
-        let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
         let bottom = window.bounds.maxY
         func consider(_ view: UIView) {
             let frame = view.convert(view.bounds, to: window)
