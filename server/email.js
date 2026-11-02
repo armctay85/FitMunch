@@ -318,7 +318,7 @@ async function sendSupportReceivedEmail(customerEmail, options = {}) {
     return { success: false, error: 'Missing to address' };
   }
   const name = String((options && options.name) || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 80);
-  const lead = ["We've got your message.", 'We reply within 1-2 business days.'];
+  const lead = ["We've got your message.", 'We reply within 1 business day.'];
   if (name) lead.unshift(`Hi ${name}.`);
   lead.push('These help centre answers cover billing, the trial, and how to cancel.');
   const linkHtml = SUPPORT_HELP_LINKS.map(([href, label]) => (

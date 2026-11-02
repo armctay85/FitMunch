@@ -24,7 +24,8 @@ describe('yearly "Save N%" badge', () => {
     expect((1 - 149.99 / 239.88) * 100).toBeCloseTo(37.47, 1); // rounded down, so never overstated
   });
   it('the page prices the badge reads are the real ones, and the badge stays hidden until the server has a yearly price', () => {
-    expect(pricing).toContain('data-monthly="A$19.99 <small>a month</small>" data-annual="A$149.99 <small>a year</small>"');
+    expect(pricing).toContain('const mo = Number(cfg.premiumMonthlyAmount);');
+    expect(pricing).toContain('cfg.premiumAnnualLabel');
     expect(pricing).toMatch(/id="yearly-save" hidden/);
     expect(pricing).toMatch(/if \(!cfg \|\| cfg\.premiumAnnual !== true\) return;[\s\S]*yearly-save/); // only after the config check
     expect(pricing).toMatch(/pct >= 5/);
@@ -142,7 +143,15 @@ if (!canRun && inCI) {
       await p.route('**/api/pricing/config', (route) => route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true, premiumAnnual: true, freeAiMonthly: 10 }),
+        body: JSON.stringify({
+          success: true,
+          premiumAnnual: true,
+          freeAiMonthly: 10,
+          premiumMonthlyAmount: '19.99',
+          premiumAnnualLabel: 'A$149.99 a year',
+          premiumAmount: 'A$19.99',
+          premiumMonthly: 'A$19.99 a month',
+        }),
       }));
       await p.goto(`${base}/pricing.html`, { waitUntil: 'domcontentloaded' });
       await p.waitForFunction(() => document.getElementById('yearly-save') && document.getElementById('yearly-save').textContent === 'Save 37%');

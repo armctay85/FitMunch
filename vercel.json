@@ -728,6 +728,19 @@
       ]
     },
     {
+      "source": "/assets/coach-plan-client-a.webp",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
       "source": "/assets/elite/bowl.svg",
       "headers": [
         {
