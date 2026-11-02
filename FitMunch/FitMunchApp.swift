@@ -13,6 +13,7 @@ struct FitMunchApp: App {
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
         #endif
+        OpaqueBars.apply()
         AppearanceLaunch.prepare()
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
         _auth = StateObject(wrappedValue: AuthManager.shared)
@@ -60,6 +61,23 @@ struct FitMunchApp: App {
                 ScreenFill.apply()
             }
         }
+    }
+}
+
+/// Opaque navigation bars. iOS 26's scroll-edge glass leaves the date and
+/// section titles readable behind the Today title.
+enum OpaqueBars {
+    static func apply() {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(named: "Surface") ?? .systemBackground
+        appearance.shadowColor = .clear
+        let nav = UINavigationBar.appearance()
+        nav.standardAppearance = appearance
+        nav.scrollEdgeAppearance = appearance
+        nav.compactAppearance = appearance
+        nav.compactScrollEdgeAppearance = appearance
+        nav.isTranslucent = false
     }
 }
 

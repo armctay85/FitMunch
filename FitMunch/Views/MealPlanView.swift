@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// AI meal planner. Same `/api/meal-plan/generate` rail as the web app.
 struct MealPlanView: View {
@@ -257,24 +256,22 @@ struct MealPlanView: View {
         .accessibilityLabel("\(label) \(value)")
     }
 
-    /// `.contain` groups the two lines. The id is stamped on the row's button
-    /// after the button trait is removed, so XCTest sees an Other element.
-    /// An identifier on the contain group itself never enters that tree.
+    /// The two lines stay in a `.contain` group. The identifier is on the outer
+    /// row, which is one element. `.contain` on that same view is a Group or is
+    /// dropped, so XCTest never sees `otherElements["plan-monday-dinner"]`.
     @ViewBuilder
     private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
             if let identifier {
-                Button(action: {}) {
+                VStack(alignment: .leading, spacing: 0) {
                     mealRowLabel(label, meal)
                         .accessibilityElement(children: .contain)
                 }
-                .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background {
-                    MealRowIdentifierStamp(identifier: identifier)
-                        .frame(width: 0, height: 0)
-                        .accessibilityHidden(true)
-                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(identifier)
+                .accessibilityRemoveTraits(.isStaticText)
+                .accessibilityRemoveTraits(.isButton)
                 .id(identifier)
             } else {
                 mealRowLabel(label, meal)
@@ -330,63 +327,6 @@ struct MealPlanView: View {
             plansGenerated += 1
         } catch {
             errorMessage = error.localizedDescription
-        }
-    }
-}
-
-/// Puts the row id on the SwiftUI button and clears the button trait.
-/// The contain group does not publish an identifier, and a Button is not an Other.
-private struct MealRowIdentifierStamp: UIViewRepresentable {
-    var identifier: String
-
-    func makeUIView(context: Context) -> Probe {
-        let view = Probe()
-        view.identifier = identifier
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        view.isAccessibilityElement = false
-        return view
-    }
-
-    func updateUIView(_ uiView: Probe, context: Context) {
-        uiView.identifier = identifier
-        uiView.stamp()
-    }
-
-    final class Probe: UIView {
-        var identifier = ""
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            stamp()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            stamp()
-        }
-
-        func stamp() {
-            let identifier = identifier
-            DispatchQueue.main.async { [weak self] in
-                guard let self, !identifier.isEmpty else { return }
-                var view: UIView? = self
-                while let current = view {
-                    if current !== self, Self.isButton(current) {
-                        current.accessibilityIdentifier = identifier
-                        var traits = current.accessibilityTraits
-                        traits.remove(.button)
-                        current.accessibilityTraits = traits
-                        return
-                    }
-                    view = current.superview
-                }
-            }
-        }
-
-        private static func isButton(_ view: UIView) -> Bool {
-            if view is UIButton { return true }
-            return view.accessibilityTraits.contains(.button)
         }
     }
 }
