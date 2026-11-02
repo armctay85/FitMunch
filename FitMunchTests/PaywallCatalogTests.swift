@@ -115,8 +115,11 @@ final class PaywallCatalogTests: XCTestCase {
             "A$19.99/month"
         )
         let intro = PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true)
-        let sentence = "Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Settings > Apple ID > Subscriptions."
+        let sentence = "Subscription auto-renews unless cancelled at least 24 hours before the period ends. Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Account Settings."
         XCTAssertEqual(PaywallPricing.appStoreBillingSentence, sentence)
+        XCTAssertFalse(sentence.localizedCaseInsensitiveContains("cheap"))
+        XCTAssertFalse(sentence.contains("Pty Ltd"))
+        XCTAssertFalse(sentence.contains("inc. GST"))
         XCTAssertEqual(
             PaywallPricing.renewalTerms(
                 displayPrice: "A$149.99",
