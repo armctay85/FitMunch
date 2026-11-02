@@ -1,7 +1,8 @@
 import XCTest
 @testable import FitMunch
 
-/// Me shows the signed-in account. Alex Morgan exists only for the screenshot launch.
+/// Me shows the signed-in account. Hardcoded identities stay behind Debug launch flags.
+@MainActor
 final class SignedInProfileTests: XCTestCase {
     func testRealUserSeesOwnNameAndEmail() {
         let lines = SignedInProfile.lines(name: "Drew Taylor", email: "drew@fitmunch.com.au")
@@ -17,16 +18,31 @@ final class SignedInProfileTests: XCTestCase {
         XCTAssertNil(SignedInProfile.lines(name: "Alex Chen", email: "alex@fitmunch.com.au"))
     }
 
-    func testScreenshotPersonaIsOffWithoutTheLaunchArgument() {
-        XCTAssertFalse(
-            ProcessInfo.processInfo.arguments.contains(ScreenshotLaunch.argument),
-            "The unit-test host must not pass \(ScreenshotLaunch.argument)"
-        )
-        XCTAssertFalse(ScreenshotLaunch.isActive)
+    func testReleaseHasNoHardcodedIdentity() {
+        XCTAssertFalse(ProcessInfo.processInfo.arguments.contains(ScreenshotLaunch.argument))
+        XCTAssertFalse(ProcessInfo.processInfo.arguments.contains(ReviewLaunch.argument))
         XCTAssertFalse(ScreenshotLaunch.PersonaGate.isPermitted)
+        XCTAssertFalse(ReviewLaunch.isActive)
         let user = AuthManager.shared.user
-        let seeded = user?.name == ScreenshotLaunch.PersonaGate.name
-            && user?.email == ScreenshotLaunch.PersonaGate.email
-        XCTAssertFalse(seeded, "Alex Morgan is installed without -AppStoreScreenshots")
+        let fields = [user?.name, user?.email].compactMap { $0 }
+        let banned = [
+            "Sample",
+            "Reviewer",
+            "Alex Morgan",
+            "sample.account@fitmunch.com.au",
+            "review@fitmunch.com.au",
+            "alex@example.com",
+        ]
+        for field in fields {
+            XCTAssertFalse(banned.contains(field), "A hardcoded identity is signed in: \(field)")
+            XCTAssertFalse(field.localizedCaseInsensitiveContains("sample"))
+            XCTAssertFalse(field.contains("example.com"))
+        }
+        #if !DEBUG
+        XCTAssertEqual(ScreenshotLaunch.PersonaGate.name, "")
+        XCTAssertEqual(ScreenshotLaunch.PersonaGate.email, "")
+        XCTAssertEqual(ReviewLaunch.personaName, "")
+        XCTAssertEqual(ReviewLaunch.personaEmail, "")
+        #endif
     }
 }

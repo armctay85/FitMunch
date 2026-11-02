@@ -147,10 +147,10 @@ struct MealPlanView: View {
             }
             .padding(.horizontal, Theme.Spacing.four)
             .padding(.top, Theme.Spacing.two)
-            .padding(.bottom, Theme.Spacing.six)
+            .padding(.bottom, 96)
         }
         .defaultScrollAnchor(.top)
-        .contentMargins(.bottom, Theme.Spacing.four, for: .scrollContent)
+        .contentMargins(.bottom, 80, for: .scrollContent)
     }
 
     private func planSummary(_ plan: MealPlanPayload) -> some View {

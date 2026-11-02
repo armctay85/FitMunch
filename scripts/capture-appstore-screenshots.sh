@@ -35,8 +35,13 @@ verify_pngs() {
   local folder="$1"
   local expected_w="$2"
   local expected_h="$3"
+  local require_settings="$4"
   local required w h png
-  for required in home coach scan plan settings; do
+  local names=(home coach scan plan)
+  if [[ "$require_settings" == "1" ]]; then
+    names+=(settings)
+  fi
+  for required in "${names[@]}"; do
     png="$folder/$required.png"
     if [[ ! -f "$png" ]]; then
       echo "Missing $png"
@@ -66,6 +71,17 @@ run_capture() {
   local rc=1
   local log="$folder/xcodebuild.log"
   rm -rf "$folder/Test.xcresult"
+  local creds="/tmp/fitmunch-qa-credentials"
+  rm -f "$creds"
+  local require_settings=0
+  if [[ -n "${QA_EMAIL:-}" && -n "${QA_PASSWORD:-}" ]]; then
+    umask 077
+    printf '%s\n%s\n' "$QA_EMAIL" "$QA_PASSWORD" > "$creds"
+    require_settings=1
+    echo "Me capture will sign in. Credentials are not printed."
+  else
+    echo "QA_EMAIL or QA_PASSWORD is unset. The Me capture will skip."
+  fi
   set +e
   xcodebuild test \
     -project FitMunch.xcodeproj \
@@ -77,8 +93,12 @@ run_capture() {
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY=- \
     TEST_RUNNER_SCREENSHOT_DIR="$folder" \
+    TEST_RUNNER_QA_EMAIL="${QA_EMAIL:-}" \
+    TEST_RUNNER_QA_PASSWORD="${QA_PASSWORD:-}" \
     | tee "$log"
-  rc=${PIPESTATUS[0]}
+  local xcode_rc=${PIPESTATUS[0]}
+  rm -f "$creds"
+  rc=$xcode_rc
   set -e
   if [[ "$rc" -ne 0 ]]; then
     echo "xcodebuild failed for $udid (exit $rc)"
@@ -89,8 +109,12 @@ run_capture() {
     cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
   fi
 
-  verify_pngs "$folder" "$expected_w" "$expected_h" || return 1
-  swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
+  verify_pngs "$folder" "$expected_w" "$expected_h" "$require_settings" || return 1
+  if [[ "$require_settings" == "1" ]]; then
+    swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
+  else
+    swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder" --skip-settings
+  fi
 }
 
 UDID_69="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 17 Pro Max" "iPhone 16 Pro Max")"

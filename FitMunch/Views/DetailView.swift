@@ -31,6 +31,16 @@ struct DetailView: View {
             Form {
                 // Meal name section
                 Section("Meal Details") {
+                    Picker("Meal", selection: $viewModel.mealSlot) {
+                        ForEach(MealTimeName.labels, id: \.self) { label in
+                            Text(label).tag(label)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("meal-type")
+                    .onChange(of: viewModel.mealSlot) { _, slot in
+                        viewModel.mealName = slot
+                    }
                     TextField("Meal name (e.g., Breakfast, Lunch)", text: $viewModel.mealName)
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("meal-name")

@@ -41,8 +41,8 @@ final class AuthManager: ObservableObject {
             ReviewLaunch.prepareSession()
             user = APIUser(
                 id: "review-user",
-                name: "Reviewer",
-                email: "review@fitmunch.com.au",
+                name: ReviewLaunch.personaName,
+                email: ReviewLaunch.personaEmail,
                 subscriptionTier: "free",
                 role: "client"
             )
@@ -51,8 +51,8 @@ final class AuthManager: ObservableObject {
         } else if AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
             user = APIUser(
                 id: "review-user",
-                name: "Reviewer",
-                email: "review@fitmunch.com.au",
+                name: ReviewLaunch.personaName,
+                email: ReviewLaunch.personaEmail,
                 subscriptionTier: "free",
                 role: "client"
             )
@@ -125,6 +125,9 @@ final class AuthManager: ObservableObject {
                 return false
             }
             KeychainStore.token = token
+            if path == "/auth/login" {
+                UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+            }
             self.user = user
             self.isAuthenticated = true
             AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)

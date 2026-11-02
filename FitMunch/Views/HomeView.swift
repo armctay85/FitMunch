@@ -157,20 +157,10 @@ private struct WindowHeightReader: UIViewRepresentable {
 
             Spacer()
 
-            VStack {
+            if !viewModel.isToday {
                 Text(viewModel.formattedDate)
                     .font(.title2)
                     .fontWeight(.semibold)
-
-                if viewModel.isToday {
-                    Text("Today")
-                        .font(.caption)
-                        .foregroundStyle(Theme.brandGreen)
-                        .padding(.horizontal, Theme.Spacing.two)
-                        .padding(.vertical, 2)
-                        .background(Theme.brandGreenSoft)
-                        .cornerRadius(Theme.Spacing.one)
-                }
             }
 
             Spacer()
@@ -479,13 +469,13 @@ private struct SummaryCard: View {
     var compact: Bool = false
 
     var body: some View {
-        VStack(spacing: compact ? 0 : Theme.Spacing.two) {
+        VStack(spacing: Theme.Spacing.two) {
             Image(systemName: icon)
-                .font(compact ? .caption : .title2)
+                .font(.title2)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
 
-            MacroNumber(value: value, style: compact ? .headline : .title2)
+            MacroNumber(value: value, style: .title2)
 
             Text(title)
                 .font(.caption)

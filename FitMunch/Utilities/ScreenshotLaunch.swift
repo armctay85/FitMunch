@@ -59,14 +59,24 @@ enum ReviewLaunch {
         #endif
     }
 
+    #if DEBUG
+    static let personaName = "Reviewer"
+    static let personaEmail = "review@fitmunch.com.au"
+    #else
+    static let personaName = ""
+    static let personaEmail = ""
+    #endif
+
     @MainActor
     static func prepareSession() {
+        #if DEBUG
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
-        UserDefaults.standard.set("Reviewer", forKey: "userDisplayName")
-        UserDefaults.standard.set("review@fitmunch.com.au", forKey: "userEmail")
+        UserDefaults.standard.set(personaName, forKey: "userDisplayName")
+        UserDefaults.standard.set(personaEmail, forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
         AIDataConsent.shared.grantLaunch(userId: "review-user")
+        #endif
     }
 }
 

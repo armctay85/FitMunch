@@ -244,11 +244,11 @@ struct PaywallView: View {
             }
 
             HStack(spacing: 6) {
-                legalButton("Terms", identifier: "paywall-terms") {
+                legalButton("Terms of Use", identifier: "paywall-terms") {
                     open("https://fitmunch.com.au/terms")
                 }
                 Text("·")
-                legalButton("Privacy", identifier: "paywall-privacy") {
+                legalButton("Privacy Policy", identifier: "paywall-privacy") {
                     open("https://fitmunch.com.au/privacy")
                 }
             }

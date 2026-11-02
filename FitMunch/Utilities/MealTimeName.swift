@@ -2,6 +2,8 @@ import Foundation
 
 /// Breakfast, lunch, dinner, or snack from the clock. Not a food lookup.
 enum MealTimeName {
+    static let labels = ["Breakfast", "Lunch", "Dinner", "Snack"]
+
     static func name(for date: Date, calendar: Calendar = .current) -> String {
         let hour = calendar.component(.hour, from: date)
         switch hour {

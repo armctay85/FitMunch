@@ -161,7 +161,7 @@ enum PaywallPricing {
     }
 
     /// Same sentence as the iOS paragraph on the terms page the paywall opens.
-    static let appStoreBillingSentence = "Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Settings > Apple ID > Subscriptions."
+    static let appStoreBillingSentence = "Subscription auto-renews unless cancelled at least 24 hours before the period ends. Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Account Settings."
 
     /// Renewal line under the button. The price stays on the StoreKit displayPrice control.
     static func renewalTerms(

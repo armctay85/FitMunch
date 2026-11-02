@@ -59,7 +59,9 @@ struct AuthView: View {
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .accessibilityIdentifier("auth-email")
                         secureField("Password (min. 8 characters)", text: $password)
+                            .accessibilityIdentifier("auth-password")
                     }
                     .padding(.horizontal, 28)
 
