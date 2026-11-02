@@ -55,6 +55,10 @@ describe('mobile speed cache policy', () => {
     expect(cfg.body.premiumAnnualLabel).toBe('A$149.99 a year');
     expect(cfg.body.premiumMonthlyAmount).toBe('19.99');
     expect(cfg.body.premiumCurrency).toBe('AUD');
+    expect(cfg.body.coach39Amount).toBe('A$39');
+    expect(cfg.body.coach39Monthly).toBe('A$39 a month');
+    expect(cfg.body.coach79Amount).toBe('A$79');
+    expect(cfg.body.coach79Monthly).toBe('A$79 a month');
   });
 
   it('caches the hero image and font files', async () => {

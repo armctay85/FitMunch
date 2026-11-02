@@ -207,10 +207,11 @@ describe('fish free', () => {
 
   it('is on every filter picker', () => {
     const appHtml = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
-    const coachHtml = fs.readFileSync(path.join(__dirname, 'public/coach.html'), 'utf8');
+    const coachJs = fs.readFileSync(path.join(__dirname, 'public/js/fm-coach.js'), 'utf8');
     expect(appHtml).toMatch(/id="dietary-tags"[\s\S]{0,2500}data-val="fish free"/);
     expect(appHtml).toMatch(/id="ob-diet"[\s\S]{0,4000}data-val="fish free"/);
-    expect(coachHtml).toContain('value="fish-free"');
+    expect(coachJs).toContain('value="fish-free"');
+    expect(fs.readFileSync(path.join(__dirname, 'public/coach.html'), 'utf8')).not.toContain('id="coach-form"');
     for (const allergy of ['peanut', 'tree nuts', 'milk', 'egg', 'wheat', 'soy', 'sesame', 'fish', 'crustacea', 'molluscs', 'lupin', 'sulphites']) {
       expect(appHtml).toContain(`data-allergy="${allergy}"`);
     }
