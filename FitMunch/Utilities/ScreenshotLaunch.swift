@@ -73,6 +73,26 @@ enum ReviewLaunch {
 enum ScreenshotLaunch {
     static let argument = "-AppStoreScreenshots"
 
+    /// Store-shot identity. Compiled and applied only in Debug, and only when
+    /// the process was launched with `-AppStoreScreenshots`.
+    enum PersonaGate {
+        static var isPermitted: Bool {
+            #if DEBUG
+            return ScreenshotLaunch.isActive
+            #else
+            return false
+            #endif
+        }
+
+        #if DEBUG
+        static let name = "Alex Morgan"
+        static let email = "alex@example.com"
+        #else
+        static let name = ""
+        static let email = ""
+        #endif
+    }
+
     static var isActive: Bool {
         #if DEBUG
         return ProcessInfo.processInfo.arguments.contains(argument)

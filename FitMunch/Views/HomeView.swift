@@ -11,6 +11,11 @@ struct HomeView: View {
     @State private var freeLimitHits = 0
     /// How far the floating tab buttons sit above the bottom safe area.
     @State private var tabClearance: CGFloat = 0
+    /// Container height. Daily Summary tightens only when this is under 900pt.
+    @State private var availableHeight: CGFloat = 0
+    @State private var regularSummaryHeight: CGFloat = 0
+    @State private var compactSummaryHeight: CGFloat = 0
+    @State private var didLogSummaryHeights = false
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(modelContext: modelContext))
@@ -19,7 +24,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.six) {
+                VStack(spacing: Theme.Spacing.one) {
                     OfflineNotice()
 
                     dateNavigation
@@ -29,7 +34,7 @@ struct HomeView: View {
                         mealsSection
                     } else {
                         progressSection
-                        summarySection
+                        summarySection(compact: summaryIsCompact)
                         mealsSection
                     }
                 }
@@ -99,9 +104,41 @@ struct HomeView: View {
                 viewModel.loadMealsForSelectedDate()
             }
         }
+        .background {
+            WindowHeightReader { height in
+                guard abs(height - availableHeight) > 0.5 else { return }
+                availableHeight = height
+            }
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
-    /// Zero rings were pushing "No meals logged today" below the fold.
+    /// Window height, not the device name. The scroll view is shorter than the
+/// screen because the navigation bar sits above it.
+private struct WindowHeightReader: UIViewRepresentable {
+    var onHeight: (CGFloat) -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.isAccessibilityElement = false
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        let report = onHeight
+        DispatchQueue.main.async {
+            let height = uiView.window?.bounds.height ?? 0
+            guard height > 1 else { return }
+            report(height)
+        }
+    }
+}
+
+/// Zero rings were pushing "No meals logged today" below the fold.
     private var showsEmptyMeals: Bool {
         viewModel.meals.isEmpty && !viewModel.isLoading
     }
@@ -202,35 +239,100 @@ struct HomeView: View {
         }
     }
 
-    private var summarySection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+    /// Short phones (under 900pt of container height) use the compact row.
+    /// The other variant is measured at the same width and kept out of the layout.
+    private var summaryIsCompact: Bool {
+        availableHeight > 0 && availableHeight < 900
+    }
+
+    private func summarySection(compact: Bool) -> some View {
+        summaryBody(compact: compact, publishHeights: true)
+            .background(summaryHeightReader(compact: compact))
+            .background {
+                // The other variant is measured at this width. A zero-height
+                // scroll view gives it its ideal height without changing the page.
+                ScrollView {
+                    summaryBody(compact: !compact, publishHeights: false)
+                        .background(summaryHeightReader(compact: !compact))
+                }
+                .scrollDisabled(true)
+                .frame(height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("daily-summary")
+            .accessibilityLabel("Daily Summary")
+            .accessibilityValue(summaryHeightValue)
+    }
+
+    private var summaryHeightValue: String {
+        let regular = Int(regularSummaryHeight.rounded())
+        let compact = Int(compactSummaryHeight.rounded())
+        return "regular=\(regular) compact=\(compact)"
+    }
+
+    private func summaryBody(compact: Bool, publishHeights: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? Theme.Spacing.two : Theme.Spacing.four) {
             Text("Daily Summary")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .modifier(PublishSummaryHeights(enabled: publishHeights, value: summaryHeightValue))
 
             HStack {
                 SummaryCard(
                     title: "Meals",
                     value: viewModel.meals.count,
                     icon: "fork.knife",
-                    color: Theme.brandGreen
+                    color: Theme.brandGreen,
+                    compact: compact
                 )
-
                 SummaryCard(
                     title: "Calories",
                     value: viewModel.totalCalories,
                     icon: "flame",
-                    color: .red
+                    color: .red,
+                    compact: compact
                 )
-
                 SummaryCard(
                     title: "Remaining",
                     value: max(0, Constants.DefaultGoals.dailyCalories - viewModel.totalCalories),
                     icon: "target",
-                    color: Theme.brandGreen
+                    color: Theme.brandGreen,
+                    compact: compact
                 )
             }
         }
+    }
+
+    private func summaryHeightReader(compact: Bool) -> some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { recordSummaryHeight(compact: compact, height: proxy.size.height) }
+                .onChange(of: proxy.size.height) { _, height in
+                    recordSummaryHeight(compact: compact, height: height)
+                }
+        }
+    }
+
+    private func recordSummaryHeight(compact: Bool, height: CGFloat) {
+        guard height > 1 else { return }
+        if compact {
+            guard abs(compactSummaryHeight - height) > 0.5 else { return }
+            compactSummaryHeight = height
+        } else {
+            guard abs(regularSummaryHeight - height) > 0.5 else { return }
+            regularSummaryHeight = height
+        }
+        guard !didLogSummaryHeights, regularSummaryHeight > 1, compactSummaryHeight > 1 else { return }
+        didLogSummaryHeights = true
+        NSLog(
+            "SUMMARY_HEIGHT regular=%.1f compact=%.1f drop=%.1f available=%.1f",
+            regularSummaryHeight,
+            compactSummaryHeight,
+            regularSummaryHeight - compactSummaryHeight,
+            availableHeight
+        )
     }
 
     private var mealsSection: some View {
@@ -354,27 +456,44 @@ private struct ProgressRing: View {
 }
 
 /// Summary card for quick stats.
+private struct PublishSummaryHeights: ViewModifier {
+    var enabled: Bool
+    var value: String
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .accessibilityIdentifier("daily-summary-title")
+                .accessibilityValue(value)
+        } else {
+            content
+        }
+    }
+}
+
 private struct SummaryCard: View {
     let title: String
     let value: Int
     let icon: String
     let color: Color
+    var compact: Bool = false
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.two) {
+        VStack(spacing: compact ? 0 : Theme.Spacing.two) {
             Image(systemName: icon)
-                .font(.title2)
+                .font(compact ? .caption : .title2)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(color)
 
-            MacroNumber(value: value, style: .title2)
+            MacroNumber(value: value, style: compact ? .headline : .title2)
 
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.horizontal, compact ? Theme.Spacing.two : Theme.Spacing.four)
+        .padding(.vertical, compact ? 0 : Theme.Spacing.four)
         .background(color.opacity(0.1))
         .cornerRadius(Theme.Radius.medium)
         .accessibilityElement(children: .combine)

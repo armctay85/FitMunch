@@ -38,7 +38,10 @@ final class AppStoreScreenshotTests: XCTestCase {
             assertScreenLooksInUse(screen.file)
             assertNoRejectedCopy(on: screen.file)
             if screen.file == "home" {
+                logMealCards(where: "home")
+                assertSummaryHeightDrop(on: app)
                 alignWholeMealCardsAboveTabBar()
+                logMealCards(where: "home-after-align")
             }
             savePNG(named: screen.file)
         }
@@ -80,6 +83,50 @@ final class AppStoreScreenshotTests: XCTestCase {
                 button.tap()
                 return
             }
+        }
+    }
+
+    /// Both Daily Summary variants are measured at the same width. The short
+    /// screen uses the compact one. The drop has to be at least 40pt.
+    private func assertSummaryHeightDrop(on app: XCUIApplication) {
+        let summary = app.descendants(matching: .any)["daily-summary-title"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 6), "Daily Summary missing")
+        let deadline = Date().addingTimeInterval(6)
+        var raw = "\(summary.value ?? "") \(summary.label)"
+        while Date() < deadline {
+            raw = "\(summary.value ?? "") \(summary.label)"
+            if summaryDrop(in: raw) != nil { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        print("SUMMARY_HEIGHT \(raw)")
+        let drop = summaryDrop(in: raw)
+        XCTAssertNotNil(drop, "Daily Summary heights were not published: \(raw)")
+        XCTAssertGreaterThanOrEqual(drop ?? 0, 40, "Compact Daily Summary dropped \(drop ?? 0)pt")
+    }
+
+    private func summaryDrop(in raw: String) -> Int? {
+        func number(after key: String) -> Int? {
+            guard let range = raw.range(of: key) else { return nil }
+            let tail = raw[range.upperBound...]
+            let digits = tail.prefix { $0.isNumber }
+            return Int(digits)
+        }
+        guard let regular = number(after: "regular="), let compact = number(after: "compact=") else { return nil }
+        guard regular > 0, compact > 0 else { return nil }
+        return regular - compact
+    }
+
+    private func logMealCards(where place: String) {
+        let window = app.windows.firstMatch
+        let height = window.exists ? window.frame.height : 0
+        print("MEAL_CARDS place=\(place) screen=\(Int(height.rounded()))")
+        for card in mealCards() {
+            let name = card.staticTexts["today-meal-name"]
+            let title = name.exists ? name.label : card.label
+            let frame = card.frame
+            print(
+                "MEAL_CARD name=\(title) minY=\(frame.minY) height=\(frame.height) maxY=\(frame.maxY)"
+            )
         }
     }
 

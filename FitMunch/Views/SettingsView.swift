@@ -2,6 +2,19 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// Name and email drawn on Me. The retired Alex Chen placeholder stays blank.
+/// A signed-in account keeps its own name and its own email.
+enum SignedInProfile {
+    static func lines(name rawName: String, email rawEmail: String) -> (name: String, email: String)? {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = rawEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.isEmpty && email.isEmpty { return nil }
+        if name == "Alex Chen" || email == "alex@fitmunch.com.au" { return nil }
+        let title = name.isEmpty ? email : name
+        return (title, email)
+    }
+}
+
 /// Settings screen for user preferences and app management
 struct SettingsView: View {
     var privacyRequest: Int = 0
@@ -19,15 +32,10 @@ struct SettingsView: View {
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
 
-    /// Signed-in name and email. Blank accounts and the old placeholder stay empty.
+    /// Signed-in name and email. A real account always shows both of its own fields.
     private var signedInProfile: (name: String, email: String)? {
         guard let user = auth.user else { return nil }
-        let name = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty && email.isEmpty { return nil }
-        if name == "Alex Chen" || email == "alex@fitmunch.com.au" { return nil }
-        let title = name.isEmpty ? email : name
-        return (title, name.isEmpty ? "" : email)
+        return SignedInProfile.lines(name: user.name, email: user.email)
     }
 
     var body: some View {

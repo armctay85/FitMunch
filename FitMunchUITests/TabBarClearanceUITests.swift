@@ -23,6 +23,7 @@ final class TabBarClearanceUITests: XCTestCase {
             is69 || is65,
             "Expected 6.9 (440x956) or 6.5 (414x896). Window is \(width)x\(height)"
         )
+        logTodayMealCards(in: app, screenHeight: height)
 
         let controls: [(tab: String, identifier: String, type: XCUIElement.ElementType)] = [
             ("Today", "today-log-meal", .button),
@@ -69,6 +70,26 @@ final class TabBarClearanceUITests: XCTestCase {
             if item.identifier == "plan-generate" {
                 assertMondayDinnerClearsGenerate(control, in: app)
             }
+        }
+    }
+
+    /// Resting Today cards. 6.5 is the short phone; the log is the card bottom the layout produced.
+    private func logTodayMealCards(in app: XCUIApplication, screenHeight: CGFloat) {
+        let cards = app.descendants(matching: .any)
+            .matching(identifier: "today-meal-card")
+            .allElementsBoundByIndex
+            .filter { $0.frame.width > 80 && $0.frame.height > 40 }
+            .sorted { $0.frame.minY < $1.frame.minY }
+        print("MEAL_CARDS place=clearance screen=\(Int(screenHeight.rounded()))")
+        for card in cards {
+            let name = card.staticTexts["today-meal-name"]
+            let title = name.exists ? name.label : card.label
+            let frame = card.frame
+            print("MEAL_CARD name=\(title) minY=\(frame.minY) height=\(frame.height) maxY=\(frame.maxY)")
+        }
+        let summary = app.descendants(matching: .any)["daily-summary-title"]
+        if summary.waitForExistence(timeout: 4) {
+            print("SUMMARY_HEIGHT \(summary.value ?? "") \(summary.label)")
         }
     }
 

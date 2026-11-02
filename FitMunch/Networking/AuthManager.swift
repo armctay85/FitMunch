@@ -25,12 +25,13 @@ final class AuthManager: ObservableObject {
             errorMessage = "Invalid email or password."
             return
         }
-        if ScreenshotLaunch.isActive {
+        #if DEBUG
+        if ScreenshotLaunch.PersonaGate.isPermitted {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
                 id: "screenshot-user",
-                name: "Alex Morgan",
-                email: "alex@example.com",
+                name: ScreenshotLaunch.PersonaGate.name,
+                email: ScreenshotLaunch.PersonaGate.email,
                 subscriptionTier: "premium",
                 role: "client"
             )
@@ -65,6 +66,7 @@ final class AuthManager: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: "aiDataConsent.review-user")
             }
         }
+        #endif
     }
 
     /// Restore the session on launch.
