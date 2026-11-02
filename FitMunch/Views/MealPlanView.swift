@@ -256,27 +256,17 @@ struct MealPlanView: View {
         .accessibilityLabel("\(label) \(value)")
     }
 
-    /// Same container as a Today meal card, which XCTest finds as an Other element.
-    /// A text-only `.contain` group is not that element, so the id never shows up.
+    /// One spoken row. `.combine` merges the two lines into that element and
+    /// carries the id. A hidden control is not added beside them.
     @ViewBuilder
     private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
         if let meal {
             if let identifier {
-                HStack(alignment: .top, spacing: Theme.Spacing.two) {
-                    mealRowLabel(label, meal)
-                    Spacer(minLength: 0)
-                    Button(action: {}) {
-                        Color.clear.frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel(label)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 2)
-                .background(Color.clear)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier(identifier)
-                .id(identifier)
+                mealRowLabel(label, meal)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier(identifier)
+                    .id(identifier)
             } else {
                 mealRowLabel(label, meal)
                     .accessibilityElement(children: .contain)

@@ -76,7 +76,7 @@ final class TabBarClearanceUITests: XCTestCase {
     /// The plan is generated first. An empty Plan has no Monday row to measure.
     private func assertMondayDinnerClearsGenerate(_ generate: XCUIElement, in app: XCUIApplication) {
         generatePlanIfNeeded(generate, in: app)
-        let dinner = app.otherElements["plan-monday-dinner"]
+        let dinner = app.descendants(matching: .any)["plan-monday-dinner"]
         scrollMondayDinnerAbove(generate, dinner: dinner, in: app)
         XCTAssertTrue(dinner.waitForExistence(timeout: 8), "Monday dinner missing")
         XCTAssertGreaterThan(dinner.frame.height, 8, "Monday dinner has no frame \(dinner.frame)")
