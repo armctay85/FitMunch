@@ -29,7 +29,13 @@ describe('Public Premium CTA', () => {
     const res = await request(app).get('/pricing').expect(200);
     expect(res.text).toContain('Start Premium trial');
     expect(res.text).toContain(PUBLIC_PREMIUM_URL);
-    expect(res.text).toContain('$19.99');
+    // The figure is not printed in the HTML. The card fills it from the config,
+    // and the meta description must not carry a price.
+    expect(res.text).toContain('data-fm-price="premiumAmount"');
+    const meta = res.text.match(/<meta name="description" content="([^"]*)"/);
+    expect(meta[1]).not.toMatch(/\$|\b\d+\.\d{2}\b/);
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAmount).toBe('A$19.99');
     expect(res.text).toContain('14-day trial');
     expect(res.text).toContain('card on file');
     expect(res.text).not.toMatch(/Wipper|wipper|client hub/i);
