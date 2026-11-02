@@ -119,7 +119,7 @@ async function sendWelcomeEmail(customerEmail, customerName, planLabel, claimUrl
     <p style="color:rgba(238,242,238,0.75);margin:8px 0 0;font-size:15px">${trial ? `Your ${label} trial is live. No charge until the trial ends.` : `Your ${label} subscription has started. Your first charge is today.`}</p>
   </div>
   <div style="padding:28px">
-    <p style="font-size:16px;color:#0c1210">Hi ${name},</p>
+    <p style="font-size:16px;color:#0c1210">Hi ${escapeHtml(name)},</p>
     ${trialEnded ? `<p style="font-size:16px;color:#0c1210;line-height:1.6;font-weight:700">${reusedCopy}</p>` : ''}
     <p style="font-size:16px;color:#5c6d64;line-height:1.6">Thanks for starting FitMunch ${label}. The loop is simple: receipt to macros to meals to the next shop.</p>
     ${attachHtml}
