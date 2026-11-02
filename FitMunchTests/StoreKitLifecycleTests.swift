@@ -74,7 +74,20 @@ final class StoreKitLifecycleTests: XCTestCase {
         step(productID, "purchase", purchased, "id=\(transaction.id) product=\(transaction.productID) offer=\(String(describing: transaction.offerType))")
         step(productID, "trial", transaction.offerType == .introductory, "offerType=\(String(describing: transaction.offerType))")
 
+        // currentEntitlements lags buyProduct on the first product in a fresh
+        // session. Annual hit an empty set while the transaction already
+        // existed; monthly, run second, saw it immediately. The assert is the
+        // same once the entitlement is published.
+        session.timeRate = .realTime
         var entitled = try await entitlementIDs()
+        if !entitled.contains(productID) {
+            for _ in 0..<20 {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                session.timeRate = .realTime
+                entitled = try await entitlementIDs()
+                if entitled.contains(productID) { break }
+            }
+        }
         step(productID, "purchase-entitlement", entitled.contains(productID), "entitled=\(entitled.sorted().joined(separator: ","))")
 
         // Restore is the finished transaction still present in current entitlements
@@ -191,7 +204,14 @@ final class StoreKitLifecycleTests: XCTestCase {
         let loaded = try await Product.products(for: [productID])
         let product = try XCTUnwrap(loaded.first)
         let subscription = try XCTUnwrap(product.subscription)
-        let statuses = try await subscription.status
+        var statuses = try await subscription.status
+        if statuses.first == nil {
+            for _ in 0..<20 {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                statuses = try await subscription.status
+                if statuses.first != nil { break }
+            }
+        }
         return try XCTUnwrap(statuses.first, "\(productID) has no subscription status")
     }
 }

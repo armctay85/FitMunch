@@ -23,6 +23,12 @@ final class FullScreenWindowTests: XCTestCase {
         app.launchArguments = [ReviewLaunchArgument.flag, "-CaptureLaunch"]
         app.launch()
 
+        // -CaptureLaunch keeps a launch-screen cover up for 30s without blocking
+        // the main thread. Wait it out so the Today shot is the home screen.
+        let cover = app.descendants(matching: .any)["launch-frame-cover"]
+        if cover.waitForExistence(timeout: 8) {
+            XCTAssertTrue(cover.waitForNonExistence(timeout: 40), "Launch cover stayed up")
+        }
         let today = app.navigationBars["Today"].waitForExistence(timeout: 25)
             || app.staticTexts["Today"].waitForExistence(timeout: 5)
         XCTAssertTrue(today, "Today did not appear. The shot would be the home screen.")

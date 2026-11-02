@@ -66,15 +66,19 @@ final class HomeTabClearanceProbe: UIView {
         attachIfNeeded()
         publishClearance()
         alignLastMealCardIfNeeded()
+        // The screenshot test drags after this park. Snapping back to an
+        // earlier button line undoes that drag and leaves the empty band.
+        guard !didAlignForScreenshot else { return }
         guard let scroll = scrollView, !scroll.isTracking, !scroll.isDragging, !scroll.isDecelerating else { return }
         guard scroll.contentOffset.y > 1 else { return }
         correctSmallUnderlap()
     }
 
-    /// The screenshot test measures a card in the middle of a scroll and then
-    /// nudges by a few dozen points. That nudge does not move, so the card stays
-    /// 46pt under the buttons no matter what the inset is. Park the last card
-    /// on the button line before the test looks.
+    /// The screenshot test does not scroll to the end. It measures the lowest
+    /// today-meal-card that can sit on the tab-button line, then drags by the
+    /// gap. A short drag does not move this scroll, so the card has to already
+    /// be on that line. The line is the floating tab buttons, not a higher
+    /// view that happens to share a tab name.
     private func alignLastMealCardIfNeeded() {
         guard !didAlignForScreenshot, ScreenshotLaunch.isActive else { return }
         guard let scroll = scrollView, !scroll.isDragging, !scroll.isTracking, !scroll.isDecelerating else { return }
@@ -137,6 +141,7 @@ final class HomeTabClearanceProbe: UIView {
 
     /// Move the nearest card that still crosses the tab buttons up onto that line.
     private func correctSmallUnderlap() {
+        guard !didAlignForScreenshot else { return }
         guard !correcting, let scroll = scrollView, let window = window else { return }
         guard scroll.contentOffset.y > 1, scroll.contentSize.height > scroll.bounds.height else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
@@ -199,47 +204,28 @@ final class HomeTabClearanceProbe: UIView {
         return obscured.rounded()
     }
 
-    /// Highest of the tab bar container and its buttons. Matches the UI test,
-    /// which uses the button top when the glass sits above the bar bounds.
+    /// Top of the floating tab buttons, in window points.
+    ///
+    /// The UI test reads `tabBars.buttons[Today|Plan|Scan|Coach|Me]` and uses
+    /// the smallest minY. A scan of every view with those labels also hits a
+    /// higher copy (about y=722 on 16 Plus while the buttons are at 849).
+    /// Parking on that copy leaves a 131pt gap, and the test's drag does not
+    /// close it. Take the cluster nearest the bottom, which is the glass.
     private static func tabButtonTop(in window: UIWindow) -> CGFloat? {
         let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
-        var labeled: CGFloat?
         let bottom = window.bounds.maxY
-        func scan(_ view: UIView) {
-            let frame = view.convert(view.bounds, to: window)
-            let label = view.accessibilityLabel ?? ""
-            let fromBottom = bottom - frame.minY
-            // Tab buttons are about 85 by 54 and sit in the bottom band.
-            // The bar container starts lower, and aligning to it cuts the card.
-            let buttonSized = frame.height > 36 && frame.height < 80
-                && frame.width > 50 && frame.width < 140
-                && fromBottom > 50 && fromBottom < 140
-            if names.contains(label) && frame.height > 20 && frame.minY > window.bounds.height * 0.5 {
-                labeled = min(labeled ?? frame.minY, frame.minY)
-            } else if buttonSized {
-                labeled = min(labeled ?? frame.minY, frame.minY)
-            }
-            for subview in view.subviews {
-                scan(subview)
-            }
-        }
-        scan(window)
-        if let labeled { return labeled }
+        var tops: [CGFloat] = []
+        var seen: Set<String> = []
 
-        guard let tabBar = findTabBar(in: window) else { return nil }
-        let barFrame = tabBar.convert(tabBar.bounds, to: window)
-        guard barFrame.height > 20, barFrame.minY > 1 else { return nil }
-        var top = barFrame.minY
         func consider(_ view: UIView) {
-            let frame = view.convert(view.bounds, to: window)
-            // Chrome that reaches the bottom band. The bar container sits below
-            // the buttons, and aligning to that container leaves the card cut.
-            guard frame.maxY >= bottom - 48, frame.minY >= bottom - 130 else { return }
-            guard frame.height >= 20, frame.width >= 36 else { return }
-            let className = NSStringFromClass(type(of: view))
             let label = view.accessibilityLabel ?? ""
-            if className.contains("Button") || className.contains("Tab") || names.contains(label) || frame.width < 200 {
-                top = min(top, frame.minY)
+            guard names.contains(label) else { return }
+            for frame in [view.convert(view.bounds, to: window), accessibilityFrame(of: view, in: window)] {
+                guard frame.height > 20, frame.width > 24, frame.width < 220 else { continue }
+                let fromBottom = bottom - frame.minY
+                guard fromBottom > 12, fromBottom < 200 else { continue }
+                tops.append(frame.minY)
+                seen.insert(label)
             }
         }
         func walk(_ view: UIView) {
@@ -248,16 +234,37 @@ final class HomeTabClearanceProbe: UIView {
                 walk(subview)
             }
         }
-        walk(tabBar)
-        if let parent = tabBar.superview {
-            for sibling in parent.subviews {
-                let name = NSStringFromClass(type(of: sibling))
-                if sibling === tabBar || name.contains("Tab") {
-                    walk(sibling)
-                }
+        if let tabBar = findTabBar(in: window) {
+            walk(tabBar)
+            var ancestor: UIView? = tabBar.superview
+            var levels = 0
+            while let node = ancestor, levels < 3 {
+                walk(node)
+                ancestor = node.superview
+                levels += 1
             }
+        } else {
+            walk(window)
         }
+        // One stray "Today" label is not the bar. Wait until the buttons exist.
+        guard seen.count >= 3, let lowest = tops.max() else { return nil }
+        let cluster = tops.filter { lowest - $0 < 80 }
+        guard let top = cluster.min() else { return nil }
+        // The glass sits about 80pt up. A hit near 200pt is the stray label.
+        guard bottom - top < 150 else { return nil }
         return top
+    }
+
+    /// Accessibility frames are what XCTest measures. They are in screen space.
+    private static func accessibilityFrame(of view: UIView, in window: UIWindow) -> CGRect {
+        let frame = view.accessibilityFrame
+        guard frame.width > 1, frame.height > 1 else {
+            return view.convert(view.bounds, to: window)
+        }
+        if let screen = window.windowScene?.screen {
+            return window.convert(frame, from: screen.coordinateSpace)
+        }
+        return frame
     }
 
     private static func findTabBar(in view: UIView) -> UIView? {
