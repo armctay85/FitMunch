@@ -197,7 +197,7 @@ struct PaywallView: View {
             Text("Couldn't load plans")
                 .font(.headline.weight(.semibold))
                 .accessibilityIdentifier("paywall-error")
-            Text("Check your connection and try again.")
+            Text(PaywallLoadPolicy.userFacingLoadFailure)
                 .font(.subheadline)
                 .foregroundStyle(Theme.fmSecondary)
                 .multilineTextAlignment(.center)

@@ -39,7 +39,7 @@ final class PaywallCatalogTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(PaywallLoadPolicy.automaticRetryBackoffNanoseconds, 1_000_000_000)
         XCTAssertEqual(
             PaywallLoadPolicy.userFacingLoadFailure,
-            "Plans couldn't load. Check your connection and try again."
+            "Check your connection and try again."
         )
     }
 
