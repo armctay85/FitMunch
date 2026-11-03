@@ -150,6 +150,7 @@ final class HomeTabClearanceProbe: UIView {
         guard let window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
         let safeBottom = window.bounds.maxY - window.safeAreaInsets.bottom
+        maskContent(above: buttonTop, in: window)
         let overlap = max(0, safeBottom - buttonTop).rounded()
         guard abs(overlap - lastReported) > 0.5 else { return }
         lastReported = overlap
@@ -157,6 +158,23 @@ final class HomeTabClearanceProbe: UIView {
         DispatchQueue.main.async {
             report?(overlap)
         }
+    }
+
+    /// Dinner still has an accessibility frame under the buttons. The mask
+    /// stops that card from painting through the glass. It does not change offset.
+    private func maskContent(above buttonTop: CGFloat, in window: UIWindow) {
+        guard let scroll = scrollView else { return }
+        let localTop = scroll.convert(CGPoint(x: 0, y: buttonTop), from: window).y
+        guard localTop > 80, localTop < scroll.bounds.height - 1 else {
+            scroll.layer.mask = nil
+            return
+        }
+        let mask = (scroll.layer.mask as? CAShapeLayer) ?? CAShapeLayer()
+        mask.frame = scroll.bounds
+        mask.path = UIBezierPath(
+            rect: CGRect(x: 0, y: 0, width: scroll.bounds.width, height: localTop)
+        ).cgPath
+        scroll.layer.mask = mask
     }
 
     /// How far this scroll view extends below the tab buttons.

@@ -74,12 +74,6 @@ struct ContentView: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
-        .background {
-            TabBarOpaqueCover()
-                .frame(width: 0, height: 0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
     }
 
     private func openPrivacy() {
@@ -128,71 +122,6 @@ enum TabBarSelector {
     }
 }
 
-/// Solid page color directly behind the tab bar so a card under the glass
-/// cannot be read. Sits below the bar, from the button line to the screen bottom.
-private struct TabBarOpaqueCover: UIViewRepresentable {
-    func makeUIView(context: Context) -> CoverProbe {
-        let view = CoverProbe()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        view.isAccessibilityElement = false
-        return view
-    }
-
-    func updateUIView(_ uiView: CoverProbe, context: Context) {
-        uiView.apply()
-    }
-
-    final class CoverProbe: UIView {
-        private let plate = UIView()
-
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            plate.isUserInteractionEnabled = false
-            plate.isAccessibilityElement = false
-            plate.backgroundColor = UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
-        }
-
-        required init?(coder: NSCoder) { nil }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            apply()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            apply()
-        }
-
-        func apply() {
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let window = self.window else { return }
-                guard let buttonTop = HomeTabClearanceProbe.tabButtonTop(in: window) else { return }
-                guard let bar = Self.findBar(in: window), let parent = bar.superview else { return }
-                if self.plate.superview !== parent {
-                    parent.insertSubview(self.plate, belowSubview: bar)
-                }
-                let frame = CGRect(
-                    x: 0,
-                    y: buttonTop,
-                    width: window.bounds.width,
-                    height: max(0, window.bounds.maxY - buttonTop)
-                )
-                self.plate.frame = parent.convert(frame, from: window)
-            }
-        }
-
-        private static func findBar(in view: UIView) -> UIView? {
-            if let bar = view as? UITabBar { return bar }
-            for child in view.subviews {
-                if let found = findBar(in: child) { return found }
-            }
-            return nil
-        }
-    }
-}
-
 /// Regular material and a 0.5pt hairline. Item frames stay on the system bar.
 private struct TabBarChrome: UIViewRepresentable {
     func makeUIView(context: Context) -> Probe {
@@ -222,8 +151,15 @@ private struct TabBarChrome: UIViewRepresentable {
             DispatchQueue.main.async { [weak self] in
                 guard let self, let window = self.window, let bar = Self.find(in: window) else { return }
                 let appearance = UITabBarAppearance()
-                appearance.configureWithDefaultBackground()
-                appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
+                appearance.configureWithOpaqueBackground()
+                appearance.backgroundEffect = nil
+                appearance.backgroundColor = UIColor { traits in
+                    if traits.userInterfaceStyle == .dark {
+                        return UIColor(red: 16.0 / 255, green: 26.0 / 255, blue: 20.0 / 255, alpha: 1)
+                    }
+                    return UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
+                }
+                bar.isTranslucent = false
                 let dark = window.traitCollection.userInterfaceStyle == .dark
                 let hairline = dark
                     ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 0.6)
