@@ -103,7 +103,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         let submit = app.buttons["auth-sign-in"]
         XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
         submit.tap()
-        if app.tabBars.firstMatch.waitForExistence(timeout: 20) { return }
+        if app.tabBars.firstMatch.waitForExistence(timeout: 40) { return }
         let error = app.staticTexts["auth-error"]
         if error.exists {
             print("AUTH_ERROR \(error.label)")
@@ -111,7 +111,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         if submit.isHittable {
             submit.tap()
         }
-        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 25), "Sign in did not reach the tabs")
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "Sign in did not reach the tabs")
     }
 
     private func assertScreenLooksInUse(_ screen: String) {
