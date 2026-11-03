@@ -349,6 +349,9 @@ struct PaywallView: View {
 
     private func purchaseAccessibilityLabel(_ cta: PaywallPricing.CTA) -> String {
         var parts = [cta.title]
+        if cta.title.localizedCaseInsensitiveContains("trial") {
+            parts.append("free trial")
+        }
         if let subline = cta.subline {
             parts.append(subline)
         }
