@@ -83,22 +83,33 @@ run_capture() {
     echo "QA_EMAIL or QA_PASSWORD is unset. The Me capture will skip."
   fi
   set +e
-  xcodebuild test \
-    -project FitMunch.xcodeproj \
-    -scheme FitMunch \
-    -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
-    -only-testing:FitMunchUITests/AppStoreScreenshotTests \
-    -resultBundlePath "$folder/Test.xcresult" \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO \
-    CODE_SIGN_IDENTITY=- \
-    TEST_RUNNER_SCREENSHOT_DIR="$folder" \
-    TEST_RUNNER_QA_EMAIL="${QA_EMAIL:-}" \
-    TEST_RUNNER_QA_PASSWORD="${QA_PASSWORD:-}" \
-    | tee "$log"
-  local xcode_rc=${PIPESTATUS[0]}
+  local attempt
+  for attempt in 1 2; do
+    rm -rf "$folder/Test.xcresult"
+    xcodebuild test \
+      -project FitMunch.xcodeproj \
+      -scheme FitMunch \
+      -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
+      -only-testing:FitMunchUITests/AppStoreScreenshotTests \
+      -resultBundlePath "$folder/Test.xcresult" \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGN_IDENTITY=- \
+      TEST_RUNNER_SCREENSHOT_DIR="$folder" \
+      TEST_RUNNER_QA_EMAIL="${QA_EMAIL:-}" \
+      TEST_RUNNER_QA_PASSWORD="${QA_PASSWORD:-}" \
+      | tee "$log"
+    rc=${PIPESTATUS[0]}
+    if [[ "$rc" -eq 0 ]]; then
+      break
+    fi
+    if [[ "$attempt" -eq 1 ]] && grep -q "Timed out while launching" "$log"; then
+      echo "Launch timed out for $udid. Retrying once."
+      continue
+    fi
+    break
+  done
   rm -f "$creds"
-  rc=$xcode_rc
   set -e
   if [[ "$rc" -ne 0 ]]; then
     echo "xcodebuild failed for $udid (exit $rc)"
