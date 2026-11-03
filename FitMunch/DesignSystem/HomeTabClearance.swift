@@ -173,7 +173,9 @@ final class HomeTabClearanceProbe: UIView {
             scroll.layer.mask = nil
             return
         }
-        let edge = scroll.convert(CGPoint(x: 0, y: frames[1].maxY), from: window).y
+        // Markers often stop inside the chip row. 18pt reaches the card padding,
+        // still above Dinner.
+        let edge = scroll.convert(CGPoint(x: 0, y: frames[1].maxY + 18), from: window).y
         let top = scroll.bounds.minY
         let height = edge - top
         guard height > 80 else {

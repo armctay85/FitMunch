@@ -299,7 +299,12 @@ struct SettingsView: View {
                     .frame(height: 48)
                     .accessibilityHidden(true)
             }
-            .clipped()
+            .overlay(alignment: .bottom) {
+                Theme.fmBackground
+                    .frame(height: 108)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {
