@@ -215,8 +215,8 @@ enum PaywallPricing {
         let period = billingPeriodWord(periodUnit)
         if let intro, intro.isFreeTrial, eligible {
             return CTA(
-                title: "Start \(introLengthLabel(intro)) free trial",
-                subline: "then \(displayPrice)/\(period) · cancel anytime"
+                title: "Start the \(introLengthLabel(intro)) trial",
+                subline: nil
             )
         }
         return CTA(title: "Subscribe for \(displayPrice)/\(period)", subline: nil)

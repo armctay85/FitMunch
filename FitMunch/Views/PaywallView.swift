@@ -35,7 +35,7 @@ struct PaywallView: View {
                 VStack(spacing: 16) {
                     headerSection
                     if isLoadingPlans {
-                        LoadingSkeleton(rows: 3, label: "Loading plans", identifier: "paywall-loading")
+                        paywallLoadingCards
                     }
                     benefitsSection
                     if plansLoadFailed {
@@ -246,8 +246,8 @@ struct PaywallView: View {
             sandboxProbeSection
             if let plan = selectedPlan, !plans.isEmpty {
                 Text(renewalLine(plan))
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryText)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.fmSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("paywall-renewal")
@@ -295,35 +295,51 @@ struct PaywallView: View {
                     .padding(.vertical, 12)
                     .accessibilityIdentifier("paywall-confirming")
             } else {
-                VStack(spacing: 2) {
-                    Text(cta.title)
-                        .font(.system(size: 17, weight: .semibold))
-                    if let subline = cta.subline {
-                        Text(subline)
-                            .font(.footnote)
-                    }
-                }
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 12)
+                Text(cta.title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .padding(.horizontal, 12)
             }
         }
-        .background(Theme.buttonGreen)
-        .cornerRadius(12)
+        .background(Theme.fmBrand)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .disabled(premiumManager.isLoading)
         .accessibilityIdentifier("paywall-subscribe")
         .accessibilityLabel(purchaseAccessibilityLabel(cta))
     }
 
     private func renewalLine(_ plan: PaywallPlan) -> String {
-        PaywallPricing.renewalTerms(
+        let billing = PaywallPricing.renewalTerms(
             displayPrice: plan.priceString,
             periodUnit: plan.periodUnit,
             intro: plan.intro,
             eligible: plan.eligibleForIntro
         )
+        guard plan.eligibleForIntro, let intro = plan.intro, intro.isFreeTrial, intro.periodUnit == .day else {
+            return billing
+        }
+        let price = PaywallPricing.priceWithPeriod(displayPrice: plan.priceString, periodUnit: plan.periodUnit)
+        return "\(intro.periodValue) days free, then \(price). Cancel anytime in Settings. \(billing)"
+    }
+
+    /// Two plan-shaped blocks. One accessibility name, so loading does not say it twice.
+    private var paywallLoadingCards: some View {
+        VStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255))
+                .frame(height: 88)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255))
+                .frame(height: 88)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading plans")
+        .accessibilityIdentifier("paywall-loading")
     }
 
     private var trialTimeline: PaywallPricing.TrialTimeline? {
@@ -455,12 +471,12 @@ private struct PackageCard: View {
                     Spacer()
                     if isAnnual {
                         Text("Best value")
-                            .font(.caption.weight(.semibold))
+                            .font(.footnote.weight(.semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(brandGreen.opacity(0.15))
-                            .foregroundColor(Theme.buttonGreen)
-                            .clipShape(Capsule())
+                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
+                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
@@ -485,11 +501,11 @@ private struct PackageCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
-            .cornerRadius(12)
+            .background(isSelected ? Theme.brandGreenSoft : Theme.fmSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? brandGreen : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? Theme.fmBrand : Theme.fmSeparator, lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
