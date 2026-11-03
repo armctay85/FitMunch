@@ -46,7 +46,7 @@ function app1Segment(payload) {
   return seg;
 }
 
-function injectApp1AfterSos(jpegBuf, payload) {
+function spliceAfterSos(jpegBuf, extra) {
   let offset = 2;
   while (offset + 3 < jpegBuf.length) {
     if (jpegBuf[offset] !== 0xff) break;
@@ -54,7 +54,7 @@ function injectApp1AfterSos(jpegBuf, payload) {
     if (marker === 0xda) {
       const len = jpegBuf.readUInt16BE(offset + 2);
       const end = offset + 2 + len;
-      return Buffer.concat([jpegBuf.subarray(0, end), app1Segment(payload), jpegBuf.subarray(end)]);
+      return Buffer.concat([jpegBuf.subarray(0, end), extra, jpegBuf.subarray(end)]);
     }
     if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
       offset += 2;
@@ -67,12 +67,27 @@ function injectApp1AfterSos(jpegBuf, payload) {
   throw new Error('sos missing');
 }
 
+function injectApp1AfterSos(jpegBuf, payload) {
+  return spliceAfterSos(jpegBuf, app1Segment(payload));
+}
+
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i += 1) {
+    c ^= buf[i];
+    for (let k = 0; k < 8; k += 1) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return (~c) >>> 0;
+}
+
 function pngChunk(type, data) {
   const payload = Buffer.from(data);
+  const typeBuf = Buffer.from(type, 'ascii');
   const out = Buffer.alloc(12 + payload.length);
   out.writeUInt32BE(payload.length, 0);
-  out.write(type, 4, 4, 'ascii');
+  typeBuf.copy(out, 4);
   payload.copy(out, 8);
+  out.writeUInt32BE(crc32(Buffer.concat([typeBuf, payload])), 8 + payload.length);
   return out;
 }
 
@@ -550,6 +565,77 @@ describe('receipt image prep', () => {
     expect(out.mimeType).toBe('image/png');
   });
 
+  it('drops PNG bytes after IEND, a chunk whose length does not fit, and ancillary chunks outside the decoder set', async () => {
+    const keep = [
+      pngChunk('gAMA', Buffer.from([0, 0, 0xb1, 0x8f])),
+      pngChunk('pHYs', Buffer.from([0, 0, 0x0e, 0xc4, 0, 0, 0x0e, 0xc4, 1])),
+      pngChunk('acTL', Buffer.from([0, 0, 0, 1, 0, 0, 0, 0])),
+    ];
+    const drop = [
+      pngChunk('tIME', Buffer.from([0x07, 0xe9, 1, 2, 3, 4, 5])),
+      pngChunk('iCCP', 'profile\0\0GPSLatitude'),
+      pngChunk('prIV', 'GPSLatitude private'),
+      pngChunk('sPLT', 'GPSLatitude public'),
+    ];
+    const tagged = insertBeforeIend(TINY_PNG, [...keep, ...drop]);
+    const afterIend = Buffer.concat([tagged, Buffer.from('GPSLatitude after IEND')]);
+    expect(afterIend.includes(Buffer.from('GPSLatitude after IEND'))).toBe(true);
+    const out = await prep.prepareReceiptImage({ imageBase64: afterIend.toString('base64'), mimeType: 'image/png' });
+    const sent = Buffer.from(out.imageBase64, 'base64');
+    const types = pngChunkTypes(sent);
+    expect(types).toEqual(expect.arrayContaining(['IHDR', 'gAMA', 'pHYs', 'acTL', 'IDAT', 'IEND']));
+    expect(types).not.toContain('tIME');
+    expect(types).not.toContain('iCCP');
+    expect(types).not.toContain('prIV');
+    expect(types).not.toContain('sPLT');
+    expect(types[types.length - 1]).toBe('IEND');
+    expect(sent.includes(Buffer.from('GPSLatitude'))).toBe(false);
+    expect(sent.includes(Buffer.from('after IEND'))).toBe(false);
+    const decoded = PNG.sync.read(sent);
+    expect(decoded.width).toBe(1);
+    expect(decoded.height).toBe(1);
+
+    const badLen = Buffer.from(tagged);
+    const iendAt = badLen.lastIndexOf(Buffer.from('IEND')) - 4;
+    const liar = Buffer.alloc(8);
+    liar.writeUInt32BE(0x00ffffff, 0);
+    liar.write('tEXt', 4, 4, 'ascii');
+    const broken = Buffer.concat([
+      badLen.subarray(0, iendAt),
+      liar,
+      Buffer.from('GPSLatitude unread'),
+    ]);
+    const stripped = prep.stripPngText(broken);
+    expect(stripped.includes(Buffer.from('GPSLatitude'))).toBe(false);
+    expect(stripped.includes(Buffer.from('unread'))).toBe(false);
+    const prepared = await prep.prepareReceiptImage({ imageBase64: broken.toString('base64'), mimeType: 'image/png' });
+    const preparedBytes = Buffer.from(prepared.imageBase64, 'base64');
+    expect(preparedBytes.includes(Buffer.from('GPSLatitude'))).toBe(false);
+    expect(prepared.imageBase64).not.toBe(broken.toString('base64'));
+  });
+
+  it('does not pass through a small jpeg when the post-SOS APP1 length is malformed', async () => {
+    const plain = jpegOf(320, 240, 80);
+    const gps = Buffer.from('GPSLatitude');
+    const cases = [
+      ['length 0', Buffer.concat([Buffer.from([0xff, 0xe1, 0x00, 0x00]), gps])],
+      ['length 1', Buffer.concat([Buffer.from([0xff, 0xe1, 0x00, 0x01]), gps])],
+      ['oversize', Buffer.concat([Buffer.from([0xff, 0xe1, 0xff, 0xff]), gps])],
+      ['truncated', Buffer.concat([Buffer.from([0xff, 0xe1]), gps])],
+    ];
+    for (const [label, extra] of cases) {
+      const tagged = spliceAfterSos(plain, extra);
+      expect(tagged.includes(gps)).toBe(true);
+      const stripped = prep.stripJpegApp1(tagged);
+      expect(stripped.includes(gps)).toBe(false);
+      expect(stripped.equals(tagged)).toBe(false);
+      const out = await prep.prepareReceiptImage({ imageBase64: tagged.toString('base64'), mimeType: 'image/jpeg' });
+      const sent = Buffer.from(out.imageBase64, 'base64');
+      expect(sent.includes(gps)).toBe(false);
+      expect(out.imageBase64).not.toBe(tagged.toString('base64'));
+    }
+  });
+
   it('runs at most two large decodes at once and drops a waiter past the budget', async () => {
     expect(prep.LARGE_DECODE_SLOTS).toBeGreaterThanOrEqual(1);
     expect(prep.LARGE_DECODE_SLOTS).toBeLessThanOrEqual(2);
@@ -641,6 +727,66 @@ describe('receipt image prep', () => {
       jest.restoreAllMocks();
     }
   });
+
+  it('fails a queued large decode at about 2s while another decode is still running', async () => {
+    const jpegScale = require('./lib/jpeg-scale');
+    prep.resetLargeDecodeForTests();
+    const source = dcJpeg(32, 160, 400, -400);
+    let stripes = 0;
+    jpegScale.setStripeHookForTests(() => {
+      stripes += 1;
+      const until = Date.now() + 400;
+      while (Date.now() < until) { /* one stripe, then the decoder yields */ }
+    });
+    let finished = 0;
+    const running = [0, 1].map(() => prep.runWithLargeDecode(async () => {
+      await jpegScale.decodeScaledJpeg(source, 8);
+      finished += 1;
+    }));
+    const queuedAt = Date.now();
+    const queued = prep.runWithLargeDecode(() => {
+      finished = 99;
+      return 'should-not-run';
+    });
+    try {
+      await expect(queued).rejects.toMatchObject({ status: 503, code: 'scan_unavailable' });
+      const waited = Date.now() - queuedAt;
+      expect(waited).toBeGreaterThanOrEqual(1700);
+      expect(waited).toBeLessThan(2800);
+      expect(finished).toBe(0);
+      expect(stripes).toBeGreaterThan(0);
+      expect(stripes).toBeLessThan(16);
+    } finally {
+      jpegScale.setStripeHookForTests(null);
+      await Promise.allSettled(running);
+      prep.resetLargeDecodeForTests();
+    }
+  }, 20000);
+
+  it('keeps a queue timeout as 503 so it is not rewritten to unreadable', async () => {
+    prep.resetLargeDecodeForTests();
+    const release = [];
+    const holders = [];
+    for (let i = 0; i < prep.LARGE_DECODE_SLOTS; i += 1) {
+      holders.push(prep.runWithLargeDecode(() => new Promise((resolve) => { release.push(resolve); })));
+    }
+    await Promise.resolve();
+    try {
+      expect(prep.largeDecodeInFlightForTests()).toBe(prep.LARGE_DECODE_SLOTS);
+      const heavy = headerOnlyJpeg(8000, 6000);
+      const err = await prep.prepareReceiptImage({
+        imageBase64: heavy.toString('base64'),
+        budgetMs: 40,
+      }).then(() => null, (e) => e);
+      expect(err).toMatchObject({ status: 503, code: 'scan_unavailable', message: 'scan_unavailable' });
+      expect(err.status).not.toBe(422);
+      expect(err.code).not.toBe('scan_unreadable');
+    } finally {
+      release.forEach((fn) => fn());
+      await Promise.all(holders);
+      prep.resetLargeDecodeForTests();
+    }
+  });
 });
 
 describe('receipt scan upload and vision payload', () => {
@@ -728,6 +874,35 @@ describe('receipt scan upload and vision payload', () => {
     expect(seen.imageBase64).toBe(source.toString('base64'));
     expect(seen.mimeType).toBe('image/jpeg');
   });
+
+  it('tells the customer to try again when a large decode waits out the queue', async () => {
+    prep.resetLargeDecodeForTests();
+    const release = [];
+    const holders = [];
+    for (let i = 0; i < prep.LARGE_DECODE_SLOTS; i += 1) {
+      holders.push(prep.runWithLargeDecode(() => new Promise((resolve) => { release.push(resolve); })));
+    }
+    await Promise.resolve();
+    let calls = 0;
+    receiptRouter._setVisionForTests(async () => {
+      calls += 1;
+      return { ok: true, text: '[]' };
+    });
+    try {
+      const heavy = headerOnlyJpeg(8000, 6000);
+      const res = await request(app)
+        .post('/api/receipt/scan')
+        .set('Authorization', `Bearer ${token()}`)
+        .attach('receipt', heavy, { filename: 'receipt.jpg', contentType: 'image/jpeg' });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe('Scanning is unavailable right now.');
+      expect(calls).toBe(0);
+    } finally {
+      release.forEach((fn) => fn());
+      await Promise.all(holders);
+      prep.resetLargeDecodeForTests();
+    }
+  }, 10000);
 
   it('returns the 422 unreadable path for a corrupt image and does not call vision', async () => {
     let calls = 0;
