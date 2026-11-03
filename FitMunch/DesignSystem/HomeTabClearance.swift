@@ -37,6 +37,11 @@ struct MealCardFrameMarker: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         uiView.tag = HomeTabClearanceProbe.markerTag
         uiView.accessibilityIdentifier = HomeTabClearanceProbe.markerID
+        DispatchQueue.main.async {
+            guard let host = uiView.superview else { return }
+            guard host.bounds.height >= 98, uiView.frame != host.bounds else { return }
+            uiView.frame = host.bounds
+        }
     }
 }
 
@@ -165,8 +170,9 @@ final class HomeTabClearanceProbe: UIView {
     private func maskAfterSecondMealCard() {
         guard let scroll = scrollView, let window else { return }
         let frames = markers(in: window).compactMap { marker -> CGRect? in
-            let frame = marker.convert(marker.bounds, to: window)
-            guard frame.width > 80, frame.height > 40, frame.height < 180 else { return nil }
+            let host = marker.superview ?? marker
+            let frame = host.convert(host.bounds, to: window)
+            guard frame.width > 80, frame.height >= 98, frame.height < 180 else { return nil }
             return frame
         }.sorted { $0.minY < $1.minY }
         guard frames.count >= 2 else {

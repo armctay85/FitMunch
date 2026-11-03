@@ -296,7 +296,7 @@ struct SettingsView: View {
             .floatingTabBarInset()
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Theme.fmBackground
-                    .frame(height: 88)
+                    .frame(height: 48)
                     .accessibilityHidden(true)
             }
             .clipped()
