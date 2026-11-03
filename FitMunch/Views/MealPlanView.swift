@@ -288,7 +288,7 @@ struct MealPlanView: View {
                 .foregroundStyle(Theme.fmSecondary)
             Text(meal.name ?? "Meal")
                 .font(.headline.weight(.semibold))
-                .modifier(MealNameID(identifier))
+                .modifier(MealNameID(identifier: identifier))
         }
     }
 
