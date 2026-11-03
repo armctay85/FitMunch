@@ -97,10 +97,10 @@ struct HomeView: View {
                         }
                     } label: {
                         Color.clear
-                            .frame(width: 56, height: 56)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 56, height: 56)
+                    .frame(width: 44, height: 44)
                     .accessibilityLabel("Log a meal")
                     .uniqueButtonIdentifier("today-log-meal")
                 }
