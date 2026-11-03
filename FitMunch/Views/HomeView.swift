@@ -86,29 +86,6 @@ struct HomeView: View {
             // through toolbarBackground, so the live bar is set opaque too.
             .toolbarBackground(Theme.fmBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        if viewModel.canLogMeal {
-                            showLogMeal = true
-                        } else {
-                            freeLimitHits += 1
-                            showPaywall = true
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Theme.fmBrand)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 56, height: 56)
-                    .accessibilityLabel("Log a meal")
-                    .uniqueButtonIdentifier("today-log-meal")
-                }
-            }
             .overlay(alignment: .top) {
                 if homeScrolled {
                     Rectangle()
@@ -149,16 +126,29 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(Theme.fmBrand)
-                .clipShape(Circle())
-                .padding(.top, 56)
-                .padding(.trailing, 24)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+            Button {
+                if viewModel.canLogMeal {
+                    showLogMeal = true
+                } else {
+                    freeLimitHits += 1
+                    showPaywall = true
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Theme.fmBrand)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .frame(width: 56, height: 56)
+            .fixedSize()
+            .padding(.top, 62)
+            .padding(.trailing, 16)
+            .accessibilityLabel("Log a meal")
+            .accessibilityIdentifier("today-log-meal")
+            .uniqueButtonIdentifier("today-log-meal")
         }
         .background {
             WindowHeightReader { height in
