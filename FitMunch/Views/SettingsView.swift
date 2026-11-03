@@ -130,7 +130,7 @@ struct SettingsView: View {
                             .font(.body)
                             .foregroundStyle(Theme.fmSecondary)
                     }
-                    .frame(minHeight: 52)
+                    .frame(minHeight: 44)
                     .accessibilityIdentifier("me-about-version")
                     aboutRow("Privacy Policy", identifier: "me-about-privacy") {
                         viewModel.viewPrivacyPolicy()
@@ -289,7 +289,6 @@ struct SettingsView: View {
                 }
             }
             .font(.body)
-            .environment(\.defaultMinListRowHeight, 52)
             .navigationTitle("Me")
             .scrollContentBackground(.hidden)
             .background(Theme.surface)
@@ -395,8 +394,6 @@ struct SettingsView: View {
             .foregroundStyle(Theme.fmSecondary)
             .textCase(nil)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 24)
-            .padding(.bottom, 8)
             .accessibilityLabel(title)
             .modifier(SettingsHeaderID(identifier))
     }
@@ -412,12 +409,12 @@ struct SettingsView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.fmSecondary)
             }
-            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
             .accessibilityIdentifier(identifier)
         }
         .buttonStyle(.borderless)
-        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .accessibilityIdentifier(identifier)
     }
 
