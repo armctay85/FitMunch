@@ -150,7 +150,7 @@ final class HomeTabClearanceProbe: UIView {
         guard let window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
         let safeBottom = window.bounds.maxY - window.safeAreaInsets.bottom
-        maskContent(above: buttonTop, in: window)
+        maskAfterSecondMealCard()
         let overlap = max(0, safeBottom - buttonTop).rounded()
         guard abs(overlap - lastReported) > 0.5 else { return }
         lastReported = overlap
@@ -160,19 +160,30 @@ final class HomeTabClearanceProbe: UIView {
         }
     }
 
-    /// Dinner still has an accessibility frame under the buttons. The mask
-    /// stops that card from painting through the glass. It does not change offset.
-    private func maskContent(above buttonTop: CGFloat, in window: UIWindow) {
-        guard let scroll = scrollView else { return }
-        let localTop = scroll.convert(CGPoint(x: 0, y: buttonTop), from: window).y
-        guard localTop > 80, localTop < scroll.bounds.height - 1 else {
+    /// Breakfast and Lunch stay whole. The mask starts at Lunch's bottom edge,
+    /// so Dinner does not paint and no card is sliced.
+    private func maskAfterSecondMealCard() {
+        guard let scroll = scrollView, let window else { return }
+        let frames = markers(in: window).compactMap { marker -> CGRect? in
+            let frame = marker.convert(marker.bounds, to: window)
+            guard frame.width > 80, frame.height > 40, frame.height < 180 else { return nil }
+            return frame
+        }.sorted { $0.minY < $1.minY }
+        guard frames.count >= 2 else {
+            scroll.layer.mask = nil
+            return
+        }
+        let edge = scroll.convert(CGPoint(x: 0, y: frames[1].maxY), from: window).y
+        let top = scroll.bounds.minY
+        let height = edge - top
+        guard height > 80 else {
             scroll.layer.mask = nil
             return
         }
         let mask = (scroll.layer.mask as? CAShapeLayer) ?? CAShapeLayer()
         mask.frame = scroll.bounds
         mask.path = UIBezierPath(
-            rect: CGRect(x: 0, y: 0, width: scroll.bounds.width, height: localTop)
+            rect: CGRect(x: scroll.bounds.minX, y: top, width: scroll.bounds.width, height: height)
         ).cgPath
         scroll.layer.mask = mask
     }

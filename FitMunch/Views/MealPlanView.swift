@@ -188,6 +188,8 @@ struct MealPlanView: View {
                     metric("Avg protein", "\(protein)g")
                 }
             }
+            .opacity(0)
+            .accessibilityHidden(true)
         }
 
         ForEach(plan.days ?? [], id: \.day) { day in

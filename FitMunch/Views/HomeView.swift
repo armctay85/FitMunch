@@ -97,28 +97,6 @@ struct HomeView: View {
             .background {
                 OpaqueNavigationBar()
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        if viewModel.canLogMeal {
-                            showLogMeal = true
-                        } else {
-                            freeLimitHits += 1
-                            showPaywall = true
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Theme.fmBrand, in: Circle())
-                    }
-                    .frame(width: 56, height: 56)
-                    .contentShape(Circle())
-                    .accessibilityLabel("Log a meal")
-                    .uniqueButtonIdentifier("today-log-meal")
-                }
-            }
             .background {
                 PageMarginBar(leading: 16)
                     .frame(width: 0, height: 0)
@@ -146,6 +124,31 @@ struct HomeView: View {
             .refreshable {
                 viewModel.loadMealsForSelectedDate()
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                if viewModel.canLogMeal {
+                    showLogMeal = true
+                } else {
+                    freeLimitHits += 1
+                    showPaywall = true
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(Theme.fmBrand)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .frame(width: 56, height: 56)
+            .fixedSize()
+            .contentShape(Circle())
+            .padding(.top, 52)
+            .padding(.trailing, 16)
+            .accessibilityLabel("Log a meal")
+            .uniqueButtonIdentifier("today-log-meal")
         }
         .background {
             WindowHeightReader { height in

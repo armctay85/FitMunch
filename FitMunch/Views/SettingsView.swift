@@ -294,6 +294,12 @@ struct SettingsView: View {
             .background(Theme.surface)
             .scrollClearsTabBar()
             .floatingTabBarInset()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Theme.fmBackground
+                    .frame(height: 88)
+                    .accessibilityHidden(true)
+            }
+            .clipped()
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {
