@@ -166,17 +166,14 @@ final class HomeTabClearanceProbe: UIView {
         guard let scroll = scrollView, let window else { return }
         let frames = markers(in: window).compactMap { marker -> CGRect? in
             let frame = marker.convert(marker.bounds, to: window)
-            guard frame.width > 80, frame.height > 60, frame.height < 180 else { return nil }
+            guard frame.width > 200, frame.height >= 100, frame.height < 140 else { return nil }
             return frame
         }.sorted { $0.minY < $1.minY }
         guard frames.count >= 2 else {
             scroll.layer.mask = nil
             return
         }
-        let lunch = frames[1]
-        // A short marker stops inside the chip row. Extend it to a full card.
-        let edgeY = lunch.height >= 100 ? lunch.maxY : lunch.minY + 105
-        let edge = scroll.convert(CGPoint(x: 0, y: edgeY), from: window).y
+        let edge = scroll.convert(CGPoint(x: 0, y: frames[1].maxY), from: window).y
         let top = scroll.bounds.minY
         let height = edge - top
         guard height > 80 else {
