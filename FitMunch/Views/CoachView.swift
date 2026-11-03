@@ -247,9 +247,12 @@ struct CoachView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
                 .background(Theme.brandGreenSoft)
                 .foregroundStyle(.primary)
                 .clipShape(Capsule())
+                .opacity(consent.isDenied(auth.user?.id) ? 0.45 : 1)
         }
         .accessibilityIdentifier("coach-suggestion")
     }

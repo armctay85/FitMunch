@@ -2,6 +2,13 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+private struct TodayScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// Today screen with the daily dashboard.
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -16,6 +23,7 @@ struct HomeView: View {
     @State private var regularSummaryHeight: CGFloat = 0
     @State private var compactSummaryHeight: CGFloat = 0
     @State private var didLogSummaryHeights = false
+    @State private var homeScrolled = false
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(modelContext: modelContext))
@@ -25,6 +33,14 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.one) {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(
+                                key: TodayScrollOffsetKey.self,
+                                value: proxy.frame(in: .named("today-scroll")).minY
+                            )
+                    }
+                    .frame(height: 0)
                     OfflineNotice()
 
                     dateNavigation
@@ -42,11 +58,17 @@ struct HomeView: View {
                 .padding(.top, 8)
                 .padding(.bottom, Theme.Spacing.eight)
             }
+            .coordinateSpace(name: "today-scroll")
+            .onPreferenceChange(TodayScrollOffsetKey.self) { offset in
+                let next = offset < -8
+                if next != homeScrolled { homeScrolled = next }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
                     .frame(height: tabClearance)
                     .accessibilityHidden(true)
             }
+            .contentMargins(.bottom, tabClearance + 16, for: .scrollContent)
             .background {
                 HomeTabClearanceReader { measured in
                     guard abs(measured - tabClearance) > 0.5 else { return }
@@ -60,8 +82,16 @@ struct HomeView: View {
             // The date row scrolls under this bar once Dinner sits on the tab
             // bar. An opaque bar hides that date. iOS 26 glass still shows it
             // through toolbarBackground, so the live bar is set opaque too.
-            .toolbarBackground(Theme.surface, for: .navigationBar)
+            .toolbarBackground(Theme.fmBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .overlay(alignment: .top) {
+                if homeScrolled {
+                    Rectangle()
+                        .fill(Theme.fmSeparator)
+                        .frame(height: 0.5)
+                        .accessibilityHidden(true)
+                }
+            }
             .background {
                 OpaqueNavigationBar()
             }
@@ -75,9 +105,11 @@ struct HomeView: View {
                             showPaywall = true
                         }
                     } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                            .symbolRenderingMode(.hierarchical)
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Theme.fmBrand, in: Circle())
                     }
                     .accessibilityLabel("Log a meal")
                     .uniqueButtonIdentifier("today-log-meal")
@@ -195,7 +227,7 @@ private struct WindowHeightReader: UIViewRepresentable {
                     value: viewModel.totalCalories,
                     goal: Constants.DefaultGoals.dailyCalories,
                     progress: viewModel.progress(for: .calories, goal: Constants.DefaultGoals.dailyCalories),
-                    color: .red
+                    color: Theme.fmBrand
                 )
 
                 ProgressRing(
@@ -203,7 +235,7 @@ private struct WindowHeightReader: UIViewRepresentable {
                     value: viewModel.totalProtein,
                     goal: Constants.DefaultGoals.dailyProtein,
                     progress: viewModel.progress(for: .protein, goal: Constants.DefaultGoals.dailyProtein),
-                    color: Theme.brandGreen,
+                    color: Color(red: 47.0 / 255, green: 111.0 / 255, blue: 222.0 / 255),
                     unit: "g"
                 )
 
@@ -212,7 +244,7 @@ private struct WindowHeightReader: UIViewRepresentable {
                     value: viewModel.totalCarbs,
                     goal: Constants.DefaultGoals.dailyCarbs,
                     progress: viewModel.progress(for: .carbs, goal: Constants.DefaultGoals.dailyCarbs),
-                    color: .orange,
+                    color: Color(red: 224.0 / 255, green: 138.0 / 255, blue: 0),
                     unit: "g"
                 )
 
@@ -221,7 +253,7 @@ private struct WindowHeightReader: UIViewRepresentable {
                     value: viewModel.totalFats,
                     goal: Constants.DefaultGoals.dailyFats,
                     progress: viewModel.progress(for: .fats, goal: Constants.DefaultGoals.dailyFats),
-                    color: .mint,
+                    color: Color(red: 194.0 / 255, green: 65.0 / 255, blue: 122.0 / 255),
                     unit: "g"
                 )
             }
@@ -347,11 +379,26 @@ private struct WindowHeightReader: UIViewRepresentable {
             }
 
             if viewModel.meals.isEmpty {
-                ContentUnavailableView {
-                    Label("No meals logged today", systemImage: "fork.knife")
-                } description: {
-                    Text("Tap + to log your first meal")
+                VStack(spacing: Theme.Spacing.three) {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 32))
+                        .foregroundStyle(Theme.fmBrand)
+                    Text("No meals logged today")
+                        .font(.headline.weight(.semibold))
+                    Text("Log your first meal to see your day.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.fmSecondary)
+                        .multilineTextAlignment(.center)
+                    Button("Log a meal") {
+                        showLogMeal = true
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .frame(height: 50)
                 }
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .background(Theme.fmSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else {
                 ForEach(viewModel.meals) { meal in
                     MealCard(meal: meal) {
@@ -537,8 +584,8 @@ private struct MealCard: View {
                 Spacer()
 
                 Text(MealItemCount.label(for: meal.foodItems.count))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.fmSecondary)
             }
         }
         .padding()

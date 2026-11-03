@@ -60,29 +60,32 @@ struct SettingsView: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(Theme.brandGreen)
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(profile.name)
-                                    .font(.headline)
-                                    .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 8) {
+                                    Text(profile.name)
+                                        .font(.title3.weight(.semibold))
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                    if premium.isPremium {
+                                        Text("Premium")
+                                            .font(.footnote.weight(.semibold))
+                                            .lineLimit(1)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
+                                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                            .accessibilityIdentifier("me-premium-badge")
+                                    }
+                                }
                                 if !profile.email.isEmpty {
                                     Text(profile.email)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .font(.subheadline)
+                                        .foregroundStyle(Theme.fmSecondary)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                            }
-                            Spacer(minLength: Theme.Spacing.two)
-                            if premium.isPremium {
-                                Text("Premium")
-                                    .font(.caption.weight(.semibold))
-                                    .lineLimit(1)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Theme.brandGreenSoft)
-                                    .foregroundStyle(Theme.brandGreen)
-                                    .clipShape(Capsule())
-                                    .accessibilityIdentifier("me-premium-badge")
                             }
                         }
                         .padding(.vertical, 8)
@@ -140,9 +143,9 @@ struct SettingsView: View {
                         .accessibilityIdentifier("me-about")
                 }
 
-                // Preferences section
-                Section("Preferences") {
+                Section {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
+                        .tint(Theme.fmBrand)
                         .accessibilityIdentifier("me-dark-mode")
                         .onChange(of: viewModel.isDarkMode) { _, newValue in
                             viewModel.applyDarkMode(newValue)

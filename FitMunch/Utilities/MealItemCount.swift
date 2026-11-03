@@ -1,8 +1,15 @@
 import Foundation
 
-/// "1 item" or "2 items". Meal cards were hardcoding the plural.
+/// Plural for a meal's food count. Zero is "No items", one is "1 item".
 enum MealItemCount {
     static func label(for count: Int) -> String {
-        count == 1 ? "1 item" : "\(count) items"
+        switch count {
+        case 0:
+            return "No items"
+        case 1:
+            return "1 item"
+        default:
+            return "\(count) items"
+        }
     }
 }

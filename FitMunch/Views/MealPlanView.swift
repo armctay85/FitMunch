@@ -38,15 +38,18 @@ struct MealPlanView: View {
     }
 
     private var planContent: some View {
-        VStack(spacing: 0) {
-            planScroll
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            generateButton
-                .padding(.horizontal, Theme.Spacing.four)
-                .padding(.top, Theme.Spacing.two)
-                .padding(.bottom, Theme.Spacing.three)
-                .background(Theme.surface)
-        }
+        planScroll
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Theme.fmSeparator)
+                        .frame(height: 0.5)
+                    generateButton
+                        .padding(.horizontal, Theme.Spacing.four)
+                        .padding(.vertical, Theme.Spacing.four)
+                }
+                .background(Theme.fmBackground)
+            }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.surface)
         .sensoryFeedback(.selection, trigger: goal)
@@ -199,20 +202,15 @@ struct MealPlanView: View {
     private var planEmptyState: some View {
         VStack(spacing: Theme.Spacing.three) {
             Image(systemName: "calendar")
-                .font(.system(size: 44))
+                .font(.system(size: 32))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Theme.brandGreen)
-            Text("No week yet")
-                .font(.title3.bold())
-            Text("Set your calorie and protein targets, then build a week of meals. Breakfast, lunch, dinner, and a snack show up here.")
+                .foregroundStyle(Theme.fmBrand)
+            Text("No plan yet")
+                .font(.headline.weight(.semibold))
+            Text("Set your targets and FitMunch builds 7 days of meals.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
                 .multilineTextAlignment(.center)
-            Button("Build my week") {
-                Task { await generate() }
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("plan-build-week")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.six)
@@ -224,13 +222,14 @@ struct MealPlanView: View {
         Button {
             Task { await generate() }
         } label: {
-            if isLoading {
-                Text("Building your week")
-            } else {
-                Text("Generate 7-day plan")
-            }
+            Text(isLoading ? "Building your week…" : (plan == nil ? "Build my week" : "Generate 7-day plan"))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
         }
-        .buttonStyle(PrimaryButtonStyle())
+        .background(Theme.fmBrand.opacity(isLoading ? 0.85 : 1))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .disabled(isLoading)
         .accessibilityLabel("Generate 7-day plan")
         .accessibilityIdentifier("plan-generate")
@@ -282,12 +281,25 @@ struct MealPlanView: View {
 
     @ViewBuilder
     private func mealName(_ label: String, _ meal: MealPlanMeal, identifier: String?) -> some View {
-        let line = Text("\(label): \(meal.name ?? "Meal")")
-            .font(.subheadline.weight(.semibold))
-        if let identifier {
-            line.accessibilityIdentifier(identifier)
-        } else {
-            line
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label.uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(Theme.fmSecondary)
+            Text(meal.name ?? "Meal")
+                .font(.headline.weight(.semibold))
+                .modifier(MealNameID(identifier))
+        }
+    }
+
+    private struct MealNameID: ViewModifier {
+        let identifier: String?
+        func body(content: Content) -> some View {
+            if let identifier {
+                content.accessibilityIdentifier(identifier)
+            } else {
+                content
+            }
         }
     }
 

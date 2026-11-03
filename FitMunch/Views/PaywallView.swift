@@ -190,27 +190,42 @@ struct PaywallView: View {
     }
 
     private var emptyPlansSection: some View {
-        VStack(spacing: 14) {
-            Text(PaywallLoadPolicy.userFacingLoadFailure)
-                .font(.subheadline.weight(.semibold))
-                .multilineTextAlignment(.center)
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 24))
+                .foregroundStyle(Color(red: 180.0 / 255, green: 83.0 / 255, blue: 9.0 / 255))
+            Text("Couldn't load plans")
+                .font(.headline.weight(.semibold))
                 .accessibilityIdentifier("paywall-error")
+            Text("Check your connection and try again.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.fmSecondary)
+                .multilineTextAlignment(.center)
             Button {
                 Task { await loadPlansWithRetry() }
             } label: {
-                Text("Retry")
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                Text("Try again")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
                     .accessibilityIdentifier("paywall-retry")
             }
+            .background(Theme.fmBrand)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .accessibilityIdentifier("paywall-retry")
-            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-retry"))
             legalButton("Restore Purchases", identifier: "paywall-restore-inline") {
                 Task { await restore() }
             }
         }
-        // No identifier on this stack. On iOS 26 a container identifier replaces
-        // the identifiers of its buttons, so Restore was published as
-        // paywall-error-state and the width test could not find paywall-restore-inline.
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(Theme.fmSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.fmSeparator, lineWidth: 1)
+        )
     }
 
     @ViewBuilder

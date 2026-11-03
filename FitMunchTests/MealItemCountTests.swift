@@ -7,7 +7,7 @@ final class MealItemCountTests: XCTestCase {
     }
 
     func testOtherCountsStayPlural() {
-        XCTAssertEqual(MealItemCount.label(for: 0), "0 items")
+        XCTAssertEqual(MealItemCount.label(for: 0), "No items")
         XCTAssertEqual(MealItemCount.label(for: 2), "2 items")
     }
 }
