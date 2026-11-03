@@ -127,13 +127,14 @@ struct MealPlanView: View {
                 .foregroundStyle(Theme.fmSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(Theme.Spacing.four)
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.vertical, Theme.Spacing.two)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
         .padding(.horizontal, Theme.Spacing.four)
         .padding(.top, Theme.Spacing.two)
-        .padding(.bottom, Theme.Spacing.two)
+        .padding(.bottom, Theme.Spacing.one)
     }
 
     private var scrollBody: some View {
