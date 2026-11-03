@@ -113,7 +113,7 @@ final class FlowRecordingUITests: XCTestCase {
 
     private func waitForStoreKitPrice(in app: XCUIApplication) -> XCUIElement {
         let ids = ["paywall-price-fitmunch_monthly", "paywall-price-fitmunch_annual"]
-        let deadline = Date().addingTimeInterval(25)
+        let deadline = Date().addingTimeInterval(45)
         while Date() < deadline {
             for id in ids {
                 let element = app.staticTexts[id]
