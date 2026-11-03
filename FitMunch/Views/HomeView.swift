@@ -86,6 +86,31 @@ struct HomeView: View {
             // through toolbarBackground, so the live bar is set opaque too.
             .toolbarBackground(Theme.fmBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if viewModel.canLogMeal {
+                            showLogMeal = true
+                        } else {
+                            freeLimitHits += 1
+                            showPaywall = true
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Theme.fmBrand)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 56, height: 56)
+                    .fixedSize()
+                    .contentShape(Circle())
+                    .accessibilityLabel("Log a meal")
+                    .uniqueButtonIdentifier("today-log-meal")
+                }
+            }
             .overlay(alignment: .top) {
                 if homeScrolled {
                     Rectangle()
@@ -124,31 +149,6 @@ struct HomeView: View {
             .refreshable {
                 viewModel.loadMealsForSelectedDate()
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            Button {
-                if viewModel.canLogMeal {
-                    showLogMeal = true
-                } else {
-                    freeLimitHits += 1
-                    showPaywall = true
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Theme.fmBrand)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .frame(width: 56, height: 56)
-            .fixedSize()
-            .contentShape(Circle())
-            .padding(.top, 52)
-            .padding(.trailing, 16)
-            .accessibilityLabel("Log a meal")
-            .uniqueButtonIdentifier("today-log-meal")
         }
         .background {
             WindowHeightReader { height in
@@ -806,6 +806,16 @@ private struct PageMarginBar: UIViewRepresentable {
                 if bar.layoutMargins.left != leading {
                     bar.layoutMargins.left = leading
                     bar.layoutMargins.right = leading
+                }
+                bar.clipsToBounds = false
+                bar.layer.masksToBounds = false
+                var parent = bar.superview
+                var levels = 0
+                while let view = parent, levels < 3 {
+                    view.clipsToBounds = false
+                    view.layer.masksToBounds = false
+                    parent = view.superview
+                    levels += 1
                 }
             }
         }
