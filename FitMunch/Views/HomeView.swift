@@ -39,7 +39,7 @@ struct HomeView: View {
                     }
                 }
                 .padding()
-                .padding(.top, 14)
+                .padding(.top, 8)
                 .padding(.bottom, Theme.Spacing.eight)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
