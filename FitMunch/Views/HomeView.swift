@@ -96,17 +96,11 @@ struct HomeView: View {
                             showPaywall = true
                         }
                     } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white)
+                        Color.clear
                             .frame(width: 56, height: 56)
-                            .background(Theme.fmBrand)
-                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .frame(width: 56, height: 56)
-                    .fixedSize()
-                    .contentShape(Circle())
                     .accessibilityLabel("Log a meal")
                     .uniqueButtonIdentifier("today-log-meal")
                 }
@@ -149,6 +143,18 @@ struct HomeView: View {
             .refreshable {
                 viewModel.loadMealsForSelectedDate()
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Theme.fmBrand)
+                .clipShape(Circle())
+                .padding(.top, 54)
+                .padding(.trailing, 18)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
         .background {
             WindowHeightReader { height in
