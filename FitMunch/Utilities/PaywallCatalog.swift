@@ -52,7 +52,7 @@ enum PaywallCatalog {
 enum PaywallLoadPolicy {
     static let automaticRetryBackoffNanoseconds: UInt64 = 1_500_000_000
     static let maxAutomaticAttempts = 2
-    static let userFacingLoadFailure = "Check your connection and try again."
+    static let userFacingLoadFailure = "Plans couldn't load. Check your connection and try again."
 
     enum Phase: Equatable {
         case loading
