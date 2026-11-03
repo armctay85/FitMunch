@@ -96,11 +96,15 @@ struct HomeView: View {
                             showPaywall = true
                         }
                     } label: {
-                        Color.clear
-                            .frame(width: 44, height: 44)
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Theme.fmBrand)
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 56, height: 56)
                     .accessibilityLabel("Log a meal")
                     .uniqueButtonIdentifier("today-log-meal")
                 }
@@ -151,8 +155,8 @@ struct HomeView: View {
                 .frame(width: 56, height: 56)
                 .background(Theme.fmBrand)
                 .clipShape(Circle())
-                .padding(.top, 54)
-                .padding(.trailing, 18)
+                .padding(.top, 56)
+                .padding(.trailing, 24)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
