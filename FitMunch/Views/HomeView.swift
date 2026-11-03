@@ -71,7 +71,6 @@ struct HomeView: View {
                     .frame(height: tabClearance)
                     .accessibilityHidden(true)
             }
-            .contentMargins(.bottom, tabClearance + 16, for: .scrollContent)
             .background {
                 HomeTabClearanceReader { measured in
                     guard abs(measured - tabClearance) > 0.5 else { return }
