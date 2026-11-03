@@ -294,7 +294,7 @@ struct SettingsView: View {
             .background(Theme.surface)
             .scrollClearsTabBar()
             .floatingTabBarInset()
-            .padding(.bottom, 72)
+            .padding(.bottom, 48)
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {
