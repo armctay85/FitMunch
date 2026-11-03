@@ -86,6 +86,31 @@ struct HomeView: View {
             // through toolbarBackground, so the live bar is set opaque too.
             .toolbarBackground(Theme.fmBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if viewModel.canLogMeal {
+                            showLogMeal = true
+                        } else {
+                            freeLimitHits += 1
+                            showPaywall = true
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Theme.fmBrand)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 56, height: 56)
+                    .fixedSize()
+                    .contentShape(Circle())
+                    .accessibilityLabel("Log a meal")
+                    .uniqueButtonIdentifier("today-log-meal")
+                }
+            }
             .overlay(alignment: .top) {
                 if homeScrolled {
                     Rectangle()
@@ -125,19 +150,6 @@ struct HomeView: View {
                 viewModel.loadMealsForSelectedDate()
             }
         }
-        .overlay(alignment: .topTrailing) {
-            CircleLogButton {
-                if viewModel.canLogMeal {
-                    showLogMeal = true
-                } else {
-                    freeLimitHits += 1
-                    showPaywall = true
-                }
-            }
-            .frame(width: 56, height: 56)
-            .padding(.top, 62)
-            .padding(.trailing, 16)
-        }
         .background {
             WindowHeightReader { height in
                 guard abs(height - availableHeight) > 0.5 else { return }
@@ -149,48 +161,7 @@ struct HomeView: View {
         }
     }
 
-    /// 56pt circle drawn outside the navigation bar. The bar lays a SwiftUI
-/// button out short, which turns a circle into a pill.
-private struct CircleLogButton: UIViewRepresentable {
-    var onTap: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onTap: onTap)
-    }
-
-    func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .custom)
-        button.accessibilityIdentifier = "today-log-meal"
-        button.accessibilityLabel = "Log a meal"
-        button.backgroundColor = UIColor(red: 21.0 / 255.0, green: 122.0 / 255.0, blue: 60.0 / 255.0, alpha: 1)
-        button.tintColor = .white
-        button.layer.cornerRadius = 28
-        button.clipsToBounds = true
-        let symbol = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
-        button.setImage(UIImage(systemName: "plus", withConfiguration: symbol), for: .normal)
-        button.addTarget(context.coordinator, action: #selector(Coordinator.tap), for: .touchUpInside)
-        return button
-    }
-
-    func updateUIView(_ uiView: UIButton, context: Context) {
-        context.coordinator.onTap = onTap
-        uiView.layer.cornerRadius = 28
-    }
-
-    final class Coordinator: NSObject {
-        var onTap: () -> Void
-
-        init(onTap: @escaping () -> Void) {
-            self.onTap = onTap
-        }
-
-        @objc func tap() {
-            onTap()
-        }
-    }
-}
-
-/// Window height, not the device name. The scroll view is shorter than the
+    /// Window height, not the device name. The scroll view is shorter than the
 /// screen because the navigation bar sits above it.
 private struct WindowHeightReader: UIViewRepresentable {
     var onHeight: (CGFloat) -> Void
