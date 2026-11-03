@@ -151,15 +151,8 @@ private struct TabBarChrome: UIViewRepresentable {
             DispatchQueue.main.async { [weak self] in
                 guard let self, let window = self.window, let bar = Self.find(in: window) else { return }
                 let appearance = UITabBarAppearance()
-                appearance.configureWithOpaqueBackground()
-                appearance.backgroundEffect = nil
-                appearance.backgroundColor = UIColor { traits in
-                    if traits.userInterfaceStyle == .dark {
-                        return UIColor(red: 16.0 / 255, green: 26.0 / 255, blue: 20.0 / 255, alpha: 1)
-                    }
-                    return UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
-                }
-                bar.isTranslucent = false
+                appearance.configureWithDefaultBackground()
+                appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
                 let dark = window.traitCollection.userInterfaceStyle == .dark
                 let hairline = dark
                     ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 0.6)
