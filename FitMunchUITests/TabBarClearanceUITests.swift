@@ -134,20 +134,34 @@ final class TabBarClearanceUITests: XCTestCase {
         _ = week.waitForExistence(timeout: 8)
     }
 
-    /// Screenshot launch already allows AI data. If the consent sheet is still up,
-    /// allow it, then scroll so a short phone can reach Take a photo.
+    /// Screenshot launch already allows AI data. A full-app swipe on the short
+    /// phone can leave Scan, so this only nudges the scan scroll view.
     private func revealScanPhoto(in app: XCUIApplication) {
-        let photo = app.buttons["scan-take-photo"]
-        if photo.waitForExistence(timeout: 2) { return }
+        if scanPhoto(in: app).waitForExistence(timeout: 12) { return }
         let allow = app.buttons["ai-consent-allow"]
         if allow.waitForExistence(timeout: 2) {
             allow.tap()
         }
+        if scanPhoto(in: app).exists { return }
+        openTab("Scan", in: app)
+        let scroller = app.scrollViews.firstMatch
         var hops = 0
-        while !photo.exists && hops < 3 {
-            app.swipeUp()
+        while !scanPhoto(in: app).exists && hops < 3 {
+            if scroller.exists {
+                scroller.swipeUp()
+            }
             hops += 1
         }
+        if !scanPhoto(in: app).exists {
+            let labels = app.staticTexts.allElementsBoundByIndex.prefix(8).map(\.label)
+            print("SCAN_MISSING labels=\(labels.joined(separator: " | "))")
+        }
+    }
+
+    private func scanPhoto(in app: XCUIApplication) -> XCUIElement {
+        let identified = app.buttons["scan-take-photo"]
+        if identified.exists { return identified }
+        return app.buttons["Take a photo"]
     }
 
     private func tabButtonTop(in app: XCUIApplication) -> CGFloat {

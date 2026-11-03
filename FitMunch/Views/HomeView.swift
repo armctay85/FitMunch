@@ -33,14 +33,6 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.one) {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .preference(
-                                key: TodayScrollOffsetKey.self,
-                                value: proxy.frame(in: .named("today-scroll")).minY
-                            )
-                    }
-                    .frame(height: 0)
                     OfflineNotice()
 
                     dateNavigation
@@ -57,6 +49,17 @@ struct HomeView: View {
                 .padding()
                 .padding(.top, 8)
                 .padding(.bottom, Theme.Spacing.eight)
+                .background(alignment: .top) {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(
+                                key: TodayScrollOffsetKey.self,
+                                value: proxy.frame(in: .named("today-scroll")).minY
+                            )
+                    }
+                    .frame(height: 0)
+                    .accessibilityHidden(true)
+                }
             }
             .coordinateSpace(name: "today-scroll")
             .onPreferenceChange(TodayScrollOffsetKey.self) { offset in
