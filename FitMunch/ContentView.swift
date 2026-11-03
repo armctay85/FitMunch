@@ -68,6 +68,12 @@ struct ContentView: View {
                 .accessibilityIdentifier("tab-me")
                 .tag(AppTab.me)
         }
+        .background {
+            TabBarChrome()
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 
     private func openPrivacy() {
@@ -113,6 +119,57 @@ enum TabBarSelector {
             select(title: title, in: child)
         }
         select(title: title, in: controller.presentedViewController)
+    }
+}
+
+/// Regular material and a 0.5pt hairline. Item frames stay on the system bar.
+private struct TabBarChrome: UIViewRepresentable {
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.isAccessibilityElement = false
+        return view
+    }
+
+    func updateUIView(_ uiView: Probe, context: Context) {
+        uiView.apply()
+    }
+
+    final class Probe: UIView {
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            apply()
+        }
+
+        func apply() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.window, let bar = Self.find(in: window) else { return }
+                let appearance = UITabBarAppearance()
+                appearance.configureWithDefaultBackground()
+                appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
+                let dark = window.traitCollection.userInterfaceStyle == .dark
+                let hairline = dark
+                    ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 0.6)
+                    : UIColor(red: 217.0 / 255, green: 222.0 / 255, blue: 217.0 / 255, alpha: 0.6)
+                appearance.shadowColor = hairline
+                bar.standardAppearance = appearance
+                bar.scrollEdgeAppearance = appearance
+            }
+        }
+
+        private static func find(in view: UIView) -> UITabBar? {
+            if let bar = view as? UITabBar { return bar }
+            for child in view.subviews {
+                if let found = find(in: child) { return found }
+            }
+            return nil
+        }
     }
 }
 

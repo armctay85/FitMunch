@@ -123,6 +123,10 @@ run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
 UDID_67="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 16 Plus" "iPhone 15 Plus" "iPhone 14 Plus" "iPhone 15 Pro Max" "iPhone 14 Pro Max")"
 run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796
 
+# 6.5 inch App Store slot. 11 Pro Max is 414x896 at 3x, 1242x2688.
+UDID_65="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 11 Pro Max" "iPhone XS Max")"
+run_capture "$UDID_65" "$OUT/iphone-65" 1242 2688
+
 if [[ ! -d "$OUT/iphone-67" ]]; then
   echo "6.7-inch 1290x2796 capture is required."
   exit 1

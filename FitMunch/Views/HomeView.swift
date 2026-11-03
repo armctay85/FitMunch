@@ -37,7 +37,7 @@ struct HomeView: View {
 
                     dateNavigation
                     if viewModel.isLoading {
-                        LoadingSkeleton(rows: 4, label: "Loading today", identifier: "today-loading")
+                        loadingToday
                     } else if showsEmptyMeals {
                         mealsSection
                     } else {
@@ -113,9 +113,17 @@ struct HomeView: View {
                             .frame(width: 56, height: 56)
                             .background(Theme.fmBrand, in: Circle())
                     }
+                    .frame(width: 56, height: 56)
+                    .contentShape(Circle())
                     .accessibilityLabel("Log a meal")
                     .uniqueButtonIdentifier("today-log-meal")
                 }
+            }
+            .background {
+                PageMarginBar(leading: 16)
+                    .frame(width: 0, height: 0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
             .sensoryFeedback(.warning, trigger: freeLimitHits)
             .sheet(isPresented: $showLogMeal, onDismiss: {
@@ -261,6 +269,75 @@ private struct WindowHeightReader: UIViewRepresentable {
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("today-rings")
+        }
+    }
+
+    /// Rings, summary tiles, and meal rows in the loaded frames. No figures.
+    private var loadingToday: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.one) {
+            loadingRings
+            loadingSummary
+            loadingMeals
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Loading today")
+        .accessibilityIdentifier("today-loading")
+    }
+
+    private var loadingRings: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+            Text("Daily Progress")
+                .font(.title2)
+                .fontWeight(.semibold)
+            HStack(spacing: Theme.Spacing.two) {
+                ForEach(0..<4, id: \.self) { _ in
+                    VStack(spacing: Theme.Spacing.one) {
+                        Circle()
+                            .fill(SkeletonFill.color)
+                            .frame(width: 64, height: 64)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(SkeletonFill.color)
+                            .frame(width: 44, height: 10)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(SkeletonFill.color)
+                            .frame(width: 28, height: 14)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .modifier(SkeletonShimmer(active: true))
+                }
+            }
+        }
+    }
+
+    private var loadingSummary: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+            Text("Daily Summary")
+                .font(.title2)
+                .fontWeight(.semibold)
+            HStack(spacing: Theme.Spacing.two) {
+                ForEach(0..<3, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                        .fill(SkeletonFill.color)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: summaryIsCompact ? 72 : 112)
+                        .modifier(SkeletonShimmer(active: true))
+                }
+            }
+        }
+    }
+
+    /// Same card pitch as a logged meal, with no counts and no percent text.
+    private var loadingMeals: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+            Text("Today's Meals")
+                .font(.title2)
+                .fontWeight(.semibold)
+            ForEach(0..<3, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                    .fill(SkeletonFill.color)
+                    .frame(height: 105)
+                    .modifier(SkeletonShimmer(active: true))
+            }
         }
     }
 
@@ -647,6 +724,95 @@ private struct MealBadgeID: ViewModifier {
             content.accessibilityIdentifier(identifier)
         } else {
             content
+        }
+    }
+}
+
+private enum SkeletonFill {
+    static let color = Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255)
+}
+
+/// 1.2s shimmer. Reduce Motion and screenshot capture stay still.
+private struct SkeletonShimmer: ViewModifier {
+    var active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: CGFloat = -1
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if active, !reduceMotion, !ScreenshotLaunch.isActive {
+                GeometryReader { proxy in
+                    LinearGradient(
+                        colors: [Color.white.opacity(0), Color.white.opacity(0.55), Color.white.opacity(0)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: proxy.size.width * 0.55)
+                    .offset(x: phase * proxy.size.width)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+        .onAppear { start() }
+        .onChange(of: reduceMotion) { _, _ in start() }
+    }
+
+    private func start() {
+        guard active, !reduceMotion, !ScreenshotLaunch.isActive else { return }
+        phase = -1
+        withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+            phase = 1.6
+        }
+    }
+}
+
+/// Large-title and card share one 16pt leading margin. Does not change row height.
+private struct PageMarginBar: UIViewRepresentable {
+    var leading: CGFloat
+
+    func makeUIView(context: Context) -> MarginProbe {
+        let view = MarginProbe()
+        view.leading = leading
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.isAccessibilityElement = false
+        return view
+    }
+
+    func updateUIView(_ uiView: MarginProbe, context: Context) {
+        uiView.leading = leading
+        uiView.apply()
+    }
+
+    final class MarginProbe: UIView {
+        var leading: CGFloat = 16
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+        }
+
+        func apply() {
+            let leading = leading
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.window else { return }
+                guard let bar = Self.findBar(in: window) else { return }
+                bar.directionalLayoutMargins.leading = leading
+                bar.directionalLayoutMargins.trailing = leading
+                if bar.layoutMargins.left != leading {
+                    bar.layoutMargins.left = leading
+                    bar.layoutMargins.right = leading
+                }
+            }
+        }
+
+        private static func findBar(in view: UIView) -> UINavigationBar? {
+            if let bar = view as? UINavigationBar { return bar }
+            for child in view.subviews {
+                if let found = findBar(in: child) { return found }
+            }
+            return nil
         }
     }
 }

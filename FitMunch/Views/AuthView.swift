@@ -30,8 +30,8 @@ struct AuthView: View {
                         }
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         Text("Your AI health partner")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.fmSecondary)
                     }
                     .padding(.top, 48)
 
@@ -49,31 +49,35 @@ struct AuthView: View {
                     .padding(.horizontal, 28)
                     .sensoryFeedback(.selection, trigger: mode)
 
-                    VStack(spacing: 12) {
-                        if mode == .register {
-                            field("Your name", text: $name, focus: .name)
-                                .textContentType(.name)
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(spacing: 12) {
+                            if mode == .register {
+                                field("Your name", text: $name, focus: .name, showsError: auth.errorMessage != nil)
+                                    .textContentType(.name)
+                            }
+                            field("Email", text: $email, focus: .email, showsError: auth.errorMessage != nil)
+                                .textContentType(.emailAddress)
+                                .keyboardType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .accessibilityIdentifier("auth-email")
+                            secureField("Password (min. 8 characters)", text: $password, showsError: auth.errorMessage != nil)
+                                .accessibilityIdentifier("auth-password")
                         }
-                        field("Email", text: $email, focus: .email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .accessibilityIdentifier("auth-email")
-                        secureField("Password (min. 8 characters)", text: $password)
-                            .accessibilityIdentifier("auth-password")
+                        if let error = auth.errorMessage {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                Text(error)
+                                    .multilineTextAlignment(.leading)
+                                    .accessibilityIdentifier("auth-error")
+                            }
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.fmError)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .id("auth-error")
+                        }
                     }
                     .padding(.horizontal, 28)
-
-                    if let error = auth.errorMessage {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(Theme.fmError)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
-                            .id("auth-error")
-                            .accessibilityIdentifier("auth-error")
-                    }
 
                     Button(action: submit) {
                         Text(mode == .login ? "Sign In" : "Create Free Account")
@@ -87,8 +91,8 @@ struct AuthView: View {
                     .accessibilityIdentifier(mode == .login ? "auth-sign-in" : "auth-create-account")
 
                     Text("Free to start. Premium trial available in-app.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.fmSecondary)
                         .padding(.bottom, 32)
                 }
             }
@@ -132,17 +136,17 @@ struct AuthView: View {
         }
     }
 
-    private func field(_ placeholder: String, text: Binding<String>, focus: Field) -> some View {
+    private func field(_ placeholder: String, text: Binding<String>, focus: Field, showsError: Bool) -> some View {
         TextField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
             .focused($focused, equals: focus)
             .padding(14)
             .background(Color(.secondarySystemBackground))
             .foregroundStyle(.primary)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color(.separator)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Color(.separator), lineWidth: 1))
     }
 
-    private func secureField(_ placeholder: String, text: Binding<String>) -> some View {
+    private func secureField(_ placeholder: String, text: Binding<String>, showsError: Bool) -> some View {
         SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
             .focused($focused, equals: .password)
             .textContentType(mode == .login ? .password : .newPassword)
@@ -150,7 +154,7 @@ struct AuthView: View {
             .background(Color(.secondarySystemBackground))
             .foregroundStyle(.primary)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color(.separator)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Color(.separator), lineWidth: 1))
     }
 }
 

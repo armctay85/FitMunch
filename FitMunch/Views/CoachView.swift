@@ -46,12 +46,14 @@ struct CoachView: View {
                                     .font(.footnote.weight(.semibold))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
-                                    .padding(.horizontal, Theme.Spacing.three)
-                                    .padding(.vertical, 7)
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 32)
                                     .background(intent == item.id ? Theme.buttonFill : Color(.secondarySystemBackground))
                                     .foregroundStyle(intent == item.id ? Color.white : Color.primary)
                                     .clipShape(Capsule())
                             }
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                             .accessibilityAddTraits(intent == item.id ? .isSelected : [])
                         }
                     }

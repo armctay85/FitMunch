@@ -118,29 +118,31 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settings-upgrade")
                     }
                 } header: {
-                    Text("Profile")
+                    sectionHeader("Profile")
                 }
 
                 Section {
                     HStack {
                         Text("Version")
+                            .font(.body)
                         Spacer()
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
-                            .foregroundColor(.secondary)
+                            .font(.body)
+                            .foregroundStyle(Theme.fmSecondary)
                     }
+                    .frame(minHeight: 52)
                     .accessibilityIdentifier("me-about-version")
-                    aboutRow("Privacy", identifier: "me-about-privacy") {
+                    aboutRow("Privacy Policy", identifier: "me-about-privacy") {
                         viewModel.viewPrivacyPolicy()
                     }
-                    aboutRow("Terms", identifier: "me-about-terms") {
+                    aboutRow("Terms of Use", identifier: "me-about-terms") {
                         viewModel.viewTermsOfService()
                     }
-                    aboutRow("Support", identifier: "me-about-support") {
+                    aboutRow("Contact support", identifier: "me-about-support") {
                         viewModel.contactSupport()
                     }
                 } header: {
-                    Text("About")
-                        .accessibilityIdentifier("me-about")
+                    sectionHeader("About", identifier: "me-about")
                 }
 
                 Section {
@@ -189,15 +191,14 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } header: {
-                    Text("Privacy")
-                        .accessibilityIdentifier("me-privacy")
+                    sectionHeader("Privacy", identifier: "me-privacy")
                 } footer: {
                     Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review.")
                 }
                 .id("me-privacy")
                 
                 // Subscription section
-                Section("Subscription") {
+                Section {
                     if premium.isPremium {
                         HStack {
                             Text("Status")
@@ -233,20 +234,24 @@ struct SettingsView: View {
                     }
                     .foregroundStyle(Theme.brandGreen)
                     .disabled(viewModel.isLoading)
+                } header: {
+                    sectionHeader("Subscription")
                 }
                 
                 // Support section
-                Section("Support") {
+                Section {
                     Button("Rate the App") {
                         if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)
                         }
                     }
                     .foregroundStyle(Theme.brandGreen)
+                } header: {
+                    sectionHeader("Support")
                 }
                 
                 // Data section
-                Section("Data") {
+                Section {
                     Button("Export Data") {
                         prepareExport()
                     }
@@ -257,10 +262,12 @@ struct SettingsView: View {
                     Button("Reset Data", role: .destructive) {
                         showResetAlert = true
                     }
+                } header: {
+                    sectionHeader("Data")
                 }
                 
                 // Account section
-                Section("Account") {
+                Section {
                     if let user = auth.user {
                         HStack {
                             Text("Signed in as")
@@ -277,8 +284,12 @@ struct SettingsView: View {
                     Button("Delete Account", role: .destructive) {
                         showDeleteAlert = true
                     }
+                } header: {
+                    sectionHeader("Account")
                 }
             }
+            .font(.body)
+            .environment(\.defaultMinListRowHeight, 52)
             .navigationTitle("Me")
             .scrollContentBackground(.hidden)
             .background(Theme.surface)
@@ -377,17 +388,36 @@ struct SettingsView: View {
     /// Upgrade uses a borderless list button and XCTest can see that identifier.
     /// A background label in this section did not publish me-about-privacy.
     /// The id sits on the 44pt label and on the button that receives the tap.
+    private func sectionHeader(_ title: String, identifier: String? = nil) -> some View {
+        Text(title.uppercased())
+            .font(.footnote.weight(.semibold))
+            .tracking(0.5)
+            .foregroundStyle(Theme.fmSecondary)
+            .textCase(nil)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 24)
+            .padding(.bottom, 8)
+            .accessibilityLabel(title)
+            .modifier(SettingsHeaderID(identifier))
+    }
+
     private func aboutRow(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.body)
-                .foregroundStyle(Theme.brandGreen)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(Rectangle())
-                .accessibilityIdentifier(identifier)
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.fmSecondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier(identifier)
         }
         .buttonStyle(.borderless)
-        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
         .accessibilityIdentifier(identifier)
     }
 
@@ -502,6 +532,23 @@ private struct PrivacyMoreAnchor: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         CGSize(width: proposal.width ?? 44, height: max(proposal.height ?? 44, 44))
+    }
+}
+
+private struct SettingsHeaderID: ViewModifier {
+    var identifier: String?
+
+    init(_ identifier: String?) {
+        self.identifier = identifier
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 
