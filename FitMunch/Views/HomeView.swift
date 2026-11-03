@@ -200,11 +200,11 @@ private struct WindowHeightReader: UIViewRepresentable {
 
             Spacer()
 
-            if !viewModel.isToday {
-                Text(viewModel.formattedDate)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-            }
+            Text(viewModel.formattedDate)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.fmSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
             Spacer()
 

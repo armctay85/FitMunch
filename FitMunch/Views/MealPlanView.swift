@@ -38,7 +38,10 @@ struct MealPlanView: View {
     }
 
     private var planContent: some View {
-        planScroll
+        VStack(spacing: 0) {
+            targetsHeader
+            planScroll
+        }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
                     Rectangle()
@@ -95,8 +98,42 @@ struct MealPlanView: View {
     private func revealMondayDinner(_ proxy: ScrollViewProxy) {
         guard plan != nil else { return }
         DispatchQueue.main.async {
-            proxy.scrollTo("plan-monday-dinner", anchor: .bottom)
+            proxy.scrollTo("plan-monday-bottom", anchor: .bottom)
         }
+    }
+
+    /// Targets stay outside the scrolling week so the fields cannot slide
+    /// under the Meals / Training switch.
+    private var targetsHeader: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
+            Picker("Goal", selection: $goal) {
+                ForEach(goals, id: \.id) { item in
+                    Text(item.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .tag(item.id)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("plan-goal")
+
+            HStack {
+                labeledField("Calories", text: $calories)
+                labeledField("Protein g", text: $protein)
+            }
+
+            Text("Prices vary by store and week.")
+                .font(.footnote)
+                .foregroundStyle(Theme.fmSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(Theme.Spacing.four)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.top, Theme.Spacing.two)
+        .padding(.bottom, Theme.Spacing.two)
     }
 
     private var scrollBody: some View {
@@ -107,32 +144,7 @@ struct MealPlanView: View {
                 Text("Build a week from your calorie and protein targets.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                VStack(spacing: Theme.Spacing.three) {
-                    Picker("Goal", selection: $goal) {
-                        ForEach(goals, id: \.id) { item in
-                            Text(item.label)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                                .tag(item.id)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("plan-goal")
-
-                    HStack {
-                        labeledField("Calories", text: $calories)
-                        labeledField("Protein g", text: $protein)
-                    }
-
-                    Text("Prices vary by store and week.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -150,10 +162,11 @@ struct MealPlanView: View {
             }
             .padding(.horizontal, Theme.Spacing.four)
             .padding(.top, Theme.Spacing.two)
-            .padding(.bottom, 96)
+            .padding(.bottom, 24)
         }
         .defaultScrollAnchor(.top)
-        .contentMargins(.bottom, 80, for: .scrollContent)
+        .scrollClipDisabled(false)
+        .contentMargins(.bottom, 16, for: .scrollContent)
     }
 
     private func planSummary(_ plan: MealPlanPayload) -> some View {
@@ -186,14 +199,16 @@ struct MealPlanView: View {
                 mealRow("Snack", day.meals?.snack)
                 if let totals = day.dailyTotals {
                     Text("Day total · \(totals.calories ?? 0) kcal · \(totals.protein ?? 0)g protein")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.fmSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.four)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+            .id(day.day == "Monday" ? "plan-monday-bottom" : nil)
         }
         }
     }

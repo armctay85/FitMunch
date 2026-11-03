@@ -172,7 +172,7 @@ final class HomeTabClearanceProbe: UIView {
     /// The buttons sit about 80pt from the bottom of the screen. A view that
     /// shares a tab name higher up is not the bar, and insetting to it leaves
     /// the empty band under the last meal card.
-    private static func tabButtonTop(in window: UIWindow) -> CGFloat? {
+    static func tabButtonTop(in window: UIWindow) -> CGFloat? {
         let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
         let bottom = window.bounds.maxY
         var tops: [CGFloat] = []
