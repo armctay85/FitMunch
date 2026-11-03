@@ -83,9 +83,9 @@ final class AppStoreScreenshotTests: XCTestCase {
     }
 
     private func signIn(email: String, password: String, relaunch: Bool = true) {
-        let signIn = app.buttons["Sign In"]
-        if signIn.waitForExistence(timeout: 15) {
-            signIn.tap()
+        let signInButton = app.buttons["Sign In"]
+        if signInButton.waitForExistence(timeout: 15) {
+            signInButton.tap()
         }
         let emailField = app.textFields["auth-email"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
