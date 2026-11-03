@@ -229,12 +229,21 @@ extension XCTestCase {
 
     func openUpgradePaywall(in app: XCUIApplication) {
         openTab("Me", in: app)
-        let upgrade = firstExisting([
+        var upgrade = firstExisting([
             app.buttons["settings-upgrade"],
             app.buttons["Upgrade"],
             app.buttons["settings-upgrade-premium"],
             app.buttons["Upgrade to Premium"],
         ])
+        if upgrade == nil {
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            upgrade = firstExisting([
+                app.buttons["settings-upgrade"],
+                app.buttons["Upgrade"],
+                app.buttons["settings-upgrade-premium"],
+                app.buttons["Upgrade to Premium"],
+            ])
+        }
         XCTAssertNotNil(upgrade, "Upgrade control missing on Me")
         upgrade?.tap()
         // Close is on screen as soon as the paywall is. Do not wait out a missing

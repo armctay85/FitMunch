@@ -294,17 +294,7 @@ struct SettingsView: View {
             .background(Theme.surface)
             .scrollClearsTabBar()
             .floatingTabBarInset()
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Theme.fmBackground
-                    .frame(height: 48)
-                    .accessibilityHidden(true)
-            }
-            .overlay(alignment: .bottom) {
-                Theme.fmBackground
-                    .frame(height: 108)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
+            .padding(.bottom, 120)
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {
