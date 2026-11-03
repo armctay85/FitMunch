@@ -103,6 +103,14 @@ final class AppStoreScreenshotTests: XCTestCase {
         let submit = app.buttons["auth-sign-in"]
         XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
         submit.tap()
+        if app.tabBars.firstMatch.waitForExistence(timeout: 20) { return }
+        let error = app.staticTexts["auth-error"]
+        if error.exists {
+            print("AUTH_ERROR \(error.label)")
+        }
+        if submit.isHittable {
+            submit.tap()
+        }
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 25), "Sign in did not reach the tabs")
     }
 
