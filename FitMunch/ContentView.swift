@@ -68,11 +68,10 @@ struct ContentView: View {
                 .accessibilityIdentifier("tab-me")
                 .tag(AppTab.me)
         }
-        .background {
+        .toolbarBackground(Theme.fmBackground.opacity(0.94), for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .overlay(alignment: .bottom) {
             TabBarChrome()
-                .frame(width: 0, height: 0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
         }
     }
 
@@ -122,168 +121,25 @@ enum TabBarSelector {
     }
 }
 
-/// Regular material and a 0.5pt hairline. Item frames stay on the system bar.
-private struct TabBarChrome: UIViewRepresentable {
-    func makeUIView(context: Context) -> Probe {
-        let view = Probe()
-        view.isUserInteractionEnabled = false
-        view.backgroundColor = .clear
-        view.isAccessibilityElement = false
-        return view
-    }
-
-    func updateUIView(_ uiView: Probe, context: Context) {
-        uiView.apply()
-    }
-
-    final class Probe: UIView {
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            apply()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            apply()
-        }
-
-        override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-            super.traitCollectionDidChange(previousTraitCollection)
-            apply()
-        }
-
-        func apply() {
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let window = self.window, let bar = Self.find(in: window) else { return }
-                let dark = window.traitCollection.userInterfaceStyle == .dark
-                let backingColor = (dark
-                    ? UIColor(red: 16.0 / 255, green: 26.0 / 255, blue: 20.0 / 255, alpha: 1)
-                    : UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
-                ).withAlphaComponent(0.94)
-                let hairline = dark
-                    ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 1)
-                    : UIColor(red: 217.0 / 255, green: 222.0 / 255, blue: 217.0 / 255, alpha: 1)
-                let appearance = UITabBarAppearance()
-                appearance.configureWithDefaultBackground()
-                appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
-                appearance.backgroundColor = backingColor
-                appearance.shadowColor = hairline
-                appearance.shadowImage = Self.hairlineImage(hairline)
-                bar.standardAppearance = appearance
-                bar.scrollEdgeAppearance = appearance
-                bar.isTranslucent = true
-                Self.installBacking(behind: bar, in: window, color: backingColor, hairline: hairline)
+/// Page color under the system material, plus a 0.5pt hairline.
+/// An overlay does not change the tab button frames or the meal cards.
+private struct TabBarChrome: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Theme.fmSeparator)
+                .frame(height: 0.5)
+            ZStack {
+                Theme.fmBackground.opacity(0.94)
+                Rectangle()
+                    .fill(.regularMaterial)
             }
         }
-
-        /// Page color under the floating glass. A sibling, not a layout change,
-        /// so the tab button top and the meal cards stay where they are.
-        private static let backingTag = 918_273
-
-        private static func installBacking(behind bar: UITabBar, in window: UIWindow, color: UIColor, hairline: UIColor) {
-            let glass = glassView(around: bar, in: window)
-            guard let parent = glass.superview else { return }
-            let backing: UIView
-            if let existing = parent.viewWithTag(backingTag) {
-                backing = existing
-            } else {
-                let view = UIView()
-                view.tag = backingTag
-                view.isUserInteractionEnabled = false
-                view.isAccessibilityElement = false
-                parent.insertSubview(view, belowSubview: glass)
-                backing = view
-            }
-            var frame = glass.frame
-            if let buttonTop = tabButtonTop(in: window) {
-                let limit = buttonTop - 10
-                let glassTop = glass.convert(glass.bounds, to: window).minY
-                if glassTop < limit {
-                    let cut = limit - glassTop
-                    frame.origin.y += cut
-                    frame.size.height -= cut
-                }
-            }
-            backing.frame = frame
-            backing.backgroundColor = color
-            backing.layer.cornerRadius = max(glass.layer.cornerRadius, 28)
-            backing.layer.cornerCurve = .continuous
-            backing.clipsToBounds = true
-            let lineTag = backingTag + 1
-            let line: UIView
-            if let existing = backing.viewWithTag(lineTag) {
-                line = existing
-            } else {
-                let view = UIView()
-                view.tag = lineTag
-                view.isUserInteractionEnabled = false
-                backing.addSubview(view)
-                line = view
-            }
-            line.backgroundColor = hairline
-            line.frame = CGRect(x: 0, y: 0, width: backing.bounds.width, height: 0.5)
-        }
-
-        /// Highest tab button. The backing stays at this line so meal cards above it are untouched.
-        private static func tabButtonTop(in window: UIWindow) -> CGFloat? {
-            let names: Set<String> = ["Today", "Plan", "Scan", "Coach", "Me"]
-            var tops: [CGFloat] = []
-            func walk(_ view: UIView) {
-                if let label = view.accessibilityLabel, names.contains(label) {
-                    let frame = view.convert(view.bounds, to: window)
-                    if frame.height > 16, frame.minY > window.bounds.maxY - 150 {
-                        tops.append(frame.minY)
-                    }
-                }
-                for child in view.subviews { walk(child) }
-            }
-            walk(window)
-            return tops.min()
-        }
-
-        /// The visual pill. UITabBar.bounds sits under that glass.
-        private static func glassView(around bar: UITabBar, in window: UIWindow) -> UIView {
-            var best = bar
-            var bestTop = bar.convert(bar.bounds, to: window).minY
-            func consider(_ view: UIView) {
-                let frame = view.convert(view.bounds, to: window)
-                guard frame.width > window.bounds.width * 0.7 else { return }
-                guard frame.height > 48, frame.height < 140 else { return }
-                guard frame.maxY > window.bounds.maxY - 12 else { return }
-                guard frame.minY > window.bounds.maxY - 170 else { return }
-                if frame.minY < bestTop {
-                    bestTop = frame.minY
-                    best = view
-                }
-            }
-            var node: UIView? = bar
-            var levels = 0
-            while let current = node, levels < 4 {
-                consider(current)
-                for child in current.subviews {
-                    consider(child)
-                }
-                node = current.superview
-                levels += 1
-            }
-            return best
-        }
-
-        private static func hairlineImage(_ color: UIColor) -> UIImage {
-            let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 0.5))
-            return renderer.image { _ in
-                color.setFill()
-                UIRectFill(CGRect(x: 0, y: 0, width: 1, height: 0.5))
-            }
-        }
-
-        private static func find(in view: UIView) -> UITabBar? {
-            if let bar = view as? UITabBar { return bar }
-            for child in view.subviews {
-                if let found = find(in: child) { return found }
-            }
-            return nil
-        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 88)
+        .ignoresSafeArea(edges: .bottom)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
