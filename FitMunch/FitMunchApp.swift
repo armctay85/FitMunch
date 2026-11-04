@@ -17,6 +17,7 @@ struct FitMunchApp: App {
         LaunchFrameCapture.holdIfRequested()
         #endif
         OpaqueBars.apply()
+        FloatingBarBacking.applyGlobals()
         AppearanceLaunch.prepare()
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
         _auth = StateObject(wrappedValue: AuthManager.shared)

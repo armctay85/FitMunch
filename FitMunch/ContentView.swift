@@ -70,6 +70,11 @@ struct ContentView: View {
         }
         .toolbarBackground(Theme.fmBackground.opacity(0.94), for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
+        .background {
+            FloatingBarFillInstaller()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 
     private func openPrivacy() {

@@ -2,7 +2,7 @@ import StoreKitTest
 import XCTest
 
 /// One pass for the CI screen recording: onboarding, the StoreKit paywall,
-/// Today, a logged meal, then Plan, Scan, Coach, and Me.
+/// QA sign-in, Today, a logged meal, then Plan, Scan, Coach, and Me.
 /// The workflow starts `xcrun simctl io recordVideo` after `app-ready`.
 final class FlowRecordingUITests: XCTestCase {
     private let readyDir = "/tmp/fitmunch-flow-recording"
@@ -30,6 +30,7 @@ final class FlowRecordingUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "-AuditOnboarding",
+            "-FlowQA",
             "-UseLocalStoreKit",
             "-ForceLightMode",
         ]
@@ -80,7 +81,9 @@ final class FlowRecordingUITests: XCTestCase {
         let start = app.buttons["onboarding-get-started"]
         XCTAssertTrue(start.waitForExistence(timeout: 8))
         start.tap()
-        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12), "Today did not appear after onboarding")
+        signInQA(in: app)
+        assertReviewerHidden(in: app)
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12), "Today did not appear after QA sign-in")
         hold(1.5)
 
         logAMeal(in: app)
@@ -95,39 +98,34 @@ final class FlowRecordingUITests: XCTestCase {
         openTab("Coach", in: app)
         allowConsentIfNeeded(in: app)
         hold(1.6)
+        assertReviewerHidden(in: app)
         openTab("Me", in: app)
-        signInQA(in: app)
         XCTAssertFalse(app.staticTexts["Reviewer"].exists, "Me is still the Reviewer seed")
         XCTAssertTrue(app.staticTexts["FitMunch QA"].waitForExistence(timeout: 12), "QA account did not appear on Me")
+        assertReviewerHidden(in: app)
         hold(1.6)
     }
 
+    /// QA sign-in runs before any tab, so Me never shows the Reviewer seed.
     private func signInQA(in app: XCUIApplication) {
-        if app.staticTexts["FitMunch QA"].waitForExistence(timeout: 2) { return }
         let email = qaValue("QA_EMAIL")
         let password = qaValue("QA_PASSWORD")
         XCTAssertFalse(email.isEmpty || password.isEmpty, "QA_EMAIL and QA_PASSWORD are not set")
-        let scroller = app.scrollViews.firstMatch
-        var logout = app.buttons["Log Out"].firstMatch
-        var hops = 0
-        while !(logout.exists && logout.isHittable), hops < 8 {
-            if scroller.exists {
-                scroller.swipeUp()
-            } else {
-                app.swipeUp()
-            }
-            hops += 1
-            logout = app.buttons["Log Out"].firstMatch
-        }
-        XCTAssertTrue(logout.waitForExistence(timeout: 4), "Log Out missing")
-        XCTAssertTrue(logout.isHittable, "Log Out is not hittable")
-        logout.tap()
-        let confirm = app.alerts["Log Out"].buttons["Log Out"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 6), "Log Out confirmation missing")
-        confirm.tap()
-        let signInButton = app.buttons["Sign In"]
-        if signInButton.waitForExistence(timeout: 8) {
+        XCTAssertFalse(
+            email.localizedCaseInsensitiveContains("review@fitmunch.com.au"),
+            "QA_EMAIL is the Reviewer address"
+        )
+        let segment = app.segmentedControls.buttons["Sign In"]
+        if segment.waitForExistence(timeout: 12) {
+            segment.tap()
+        } else {
+            let signInButton = app.buttons["Sign In"]
+            XCTAssertTrue(signInButton.waitForExistence(timeout: 8), "Sign In did not appear before Me")
             signInButton.tap()
+        }
+        if !app.buttons["auth-sign-in"].waitForExistence(timeout: 2) {
+            let signInButton = app.buttons["Sign In"]
+            if signInButton.exists { signInButton.tap() }
         }
         let emailField = app.textFields["auth-email"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
@@ -149,7 +147,14 @@ final class FlowRecordingUITests: XCTestCase {
         XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
         submit.tap()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "QA sign-in did not reach the tabs")
-        openTab("Me", in: app)
+    }
+
+    private func assertReviewerHidden(in app: XCUIApplication) {
+        let pred = NSPredicate(format: "label CONTAINS[c] %@", "review@fitmunch.com.au")
+        XCTAssertFalse(app.staticTexts.matching(pred).firstMatch.exists, "Reviewer email is on screen")
+        XCTAssertFalse(app.textFields.matching(pred).firstMatch.exists, "Reviewer email is in a field")
+        XCTAssertFalse(app.buttons.matching(pred).firstMatch.exists, "Reviewer email is on a button")
+        XCTAssertFalse(app.staticTexts["Reviewer"].exists, "Reviewer name is on screen")
     }
 
     private func qaValue(_ key: String) -> String {

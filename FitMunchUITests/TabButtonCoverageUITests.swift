@@ -34,20 +34,37 @@ final class TabButtonCoverageUITests: XCTestCase {
         )
 
         bar.buttons["Today"].tap()
+        XCTAssertTrue(app.staticTexts["Breakfast"].waitForExistence(timeout: 12), "Today meals did not load")
+        let todayAtTop = mealCards(in: app)
+        XCTAssertFalse(todayAtTop.isEmpty, "Today meal card missing at the top")
+        let todayTopFrame = todayAtTop.last!.frame
+        saveShot("today-top-\(Int(width.rounded())).png")
         let lastCard = scrollToLastMealCard(in: app)
         let cardFrame = lastCard.frame
         XCTAssertGreaterThan(cardFrame.height, 40, "Last Today card has no frame")
+        saveShot("today-max-\(Int(width.rounded())).png")
 
         bar.buttons["Me"].tap()
+        let meTopLine = meFrameAtTop(in: app)
+        saveShot("me-top-\(Int(width.rounded())).png")
         let lastRow = scrollToLastMeRow(in: app)
         let rowFrame = lastRow.frame
         XCTAssertGreaterThan(rowFrame.height, 20, "Last Me row has no frame")
+        saveShot("me-max-\(Int(width.rounded())).png")
 
-        let lines = [
+        var lines = [
             "TAB_FRAME width=\(Int(width.rounded())) height=\(Int(height.rounded()))",
-            "TAB_FRAME today-last maxY=\(cardFrame.maxY) minY=\(cardFrame.minY) height=\(cardFrame.height)",
-            "TAB_FRAME me-last maxY=\(rowFrame.maxY) minY=\(rowFrame.minY) height=\(rowFrame.height)",
+            "TAB_FRAME today-last-top maxY=\(todayTopFrame.maxY) minY=\(todayTopFrame.minY) height=\(todayTopFrame.height)",
+            "TAB_FRAME today-last-max maxY=\(cardFrame.maxY) minY=\(cardFrame.minY) height=\(cardFrame.height)",
+            meTopLine,
+            "TAB_FRAME me-last-max maxY=\(rowFrame.maxY) minY=\(rowFrame.minY) height=\(rowFrame.height)",
         ]
+        for name in names {
+            let frame = bar.buttons[name].frame
+            lines.append(
+                "TAB_FRAME button \(name) minY=\(frame.minY) maxY=\(frame.maxY) width=\(frame.width) height=\(frame.height)"
+            )
+        }
         for line in lines {
             print(line)
         }
@@ -125,6 +142,25 @@ final class TabButtonCoverageUITests: XCTestCase {
             }
         }
         return row
+    }
+
+    /// Last Me row at rest. It is off screen until the list scrolls, so the
+    /// resting frame is the bottom of what is actually on screen.
+    private func meFrameAtTop(in app: XCUIApplication) -> String {
+        let row = app.buttons["settings-delete-account"]
+        if row.exists, row.frame.height > 20 {
+            return "TAB_FRAME me-last-top maxY=\(row.frame.maxY) minY=\(row.frame.minY) height=\(row.frame.height)"
+        }
+        let progress = app.buttons["me-progress"]
+        XCTAssertTrue(progress.waitForExistence(timeout: 8), "Me did not load")
+        return "TAB_FRAME me-last-top absent progressMaxY=\(progress.frame.maxY) minY=\(progress.frame.minY) height=\(progress.frame.height)"
+    }
+
+    private func saveShot(_ name: String) {
+        let dir = URL(fileURLWithPath: "/tmp/fitmunch-width-capture", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let data = XCUIScreen.main.screenshot().pngRepresentation
+        try? data.write(to: dir.appendingPathComponent(name))
     }
 
     private func writeFrames(_ lines: [String], width: CGFloat) {

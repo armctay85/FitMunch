@@ -49,13 +49,17 @@ final class AuthManager: ObservableObject {
             isAuthenticated = true
             isRestoring = false
         } else if AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
-            user = APIUser(
-                id: "review-user",
-                name: ReviewLaunch.personaName,
-                email: ReviewLaunch.personaEmail,
-                subscriptionTier: "free",
-                role: "client"
-            )
+            // The flow recording signs in as the QA account before Me. Leave
+            // the Reviewer seed unset so that email is never on screen.
+            if !AuditLaunch.isFlowQA {
+                user = APIUser(
+                    id: "review-user",
+                    name: ReviewLaunch.personaName,
+                    email: ReviewLaunch.personaEmail,
+                    subscriptionTier: "free",
+                    role: "client"
+                )
+            }
             isAuthenticated = true
             isRestoring = false
             UserDefaults.standard.set(true, forKey: "notificationsEnabled")
@@ -82,6 +86,9 @@ final class AuthManager: ObservableObject {
         }
         if ScreenshotLaunch.isActive || ReviewLaunch.isActive || AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
             isRestoring = false
+            if AuditLaunch.isFlowQA && user == nil && !isAuthenticated {
+                return
+            }
             isAuthenticated = true
             return
         }

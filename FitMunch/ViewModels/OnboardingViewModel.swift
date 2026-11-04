@@ -62,6 +62,9 @@ class OnboardingViewModel: ObservableObject {
         
         // Save to UserDefaults
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+        if AuditLaunch.isFlowQA {
+            AuthManager.shared.logout()
+        }
         
         // In a real app, you would save the user profile to SwiftData here
         // For now, we'll just mark onboarding as complete
