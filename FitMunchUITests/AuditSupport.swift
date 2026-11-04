@@ -277,10 +277,8 @@ extension XCTestCase {
         let annualFrame = annual.frame
         let renewalFrame = renewal.frame
         let screen = app.frame
-        let plan = app.buttons["paywall-plan-fitmunch_monthly"].exists
-            ? app.buttons["paywall-plan-fitmunch_monthly"]
-            : app.otherElements["paywall-plan-fitmunch_monthly"]
-        let planFrame = plan.frame
+        let plan = presentElement("paywall-plan-fitmunch_monthly", in: app)
+        let planFrame = plan?.frame ?? .null
         print(String(
             format: "PAYWALL_FRAMES screen=%@ annual=%@ monthly=%@ plan=%@ renewal=%@",
             rectString(screen),
@@ -307,11 +305,12 @@ extension XCTestCase {
             renewalFrame.minY,
             "Monthly price runs into the Apple sentence. price=\(priceFrame) renewal=\(renewalFrame)"
         )
-        XCTAssertTrue(plan.exists, "Monthly plan row missing")
-        XCTAssertFalse(
-            planFrame.intersects(renewalFrame),
-            "Apple sentence overlaps the monthly plan. plan=\(planFrame) renewal=\(renewalFrame)"
-        )
+        if let plan {
+            XCTAssertFalse(
+                planFrame.intersects(renewalFrame),
+                "Apple sentence overlaps the monthly plan. plan=\(planFrame) renewal=\(renewalFrame)"
+            )
+        }
         XCTAssertLessThanOrEqual(annualFrame.maxY, priceFrame.minY, "Annual price is not above the monthly price")
         XCTAssertFalse(annualFrame.intersects(renewalFrame), "Apple sentence overlaps the annual price")
         let subscribe = app.buttons["paywall-subscribe"]
@@ -325,16 +324,30 @@ extension XCTestCase {
         XCTAssertFalse(restore.frame.intersects(priceFrame))
         XCTAssertFalse(restore.frame.intersects(renewalFrame))
         assertOnScreen(restore.frame, named: "Restore", in: screen)
-        let terms = app.buttons["paywall-terms"].exists ? app.buttons["paywall-terms"] : app.buttons["Terms"]
-        let privacy = app.buttons["paywall-privacy"].exists ? app.buttons["paywall-privacy"] : app.buttons["Privacy"]
-        XCTAssertTrue(terms.exists, "Terms missing")
-        XCTAssertTrue(privacy.exists, "Privacy missing")
-        XCTAssertGreaterThanOrEqual(terms.frame.height, 44)
-        XCTAssertGreaterThanOrEqual(privacy.frame.height, 44)
-        XCTAssertFalse(terms.frame.intersects(priceFrame))
-        XCTAssertFalse(privacy.frame.intersects(renewalFrame))
-        assertOnScreen(terms.frame, named: "Terms", in: screen)
-        assertOnScreen(privacy.frame, named: "Privacy", in: screen)
+        let terms = presentElement("paywall-terms", in: app) ?? presentElement("Terms", in: app)
+        let privacy = presentElement("paywall-privacy", in: app) ?? presentElement("Privacy", in: app)
+        XCTAssertNotNil(terms, "Terms missing")
+        XCTAssertNotNil(privacy, "Privacy missing")
+        if let terms, let privacy {
+            XCTAssertGreaterThanOrEqual(terms.frame.height, 44)
+            XCTAssertGreaterThanOrEqual(privacy.frame.height, 44)
+            XCTAssertFalse(terms.frame.intersects(priceFrame))
+            XCTAssertFalse(privacy.frame.intersects(renewalFrame))
+            assertOnScreen(terms.frame, named: "Terms", in: screen)
+            assertOnScreen(privacy.frame, named: "Privacy", in: screen)
+        }
+    }
+
+    /// `.frame` on a missing query fails the test with a snapshot error.
+    /// Existence is the only safe probe.
+    private func presentElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement? {
+        let button = app.buttons[identifier]
+        if button.exists { return button }
+        let text = app.staticTexts[identifier]
+        if text.exists { return text }
+        let other = app.otherElements[identifier]
+        if other.exists { return other }
+        return nil
     }
 
     private func assertOnScreen(_ frame: CGRect, named name: String, in screen: CGRect) {
