@@ -82,7 +82,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         return lines.dropFirst().first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
-    private func signIn(email: String, password: String, relaunch: Bool = true) {
+    private func signIn(email: String, password: String, attempts: Int = 2) {
         let signInButton = app.buttons["Sign In"]
         if signInButton.waitForExistence(timeout: 15) {
             signInButton.tap()
@@ -107,13 +107,13 @@ final class AppStoreScreenshotTests: XCTestCase {
         XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
         submit.tap()
         if reachedTabs(in: app, submit: submit) { return }
-        guard relaunch else {
+        guard attempts > 0 else {
             XCTFail("Sign in did not reach the tabs")
             return
         }
         app.terminate()
         app.launch()
-        signIn(email: email, password: password, relaunch: false)
+        signIn(email: email, password: password, attempts: attempts - 1)
     }
 
     /// A slow login stays on the auth screen with no error line. One extra tap, then give up.
