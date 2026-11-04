@@ -131,6 +131,9 @@ final class FlowRecordingUITests: XCTestCase {
         let emailField = app.textFields["auth-email"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
         emailField.tap()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
+            emailField.tap()
+        }
         emailField.typeText(email)
         let passwordField = app.secureTextFields["auth-password"]
         XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field missing")
