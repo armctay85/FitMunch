@@ -16,12 +16,12 @@ enum FloatingBarBacking {
         proxy.unselectedItemTintColor = TabBarContrast.normalUIColor
     }
 
-    /// Styles the live bar and places the wash. Returns true once the wash has a real frame.
+    /// Styles the live bar and places the wash in front of the glass, behind the tabs.
     @discardableResult
     static func refresh(in window: UIWindow) -> Bool {
         guard let bar = tabBar(in: window) else { return false }
         styleIfNeeded(bar)
-        return placeFill(on: bar)
+        return placeFill(in: window, bar: bar)
     }
 
     private static var styledKey: UInt8 = 0
@@ -76,50 +76,62 @@ enum FloatingBarBacking {
         return nil
     }
 
-    /// Wash shares the buttons' superview and stays behind them, so taps hit the tabs.
-    private static func placeFill(on bar: UITabBar) -> Bool {
-        guard let anchor = firstButton(in: bar), let parent = anchor.superview else { return false }
-        guard parent.bounds.width > 40, parent.bounds.height > 20 else { return false }
-        let fill = (bar.viewWithTag(FloatingBarFill.viewTag) as? FloatingBarFill) ?? FloatingBarFill()
+    /// The wash sits inside the floating pill, above its blur and behind the tab buttons.
+    private static func placeFill(in window: UIWindow, bar: UITabBar) -> Bool {
+        guard let pill = pill(in: window, bar: bar) else { return false }
+        let host: UIView
+        if let effect = pill as? UIVisualEffectView {
+            host = effect.contentView
+        } else {
+            host = pill
+        }
+        guard host.bounds.width > 80, host.bounds.height > 20 else { return false }
+        let fill = (window.viewWithTag(FloatingBarFill.viewTag) as? FloatingBarFill) ?? FloatingBarFill()
         fill.tag = FloatingBarFill.viewTag
         fill.isUserInteractionEnabled = false
         fill.accessibilityElementsHidden = true
-        let shape = shapeView(around: parent)
-        let target = shape.convert(shape.bounds, to: parent)
-        guard target.width > 80, target.height > 20 else { return false }
-        let radius = shape.layer.cornerRadius
-        let samePlace = fill.superview === parent
-            && framesClose(fill.frame, target)
+        let radius = pill.layer.cornerRadius
+        let samePlace = fill.superview === host
+            && framesClose(fill.frame, host.bounds)
             && abs(fill.layer.cornerRadius - radius) < 0.5
         if !samePlace {
-            if shape !== parent, shape.superview === parent {
-                parent.insertSubview(fill, aboveSubview: shape)
-            } else if fill.superview !== parent {
-                parent.insertSubview(fill, at: 0)
+            if fill.superview !== host {
+                host.insertSubview(fill, at: 0)
             }
-            fill.frame = target
+            fill.frame = host.bounds
+            fill.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             fill.layer.cornerRadius = radius
-            fill.layer.maskedCorners = shape.layer.maskedCorners
+            fill.layer.maskedCorners = pill.layer.maskedCorners
             fill.clipsToBounds = true
         }
-        keepButtonsInFront(of: fill, in: parent)
+        keepButtonsInFront(of: fill, in: host)
+        if host !== pill {
+            keepButtonsInFront(of: fill, in: pill)
+        }
         return fill.bounds.width > 80 && fill.bounds.height > 20
     }
 
-    /// The rounded chrome when the buttons sit on a pill. Otherwise the button container.
-    private static func shapeView(around parent: UIView) -> UIView {
-        if parent.layer.cornerRadius >= 12 { return parent }
-        var best: UIView?
-        var bestRadius: CGFloat = 0
+    /// Rounded pill in the bottom band. Falls back to a bottom visual-effect view.
+    private static func pill(in window: UIWindow, bar: UITabBar) -> UIView? {
+        let bandTop = window.bounds.maxY - 240
+        var rounded: UIView?
+        var roundedRadius: CGFloat = 0
+        var effect: UIView?
         func consider(_ view: UIView) {
-            if view is FloatingBarFill || isTabButton(view) { return }
+            if view is FloatingBarFill || view is UITabBar { return }
+            let frame = view.convert(view.bounds, to: window)
+            guard frame.minY >= bandTop, frame.maxY <= window.bounds.maxY + 2 else { return }
+            guard frame.width > 160, frame.height > 36, frame.height < 150 else { return }
             let radius = view.layer.cornerRadius
-            let size = view.bounds.size
-            guard radius > bestRadius, radius >= 12, size.width > 80, size.height > 20, size.height < 160 else { return }
-            let frame = view.convert(view.bounds, to: parent)
-            guard frame.width <= parent.bounds.width + 8, frame.height <= parent.bounds.height + 8 else { return }
-            best = view
-            bestRadius = radius
+            let name = NSStringFromClass(type(of: view))
+            let namedChrome = name.contains("Platter") || name.contains("Glass") || name.contains("Liquid") || name.contains("Pill")
+            if (radius >= 16 || namedChrome), radius >= roundedRadius {
+                rounded = view
+                roundedRadius = max(radius, roundedRadius)
+            }
+            if view is UIVisualEffectView, effect == nil || frame.width > (effect?.bounds.width ?? 0) {
+                effect = view
+            }
         }
         func walk(_ view: UIView) {
             consider(view)
@@ -127,13 +139,10 @@ enum FloatingBarBacking {
                 walk(subview)
             }
         }
-        for subview in parent.subviews {
-            walk(subview)
-        }
-        if let above = parent.superview {
-            consider(above)
-        }
-        return best ?? parent
+        walk(window)
+        if let rounded { return rounded }
+        if let effect { return effect }
+        return bar.bounds.height > 20 ? bar : nil
     }
 
     private static func keepButtonsInFront(of fill: FloatingBarFill, in parent: UIView) {
@@ -146,20 +155,17 @@ enum FloatingBarBacking {
         }
     }
 
-    private static func firstButton(in view: UIView) -> UIView? {
-        if isTabButton(view) { return view }
-        for subview in view.subviews {
-            if let found = firstButton(in: subview) { return found }
-        }
-        return nil
-    }
-
     private static func isTabButton(_ view: UIView) -> Bool {
         if view is FloatingBarFill || view is UITabBar { return false }
+        let label = view.accessibilityLabel ?? ""
+        let size = view.bounds.size
+        if ["Today", "Plan", "Scan", "Coach", "Me"].contains(label),
+           size.width > 20, size.height > 20, size.width < 160 {
+            return true
+        }
         let name = NSStringFromClass(type(of: view))
         if name.contains("TabBarButton") || name.contains("TabButton") { return true }
         guard view is UIControl else { return false }
-        let size = view.bounds.size
         return size.width > 24 && size.width < 140 && size.height > 24 && size.height < 90
     }
 
@@ -236,11 +242,6 @@ final class FloatingBarFillProbe: UIView {
 
     func refresh() {
         guard let window else { return }
-        if window.viewWithTag(FloatingBarFill.viewTag) is FloatingBarFill,
-           let fill = window.viewWithTag(FloatingBarFill.viewTag),
-           fill.bounds.width > 80, fill.bounds.height > 20 {
-            return
-        }
         FloatingBarBacking.refresh(in: window)
     }
 }
