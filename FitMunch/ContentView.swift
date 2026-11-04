@@ -70,9 +70,6 @@ struct ContentView: View {
         }
         .toolbarBackground(Theme.fmBackground.opacity(0.94), for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .overlay(alignment: .bottom) {
-            TabBarChrome()
-        }
     }
 
     private func openPrivacy() {
@@ -118,28 +115,6 @@ enum TabBarSelector {
             select(title: title, in: child)
         }
         select(title: title, in: controller.presentedViewController)
-    }
-}
-
-/// Page color under the system material, plus a 0.5pt hairline.
-/// An overlay does not change the tab button frames or the meal cards.
-private struct TabBarChrome: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(Theme.fmSeparator)
-                .frame(height: 0.5)
-            ZStack {
-                Theme.fmBackground.opacity(0.94)
-                Rectangle()
-                    .fill(.regularMaterial)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 88)
-        .ignoresSafeArea(edges: .bottom)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 

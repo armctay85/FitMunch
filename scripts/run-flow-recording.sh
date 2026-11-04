@@ -16,6 +16,13 @@ bash "$ROOT/scripts/set-simulator-region-au.sh" "$UDID"
 
 rm -rf /tmp/fitmunch-flow-recording
 mkdir -p /tmp/fitmunch-flow-recording
+if [[ -n "${QA_EMAIL:-}" && -n "${QA_PASSWORD:-}" ]]; then
+  umask 077
+  printf '%s\n%s\n' "$QA_EMAIL" "$QA_PASSWORD" > /tmp/fitmunch-qa-credentials
+  echo "Me recording will sign in. Credentials are not printed."
+else
+  echo "QA_EMAIL or QA_PASSWORD is unset."
+fi
 
 VIDEO="$OUT/main-flows.mp4"
 rm -f /tmp/fitmunch-flow-recording/app-ready /tmp/fitmunch-flow-recording/record-ready
@@ -61,6 +68,7 @@ fi
 
 wait "$XCODE_PID"
 FLOW_STATUS=$?
+rm -f /tmp/fitmunch-qa-credentials
 set -e
 
 sleep 2

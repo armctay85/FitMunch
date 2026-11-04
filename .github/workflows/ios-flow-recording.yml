@@ -45,6 +45,9 @@ jobs:
         run: xcodegen generate
 
       - name: Record main flows
+        env:
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
         run: bash scripts/run-flow-recording.sh
 
       - name: Upload flow recording

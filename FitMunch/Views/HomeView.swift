@@ -68,7 +68,7 @@ struct HomeView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
-                    .frame(height: tabClearance)
+                    .frame(height: tabClearance + 16)
                     .accessibilityHidden(true)
             }
             .background {
@@ -106,6 +106,7 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                     .frame(width: 56, height: 56)
                     .fixedSize()
+                    .offset(y: 8)
                     .contentShape(Circle())
                     .accessibilityLabel("Log a meal")
                     .uniqueButtonIdentifier("today-log-meal")

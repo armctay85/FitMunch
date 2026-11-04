@@ -180,16 +180,6 @@ struct MealPlanView: View {
                 Text(summary)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: Theme.Spacing.four) {
-                if let calories = plan.avgDailyCalories {
-                    metric("Avg kcal", "\(calories)")
-                }
-                if let protein = plan.avgDailyProtein {
-                    metric("Avg protein", "\(protein)g")
-                }
-            }
-            .opacity(0)
-            .accessibilityHidden(true)
         }
 
         ForEach(plan.days ?? [], id: \.day) { day in
@@ -260,17 +250,6 @@ struct MealPlanView: View {
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
         }
-    }
-
-    private func metric(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.headline.monospacedDigit())
-                .fontDesign(.rounded)
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label) \(value)")
     }
 
     /// The id is on the meal-name text, a leaf static text. Container ids were

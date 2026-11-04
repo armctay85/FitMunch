@@ -88,6 +88,7 @@ jobs:
               -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
               -derivedDataPath "$DERIVED" \
               -only-testing:"FitMunchUITests/Batch2WidthCaptureUITests" \
+              -only-testing:"FitMunchUITests/TabButtonCoverageUITests" \
               -testLanguage en \
               -testRegion AU \
               -parallel-testing-enabled NO \

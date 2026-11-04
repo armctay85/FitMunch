@@ -37,6 +37,7 @@ schemes:
         - FitMunchUITests
       language: en
       region: AU
+      storeKitConfiguration: FitMunchUITests/FitMunchProducts.storekit
   # Same app, no StoreKit configuration, so Product.products hits sandbox/App Store.
   FitMunchSandboxProbe:
     build:

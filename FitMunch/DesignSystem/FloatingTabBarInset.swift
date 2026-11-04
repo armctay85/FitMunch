@@ -37,10 +37,12 @@ extension View {
 /// Reads the on-screen tab bar. The inset is the part of that bar which
 /// sits above the window's bottom safe area.
 private struct TabBarOverlapReader: UIViewRepresentable {
+    var contentInset = false
     var onOverlap: (CGFloat) -> Void
 
     func makeUIView(context: Context) -> TabBarOverlapProbe {
         let view = TabBarOverlapProbe()
+        view.measuresContentInset = contentInset
         view.onOverlap = onOverlap
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
@@ -48,13 +50,46 @@ private struct TabBarOverlapReader: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: TabBarOverlapProbe, context: Context) {
+        uiView.measuresContentInset = contentInset
         uiView.onOverlap = onOverlap
         uiView.report()
     }
 }
 
+/// Bottom inset of the tab bar's height plus 16pt, after the safe area
+/// the scroll view already applies. Today and Me use this so resting
+/// content ends above the bar.
+struct RestsClearOfTabBar: ViewModifier {
+    @State private var inset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: inset)
+                    .accessibilityHidden(true)
+            }
+            .background {
+                TabBarOverlapReader(contentInset: true) { measured in
+                    guard abs(measured - inset) > 0.5 else { return }
+                    inset = measured
+                }
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+    }
+}
+
+extension View {
+    func restsClearOfTabBar() -> some View {
+        modifier(RestsClearOfTabBar())
+    }
+}
+
 private final class TabBarOverlapProbe: UIView {
     var onOverlap: ((CGFloat) -> Void)?
+    var measuresContentInset = false
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -78,7 +113,14 @@ private final class TabBarOverlapProbe: UIView {
             let chromeTop = Self.chromeTop(of: tabBar, in: window, containerTop: frame.minY)
             let safeBottom = window.bounds.maxY - window.safeAreaInsets.bottom
             let overlap = min(160, max(0, safeBottom - chromeTop))
-            self.onOverlap?(overlap.rounded())
+            let reported: CGFloat
+            if self.measuresContentInset {
+                let barHeight = window.bounds.maxY - chromeTop
+                reported = min(180, max(0, barHeight + 16 - window.safeAreaInsets.bottom))
+            } else {
+                reported = overlap
+            }
+            self.onOverlap?(reported.rounded())
         }
     }
 

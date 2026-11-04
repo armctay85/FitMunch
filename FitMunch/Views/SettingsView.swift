@@ -284,6 +284,7 @@ struct SettingsView: View {
                     Button("Delete Account", role: .destructive) {
                         showDeleteAlert = true
                     }
+                    .accessibilityIdentifier("settings-delete-account")
                 } header: {
                     sectionHeader("Account")
                 }
@@ -292,7 +293,7 @@ struct SettingsView: View {
             .navigationTitle("Me")
             .scrollContentBackground(.hidden)
             .background(Theme.surface)
-            .floatingTabBarInset()
+            .restsClearOfTabBar()
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {
