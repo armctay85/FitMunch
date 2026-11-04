@@ -292,9 +292,7 @@ struct SettingsView: View {
             .navigationTitle("Me")
             .scrollContentBackground(.hidden)
             .background(Theme.surface)
-            .scrollClearsTabBar()
             .floatingTabBarInset()
-            .padding(.bottom, 48)
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {

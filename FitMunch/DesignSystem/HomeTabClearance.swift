@@ -150,7 +150,7 @@ final class HomeTabClearanceProbe: UIView {
         guard let window else { return }
         guard let buttonTop = Self.tabButtonTop(in: window) else { return }
         let safeBottom = window.bounds.maxY - window.safeAreaInsets.bottom
-        maskAfterSecondMealCard()
+        scrollView?.layer.mask = nil
         let overlap = max(0, safeBottom - buttonTop).rounded()
         guard abs(overlap - lastReported) > 0.5 else { return }
         lastReported = overlap
@@ -158,36 +158,6 @@ final class HomeTabClearanceProbe: UIView {
         DispatchQueue.main.async {
             report?(overlap)
         }
-    }
-
-    /// Breakfast and Lunch stay whole. The mask starts at Lunch's bottom edge,
-    /// so Dinner does not paint and no card is sliced.
-    private func maskAfterSecondMealCard() {
-        guard let scroll = scrollView, let window else { return }
-        let frames = markers(in: window).compactMap { marker -> CGRect? in
-            let frame = marker.convert(marker.bounds, to: window)
-            guard frame.width > 200, frame.height >= 100, frame.height < 140 else { return nil }
-            return frame
-        }.sorted { $0.minY < $1.minY }
-        guard frames.count >= 2 else {
-            scroll.layer.mask = nil
-            return
-        }
-        // Markers often stop inside the chip row. 22pt reaches the card padding,
-        // still above Dinner.
-        let edge = scroll.convert(CGPoint(x: 0, y: frames[1].maxY + 22), from: window).y
-        let top = scroll.bounds.minY
-        let height = edge - top
-        guard height > 80 else {
-            scroll.layer.mask = nil
-            return
-        }
-        let mask = (scroll.layer.mask as? CAShapeLayer) ?? CAShapeLayer()
-        mask.frame = scroll.bounds
-        mask.path = UIBezierPath(
-            rect: CGRect(x: scroll.bounds.minX, y: top, width: scroll.bounds.width, height: height)
-        ).cgPath
-        scroll.layer.mask = mask
     }
 
     /// How far this scroll view extends below the tab buttons.

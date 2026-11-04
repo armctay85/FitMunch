@@ -10,7 +10,11 @@ struct FloatingTabBarInset: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .safeAreaPadding(.bottom, overlap)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Theme.fmBackground
+                    .frame(height: overlap)
+                    .accessibilityHidden(true)
+            }
             .background {
                 TabBarOverlapReader { measured in
                     guard abs(measured - overlap) > 0.5 else { return }

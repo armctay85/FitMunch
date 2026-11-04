@@ -68,34 +68,55 @@ hold_logged() {
 
 # Per-device file written at the start of the hold. A shared /tmp or $HOME
 # marker would still be present from the other simulator.
-MARKER="$HOME/Library/Developer/CoreSimulator/Devices/${UDID}/data/fitmunch-launch-holding"
+DEVICE="$HOME/Library/Developer/CoreSimulator/Devices/${UDID}"
+MARKER="$DEVICE/data/fitmunch-launch-holding"
 rm -f "$MARKER"
+find "$DEVICE" -name 'fitmunch-launch-confirmed' -delete >/dev/null 2>&1 || true
+find "$DEVICE" -name 'fitmunch-launch-holding' -delete >/dev/null 2>&1 || true
 
 hold_ready() {
   [[ -f "$MARKER" ]] && return 0
+  if find "$DEVICE/data" -name 'fitmunch-launch-holding' -mmin -3 2>/dev/null | grep -q .; then
+    return 0
+  fi
   hold_logged
 }
 
-# Do not shoot merely because the process exists. That frame is black, and on
-# iPhone 11 Pro Max the screenshot call does not return until the hold is over.
-app_polls=0
-for i in $(seq 1 2400); do
-  if app_running; then
-    app_polls=$((app_polls + 1))
+# Ready before xcodebuild launches. Shooting on process-exists captured the
+# frame after the cover had already gone on iPhone 11 Pro Max.
+echo "watcher ready" >> "$OUT/log.txt"
+touch "$OUT/watcher-ready"
+
+confirm_hold() {
+  local device="$HOME/Library/Developer/CoreSimulator/Devices/${UDID}"
+  local found
+  found=$(find "$device" -name 'fitmunch-launch-holding' -mmin -5 2>/dev/null | head -n 8 || true)
+  if [[ -n "$found" ]]; then
+    while IFS= read -r file; do
+      echo seen > "$(dirname "$file")/fitmunch-launch-confirmed"
+    done <<< "$found"
   fi
-  if hold_ready || (( app_polls >= 40 )); then
-    echo "launch detected at poll ${i} app_polls=${app_polls}" >> "$OUT/log.txt"
+  echo seen > "$device/data/fitmunch-launch-confirmed"
+}
+
+# Do not shoot merely because the process exists. That frame is past the
+# launch cover. Wait until the hold file or the hold log line is real.
+for i in $(seq 1 240); do
+  if hold_ready; then
+    echo "launch detected at poll ${i}" >> "$OUT/log.txt"
     echo "bursting launch screenshots" >> "$OUT/log.txt"
     n=0
-    while (( n < 24 )); do
+    while (( n < 16 )); do
       shot "$(printf 'frame-%03d.png' "$n")"
       n=$((n + 1))
-      sleep 0.35
+      sleep 0.25
     done
     echo "burst count=$n" >> "$OUT/log.txt"
+    confirm_hold
+    echo "watcher confirmed" >> "$OUT/log.txt"
     break
   fi
-  sleep 0.5
+  sleep 0.25
 done
 
 if ! ls "$OUT"/frame-*.png >/dev/null 2>&1; then

@@ -10,8 +10,9 @@ import SwiftUI
 /// until the sleep ended, so the frame it saved was no longer the launch screen.
 enum LaunchFrameCapture {
     static let argument = "-CaptureLaunch"
-    /// Long enough for one slow simctl screenshot on iPhone 11 Pro Max.
-    static let holdSeconds: Double = 30
+    /// Cap if the watcher never confirms. The full-screen test waits this out.
+    static let holdSeconds: Double = 34
+    static let confirmName = "fitmunch-launch-confirmed"
     /// Absolute end time so a view refresh does not start the 30s over.
     static var deadline: Date?
 
@@ -26,22 +27,29 @@ enum LaunchFrameCapture {
     static func holdIfRequested() {
         #if DEBUG
         guard isRequested else { return }
-        NSLog("LAUNCH_FRAME_HOLD")
-        let name = "fitmunch-launch-holding"
+        deadline = Date().addingTimeInterval(holdSeconds)
+        #endif
+    }
+
+    static func watcherConfirmed() -> Bool {
+        #if DEBUG
+        sharedURLs(named: confirmName).contains { FileManager.default.fileExists(atPath: $0.path) }
+        #else
+        true
+        #endif
+    }
+
+    static func sharedURLs(named name: String) -> [URL] {
         var urls: [URL] = [
             URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name),
             URL(fileURLWithPath: "/tmp").appendingPathComponent(name),
         ]
-        for key in ["SIMULATOR_SHARED_RESOURCES_DIRECTORY", "SIMULATOR_HOST_HOME"] {
+        for key in ["SIMULATOR_SHARED_RESOURCES_DIRECTORY", "SIMULATOR_HOST_HOME", "HOME"] {
             if let shared = ProcessInfo.processInfo.environment[key], !shared.isEmpty {
                 urls.append(URL(fileURLWithPath: shared).appendingPathComponent(name))
             }
         }
-        for url in urls {
-            try? Data("hold".utf8).write(to: url)
-        }
-        deadline = Date().addingTimeInterval(holdSeconds)
-        #endif
+        return urls
     }
 }
 
@@ -62,9 +70,16 @@ struct LaunchFrameCover: View {
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("launch-frame-cover")
         .task {
-            let remaining = LaunchFrameCapture.deadline?.timeIntervalSinceNow ?? 0
-            if remaining > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            NSLog("LAUNCH_FRAME_HOLD")
+            for url in LaunchFrameCapture.sharedURLs(named: "fitmunch-launch-holding") {
+                try? Data("hold".utf8).write(to: url)
+            }
+            let deadline = LaunchFrameCapture.deadline ?? Date()
+            while Date() < deadline {
+                if LaunchFrameCapture.watcherConfirmed() {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 200_000_000)
             }
             onFinished()
         }
