@@ -44,7 +44,6 @@ struct PaywallView: View {
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
-                    pricingSection
                 }
                 .padding(.horizontal)
                 .padding(.top, 4)
@@ -72,8 +71,20 @@ struct PaywallView: View {
             .refreshable {
                 await loadPlansWithRetry()
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomBar
+            // Plan cards stay in this inset, above the Apple renewal sentence.
+            // Inside the scroll they rested under that sentence, so the monthly
+            // price could not be read while the annual price stayed clear.
+            .safeAreaInset(edge: .bottom, spacing: 8) {
+                VStack(spacing: 0) {
+                    if !plans.isEmpty {
+                        pricingSection
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+                    }
+                    bottomBar
+                }
+                .background(Theme.surface.ignoresSafeArea(edges: .bottom))
             }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {

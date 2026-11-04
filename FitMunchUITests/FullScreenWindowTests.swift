@@ -50,33 +50,12 @@ final class FullScreenWindowTests: XCTestCase {
         XCTAssertTrue(annualLabel.contains("/year"), "Annual price is missing the period. \(annualLabel)")
         XCTAssertTrue(monthlyLabel.contains("/month"), "Monthly price is missing the period. \(monthlyLabel)")
         print("SANDBOX_PRICE annual=\(annualLabel) monthly=\(monthlyLabel)")
-        _ = scrollUntilHittable([
-            app.staticTexts["paywall-price-fitmunch_annual"],
-            app.staticTexts["paywall-price-fitmunch_monthly"],
-        ], in: app)
         XCTAssertFalse(app.buttons["paywall-retry"].exists, "Retry state means StoreKit products did not load")
         XCTAssertFalse(app.staticTexts["Day 12 we remind you"].exists)
         XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
         XCTAssertFalse(app.buttons["Continue on the web"].exists)
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
-        let renewal = app.staticTexts["paywall-renewal"]
-        XCTAssertTrue(renewal.waitForExistence(timeout: 8), "Renewal term missing from the bottom bar")
-        XCTAssertTrue(
-            renewal.label.contains("charged to your Apple ID within 24 hours before renewal"),
-            renewal.label
-        )
-        XCTAssertTrue(app.buttons["paywall-restore"].exists, "Restore Purchases missing from the bottom bar")
-        XCTAssertTrue(
-            app.buttons["paywall-terms"].exists || app.buttons["Terms"].exists,
-            "Terms missing from the bottom bar"
-        )
-        XCTAssertTrue(
-            app.buttons["paywall-privacy"].exists || app.buttons["Privacy"].exists,
-            "Privacy missing from the bottom bar"
-        )
-        XCTAssertGreaterThanOrEqual(app.buttons["paywall-restore"].frame.height, 44)
-        let terms = app.buttons["paywall-terms"].exists ? app.buttons["paywall-terms"] : app.buttons["Terms"]
-        XCTAssertGreaterThanOrEqual(terms.frame.height, 44)
+        assertMonthlyPriceClearsAppleSentence(in: app)
         XCTAssertEqual(app.state, .runningForeground)
         let paywallShot = try assertFullScreen(app, slug: slug, phase: "paywall")
         saveShot(paywallShot, name: "paywall-\(tag)")

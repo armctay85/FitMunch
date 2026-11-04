@@ -255,6 +255,107 @@ extension XCTestCase {
         XCTAssertTrue(ready, "Paywall did not appear after Upgrade")
     }
 
+    /// Fails when the Apple subscription sentence overlaps the Premium Monthly
+    /// price, or when either one is clipped off the screen. Measured at rest:
+    /// do not scroll the paywall before calling this.
+    func assertMonthlyPriceClearsAppleSentence(in app: XCUIApplication) {
+        let price = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let annual = app.staticTexts["paywall-price-fitmunch_annual"]
+        let renewal = app.staticTexts["paywall-renewal"]
+        let sentence = "Subscription auto-renews unless cancelled at least 24 hours before the period ends. Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Account Settings."
+        let deadline = Date().addingTimeInterval(12)
+        while Date() < deadline {
+            let priceReady = price.exists && price.frame.height > 16 && price.frame.width > 40
+            let renewalReady = renewal.exists && renewal.frame.height > 44 && renewal.label.contains(sentence)
+            if priceReady && renewalReady && annual.exists { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(price.exists, "Monthly price missing")
+        XCTAssertTrue(annual.exists, "Annual price missing")
+        XCTAssertTrue(renewal.exists, "Apple subscription sentence missing")
+        let priceFrame = price.frame
+        let annualFrame = annual.frame
+        let renewalFrame = renewal.frame
+        let screen = app.frame
+        let plan = app.buttons["paywall-plan-fitmunch_monthly"].exists
+            ? app.buttons["paywall-plan-fitmunch_monthly"]
+            : app.otherElements["paywall-plan-fitmunch_monthly"]
+        let planFrame = plan.frame
+        print(String(
+            format: "PAYWALL_FRAMES screen=%@ annual=%@ monthly=%@ plan=%@ renewal=%@",
+            rectString(screen),
+            rectString(annualFrame),
+            rectString(priceFrame),
+            rectString(planFrame),
+            rectString(renewalFrame)
+        ))
+        XCTAssertTrue(price.label.contains("/month"), "Monthly price is not readable. \(price.label)")
+        XCTAssertTrue(annual.label.contains("/year"), "Annual price is not readable. \(annual.label)")
+        XCTAssertTrue(renewal.label.contains(sentence), "Apple sentence is incomplete. \(renewal.label)")
+        XCTAssertGreaterThan(priceFrame.height, 16, "Monthly price is clipped \(priceFrame)")
+        XCTAssertGreaterThan(priceFrame.width, 40, "Monthly price is clipped \(priceFrame)")
+        XCTAssertGreaterThan(renewalFrame.height, 44, "Apple sentence is clipped \(renewalFrame)")
+        assertOnScreen(priceFrame, named: "monthly price", in: screen)
+        assertOnScreen(annualFrame, named: "annual price", in: screen)
+        assertOnScreen(renewalFrame, named: "Apple sentence", in: screen)
+        XCTAssertFalse(
+            priceFrame.intersects(renewalFrame),
+            "Apple sentence overlaps the monthly price. price=\(priceFrame) renewal=\(renewalFrame)"
+        )
+        XCTAssertLessThanOrEqual(
+            priceFrame.maxY + 8,
+            renewalFrame.minY,
+            "Monthly price runs into the Apple sentence. price=\(priceFrame) renewal=\(renewalFrame)"
+        )
+        XCTAssertTrue(plan.exists, "Monthly plan row missing")
+        XCTAssertFalse(
+            planFrame.intersects(renewalFrame),
+            "Apple sentence overlaps the monthly plan. plan=\(planFrame) renewal=\(renewalFrame)"
+        )
+        XCTAssertLessThanOrEqual(annualFrame.maxY, priceFrame.minY, "Annual price is not above the monthly price")
+        XCTAssertFalse(annualFrame.intersects(renewalFrame), "Apple sentence overlaps the annual price")
+        let subscribe = app.buttons["paywall-subscribe"]
+        XCTAssertTrue(subscribe.exists, "Trial button missing")
+        XCTAssertFalse(subscribe.frame.intersects(renewalFrame), "Trial button covers the Apple sentence")
+        XCTAssertFalse(subscribe.frame.intersects(priceFrame), "Trial button covers the monthly price")
+        XCTAssertGreaterThanOrEqual(subscribe.frame.minY, renewalFrame.maxY - 1)
+        let restore = app.buttons["paywall-restore"]
+        XCTAssertTrue(restore.exists, "Restore Purchases missing")
+        XCTAssertGreaterThanOrEqual(restore.frame.height, 44)
+        XCTAssertFalse(restore.frame.intersects(priceFrame))
+        XCTAssertFalse(restore.frame.intersects(renewalFrame))
+        assertOnScreen(restore.frame, named: "Restore", in: screen)
+        let terms = app.buttons["paywall-terms"].exists ? app.buttons["paywall-terms"] : app.buttons["Terms"]
+        let privacy = app.buttons["paywall-privacy"].exists ? app.buttons["paywall-privacy"] : app.buttons["Privacy"]
+        XCTAssertTrue(terms.exists, "Terms missing")
+        XCTAssertTrue(privacy.exists, "Privacy missing")
+        XCTAssertGreaterThanOrEqual(terms.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(privacy.frame.height, 44)
+        XCTAssertFalse(terms.frame.intersects(priceFrame))
+        XCTAssertFalse(privacy.frame.intersects(renewalFrame))
+        assertOnScreen(terms.frame, named: "Terms", in: screen)
+        assertOnScreen(privacy.frame, named: "Privacy", in: screen)
+    }
+
+    private func assertOnScreen(_ frame: CGRect, named name: String, in screen: CGRect) {
+        XCTAssertGreaterThanOrEqual(frame.minX, -1, "\(name) is clipped on the left \(frame)")
+        XCTAssertLessThanOrEqual(frame.maxX, screen.maxX + 1, "\(name) is clipped on the right \(frame)")
+        XCTAssertGreaterThanOrEqual(frame.minY, -1, "\(name) is clipped at the top \(frame)")
+        XCTAssertLessThanOrEqual(frame.maxY, screen.maxY + 1, "\(name) is clipped at the bottom \(frame)")
+        XCTAssertGreaterThan(frame.width, 1, "\(name) has no width \(frame)")
+        XCTAssertGreaterThan(frame.height, 1, "\(name) has no height \(frame)")
+    }
+
+    private func rectString(_ rect: CGRect) -> String {
+        String(
+            format: "{{%.1f, %.1f}, {%.1f, %.1f}}",
+            rect.origin.x,
+            rect.origin.y,
+            rect.size.width,
+            rect.size.height
+        )
+    }
+
     private func appendAuditFile(_ name: String, line: String) {
         let dir = URL(fileURLWithPath: "/tmp/pre-asc-audit", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

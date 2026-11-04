@@ -53,6 +53,7 @@ final class FlowRecordingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["paywall-close"].waitForExistence(timeout: 12), "Paywall did not open")
         let price = waitForStoreKitPrice(in: app)
         XCTAssertFalse(price.label.isEmpty, "StoreKit price label was empty")
+        assertMonthlyPriceClearsAppleSentence(in: app)
         hold(2.5)
         app.buttons["paywall-close"].tap()
 
