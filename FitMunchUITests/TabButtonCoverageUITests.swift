@@ -35,32 +35,34 @@ final class TabButtonCoverageUITests: XCTestCase {
 
         bar.buttons["Today"].tap()
         let lastCard = scrollToLastMealCard(in: app)
-        XCTAssertGreaterThan(lastCard.frame.height, 40, "Last Today card has no frame")
+        let cardFrame = lastCard.frame
+        XCTAssertGreaterThan(cardFrame.height, 40, "Last Today card has no frame")
 
         bar.buttons["Me"].tap()
         let lastRow = scrollToLastMeRow(in: app)
-        XCTAssertGreaterThan(lastRow.frame.height, 20, "Last Me row has no frame")
+        let rowFrame = lastRow.frame
+        XCTAssertGreaterThan(rowFrame.height, 20, "Last Me row has no frame")
 
         let lines = [
             "TAB_FRAME width=\(Int(width.rounded())) height=\(Int(height.rounded()))",
-            "TAB_FRAME today-last maxY=\(lastCard.frame.maxY) minY=\(lastCard.frame.minY) height=\(lastCard.frame.height)",
-            "TAB_FRAME me-last maxY=\(lastRow.frame.maxY) minY=\(lastRow.frame.minY) height=\(lastRow.frame.height)",
+            "TAB_FRAME today-last maxY=\(cardFrame.maxY) minY=\(cardFrame.minY) height=\(cardFrame.height)",
+            "TAB_FRAME me-last maxY=\(rowFrame.maxY) minY=\(rowFrame.minY) height=\(rowFrame.height)",
         ]
         for line in lines {
             print(line)
         }
-        writeFrames(lines)
+        writeFrames(lines, width: width)
 
         if is440 {
             XCTAssertLessThanOrEqual(
-                lastCard.frame.maxY,
+                cardFrame.maxY,
                 857,
-                "Last Today card ends below 857pt (\(lastCard.frame))"
+                "Last Today card ends below 857pt (\(cardFrame))"
             )
             XCTAssertLessThanOrEqual(
-                lastRow.frame.maxY,
+                rowFrame.maxY,
                 857,
-                "Last Me row ends below 857pt (\(lastRow.frame))"
+                "Last Me row ends below 857pt (\(rowFrame))"
             )
         }
     }
@@ -125,11 +127,11 @@ final class TabButtonCoverageUITests: XCTestCase {
         return row
     }
 
-    private func writeFrames(_ lines: [String]) {
+    private func writeFrames(_ lines: [String], width: CGFloat) {
         let dir = URL(fileURLWithPath: "/tmp/fitmunch-width-capture", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let text = lines.joined(separator: "\n") + "\n"
-        let name = "frames-\(Int(XCUIApplication().windows.firstMatch.frame.width.rounded())).txt"
+        let name = "frames-\(Int(width.rounded())).txt"
         try? Data(text.utf8).write(to: dir.appendingPathComponent(name))
     }
 }
