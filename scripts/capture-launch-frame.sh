@@ -101,7 +101,9 @@ confirm_hold() {
 
 # Do not shoot merely because the process exists. That frame is past the
 # launch cover. Wait until the hold file or the hold log line is real.
-for i in $(seq 1 240); do
+# xcodebuild is still compiling when this loop starts. Keep waiting until
+# the cover writes the hold file. 0.5s * 1500 is 12.5 minutes.
+for i in $(seq 1 1500); do
   if hold_ready; then
     echo "launch detected at poll ${i}" >> "$OUT/log.txt"
     echo "bursting launch screenshots" >> "$OUT/log.txt"
@@ -116,7 +118,7 @@ for i in $(seq 1 240); do
     echo "watcher confirmed" >> "$OUT/log.txt"
     break
   fi
-  sleep 0.25
+  sleep 0.5
 done
 
 if ! ls "$OUT"/frame-*.png >/dev/null 2>&1; then
