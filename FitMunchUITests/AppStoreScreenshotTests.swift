@@ -210,6 +210,9 @@ final class AppStoreScreenshotTests: XCTestCase {
         for _ in 0..<6 {
             let barTop = floatingTabButtonTop(in: app)
             let cards = mealCards()
+            // Lunch already sits on the bar on 6.7. Pulling Dinner up from there
+            // opens a gap under the last whole card and the shot fails.
+            if mealCardsAlreadyClearTabBar(cards, barTop: barTop, topLimit: topLimit) { break }
             guard let anchor = lowestCardThatFits(cards, barTop: barTop, topLimit: topLimit) else { break }
             let delta = barTop - anchor.frame.maxY
             if abs(delta) <= 8 { break }
@@ -227,6 +230,15 @@ final class AppStoreScreenshotTests: XCTestCase {
             let gap = barTop - last.frame.maxY
             XCTAssertLessThan(gap, 72, "Empty band under the last meal card \(last.frame) bar=\(barTop)")
         }
+    }
+
+    /// Same rule as the assertion below. A list that already passes must not be dragged.
+    private func mealCardsAlreadyClearTabBar(_ cards: [XCUIElement], barTop: CGFloat, topLimit: CGFloat) -> Bool {
+        let cut = cards.first { $0.frame.minY < barTop - 4 && $0.frame.maxY > barTop + 4 }
+        if cut != nil { return false }
+        let whole = cards.filter { $0.frame.maxY <= barTop + 4 && $0.frame.minY >= topLimit - 8 }
+        guard let last = whole.max(by: { $0.frame.maxY < $1.frame.maxY }) else { return false }
+        return barTop - last.frame.maxY < 72
     }
 
     /// Lowest card whose bottom can sit on the tab bar without sliding under the title.
