@@ -44,7 +44,15 @@ final class TabButtonCoverageUITests: XCTestCase {
         XCTAssertGreaterThan(cardFrame.height, 40, "Last Today card has no frame")
         saveShot("today-max-\(Int(width.rounded())).png")
 
+        signInQAReplacingSeed(in: app)
         bar.buttons["Me"].tap()
+        XCTAssertTrue(app.staticTexts["FitMunch QA"].waitForExistence(timeout: 12), "QA account did not appear on Me")
+        assertNoSampleIdentity(in: app)
+        let scroller = app.scrollViews.firstMatch
+        if scroller.exists {
+            scroller.swipeDown()
+            scroller.swipeDown()
+        }
         let meTopLine = meFrameAtTop(in: app)
         saveShot("me-top-\(Int(width.rounded())).png")
         let lastRow = scrollToLastMeRow(in: app)

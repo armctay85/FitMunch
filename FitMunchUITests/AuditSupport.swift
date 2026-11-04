@@ -38,6 +38,90 @@ extension XCTestCase {
         direct.tap()
     }
 
+    /// Replaces the screenshot seed with the QA account before a Me capture.
+    func signInQAReplacingSeed(in app: XCUIApplication) {
+        if app.staticTexts["FitMunch QA"].waitForExistence(timeout: 1) { return }
+        let email = qaCredential("QA_EMAIL")
+        let password = qaCredential("QA_PASSWORD")
+        XCTAssertFalse(email.isEmpty || password.isEmpty, "QA_EMAIL and QA_PASSWORD are not set")
+        let bar = app.tabBars.firstMatch
+        if bar.waitForExistence(timeout: 4) {
+            let me = bar.buttons["Me"]
+            if me.waitForExistence(timeout: 4) { me.tap() }
+        }
+        let scroller = app.scrollViews.firstMatch
+        var logout = app.buttons["Log Out"].firstMatch
+        var hops = 0
+        while !(logout.exists && logout.isHittable), hops < 8 {
+            if scroller.exists {
+                scroller.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            hops += 1
+            logout = app.buttons["Log Out"].firstMatch
+        }
+        if logout.waitForExistence(timeout: 3), logout.isHittable {
+            logout.tap()
+            let confirm = app.alerts["Log Out"].buttons["Log Out"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 6), "Log Out confirmation missing")
+            confirm.tap()
+        }
+        let segment = app.segmentedControls.buttons["Sign In"]
+        if segment.waitForExistence(timeout: 12) {
+            segment.tap()
+        } else {
+            let signInButton = app.buttons["Sign In"]
+            XCTAssertTrue(signInButton.waitForExistence(timeout: 8), "Sign In did not appear")
+            signInButton.tap()
+        }
+        if !app.buttons["auth-sign-in"].waitForExistence(timeout: 2) {
+            let signInButton = app.buttons["Sign In"]
+            if signInButton.exists { signInButton.tap() }
+        }
+        let emailField = app.textFields["auth-email"]
+        XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
+        emailField.tap()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
+            emailField.tap()
+        }
+        emailField.typeText(email)
+        let passwordField = app.secureTextFields["auth-password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field missing")
+        passwordField.tap()
+        passwordField.typeText(password)
+        if app.keyboards.buttons["Done"].exists {
+            app.keyboards.buttons["Done"].tap()
+        } else if app.keyboards.buttons["Return"].exists {
+            app.keyboards.buttons["Return"].tap()
+        }
+        let submit = app.buttons["auth-sign-in"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
+        submit.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "QA sign-in did not reach the tabs")
+    }
+
+    func assertNoSampleIdentity(in app: XCUIApplication) {
+        XCTAssertFalse(app.staticTexts["Alex Morgan"].exists, "Sample name is on screen")
+        XCTAssertFalse(app.staticTexts["alex@example.com"].exists, "Sample email is on screen")
+        XCTAssertFalse(app.staticTexts["Reviewer"].exists, "Reviewer name is on screen")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "review@fitmunch.com.au")).firstMatch.exists,
+            "Reviewer email is on screen"
+        )
+    }
+
+    func qaCredential(_ key: String) -> String {
+        let fromEnv = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !fromEnv.isEmpty { return fromEnv }
+        let url = URL(fileURLWithPath: "/tmp/fitmunch-qa-credentials")
+        guard key == "QA_EMAIL" || key == "QA_PASSWORD",
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return "" }
+        let lines = text.components(separatedBy: "\n")
+        if key == "QA_EMAIL" { return lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+        return lines.dropFirst().first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
     func dismissSystemAlerts(in app: XCUIApplication) {
         let alert = app.alerts.firstMatch
         guard alert.waitForExistence(timeout: 1.2) else { return }

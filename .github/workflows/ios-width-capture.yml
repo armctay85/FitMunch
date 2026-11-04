@@ -60,10 +60,20 @@ jobs:
           retention-days: 14
 
       - name: Capture 375pt and 440pt
+        env:
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/width-capture
           rm -rf /tmp/fitmunch-width-capture
+          if [[ -n "${QA_EMAIL:-}" && -n "${QA_PASSWORD:-}" ]]; then
+            umask 077
+            printf '%s\n%s\n' "$QA_EMAIL" "$QA_PASSWORD" > /tmp/fitmunch-qa-credentials
+            echo "Me frames will sign in. Credentials are not printed."
+          else
+            echo "QA_EMAIL or QA_PASSWORD is unset."
+          fi
 
           # iOS 26.5 SKTestSession returns SKInternalErrorDomain Code=3 when the
           # storefront is set. Both widths stay on the 26.2 runtime.
@@ -117,6 +127,7 @@ jobs:
           run_tests "375pt" "$NARROW_UDID" "width-375" || rc_narrow=$?
           python3 scripts/check-width-screenshots.py artifacts/width-capture/screens || rc_check=$?
           echo "width-440=$rc_wide width-375=$rc_narrow check=$rc_check" | tee -a artifacts/width-capture/destinations.txt
+          rm -f /tmp/fitmunch-qa-credentials
           if [[ "$rc_wide" -ne 0 || "$rc_narrow" -ne 0 || "$rc_check" -ne 0 ]]; then
             exit 1
           fi

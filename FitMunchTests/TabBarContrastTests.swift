@@ -23,6 +23,6 @@ final class TabBarContrastTests: XCTestCase {
     }
 
     func testWashOpacityStaysNearOpaque() {
-        XCTAssertEqual(TabBarContrast.washOpacity, 0.94, accuracy: 0.0001)
+        XCTAssertEqual(TabBarContrast.washOpacity, 0.98, accuracy: 0.0001)
     }
 }

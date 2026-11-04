@@ -68,7 +68,7 @@ struct ContentView: View {
                 .accessibilityIdentifier("tab-me")
                 .tag(AppTab.me)
         }
-        .toolbarBackground(Theme.fmBackground.opacity(0.94), for: .tabBar)
+        .toolbarBackground(Theme.fmBackground.opacity(0.98), for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .background {
             FloatingBarFillInstaller()

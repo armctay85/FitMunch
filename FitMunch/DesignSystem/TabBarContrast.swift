@@ -1,10 +1,10 @@
 import UIKit
 
 /// Colours for the floating tab bar and the WCAG contrast of its icons and labels.
-/// The wash is the page background at 0.94 over the material. Selected green matches
-/// the BrandGreen asset. Unselected labels match the secondary text colour.
+/// The wash is the page background at 0.98 over the material, so row text behind
+/// the bar is not readable. Selected green matches the BrandGreen asset.
 enum TabBarContrast {
-    static let washOpacity: Double = 0.94
+    static let washOpacity: Double = 0.98
 
     struct RGB {
         var r: Double
