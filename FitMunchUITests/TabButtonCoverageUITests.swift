@@ -66,21 +66,36 @@ final class TabButtonCoverageUITests: XCTestCase {
     }
 
     private func scrollToLastMealCard(in app: XCUIApplication) -> XCUIElement {
-        let cards = app.descendants(matching: .any).matching(identifier: "today-meal-card")
-        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 8), "Today meal card missing")
+        XCTAssertTrue(app.staticTexts["Breakfast"].waitForExistence(timeout: 12), "Today meals did not load")
         let scroller = app.scrollViews.firstMatch
         var previous = CGFloat.greatestFiniteMagnitude
+        var last = mealCards(in: app).last
         for _ in 0..<8 {
-            let last = lowest(cards.allElementsBoundByIndex)
-            if abs(last.frame.maxY - previous) < 1 { break }
-            previous = last.frame.maxY
+            let cards = mealCards(in: app)
+            if let bottom = cards.last {
+                if abs(bottom.frame.maxY - previous) < 1 {
+                    last = bottom
+                    break
+                }
+                previous = bottom.frame.maxY
+                last = bottom
+            }
             if scroller.exists {
                 scroller.swipeUp()
             } else {
                 app.swipeUp()
             }
         }
-        return lowest(cards.allElementsBoundByIndex)
+        let cards = mealCards(in: app)
+        XCTAssertFalse(cards.isEmpty, "Today meal card missing")
+        return cards.last ?? last!
+    }
+
+    /// Sorted top to bottom. An empty query must not call allElementsBoundByIndex.
+    private func mealCards(in app: XCUIApplication) -> [XCUIElement] {
+        let query = app.descendants(matching: .any).matching(identifier: "today-meal-card")
+        guard query.firstMatch.exists else { return [] }
+        return query.allElementsBoundByIndex.sorted { $0.frame.minY < $1.frame.minY }
     }
 
     private func scrollToLastMeRow(in app: XCUIApplication) -> XCUIElement {
@@ -108,10 +123,6 @@ final class TabButtonCoverageUITests: XCTestCase {
             }
         }
         return row
-    }
-
-    private func lowest(_ elements: [XCUIElement]) -> XCUIElement {
-        elements.max { $0.frame.maxY < $1.frame.maxY } ?? elements[0]
     }
 
     private func writeFrames(_ lines: [String]) {
