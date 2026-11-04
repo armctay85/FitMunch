@@ -108,18 +108,22 @@ final class FlowRecordingUITests: XCTestCase {
         let password = qaValue("QA_PASSWORD")
         XCTAssertFalse(email.isEmpty || password.isEmpty, "QA_EMAIL and QA_PASSWORD are not set")
         let logout = app.buttons["Log Out"].firstMatch
+        XCTAssertTrue(logout.waitForExistence(timeout: 8), "Log Out missing")
+        let scroller = app.scrollViews.firstMatch
         var hops = 0
-        while logout.exists, !logout.isHittable, hops < 6 {
-            app.swipeUp()
+        while !logout.isHittable, hops < 8 {
+            if scroller.exists {
+                scroller.swipeUp()
+            } else {
+                app.swipeUp()
+            }
             hops += 1
         }
-        if logout.waitForExistence(timeout: 4) {
-            logout.tap()
-            let confirm = app.alerts.buttons["Log Out"]
-            if confirm.waitForExistence(timeout: 4) {
-                confirm.tap()
-            }
-        }
+        XCTAssertTrue(logout.isHittable, "Log Out is not hittable")
+        logout.tap()
+        let confirm = app.alerts["Log Out"].buttons["Log Out"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 6), "Log Out confirmation missing")
+        confirm.tap()
         let signInButton = app.buttons["Sign In"]
         if signInButton.waitForExistence(timeout: 8) {
             signInButton.tap()
