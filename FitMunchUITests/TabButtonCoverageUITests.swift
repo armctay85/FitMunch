@@ -84,11 +84,21 @@ final class TabButtonCoverageUITests: XCTestCase {
     }
 
     private func scrollToLastMeRow(in app: XCUIApplication) -> XCUIElement {
-        let row = app.buttons["settings-delete-account"]
-        XCTAssertTrue(row.waitForExistence(timeout: 8), "Delete Account row missing")
         let scroller = app.scrollViews.firstMatch
+        var row = app.buttons["settings-delete-account"]
+        var hops = 0
+        while !row.exists, hops < 8 {
+            if scroller.exists {
+                scroller.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            hops += 1
+            row = app.buttons["settings-delete-account"]
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 4), "Delete Account row missing")
         var previous = CGFloat.greatestFiniteMagnitude
-        for _ in 0..<8 {
+        for _ in 0..<6 {
             if abs(row.frame.maxY - previous) < 1 { break }
             previous = row.frame.maxY
             if scroller.exists {
