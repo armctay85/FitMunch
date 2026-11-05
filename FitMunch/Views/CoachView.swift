@@ -126,6 +126,10 @@ struct CoachView: View {
                 .padding(.horizontal)
                 .padding(.vertical, Theme.Spacing.two)
                 .background(Theme.surface)
+                // The blocked card sits above this row. On a 6.5" phone the
+                // scroll view must give way, or the field is compressed out of
+                // the accessibility tree and the clearance test cannot see it.
+                .layoutPriority(1)
             }
             .background(Theme.surface)
             .floatingTabBarInset()
