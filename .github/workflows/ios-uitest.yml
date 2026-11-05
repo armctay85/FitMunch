@@ -1,6 +1,6 @@
 name: iOS full-screen UITest
 
-# Build 10: prove the launch screen fills the phone and the built Info.plist
+# Build 11: prove the launch screen fills the phone and the built Info.plist
 # still has UILaunchScreen plus the RevenueCat key after XcodeGen.
 
 on:

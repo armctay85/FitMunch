@@ -23,11 +23,11 @@ const workflowFiles = fs
   .map((name) => ({ name, text: read(path.join('.github/workflows', name)) }));
 
 describe('ASC archive build number', () => {
-  it('archives CFBundleVersion 10, not a stale build 9 override', () => {
-    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=10\s*\\/);
+  it('archives CFBundleVersion 11, not a stale build 10 override', () => {
+    expect(archive).toMatch(/CURRENT_PROJECT_VERSION=11\s*\\/);
     expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=9\s*\\/);
     expect(archive).not.toMatch(/CURRENT_PROJECT_VERSION=8\s*\\/);
-    expect(archive).toMatch(/expected 10/);
+    expect(archive).toMatch(/expected 11/);
     expect(project).toMatch(/CURRENT_PROJECT_VERSION:\s*"11"/);
   });
 
