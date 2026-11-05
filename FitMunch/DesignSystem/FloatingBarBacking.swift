@@ -21,7 +21,32 @@ enum FloatingBarBacking {
     static func refresh(in window: UIWindow) -> Bool {
         guard let bar = tabBar(in: window) else { return false }
         styleIfNeeded(bar)
+        placeCover(behind: bar)
         return placeFill(in: window, bar: bar)
+    }
+
+    /// Opaque page colour from the top of the tab bar to the bottom of the screen.
+    /// The floating pill stays in front and keeps its corner radius. Text in the
+    /// gap under the pill is covered.
+    private static func placeCover(behind bar: UITabBar) {
+        guard let parent = bar.superview else { return }
+        let cover = (parent.viewWithTag(FloatingBarCover.viewTag) as? FloatingBarCover) ?? FloatingBarCover()
+        cover.tag = FloatingBarCover.viewTag
+        cover.isUserInteractionEnabled = false
+        cover.backgroundColor = TabBarContrast.pageUIColor
+        cover.accessibilityElementsHidden = true
+        let barFrame = bar.convert(bar.bounds, to: parent)
+        let top = min(barFrame.minY, parent.bounds.maxY - 1)
+        let target = CGRect(x: 0, y: top, width: parent.bounds.width, height: max(0, parent.bounds.maxY - top))
+        guard target.height > 20, target.width > 40 else { return }
+        let coverIndex = parent.subviews.firstIndex(of: cover)
+        let barIndex = parent.subviews.firstIndex(of: bar) ?? 0
+        if cover.superview !== parent || (coverIndex ?? 0) > barIndex {
+            parent.insertSubview(cover, belowSubview: bar)
+        }
+        if !framesClose(cover.frame, target) {
+            cover.frame = target
+        }
     }
 
     private static var styledKey: UInt8 = 0
@@ -174,6 +199,25 @@ enum FloatingBarBacking {
             && abs(lhs.minY - rhs.minY) < 0.5
             && abs(lhs.width - rhs.width) < 0.5
             && abs(lhs.height - rhs.height) < 0.5
+    }
+}
+
+/// Solid page colour behind the floating pill. It does not take taps.
+final class FloatingBarCover: UIView {
+    static let viewTag = 9054
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = TabBarContrast.pageUIColor
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        nil
     }
 }
 

@@ -74,6 +74,11 @@ enum TabBarContrast {
         }
     }
 
+    /// Solid page colour. Fills the gap around the floating pill so row text there is not readable.
+    static var pageUIColor: UIColor {
+        dynamic(light: lightPage, dark: darkPage)
+    }
+
     static var separatorUIColor: UIColor {
         dynamic(light: lightSeparator, dark: darkSeparator)
     }
