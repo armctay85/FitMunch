@@ -8,8 +8,8 @@
 <meta name="robots" content="noindex"/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<link rel="stylesheet" href="/css/fm-shell.css"/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<link rel="stylesheet" href="/css/fm-shell.css?v=2697209bf6c2"/>
 <style>
   *,*::before,*::after{box-sizing:border-box}
   html,body{max-width:100%}
@@ -25,7 +25,7 @@
   .upgrade-brand{
     display:flex;align-items:center;gap:10px;
     color:#fff;text-decoration:none;
-    font-family:'Bricolage Grotesque',system-ui,sans-serif;
+    font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
     font-weight:800;font-size:1.2rem;letter-spacing:-.04em;
     margin-bottom:28px;
   }
@@ -38,7 +38,7 @@
   }
   .kicker{
     display:inline-flex;
-    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
     font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
     color:var(--leaf2);margin-bottom:12px;
   }
@@ -47,7 +47,7 @@
     margin:0 0 14px;
   }
   .count{
-    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
     font-size:.95rem;font-weight:600;
     background:#fff;border:1px solid var(--line);
     border-radius:4px;padding:10px 12px;margin:0 0 14px;
@@ -59,10 +59,10 @@
   }
   .price-name{font-weight:800;font-size:1rem}
   .price{
-    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
     font-size:1.7rem;font-weight:600;letter-spacing:-.04em;
   }
-  .price small{font-family:'Literata',Georgia,serif;font-size:.85rem;color:var(--mute);font-weight:500}
+  .price small{font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.85rem;color:var(--mute);font-weight:500}
   .detail{color:var(--mute);font-size:.82rem;line-height:1.5;margin:12px 0 0}
   #upgrade-btn,.stay{
     width:100%;
@@ -157,7 +157,7 @@
       });
     })();
   </script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

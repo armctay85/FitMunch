@@ -64,7 +64,7 @@ describe('fm-track on app pages', () => {
   for (const file of ['app.html', 'coach-upgrade.html']) {
     it(`${file} loads fm-track.js once`, () => {
       const html = fs.readFileSync(path.join(__dirname, 'public', file), 'utf8');
-      expect(html.split('<script src="/js/fm-track.js" defer></script>').length - 1).toBe(1);
+      expect(html.match(/<script src="\/js\/fm-track\.js\?v=[0-9a-f]{12}" defer><\/script>/g)).toHaveLength(1);
     });
   }
 });

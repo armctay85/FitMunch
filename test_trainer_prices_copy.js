@@ -4,10 +4,17 @@ const read = (f) => fs.readFileSync(path.join(__dirname, 'public', f), 'utf8');
 
 describe('trainer prices match pricing.html (A$39 / A$79)', () => {
   const app = read('app.html');
-  test('pricing.html is the source: A$39 and A$79', () => {
+  test('pricing.html fills Coach prices from the live config, which is A$39 and A$79', () => {
     const pricing = read('pricing.html');
-    expect(pricing).toContain('A$39');
-    expect(pricing).toContain('A$79');
+    expect(pricing).toContain('data-fm-price="coach39Amount"');
+    expect(pricing).toContain('data-fm-price="coach79Amount"');
+    expect(pricing).toContain('data-fm-price="coach39Monthly"');
+    expect(pricing).toContain('data-fm-price="coach79Monthly"');
+    const prices = require('./lib/public-prices');
+    expect(prices.COACH_39_AMOUNT_LABEL).toBe('A$39');
+    expect(prices.COACH_79_AMOUNT_LABEL).toBe('A$79');
+    expect(prices.COACH_39_MONTHLY_LABEL).toBe('A$39 a month');
+    expect(prices.COACH_79_MONTHLY_LABEL).toBe('A$79 a month');
   });
   test('in-app Billing shows A$39 and A$79 and sells the coach plans', () => {
     expect(app).toContain('>A$39<');

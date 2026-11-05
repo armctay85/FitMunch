@@ -196,7 +196,7 @@ describe('app wiring', () => {
   });
   it('Home is the default view and the week card sits first on it, with a one-tap shopping list', () => {
     expect(html).toMatch(/<div class="view active" id="view-portal-home">[\s\S]{0,400}<section class="hw-card" id="home-week"/);
-    expect(html).toContain('<script src="/js/fm-home-week.js"></script>');
+    expect(html).toMatch(/<script src="\/js\/fm-home-week\.js\?v=[0-9a-f]{12}"><\/script>/);
     const l = fn('loadHomeWeek');
     const read = fn('readMealPlans');
     expect(read).toContain("fetch('/api/meal-plans'");

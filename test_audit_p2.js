@@ -24,7 +24,8 @@ describe('yearly "Save N%" badge', () => {
     expect((1 - 149.99 / 239.88) * 100).toBeCloseTo(37.47, 1); // rounded down, so never overstated
   });
   it('the page prices the badge reads are the real ones, and the badge stays hidden until the server has a yearly price', () => {
-    expect(pricing).toContain('data-monthly="A$19.99 <small>a month</small>" data-annual="A$149.99 <small>a year</small>"');
+    expect(pricing).toContain('const mo = Number(cfg.premiumMonthlyAmount);');
+    expect(pricing).toContain('cfg.premiumAnnualLabel');
     expect(pricing).toMatch(/id="yearly-save" hidden/);
     expect(pricing).toMatch(/if \(!cfg \|\| cfg\.premiumAnnual !== true\) return;[\s\S]*yearly-save/); // only after the config check
     expect(pricing).toMatch(/pct >= 5/);
@@ -35,11 +36,14 @@ describe('yearly "Save N%" badge', () => {
 });
 
 describe('A$0', () => {
-  it('Free shows A$0 on the pricing page, the home page and the billing view', () => {
-    for (const [f, html] of [['pricing', pricing], ['index', read('public', 'index.html')], ['app', app]]) {
+  it('Free shows A$0 on the pricing page and the billing view, and the cached homepage says Free', () => {
+    for (const [f, html] of [['pricing', pricing], ['app', app]]) {
       expect([f, /A\$0\b/.test(html)]).toEqual([f, true]);
       expect([f, /(^|[^A-Za-z])\$0(<| )/.test(html.replace(/A\$0/g, ''))]).toEqual([f, false]);
     }
+    const home = read('public', 'index.html');
+    expect(home).not.toMatch(/A\$0\b/);
+    expect(home).toContain('<span>Free</span>');
   });
 });
 
@@ -139,7 +143,15 @@ if (!canRun && inCI) {
       await p.route('**/api/pricing/config', (route) => route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true, premiumAnnual: true, freeAiMonthly: 10 }),
+        body: JSON.stringify({
+          success: true,
+          premiumAnnual: true,
+          freeAiMonthly: 10,
+          premiumMonthlyAmount: '19.99',
+          premiumAnnualLabel: 'A$149.99 a year',
+          premiumAmount: 'A$19.99',
+          premiumMonthly: 'A$19.99 a month',
+        }),
       }));
       await p.goto(`${base}/pricing.html`, { waitUntil: 'domcontentloaded' });
       await p.waitForFunction(() => document.getElementById('yearly-save') && document.getElementById('yearly-save').textContent === 'Save 37%');

@@ -459,10 +459,10 @@ describe('funnel beacon and private viewer', () => {
 });
 
 describe('/demo is retired', () => {
-  test.each(['/demo', '/demo/', '/demo.html', '/try'])('%s => 301 to the homepage worked example', async (route) => {
+  test.each(['/demo', '/demo/', '/demo.html', '/try'])('%s => 301 to the visitor scan', async (route) => {
     const res = await require('supertest')(require('./server')).get(route);
     expect(res.status).toBe(301);
-    expect(res.headers.location).toBe('/#proof');
+    expect(res.headers.location).toBe('/#first-scan');
   });
   test('sitemap no longer lists /demo', () => {
     expect(require('fs').readFileSync(require('path').join(__dirname, 'public/sitemap.xml'), 'utf8')).not.toMatch(/fitmunch\.com\.au\/demo</);

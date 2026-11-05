@@ -41,7 +41,8 @@ describe('Server API shell', () => {
 
   it('GET /app.html is a login wall until the client has a session', async () => {
     const res = await request(app).get('/app.html').expect(200);
-    expect(res.text).toContain('Sign in to FitMunch');
+    expect(res.text).toContain('Build your first week');
+    expect(res.text).toContain('id="fr-form"');
     expect(res.text).toContain('html:not(.fm-authed)');
     expect(res.text).toContain("localStorage.getItem('fm_token')");
   });
@@ -50,13 +51,33 @@ describe('Server API shell', () => {
     await request(app).get('/app').expect(302).expect('Location', '/app.html');
   });
 
+  it('GET /help 301s to /support and sends Cache-Control', async () => {
+    const { MARKETING_CACHE, MARKETING_CDN } = require('./lib/http-cache');
+    const res = await request(app).get('/help').redirects(0);
+    expect(res.status).toBe(301);
+    expect(res.headers.location).toBe('/support');
+    expect(res.headers['cache-control']).toBe(MARKETING_CACHE);
+    expect(res.headers['vercel-cdn-cache-control']).toBe(MARKETING_CDN);
+    const withQuery = await request(app).get('/help?from=qa').redirects(0);
+    expect(withQuery.status).toBe(301);
+    expect(withQuery.headers.location).toBe('/support?from=qa');
+    const vercel = require('./vercel.json');
+    expect(vercel.redirects).toContainEqual({ source: '/help', destination: '/support', statusCode: 301 });
+    const helpHeaders = vercel.headers.find((row) => row.source === '/help');
+    expect(helpHeaders.headers).toEqual(expect.arrayContaining([
+      { key: 'Cache-Control', value: MARKETING_CACHE },
+    ]));
+  });
+
   it('GET / serves the home page HTML', async () => {
     const res = await request(app).get('/').expect(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.text.length).toBeGreaterThan(100);
     expect(res.text).toContain('href="/refund"');
     expect(res.text).toContain('web app');
-    expect(res.text).toContain('SAMPLE RECEIPT');
+    expect(res.text).not.toContain('SAMPLE RECEIPT');
+    expect(res.text).toContain('id="first-scan"');
+    expect(res.text).not.toContain('Score the sample receipt');
     expect(res.text).not.toContain('snap the paper from the checkout');
     expect(res.text).toContain('App Store listing is not live');
     expect(res.text).not.toContain('Download on the App Store');

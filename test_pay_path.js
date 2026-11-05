@@ -29,7 +29,13 @@ describe('Public Premium CTA', () => {
     const res = await request(app).get('/pricing').expect(200);
     expect(res.text).toContain('Start Premium trial');
     expect(res.text).toContain(PUBLIC_PREMIUM_URL);
-    expect(res.text).toContain('$19.99');
+    // The figure is not printed in the HTML. The card fills it from the config,
+    // and the meta description must not carry a price.
+    expect(res.text).toContain('data-fm-price="premiumAmount"');
+    const meta = res.text.match(/<meta name="description" content="([^"]*)"/);
+    expect(meta[1]).not.toMatch(/\$|\b\d+\.\d{2}\b/);
+    const cfg = await request(app).get('/api/pricing/config').expect(200);
+    expect(cfg.body.premiumAmount).toBe('A$19.99');
     expect(res.text).toContain('14-day trial');
     expect(res.text).toContain('card on file');
     expect(res.text).not.toMatch(/Wipper|wipper|client hub/i);
@@ -59,7 +65,12 @@ describe('Public Premium CTA', () => {
     expect(login.text).toContain('Stripe opens');
     expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial')");
     expect(login.text).toMatch(/await fetch\('\/api\/quick-checkout'/);
-    expect(login.text).toContain('if (emailFirst && !pendingClaim) return doEmailFirstTrial();');
+    expect(login.text).toContain('if (emailFirst && !pendingClaim) return showCheckoutReview();');
+    expect(login.text).toContain('function confirmCheckoutReview()');
+    expect(login.text).toContain('return doEmailFirstTrial();');
+    const reviewFn = login.text.slice(login.text.indexOf('function showCheckoutReview()'), login.text.indexOf('function hideCheckoutReview()'));
+    expect(reviewFn).not.toContain('/api/quick-checkout');
+    expect(login.text.indexOf('function confirmCheckoutReview()')).toBeLessThan(login.text.indexOf("await fetch('/api/quick-checkout'"));
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);
     expect(login.text).toContain('await redirectAfterAuth(data.token)');
     expect(login.text).toContain('Checkout did not return a Stripe card form URL');
@@ -434,7 +445,7 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
     const listenerEnd = html.indexOf(' });', html.indexOf("window.addEventListener('hashchange'"));
     const topLevel = html.indexOf(" else if (pendingClaim) showTab('register');");
     expect(topLevel).toBeGreaterThan(listenerEnd);
-    expect(html.match(/<script src="\/js\/fm-track\.js" defer><\/script>/g)).toHaveLength(1);
+    expect(html.match(/<script src="\/js\/fm-track\.js\?v=[0-9a-f]{12}" defer><\/script>/g)).toHaveLength(1);
   });
 
   it('Yearly toggle: unselected button is fm-btn-ink, 4.5:1 or better, with a focus ring (QA r2 M2)', async () => {

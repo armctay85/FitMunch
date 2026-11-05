@@ -2,11 +2,41 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<meta name="robots" content="noindex"/>
-<title>Coach plan builder</title>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<link rel="stylesheet" href="/css/fm-coach.css"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Coach plan builder | FitMunch</title>
+<meta name="description" content="FitMunch Coach for personal trainers: client meal plans, a supermarket draft list, and a branded share link or PDF. Two Coach plans with a 14-day trial."/>
+<link rel="canonical" href="https://www.fitmunch.com.au/coach"/>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<link rel="stylesheet" href="/css/fm-coach.css?v=fd9ae543fbef"/>
+<style>
+[hidden]{display:none!important}
+.pitch{display:grid;gap:14px}
+.pitch h2{margin:8px 0 0;font-size:1.2rem;letter-spacing:-.03em}
+.pitch p,.pitch li{font-size:1rem;line-height:1.55;max-width:65ch}
+.pitch ul,.pitch ol{margin:0;padding-left:1.15rem;display:grid;gap:8px}
+.outcome{font-weight:700;color:#0c1210}
+.sample{margin:0}
+.sample img{display:block;width:100%;max-width:780px;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+.sample figcaption{font-size:1rem;line-height:1.5;margin-top:8px;max-width:65ch}
+.tiers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tier{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px}
+.tier h3{margin:0 0 6px;font-size:1rem}
+.tier-price{font-family:system-ui,sans-serif;font-size:1.7rem;font-weight:800;letter-spacing:-.04em;margin:0 0 8px;min-height:2.2rem}
+.tier-price small{font-size:.85rem;font-weight:600;color:#3c4f46}
+.tier p{color:#1c3328;margin:0 0 12px}
+[data-fm-price]{display:inline-block;min-width:5ch;min-height:1em}
+.actions{display:grid;gap:8px}
+a.btn,button.btn{text-decoration:none}
+header a{display:inline-flex;align-items:center;min-height:44px;font-size:1rem}
+header p,footer p{font-size:1rem;line-height:1.5}
+footer p{color:#1c3328}
+button.btn,a.btn.primary{background:#0f7a32;color:#fff}
+:focus-visible{outline:2px solid #0c6428;outline-offset:3px}
+@media(max-width:640px){
+  .tiers{grid-template-columns:1fr}
+}
+</style>
 </head>
 <body>
 <header>
@@ -15,83 +45,60 @@
   <p>Pick a client, set targets, and draft a 7-day plan with a supermarket list.</p>
 </header>
 <main>
-  <p class="gate" id="coach-gate" hidden></p>
   <p class="error" id="coach-error" hidden></p>
-  <section class="card" id="coach-locked">
-    <p>Trainer accounts build client plans here.</p>
-    <a class="btn secondary" href="/login.html?plan=starter">Sign in</a>
+  <section class="pitch" id="coach-pitch">
+    <h2>What a trainer gets</h2>
+    <p class="outcome">The trainer gets a meal plan for that client, a draft supermarket list, and a share link or PDF.</p>
+    <p>FitMunch Coach is the plan builder for a personal trainer. You work from your client roster, not a blank spreadsheet.</p>
+    <ul>
+      <li>A 7-day meal plan from the calorie, protein, carb, and fat targets you set for that client.</li>
+      <li>Targets filled from the client's meal logs when they have logged in the last 7 days.</li>
+      <li>Dietary flags for vegetarian, vegan, gluten-free, dairy-free, nut-free, and fish-free.</li>
+      <li>A draft supermarket list scaled to household size.</li>
+      <li>Your practice name, accent colour, and logo on the share page and the PDF.</li>
+      <li>A share link you send, plus a PDF the client can download.</li>
+      <li>Adherence from the last 7 days of meal logs: days logged and average macros against the plan.</li>
+    </ul>
+    <h2>How Coach works</h2>
+    <ol>
+      <li>Pick a client.</li>
+      <li>Set calorie, protein, carb and fat targets, or fill them from that client's meal logs.</li>
+      <li>Choose dietary flags and household size, then generate the 7-day plan and the draft supermarket list.</li>
+      <li>Add your practice name, accent colour and logo, then send a share link or a PDF.</li>
+    </ol>
+    <h2>Sample plan</h2>
+    <figure class="sample">
+      <img src="/assets/coach-plan-client-a.webp" width="728" height="1728" alt="FitMunch Coach plan builder for placeholder client Client A, with the generated meal plan and draft supermarket list." decoding="async"/>
+      <figcaption>The plan builder for placeholder client Client A.</figcaption>
+    </figure>
+    <h2>Two Coach plans</h2>
+    <p>Both plans include a 14-day trial. A card is required. Cancel before the trial ends and you are not charged. You pay the Coach subscription. The client gets the week by share link or PDF.</p>
+    <div class="tiers">
+      <article class="tier">
+        <h3>Up to 10 active clients</h3>
+        <p class="tier-price"><span data-fm-price="coach39Amount"></span> <small>a month</small></p>
+        <p><span data-fm-price="coach39Monthly"></span>. 14-day trial. Card on file.</p>
+        <a class="btn primary" href="/login.html?plan=coach-39#register">Start 14-day trial</a>
+      </article>
+      <article class="tier">
+        <h3>Unlimited active clients</h3>
+        <p class="tier-price"><span data-fm-price="coach79Amount"></span> <small>a month</small></p>
+        <p><span data-fm-price="coach79Monthly"></span>. 14-day trial. Card on file.</p>
+        <a class="btn primary" href="/login.html?plan=coach-79#register">Start 14-day trial</a>
+      </article>
+    </div>
+    <div class="actions">
+      <a class="btn secondary" href="/login.html">Sign in</a>
+      <button type="button" class="btn" id="coach-preview">Preview the plan builder</button>
+    </div>
+    <p>Preview uses the trainer preview session on this browser. <noscript><a href="/pricing">See current plans and prices</a></noscript></p>
   </section>
-  <form class="card stack" id="coach-form" hidden>
-    <div>
-      <label for="coach-client">Client</label>
-      <select id="coach-client"></select>
-    </div>
-    <div class="grid">
-      <div><label for="coach-kcal">kcal</label><input id="coach-kcal" type="number" min="800" max="6000" value="2000" inputmode="numeric"/></div>
-      <div><label for="coach-protein">Protein (g)</label><input id="coach-protein" type="number" min="0" max="500" value="140" inputmode="numeric"/></div>
-      <div><label for="coach-carbs">Carbs (g)</label><input id="coach-carbs" type="number" min="0" max="500" value="180" inputmode="numeric"/></div>
-      <div><label for="coach-fat">Fat (g)</label><input id="coach-fat" type="number" min="0" max="500" value="60" inputmode="numeric"/></div>
-    </div>
-    <button type="button" class="secondary" id="coach-from-logs">Use targets from client logs</button>
-    <div>
-      <label>Dietary flags</label>
-      <div class="flags" id="coach-flags">
-        <label><input type="checkbox" value="vegetarian"/> Vegetarian</label>
-        <label><input type="checkbox" value="vegan"/> Vegan</label>
-        <label><input type="checkbox" value="gluten-free"/> Gluten-free</label>
-        <label><input type="checkbox" value="dairy-free"/> Dairy-free</label>
-        <label><input type="checkbox" value="nut-free"/> Nut-free</label>
-        <label><input type="checkbox" value="fish-free"/> Fish-free</label>
-      </div>
-    </div>
-    <div class="grid">
-      <div>
-        <label for="coach-household">Household size</label>
-        <input id="coach-household" type="number" min="1" max="8" value="1" inputmode="numeric"/>
-      </div>
-    </div>
-    <button type="submit" id="coach-generate">Generate 7-day plan</button>
-  </form>
-
-  <section id="coach-result" hidden>
-    <div class="card">
-      <div class="status" id="coach-status">Draft</div>
-      <p class="adherence" id="coach-adherence"></p>
-      <div id="coach-days"></div>
-    </div>
-    <div class="card">
-      <h2 id="coach-store-heading">Draft list</h2>
-      <div id="coach-list"></div>
-      <p class="note" id="coach-price-note"></p>
-    </div>
-    <form class="card stack" id="coach-brand">
-      <h2>Branding</h2>
-      <div>
-        <label for="coach-practice">Practice name</label>
-        <input id="coach-practice" type="text" maxlength="80" placeholder="Practice name"/>
-      </div>
-      <div>
-        <label for="coach-accent">Accent colour</label>
-        <input id="coach-accent" type="color" value="#1f9d4a"/>
-      </div>
-      <div>
-        <label for="coach-logo">Logo</label>
-        <input id="coach-logo" type="file" accept="image/png,image/jpeg"/>
-        <img id="coach-logo-preview" class="logo-preview" alt="" hidden/>
-      </div>
-      <button type="submit" class="secondary" id="coach-save-brand">Save branding</button>
-    </form>
-    <div class="card stack">
-      <button type="button" id="coach-send">Send plan</button>
-      <p class="share-link" id="coach-share" hidden></p>
-      <button type="button" class="secondary" id="coach-refresh">Refresh status</button>
-    </div>
-  </section>
+  <div id="coach-workspace"></div>
   <footer>
     <p>See a dietitian for medical nutrition.</p>
   </footer>
 </main>
-<script src="/js/fm-coach.js"></script>
+<script src="/js/fm-coach.js?v=3a5c60d4b984"></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>

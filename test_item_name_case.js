@@ -75,7 +75,7 @@ describe('receipt item display names', () => {
     const app = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
     const index = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8');
     const fs1 = fs.readFileSync(path.join(__dirname, 'public/js/fm-first-scan.js'), 'utf8');
-    expect(app).toContain('<script src="/js/fm-item-name.js"></script>');
+    expect(app).toMatch(/<script src="\/js\/fm-item-name\.js\?v=[0-9a-f]{12}"><\/script>/);
     expect(app).toContain('${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}');
     expect(index.indexOf('/js/fm-item-name.js')).toBeGreaterThan(-1);
     expect(index.indexOf('/js/fm-item-name.js')).toBeLessThan(index.indexOf('/js/fm-first-scan.js'));

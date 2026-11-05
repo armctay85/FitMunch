@@ -27,7 +27,7 @@ body{
   min-height:52px;
   background:#0f7a32;
   color:#fff;
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
 }
 .btn:hover,.btn:focus-visible{background:#0c6428;color:#fff}
 input{border-radius:12px;min-height:48px}

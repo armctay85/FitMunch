@@ -1139,7 +1139,7 @@ router.get('/auth/me', async (req, res) => {
 // GET /api/auth/export — JSON download of the caller's own data.
 // Every table that holds the caller's data, scoped by the JWT user id only.
 // Rows are read in pages until done, so nothing is cut off.
-const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites', 'achievements', 'analytics_events'];
+const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites', 'achievements', 'analytics_events', 'activation_events'];
 const EXPORT_QUERIES = [
   ...EXPORT_TABLES.map((t) => ({ key: t, from: t, where: 'user_id=$1', order: 'id' })),
   { key: 'ai_usage', from: 'ai_usage_monthly', where: 'user_id=$1::text', order: 'month, feature' },
@@ -2853,6 +2853,64 @@ router.post('/pt-leads', async (req, res) => {
     console.log(`[pt-lead] captured: ${email} via ${source}`);
     res.json({ success: true });
   } catch (err) { sendApiError(res, err); }
+});
+
+// Test-only activation helpers. 404 unless ACTIVATION_TEST_BACKDATE=1 and
+// the X-Activation-Test-Token header matches ACTIVATION_TEST_TOKEN. The
+// account email must be activation-test@fitmunch.com.au (optional +tag).
+router.post('/internal/activation-test/backdate', async (req, res) => {
+  const activation = require('./lib/activation-events');
+  if (!activation.activationTestRequestOk(req)) {
+    return res.status(404).json({ success: false, error: 'Not found' });
+  }
+  let decoded;
+  try {
+    const h = req.headers.authorization || '';
+    if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
+    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+  } catch (_) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  try {
+    const result = await activation.backdateActivationTestSignup(decoded.userId, req.body && req.body.daysAgo);
+    if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
+    return res.json({ success: true, createdAt: result.createdAt });
+  } catch (err) {
+    sendApiError(res, err);
+  }
+});
+
+// Same trial_started recorder as checkout.session.completed. No Stripe call
+// and no charge. The row is marked metadata.fixture so it is not a live trial.
+router.post('/internal/activation-test/trial-fixture', async (req, res) => {
+  const activation = require('./lib/activation-events');
+  if (!activation.activationTestRequestOk(req)) {
+    return res.status(404).json({ success: false, error: 'Not found' });
+  }
+  let decoded;
+  try {
+    const h = req.headers.authorization || '';
+    if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
+    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+  } catch (_) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  try {
+    const found = await _pool.query('SELECT id, email FROM users WHERE id = $1', [decoded.userId]);
+    const row = found.rows[0];
+    if (!row || !activation.TEST_ACCOUNT_EMAIL.test(String(row.email || ''))) {
+      return res.status(403).json({ success: false, error: 'Not a test account' });
+    }
+    const session = {
+      id: 'cs_activation_test',
+      metadata: { plan: 'premium', app: 'fitmunch', userId: row.id },
+    };
+    activation.recordTrialStartedForCheckout(session, { id: row.id }, 'evt_activation_test', { fixture: true });
+    await activation.whenActivationIdle();
+    return res.json({ success: true, event: 'trial_started' });
+  } catch (err) {
+    sendApiError(res, err);
+  }
 });
 
 // Export router for use in other modules

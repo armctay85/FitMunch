@@ -1,16 +1,16 @@
 /* Coach landers: marketing shell without the Google Fonts import. Faces live in fm-coach-fonts.css. */
 
 .fm-body{
-  font-family:'Literata',Georgia,serif;
+  font-family:'Literata','Literata Fallback',Georgia,serif;
   background:var(--paper);
   color:var(--ink);
   -webkit-font-smoothing:antialiased;
   margin:0;
 }
 .fm-body h1,.fm-body h2,.fm-body h3,.fm-brand,.fm-nav a,.fm-btn,.fm-footer-brand,.fm-footer-links a{
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
 }
-.fm-mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.fm-mono{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace}
 
 .fm-nav{
   display:flex;align-items:center;justify-content:space-between;
@@ -89,7 +89,7 @@
 .fm-doc a{color:var(--leaf2)}
 .fm-back{
   display:inline-block;margin-bottom:24px;
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.85rem;font-weight:700;color:var(--leaf2);text-decoration:none;
 }
 .fm-back:hover{color:var(--ink)}
@@ -117,11 +117,11 @@
 .fm-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .fm-table th,.fm-table td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px dashed var(--line);overflow-wrap:break-word;word-break:normal;hyphens:manual}
 .fm-table th{
-  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
   color:var(--mute2);background:var(--paper2);
 }
-.fm-table td:last-child,.fm-table th:last-child{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;color:var(--leaf2)}
+.fm-table td:last-child,.fm-table th:last-child{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-weight:600;color:var(--leaf2)}
 .fm-table tr:last-child td{border-bottom:0}
 /* Phones: stack each row as a label/value card so no word is ever split. */
 @media(max-width:559px){
@@ -133,15 +133,15 @@
   .fm-table td,.fm-table tr:last-child td{display:grid;grid-template-columns:minmax(96px,38%) minmax(0,1fr);gap:12px;align-items:baseline;padding:5px 0;border-bottom:0}
   .fm-table td::before{
     content:attr(data-label);
-    font-family:'Bricolage Grotesque',system-ui,sans-serif;
+    font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
     font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute2);
   }
   .fm-table td:first-child{font-weight:700;color:var(--ink)}
 }
 .fm-score-row{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end;margin:20px 0}
-.fm-score-n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
+.fm-score-n{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:3.4rem;font-weight:600;letter-spacing:-.05em;color:var(--leaf2);line-height:.9}
 .fm-score-meta{color:var(--mute);font-size:.9rem;line-height:1.45}
-.fm-score-meta strong{display:block;color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1rem}
+.fm-score-meta strong{display:block;color:var(--ink);font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem}
 .fm-convert{
   margin:36px 0 8px;padding:28px 24px;
   background:var(--fridge);color:#fff;

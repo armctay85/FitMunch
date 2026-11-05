@@ -11,9 +11,30 @@ const { attachApiJsonSanitizer, sendStripeJson } = require('./lib/sanitize-api-j
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
 const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+const {
+  isPrivatePath,
+  isMarketingDocument,
+  normalizePath,
+  lockNoStore,
+  applyDocumentCache,
+  applyFileCache,
+  applyMarketingCache,
+} = require('./lib/http-cache');
+const {
+  PREMIUM_MONTHLY_LABEL,
+  PREMIUM_AMOUNT_LABEL,
+  PREMIUM_ANNUAL_LABEL,
+  PREMIUM_MONTHLY_AMOUNT,
+  PREMIUM_CURRENCY,
+  COACH_39_AMOUNT_LABEL,
+  COACH_39_MONTHLY_LABEL,
+  COACH_79_AMOUNT_LABEL,
+  COACH_79_MONTHLY_LABEL,
+} = require('./lib/public-prices');
 const { webhookErrorFields, isTransientWebhookError } = require('./lib/webhook-error');
 const stripeEvents = require('./lib/stripe-events');
 const stripeWebhook = require('./lib/stripe-webhook');
+const resendInbound = require('./lib/resend-inbound');
 require('./lib/guest-claim').warnMissingGuestClaimSecret();
 // Custom domain configuration (simplified for Replit)
 const configureCustomDomain = (app) => {
@@ -35,6 +56,14 @@ if (process.env.STRIPE_SECRET_KEY) {
 }
 
 const app = express();
+
+// Activation day7_return. Header check only; the write is scheduled and
+// never awaited. Invalid tokens are ignored here (the route still decides auth).
+const { noteAuthenticatedRequest } = require('./lib/activation-events');
+app.use((req, res, next) => {
+  try { noteAuthenticatedRequest(req); } catch (_) { /* tracking must not affect the request */ }
+  next();
+});
 
 app.use(attachApiJsonSanitizer);
 
@@ -158,15 +187,35 @@ app.use((req, res, next) => {
   return res.sendFile(FUNNEL_PAGE);
 });
 
+// Marketing HTML and static assets are the same for every visitor, so the
+// Vercel CDN may cache them. Personal, auth, API and checkout responses are
+// locked to no-store even if a handler later asks for a public cache.
+app.use((req, res, next) => {
+  if (isPrivatePath(req.path)) {
+    lockNoStore(res);
+    return next();
+  }
+  if ((req.method === 'GET' || req.method === 'HEAD') && isMarketingDocument(req.path)) {
+    applyDocumentCache(res, req.path);
+  }
+  next();
+});
+
+// public/404.html would be a CDN 200. The page lives beside the funnel shell
+// and this route answers 404 before static files or the catch-all.
+const NOT_FOUND_PAGE = path.join(__dirname, 'private', '404.html');
+app.use((req, res, next) => {
+  const pathOnly = normalizePath(req.path);
+  if (pathOnly !== '/404' && pathOnly !== '/404.html') return next();
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(404).sendFile(NOT_FOUND_PAGE);
+});
+
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   index: 'index.html',
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    } else {
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-    }
+    applyFileCache(res, filePath);
     if (
       filePath.endsWith(`${path.sep}login.html`) || filePath.endsWith('/login.html') ||
       filePath.endsWith(`${path.sep}success.html`) || filePath.endsWith('/success.html')
@@ -178,7 +227,7 @@ app.use(express.static(PUBLIC_DIR, {
 
 // Explicit root — Vercel rewrites can normalize "/" so static fallthrough may miss it.
 app.get('/', (req, res) => {
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  applyDocumentCache(res, '/');
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
@@ -187,6 +236,8 @@ configureCustomDomain(app);
 
 // Stripe webhooks must see the raw request body. Register this before global JSON parsing.
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+// Resend inbound webhooks are Svix-signed over the raw body. Same rule.
+app.use('/api/resend-inbound', express.raw({ type: 'application/json', limit: '1mb' }));
 
 // Add body size limits for security and parse JSON/URL-encoded data
 app.use(express.json({ limit: '15mb' }));
@@ -296,6 +347,18 @@ function finishWebhook(res, err, event) {
     });
 }
 
+// Resend Receiving: forward support@ once. Signature is checked on the raw body.
+app.post('/api/resend-inbound', async (req, res) => {
+  try {
+    const result = await resendInbound.handleResendInbound(req);
+    if (res.headersSent) return;
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    console.error('[resend-inbound]', webhookHandlerErrorLabel(err));
+    if (!res.headersSent) res.status(500).json({ error: 'unavailable' });
+  }
+});
+
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
@@ -337,8 +400,8 @@ app.get('/woolworths-haul-teardown', (req, res) => res.redirect(301, '/haul-tear
 for (const route of ['/shopper', '/shopper.html', '/fitness-butler', '/butler']) {
   app.get(route, (req, res) => res.redirect(301, '/app.html#shopping'));
 }
-// /demo retired: the homepage worked example (#proof) replaces it.
-app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#proof'));
+// /demo retired: the sample receipt is gone. Send people to their own scan.
+app.get(['/demo', '/demo.html', '/try'], (req, res) => res.redirect(301, '/#first-scan'));
 // SEO pack 2 landers (new routes only)
 // Store names are out of marketing slugs (Wilson, PR 76). Old URLs 301 here and in vercel.json.
 app.get('/supermarket-meal-planner', (req, res) => res.sendFile('supermarket-meal-planner.html', { root: 'public' }));
@@ -390,6 +453,11 @@ app.get('/signup', (req, res) => res.redirect(301, registerRedirectTarget(req)))
 app.get('/sign-up', (req, res) => res.redirect(301, registerRedirectTarget(req)));
 app.get('/app', (req, res) => res.redirect(302, '/app.html' + authQuery(req)));
 app.get('/checkout', (req, res) => res.redirect(302, '/pricing'));
+app.get('/help', (req, res) => {
+  applyMarketingCache(res);
+  const q = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(301, '/support' + q);
+});
 app.get('/support', (req, res) => res.sendFile('support.html', { root: 'public' }));
 app.get('/refund', (req, res) => res.sendFile('refund.html', { root: 'public' }));
 app.get('/terms', (req, res) => res.sendFile('terms.html', { root: 'public' }));
@@ -655,11 +723,20 @@ function quickCheckoutCancelPath(plan) {
 
 // Public pricing switches. Annual shows only when its Stripe price is set.
 app.get('/api/pricing/config', (_req, res) => {
-  res.set('Cache-Control', 'public, max-age=300');
+  res.set('Cache-Control', 'no-store');
   res.json({
     success: true,
     premiumAnnual: premiumAnnualAvailable(),
     freeAiMonthly: require('./lib/ai-usage').freeMonthlyLimit(),
+    premiumMonthly: PREMIUM_MONTHLY_LABEL,
+    premiumAmount: PREMIUM_AMOUNT_LABEL,
+    premiumAnnualLabel: PREMIUM_ANNUAL_LABEL,
+    premiumMonthlyAmount: PREMIUM_MONTHLY_AMOUNT,
+    premiumCurrency: PREMIUM_CURRENCY,
+    coach39Amount: COACH_39_AMOUNT_LABEL,
+    coach39Monthly: COACH_39_MONTHLY_LABEL,
+    coach79Amount: COACH_79_AMOUNT_LABEL,
+    coach79Monthly: COACH_79_MONTHLY_LABEL,
   });
 });
 
@@ -689,6 +766,24 @@ const quickCheckoutLimiter = rateLimit({
 });
 app.use('/api/quick-checkout', quickCheckoutLimiter);
 
+const supportFormLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many messages. Try again later.' },
+});
+app.post('/api/support', supportFormLimiter, async (req, res) => {
+  try {
+    const { sendSupportConfirmation } = require('./lib/support-confirm');
+    const result = await sendSupportConfirmation(req.body || {});
+    res.status(result.status).json(result.body);
+  } catch (err) {
+    sendApiError(res, err, 'Support form error');
+  }
+});
+
 /** Sends work past the response on Vercel (waitUntil); off Vercel it just runs. */
 function runInBackground(promise) {
   const safe = Promise.resolve(promise).catch((err) => {
@@ -712,6 +807,37 @@ async function quickCheckoutEmailLimited(canonical) {
     return false;
   }
 }
+
+// Signed-out first week. No account, no AI, no saved sample day.
+const { previewWeek } = require('./lib/first-run-plan');
+const firstRunLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  keyGenerator: rateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many previews. Please try again later.' },
+});
+app.post('/api/first-run/preview', firstRunLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const out = previewWeek({
+      goal: body.goal,
+      weightKg: body.weightKg,
+      targetWeightKg: body.targetWeightKg,
+      training: body.training,
+    });
+    res.set('Cache-Control', 'no-store');
+    res.json(out);
+  } catch (err) {
+    const status = Number(err && err.status) || 500;
+    if (status >= 500) {
+      console.error('[first-run] preview failed');
+      return res.status(500).json({ success: false, error: 'Could not build your day. Try again.' });
+    }
+    res.status(status).json({ success: false, error: err.message || 'Check those numbers and try again.' });
+  }
+});
 
 // ── PUBLIC CHECKOUT (no auth, creates customer on the fly, 14-day trial) ──────
 app.post('/api/quick-checkout', async (req, res) => {
@@ -1348,7 +1474,8 @@ app.use((err, req, res, next) => {
 // Catch-all for unmatched non-API routes → custom 404 page
 app.use((req, res, next) => {
   if (res.headersSent) return next();
-  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+  res.set('Cache-Control', 'no-store');
+  res.status(404).sendFile(NOT_FOUND_PAGE);
 });
 
 const port = process.env.PORT || 5000;

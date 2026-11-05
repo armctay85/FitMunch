@@ -187,4 +187,54 @@ maybe('#140 r2 M1 on real Postgres: item #51 is still read', () => {
     expect(Math.max(tc, tg, tl)).toBeLessThan(500);
     expect(aiClient.chat).not.toHaveBeenCalled();
   });
+
+  it('an object past 20,000 keys names peanut the same way after a jsonb round trip and a shuffled key order', async () => {
+    const safety = require('./lib/meal-safety');
+    const zCount = dietGuard.MAX_FILTER_SCAN + 1;
+    const names = ['peanut', ...Array.from({ length: zCount }, (_, i) => `z${i}`)];
+    expect(names.length).toBeGreaterThan(dietGuard.MAX_FILTER_SCAN);
+    const objectFrom = (keys) => {
+      const obj = {};
+      for (const k of keys) obj[k] = true;
+      return obj;
+    };
+    const shuffledNames = names.slice();
+    let seed = 0x5eed;
+    for (let i = shuffledNames.length - 1; i > 0; i -= 1) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const j = seed % (i + 1);
+      const tmp = shuffledNames[i];
+      shuffledNames[i] = shuffledNames[j];
+      shuffledNames[j] = tmp;
+    }
+    const forward = objectFrom(names);
+    const shuffled = objectFrom(shuffledNames);
+    expect(Object.keys(forward)).not.toEqual(Object.keys(shuffled));
+    const roundTrip = async (obj) => {
+      await profile([], obj);
+      const { rows } = await pool.query('select allergies from user_profiles where user_id=$1', [U]);
+      return rows[0].allergies;
+    };
+    const fromDb = await roundTrip(forward);
+    const fromDbShuffled = await roundTrip(shuffled);
+    expect(Object.keys(fromDb)).not.toEqual(Object.keys(forward));
+    expect(Object.keys(fromDbShuffled)).not.toEqual(Object.keys(shuffled));
+    const read = (obj) => ({
+      list: dietGuard.listOf(obj),
+      filters: safety.profileFilters({ allergies: obj }),
+      saved: dietGuard.savedFilters({ allergies: obj }),
+    });
+    const reads = [forward, shuffled, fromDb, fromDbShuffled].map(read);
+    for (const got of reads) {
+      expect(got.list).toEqual(reads[0].list);
+      expect(got.filters).toEqual(reads[0].filters);
+      expect(got.saved).toEqual(reads[0].saved);
+      expect(got.list).toContain('peanut');
+      expect(got.filters.allergies).toContain('peanut');
+      expect(got.filters.pastBudget).toBe(true);
+      expect(got.filters.unreadable).toBe(true);
+      expect(got.saved).toContain('nut free');
+    }
+    expect(dietGuard.allergyDiets(reads[0].list)).toContain('nut free');
+  });
 });

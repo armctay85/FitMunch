@@ -35,7 +35,7 @@
   --blue: #2f6fed;
 
   /* Type, space and motion scale. Colours above stay the brand. */
-  --fm-font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --fm-font-display: "Bricolage Grotesque", "Bricolage Grotesque Fallback", system-ui, sans-serif;
   --fm-font-body: "Literata", Georgia, serif;
   --fm-font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --fm-step--1: 0.875rem;

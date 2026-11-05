@@ -134,6 +134,17 @@ export const analyticsEvents = pgTable('analytics_events', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Activation events: one row per user per event name. The unique key lives
+// in lib/db-migrate.js (activation_events_user_event_key).
+export const activationEvents = pgTable('activation_events', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  eventName: varchar('event_name', { length: 64 }).notNull(),
+  source: varchar('source', { length: 64 }).notNull().default(''),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ── B2B PT PLATFORM ADDITIONS ──────────────────────────────────────────────
 
 export const clientInvitations = pgTable('client_invitations', {

@@ -22,13 +22,22 @@ function startFreeHrefs(html) {
 }
 
 describe('Trust bar 1: app is gated', () => {
-  it('GET /app.html hides the cockpit until fm-authed and sends visitors to login', async () => {
+  it('GET /app.html hides the cockpit until fm-authed and shows a signed-out first run', async () => {
     const res = await request(app).get('/app.html').expect(200);
     expect(res.text).toContain('id="app-gate"');
-    expect(res.text).toContain('Sign in to FitMunch');
+    expect(res.text).toContain('Build your first week');
+    expect(res.text).toContain('id="fr-goal"');
+    expect(res.text).toContain('id="fr-weight"');
+    expect(res.text).toContain('id="fr-target"');
+    expect(res.text).toContain('id="fr-training"');
+    expect(res.text).toContain('No card is needed.');
+    expect(res.text).toContain('A card is needed for the trial.');
     expect(res.text).toContain('html:not(.fm-authed) .shell');
     expect(res.text).toContain('display:none!important');
-    expect(res.text).toContain("location.replace('/login.html')");
+    expect(res.text).toContain("classList.add('fm-guest')");
+    expect(res.text).toContain("location.hash === '#billing'");
+    expect(res.text).toContain("window.location.replace('/login.html?next=billing')");
+    expect(res.text).not.toContain("location.replace('/login.html')");
     expect(res.text).toContain("role: 'client'");
     expect(res.text).not.toMatch(/<html[^>]*\bfm-authed\b/);
     const meIdx = res.text.indexOf("API('/auth/me')");
@@ -75,7 +84,9 @@ describe('Trust bar 3: funnel is not a public analytics UI', () => {
     expect(fs.existsSync(path.join(__dirname, 'public/funnel.html'))).toBe(false);
     expect(fs.existsSync(path.join(__dirname, 'private/funnel.html'))).toBe(true);
     const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
-    expect(vercel.functions['api/index.js'].includeFiles).toBe('private/funnel.html');
+    expect(vercel.functions['api/index.js'].includeFiles).toBe('private/**/*.html');
+    expect(fs.existsSync(path.join(__dirname, 'private/404.html'))).toBe(true);
+    expect(fs.existsSync(path.join(__dirname, 'public/404.html'))).toBe(false);
   });
 
   it('GET /api/analytics/funnel stays unauthorized without the key', async () => {
@@ -117,6 +128,15 @@ describe('Trust bar 4: one Stripe trial story', () => {
     expect(refund.text).toContain('card on file');
     expect(refund.text).toContain('It is not a 14-day refund after a paid charge');
     expect(refund.text).toContain('support@fitmunch.com.au');
+    expect(refund.text).toContain('No GST is charged.');
+    expect(refund.text).toContain('within 1 business day');
+    expect(refund.text).toContain('href="#billing"');
+    expect(refund.text).toContain('href="#trial"');
+    expect(refund.text).toContain('href="#after-charge"');
+    expect(refund.text).toContain('href="#request"');
+    expect(refund.text).toContain('href="#processing"');
+    expect(refund.text).not.toContain('1-2 business days');
+    expect(refund.text).not.toContain('1&ndash;2 business days');
   });
 });
 
@@ -135,30 +155,33 @@ describe('Trust bar 5: web app, not store', () => {
   });
 });
 
-describe('Trust bar 6: haul 92 / $143 / 987g is a worked example', () => {
-  const surfaces = [
-    ['/haul-teardown', ['92', '987']],
-    ['/receipt-nutrition-scanner', ['92', '987']],
-    ['/pricing', ['92']],
-  ];
+describe('Trust bar 6: public pages do not ship a stand-in haul score', () => {
+  const surfaces = ['/haul-teardown', '/receipt-nutrition-scanner', '/pricing', '/'];
 
-  it.each(surfaces)('%s labels those numbers as an example', async (route, tokens) => {
+  it.each(surfaces)('%s has no sample haul score', async (route) => {
     const res = await request(app).get(route).expect(200);
-    for (const token of tokens) {
-      expect(res.text).toContain(token);
-    }
-    expect(res.text.toLowerCase()).toMatch(/worked example|sample .*woolies|weekly shop example/);
+    expect(res.text).not.toMatch(/92 haul score|haul score 92/i);
+    expect(res.text).not.toContain('Score the sample receipt');
+    expect(res.text).not.toMatch(/sample wednesday/i);
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
   });
 });
 
-describe('Trust bar 6b: homepage proof is a labelled sample receipt, not a claimed real shop', () => {
-  it('homepage offers the no-sign-up sample receipt demo', async () => {
+describe('Trust bar 6b: homepage proof is the visitor receipt, not a sample shop', () => {
+  it('homepage does not embed the sample receipt scorer', async () => {
     const res = await request(app).get('/').expect(200);
-    expect(res.text).toContain('id="demo-run"');
-    expect(res.text).toContain('SAMPLE RECEIPT');
-    expect(res.text).toContain('/api/receipt/demo');
+    expect(res.text).not.toContain('id="demo-run"');
+    expect(res.text).not.toContain('SAMPLE RECEIPT');
+    expect(res.text).not.toContain('/api/receipt/demo');
+    expect(res.text).toContain('id="first-scan"');
+    expect(res.text).not.toContain('Score the sample receipt');
+    expect(res.text).not.toContain('Sample Wednesday');
+    expect(res.text).not.toContain('92 haul');
+    expect(res.text).toContain('not a demo shop');
     expect(res.text).not.toContain('One real Woolworths shop, scanned and scored');
+    const pricing = await request(app).get('/pricing').expect(200);
+    expect(pricing.text).not.toContain('92 haul');
+    expect(pricing.text).not.toContain('92 haul score');
   });
 });
 
@@ -216,7 +239,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     const fold = home.text.split('<div class="fold">')[1].split('</div>\n\n<section')[0];
     const hero = home.text.split('<header class="hero">')[1].split('</header>')[0];
     expect(fold).toContain('class="trial-bar"');
-    expect(fold.replace(/<[^>]+>/g, '')).toContain('14-day trial, then A$19.99 a month');
+    expect(fold).toContain('data-fm-price="premiumMonthly"');
+    expect(fold).not.toContain('A$19.99');
     expect(fold).toContain('Card on file');
     expect(hero).toContain('Your week of meals, planned to your macros.');
     expect(hero).toContain('Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.');
@@ -235,7 +259,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(home.text).toContain('id="first-scan"');
     expect(home.text).toContain('data-first-scan');
     expect(home.text).toContain('/js/fm-first-scan.js');
-    expect(home.text).toContain('14-day trial, then A$19.99 a month');
+    expect(home.text).toContain('data-fm-price="premiumMonthly"');
+    expect(home.text).not.toContain('A$19.99');
     expect(home.text).toContain('Start the 14-day trial');
     const trialHrefs = [];
     const trialRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
@@ -269,10 +294,18 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(res.text).not.toContain('Unlimited weekly AI plans');
     expect(res.text).toContain('Free includes AI actions a month');
     expect(res.text).not.toContain('Limited AI actions per month');
-    expect(res.text).toContain('Weekly AI plans need Premium');
-    expect(res.text).toContain('A$39 a month for up to 10 clients, or A$79 a month unlimited.');
+    expect(res.text).toContain('Counted in the monthly allowance');
+    expect(res.text).toContain('data-fm-price="premiumMonthly"');
+    expect(res.text).toContain('data-fm-price="coach39Monthly"');
+    expect(res.text).toContain('data-fm-price="coach79Monthly"');
+    expect(res.text).toContain('up to 10 clients');
     expect(res.text).toContain('14-day trial');
-    expect(res.text).toContain('A$19.99');
+    expect(res.text).toContain('data-fm-price="premiumAmount"');
+    const pricingMeta = res.text.match(/<meta name="description" content="([^"]*)"/);
+    expect(pricingMeta[1]).not.toMatch(/\$|\b\d+\.\d{2}\b/);
+    expect(res.text).toContain('No GST is charged.');
+    expect(res.text).toContain('href="/terms"');
+    expect(res.text).toContain('within 1 business day');
     expect(res.text).not.toContain('Most popular');
   });
 

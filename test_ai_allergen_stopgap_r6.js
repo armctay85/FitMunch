@@ -163,6 +163,53 @@ describe('S1: filter lists are capped at 50 items of 100 characters', () => {
       .toBe(safety.profileFilters({ allergies: nestedB }).pastBudget);
   });
 
+  it('an object past 20,000 keys names peanut the same way after the keys are shuffled', () => {
+    const safety = require('./lib/meal-safety');
+    const zCount = dietGuard.MAX_FILTER_SCAN + 1;
+    const names = ['peanut', ...Array.from({ length: zCount }, (_, i) => `z${i}`)];
+    expect(names.length).toBeGreaterThan(dietGuard.MAX_FILTER_SCAN);
+    const objectFrom = (keys) => {
+      const obj = {};
+      for (const k of keys) obj[k] = true;
+      return obj;
+    };
+    // Fixed seed, so the shuffle is a real different order and the test does not flake.
+    const shuffledNames = names.slice();
+    let seed = 0x5eed;
+    for (let i = shuffledNames.length - 1; i > 0; i -= 1) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const j = seed % (i + 1);
+      const tmp = shuffledNames[i];
+      shuffledNames[i] = shuffledNames[j];
+      shuffledNames[j] = tmp;
+    }
+    const forward = objectFrom(names);
+    const shuffled = objectFrom(shuffledNames);
+    expect(Object.keys(forward)).not.toEqual(Object.keys(shuffled));
+    const read = (obj) => ({
+      list: dietGuard.listOf(obj),
+      filters: safety.profileFilters({ allergies: obj }),
+      saved: dietGuard.savedFilters({ allergies: obj }),
+    });
+    const a = read(forward);
+    const b = read(shuffled);
+    expect(a.list).toEqual(b.list);
+    expect(a.filters).toEqual(b.filters);
+    expect(a.saved).toEqual(b.saved);
+    expect(a.list).toContain('peanut');
+    expect(b.list).toContain('peanut');
+    expect(a.filters.allergies).toContain('peanut');
+    expect(a.filters.pastBudget).toBe(true);
+    expect(a.filters.unreadable).toBe(true);
+    expect(a.saved).toContain('nut free');
+    expect(dietGuard.allergyDiets(a.list)).toContain('nut free');
+    const ordered = dietGuard.orderedFilterKeys(shuffled);
+    expect(ordered.pastCount).toBe(true);
+    expect(ordered.keys).toHaveLength(dietGuard.MAX_FILTER_SCAN + 1);
+    expect(ordered.keys).toContain('peanut');
+    expect(ordered.keys).toEqual(ordered.keys.slice().sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)));
+  });
+
   it('listOf keeps every item within the character budget, and fails closed past it', () => {
     const list = new Array(60).fill('vegan');
     list[55] = 'peanut';

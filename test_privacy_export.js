@@ -58,7 +58,7 @@ beforeEach(() => {
 });
 afterAll(() => counters.resetSharedCountersForTests());
 
-const ALL_KEYS = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites', 'achievements', 'analytics_events', 'ai_usage', 'pt_clients', 'plan_assignments', 'client_invitations'];
+const ALL_KEYS = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans', 'workout_plans', 'shopping_lists', 'favourites', 'achievements', 'analytics_events', 'activation_events', 'ai_usage', 'pt_clients', 'plan_assignments', 'client_invitations'];
 const get = (q = '') => request(app).get(`/api/auth/export${q}`).set('Authorization', `Bearer ${token}`);
 
 describe('GET /api/auth/export', () => {

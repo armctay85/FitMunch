@@ -4,14 +4,14 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>FitMunch Pricing | Premium and Coach Plans</title>
-<meta name="description" content="FitMunch pricing: Premium A$19.99 a month with a 14-day trial, free plan, and Coach plans for personal trainers."/>
+<meta name="description" content="FitMunch pricing: Premium with a 14-day trial, free plan, and Coach plans for personal trainers."/>
 <link rel="canonical" href="https://fitmunch.com.au/pricing"/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="/css/fm-tokens.css"/>
-<link rel="stylesheet" href="/css/fm-shell.css"/>
+<link rel="preload" href="/fonts/bricolage-grotesque-800.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href="/fonts/literata-400.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
+<link rel="stylesheet" href="/css/fm-shell.css?v=2697209bf6c2"/>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html,body{max-width:100%;overflow-x:hidden}
@@ -27,7 +27,7 @@ html,body{max-width:100%;overflow-x:hidden}
   background-size:auto, 220px 220px, auto;
 }
 .pr-hero .kicker{
-  display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
+  display:inline-flex;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;
   font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
   color:#7dffa3;border:1px solid rgba(125,255,163,.4);border-radius:999px;
   padding:6px 12px;margin-bottom:20px;width:fit-content;
@@ -39,10 +39,10 @@ html,body{max-width:100%;overflow-x:hidden}
 .plan{padding:30px 26px;border-right:1px solid var(--line);position:relative}
 .plan:last-child{border-right:0}
 .plan.main{background:linear-gradient(180deg, rgba(31,157,74,.08), transparent 42%)}
-.badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:#0f7a32;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
-.p-name{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
-.p-price{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.05em;line-height:1;margin-bottom:10px}
-.p-price small{display:block;margin-top:6px;font-family:'Literata',Georgia,serif;font-size:.82rem;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--mute)}
+.badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:#0f7a32;color:#fff;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
+.p-name{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
+.p-price{font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.05em;line-height:1;margin-bottom:10px}
+.p-price small{display:block;margin-top:6px;font-family:'Literata','Literata Fallback',Georgia,serif;font-size:.82rem;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--mute)}
 .p-desc{color:var(--mute);font-size:.86rem;line-height:1.55;min-height:52px;margin-bottom:18px}
 .plan ul{list-style:none;display:grid;gap:8px;margin-bottom:22px}
 .plan li{font-size:.86rem;color:var(--ink);padding-left:14px;position:relative}
@@ -53,11 +53,11 @@ html,body{max-width:100%;overflow-x:hidden}
 
 .proof-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:20px;margin-top:44px}
 .pbox{background:#fff;border:1px solid var(--line);padding:24px}
-.pbox h2{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:1.1rem;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.pbox h2{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1.1rem;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
 .pbox p{color:var(--mute);font-size:.9rem;line-height:1.65}
 .checks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .check{border:1px solid var(--line);padding:12px 14px}
-.check strong{display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;font-size:.84rem;margin-bottom:3px}
+.check strong{display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.84rem;margin-bottom:3px}
 .check span{font-size:.78rem;color:var(--mute);line-height:1.45}
 .footnote{font-size:.8rem;color:var(--mute);margin-top:28px}
 
@@ -70,7 +70,7 @@ html,body{max-width:100%;overflow-x:hidden}
   font-size:.82rem;line-height:1.45;color:rgba(238,242,238,.78);
 }
 .trust-strip .t strong{
-  display:block;font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.86rem;font-weight:800;color:#fff;margin-bottom:2px;
 }
 
@@ -84,6 +84,27 @@ html,body{max-width:100%;overflow-x:hidden}
 }
 @media(max-width:520px){
   .trust-strip{grid-template-columns:1fr}
+}
+.plan-compare-wrap{width:100%;max-width:100%;min-width:0;margin:8px 0 28px;border:1px solid var(--line);background:#fff;border-radius:12px;overflow:hidden}
+.plan-compare{width:100%;border-collapse:collapse;font-size:1rem;line-height:1.5}
+.plan-compare caption{caption-side:top;text-align:left;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:800;font-size:1.35rem;letter-spacing:-.03em;color:#0c1210;padding:16px 16px 8px}
+.plan-compare th,.plan-compare td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);font-size:1rem;line-height:1.5;color:#0c1210}
+.plan-compare thead th{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:800;background:var(--paper)}
+.plan-compare th[scope="row"]{font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-weight:800}
+.plain-block{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 16px;margin-top:22px}
+.plain-block h2{font-size:1.35rem;letter-spacing:-.03em;margin:0 0 10px}
+.plain-block h3{font-size:1.05rem;margin:16px 0 6px}
+.plain-block p{font-size:1rem;line-height:1.65;color:#0c1210;max-width:65ch;margin:0 0 12px}
+[data-fm-price]{display:inline-block;min-width:8ch;min-height:1.2em}
+@media(max-width:720px){
+  .plan-compare,.plan-compare tbody,.plan-compare tr{display:block;width:100%}
+  .plan-compare thead,.plan-compare thead th{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .plan-compare caption{display:block;width:100%;box-sizing:border-box;font-size:1.25rem}
+  .plan-compare tr{padding:14px 14px 6px;border-bottom:1px solid var(--line)}
+  .plan-compare tr:last-child{border-bottom:0}
+  .plan-compare th[scope="row"]{display:block;padding:0 0 8px;border:0;font-size:1.0625rem}
+  .plan-compare td{display:block;padding:8px 0;border:0;font-size:1rem;max-width:65ch}
+  .plan-compare td::before{content:attr(data-label);display:block;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem;font-weight:800;line-height:1.4;color:#0c1210}
 }
 [data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}
 #billing-toggle .save-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:#e8f5ec;color:#0f5a2a;font-size:.72rem;font-weight:800;line-height:1.4}
@@ -105,7 +126,7 @@ html,body{max-width:100%;overflow-x:hidden}
 
 <header class="fm-hero-band pr-hero">
   <div class="kicker">Your body wrote the trolley</div>
-  <h1>The full week. A$19.99 a month.</h1>
+  <h1>The full week. <span data-fm-price="premiumMonthly"></span>.</h1>
   <p>Commit to the week. FitMunch plans meals, training, and the shop from the body you log. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px">
     <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a>
@@ -114,7 +135,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <div class="trust-strip" aria-label="Product proof">
     <div class="t"><strong>Eat + train + shop</strong>The engine writes the day from your body.</div>
     <div class="t"><strong>14-day trial</strong>Card on file. Cancel before the trial ends and you are not charged.</div>
-    <div class="t"><strong>Worked example</strong>92 haul score on a labelled example.</div>
+    <div class="t"><strong>Your receipt</strong>The score comes from the shop you photograph.</div>
     <div class="t"><strong>AU-built</strong>AUD prices. Any Australian supermarket.</div>
   </div>
 </header>
@@ -128,7 +149,7 @@ html,body{max-width:100%;overflow-x:hidden}
     <div class="plans" aria-label="FitMunch pricing plans">
       <article class="plan main">
         <div class="p-name">Premium</div>
-        <div class="p-price" id="premium-price" data-monthly="A$19.99 <small>a month</small>" data-annual="A$149.99 <small>a year</small>">A$19.99 <small>a month</small></div>
+        <div class="p-price" id="premium-price"><span data-fm-price="premiumAmount"></span> <small>a month</small></div>
         <p class="p-desc">Unlimited AI coach, meal plans, workouts and receipt scans, built for real supermarket shops.</p>
         <ul>
           <li>Unlimited AI coach chat</li>
@@ -139,7 +160,7 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>14-day trial (card on file, cancel anytime)</li>
         </ul>
         <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=plan_card&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium" style="width:100%">Start Premium trial</a>
-        <p class="p-note">Enter your email and secure Stripe Checkout opens next. You set your password after checkout.</p>
+        <p class="p-note">Enter your email, review the plan and the first billing date, then confirm. You set your password after checkout.</p>
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
@@ -147,25 +168,133 @@ html,body{max-width:100%;overflow-x:hidden}
         <p class="p-desc">Try food logging and a starter plan.</p>
         <ul>
           <li>Macro and food logging</li>
+          <li>Meal, workout and progress logging</li>
+          <li>Shopping lists and favourites</li>
           <li data-free-ai hidden>Free includes AI actions a month</li>
-          <li>Receipt scan teaser</li>
-          <li>Starter meal planning</li>
-          <li class="muted">Weekly AI plans need Premium</li>
+          <li>Coach chat, meal plans, workout plans, receipt scans and the weekly review count toward that allowance</li>
         </ul>
         <a class="fm-btn fm-btn-ink" href="/login.html?utm_source=pricing&utm_medium=free_card&utm_campaign=free_signup#register" data-fm-auth="register" style="width:100%">Start free</a>
       </article>
       <article class="plan">
         <div class="p-name">Coach</div>
-        <div class="p-price">A$39 <small>and A$79 a month</small></div>
-        <p class="p-desc">A$39 a month for up to 10 clients, or A$79 a month unlimited. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
+        <div class="p-price"><span data-fm-price="coach39Amount"></span> <small>and</small> <span data-fm-price="coach79Amount"></span> <small>a month</small></div>
+        <p class="p-desc"><span data-fm-price="coach39Monthly"></span> for up to 10 clients, or <span data-fm-price="coach79Monthly"></span> unlimited. 14-day trial, card required. Cancel before the trial ends and you are not charged.</p>
         <ul>
-          <li>Up to 10 clients on A$39, unlimited on A$79</li>
+          <li>Up to 10 clients on <span data-fm-price="coach39Monthly"></span>, unlimited on <span data-fm-price="coach79Monthly"></span></li>
           <li>7-day meal plans from each client's targets</li>
           <li>Draft supermarket ingredient list</li>
           <li>PT-branded share link or PDF</li>
         </ul>
         <a class="fm-btn fm-btn-ink" href="/for-pts.html#coach" style="width:100%">See Coach plans</a>
       </article>
+    </div>
+
+    <div class="plan-compare-wrap">
+      <table class="plan-compare">
+        <caption id="compare">Compare Free, Premium and Coach</caption>
+        <thead>
+          <tr>
+            <th scope="col">Feature</th>
+            <th scope="col">Free</th>
+            <th scope="col">Premium</th>
+            <th scope="col">Coach, 10 clients</th>
+            <th scope="col">Coach, unlimited</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Price</th>
+            <td data-label="Free">A$0 forever</td>
+            <td data-label="Premium"><span data-fm-price="premiumMonthly"></span></td>
+            <td data-label="Coach, 10 clients"><span data-fm-price="coach39Monthly"></span></td>
+            <td data-label="Coach, unlimited"><span data-fm-price="coach79Monthly"></span></td>
+          </tr>
+          <tr>
+            <th scope="row">Food, meal, workout and progress logging</th>
+            <td data-label="Free">Yes</td>
+            <td data-label="Premium">Yes</td>
+            <td data-label="Coach, 10 clients">Not included</td>
+            <td data-label="Coach, unlimited">Not included</td>
+          </tr>
+          <tr>
+            <th scope="row">Shopping lists and favourites</th>
+            <td data-label="Free">Yes</td>
+            <td data-label="Premium">Yes</td>
+            <td data-label="Coach, 10 clients">Not included</td>
+            <td data-label="Coach, unlimited">Not included</td>
+          </tr>
+          <tr>
+            <th scope="row">AI coach chat, meal plans, workout plans, receipt scans and the weekly review</th>
+            <td data-label="Free">Counted in the monthly allowance</td>
+            <td data-label="Premium">Unlimited</td>
+            <td data-label="Coach, 10 clients">Not included</td>
+            <td data-label="Coach, unlimited">Not included</td>
+          </tr>
+          <tr>
+            <th scope="row">Meal plan from your targets when AI is not used</th>
+            <td data-label="Free">Yes</td>
+            <td data-label="Premium">Yes</td>
+            <td data-label="Coach, 10 clients">Not included</td>
+            <td data-label="Coach, unlimited">Not included</td>
+          </tr>
+          <tr>
+            <th scope="row">7-day client meal plan from that client's targets</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Yes</td>
+            <td data-label="Coach, unlimited">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Dietary flags on the client plan</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Yes</td>
+            <td data-label="Coach, unlimited">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Draft supermarket list scaled to household size</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Yes</td>
+            <td data-label="Coach, unlimited">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Practice name, accent colour and logo on the share page and PDF</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Yes</td>
+            <td data-label="Coach, unlimited">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Share link or PDF</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Yes</td>
+            <td data-label="Coach, unlimited">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Adherence from that client's meal logs</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Yes</td>
+            <td data-label="Coach, unlimited">Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Active clients</th>
+            <td data-label="Free">Not included</td>
+            <td data-label="Premium">Not included</td>
+            <td data-label="Coach, 10 clients">Up to 10</td>
+            <td data-label="Coach, unlimited">Unlimited</td>
+          </tr>
+          <tr>
+            <th scope="row">14-day trial, card on file</th>
+            <td data-label="Free">No</td>
+            <td data-label="Premium">Yes. Cancel before the trial ends and you are not charged.</td>
+            <td data-label="Coach, 10 clients">Yes. Cancel before the trial ends and you are not charged.</td>
+            <td data-label="Coach, unlimited">Yes. Cancel before the trial ends and you are not charged.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="proof-grid">
@@ -176,6 +305,26 @@ html,body{max-width:100%;overflow-x:hidden}
         </div>
       </div>
     </div>
+    <section class="plain-block" id="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title">Questions</h2>
+      <h3>How does the 14-day trial work?</h3>
+      <p>Paid plans start with a 14-day trial. Stripe collects a card before the trial begins. Cancel before the trial ends and you are not charged. That is how the trial works. It is not a 14-day refund after a paid charge.</p>
+      <h3>Can I cancel anytime?</h3>
+      <p>Cancel anytime in Billing. After the first charge, subscriptions auto-renew unless you cancel. Access continues to the end of the paid period.</p>
+      <h3>How does billing work?</h3>
+      <p>Paid plans are billed through Stripe. Premium and the Coach plans are monthly. A yearly Premium price is shown on this page when it is available. Free starts as a free account with no card.</p>
+      <h3>How do refunds work?</h3>
+      <p>Refunds after a charge are at our discretion. There is no automatic money-back window after the first charge. Email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a> with your account email and the reason. We reply within 1 business day. If a refund is approved, it is processed through Stripe and typically appears within 5 to 10 business days, depending on your bank. See the <a href="/refund">refund policy</a>.</p>
+      <h3>What do the two Coach plans include?</h3>
+      <p><span data-fm-price="coach39Monthly"></span> covers up to 10 active clients. <span data-fm-price="coach79Monthly"></span> covers unlimited active clients. Both include a 14-day trial with a card on file, a 7-day meal plan from each client's targets, dietary flags, a draft supermarket list, and a share link or PDF. Cancel before the trial ends and you are not charged.</p>
+    </section>
+
+    <section class="plain-block" id="terms-plain" aria-labelledby="terms-plain-title">
+      <h2 id="terms-plain-title">Terms, in plain English</h2>
+      <p>Paid plans start with a 14-day trial. Stripe collects a card before the trial begins. Cancel before the trial ends and you are not charged. After the first charge, subscriptions auto-renew unless you cancel. Cancel anytime in billing. Access continues to the end of the paid period. Refunds after a charge are at our discretion. Email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a> or see the <a href="/refund">refund policy</a>. No GST is charged.</p>
+      <p><a href="/terms">Read the terms</a>.</p>
+    </section>
+
     <p class="footnote">All prices are in AUD. Free starts as a free account with no card. Premium and Coach trials collect a card via Stripe. <a href="/refund">Refund policy</a>. General food planning support only, not medical advice. FitMunch is a browser web app (Add to Home Screen on iPhone). An App Store listing is not live yet.</p>
   </div>
 </section>
@@ -217,9 +366,21 @@ try {
   const box = document.getElementById('billing-toggle');
   const price = document.getElementById('premium-price');
   if (!box || !price || !window.fetch) return;
+  let live = null;
+  function paintPrice(label) {
+    const match = String(label || '').match(/^(A\$\d+(?:\.\d+)?)(?:\s+(.*))?$/);
+    price.replaceChildren();
+    if (!match) { price.textContent = label || ''; return; }
+    price.append(document.createTextNode(match[1]));
+    if (match[2]) {
+      const small = document.createElement('small');
+      small.textContent = match[2];
+      price.append(document.createTextNode(' '), small);
+    }
+  }
   function setBilling(mode) {
     const annual = mode === 'annual';
-    price.innerHTML = annual ? price.getAttribute('data-annual') : price.getAttribute('data-monthly');
+    paintPrice(annual ? (live && live.premiumAnnualLabel) : (live && (live.premiumAmount ? live.premiumAmount + ' a month' : live.premiumMonthly)));
     box.querySelectorAll('button[data-billing]').forEach((b) => {
       const on = b.getAttribute('data-billing') === mode;
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -241,12 +402,20 @@ try {
         const line = 'Free includes ' + freeCount + ' AI actions a month';
         document.querySelectorAll('[data-free-ai]').forEach((el) => { el.textContent = line; el.hidden = false; });
       }
+      if (cfg) {
+        live = cfg;
+        document.querySelectorAll('[data-fm-price]').forEach((el) => {
+          const key = el.getAttribute('data-fm-price');
+          if (cfg[key]) el.textContent = cfg[key];
+        });
+        paintPrice(cfg.premiumAmount ? cfg.premiumAmount + ' a month' : cfg.premiumMonthly);
+      }
       if (!cfg || cfg.premiumAnnual !== true) return;
       box.hidden = false;
       box.style.display = "flex";
       // Yearly saving from the two shown prices, rounded down, so the badge never overstates it.
-      const n = (s) => Number((String(s).match(/A\$(\d+(?:\.\d+)?)/) || [])[1]);
-      const mo = n(price.getAttribute('data-monthly')); const yr = n(price.getAttribute('data-annual'));
+      const mo = Number(cfg.premiumMonthlyAmount);
+      const yr = Number((String(cfg.premiumAnnualLabel || '').match(/(\d+(?:\.\d+)?)/) || [])[1]);
       const pct = mo > 0 && yr > 0 ? Math.floor((1 - yr / (mo * 12)) * 100) : 0;
       const badge = document.getElementById('yearly-save');
       if (badge && pct >= 5) { badge.textContent = 'Save ' + pct + '%'; badge.hidden = false; badge.setAttribute('title', 'A$' + yr + ' a year vs 12 x A$' + mo + ' = A$' + (mo * 12).toFixed(2)); }
@@ -275,7 +444,7 @@ try {
   });
 })();
 </script>
-<script src="/js/fm-track.js" defer></script>
+<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>
