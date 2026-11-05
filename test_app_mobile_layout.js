@@ -22,6 +22,13 @@ function mediaBlock(query) {
 describe('signed-in app at 390px (no horizontal overflow)', () => {
   const phone = mediaBlock('max-width: 767px');
 
+  it('keeps the #178 receipt scan macro colours', () => {
+    expect(html).toMatch(/color:#1d4ed8" id="scan-carbs"/);
+    expect(html).toMatch(/color:#b45309" id="scan-fat"/);
+    expect(html).not.toMatch(/color:#3b82f6" id="scan-carbs"/);
+    expect(html).not.toMatch(/color:#f59e0b" id="scan-fat"/);
+  });
+
   it('shows the bottom nav and hides the sidebar on phones', () => {
     expect(phone).toMatch(/\.mobile-nav\{display:block\}/);
     expect(phone).toMatch(/\.sidebar\{display:none!important\}/);
@@ -51,6 +58,27 @@ describe('signed-in app at 390px (no horizontal overflow)', () => {
     for (const id of ['portal-home', 'ai-coach', 'portal-meals', 'portal-workouts', 'portal-plan', 'portal-progress', 'portal-shopping', 'receipt-scanner', 'meal-plans', 'shopping-lists', 'billing', 'dashboard', 'clients']) {
       expect(html).toMatch(new RegExp(`\\{id:'${id}',\\s*icon:`));
     }
+  });
+
+  it('gives fine-pointer shell targets 40px and coarse sidebar rows 44px', () => {
+    const fine = mediaBlock('min-width: 1025px) and (pointer: fine');
+    expect(fine).toMatch(/\.sidebar \.sb-item\{min-height:40px;min-width:40px/);
+    expect(fine).toMatch(/#btn-upgrade\{min-height:40px;min-width:40px/);
+    expect(fine).toMatch(/\.metric-cta\{min-height:40px;min-width:40px/);
+    const coarse = mediaBlock('pointer:coarse), (max-width:1024px');
+    expect(coarse).toMatch(/\.sidebar \.sb-item,/);
+    expect(coarse).toMatch(/min-height:44px;min-width:44px/);
+    expect(coarse).toMatch(/\.sidebar \.sb-item,\.sidebar \.nav-item\{display:flex;align-items:center;flex-shrink:0\}/);
+    expect(html).toContain('id="pm-log-meal"');
+  });
+
+  it('Start here is large enough and dark enough for 4.5:1 on the receipt card', () => {
+    expect(html).toMatch(/\.home-start-here\{font-size:\.875rem;font-weight:800;[^}]*color:#14532d/);
+    expect(html).toContain('id="home-start-here" class="home-start-here">📸 Start here</div>');
+    expect(html).not.toMatch(/font-size:\.62rem[^>]*>📸 Start here/);
+    expect(html).toMatch(/#mp-saved-generate:focus-visible,#mp-saved-retry:focus-visible\{outline:2px solid #166534;outline-offset:2px\}/);
+    expect(html).toMatch(/\.btn\{[^}]*transition:background-color \.15s,color \.15s,border-color \.15s\}/);
+    expect(html).toMatch(/#ai-consent-privacy\{display:inline-flex;align-items:center;min-height:44px;padding:10px 8px/);
   });
 
   it('gives phone tap targets 44px and moves Sign out into the More sheet', () => {

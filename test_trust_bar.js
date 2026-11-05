@@ -267,7 +267,8 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
   it('pricing Free does not claim unlimited weekly AI plans', async () => {
     const res = await request(app).get('/pricing').expect(200);
     expect(res.text).not.toContain('Unlimited weekly AI plans');
-    expect(res.text).toContain('Limited AI actions per month');
+    expect(res.text).toContain('Free includes AI actions a month');
+    expect(res.text).not.toContain('Limited AI actions per month');
     expect(res.text).toContain('Weekly AI plans need Premium');
     expect(res.text).toContain('A$39 a month for up to 10 clients, or A$79 a month unlimited.');
     expect(res.text).toContain('14-day trial');

@@ -33,12 +33,22 @@ class PremiumManager: ObservableObject {
     }
 
     private init() {
+        #if DEBUG
+        if PaywallLaunchArgument.isForceEmpty {
+            // Stay on loading until loadPaywallPlans finishes its short hold.
+            // Failing in init skipped the skeleton the audit looks for.
+            paywallPlans = []
+            paywallPhase = .loading
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            lastPlanFetchSummary = "loaded=none"
+        }
+        #endif
         if ScreenshotLaunch.isActive {
             isPremium = true
             return
         }
         // -UseLocalStoreKit skips RevenueCat so the paywall reads StoreKit
-        // product prices directly. The app does not start an SKTestSession.
+        // product prices directly.
         if PaywallLaunchArgument.isLocalStoreKit {
             print("RevenueCat skipped: -UseLocalStoreKit")
             return
@@ -156,7 +166,7 @@ class PremiumManager: ObservableObject {
         }
 
         if errorMessage == nil {
-            errorMessage = "No purchases to restore or restore failed"
+            errorMessage = "No purchases to restore"
         }
         return false
     }
@@ -175,6 +185,21 @@ class PremiumManager: ObservableObject {
 
     /// Loading, one backoff retry, then the error phase. Safe to call again from Retry.
     func loadPaywallPlans() async {
+        if PaywallLaunchArgument.isForceEmpty {
+            paywallPlans = []
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            lastPlanFetchSummary = "loaded=none"
+            paywallPhase = .loading
+            // The skeleton has to still be up when the audit looks. XCTest finds
+            // Close, then its next poll for paywall-loading is about 3s after the
+            // sheet appears. A 1.2s hold had already moved on to the error, so
+            // both devices reported the loading state missing. The audit allows
+            // 12s for the error copy after it sees the skeleton.
+            await Task.yield()
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            paywallPhase = .failed
+            return
+        }
         if paywallPlans.isEmpty {
             paywallPhase = .loading
         }
@@ -208,9 +233,7 @@ class PremiumManager: ObservableObject {
         planHandles = [:]
 
         if PaywallLaunchArgument.isForceEmpty {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
             guard fetchToken == token else { return [] }
-            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
             noteFetch([])
             return []
         }
@@ -249,6 +272,13 @@ class PremiumManager: ObservableObject {
     }
 
     private func noteFetch(_ plans: [PaywallPlan]) {
+        if PaywallLaunchArgument.isForceEmpty {
+            paywallPlans = []
+            errorMessage = PaywallLoadPolicy.userFacingLoadFailure
+            lastPlanFetchSummary = "loaded=none"
+            paywallPhase = .failed
+            return
+        }
         paywallPlans = plans
         if plans.isEmpty {
             lastPlanFetchSummary = "loaded=none"
@@ -456,7 +486,7 @@ class PremiumManager: ObservableObject {
     private func restoreFromStoreKit() async -> Bool {
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
         if !localOnly {
-            _ = await withTimeout(seconds: 8) {
+            let synced: Bool? = await withTimeout(seconds: 8) {
                 do {
                     try await AppStore.sync()
                     return true
@@ -465,6 +495,9 @@ class PremiumManager: ObservableObject {
                     print("StoreKit restore error: \(error)")
                     return false
                 }
+            }
+            if synced == nil, errorMessage == nil {
+                errorMessage = "Restore failed"
             }
         }
 

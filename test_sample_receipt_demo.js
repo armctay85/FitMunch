@@ -65,7 +65,7 @@ describe('sample receipt demo r2', () => {
   });
   it('labels protein as this shop, and the number matches the sample', () => {
     expect(html).toContain("d.protein + 'g protein in this shop'");
-    expect(sampleReceiptDemo().protein).toBe(583);
+    expect(sampleReceiptDemo().protein).toBe(638);
   });
   it('drops tonightDinner from the payload', () => {
     expect(sampleReceiptDemo()).not.toHaveProperty('tonightDinner');

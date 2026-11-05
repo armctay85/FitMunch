@@ -59,19 +59,49 @@ enum ReviewLaunch {
         #endif
     }
 
+    #if DEBUG
+    static let personaName = "Reviewer"
+    static let personaEmail = "review@fitmunch.com.au"
+    #else
+    static let personaName = ""
+    static let personaEmail = ""
+    #endif
+
     @MainActor
     static func prepareSession() {
+        #if DEBUG
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
-        UserDefaults.standard.set("Reviewer", forKey: "userDisplayName")
-        UserDefaults.standard.set("review@fitmunch.com.au", forKey: "userEmail")
+        UserDefaults.standard.set(personaName, forKey: "userDisplayName")
+        UserDefaults.standard.set(personaEmail, forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "notificationsEnabled")
         AIDataConsent.shared.grantLaunch(userId: "review-user")
+        #endif
     }
 }
 
 enum ScreenshotLaunch {
     static let argument = "-AppStoreScreenshots"
+
+    /// Store-shot identity. Compiled and applied only in Debug, and only when
+    /// the process was launched with `-AppStoreScreenshots`.
+    enum PersonaGate {
+        static var isPermitted: Bool {
+            #if DEBUG
+            return ScreenshotLaunch.isActive
+            #else
+            return false
+            #endif
+        }
+
+        #if DEBUG
+        static let name = "Alex Morgan"
+        static let email = "alex@example.com"
+        #else
+        static let name = ""
+        static let email = ""
+        #endif
+    }
 
     static var isActive: Bool {
         #if DEBUG

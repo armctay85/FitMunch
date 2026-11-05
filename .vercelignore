@@ -8,3 +8,4 @@ test_app.js
 test_fm_*.js
 jest.config.js
 jest.setup.js
+test-artifacts/

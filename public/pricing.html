@@ -17,22 +17,30 @@
 html,body{max-width:100%;overflow-x:hidden}
 :focus-visible{outline:2px solid var(--leaf);outline-offset:3px}
 
-.pr-hero{padding-top:calc(96px + clamp(48px,7vw,80px));padding-bottom:clamp(48px,7vw,72px)}
+.pr-hero{
+  padding-top:calc(96px + clamp(48px,7vw,80px));
+  padding-bottom:clamp(48px,7vw,72px);
+  background:
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(31,157,74,.22), transparent 58%),
+    url("/assets/elite/ground.svg"),
+    var(--fridge);
+  background-size:auto, 220px 220px, auto;
+}
 .pr-hero .kicker{
   display:inline-flex;font-family:'IBM Plex Mono',ui-monospace,monospace;
-  font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--leaf);border:1px solid rgba(31,157,74,.4);border-radius:3px;
-  padding:6px 12px;margin-bottom:20px;
+  font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:#7dffa3;border:1px solid rgba(125,255,163,.4);border-radius:999px;
+  padding:6px 12px;margin-bottom:20px;width:fit-content;
 }
 .pr-hero h1{font-size:clamp(2rem,4.4vw,3.1rem);font-weight:800;letter-spacing:-.05em;line-height:1.04;margin-bottom:14px;max-width:22ch}
 .pr-hero p{color:rgba(238,242,238,.78);font-size:1.05rem;line-height:1.6;max-width:46ch}
 
-.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);background:var(--paper)}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);background:var(--paper);border-radius:18px;overflow:hidden}
 .plan{padding:30px 26px;border-right:1px solid var(--line);position:relative}
 .plan:last-child{border-right:0}
 .plan.main{background:linear-gradient(180deg, rgba(31,157,74,.08), transparent 42%)}
-.badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:var(--leaf);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.66rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:2px}
-.p-name{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
+.badge{position:absolute;top:-1px;left:26px;transform:translateY(-50%);background:#0f7a32;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
+.p-name{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf2);margin-bottom:12px}
 .p-price{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:2.2rem;font-weight:600;letter-spacing:-.05em;line-height:1;margin-bottom:10px}
 .p-price small{display:block;margin-top:6px;font-family:'Literata',Georgia,serif;font-size:.82rem;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--mute)}
 .p-desc{color:var(--mute);font-size:.86rem;line-height:1.55;min-height:52px;margin-bottom:18px}
@@ -78,6 +86,8 @@ html,body{max-width:100%;overflow-x:hidden}
   .trust-strip{grid-template-columns:1fr}
 }
 [data-billing]:focus-visible{outline:3px solid #127035;outline-offset:2px}
+#billing-toggle .save-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:#e8f5ec;color:#0f5a2a;font-size:.72rem;font-weight:800;line-height:1.4}
+#billing-toggle .save-badge[hidden]{display:none}
 #billing-toggle .fm-btn-ink{background:#ffffff;color:#0c1210;border-color:#5c6d64}
 </style>
 </head>
@@ -98,7 +108,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <h1>The full week. A$19.99 a month.</h1>
   <p>Commit to the week. FitMunch plans meals, training, and the shop from the body you log. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</p>
   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px">
-    <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium">Start Premium trial</a>
+    <a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&utm_source=pricing&utm_medium=hero&utm_campaign=premium_trial#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a>
     <a class="fm-btn fm-btn-ghost" href="/#loop">See how the week works</a>
   </div>
   <div class="trust-strip" aria-label="Product proof">
@@ -113,7 +123,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <div class="fm-section-inner">
     <div id="billing-toggle" role="group" aria-label="Premium billing" hidden style="gap:6px;justify-content:center;margin:0 0 18px">
       <button type="button" class="fm-btn fm-btn-leaf" data-billing="monthly" aria-pressed="true">Monthly</button>
-      <button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly</button>
+      <button type="button" class="fm-btn fm-btn-ink" data-billing="annual" aria-pressed="false">Yearly <span class="save-badge" id="yearly-save" hidden></span></button>
     </div>
     <div class="plans" aria-label="FitMunch pricing plans">
       <article class="plan main">
@@ -133,11 +143,11 @@ html,body{max-width:100%;overflow-x:hidden}
       </article>
       <article class="plan">
         <div class="p-name">Free</div>
-        <div class="p-price">$0 <small>forever</small></div>
-        <p class="p-desc">Try food logging and a starter plan. Limited AI actions each month.</p>
+        <div class="p-price"><span>A$0</span> <small>forever</small></div>
+        <p class="p-desc">Try food logging and a starter plan.</p>
         <ul>
           <li>Macro and food logging</li>
-          <li>Limited AI actions per month</li>
+          <li data-free-ai hidden>Free includes AI actions a month</li>
           <li>Receipt scan teaser</li>
           <li>Starter meal planning</li>
           <li class="muted">Weekly AI plans need Premium</li>
@@ -226,9 +236,20 @@ try {
   fetch('/api/pricing/config', { headers: { Accept: 'application/json' } })
     .then((r) => (r.ok ? r.json() : null))
     .then((cfg) => {
+      const freeCount = cfg && Number(cfg.freeAiMonthly);
+      if (Number.isFinite(freeCount) && freeCount >= 0) {
+        const line = 'Free includes ' + freeCount + ' AI actions a month';
+        document.querySelectorAll('[data-free-ai]').forEach((el) => { el.textContent = line; el.hidden = false; });
+      }
       if (!cfg || cfg.premiumAnnual !== true) return;
       box.hidden = false;
       box.style.display = "flex";
+      // Yearly saving from the two shown prices, rounded down, so the badge never overstates it.
+      const n = (s) => Number((String(s).match(/A\$(\d+(?:\.\d+)?)/) || [])[1]);
+      const mo = n(price.getAttribute('data-monthly')); const yr = n(price.getAttribute('data-annual'));
+      const pct = mo > 0 && yr > 0 ? Math.floor((1 - yr / (mo * 12)) * 100) : 0;
+      const badge = document.getElementById('yearly-save');
+      if (badge && pct >= 5) { badge.textContent = 'Save ' + pct + '%'; badge.hidden = false; badge.setAttribute('title', 'A$' + yr + ' a year vs 12 x A$' + mo + ' = A$' + (mo * 12).toFixed(2)); }
       box.querySelectorAll('button[data-billing]').forEach((b) => {
         b.addEventListener('click', () => setBilling(b.getAttribute('data-billing')));
       });

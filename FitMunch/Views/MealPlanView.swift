@@ -38,65 +38,22 @@ struct MealPlanView: View {
     }
 
     private var planContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.five) {
-                OfflineNotice()
-
-                Text("Build a week from your calorie and protein targets.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                VStack(spacing: Theme.Spacing.three) {
-                    Picker("Goal", selection: $goal) {
-                        ForEach(goals, id: \.id) { item in
-                            Text(item.label)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                                .tag(item.id)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("plan-goal")
-
-                    HStack {
-                        labeledField("Calories", text: $calories)
-                        labeledField("Protein g", text: $protein)
-                    }
-
-                    Text("Prices vary by store and week.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 0) {
+            targetsHeader
+            planScroll
+        }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Theme.fmSeparator)
+                        .frame(height: 0.5)
+                    generateButton
+                        .padding(.horizontal, Theme.Spacing.four)
+                        .padding(.vertical, Theme.Spacing.four)
                 }
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
-
-                if let plan {
-                    planSummary(plan)
-                        .accessibilityIdentifier("plan-preview")
-                } else if !isLoading {
-                    planEmptyState
-                }
+                .background(Theme.fmBackground)
             }
-            .padding()
-        }
-        .defaultScrollAnchor(.top)
-        .scrollClearsTabBar()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            generateButton
-                .padding(.horizontal, Theme.Spacing.four)
-                .padding(.top, Theme.Spacing.two)
-                .padding(.bottom, Theme.Spacing.three)
-                .background(Theme.surface)
-        }
         .background(Theme.surface)
         .sensoryFeedback(.selection, trigger: goal)
         .sensoryFeedback(.success, trigger: plansGenerated)
@@ -122,25 +79,106 @@ struct MealPlanView: View {
             if ScreenshotLaunch.isActive && plan == nil {
                 plan = ScreenshotLaunch.mealPlan()
             }
+            if AuditLaunch.isPlanLoading {
+                isLoading = true
+            }
         }
     }
 
+    /// Generate is a sibling under the scroll view, so rows cannot draw through it.
+    /// Monday dinner is parked at the bottom of that scroll view once a plan exists.
+    private var planScroll: some View {
+        ScrollViewReader { proxy in
+            scrollBody
+                .onAppear { revealMondayDinner(proxy) }
+                .onChange(of: plan?.planName) { _, _ in revealMondayDinner(proxy) }
+        }
+    }
+
+    private func revealMondayDinner(_ proxy: ScrollViewProxy) {
+        guard plan != nil else { return }
+        DispatchQueue.main.async {
+            proxy.scrollTo("plan-monday-bottom", anchor: .bottom)
+        }
+    }
+
+    /// Targets stay outside the scrolling week so the fields cannot slide
+    /// under the Meals / Training switch.
+    private var targetsHeader: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
+            Picker("Goal", selection: $goal) {
+                ForEach(goals, id: \.id) { item in
+                    Text(item.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .tag(item.id)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("plan-goal")
+
+            HStack {
+                labeledField("Calories", text: $calories)
+                labeledField("Protein g", text: $protein)
+            }
+
+            Text("Prices vary by store and week.")
+                .font(.footnote)
+                .foregroundStyle(Theme.fmSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.vertical, Theme.Spacing.two)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.top, Theme.Spacing.two)
+        .padding(.bottom, Theme.Spacing.one)
+    }
+
+    private var scrollBody: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Spacing.three) {
+                OfflineNotice()
+
+                Text("Build a week from your calorie and protein targets.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                        .font(.footnote)
+                }
+
+                if let plan {
+                    planSummary(plan)
+                } else if isLoading {
+                    LoadingSkeleton(rows: 3, label: "Loading your week", identifier: "plan-loading")
+                } else {
+                    planEmptyState
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.four)
+            .padding(.top, Theme.Spacing.two)
+            .padding(.bottom, 24)
+        }
+        .defaultScrollAnchor(.top)
+        .scrollClipDisabled(false)
+        .contentMargins(.bottom, 16, for: .scrollContent)
+    }
+
     private func planSummary(_ plan: MealPlanPayload) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.five) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
         VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             Text(plan.planName ?? "Your plan")
                 .font(.title3.bold())
+                .accessibilityIdentifier("plan-preview")
             if let summary = plan.summary {
                 Text(summary)
                     .foregroundStyle(.secondary)
-            }
-            HStack(spacing: Theme.Spacing.four) {
-                if let calories = plan.avgDailyCalories {
-                    metric("Avg kcal", "\(calories)")
-                }
-                if let protein = plan.avgDailyProtein {
-                    metric("Avg protein", "\(protein)g")
-                }
             }
         }
 
@@ -150,18 +188,20 @@ struct MealPlanView: View {
                     .font(.headline)
                 mealRow("Breakfast", day.meals?.breakfast)
                 mealRow("Lunch", day.meals?.lunch)
-                mealRow("Dinner", day.meals?.dinner)
+                mealRow("Dinner", day.meals?.dinner, identifier: day.day == "Monday" ? "plan-monday-dinner" : nil)
                 mealRow("Snack", day.meals?.snack)
                 if let totals = day.dailyTotals {
                     Text("Day total · \(totals.calories ?? 0) kcal · \(totals.protein ?? 0)g protein")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.fmSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.four)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+            .id(day.day == "Monday" ? "plan-monday-bottom" : nil)
         }
         }
     }
@@ -170,20 +210,15 @@ struct MealPlanView: View {
     private var planEmptyState: some View {
         VStack(spacing: Theme.Spacing.three) {
             Image(systemName: "calendar")
-                .font(.system(size: 44))
+                .font(.system(size: 32))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Theme.brandGreen)
-            Text("No week yet")
-                .font(.title3.bold())
-            Text("Set your calorie and protein targets, then build a week of meals. Breakfast, lunch, dinner, and a snack show up here.")
+                .foregroundStyle(Theme.fmBrand)
+            Text("No plan yet")
+                .font(.headline.weight(.semibold))
+            Text("Set your targets and FitMunch builds 7 days of meals.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
                 .multilineTextAlignment(.center)
-            Button("Build my week") {
-                Task { await generate() }
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("plan-build-week")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.six)
@@ -195,15 +230,16 @@ struct MealPlanView: View {
         Button {
             Task { await generate() }
         } label: {
-            if isLoading {
-                ProgressView()
-                    .tint(.white)
-            } else {
-                Text("Generate 7-day plan")
-            }
+            Text(isLoading ? "Building your week…" : (plan == nil ? "Build my week" : "Generate 7-day plan"))
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
         }
-        .buttonStyle(PrimaryButtonStyle())
+        .background(Theme.fmBrand.opacity(isLoading ? 0.85 : 1))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .disabled(isLoading)
+        .accessibilityLabel("Generate 7-day plan")
         .accessibilityIdentifier("plan-generate")
     }
 
@@ -216,26 +252,50 @@ struct MealPlanView: View {
         }
     }
 
-    private func metric(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.headline.monospacedDigit())
-                .fontDesign(.rounded)
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+    /// The id is on the meal-name text, a leaf static text. Container ids were
+    /// not in the XCTest tree.
+    @ViewBuilder
+    private func mealRow(_ label: String, _ meal: MealPlanMeal?, identifier: String? = nil) -> some View {
+        if let meal {
+            if let identifier {
+                mealRowLabel(label, meal, identifier: identifier)
+                    .id(identifier)
+            } else {
+                mealRowLabel(label, meal, identifier: nil)
+                    .accessibilityElement(children: .contain)
+            }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label) \(value)")
+    }
+
+    private func mealRowLabel(_ label: String, _ meal: MealPlanMeal, identifier: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            mealName(label, meal, identifier: identifier)
+            Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder
-    private func mealRow(_ label: String, _ meal: MealPlanMeal?) -> some View {
-        if let meal {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(label): \(meal.name ?? "Meal")")
-                    .font(.subheadline.weight(.semibold))
-                Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    private func mealName(_ label: String, _ meal: MealPlanMeal, identifier: String?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label.uppercased())
+                .font(.caption.weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(Theme.fmSecondary)
+            Text(meal.name ?? "Meal")
+                .font(.headline.weight(.semibold))
+                .modifier(MealNameID(identifier: identifier))
+        }
+    }
+
+    private struct MealNameID: ViewModifier {
+        let identifier: String?
+        func body(content: Content) -> some View {
+            if let identifier {
+                content.accessibilityIdentifier(identifier)
+            } else {
+                content
             }
         }
     }

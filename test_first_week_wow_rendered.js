@@ -72,7 +72,7 @@ maybe('first week: personal header, estimated curve and meal swaps, rendered', (
       await p.waitForTimeout(300);
       await p.fill('#ob-age', '34'); await p.selectOption('#ob-sex', 'male'); await p.fill('#ob-height', '180');
       await p.fill('#ob-weight', '82'); await p.fill('#ob-goal-weight', '78');
-      await p.selectOption('#ob-goal', 'lose_weight'); await p.selectOption('#ob-diet', 'none');
+      await p.selectOption('#ob-goal', 'lose_weight');
       await p.click('#ob-step-1 .btn-green');
       const calories = Number(await p.inputValue('#ob-cals'));
       await p.click('#ob-build');

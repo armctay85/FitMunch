@@ -1,0 +1,2 @@
+// Unit tests open a session in the test process. The app target does not link this.
+OTHER_LDFLAGS = $(inherited) -framework StoreKitTest

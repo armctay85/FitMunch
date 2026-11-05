@@ -23,51 +23,145 @@ final class TabBarClearanceUITests: XCTestCase {
             is69 || is65,
             "Expected 6.9 (440x956) or 6.5 (414x896). Window is \(width)x\(height)"
         )
+        logTodayMealCards(in: app, screenHeight: height)
 
-        let controls: [(tab: String, identifier: String)] = [
-            ("Today", "today-log-meal"),
-            ("Plan", "plan-generate"),
-            ("Scan", "scan-take-photo"),
-            ("Coach", "coach-input"),
-            ("Me", "me-dark-mode"),
+        let controls: [(tab: String, identifier: String, type: XCUIElement.ElementType)] = [
+            ("Today", "today-log-meal", .button),
+            ("Plan", "plan-generate", .button),
+            ("Scan", "scan-take-photo", .button),
+            ("Coach", "coach-input", .textField),
+            ("Me", "me-dark-mode", XCUIElement.ElementType.switch),
         ]
 
         for item in controls {
             openTab(item.tab, in: app)
-            let control = primaryControl(item.identifier, in: app)
-            XCTAssertTrue(
-                control.waitForExistence(timeout: 8),
-                "\(item.identifier) missing on \(item.tab)"
-            )
-            let becameHittable = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "isHittable == true"),
-                object: control
-            )
-            if XCTWaiter.wait(for: [becameHittable], timeout: 6) != .completed {
-                _ = scrollUntilHittable([control], in: app)
+            if item.identifier == "scan-take-photo" {
+                revealScanPhoto(in: app)
             }
+            let control = app.descendants(matching: item.type)[item.identifier]
             XCTAssertTrue(
-                control.isHittable,
-                "\(item.identifier) is not hittable on \(item.tab) (\(Int(width.rounded()))x\(Int(height.rounded())))"
+                control.waitForExistence(timeout: 15),
+                "\(item.identifier) \(item.type) missing on \(item.tab)"
             )
+            if item.identifier == "plan-generate" {
+                XCTAssertTrue(
+                    control.isHittable,
+                    "plan-generate is not hittable (\(Int(width.rounded()))x\(Int(height.rounded())))"
+                )
+            } else {
+                let becameHittable = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "isHittable == true"),
+                    object: control
+                )
+                if XCTWaiter.wait(for: [becameHittable], timeout: 6) != .completed {
+                    _ = scrollUntilHittable([control], in: app)
+                }
+                XCTAssertTrue(
+                    control.isHittable,
+                    "\(item.identifier) is not hittable on \(item.tab) (\(Int(width.rounded()))x\(Int(height.rounded())))"
+                )
+            }
             let barTop = tabButtonTop(in: app)
             XCTAssertLessThanOrEqual(
                 control.frame.maxY,
                 barTop - 4,
                 "\(item.identifier) sits under the tab bar (control \(control.frame), tab buttons top \(barTop))"
             )
+            if item.identifier == "plan-generate" {
+                assertMondayDinnerClearsGenerate(control, in: app)
+            }
         }
     }
 
-    private func primaryControl(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
-        let queries = [
-            app.buttons[identifier],
-            app.textFields[identifier],
-            app.textViews[identifier],
-            app.switches[identifier],
-            app.descendants(matching: .any)[identifier],
-        ]
-        return queries.first { $0.exists } ?? queries[0]
+    /// Resting Today cards. 6.5 is the short phone; the log is the card bottom the layout produced.
+    private func logTodayMealCards(in app: XCUIApplication, screenHeight: CGFloat) {
+        let cards = app.descendants(matching: .any)
+            .matching(identifier: "today-meal-card")
+            .allElementsBoundByIndex
+            .filter { $0.frame.width > 80 && $0.frame.height > 40 }
+            .sorted { $0.frame.minY < $1.frame.minY }
+        print("MEAL_CARDS place=clearance screen=\(Int(screenHeight.rounded()))")
+        for card in cards {
+            let name = card.staticTexts["today-meal-name"]
+            let title = name.exists ? name.label : card.label
+            let frame = card.frame
+            print("MEAL_CARD name=\(title) minY=\(frame.minY) height=\(frame.height) maxY=\(frame.maxY)")
+        }
+        let summary = app.descendants(matching: .any)["daily-summary-title"]
+        if summary.waitForExistence(timeout: 4) {
+            print("SUMMARY_HEIGHT \(summary.value ?? "") \(summary.label)")
+        }
+    }
+
+    /// Monday dinner is the row above Generate. Its frame has to end on or above the button.
+    /// The plan is generated first. An empty Plan has no Monday row to measure.
+    private func assertMondayDinnerClearsGenerate(_ generate: XCUIElement, in app: XCUIApplication) {
+        generatePlanIfNeeded(generate, in: app)
+        print("PLAN_AX_DUMP_BEGIN")
+        print(app.debugDescription)
+        print("PLAN_AX_DUMP_END")
+        let dinner = app.staticTexts["plan-monday-dinner"]
+        var swipes = 0
+        while !dinner.exists && swipes < 6 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(dinner.waitForExistence(timeout: 8), "Monday dinner missing")
+        XCTAssertGreaterThan(dinner.frame.height, 8, "Monday dinner has no frame \(dinner.frame)")
+        XCTAssertLessThanOrEqual(
+            dinner.frame.maxY,
+            generate.frame.minY,
+            "Monday dinner ends under Generate (dinner \(dinner.frame), button \(generate.frame))"
+        )
+    }
+
+    /// Screenshot launch fills a week on appear. If that row is not up yet, tap the
+    /// plan action so Monday exists before the clearance check looks for it.
+    private func generatePlanIfNeeded(_ generate: XCUIElement, in app: XCUIApplication) {
+        let week = app.staticTexts["High protein training week"]
+        if week.waitForExistence(timeout: 4) { return }
+        let build = app.buttons["plan-build-week"]
+        if build.waitForExistence(timeout: 2) {
+            if !build.isHittable {
+                _ = scrollUntilHittable([build], in: app)
+            }
+            if build.isHittable {
+                build.tap()
+            }
+        } else if generate.isHittable {
+            generate.tap()
+        }
+        _ = week.waitForExistence(timeout: 8)
+    }
+
+    /// Screenshot launch already allows AI data. A full-app swipe on the short
+    /// phone can leave Scan, so this only nudges the scan scroll view.
+    private func revealScanPhoto(in app: XCUIApplication) {
+        if scanPhoto(in: app).waitForExistence(timeout: 12) { return }
+        let allow = app.buttons["ai-consent-allow"]
+        if allow.waitForExistence(timeout: 2) {
+            allow.tap()
+        }
+        if scanPhoto(in: app).exists { return }
+        openTab("Scan", in: app)
+        let scroller = app.scrollViews.firstMatch
+        var hops = 0
+        while !scanPhoto(in: app).exists && hops < 3 {
+            if scroller.exists {
+                scroller.swipeUp()
+            }
+            hops += 1
+        }
+        if !scanPhoto(in: app).exists {
+            let labels = app.staticTexts.allElementsBoundByIndex.prefix(8).map(\.label)
+            print("SCAN_MISSING labels=\(labels.joined(separator: " | "))")
+        }
+    }
+
+    private func scanPhoto(in app: XCUIApplication) -> XCUIElement {
+        let identified = app.buttons["scan-take-photo"]
+        if identified.exists { return identified }
+        return app.buttons["Take a photo"]
     }
 
     private func tabButtonTop(in app: XCUIApplication) -> CGFloat {

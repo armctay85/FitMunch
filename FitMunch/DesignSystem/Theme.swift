@@ -24,13 +24,43 @@ enum Theme {
         return Color(uiColor: dynamic)
     }()
 
-    /// Filled buttons stay on the light BrandGreen (#15803D) in both appearances.
-    /// White 17pt type on that green is 5.0:1. The dark asset (#22C55E) is for icons and tints.
-    static let buttonFill: Color = {
-        let light = UITraitCollection(userInterfaceStyle: .light)
-        let resolved = UIColor(named: "BrandGreen")?.resolvedColor(with: light) ?? .systemGreen
-        return Color(uiColor: resolved)
-    }()
+    /// Filled buttons stay on light BrandGreen #15803D in both appearances.
+    /// White on that green is 5.0:1. The asset's dark color (#22C55E) and
+    /// systemGreen are too light behind a white label, so this is not the asset.
+    static let buttonFill = Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)
+
+    /// Page background #F4F6F2. Dark #101A14.
+    static let fmBackground = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 16.0 / 255, green: 26.0 / 255, blue: 20.0 / 255, alpha: 1)
+            : UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
+    })
+
+    /// Card white. Dark stays a lifted surface.
+    static let fmSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 22.0 / 255, green: 32.0 / 255, blue: 26.0 / 255, alpha: 1)
+            : UIColor(red: 1, green: 1, blue: 1, alpha: 1)
+    })
+
+    /// Brand fill #157A3C.
+    static let fmBrand = Color(red: 21.0 / 255.0, green: 122.0 / 255.0, blue: 60.0 / 255.0)
+
+    /// Secondary text #5F6B64. Dark #C5D0C8 stays above 4.5:1 on the dark page.
+    static let fmSecondary = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 197.0 / 255, green: 208.0 / 255, blue: 200.0 / 255, alpha: 1)
+            : UIColor(red: 95.0 / 255, green: 107.0 / 255, blue: 100.0 / 255, alpha: 1)
+    })
+
+    /// Hairline #D9DED9. Dark #26302A.
+    static let fmSeparator = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 1)
+            : UIColor(red: 217.0 / 255, green: 222.0 / 255, blue: 217.0 / 255, alpha: 1)
+    })
+
+    static let fmError = Color(red: 198.0 / 255.0, green: 40.0 / 255.0, blue: 40.0 / 255.0)
 
     /// 16pt cards, 12pt controls.
     enum Radius {
@@ -52,22 +82,25 @@ enum Theme {
     }
 }
 
-/// Filled BrandGreen, white 17pt semibold.
+/// Filled BrandGreen, white semibold label.
+/// The app tint is BrandGreen. A disabled fade turns that tint into light-on-green,
+/// which fails WCAG AA and gets worse at accessibility sizes. The label stays white
+/// on #15803D whether the button is enabled or not.
 struct PrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
     func makeBody(configuration: Configuration) -> some View {
+        let white = Color(uiColor: .white)
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Color.white)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(white)
+            .tint(white)
             .multilineTextAlignment(.center)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
+            .lineLimit(2)
+            .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 14)
             .padding(.horizontal, Theme.Spacing.four)
             .background(Theme.buttonFill, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-            .opacity(!isEnabled ? 0.55 : (configuration.isPressed ? 0.88 : 1))
+            .opacity(configuration.isPressed ? 0.92 : 1)
     }
 }
 

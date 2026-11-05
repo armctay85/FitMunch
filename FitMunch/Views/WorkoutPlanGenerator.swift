@@ -162,3 +162,75 @@ enum WorkoutPlanGenerator {
         ]
     }
 }
+
+/// Minutes from sets, work, and rest. Nil when a line cannot be derived, so the
+/// screen does not show the old placeholder of one minute.
+enum WorkoutDuration {
+    static func minutes(for exercises: [WorkoutExercise]) -> Int? {
+        var total = 0
+        for exercise in exercises {
+            guard let piece = seconds(for: exercise) else { return nil }
+            total += piece
+        }
+        guard total > 0 else { return nil }
+        return max(1, Int((Double(total) / 60.0).rounded()))
+    }
+
+    static func seconds(for exercise: WorkoutExercise) -> Int? {
+        let sets = max(exercise.sets, 1)
+        let workEach: Int
+        if let time = exercise.time {
+            guard let parsed = workSeconds(time) else { return nil }
+            workEach = parsed
+        } else if let reps = exercise.reps {
+            guard let count = repCount(reps) else { return nil }
+            workEach = count * 4
+        } else {
+            return nil
+        }
+        guard let restEach = restSeconds(exercise.rest) else { return nil }
+        let rest = restEach * max(sets - 1, 0)
+        return workEach * sets + rest
+    }
+
+    private static func workSeconds(_ raw: String) -> Int? {
+        let text = raw.lowercased()
+        if text.contains("min") {
+            guard let value = averageNumber(text) else { return nil }
+            return Int((value * 60).rounded())
+        }
+        if text.contains("m"), !text.contains("s") { return nil }
+        guard text.contains("s"), let value = averageNumber(text) else { return nil }
+        let sides = text.contains("each") ? 2.0 : 1.0
+        return Int((value * sides).rounded())
+    }
+
+    private static func repCount(_ raw: String) -> Int? {
+        guard let value = averageNumber(raw.lowercased()) else { return nil }
+        let sides = raw.lowercased().contains("each") ? 2.0 : 1.0
+        return Int((value * sides).rounded())
+    }
+
+    private static func restSeconds(_ raw: String) -> Int? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.isEmpty || text == "n/a" || text == "-" { return 0 }
+        guard text.contains("s"), let value = averageNumber(text) else { return nil }
+        return Int(value.rounded())
+    }
+
+    private static func averageNumber(_ text: String) -> Double? {
+        var values: [Double] = []
+        var current = ""
+        for character in text {
+            if character.isNumber || (character == "." && !current.isEmpty) {
+                current.append(character)
+            } else if !current.isEmpty {
+                if let value = Double(current) { values.append(value) }
+                current = ""
+            }
+        }
+        if !current.isEmpty, let value = Double(current) { values.append(value) }
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+}

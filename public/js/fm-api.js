@@ -1,5 +1,5 @@
 /**
- * FitMunch browser API helper — Bearer from localStorage, JSON errors like login.html.
+ * FitMunch browser API helper. Bearer from localStorage, JSON errors like login.html.
  * Optional; pages can keep inline fetch. Pattern inspired by MentorMate src/lib/api.ts.
  */
 (function (w) {

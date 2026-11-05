@@ -1,0 +1,39 @@
+/* Sign-in door. Loaded after the page styles. */
+body{
+  background-color:#06110c;
+  background-image:
+    radial-gradient(ellipse 70% 45% at 8% 0%, rgba(125,255,163,.16), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(31,157,74,.14), transparent 50%),
+    url("/assets/elite/ground.svg");
+  background-size:auto, auto, 220px 220px;
+}
+.card{
+  border-radius:18px;
+  border-color:rgba(125,255,163,.2);
+  box-shadow:0 28px 70px rgba(0,0,0,.45);
+  padding:36px 28px;
+}
+.logo img{border-radius:12px}
+.tabs{border-radius:999px;padding:4px}
+.logo-text{white-space:nowrap}
+.logo-text span{color:inherit}
+.tab{border-radius:999px;min-height:44px;color:#9aafa4}
+.tab.active{background:#0f7a32;color:#fff}
+#email-first-note{color:#9aafa4;font-size:.75rem;line-height:1.45}
+.foot{color:#9aafa4}
+.foot a{color:#d7e7db;display:inline-flex;align-items:center;min-height:44px;padding:8px 4px}
+.btn{
+  border-radius:999px;
+  min-height:52px;
+  background:#0f7a32;
+  color:#fff;
+  font-family:'Bricolage Grotesque',system-ui,sans-serif;
+}
+.btn:hover,.btn:focus-visible{background:#0c6428;color:#fff}
+input{border-radius:12px;min-height:48px}
+@media(max-width:390px){
+  .card{padding:28px 18px}
+}
+@media(prefers-reduced-motion:reduce){
+  .card{animation:none}
+}

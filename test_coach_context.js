@@ -7,7 +7,7 @@ jest.mock('pg', () => ({
       pgCalls.push({ sql, params });
       if (planRows) return Promise.resolve({ rows: planRows(sql, params) || [] });
       if (/FROM meal_plans/.test(sql) && !/plan_assignments pa JOIN/.test(sql)) {
-        return Promise.resolve({ rows: [{ name: 'Christmas cut', meals: { days: [{ meals: { breakfast: { name: 'Greek yoghurt oats' }, lunch: { name: 'Chicken rice bowl' } } }, {}, {}, {}, {}, {}, {}] } }] });
+        return Promise.resolve({ rows: [{ name: 'Christmas cut', meals: { days: [{ meals: { breakfast: { name: 'Greek yoghurt oats', ingredients: ['Greek yoghurt', 'Rolled oats'] }, lunch: { name: 'Chicken rice bowl', ingredients: ['Chicken breast', 'White rice'] } } }, {}, {}, {}, {}, {}, {}] } }] });
       }
       return Promise.resolve({ rows: [] });
     }
@@ -30,6 +30,9 @@ jest.mock('./server/storage.js', () => {
     ...actual,
     getUserById: jest.fn(async () => ({ id: 'u1', email: 'me@example.com', subscriptionTier: 'premium', settings: { aiDataConsent: true } })),
     getProfile: jest.fn(async () => ({ age: 34, weight: 85, height: 180, fitnessGoal: 'lose_weight', targetCalories: 2100, targetProtein: 170, dietaryPreferences: [], allergies: '[]' })),
+    getMealLogsForPeriod: jest.fn(async () => []),
+    getRecentWorkouts: jest.fn(async () => []),
+    getProgressHistory: jest.fn(async () => []),
   };
 });
 

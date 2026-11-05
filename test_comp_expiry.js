@@ -231,9 +231,9 @@ describe('comp script and free-limit UI', () => {
     expect(appHtml).not.toContain('Opening Premium trial');
   });
 
-  test('login, auth/me, AI limits, meal planner, and receipt scan read effectiveTier', () => {
+  test('login, auth/me, portal/me, AI limits, meal planner, and receipt scan read effectiveTier', () => {
     const api = fs.readFileSync(path.join(__dirname, 'api_server.js'), 'utf8');
-    expect(api.match(/effectiveTier\(user\)/g)).toHaveLength(8);
+    expect(api.match(/effectiveTier\(user\)/g)).toHaveLength(9); // +1: portal/me's allowlisted user (launch audit D1)
     expect(fs.readFileSync(path.join(__dirname, 'meal-planner.js'), 'utf8')).toContain('return effectiveTier(user)');
     expect(fs.readFileSync(path.join(__dirname, 'receipt-scanner.js'), 'utf8')).toContain('return effectiveTier(user)');
     const updateFn = fs.readFileSync(path.join(__dirname, 'server/storage.js'), 'utf8');

@@ -21,6 +21,7 @@ jest.mock('pg', () => ({ Pool: jest.fn(() => ({ query: (...a) => query(...a), on
 
 const {
   sanitizeApiJson, sanitizeApiResponse, isOurSessionToken, isShareLink, attachApiJsonSanitizer,
+  sanitizeApiBody,
 } = require('./lib/sanitize-api-json');
 const { jwtSecret } = require('./lib/fitmunch-checkout');
 
@@ -480,5 +481,38 @@ describe('r6: linear scrub, original text untouched, more invisibles, loop', () 
       const names = ['Café latte', 'Crème brûlée', 'Jalapeño poppers', 'Açaí bowl', 'Pâté on toast'];
       for (const n of names) expect(sanitizeApiJson({ name: n }).name).toBe(n);
     });
+  });
+});
+
+describe('receipt scan diagnostic survives only as an exact shape on /api/receipt/scan', () => {
+  const diag = {
+    provider: 'xai',
+    errorClass: 'payment_required',
+    status: 402,
+    counts: { xai: { '402': 2 }, openai: { '200': 1 } },
+    lastErrorClass: 'payment_required',
+    p50Ms: 480,
+  };
+
+  it('keeps the provider counts on the scan route and drops free text', () => {
+    const out = sanitizeApiBody({
+      success: false,
+      error: 'Scanning is unavailable right now.',
+      scanDiag: { ...diag, note: 'key sk-live and the prompt' },
+    }, '/api/receipt/scan');
+    expect(out.scanDiag).toEqual(diag);
+    expect(JSON.stringify(out)).not.toMatch(/sk-live|prompt/);
+    expect(out.error).toBe('Scanning is unavailable right now.');
+  });
+
+  it('still scrubs provider names on every other route, including first-scan', () => {
+    for (const url of ['/api/receipt/first-scan', '/api/health', '/api/ai/chat']) {
+      const out = sanitizeApiBody({
+        success: false,
+        error: 'Answered by xAI',
+        scanDiag: diag,
+      }, url);
+      expect(JSON.stringify(out)).not.toMatch(PROVIDER);
+    }
   });
 });

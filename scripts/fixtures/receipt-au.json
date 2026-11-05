@@ -1,0 +1,35 @@
+{
+  "items": [
+    {
+      "name": "Bananas",
+      "quantity": 1,
+      "unit": "kg",
+      "price": 1,
+      "category": "fruit",
+      "line": "BANANAS 1.000 kg @ $3.90/kg 3.90"
+    },
+    {
+      "name": "Cola",
+      "quantity": 1,
+      "unit": "each",
+      "price": 1,
+      "category": "beverage",
+      "line": "COCA COLA 1.25L 2 FOR $5.00"
+    },
+    {
+      "name": "Leg ham sliced",
+      "quantity": 1,
+      "unit": "each",
+      "price": 1,
+      "category": "other",
+      "line": "LEG HAM SLICED 0.246 kg @ $32.00/kg 7.87"
+    },
+    {
+      "name": "Loose item",
+      "quantity": 1,
+      "unit": "each",
+      "price": 1,
+      "category": "other"
+    }
+  ]
+}

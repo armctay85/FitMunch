@@ -61,7 +61,7 @@ final class DesignFeelUITests: XCTestCase {
 
         let manual = app.textFields["meal-manual-name"]
         XCTAssertTrue(manual.waitForExistence(timeout: 6), "Manual food field missing")
-        XCTAssertTrue(app.staticTexts["Search coming soon"].waitForExistence(timeout: 4))
+        XCTAssertFalse(app.staticTexts["Search coming soon"].exists)
         XCTAssertFalse(app.staticTexts["Chicken Breast"].exists, "Sample foods must not appear")
         XCTAssertFalse(app.buttons["food-Eggs"].exists)
         manual.tap()
@@ -144,7 +144,9 @@ final class DesignFeelUITests: XCTestCase {
             }
             if tab == "Me" {
                 XCTAssertTrue(app.staticTexts["Progress"].waitForExistence(timeout: 4))
-                XCTAssertTrue(app.staticTexts["Sample profile"].waitForExistence(timeout: 4))
+                XCTAssertTrue(app.staticTexts["Alex Morgan"].waitForExistence(timeout: 4))
+                XCTAssertTrue(app.staticTexts["alex@example.com"].waitForExistence(timeout: 2))
+                XCTAssertFalse(app.staticTexts["Sample profile"].exists)
                 XCTAssertTrue(app.staticTexts["Premium"].waitForExistence(timeout: 4))
                 XCTAssertFalse(app.staticTexts["Alex Chen"].exists)
                 XCTAssertFalse(app.staticTexts["Premium Subscriber"].exists)

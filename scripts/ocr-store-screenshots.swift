@@ -7,7 +7,10 @@ import Vision
 /// Usage: swift scripts/ocr-store-screenshots.swift <directory>
 
 let forbidden = ["$", "free", "trial"]
-let required = ["home.png", "coach.png", "scan.png", "plan.png", "settings.png"]
+let skipSettings = CommandLine.arguments.contains("--skip-settings")
+let required = skipSettings
+    ? ["home.png", "coach.png", "scan.png", "plan.png"]
+    : ["home.png", "coach.png", "scan.png", "plan.png", "settings.png"]
 
 guard CommandLine.arguments.count >= 2 else {
     fputs("usage: ocr-store-screenshots.swift <directory>\n", stderr)

@@ -27,7 +27,7 @@
   <!-- Fill gap between florets at base -->
   <ellipse cx="256" cy="200" rx="110" ry="52" fill="url(#broc)"/>
 
-  <!-- Floret texture — darker dots to suggest floret clusters -->
+  <!-- Floret texture, darker dots to suggest floret clusters -->
   <circle cx="232" cy="108" r="22" fill="#16a34a" opacity="0.5"/>
   <circle cx="278" cy="100" r="18" fill="#16a34a" opacity="0.5"/>
   <circle cx="256" cy="138" r="16" fill="#16a34a" opacity="0.4"/>
@@ -43,9 +43,9 @@
   <!-- Bar -->
   <rect x="142" y="348" width="228" height="26" rx="13" fill="white"/>
 
-  <!-- Left collar — green accent -->
+  <!-- Left collar, green accent -->
   <rect x="166" y="334" width="34" height="54" rx="9" fill="url(#acc)"/>
-  <!-- Right collar — green accent -->
+  <!-- Right collar, green accent -->
   <rect x="312" y="334" width="34" height="54" rx="9" fill="url(#acc)"/>
 
   <!-- Left plate -->

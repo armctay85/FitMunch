@@ -20,8 +20,8 @@
   }
 
   function compressFile(file, maxEdge, quality) {
-    maxEdge = maxEdge || 1600;
-    quality = quality || 0.82;
+    maxEdge = maxEdge || 1200;
+    quality = quality || 0.72;
     return new Promise(function (resolve, reject) {
       var url = URL.createObjectURL(file);
       var img = new Image();
@@ -230,6 +230,18 @@
         show(empty, false);
         show(results, false);
         scanBtn.disabled = true;
+        var progressEl = root.querySelector('[data-fs-progress]');
+        var progressFill = root.querySelector('[data-fs-progress-fill]');
+        var steps = ['Preparing the photo', 'Reading prices and weights', 'Scoring the haul'];
+        var started = Date.now();
+        if (progressEl) progressEl.textContent = steps[0];
+        if (progressFill) progressFill.style.width = '8%';
+        var progressTimer = setInterval(function () {
+          var t = Date.now() - started;
+          var idx = t < 500 ? 0 : (t < 1800 ? 1 : 2);
+          if (progressEl) progressEl.textContent = steps[idx];
+          if (progressFill) progressFill.style.width = Math.min(90, 8 + t / 80) + '%';
+        }, 200);
         var fd = new FormData();
         // The button is the consent: "Allow and scan" sends this one photo to the AI provider.
         fd.append('aiConsent', 'true');
@@ -265,6 +277,8 @@
             setError(root, (err && err.message) || 'Could not read that receipt. Try a flatter photo in better light.');
           })
           .then(function () {
+            clearInterval(progressTimer);
+            if (progressFill) progressFill.style.width = '100%';
             show(loading, false);
             scanBtn.disabled = false;
           });

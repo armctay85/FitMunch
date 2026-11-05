@@ -21,7 +21,7 @@ describe('personal header line', () => {
     const html = require('fs').readFileSync(require('path').join(__dirname, 'public', 'app.html'), 'utf8');
     expect(html).toContain('<script src="/js/fm-week-wow.js"></script>');
     expect(html).toContain('id="ob-goal-weight"');
-    expect(html).toMatch(/const a = FMWeekWow\.weekAverages\(plan\);[\s\S]{0,300}calories: a\.calories \|\| tg\.calories, protein: a\.protein \|\| tg\.protein/);
+    expect(html).toMatch(/const a = FMWeekWow\.weekAverages\(plan\);[\s\S]{0,300}calories: FMWeekWow\.shownTarget\(a\.calories, tg\.calories\), protein: FMWeekWow\.shownTarget\(a\.protein, tg\.protein\)/);
   });
 });
 

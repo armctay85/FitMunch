@@ -2,7 +2,8 @@
 // The hero app render (public/assets/fm-app-week.webp) is #115's first-week screen for a 2,000 kcal /
 // 150g protein week: the personal opening line, Wednesday's totals and its breakfast with Swap open.
 // Render script: /workspace/shots/pr87-r6/render-hero.js; its measurements are in
-// scripts/fixtures/hero-app-render.json. Alt, figcaption and pixel sizes are pinned to the builder.
+// scripts/fixtures/hero-app-render.json. Figcaption and pixel sizes stay pinned to the builder.
+// The alt is numberless so it does not disagree with the sample-day card.
 const fs = require('fs');
 const path = require('path');
 const engine = require('./lib/meal-plan-engine');
@@ -13,20 +14,13 @@ const tag = (html.match(/<img class="hero-app"[^>]*>/) || [''])[0];
 const alt = (tag.match(/alt="([^"]*)"/) || [])[1] || '';
 const plan = engine.buildPlan({ calories: FX.inputs.calories, protein: FX.inputs.protein, days: 7, goal: FX.inputs.goal });
 const wed = plan.days.find((d) => d.day === 'Wednesday');
-const title = (s) => s.split(' ').map((w, i) => (i > 0 && ['and', 'with', 'or', 'of', 'on', 'in', 'the', 'a', 'to', 'for'].includes(w) ? w : w[0].toUpperCase() + w.slice(1))).join(' ');
 
 describe('home hero app render alt text and caption', () => {
-  it('the alt names the day, its calories and protein, the breakfast and the open Swap list', () => {
-    expect(alt).toMatch(/Wednesday at \d+ cal and \d+g protein, with .+ for breakfast and its Swap list open/);
-  });
-  it('the alt numbers and breakfast match the builder for Wednesday at 2,000 kcal / 150g', () => {
-    const [, cal, prot] = alt.match(/(\d+) cal and (\d+)g protein/).map(Number);
-    expect(cal).toBe(wed.dailyTotals.calories);
-    expect(prot).toBe(wed.dailyTotals.protein);
+  it('the alt describes the preview and does not repeat the card totals', () => {
+    expect(alt).toBe('Preview of a generated Wednesday meal plan');
+    expect(alt).not.toMatch(/\d/);
     expect(FX.dayTotals).toEqual({ calories: wed.dailyTotals.calories, protein: wed.dailyTotals.protein });
     expect(wed.meals.breakfast.name).toBe(FX.breakfast);
-    expect(alt).toContain(`with ${title(wed.meals.breakfast.name)} for breakfast`);
-    expect(alt).toContain(`built for ${FX.inputs.weightKg}kg, cutting to ${FX.inputs.goalKg}kg`);
   });
   it('the figcaption numbers are the builder inputs (EQA L1)', () => {
     const cap = (html.match(/<figure class="hero-shot">[\s\S]*?<figcaption>([^<]*)<\/figcaption>/) || [])[1] || '';
