@@ -41,6 +41,7 @@ describe('public copy hotfix', () => {
   test('terms carries exactly "No GST is charged."', () => {
     const html = fs.readFileSync(path.join(PUBLIC, 'terms.html'), 'utf8');
     expect(visibleText(html)).toContain('No GST is charged.');
+    expect(visibleText(html)).toContain('Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Settings > Apple ID > Subscriptions.');
   });
 
   test('the only GST sentence in any public file is "No GST is charged."', () => {

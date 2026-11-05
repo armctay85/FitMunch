@@ -8,11 +8,16 @@ import RevenueCat
 struct FitMunchApp: App {
     @StateObject private var premiumManager: PremiumManager
     @StateObject private var auth: AuthManager
+    #if DEBUG
+    @State private var showingLaunchHold = LaunchFrameCapture.isRequested
+    #endif
 
     init() {
         #if DEBUG
         LaunchFrameCapture.holdIfRequested()
         #endif
+        OpaqueBars.apply()
+        FloatingBarBacking.applyGlobals()
         AppearanceLaunch.prepare()
         _premiumManager = StateObject(wrappedValue: PremiumManager.shared)
         _auth = StateObject(wrappedValue: AuthManager.shared)
@@ -41,7 +46,7 @@ struct FitMunchApp: App {
         WindowGroup {
             Group {
                 if auth.isRestoring {
-                    ProgressView()
+                    LoadingSkeletonScreen(rows: 4, label: "Loading FitMunch", identifier: "launch-loading")
                         .task { await auth.bootstrap() }
                 } else if auth.isAuthenticated {
                     ContentView()
@@ -59,7 +64,35 @@ struct FitMunchApp: App {
                 AppearanceLaunch.applyWindows()
                 ScreenFill.apply()
             }
+            #if DEBUG
+            .overlay {
+                if LaunchFrameCapture.isRequested && showingLaunchHold {
+                    LaunchFrameCover {
+                        showingLaunchHold = false
+                    }
+                }
+            }
+            #endif
         }
+    }
+}
+
+/// Opaque navigation bars. iOS 26's scroll-edge glass leaves the date and
+/// section titles readable behind the Today title.
+enum OpaqueBars {
+    static func apply() {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(named: "Surface") ?? .systemBackground
+        appearance.shadowColor = .clear
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+        let nav = UINavigationBar.appearance()
+        nav.standardAppearance = appearance
+        nav.scrollEdgeAppearance = appearance
+        nav.compactAppearance = appearance
+        nav.compactScrollEdgeAppearance = appearance
+        nav.isTranslucent = false
     }
 }
 

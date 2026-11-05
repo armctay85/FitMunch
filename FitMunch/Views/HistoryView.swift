@@ -81,11 +81,7 @@ struct HistoryView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 4, label: "Loading history", identifier: "history-loading")
                 }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -148,7 +144,7 @@ struct HistoryView: View {
                 .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
     
@@ -236,7 +232,7 @@ struct HistoryView: View {
                 }
             }
             .padding()
-            .background(Color.gray.opacity(0.1))
+            .background(Color(.secondarySystemBackground))
             .cornerRadius(12)
         }
     }
@@ -345,13 +341,13 @@ private struct HistoryMealCard: View {
                 
                 Spacer()
                 
-                Text("\(meal.foodItems.count) items")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text(MealItemCount.label(for: meal.foodItems.count))
+                    .font(.footnote)
+                    .foregroundStyle(Theme.fmSecondary)
             }
         }
         .padding()
-        .background(Color.gray.opacity(0.1))
+        .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
     }
 }
@@ -444,13 +440,14 @@ private struct DateRangePicker: View {
 }
 
 /// Export sheet for data export
-private struct ExportSheet: View {
+struct ExportSheet: View {
     let data: String
     @Environment(\.dismiss) private var dismiss
     @State private var shareSheet = false
     
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 20) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 60))
@@ -470,31 +467,25 @@ private struct ExportSheet: View {
                     Text("Preview:")
                         .font(.headline)
                     
-                    ScrollView {
-                        Text(data)
-                            .font(.system(.caption, design: .monospaced))
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .frame(height: 200)
+                    Text(data)
+                        .font(.system(.caption, design: .monospaced))
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
                 }
                 .padding()
-                
-                Spacer()
                 
                 Button("Share") {
                     shareSheet = true
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Theme.buttonFill)
-                .foregroundColor(.white)
-                .cornerRadius(12)
+                .buttonStyle(PrimaryButtonStyle())
                 .padding(.horizontal)
+                .accessibilityIdentifier("export-share")
             }
             .padding()
+            }
+            .accessibilityIdentifier("export-sheet")
             .navigationTitle("Export Data")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

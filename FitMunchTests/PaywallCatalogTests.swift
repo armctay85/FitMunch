@@ -91,10 +91,11 @@ final class PaywallCatalogTests: XCTestCase {
             intro: intro,
             eligible: true
         )
-        XCTAssertEqual(cta.title, "Start 14-day free trial")
-        XCTAssertEqual(cta.subline, "then A$19.99/month · cancel anytime")
+        XCTAssertEqual(cta.title, "Start the 14-day trial")
+        XCTAssertNil(cta.subline)
         let timeline = PaywallPricing.trialTimeline(intro: intro, eligible: true)
         XCTAssertEqual(timeline?.today, "Today full access")
+        XCTAssertEqual(timeline?.reminder, "Day 12 reminder")
         XCTAssertEqual(timeline?.billed, "Day 14 billed")
         XCTAssertFalse(PaywallPricing.renewalTerms(
             displayPrice: "A$19.99",
@@ -114,6 +115,10 @@ final class PaywallCatalogTests: XCTestCase {
             "A$19.99/month"
         )
         let intro = PaywallIntroOffer(periodUnit: .day, periodValue: 14, isFreeTrial: true)
+        let sentence = "Subscription auto-renews unless cancelled at least 24 hours before the period ends. Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Account Settings."
+        XCTAssertEqual(PaywallPricing.appStoreBillingSentence, sentence)
+        XCTAssertFalse(sentence.contains("Pty Ltd"))
+        XCTAssertFalse(sentence.contains("inc. GST"))
         XCTAssertEqual(
             PaywallPricing.renewalTerms(
                 displayPrice: "A$149.99",
@@ -121,7 +126,7 @@ final class PaywallCatalogTests: XCTestCase {
                 intro: intro,
                 eligible: true
             ),
-            "14-day free trial, then A$149.99/year. Renews automatically. Cancel anytime in Settings."
+            sentence
         )
         XCTAssertEqual(
             PaywallPricing.renewalTerms(
@@ -130,7 +135,7 @@ final class PaywallCatalogTests: XCTestCase {
                 intro: intro,
                 eligible: false
             ),
-            "A$19.99/month. Renews automatically. Cancel anytime in Settings."
+            sentence
         )
     }
 }

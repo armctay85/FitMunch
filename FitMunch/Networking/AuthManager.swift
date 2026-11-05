@@ -19,12 +19,19 @@ final class AuthManager: ObservableObject {
     }
 
     private init() {
-        if ScreenshotLaunch.isActive {
+        if AuditLaunch.isAuthError {
+            isAuthenticated = false
+            isRestoring = false
+            errorMessage = "Invalid email or password."
+            return
+        }
+        #if DEBUG
+        if ScreenshotLaunch.PersonaGate.isPermitted {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
                 id: "screenshot-user",
-                name: "Sample",
-                email: "sample.account@fitmunch.com.au",
+                name: ScreenshotLaunch.PersonaGate.name,
+                email: ScreenshotLaunch.PersonaGate.email,
                 subscriptionTier: "premium",
                 role: "client"
             )
@@ -34,20 +41,54 @@ final class AuthManager: ObservableObject {
             ReviewLaunch.prepareSession()
             user = APIUser(
                 id: "review-user",
-                name: "Reviewer",
-                email: "review@fitmunch.com.au",
+                name: ReviewLaunch.personaName,
+                email: ReviewLaunch.personaEmail,
                 subscriptionTier: "free",
                 role: "client"
             )
             isAuthenticated = true
             isRestoring = false
+        } else if AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
+            // The flow recording signs in as the QA account before Me. Leave
+            // the Reviewer seed unset so that email is never on screen.
+            if !AuditLaunch.isFlowQA {
+                user = APIUser(
+                    id: "review-user",
+                    name: ReviewLaunch.personaName,
+                    email: ReviewLaunch.personaEmail,
+                    subscriptionTier: "free",
+                    role: "client"
+                )
+            }
+            isAuthenticated = true
+            isRestoring = false
+            UserDefaults.standard.set(true, forKey: "notificationsEnabled")
+            if AuditLaunch.isOnboarding {
+                UserDefaults.standard.set(false, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+            } else {
+                UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+                UserDefaults.standard.removeObject(forKey: "aiDataConsent.review-user")
+            }
         }
+        #endif
     }
 
     /// Restore the session on launch.
     func bootstrap() async {
-        if ScreenshotLaunch.isActive || ReviewLaunch.isActive {
+        if AuditLaunch.isAuthError {
+            KeychainStore.token = nil
+            isAuthenticated = false
             isRestoring = false
+            if errorMessage == nil {
+                errorMessage = "Invalid email or password."
+            }
+            return
+        }
+        if ScreenshotLaunch.isActive || ReviewLaunch.isActive || AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
+            isRestoring = false
+            if AuditLaunch.isFlowQA && user == nil && !isAuthenticated {
+                return
+            }
             isAuthenticated = true
             return
         }
@@ -91,6 +132,9 @@ final class AuthManager: ObservableObject {
                 return false
             }
             KeychainStore.token = token
+            if path == "/auth/login" {
+                UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+            }
             self.user = user
             self.isAuthenticated = true
             AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)

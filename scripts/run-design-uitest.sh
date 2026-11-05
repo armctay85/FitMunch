@@ -10,72 +10,20 @@ OUT="$ROOT/artifacts/design-uitest"
 rm -rf "$OUT"
 mkdir -p "$OUT/screenshots/light" "$OUT/screenshots/dark" "$OUT/recording"
 
-latest_ios_runtime() {
-  xcrun simctl list runtimes available \
-    | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-    | tail -1
-}
-
-udid_for() {
-  local name="$1"
-  xcrun simctl list devices available \
-    | grep -F "$name (" \
-    | head -1 \
-    | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-    | head -1
-}
-
-find_udid() {
-  local candidate udid
-  for candidate in "$@"; do
-    udid="$(udid_for "$candidate")"
-    if [[ -n "$udid" ]]; then
-      echo "$udid"
-      return 0
-    fi
-  done
-  return 1
-}
-
-create_udid() {
-  local runtime type udid
-  runtime="$(latest_ios_runtime)"
-  if [[ -z "$runtime" ]]; then
-    echo "No iOS simulator runtime" >&2
-    return 1
-  fi
-  for type in "$@"; do
-    if xcrun simctl list devicetypes | grep -F "$type" >/dev/null; then
-      echo "Creating simulator '$type' on $runtime" >&2
-      if udid="$(xcrun simctl create "FitMunch Design $type" "$type" "$runtime")"; then
-        echo "$udid"
-        return 0
-      fi
-    fi
-  done
-  return 1
-}
-
-UDID="$(find_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || create_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || true)"
-if [[ -z "${UDID:-}" ]]; then
-  echo "No iPhone 17 Pro Max or iPhone 16 Pro Max simulator."
-  exit 1
-fi
-
+UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
 echo "Using simulator $UDID"
-xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
-xcrun simctl bootstatus "$UDID" -b
 
 rm -rf /tmp/fitmunch-design-uitest
 mkdir -p /tmp/fitmunch-design-uitest/light /tmp/fitmunch-design-uitest/dark
 
 DERIVED="$OUT/DerivedData"
 
+rm -rf "$OUT/screenshots/Test.xcresult"
 set +e
 xcodebuild test \
   -project FitMunch.xcodeproj \
   -scheme FitMunch \
-  -destination "platform=iOS Simulator,id=$UDID" \
+  -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
   -derivedDataPath "$DERIVED" \
   -only-testing:FitMunchUITests/DesignFeelUITests/testTabScreenshotsLightAndDark \
   -only-testing:FitMunchUITests/DesignFeelUITests/testPaywallShot \
@@ -92,11 +40,12 @@ rm -f /tmp/fitmunch-design-uitest/app-ready /tmp/fitmunch-design-uitest/record-r
 
 # Start the flow test first. Recording begins only after the app writes app-ready,
 # so the file does not open on the springboard while xcodebuild is still starting.
+rm -rf "$OUT/recording/Test.xcresult"
 set +e
 xcodebuild test-without-building \
   -project FitMunch.xcodeproj \
   -scheme FitMunch \
-  -destination "platform=iOS Simulator,id=$UDID" \
+  -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
   -derivedDataPath "$DERIVED" \
   -only-testing:FitMunchUITests/DesignFeelUITests/testLogScanPlanAndSwitchTabs \
   -resultBundlePath "$OUT/recording/Test.xcresult" \
@@ -159,20 +108,15 @@ if [[ "$FLOW_STATUS" -ne 0 ]]; then
 fi
 
 # 6.5-inch (iPhone 11 Pro Max, 414x896). The 6.9 run above already executed
-# TabBarClearanceUITests. This pass is the second size only.
-UDID_65="$(find_udid "iPhone 11 Pro Max" "iPhone XS Max" || create_udid "iPhone 11 Pro Max" "iPhone XS Max" || true)"
-if [[ -z "${UDID_65:-}" ]]; then
-  echo "No 6.5-inch simulator (iPhone 11 Pro Max or iPhone XS Max)."
-  exit 1
-fi
+# TabBarClearanceUITests. This pass is the second size only, once.
+UDID_65="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 11 Pro Max" "iPhone XS Max")"
 echo "Using 6.5 simulator $UDID_65"
-xcrun simctl boot "$UDID_65" >/dev/null 2>&1 || true
-xcrun simctl bootstatus "$UDID_65" -b
+rm -rf "$OUT/screenshots/TabBarClearance-6.5.xcresult"
 set +e
 xcodebuild test \
   -project FitMunch.xcodeproj \
   -scheme FitMunch \
-  -destination "platform=iOS Simulator,id=$UDID_65" \
+  -destination "platform=iOS Simulator,id=$UDID_65,arch=arm64" \
   -derivedDataPath "$DERIVED" \
   -only-testing:FitMunchUITests/TabBarClearanceUITests \
   -resultBundlePath "$OUT/screenshots/TabBarClearance-6.5.xcresult" \

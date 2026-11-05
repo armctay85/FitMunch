@@ -54,6 +54,9 @@ jobs:
         run: xcodegen generate
 
       - name: Capture real-app screenshots
+        env:
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
         run: bash scripts/capture-appstore-screenshots.sh
 
       - name: Upload screenshot artifacts

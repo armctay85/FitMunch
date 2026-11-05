@@ -51,6 +51,15 @@ enum APIClient {
         }
 
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            // Login and register are unauthenticated. A 401 there is a rejected
+            // credential, and the server already sends the sentence to show.
+            // Authenticated 401s stay "Session expired" so a dead token is obvious.
+            if !authed,
+               let generic = try? JSONDecoder().decode(GenericResponse.self, from: data),
+               let message = generic.error ?? generic.message,
+               !message.isEmpty {
+                throw APIError.server(message)
+            }
             throw APIError.unauthorised
         }
         if let http = response as? HTTPURLResponse, http.statusCode == 422 {

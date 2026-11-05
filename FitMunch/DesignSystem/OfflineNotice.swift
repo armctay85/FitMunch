@@ -19,12 +19,12 @@ struct OfflineNotice: View {
             .accessibilityLabel("You're offline. Your logged meals are safe.")
         } else {
             Label("You're offline. Your logged meals are safe.", systemImage: "wifi.slash")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Theme.Spacing.three)
-                .background(Theme.brandGreenSoft)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                .font(.subheadline)
+                .foregroundStyle(Color(red: 63.0 / 255, green: 90.0 / 255, blue: 73.0 / 255))
+                .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+                .padding(.horizontal, Theme.Spacing.three)
+                .background(Color(red: 227.0 / 255, green: 242.0 / 255, blue: 231.0 / 255))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("You're offline. Your logged meals are safe.")
         }

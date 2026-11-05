@@ -20,7 +20,7 @@ struct AIDataConsentSheet: View {
                     Text("A meal plan sends the goal as a label, calories, protein, and the number of days. It uses that same provider order and is processed in the United States.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text("Not now leaves Coach, Scan, Plan, insights, workout plans, and the weekly review off. The rest of FitMunch keeps working. You can change this later in Me, Privacy.")
+                    Text("Not now leaves Coach, Scan, Plan, insights, and the weekly review off. The rest of FitMunch keeps working. You can change this later in Me, Privacy.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

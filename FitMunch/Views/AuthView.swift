@@ -3,7 +3,7 @@ import SwiftUI
 /// Sign in / create account. Same accounts as fitmunch.com.au.
 struct AuthView: View {
     @EnvironmentObject private var auth: AuthManager
-    @State private var mode: Mode = .register
+    @State private var mode: Mode = AuditLaunch.isAuthError ? .login : .register
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -16,6 +16,7 @@ struct AuthView: View {
         ZStack {
             Theme.surface.ignoresSafeArea()
 
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 22) {
                     VStack(spacing: 10) {
@@ -29,8 +30,8 @@ struct AuthView: View {
                         }
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         Text("Your AI health partner")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.fmSecondary)
                     }
                     .padding(.top, 48)
 
@@ -48,53 +49,65 @@ struct AuthView: View {
                     .padding(.horizontal, 28)
                     .sensoryFeedback(.selection, trigger: mode)
 
-                    VStack(spacing: 12) {
-                        if mode == .register {
-                            field("Your name", text: $name, focus: .name)
-                                .textContentType(.name)
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(spacing: 12) {
+                            if mode == .register {
+                                field("Your name", text: $name, focus: .name, showsError: auth.errorMessage != nil)
+                                    .textContentType(.name)
+                            }
+                            field("Email", text: $email, focus: .email, showsError: auth.errorMessage != nil)
+                                .textContentType(.emailAddress)
+                                .keyboardType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .accessibilityIdentifier("auth-email")
+                            secureField("Password (min. 8 characters)", text: $password, showsError: auth.errorMessage != nil)
+                                .accessibilityIdentifier("auth-password")
                         }
-                        field("Email", text: $email, focus: .email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        secureField("Password (min. 8 characters)", text: $password)
+                        if let error = auth.errorMessage {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                Text(error)
+                                    .multilineTextAlignment(.leading)
+                                    .accessibilityIdentifier("auth-error")
+                            }
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.fmError)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .id("auth-error")
+                        }
                     }
                     .padding(.horizontal, 28)
 
-                    if let error = auth.errorMessage {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
-                    }
-
                     Button(action: submit) {
-                        HStack {
-                            if auth.isLoading { ProgressView().tint(.white) }
-                            Text(mode == .login ? "Sign In" : "Create Free Account")
-                        }
+                        Text(mode == .login ? "Sign In" : "Create Free Account")
+                            .foregroundStyle(Color.white)
+                            .tint(.white)
                     }
                     .buttonStyle(PrimaryButtonStyle())
+                    .tint(.white)
                     .disabled(auth.isLoading || !formValid)
                     .padding(.horizontal, 28)
                     .accessibilityIdentifier(mode == .login ? "auth-sign-in" : "auth-create-account")
 
-                    if mode == .login {
-                        Link("Forgot your password?",
-                             destination: URL(string: "https://www.fitmunch.com.au/")!)
-                            .font(.footnote)
-                            .foregroundStyle(Theme.brandGreen)
-                    }
-
                     Text("Free to start. Premium trial available in-app.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.fmSecondary)
                         .padding(.bottom, 32)
                 }
             }
             .scrollClearsTabBar()
+            .onAppear {
+                guard auth.errorMessage != nil else { return }
+                focused = .password
+                proxy.scrollTo("auth-error", anchor: .center)
+            }
+            .onChange(of: auth.errorMessage) { _, message in
+                guard message != nil else { return }
+                focused = mode == .login ? .password : .email
+                proxy.scrollTo("auth-error", anchor: .center)
+            }
+            }
         }
         .onChange(of: mode) { _, _ in auth.errorMessage = nil }
     }
@@ -106,30 +119,34 @@ struct AuthView: View {
     }
 
     private func submit() {
-        focused = nil
+        let signingIn = mode == .login
         Task {
-            if mode == .login {
-                _ = await auth.login(email: email.trimmingCharacters(in: .whitespaces).lowercased(),
+            let ok: Bool
+            if signingIn {
+                ok = await auth.login(email: email.trimmingCharacters(in: .whitespaces).lowercased(),
                                      password: password)
             } else {
-                _ = await auth.register(name: name.trimmingCharacters(in: .whitespaces),
+                ok = await auth.register(name: name.trimmingCharacters(in: .whitespaces),
                                         email: email.trimmingCharacters(in: .whitespaces).lowercased(),
                                         password: password)
+            }
+            if !ok {
+                focused = signingIn ? .password : .email
             }
         }
     }
 
-    private func field(_ placeholder: String, text: Binding<String>, focus: Field) -> some View {
+    private func field(_ placeholder: String, text: Binding<String>, focus: Field, showsError: Bool) -> some View {
         TextField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
             .focused($focused, equals: focus)
             .padding(14)
             .background(Color(.secondarySystemBackground))
             .foregroundStyle(.primary)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color(.separator)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Color(.separator), lineWidth: 1))
     }
 
-    private func secureField(_ placeholder: String, text: Binding<String>) -> some View {
+    private func secureField(_ placeholder: String, text: Binding<String>, showsError: Bool) -> some View {
         SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
             .focused($focused, equals: .password)
             .textContentType(mode == .login ? .password : .newPassword)
@@ -137,7 +154,7 @@ struct AuthView: View {
             .background(Color(.secondarySystemBackground))
             .foregroundStyle(.primary)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color(.separator)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Color(.separator), lineWidth: 1))
     }
 }
 
