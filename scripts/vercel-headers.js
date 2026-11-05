@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   CONTENT_SECURITY_POLICY,
+  X_FRAME_OPTIONS,
   PERMISSIONS_POLICY,
   REFERRER_POLICY,
   HSTS,
@@ -77,6 +78,7 @@ function buildHeaderRules() {
       source: '/(.*)',
       headers: [
         { key: 'Content-Security-Policy', value: CONTENT_SECURITY_POLICY },
+        { key: 'X-Frame-Options', value: X_FRAME_OPTIONS },
         { key: 'X-Content-Type-Options', value: CONTENT_TYPE_OPTIONS },
         { key: 'Referrer-Policy', value: REFERRER_POLICY },
         { key: 'Strict-Transport-Security', value: HSTS },

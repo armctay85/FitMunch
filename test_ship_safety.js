@@ -8,7 +8,7 @@ process.env.TRUST_PROXY = '1';
 const app = require('./server.js');
 const { sanitizeApiJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
-const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY, X_FRAME_OPTIONS } = require('./lib/security-headers');
 
 function loggedText(spy) {
   return spy.mock.calls.map((args) => args.map((arg) => {
@@ -21,10 +21,41 @@ describe('response headers', () => {
   it('sends the enforcing CSP and still sets Permissions-Policy from Express', async () => {
     const res = await request(app).get('/').expect(200);
     expect(res.headers['content-security-policy']).toBe(CONTENT_SECURITY_POLICY);
+    expect(res.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(res.headers['content-security-policy']).not.toMatch(/frame-ancestors 'self'/);
     expect(res.headers['content-security-policy']).not.toMatch(/report-only/i);
+    expect(res.headers['x-frame-options']).toBe(X_FRAME_OPTIONS);
     expect(res.headers['permissions-policy']).toBe(PERMISSIONS_POLICY);
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  });
+
+  it('denies framing on API routes, static HTML, and every vercel.json path', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    for (const urlPath of ['/', '/api/health', '/login.html', '/app.html', '/pricing', '/support']) {
+      const res = await request(app).get(urlPath);
+      expect([urlPath, res.headers['x-frame-options']]).toEqual([urlPath, 'DENY']);
+      expect([urlPath, res.headers['content-security-policy']]).toEqual([urlPath, CONTENT_SECURITY_POLICY]);
+    }
+    const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8'));
+    const catchAll = vercel.headers.find((block) => block.source === '/(.*)');
+    const csp = catchAll.headers.find((header) => header.key === 'Content-Security-Policy');
+    const xfo = catchAll.headers.find((header) => header.key === 'X-Frame-Options');
+    expect(csp.value).toBe(CONTENT_SECURITY_POLICY);
+    expect(xfo.value).toBe('DENY');
+    const { staticHtmlPaths } = require('./scripts/vercel-headers');
+    const pages = ['/', '/api/health', '/login.html', '/app.html', '/success.html', ...staticHtmlPaths()];
+    for (const page of pages) {
+      const merged = {};
+      for (const block of vercel.headers) {
+        const matches = block.source === '/(.*)' || block.source === page;
+        if (!matches) continue;
+        for (const header of block.headers) merged[header.key] = header.value;
+      }
+      expect([page, merged['X-Frame-Options']]).toEqual([page, 'DENY']);
+      expect([page, merged['Content-Security-Policy']]).toEqual([page, CONTENT_SECURITY_POLICY]);
+    }
   });
 
   it('keeps no-referrer on /login.html and /login after the site-wide policy', () => {

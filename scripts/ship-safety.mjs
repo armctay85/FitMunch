@@ -155,6 +155,12 @@ function checkHeaders() {
   if (!map['Content-Security-Policy'] || /report-only/i.test(map['Content-Security-Policy'])) {
     fail('Content-Security-Policy must be enforcing');
   }
+  if (!map['Content-Security-Policy'].includes("frame-ancestors 'none'")) {
+    fail("Content-Security-Policy must set frame-ancestors 'none'");
+  }
+  if (map['X-Frame-Options'] !== headers.X_FRAME_OPTIONS) {
+    fail('vercel.json /(.*) must set X-Frame-Options: DENY');
+  }
   if (map['X-Content-Type-Options'] !== headers.CONTENT_TYPE_OPTIONS) fail('missing X-Content-Type-Options: nosniff');
   if (map['Referrer-Policy'] !== headers.REFERRER_POLICY) fail('missing Referrer-Policy');
   if (map['Strict-Transport-Security'] !== headers.HSTS) fail('missing HSTS');
@@ -198,6 +204,12 @@ async function checkExpressHeaders() {
     if (res.headers['permissions-policy'] !== headers.PERMISSIONS_POLICY) {
       fail(`${urlPath} Express Permissions-Policy does not match lib/security-headers.js`);
     }
+    if (res.headers['x-frame-options'] !== headers.X_FRAME_OPTIONS) {
+      fail(`${urlPath} Express X-Frame-Options is ${res.headers['x-frame-options'] || 'unset'}, expected DENY`);
+    }
+    if (!String(res.headers['content-security-policy'] || '').includes("frame-ancestors 'none'")) {
+      fail(`${urlPath} Express CSP must set frame-ancestors 'none'`);
+    }
   }
   const home = await request(app).get('/pricing');
   if (home.headers['referrer-policy'] !== headers.REFERRER_POLICY) {
@@ -205,6 +217,16 @@ async function checkExpressHeaders() {
   }
   if (home.headers['permissions-policy'] !== headers.PERMISSIONS_POLICY) {
     fail('/pricing Express Permissions-Policy does not match lib/security-headers.js');
+  }
+  if (home.headers['x-frame-options'] !== headers.X_FRAME_OPTIONS) {
+    fail('/pricing Express X-Frame-Options is not DENY');
+  }
+  const health = await request(app).get('/api/health');
+  if (health.headers['x-frame-options'] !== headers.X_FRAME_OPTIONS) {
+    fail('/api/health Express X-Frame-Options is not DENY');
+  }
+  if (health.headers['content-security-policy'] !== headers.CONTENT_SECURITY_POLICY) {
+    fail('/api/health Express CSP does not match lib/security-headers.js');
   }
 }
 
@@ -249,6 +271,7 @@ function contentType(file) {
 }
 
 function startStatic(csp) {
+  const { X_FRAME_OPTIONS } = require(path.join(root, 'lib/security-headers.js'));
   const publicDir = path.join(root, 'public');
   const server = http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
@@ -269,6 +292,7 @@ function startStatic(csp) {
       res.writeHead(200, {
         'Content-Type': contentType(file),
         'Content-Security-Policy': csp,
+        'X-Frame-Options': X_FRAME_OPTIONS,
         'X-Content-Type-Options': 'nosniff',
       });
       res.end(buf);

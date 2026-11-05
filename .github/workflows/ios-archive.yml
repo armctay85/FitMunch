@@ -12,6 +12,9 @@ on:
     branches:
       - deploy
 
+permissions:
+  contents: read
+
 jobs:
   archive:
     runs-on: macos-26
@@ -19,7 +22,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
     - name: Select Xcode
       run: |
@@ -50,7 +53,7 @@ jobs:
         grep -n "CURRENT_PROJECT_VERSION\|MARKETING_VERSION" FitMunch.xcodeproj/project.pbxproj | head -20
 
     - name: Import certificate
-      uses: Apple-Actions/import-codesign-certs@v3
+      uses: Apple-Actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3.0.0
       with:
         p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
         p12-password: ${{ secrets.CERTIFICATES_PASSWORD }}
@@ -112,7 +115,7 @@ jobs:
           -exportPath "$RUNNER_TEMP/export"
 
     - name: Upload IPA artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: FitMunch-IPA
         path: ${{ runner.temp }}/export/*.ipa

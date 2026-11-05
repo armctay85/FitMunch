@@ -14,6 +14,9 @@ on:
       - ".github/workflows/ios-width-capture.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   width-capture:
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'cursor/b11-coach-blocked-89f8' || github.head_ref == 'cursor/b11-design-gaps-ce84'
@@ -22,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Select Xcode
         run: |
@@ -52,7 +55,7 @@ jobs:
           python3 scripts/log-storekit-scheme-path.py
 
       - name: Upload FitMunchStoreKit scheme
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-storekit-scheme
           path: FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme
@@ -134,7 +137,7 @@ jobs:
 
       - name: Upload width screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-b11-width-capture
           path: artifacts/width-capture/

@@ -10,7 +10,7 @@ const { sendApiError, GENERIC_API_ERROR, isInternalLeak } = require('./lib/publi
 const { attachApiJsonSanitizer, sendStripeJson } = require('./lib/sanitize-api-json');
 const { webhookHandlerErrorLabel } = require('./lib/log-redact');
 const { hitRateCounter } = require('./lib/shared-counters');
-const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY } = require('./lib/security-headers');
+const { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY, X_FRAME_OPTIONS } = require('./lib/security-headers');
 const {
   isPrivatePath,
   isMarketingDocument,
@@ -103,7 +103,7 @@ const allowedOrigins = parseAllowedOrigins();
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow external fonts
-  frameguard: false, // Disable X-Frame-Options to allow Replit preview iframe
+  frameguard: { action: 'deny' },
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
@@ -161,9 +161,10 @@ app.use(compression({
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 
-// CSP and Permissions-Policy go on every response, including the /funnel 401s.
+// CSP, X-Frame-Options and Permissions-Policy go on every response, including the /funnel 401s.
 app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+  res.setHeader('X-Frame-Options', X_FRAME_OPTIONS);
   res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
   next();
 });
