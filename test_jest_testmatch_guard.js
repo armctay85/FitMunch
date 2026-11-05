@@ -52,4 +52,83 @@ describe('jest testMatch guard', () => {
     for (const u of uses) expect(u).toMatch(/@[0-9a-f]{40}$/);
     expect(yml).toMatch(/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   });
+
+  it('every workflow is least-privilege, SHA-pinned, and cannot approve PRs', () => {
+    const dir = path.join(__dirname, '.github/workflows');
+    const files = fs.readdirSync(dir).filter((name) => name.endsWith('.yml')).sort();
+    expect(files.length).toBeGreaterThan(0);
+    const issueWriters = {
+      'prod-smoke.yml': ['prod-smoke-issue'],
+      'ai-credit-check.yml': ['check'],
+    };
+    const signingSecrets = [
+      'CERTIFICATES_P12',
+      'CERTIFICATES_PASSWORD',
+      'KEYCHAIN_PASSWORD',
+      'PROVISIONING_PROFILE',
+      'PROVISIONING_PROFILE_NAME',
+      'ASC_USERNAME',
+      'ASC_PASSWORD',
+    ];
+    const approve = /pulls\/[^\s'"]+\/reviews|gh\s+pr\s+review|createReview|--approve\b|event:\s*['"]?APPROVE\b/;
+
+    for (const name of files) {
+      const yml = fs.readFileSync(path.join(dir, name), 'utf8');
+      const jobsAt = yml.indexOf('\njobs:');
+      expect(jobsAt).toBeGreaterThan(0);
+      const head = yml.slice(0, jobsAt);
+      expect(head).toMatch(/^permissions:\n {2}contents: read\n/m);
+      expect(head).not.toMatch(/:\s*write\b/);
+
+      const uses = yml.match(/uses:\s*\S+/g) || [];
+      expect(uses.length).toBeGreaterThan(0);
+      for (const u of uses) expect([name, u]).toEqual([name, expect.stringMatching(/@[0-9a-f]{40}$/)]);
+      expect(yml).not.toMatch(approve);
+
+      const lines = yml.split('\n');
+      const jobsLine = lines.findIndex((line) => line === 'jobs:');
+      const jobPerms = {};
+      let job = null;
+      for (let i = jobsLine + 1; i < lines.length; i++) {
+        const jobMatch = lines[i].match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+        if (jobMatch) job = jobMatch[1];
+        if (!/^ {4}permissions:\s*$/.test(lines[i])) continue;
+        const grants = {};
+        for (let j = i + 1; j < lines.length; j++) {
+          const grant = lines[j].match(/^ {6}([A-Za-z-]+):\s*(\S+)\s*$/);
+          if (!grant) break;
+          grants[grant[1]] = grant[2];
+        }
+        jobPerms[job] = grants;
+      }
+
+      for (const [jobName, grants] of Object.entries(jobPerms)) {
+        const keys = Object.keys(grants).sort();
+        expect(grants.contents).toBe('read');
+        const writesIssues = (issueWriters[name] || []).includes(jobName);
+        if (writesIssues) {
+          expect(keys).toEqual(['contents', 'issues']);
+          expect(grants.issues).toBe('write');
+        } else {
+          expect(keys).toEqual(['contents']);
+        }
+      }
+      for (const jobName of issueWriters[name] || []) {
+        expect(jobPerms[jobName]).toEqual({ contents: 'read', issues: 'write' });
+      }
+
+      for (const secret of signingSecrets) {
+        if (name === 'ios-archive.yml') {
+          expect(yml).toContain(secret);
+        } else {
+          expect(yml).not.toContain(secret);
+        }
+      }
+    }
+
+    const archive = fs.readFileSync(path.join(dir, 'ios-archive.yml'), 'utf8');
+    const archiveJobs = archive.slice(archive.indexOf('\njobs:\n'));
+    const jobNames = [...archiveJobs.matchAll(/^ {2}([A-Za-z0-9_-]+):\s*$/gm)].map((match) => match[1]);
+    expect(jobNames).toEqual(['archive']);
+  });
 });

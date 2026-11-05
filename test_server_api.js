@@ -205,6 +205,7 @@ describe('Server API shell', () => {
       'referrer-policy',
       'strict-transport-security',
       'x-content-type-options',
+      'x-frame-options',
       'x-dns-prefetch-control',
       'x-download-options',
       'x-permitted-cross-domain-policies',

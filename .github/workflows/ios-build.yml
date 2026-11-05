@@ -28,12 +28,15 @@ on:
       - ".github/workflows/ios-build.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-26
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
     - name: Pre-ASC camera usage gate
       run: bash scripts/check-ios-camera-usage.sh
@@ -116,7 +119,7 @@ jobs:
 
     - name: Upload pre-ASC audit artifacts
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: pre-asc-audit-build-9
         path: artifacts/pre-asc-audit/
@@ -125,7 +128,7 @@ jobs:
 
     - name: Upload pre-ASC paywall screenshots
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: pre-asc-paywall-screenshots-build-9
         path: artifacts/pre-asc-audit/screenshots/
