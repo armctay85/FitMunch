@@ -82,13 +82,13 @@ jobs:
           PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_NAME" \
           DEVELOPMENT_TEAM=48SW62N9BZ \
           MARKETING_VERSION=1.0 \
-          CURRENT_PROJECT_VERSION=10 \
+          CURRENT_PROJECT_VERSION=11 \
           VERSIONING_SYSTEM="Apple Generic"
         APP_PLIST="$RUNNER_TEMP/FitMunch.xcarchive/Products/Applications/FitMunch.app/Info.plist"
         VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PLIST")
         echo "Archived CFBundleVersion=$VERSION"
-        if [ "$VERSION" != "10" ]; then
-          echo "Refusing to export: archive is build $VERSION, expected 10"
+        if [ "$VERSION" != "11" ]; then
+          echo "Refusing to export: archive is build $VERSION, expected 11"
           exit 1
         fi
         CAMERA_DESC=$(/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP_PLIST")
