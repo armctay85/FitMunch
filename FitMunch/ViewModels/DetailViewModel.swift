@@ -6,6 +6,8 @@ import SwiftUI
 @MainActor
 class DetailViewModel: ObservableObject {
     @Published var mealName: String = ""
+    /// Breakfast, Lunch, Dinner, or Snack. Choosing one replaces the name.
+    @Published var mealSlot: String = MealTimeName.labels[0]
     @Published var searchQuery: String = ""
     @Published var foodItems: [FoodItem] = []
     @Published var searchResults: [FoodItem] = []
@@ -21,7 +23,9 @@ class DetailViewModel: ObservableObject {
     /// Initialize for creating a new meal. The name is the time-of-day slot.
     init(modelContext: ModelContext, now: Date = Date()) {
         self.modelContext = modelContext
-        self.mealName = MealTimeName.name(for: now)
+        let slot = MealTimeName.name(for: now)
+        self.mealSlot = MealTimeName.labels.contains(slot) ? slot : MealTimeName.labels[0]
+        self.mealName = ""
     }
     
     /// Initialize for editing an existing meal
@@ -29,6 +33,9 @@ class DetailViewModel: ObservableObject {
         self.init(modelContext: modelContext)
         self.existingMeal = meal
         self.mealName = meal.name
+        if MealTimeName.labels.contains(meal.name) {
+            self.mealSlot = meal.name
+        }
         self.foodItems = meal.foodItems
         self.isEditing = true
     }
@@ -54,7 +61,7 @@ class DetailViewModel: ObservableObject {
     /// One-step entry. The numbers are what the person typed. The name is the
     /// meal slot, not a food looked up from anywhere.
     func setQuickEntry(calories: Int, protein: Int, carbs: Int, fats: Int) {
-        let label = mealName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = resolvedMealName
         guard calories > 0, !label.isEmpty else {
             removeQuickEntry()
             return
@@ -188,10 +195,12 @@ class DetailViewModel: ObservableObject {
         defer { isLoading = false }
         
         // Validate meal name
-        guard !mealName.isEmpty else {
+        let title = resolvedMealName
+        guard !title.isEmpty else {
             errorMessage = "Please enter a meal name"
             return false
         }
+        mealName = title
         
         // Validate at least one food item
         guard !foodItems.isEmpty else {
@@ -249,6 +258,13 @@ class DetailViewModel: ObservableObject {
     
     /// Check if meal can be saved
     var canSave: Bool {
-        return !mealName.isEmpty && !foodItems.isEmpty
+        !resolvedMealName.isEmpty && !foodItems.isEmpty
+    }
+
+    /// Typed name, or the meal-type label when the field is still empty.
+    var resolvedMealName: String {
+        let typed = mealName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !typed.isEmpty { return typed }
+        return mealSlot
     }
 }

@@ -20,3 +20,17 @@ struct LoadingSkeleton: View {
         .accessibilityIdentifier(identifier)
     }
 }
+
+/// Full-screen stand-in for a bare spinner while a screen is loading.
+struct LoadingSkeletonScreen: View {
+    var rows: Int = 4
+    var label: String = "Loading"
+    var identifier: String = "loading-skeleton"
+
+    var body: some View {
+        LoadingSkeleton(rows: rows, label: label, identifier: identifier)
+            .padding(Theme.Spacing.four)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Theme.surface)
+    }
+}

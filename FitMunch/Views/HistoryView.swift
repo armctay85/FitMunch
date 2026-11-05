@@ -81,11 +81,7 @@ struct HistoryView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 4, label: "Loading history", identifier: "history-loading")
                 }
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -345,9 +341,9 @@ private struct HistoryMealCard: View {
                 
                 Spacer()
                 
-                Text("\(meal.foodItems.count) items")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text(MealItemCount.label(for: meal.foodItems.count))
+                    .font(.footnote)
+                    .foregroundStyle(Theme.fmSecondary)
             }
         }
         .padding()

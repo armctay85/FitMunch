@@ -29,6 +29,39 @@ enum Theme {
     /// systemGreen are too light behind a white label, so this is not the asset.
     static let buttonFill = Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)
 
+    /// Page background #F4F6F2. Dark #101A14.
+    static let fmBackground = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 16.0 / 255, green: 26.0 / 255, blue: 20.0 / 255, alpha: 1)
+            : UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
+    })
+
+    /// Card white. Dark stays a lifted surface.
+    static let fmSurface = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 22.0 / 255, green: 32.0 / 255, blue: 26.0 / 255, alpha: 1)
+            : UIColor(red: 1, green: 1, blue: 1, alpha: 1)
+    })
+
+    /// Brand fill #157A3C.
+    static let fmBrand = Color(red: 21.0 / 255.0, green: 122.0 / 255.0, blue: 60.0 / 255.0)
+
+    /// Secondary text #5F6B64. Dark #C5D0C8 stays above 4.5:1 on the dark page.
+    static let fmSecondary = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 197.0 / 255, green: 208.0 / 255, blue: 200.0 / 255, alpha: 1)
+            : UIColor(red: 95.0 / 255, green: 107.0 / 255, blue: 100.0 / 255, alpha: 1)
+    })
+
+    /// Hairline #D9DED9. Dark #26302A.
+    static let fmSeparator = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 1)
+            : UIColor(red: 217.0 / 255, green: 222.0 / 255, blue: 217.0 / 255, alpha: 1)
+    })
+
+    static let fmError = Color(red: 198.0 / 255.0, green: 40.0 / 255.0, blue: 40.0 / 255.0)
+
     /// 16pt cards, 12pt controls.
     enum Radius {
         static let large: CGFloat = 16

@@ -25,12 +25,13 @@ final class AuthManager: ObservableObject {
             errorMessage = "Invalid email or password."
             return
         }
-        if ScreenshotLaunch.isActive {
+        #if DEBUG
+        if ScreenshotLaunch.PersonaGate.isPermitted {
             ScreenshotLaunch.prepareSession()
             user = APIUser(
                 id: "screenshot-user",
-                name: "Sample",
-                email: "sample.account@fitmunch.com.au",
+                name: ScreenshotLaunch.PersonaGate.name,
+                email: ScreenshotLaunch.PersonaGate.email,
                 subscriptionTier: "premium",
                 role: "client"
             )
@@ -40,21 +41,25 @@ final class AuthManager: ObservableObject {
             ReviewLaunch.prepareSession()
             user = APIUser(
                 id: "review-user",
-                name: "Reviewer",
-                email: "review@fitmunch.com.au",
+                name: ReviewLaunch.personaName,
+                email: ReviewLaunch.personaEmail,
                 subscriptionTier: "free",
                 role: "client"
             )
             isAuthenticated = true
             isRestoring = false
         } else if AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
-            user = APIUser(
-                id: "review-user",
-                name: "Reviewer",
-                email: "review@fitmunch.com.au",
-                subscriptionTier: "free",
-                role: "client"
-            )
+            // The flow recording signs in as the QA account before Me. Leave
+            // the Reviewer seed unset so that email is never on screen.
+            if !AuditLaunch.isFlowQA {
+                user = APIUser(
+                    id: "review-user",
+                    name: ReviewLaunch.personaName,
+                    email: ReviewLaunch.personaEmail,
+                    subscriptionTier: "free",
+                    role: "client"
+                )
+            }
             isAuthenticated = true
             isRestoring = false
             UserDefaults.standard.set(true, forKey: "notificationsEnabled")
@@ -65,6 +70,7 @@ final class AuthManager: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: "aiDataConsent.review-user")
             }
         }
+        #endif
     }
 
     /// Restore the session on launch.
@@ -80,6 +86,9 @@ final class AuthManager: ObservableObject {
         }
         if ScreenshotLaunch.isActive || ReviewLaunch.isActive || AuditLaunch.isOnboarding || AuditLaunch.isConsentPrompt {
             isRestoring = false
+            if AuditLaunch.isFlowQA && user == nil && !isAuthenticated {
+                return
+            }
             isAuthenticated = true
             return
         }
@@ -123,6 +132,9 @@ final class AuthManager: ObservableObject {
                 return false
             }
             KeychainStore.token = token
+            if path == "/auth/login" {
+                UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
+            }
             self.user = user
             self.isAuthenticated = true
             AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)

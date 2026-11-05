@@ -19,6 +19,9 @@ final class StoreKitLifecycleTests: XCTestCase {
         created.disableDialogs = true
         created.resetToDefaultState()
         created.clearTransactions()
+        // resetToDefaultState can leave the shared environment on the previous
+        // test's accelerated clock. Real time until expireSubscription.
+        created.timeRate = .realTime
         session = created
     }
 
@@ -58,11 +61,11 @@ final class StoreKitLifecycleTests: XCTestCase {
         let eligible = await subscription.isEligibleForIntroOffer
         step(productID, "trial-eligible", eligible, "eligible=\(eligible)")
 
-        // One renewal every two seconds so a later wait can pass a short period.
-        // The 14-day trial is still longer than that window. expireSubscription is
-        // the immediate expiry. RevenueCat records that call as unreliable, so the
-        // test also polls status and prints the expiration date.
-        session.timeRate = .oneRenewalEveryTwoSeconds
+        // Keep real time through purchase and cancel. oneRenewalEveryTwoSeconds
+        // ends the 14-day intro in two seconds. After auto-renew is off, that
+        // boundary removes the subscription and expireSubscription throws
+        // SKTestError Code=6. The fast clock starts only after that call.
+        session.timeRate = .realTime
         let transaction = try await session.buyProduct(identifier: productID)
         await transaction.finish()
         let purchased = transaction.productID == productID
@@ -71,7 +74,20 @@ final class StoreKitLifecycleTests: XCTestCase {
         step(productID, "purchase", purchased, "id=\(transaction.id) product=\(transaction.productID) offer=\(String(describing: transaction.offerType))")
         step(productID, "trial", transaction.offerType == .introductory, "offerType=\(String(describing: transaction.offerType))")
 
+        // currentEntitlements lags buyProduct on the first product in a fresh
+        // session. Annual hit an empty set while the transaction already
+        // existed; monthly, run second, saw it immediately. The assert is the
+        // same once the entitlement is published.
+        session.timeRate = .realTime
         var entitled = try await entitlementIDs()
+        if !entitled.contains(productID) {
+            for _ in 0..<20 {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                session.timeRate = .realTime
+                entitled = try await entitlementIDs()
+                if entitled.contains(productID) { break }
+            }
+        }
         step(productID, "purchase-entitlement", entitled.contains(productID), "entitled=\(entitled.sorted().joined(separator: ","))")
 
         // Restore is the finished transaction still present in current entitlements
@@ -110,7 +126,12 @@ final class StoreKitLifecycleTests: XCTestCase {
         step(productID, "cancel", cancelOK, cancelDetail)
 
         let before = await latestSummary(productID)
-        try session.expireSubscription(productIdentifier: productID)
+        do {
+            try session.expireSubscription(productIdentifier: productID)
+        } catch let error as NSError where error.domain == SKTestErrorDomain && error.code == 6 {
+            // The subscription already ended, so there is no transaction to expire.
+        }
+        session.timeRate = .oneRenewalEveryTwoSeconds
         var expired = false
         var expiryDetail = "before=\(before)"
         for _ in 0..<10 {
@@ -183,7 +204,14 @@ final class StoreKitLifecycleTests: XCTestCase {
         let loaded = try await Product.products(for: [productID])
         let product = try XCTUnwrap(loaded.first)
         let subscription = try XCTUnwrap(product.subscription)
-        let statuses = try await subscription.status
+        var statuses = try await subscription.status
+        if statuses.first == nil {
+            for _ in 0..<20 {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                statuses = try await subscription.status
+                if statuses.first != nil { break }
+            }
+        }
         return try XCTUnwrap(statuses.first, "\(productID) has no subscription status")
     }
 }

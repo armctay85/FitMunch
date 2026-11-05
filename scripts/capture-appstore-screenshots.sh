@@ -17,66 +17,10 @@ xcrun simctl list devicetypes | grep -i iPhone || true
 echo "=== Runtimes ==="
 xcrun simctl list runtimes available
 
-latest_ios_runtime() {
-  xcrun simctl list runtimes available \
-    | sed -n 's/.*\(com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]*\).*/\1/p' \
-    | tail -1
-}
-
-# First 36-char UUID on the matching device line. grep -F so names with '(' are safe.
-udid_for() {
-  local name="$1"
-  xcrun simctl list devices available \
-    | grep -F "$name (" \
-    | head -1 \
-    | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' \
-    | head -1
-}
-
-find_udid() {
-  local candidate udid
-  for candidate in "$@"; do
-    udid="$(udid_for "$candidate")"
-    if [[ -n "$udid" ]]; then
-      echo "$udid"
-      return 0
-    fi
-  done
-  return 1
-}
-
-create_udid() {
-  local runtime type udid
-  runtime="$(latest_ios_runtime)"
-  if [[ -z "$runtime" ]]; then
-    echo "No iOS simulator runtime" >&2
-    return 1
-  fi
-  for type in "$@"; do
-    if xcrun simctl list devicetypes | grep -F "$type" >/dev/null; then
-      echo "Creating simulator '$type' on $runtime" >&2
-      if udid="$(xcrun simctl create "FitMunch $type" "$type" "$runtime")"; then
-        echo "$udid"
-        return 0
-      fi
-    fi
-  done
-  return 1
-}
-
 prepare_sim() {
   local udid="$1"
-  local attempt
-  for attempt in 1 2; do
-    xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-    xcrun simctl bootstatus "$udid" -b || true
-    if xcrun simctl list devices | grep -F "$udid" | grep -q Booted; then
-      break
-    fi
-    echo "Boot did not stick for $udid (attempt $attempt)"
-    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
-    sleep 2
-  done
+  xcrun simctl boot "$udid" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "$udid" -b
   xcrun simctl status_bar "$udid" override \
     --time "9:41" \
     --dataNetwork wifi \
@@ -91,8 +35,13 @@ verify_pngs() {
   local folder="$1"
   local expected_w="$2"
   local expected_h="$3"
+  local require_settings="$4"
   local required w h png
-  for required in home coach scan plan settings; do
+  local names=(home coach scan plan)
+  if [[ "$require_settings" == "1" ]]; then
+    names+=(settings)
+  fi
+  for required in "${names[@]}"; do
     png="$folder/$required.png"
     if [[ ! -f "$png" ]]; then
       echo "Missing $png"
@@ -119,39 +68,51 @@ run_capture() {
   echo "Capturing on $udid -> $folder (${expected_w}x${expected_h})"
   rm -rf /tmp/fitmunch-appstore-screenshots
   mkdir -p /tmp/fitmunch-appstore-screenshots
-  local attempt rc=1
+  local rc=1
   local log="$folder/xcodebuild.log"
-  for attempt in 1 2 3; do
+  rm -rf "$folder/Test.xcresult"
+  local creds="/tmp/fitmunch-qa-credentials"
+  rm -f "$creds"
+  local require_settings=0
+  if [[ -n "${QA_EMAIL:-}" && -n "${QA_PASSWORD:-}" ]]; then
+    umask 077
+    printf '%s\n%s\n' "$QA_EMAIL" "$QA_PASSWORD" > "$creds"
+    require_settings=1
+    echo "Me capture will sign in. Credentials are not printed."
+  else
+    echo "QA_EMAIL or QA_PASSWORD is unset. The Me capture will skip."
+  fi
+  set +e
+  local attempt
+  for attempt in 1 2; do
     rm -rf "$folder/Test.xcresult"
-    set +e
     xcodebuild test \
       -project FitMunch.xcodeproj \
       -scheme FitMunch \
-      -destination "platform=iOS Simulator,id=$udid" \
+      -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
       -only-testing:FitMunchUITests/AppStoreScreenshotTests \
       -resultBundlePath "$folder/Test.xcresult" \
       CODE_SIGNING_ALLOWED=NO \
       CODE_SIGNING_REQUIRED=NO \
       CODE_SIGN_IDENTITY=- \
       TEST_RUNNER_SCREENSHOT_DIR="$folder" \
+      TEST_RUNNER_QA_EMAIL="${QA_EMAIL:-}" \
+      TEST_RUNNER_QA_PASSWORD="${QA_PASSWORD:-}" \
       | tee "$log"
     rc=${PIPESTATUS[0]}
-    set -e
     if [[ "$rc" -eq 0 ]]; then
       break
     fi
-    if ! grep -q "Unable to find a device matching" "$log"; then
-      echo "xcodebuild failed for $udid (exit $rc)"
-      return "$rc"
+    if [[ "$attempt" -eq 1 ]] && grep -q "Timed out while launching" "$log"; then
+      echo "Launch timed out for $udid. Retrying once."
+      continue
     fi
-    echo "Simulator destination was not visible (attempt $attempt). Booting again."
-    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
-    sleep 3
-    xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-    xcrun simctl bootstatus "$udid" -b || true
-    sleep 5
+    break
   done
+  rm -f "$creds"
+  set -e
   if [[ "$rc" -ne 0 ]]; then
+    echo "xcodebuild failed for $udid (exit $rc)"
     return "$rc"
   fi
   if [[ ! -f "$folder/home.png" && -f /tmp/fitmunch-appstore-screenshots/home.png ]]; then
@@ -159,50 +120,23 @@ run_capture() {
     cp /tmp/fitmunch-appstore-screenshots/*.png "$folder/"
   fi
 
-  verify_pngs "$folder" "$expected_w" "$expected_h" || return 1
-  swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
-}
-
-scale_real_shots() {
-  local src="$1"
-  local dest="$2"
-  local w="$3"
-  local h="$4"
-  mkdir -p "$dest"
-  local name
-  for name in home coach scan plan settings; do
-    sips -z "$h" "$w" "$src/$name.png" --out "$dest/$name.png" >/dev/null
-  done
-  verify_pngs "$dest" "$w" "$h"
-  swift "$ROOT/scripts/ocr-store-screenshots.swift" "$dest"
-}
-
-UDID_69="$(find_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || create_udid "iPhone 17 Pro Max" "iPhone 16 Pro Max" || true)"
-UDID_67="$(find_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || create_udid "iPhone 16 Plus" "iPhone 15 Pro Max" "iPhone 15 Plus" "iPhone 14 Pro Max" || true)"
-
-if [[ -z "${UDID_69:-}" && -z "${UDID_67:-}" ]]; then
-  echo "No large iPhone simulator could be found or created."
-  exit 1
-fi
-
-if [[ -n "${UDID_69:-}" ]]; then
-  run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
-fi
-
-if [[ -n "${UDID_67:-}" ]]; then
-  if ! run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796; then
-    echo "6.7-inch simulator capture failed. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
-    if [[ ! -d "$OUT/iphone-69" ]]; then
-      echo "No 6.9-inch shots to scale."
-      exit 1
-    fi
-    rm -rf "$OUT/iphone-67"
-    scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
+  verify_pngs "$folder" "$expected_w" "$expected_h" "$require_settings" || return 1
+  if [[ "$require_settings" == "1" ]]; then
+    swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder"
+  else
+    swift "$ROOT/scripts/ocr-store-screenshots.swift" "$folder" --skip-settings
   fi
-elif [[ -d "$OUT/iphone-69" ]]; then
-  echo "No 6.7-inch simulator on this runner. Scaling the real 6.9-inch SwiftUI shots to 1290x2796."
-  scale_real_shots "$OUT/iphone-69" "$OUT/iphone-67" 1290 2796
-fi
+}
+
+UDID_69="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+run_capture "$UDID_69" "$OUT/iphone-69" 1320 2868
+
+UDID_67="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 16 Plus" "iPhone 15 Plus" "iPhone 14 Plus" "iPhone 15 Pro Max" "iPhone 14 Pro Max")"
+run_capture "$UDID_67" "$OUT/iphone-67" 1290 2796
+
+# 6.5 inch App Store slot. 11 Pro Max is 414x896 at 3x, 1242x2688.
+UDID_65="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 11 Pro Max" "iPhone XS Max")"
+run_capture "$UDID_65" "$OUT/iphone-65" 1242 2688
 
 if [[ ! -d "$OUT/iphone-67" ]]; then
   echo "6.7-inch 1290x2796 capture is required."

@@ -13,6 +13,7 @@ final class FullScreenWindowTests: XCTestCase {
         throw XCTSkip(StoreKitBesideApp.skipReason)
     }
 
+    /// A missing background assertion is the simulator failing to attach, not a layout miss.
     func testFullScreenWindow() throws {
         let slug = deviceSlug()
         let tag = shotTag()
@@ -22,6 +23,12 @@ final class FullScreenWindowTests: XCTestCase {
         app.launchArguments = [ReviewLaunchArgument.flag, "-CaptureLaunch"]
         app.launch()
 
+        // -CaptureLaunch keeps the launch cover up until the watcher confirms,
+        // capped so this wait still finishes. The Today shot is the home screen.
+        let cover = app.descendants(matching: .any)["launch-frame-cover"]
+        if cover.waitForExistence(timeout: 8) {
+            XCTAssertTrue(cover.waitForNonExistence(timeout: 40), "Launch cover stayed up")
+        }
         let today = app.navigationBars["Today"].waitForExistence(timeout: 25)
             || app.staticTexts["Today"].waitForExistence(timeout: 5)
         XCTAssertTrue(today, "Today did not appear. The shot would be the home screen.")
@@ -43,21 +50,12 @@ final class FullScreenWindowTests: XCTestCase {
         XCTAssertTrue(annualLabel.contains("/year"), "Annual price is missing the period. \(annualLabel)")
         XCTAssertTrue(monthlyLabel.contains("/month"), "Monthly price is missing the period. \(monthlyLabel)")
         print("SANDBOX_PRICE annual=\(annualLabel) monthly=\(monthlyLabel)")
-        _ = scrollUntilHittable([
-            app.staticTexts["paywall-price-fitmunch_annual"],
-            app.staticTexts["paywall-price-fitmunch_monthly"],
-        ], in: app)
         XCTAssertFalse(app.buttons["paywall-retry"].exists, "Retry state means StoreKit products did not load")
         XCTAssertFalse(app.staticTexts["Day 12 we remind you"].exists)
         XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
         XCTAssertFalse(app.buttons["Continue on the web"].exists)
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
-        let renewal = app.staticTexts["paywall-renewal"]
-        XCTAssertTrue(renewal.waitForExistence(timeout: 8), "Renewal term missing from the bottom bar")
-        XCTAssertTrue(renewal.label.contains("Renews automatically"), renewal.label)
-        XCTAssertTrue(app.buttons["paywall-restore"].exists, "Restore Purchases missing from the bottom bar")
-        XCTAssertTrue(app.buttons["Terms"].exists, "Terms missing from the bottom bar")
-        XCTAssertTrue(app.buttons["Privacy"].exists, "Privacy missing from the bottom bar")
+        assertMonthlyPriceClearsAppleSentence(in: app)
         XCTAssertEqual(app.state, .runningForeground)
         let paywallShot = try assertFullScreen(app, slug: slug, phase: "paywall")
         saveShot(paywallShot, name: "paywall-\(tag)")

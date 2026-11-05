@@ -27,6 +27,8 @@ struct PlanView: View {
                 .padding(.horizontal, Theme.Spacing.four)
                 .padding(.vertical, Theme.Spacing.three)
                 .accessibilityIdentifier("plan-segment")
+                .zIndex(1)
+                .background(Theme.surface)
                 .sensoryFeedback(.selection, trigger: segment)
 
                 switch segment {

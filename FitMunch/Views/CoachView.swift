@@ -46,12 +46,14 @@ struct CoachView: View {
                                     .font(.footnote.weight(.semibold))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
-                                    .padding(.horizontal, Theme.Spacing.three)
-                                    .padding(.vertical, 7)
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 32)
                                     .background(intent == item.id ? Theme.buttonFill : Color(.secondarySystemBackground))
                                     .foregroundStyle(intent == item.id ? Color.white : Color.primary)
                                     .clipShape(Capsule())
                             }
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                             .accessibilityAddTraits(intent == item.id ? .isSelected : [])
                         }
                     }
@@ -247,9 +249,12 @@ struct CoachView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
                 .background(Theme.brandGreenSoft)
                 .foregroundStyle(.primary)
                 .clipShape(Capsule())
+                .opacity(consent.isDenied(auth.user?.id) ? 0.45 : 1)
         }
         .accessibilityIdentifier("coach-suggestion")
     }

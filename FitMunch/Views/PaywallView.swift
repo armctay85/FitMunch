@@ -35,7 +35,7 @@ struct PaywallView: View {
                 VStack(spacing: 16) {
                     headerSection
                     if isLoadingPlans {
-                        LoadingSkeleton(rows: 3, label: "Loading plans", identifier: "paywall-loading")
+                        paywallLoadingCards
                     }
                     benefitsSection
                     if plansLoadFailed {
@@ -44,7 +44,6 @@ struct PaywallView: View {
                     if let timeline = trialTimeline {
                         trialTimelineSection(timeline)
                     }
-                    pricingSection
                 }
                 .padding(.horizontal)
                 .padding(.top, 4)
@@ -72,8 +71,20 @@ struct PaywallView: View {
             .refreshable {
                 await loadPlansWithRetry()
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomBar
+            // Plan cards stay in this inset, above the Apple renewal sentence.
+            // Inside the scroll they rested under that sentence, so the monthly
+            // price could not be read while the annual price stayed clear.
+            .safeAreaInset(edge: .bottom, spacing: 8) {
+                VStack(spacing: 0) {
+                    if !plans.isEmpty {
+                        pricingSection
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+                    }
+                    bottomBar
+                }
+                .background(Theme.surface.ignoresSafeArea(edges: .bottom))
             }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {
@@ -144,18 +155,19 @@ struct PaywallView: View {
     @ViewBuilder
     private func trialTimelineSection(_ timeline: PaywallPricing.TrialTimeline) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            timelineRow("1", timeline.today)
-            timelineRow("2", timeline.billed)
+            timelineRow("1", timeline.today, identifier: "paywall-trial-today")
+            timelineRow("2", timeline.reminder, identifier: "paywall-trial-reminder")
+            timelineRow("3", timeline.billed, identifier: "paywall-trial-billing")
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall-trial-timeline")
     }
 
-    private func timelineRow(_ step: String, _ text: String) -> some View {
+    private func timelineRow(_ step: String, _ text: String, identifier: String) -> some View {
         HStack(spacing: 12) {
             Text(step)
                 .font(.caption.weight(.bold))
@@ -166,6 +178,8 @@ struct PaywallView: View {
             Text(text)
                 .font(.subheadline)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 
     @ViewBuilder
@@ -187,31 +201,43 @@ struct PaywallView: View {
     }
 
     private var emptyPlansSection: some View {
-        VStack(spacing: 14) {
-            Text(PaywallLoadPolicy.userFacingLoadFailure)
-                .font(.subheadline.weight(.semibold))
-                .multilineTextAlignment(.center)
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 24))
+                .foregroundStyle(Color(red: 180.0 / 255, green: 83.0 / 255, blue: 9.0 / 255))
+            Text("Couldn't load plans")
+                .font(.headline.weight(.semibold))
                 .accessibilityIdentifier("paywall-error")
+                .accessibilityLabel(PaywallLoadPolicy.userFacingLoadFailure)
+            Text("Check your connection and try again.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.fmSecondary)
+                .multilineTextAlignment(.center)
             Button {
                 Task { await loadPlansWithRetry() }
             } label: {
-                Text("Retry")
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                Text("Try again")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
                     .accessibilityIdentifier("paywall-retry")
             }
+            .background(Theme.fmBrand)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .accessibilityIdentifier("paywall-retry")
-            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-retry"))
-            Button {
+            legalButton("Restore Purchases", identifier: "paywall-restore-inline") {
                 Task { await restore() }
-            } label: {
-                Text("Restore Purchases")
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .accessibilityIdentifier("paywall-restore-inline")
             }
-            .accessibilityIdentifier("paywall-restore-inline")
-            .buttonStyle(PaywallChoiceButtonStyle(identifier: "paywall-restore-inline"))
         }
-        .accessibilityIdentifier("paywall-error-state")
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(Theme.fmSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.fmSeparator, lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -231,34 +257,28 @@ struct PaywallView: View {
             sandboxProbeSection
             if let plan = selectedPlan, !plans.isEmpty {
                 Text(renewalLine(plan))
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryText)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.fmSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("paywall-renewal")
                 subscribeButton(plan)
             }
             if !plansLoadFailed {
-                Button("Restore Purchases") {
+                legalButton("Restore Purchases", identifier: "paywall-restore") {
                     Task { await restore() }
                 }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.secondaryText)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("paywall-restore")
             }
 
             HStack(spacing: 6) {
-                Button("Terms") {
+                legalButton("Terms of Use", identifier: "paywall-terms") {
                     open("https://fitmunch.com.au/terms")
                 }
                 Text("·")
-                Button("Privacy") {
+                legalButton("Privacy Policy", identifier: "paywall-privacy") {
                     open("https://fitmunch.com.au/privacy")
                 }
             }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -278,47 +298,59 @@ struct PaywallView: View {
             Task { await purchase(plan) }
         } label: {
             if premiumManager.isLoading {
-                VStack(spacing: 6) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    Text("Confirming with the App Store")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .accessibilityIdentifier("paywall-confirming")
+                Text("Confirming with the App Store")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .accessibilityIdentifier("paywall-confirming")
             } else {
-                VStack(spacing: 2) {
-                    Text(cta.title)
-                        .font(.system(size: 17, weight: .semibold))
-                    if let subline = cta.subline {
-                        Text(subline)
-                            .font(.footnote)
-                    }
-                }
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 12)
+                Text(cta.title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .padding(.horizontal, 12)
             }
         }
-        .background(Theme.buttonGreen)
-        .cornerRadius(12)
+        .background(Theme.fmBrand)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .disabled(premiumManager.isLoading)
         .accessibilityIdentifier("paywall-subscribe")
         .accessibilityLabel(purchaseAccessibilityLabel(cta))
     }
 
     private func renewalLine(_ plan: PaywallPlan) -> String {
-        PaywallPricing.renewalTerms(
+        let billing = PaywallPricing.renewalTerms(
             displayPrice: plan.priceString,
             periodUnit: plan.periodUnit,
             intro: plan.intro,
             eligible: plan.eligibleForIntro
         )
+        guard plan.eligibleForIntro, let intro = plan.intro, intro.isFreeTrial, intro.periodUnit == .day else {
+            return billing
+        }
+        let price = PaywallPricing.priceWithPeriod(displayPrice: plan.priceString, periodUnit: plan.periodUnit)
+        return "\(intro.periodValue) days free, then \(price). Cancel anytime in Settings. \(billing)"
+    }
+
+    /// Two plan-shaped blocks. One accessibility name, so loading does not say it twice.
+    private var paywallLoadingCards: some View {
+        VStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255))
+                .frame(height: 88)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255))
+                .frame(height: 88)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading plans")
+        .accessibilityIdentifier("paywall-loading")
     }
 
     private var trialTimeline: PaywallPricing.TrialTimeline? {
@@ -328,11 +360,15 @@ struct PaywallView: View {
 
     private func purchaseAccessibilityLabel(_ cta: PaywallPricing.CTA) -> String {
         var parts = [cta.title]
+        if cta.title.localizedCaseInsensitiveContains("trial") {
+            parts.append("free trial")
+        }
         if let subline = cta.subline {
             parts.append(subline)
         }
         if let timeline = trialTimeline {
             parts.append(timeline.today)
+            parts.append(timeline.reminder)
             parts.append(timeline.billed)
         }
         return parts.joined(separator: ". ")
@@ -354,7 +390,7 @@ struct PaywallView: View {
         let success = await premiumManager.restorePurchases()
         restoreMessage = success
             ? "Purchases restored successfully!"
-            : (premiumManager.errorMessage ?? "No purchases to restore or restore failed")
+            : (premiumManager.errorMessage ?? "No purchases to restore")
         showRestoreAlert = true
     }
 
@@ -379,6 +415,21 @@ struct PaywallView: View {
             }
         }
         return "Premium is on."
+    }
+
+    /// 44pt target. The width test measures the element that carries the identifier.
+    /// children: .ignore collapsed that element to the footnote line, about 20pt.
+    private func legalButton(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(identifier)
+        }
+        .buttonStyle(PaywallLegalButtonStyle(identifier: identifier))
+        .accessibilityIdentifier(identifier)
     }
 
     private func open(_ string: String) {
@@ -434,12 +485,12 @@ private struct PackageCard: View {
                     Spacer()
                     if isAnnual {
                         Text("Best value")
-                            .font(.caption.weight(.semibold))
+                            .font(.footnote.weight(.semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(brandGreen.opacity(0.15))
-                            .foregroundColor(Theme.buttonGreen)
-                            .clipShape(Capsule())
+                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
+                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
@@ -464,11 +515,11 @@ private struct PackageCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
-            .cornerRadius(12)
+            .background(isSelected ? Theme.brandGreenSoft : Theme.fmSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? brandGreen : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? Theme.fmBrand : Theme.fmSeparator, lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -487,23 +538,25 @@ private struct PackageCard: View {
         if let savingsPercent {
             parts.append("Save \(savingsPercent) percent")
         }
-        let cta = PaywallPricing.cta(
-            displayPrice: plan.priceString,
-            periodUnit: plan.periodUnit,
-            intro: plan.intro,
-            eligible: plan.eligibleForIntro
-        )
-        if plan.intro != nil {
-            parts.append(cta.title)
-            if let subline = cta.subline {
-                parts.append(subline)
-            }
-            if let timeline = PaywallPricing.trialTimeline(intro: plan.intro, eligible: plan.eligibleForIntro) {
-                parts.append(timeline.today)
-                parts.append(timeline.billed)
-            }
-        }
         return parts.joined(separator: ". ")
+    }
+}
+
+/// Fixed 44pt hit target. Combine keeps the laid-out frame. Ignore shrank it to the text line.
+private struct PaywallLegalButtonStyle: ButtonStyle {
+    var identifier: String
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 

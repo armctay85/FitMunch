@@ -38,6 +38,90 @@ extension XCTestCase {
         direct.tap()
     }
 
+    /// Replaces the screenshot seed with the QA account before a Me capture.
+    func signInQAReplacingSeed(in app: XCUIApplication) {
+        if app.staticTexts["FitMunch QA"].waitForExistence(timeout: 1) { return }
+        let email = qaCredential("QA_EMAIL")
+        let password = qaCredential("QA_PASSWORD")
+        XCTAssertFalse(email.isEmpty || password.isEmpty, "QA_EMAIL and QA_PASSWORD are not set")
+        let bar = app.tabBars.firstMatch
+        if bar.waitForExistence(timeout: 4) {
+            let me = bar.buttons["Me"]
+            if me.waitForExistence(timeout: 4) { me.tap() }
+        }
+        let scroller = app.scrollViews.firstMatch
+        var logout = app.buttons["Log Out"].firstMatch
+        var hops = 0
+        while !(logout.exists && logout.isHittable), hops < 8 {
+            if scroller.exists {
+                scroller.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            hops += 1
+            logout = app.buttons["Log Out"].firstMatch
+        }
+        if logout.waitForExistence(timeout: 3), logout.isHittable {
+            logout.tap()
+            let confirm = app.alerts["Log Out"].buttons["Log Out"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 6), "Log Out confirmation missing")
+            confirm.tap()
+        }
+        let segment = app.segmentedControls.buttons["Sign In"]
+        if segment.waitForExistence(timeout: 12) {
+            segment.tap()
+        } else {
+            let signInButton = app.buttons["Sign In"]
+            XCTAssertTrue(signInButton.waitForExistence(timeout: 8), "Sign In did not appear")
+            signInButton.tap()
+        }
+        if !app.buttons["auth-sign-in"].waitForExistence(timeout: 2) {
+            let signInButton = app.buttons["Sign In"]
+            if signInButton.exists { signInButton.tap() }
+        }
+        let emailField = app.textFields["auth-email"]
+        XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
+        emailField.tap()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
+            emailField.tap()
+        }
+        emailField.typeText(email)
+        let passwordField = app.secureTextFields["auth-password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field missing")
+        passwordField.tap()
+        passwordField.typeText(password)
+        if app.keyboards.buttons["Done"].exists {
+            app.keyboards.buttons["Done"].tap()
+        } else if app.keyboards.buttons["Return"].exists {
+            app.keyboards.buttons["Return"].tap()
+        }
+        let submit = app.buttons["auth-sign-in"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
+        submit.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "QA sign-in did not reach the tabs")
+    }
+
+    func assertNoSampleIdentity(in app: XCUIApplication) {
+        XCTAssertFalse(app.staticTexts["Alex Morgan"].exists, "Sample name is on screen")
+        XCTAssertFalse(app.staticTexts["alex@example.com"].exists, "Sample email is on screen")
+        XCTAssertFalse(app.staticTexts["Reviewer"].exists, "Reviewer name is on screen")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "review@fitmunch.com.au")).firstMatch.exists,
+            "Reviewer email is on screen"
+        )
+    }
+
+    func qaCredential(_ key: String) -> String {
+        let fromEnv = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !fromEnv.isEmpty { return fromEnv }
+        let url = URL(fileURLWithPath: "/tmp/fitmunch-qa-credentials")
+        guard key == "QA_EMAIL" || key == "QA_PASSWORD",
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return "" }
+        let lines = text.components(separatedBy: "\n")
+        if key == "QA_EMAIL" { return lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+        return lines.dropFirst().first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
     func dismissSystemAlerts(in app: XCUIApplication) {
         let alert = app.alerts.firstMatch
         guard alert.waitForExistence(timeout: 1.2) else { return }
@@ -124,19 +208,22 @@ extension XCTestCase {
         let table = app.tables.firstMatch
         let scroller: XCUIElement = list.exists ? list : (table.exists ? table : app)
 
+        let glassTop = floatingTabButtonTop(in: app)
         for _ in 0..<attempts {
             if let row = firstExistingRow() {
-                if row.isHittable { return row }
+                if rowClearsTabBar(row, glassTop: glassTop) { return row }
                 let frame = row.frame
                 let bounds = app.windows.firstMatch.exists ? app.windows.firstMatch.frame : app.frame
                 let hasFrame = frame.width > 1 && frame.height > 1
-                // iPhone failure frame was {{19.5, 246.9}, {351, 63.4}} with visible
-                // point {-1,-1}. The same row was hittable at y=556. Nudge a
-                // high row down. A 320x480 app.frame must not shrink this band.
+                // iPhone failure frame was {{16, 759.7}, {358, 52}}: isHittable was
+                // true while the row sat in the floating glass, so the tap hit the bar.
+                // A high row (under the nav bar) still needs a downward nudge.
                 let band = max(bounds.height, 700) * 0.45
+                let underGlass = hasFrame && frame.maxY > glassTop - 4
                 let tooHigh = !hasFrame || frame.midY < band
-                nudgeScroll(scroller, fraction: tooHigh ? 0.22 : -0.18)
-                if let row = firstExistingRow(), row.isHittable { return row }
+                let fraction: CGFloat = underGlass ? -0.20 : (tooHigh ? 0.22 : -0.18)
+                nudgeScroll(scroller, fraction: fraction)
+                if let row = firstExistingRow(), rowClearsTabBar(row, glassTop: glassTop) { return row }
                 if firstExistingRow() == nil {
                     nudgeScroll(scroller, fraction: tooHigh ? -0.12 : 0.16)
                 }
@@ -144,8 +231,31 @@ extension XCTestCase {
                 nudgeScroll(scroller, fraction: -0.28)
             }
         }
-        if let row = firstExistingRow(), row.isHittable { return row }
+        if let row = firstExistingRow(), rowClearsTabBar(row, glassTop: glassTop) { return row }
         return nil
+    }
+
+    /// Tab button top. The bar container starts lower than the floating glass.
+    /// A missing or covered bar (full-screen paywall) uses the window bottom.
+    func floatingTabButtonTop(in app: XCUIApplication) -> CGFloat {
+        let windowBottom = app.windows.firstMatch.exists ? app.windows.firstMatch.frame.maxY : app.frame.maxY
+        let bar = app.tabBars.firstMatch
+        guard bar.exists, bar.isHittable, bar.frame.height > 1, bar.frame.minY < windowBottom - 20 else { return windowBottom }
+        var top = bar.frame.minY
+        for name in ["Today", "Plan", "Scan", "Coach", "Me"] {
+            let button = bar.buttons[name]
+            if button.exists, button.frame.height > 1, button.frame.minY < windowBottom {
+                top = min(top, button.frame.minY)
+            }
+        }
+        return top
+    }
+
+    private func rowClearsTabBar(_ row: XCUIElement, glassTop: CGFloat) -> Bool {
+        guard row.isHittable else { return false }
+        let frame = row.frame
+        guard frame.width > 1, frame.height > 1 else { return false }
+        return frame.maxY <= glassTop - 4
     }
 
     /// fraction < 0 moves the finger up and reveals rows below.
@@ -203,12 +313,21 @@ extension XCTestCase {
 
     func openUpgradePaywall(in app: XCUIApplication) {
         openTab("Me", in: app)
-        let upgrade = firstExisting([
+        var upgrade = firstExisting([
             app.buttons["settings-upgrade"],
             app.buttons["Upgrade"],
             app.buttons["settings-upgrade-premium"],
             app.buttons["Upgrade to Premium"],
         ])
+        if upgrade == nil {
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            upgrade = firstExisting([
+                app.buttons["settings-upgrade"],
+                app.buttons["Upgrade"],
+                app.buttons["settings-upgrade-premium"],
+                app.buttons["Upgrade to Premium"],
+            ])
+        }
         XCTAssertNotNil(upgrade, "Upgrade control missing on Me")
         upgrade?.tap()
         // Close is on screen as soon as the paywall is. Do not wait out a missing
@@ -218,6 +337,120 @@ extension XCTestCase {
             || app.descendants(matching: .any)["paywall-loading"].exists
             || app.otherElements["paywall-root"].exists
         XCTAssertTrue(ready, "Paywall did not appear after Upgrade")
+    }
+
+    /// Fails when the Apple subscription sentence overlaps the Premium Monthly
+    /// price, or when either one is clipped off the screen. Measured at rest:
+    /// do not scroll the paywall before calling this.
+    func assertMonthlyPriceClearsAppleSentence(in app: XCUIApplication) {
+        let price = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let annual = app.staticTexts["paywall-price-fitmunch_annual"]
+        let renewal = app.staticTexts["paywall-renewal"]
+        let sentence = "Subscription auto-renews unless cancelled at least 24 hours before the period ends. Your subscription is charged to your Apple ID within 24 hours before renewal. Manage or cancel it in Account Settings."
+        let deadline = Date().addingTimeInterval(12)
+        while Date() < deadline {
+            let priceReady = price.exists && price.frame.height > 16 && price.frame.width > 40
+            let renewalReady = renewal.exists && renewal.frame.height > 44 && renewal.label.contains(sentence)
+            if priceReady && renewalReady && annual.exists { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(price.exists, "Monthly price missing")
+        XCTAssertTrue(annual.exists, "Annual price missing")
+        XCTAssertTrue(renewal.exists, "Apple subscription sentence missing")
+        let priceFrame = price.frame
+        let annualFrame = annual.frame
+        let renewalFrame = renewal.frame
+        let screen = app.frame
+        let plan = presentElement("paywall-plan-fitmunch_monthly", in: app)
+        let planFrame = plan?.frame ?? .null
+        print(String(
+            format: "PAYWALL_FRAMES screen=%@ annual=%@ monthly=%@ plan=%@ renewal=%@",
+            rectString(screen),
+            rectString(annualFrame),
+            rectString(priceFrame),
+            rectString(planFrame),
+            rectString(renewalFrame)
+        ))
+        XCTAssertTrue(price.label.contains("/month"), "Monthly price is not readable. \(price.label)")
+        XCTAssertTrue(annual.label.contains("/year"), "Annual price is not readable. \(annual.label)")
+        XCTAssertTrue(renewal.label.contains(sentence), "Apple sentence is incomplete. \(renewal.label)")
+        XCTAssertGreaterThan(priceFrame.height, 16, "Monthly price is clipped \(priceFrame)")
+        XCTAssertGreaterThan(priceFrame.width, 40, "Monthly price is clipped \(priceFrame)")
+        XCTAssertGreaterThan(renewalFrame.height, 44, "Apple sentence is clipped \(renewalFrame)")
+        assertOnScreen(priceFrame, named: "monthly price", in: screen)
+        assertOnScreen(annualFrame, named: "annual price", in: screen)
+        assertOnScreen(renewalFrame, named: "Apple sentence", in: screen)
+        XCTAssertFalse(
+            priceFrame.intersects(renewalFrame),
+            "Apple sentence overlaps the monthly price. price=\(priceFrame) renewal=\(renewalFrame)"
+        )
+        XCTAssertLessThanOrEqual(
+            priceFrame.maxY + 8,
+            renewalFrame.minY,
+            "Monthly price runs into the Apple sentence. price=\(priceFrame) renewal=\(renewalFrame)"
+        )
+        if let plan {
+            XCTAssertFalse(
+                planFrame.intersects(renewalFrame),
+                "Apple sentence overlaps the monthly plan. plan=\(planFrame) renewal=\(renewalFrame)"
+            )
+        }
+        XCTAssertLessThanOrEqual(annualFrame.maxY, priceFrame.minY, "Annual price is not above the monthly price")
+        XCTAssertFalse(annualFrame.intersects(renewalFrame), "Apple sentence overlaps the annual price")
+        let subscribe = app.buttons["paywall-subscribe"]
+        XCTAssertTrue(subscribe.exists, "Trial button missing")
+        XCTAssertFalse(subscribe.frame.intersects(renewalFrame), "Trial button covers the Apple sentence")
+        XCTAssertFalse(subscribe.frame.intersects(priceFrame), "Trial button covers the monthly price")
+        XCTAssertGreaterThanOrEqual(subscribe.frame.minY, renewalFrame.maxY - 1)
+        let restore = app.buttons["paywall-restore"]
+        XCTAssertTrue(restore.exists, "Restore Purchases missing")
+        XCTAssertGreaterThanOrEqual(restore.frame.height, 44)
+        XCTAssertFalse(restore.frame.intersects(priceFrame))
+        XCTAssertFalse(restore.frame.intersects(renewalFrame))
+        assertOnScreen(restore.frame, named: "Restore", in: screen)
+        let terms = presentElement("paywall-terms", in: app) ?? presentElement("Terms", in: app)
+        let privacy = presentElement("paywall-privacy", in: app) ?? presentElement("Privacy", in: app)
+        XCTAssertNotNil(terms, "Terms missing")
+        XCTAssertNotNil(privacy, "Privacy missing")
+        if let terms, let privacy {
+            XCTAssertGreaterThanOrEqual(terms.frame.height, 44)
+            XCTAssertGreaterThanOrEqual(privacy.frame.height, 44)
+            XCTAssertFalse(terms.frame.intersects(priceFrame))
+            XCTAssertFalse(privacy.frame.intersects(renewalFrame))
+            assertOnScreen(terms.frame, named: "Terms", in: screen)
+            assertOnScreen(privacy.frame, named: "Privacy", in: screen)
+        }
+    }
+
+    /// `.frame` on a missing query fails the test with a snapshot error.
+    /// Existence is the only safe probe.
+    private func presentElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement? {
+        let button = app.buttons[identifier]
+        if button.exists { return button }
+        let text = app.staticTexts[identifier]
+        if text.exists { return text }
+        let other = app.otherElements[identifier]
+        if other.exists { return other }
+        return nil
+    }
+
+    private func assertOnScreen(_ frame: CGRect, named name: String, in screen: CGRect) {
+        XCTAssertGreaterThanOrEqual(frame.minX, -1, "\(name) is clipped on the left \(frame)")
+        XCTAssertLessThanOrEqual(frame.maxX, screen.maxX + 1, "\(name) is clipped on the right \(frame)")
+        XCTAssertGreaterThanOrEqual(frame.minY, -1, "\(name) is clipped at the top \(frame)")
+        XCTAssertLessThanOrEqual(frame.maxY, screen.maxY + 1, "\(name) is clipped at the bottom \(frame)")
+        XCTAssertGreaterThan(frame.width, 1, "\(name) has no width \(frame)")
+        XCTAssertGreaterThan(frame.height, 1, "\(name) has no height \(frame)")
+    }
+
+    private func rectString(_ rect: CGRect) -> String {
+        String(
+            format: "{{%.1f, %.1f}, {%.1f, %.1f}}",
+            rect.origin.x,
+            rect.origin.y,
+            rect.size.width,
+            rect.size.height
+        )
     }
 
     private func appendAuditFile(_ name: String, line: String) {

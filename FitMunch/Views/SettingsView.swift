@@ -2,6 +2,19 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// Name and email drawn on Me. The retired Alex Chen placeholder stays blank.
+/// A signed-in account keeps its own name and its own email.
+enum SignedInProfile {
+    static func lines(name rawName: String, email rawEmail: String) -> (name: String, email: String)? {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = rawEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.isEmpty && email.isEmpty { return nil }
+        if name == "Alex Chen" || email == "alex@fitmunch.com.au" { return nil }
+        let title = name.isEmpty ? email : name
+        return (title, email)
+    }
+}
+
 /// Settings screen for user preferences and app management
 struct SettingsView: View {
     var privacyRequest: Int = 0
@@ -19,19 +32,10 @@ struct SettingsView: View {
     @ObservedObject private var consent = AIDataConsent.shared
     @Environment(\.modelContext) private var modelContext
 
-    /// Signed-in name and email. Blank accounts and the old placeholder stay empty.
-    /// Screenshot capture uses a marked sample, never a fake person.
+    /// Signed-in name and email. A real account always shows both of its own fields.
     private var signedInProfile: (name: String, email: String)? {
-        if ScreenshotLaunch.isActive {
-            return ("Sample", "sample.account@fitmunch.com.au")
-        }
         guard let user = auth.user else { return nil }
-        let name = user.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty && email.isEmpty { return nil }
-        if name == "Alex Chen" || email == "alex@fitmunch.com.au" { return nil }
-        let title = name.isEmpty ? email : name
-        return (title, name.isEmpty ? "" : email)
+        return SignedInProfile.lines(name: user.name, email: user.email)
     }
 
     var body: some View {
@@ -56,34 +60,32 @@ struct SettingsView: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(Theme.brandGreen)
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(profile.name)
-                                    .font(.headline)
-                                    .lineLimit(1)
-                                if ScreenshotLaunch.isActive {
-                                    Text("Sample profile")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Theme.brandGreen)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 8) {
+                                    Text(profile.name)
+                                        .font(.title3.weight(.semibold))
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                    if premium.isPremium {
+                                        Text("Premium")
+                                            .font(.footnote.weight(.semibold))
+                                            .lineLimit(1)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
+                                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                            .accessibilityIdentifier("me-premium-badge")
+                                    }
                                 }
                                 if !profile.email.isEmpty {
                                     Text(profile.email)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .font(.subheadline)
+                                        .foregroundStyle(Theme.fmSecondary)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                            }
-                            Spacer(minLength: Theme.Spacing.two)
-                            if premium.isPremium {
-                                Text("Premium")
-                                    .font(.caption.weight(.semibold))
-                                    .lineLimit(1)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Theme.brandGreenSoft)
-                                    .foregroundStyle(Theme.brandGreen)
-                                    .clipShape(Capsule())
-                                    .accessibilityIdentifier("me-premium-badge")
                             }
                         }
                         .padding(.vertical, 8)
@@ -116,22 +118,36 @@ struct SettingsView: View {
                         .accessibilityIdentifier("settings-upgrade")
                     }
                 } header: {
-                    Text("Profile")
+                    sectionHeader("Profile")
                 }
 
-                Section("About") {
+                Section {
                     HStack {
                         Text("Version")
+                            .font(.body)
                         Spacer()
                         Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
-                            .foregroundColor(.secondary)
+                            .font(.body)
+                            .foregroundStyle(Theme.fmSecondary)
                     }
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("me-about-version")
+                    aboutRow("Privacy Policy", identifier: "me-about-privacy") {
+                        viewModel.viewPrivacyPolicy()
+                    }
+                    aboutRow("Terms of Use", identifier: "me-about-terms") {
+                        viewModel.viewTermsOfService()
+                    }
+                    aboutRow("Contact support", identifier: "me-about-support") {
+                        viewModel.contactSupport()
+                    }
+                } header: {
+                    sectionHeader("About", identifier: "me-about")
                 }
-                .accessibilityIdentifier("me-about")
 
-                // Preferences section
-                Section("Preferences") {
+                Section {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
+                        .tint(Theme.fmBrand)
                         .accessibilityIdentifier("me-dark-mode")
                         .onChange(of: viewModel.isDarkMode) { _, newValue in
                             viewModel.applyDarkMode(newValue)
@@ -175,15 +191,14 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } header: {
-                    Text("Privacy")
-                        .accessibilityIdentifier("me-privacy")
+                    sectionHeader("Privacy", identifier: "me-privacy")
                 } footer: {
                     Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review.")
                 }
                 .id("me-privacy")
                 
                 // Subscription section
-                Section("Subscription") {
+                Section {
                     if premium.isPremium {
                         HStack {
                             Text("Status")
@@ -219,35 +234,24 @@ struct SettingsView: View {
                     }
                     .foregroundStyle(Theme.brandGreen)
                     .disabled(viewModel.isLoading)
+                } header: {
+                    sectionHeader("Subscription")
                 }
                 
                 // Support section
-                Section("Support") {
-                    Button("Contact Support") {
-                        viewModel.contactSupport()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
-                    Button("Privacy Policy") {
-                        viewModel.viewPrivacyPolicy()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
-                    Button("Terms of Service") {
-                        viewModel.viewTermsOfService()
-                    }
-                    .foregroundStyle(Theme.brandGreen)
-                    
+                Section {
                     Button("Rate the App") {
                         if let url = URL(string: "https://apps.apple.com/app/id6760215679?action=write-review") {
                             UIApplication.shared.open(url)
                         }
                     }
                     .foregroundStyle(Theme.brandGreen)
+                } header: {
+                    sectionHeader("Support")
                 }
                 
                 // Data section
-                Section("Data") {
+                Section {
                     Button("Export Data") {
                         prepareExport()
                     }
@@ -258,10 +262,12 @@ struct SettingsView: View {
                     Button("Reset Data", role: .destructive) {
                         showResetAlert = true
                     }
+                } header: {
+                    sectionHeader("Data")
                 }
                 
                 // Account section
-                Section("Account") {
+                Section {
                     if let user = auth.user {
                         HStack {
                             Text("Signed in as")
@@ -278,13 +284,16 @@ struct SettingsView: View {
                     Button("Delete Account", role: .destructive) {
                         showDeleteAlert = true
                     }
+                    .accessibilityIdentifier("settings-delete-account")
+                } header: {
+                    sectionHeader("Account")
                 }
             }
+            .font(.body)
             .navigationTitle("Me")
             .scrollContentBackground(.hidden)
             .background(Theme.surface)
-            .scrollClearsTabBar()
-            .floatingTabBarInset()
+            .restsClearOfTabBar()
             .onAppear {
                 viewModel.loadPreferences()
                 if privacyRequest > 0 {
@@ -300,11 +309,7 @@ struct SettingsView: View {
             }
             .overlay {
                 if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .padding()
-                        .background(.regularMaterial)
-                        .cornerRadius(16)
+                    LoadingSkeletonScreen(rows: 3, label: "Loading", identifier: "me-loading")
                 }
             }
             .alert("Purchases", isPresented: Binding(
@@ -377,6 +382,40 @@ struct SettingsView: View {
             }
             }
         }
+    }
+
+    /// Upgrade uses a borderless list button and XCTest can see that identifier.
+    /// A background label in this section did not publish me-about-privacy.
+    /// The id sits on the 44pt label and on the button that receives the tap.
+    private func sectionHeader(_ title: String, identifier: String? = nil) -> some View {
+        Text(title.uppercased())
+            .font(.footnote.weight(.semibold))
+            .tracking(0.5)
+            .foregroundStyle(Theme.fmSecondary)
+            .textCase(nil)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel(title)
+            .modifier(SettingsHeaderID(identifier))
+    }
+
+    private func aboutRow(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.fmSecondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier(identifier)
+        }
+        .buttonStyle(.borderless)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .accessibilityIdentifier(identifier)
     }
 
     private func expandPrivacy(_ proxy: ScrollViewProxy) {
@@ -490,6 +529,23 @@ private struct PrivacyMoreAnchor: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         CGSize(width: proposal.width ?? 44, height: max(proposal.height ?? 44, 44))
+    }
+}
+
+private struct SettingsHeaderID: ViewModifier {
+    var identifier: String?
+
+    init(_ identifier: String?) {
+        self.identifier = identifier
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 
