@@ -34,7 +34,7 @@
     "@vercel/functions": "^3.9.11",
     "archiver": "^7.0.1",
     "bcrypt": "^6.0.0",
-    "body-parser": "^1.20.2",
+    "body-parser": "^1.20.9",
     "chart.js": "^4.4.8",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
