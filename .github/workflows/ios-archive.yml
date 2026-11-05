@@ -70,7 +70,7 @@ jobs:
       env:
         PROVISIONING_PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_NAME }}
       run: |
-        # Source of truth is project.yml (build 10). A stale override
+        # Source of truth is project.yml (build 11). A stale override
         # of the previous build number re-uploads a duplicate and ASC rejects it.
         xcodebuild clean archive \
           -project FitMunch.xcodeproj \
