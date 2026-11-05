@@ -32,7 +32,7 @@
     "@octokit/rest": "^22.0.1",
     "@types/node": "^18.0.6",
     "@vercel/functions": "^3.9.11",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.2",
     "chart.js": "^4.4.8",
