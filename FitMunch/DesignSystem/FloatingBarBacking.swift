@@ -21,15 +21,17 @@ enum FloatingBarBacking {
     static func refresh(in window: UIWindow) -> Bool {
         guard let bar = tabBar(in: window) else { return false }
         styleIfNeeded(bar)
-        placeCover(behind: bar)
-        return placeFill(in: window, bar: bar)
+        let covered = placeCover(behind: bar)
+        let filled = placeFill(in: window, bar: bar)
+        return covered && filled
     }
 
     /// Opaque page colour from the top of the tab bar to the bottom of the screen.
     /// The floating pill stays in front and keeps its corner radius. Text in the
     /// gap under the pill is covered.
-    private static func placeCover(behind bar: UITabBar) {
-        guard let parent = bar.superview else { return }
+    @discardableResult
+    private static func placeCover(behind bar: UITabBar) -> Bool {
+        guard let parent = bar.superview else { return false }
         let cover = (parent.viewWithTag(FloatingBarCover.viewTag) as? FloatingBarCover) ?? FloatingBarCover()
         cover.tag = FloatingBarCover.viewTag
         cover.isUserInteractionEnabled = false
@@ -38,7 +40,7 @@ enum FloatingBarBacking {
         let barFrame = bar.convert(bar.bounds, to: parent)
         let top = min(barFrame.minY, parent.bounds.maxY - 1)
         let target = CGRect(x: 0, y: top, width: parent.bounds.width, height: max(0, parent.bounds.maxY - top))
-        guard target.height > 20, target.width > 40 else { return }
+        guard target.height > 20, target.width > 40 else { return false }
         let coverIndex = parent.subviews.firstIndex(of: cover)
         let barIndex = parent.subviews.firstIndex(of: bar) ?? 0
         if cover.superview !== parent || (coverIndex ?? 0) > barIndex {
@@ -47,6 +49,7 @@ enum FloatingBarBacking {
         if !framesClose(cover.frame, target) {
             cover.frame = target
         }
+        return cover.bounds.width > 40 && cover.bounds.height > 20
     }
 
     private static var styledKey: UInt8 = 0
@@ -274,6 +277,8 @@ struct FloatingBarFillInstaller: UIViewRepresentable {
 }
 
 final class FloatingBarFillProbe: UIView {
+    private var didInstall = false
+
     override func didMoveToWindow() {
         super.didMoveToWindow()
         refresh()
@@ -285,7 +290,7 @@ final class FloatingBarFillProbe: UIView {
     }
 
     func refresh() {
-        guard let window else { return }
-        FloatingBarBacking.refresh(in: window)
+        guard !didInstall, let window else { return }
+        didInstall = FloatingBarBacking.refresh(in: window)
     }
 }
