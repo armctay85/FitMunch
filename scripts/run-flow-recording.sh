@@ -47,6 +47,17 @@ XCODE_PID=$!
 RECORD_PID=""
 for _ in $(seq 1 180); do
   if [[ -f /tmp/fitmunch-flow-recording/app-ready ]]; then
+    # XCTest can see Welcome while the framebuffer is still the home screen.
+    # Wait until the pixels are the app, then start the recording.
+    probe="/tmp/fitmunch-flow-recording/probe.png"
+    for _ in $(seq 1 80); do
+      xcrun simctl io "$UDID" screenshot "$probe" >/dev/null 2>&1 || true
+      if python3 "$ROOT/scripts/frame-is-app.py" "$probe"; then
+        echo "App is on screen. Starting the recording."
+        break
+      fi
+      sleep 0.5
+    done
     xcrun simctl io "$UDID" recordVideo --codec h264 "$VIDEO" &
     RECORD_PID=$!
     sleep 1

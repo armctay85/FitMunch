@@ -24,6 +24,7 @@ struct HomeView: View {
     @State private var compactSummaryHeight: CGFloat = 0
     @State private var didLogSummaryHeights = false
     @State private var homeScrolled = false
+    @State private var todayVisible = false
 
     init(modelContext: ModelContext) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(modelContext: modelContext))
@@ -86,32 +87,6 @@ struct HomeView: View {
             // through toolbarBackground, so the live bar is set opaque too.
             .toolbarBackground(Theme.fmBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        if viewModel.canLogMeal {
-                            showLogMeal = true
-                        } else {
-                            freeLimitHits += 1
-                            showPaywall = true
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Theme.fmBrand)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 56, height: 56)
-                    .fixedSize()
-                    .offset(y: 8)
-                    .contentShape(Circle())
-                    .accessibilityLabel("Log a meal")
-                    .uniqueButtonIdentifier("today-log-meal")
-                }
-            }
             .overlay(alignment: .top) {
                 if homeScrolled {
                     Rectangle()
@@ -160,10 +135,111 @@ struct HomeView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
+        .background {
+            // 56pt circle, 8pt below the top safe area. The toolbar clipped it flat.
+            LogMealButtonHost(
+                visible: todayVisible && !showLogMeal && !showPaywall,
+                onTap: {
+                    if viewModel.canLogMeal {
+                        showLogMeal = true
+                    } else {
+                        freeLimitHits += 1
+                        showPaywall = true
+                    }
+                }
+            )
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+        .onAppear { todayVisible = true }
+        .onDisappear { todayVisible = false }
+    }
+
+    /// Window-level 56pt circle. A toolbar item is clipped by the navigation bar.
+    private struct LogMealButtonHost: UIViewRepresentable {
+        var visible: Bool
+        var onTap: () -> Void
+
+        func makeUIView(context: Context) -> LogMealButtonAnchor {
+            let view = LogMealButtonAnchor()
+            view.isUserInteractionEnabled = false
+            view.backgroundColor = .clear
+            view.isAccessibilityElement = false
+            return view
+        }
+
+        func updateUIView(_ uiView: LogMealButtonAnchor, context: Context) {
+            uiView.onTap = onTap
+            uiView.visible = visible
+            uiView.sync()
+        }
+
+        static func dismantleUIView(_ uiView: LogMealButtonAnchor, coordinator: ()) {
+            uiView.removeButton()
+        }
     }
 
     /// Window height, not the device name. The scroll view is shorter than the
 /// screen because the navigation bar sits above it.
+private final class LogMealButtonAnchor: UIView {
+    var onTap: (() -> Void)?
+    var visible = false
+    private let button = UIButton(type: .custom)
+    private let diameter: CGFloat = 56
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        let mark = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+        button.setImage(mark, for: .normal)
+        button.tintColor = .white
+        button.backgroundColor = UIColor(red: 21.0 / 255.0, green: 122.0 / 255.0, blue: 60.0 / 255.0, alpha: 1)
+        button.layer.cornerRadius = diameter / 2
+        button.layer.masksToBounds = true
+        button.accessibilityLabel = "Log a meal"
+        button.accessibilityIdentifier = "today-log-meal"
+        button.addTarget(self, action: #selector(tapped), for: .touchUpInside)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        sync()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        sync()
+    }
+
+    func sync() {
+        guard visible, let window = window ?? superview?.window else {
+            button.removeFromSuperview()
+            return
+        }
+        if button.superview !== window {
+            window.addSubview(button)
+        }
+        let top = window.safeAreaInsets.top + 8
+        let x = window.bounds.width - 16 - diameter
+        button.frame = CGRect(x: x, y: top, width: diameter, height: diameter)
+        button.layer.cornerRadius = diameter / 2
+        window.bringSubviewToFront(button)
+    }
+
+    func removeButton() {
+        button.removeFromSuperview()
+    }
+
+    @objc private func tapped() {
+        onTap?()
+    }
+}
+
 private struct WindowHeightReader: UIViewRepresentable {
     var onHeight: (CGFloat) -> Void
 

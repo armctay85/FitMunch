@@ -47,14 +47,17 @@ final class FlowRecordingUITests: XCTestCase {
         XCTAssertTrue(next.waitForExistence(timeout: 6))
         next.tap()
 
+        let qaEmail = qaValue("QA_EMAIL")
+        XCTAssertFalse(qaEmail.isEmpty, "QA_EMAIL is not set")
+        XCTAssertFalse(qaEmail.localizedCaseInsensitiveContains("example.com"), "QA_EMAIL is a sample address")
         let name = app.textFields["Your Name"]
         XCTAssertTrue(name.waitForExistence(timeout: 8), "Name field missing")
         name.tap()
-        name.typeText("Alex")
+        name.typeText("FitMunch QA")
         let email = app.textFields["Email Address"]
         XCTAssertTrue(email.waitForExistence(timeout: 4), "Email field missing")
         email.tap()
-        email.typeText("alex@example.com")
+        email.typeText(qaEmail)
         dismissKeyboard(in: app)
         next.tap()
 
@@ -255,7 +258,7 @@ final class FlowRecordingUITests: XCTestCase {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try? Data("ready".utf8).write(to: dir.appendingPathComponent("app-ready"))
         let record = dir.appendingPathComponent("record-ready")
-        let deadline = Date().addingTimeInterval(30)
+        let deadline = Date().addingTimeInterval(45)
         while !FileManager.default.fileExists(atPath: record.path), Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
