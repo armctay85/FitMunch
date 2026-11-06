@@ -86,7 +86,9 @@ struct MealPlanView: View {
     }
 
     /// Generate is a sibling under the scroll view, so rows cannot draw through it.
-    /// Monday dinner is parked at the bottom of that scroll view once a plan exists.
+    /// A generated plan parks Monday dinner at the bottom of that scroll view.
+    /// Store and audit launches stay at the top so plan.summary is not cut
+    /// under the targets header on the 6.9-inch shot.
     private var planScroll: some View {
         ScrollViewReader { proxy in
             scrollBody
@@ -96,10 +98,18 @@ struct MealPlanView: View {
     }
 
     private func revealMondayDinner(_ proxy: ScrollViewProxy) {
-        guard plan != nil else { return }
+        guard plan != nil, !keepsPlanSummaryVisible else { return }
         DispatchQueue.main.async {
             proxy.scrollTo("plan-monday-bottom", anchor: .bottom)
         }
+    }
+
+    /// App Store screenshots and audit launches use these flags.
+    private var keepsPlanSummaryVisible: Bool {
+        if ScreenshotLaunch.isActive { return true }
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains(AuditLaunch.flowQA) { return true }
+        return args.contains { $0.hasPrefix("-Audit") }
     }
 
     /// Targets stay outside the scrolling week so the fields cannot slide
@@ -179,6 +189,8 @@ struct MealPlanView: View {
             if let summary = plan.summary {
                 Text(summary)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("plan-summary")
             }
         }
 

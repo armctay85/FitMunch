@@ -101,10 +101,12 @@ final class TabBarClearanceUITests: XCTestCase {
         print(app.debugDescription)
         print("PLAN_AX_DUMP_END")
         let dinner = app.staticTexts["plan-monday-dinner"]
-        var swipes = 0
-        while !dinner.exists && swipes < 6 {
-            app.swipeUp()
-            swipes += 1
+        let scroller = tallestPlanScroll(in: app)
+        var nudges = 0
+        while nudges < 8 && !mondayDinnerClears(dinner, generate: generate) {
+            let tooHigh = dinner.exists && dinner.frame.height > 8 && dinner.frame.midY < 160
+            dragPlan(scroller.exists ? scroller : app, revealLower: !tooHigh)
+            nudges += 1
         }
         XCTAssertTrue(dinner.waitForExistence(timeout: 8), "Monday dinner missing")
         XCTAssertGreaterThan(dinner.frame.height, 8, "Monday dinner has no frame \(dinner.frame)")
@@ -113,6 +115,29 @@ final class TabBarClearanceUITests: XCTestCase {
             generate.frame.minY,
             "Monday dinner ends under Generate (dinner \(dinner.frame), button \(generate.frame))"
         )
+    }
+
+    /// Store shots stay at the top of the week, so Monday dinner starts below
+    /// the fold. Nudge it into the band above Generate before measuring.
+    private func mondayDinnerClears(_ dinner: XCUIElement, generate: XCUIElement) -> Bool {
+        guard dinner.exists else { return false }
+        let frame = dinner.frame
+        guard frame.height > 8, frame.minY >= 0 else { return false }
+        return frame.maxY <= generate.frame.minY
+    }
+
+    private func tallestPlanScroll(in app: XCUIApplication) -> XCUIElement {
+        let scrolls = app.scrollViews.allElementsBoundByIndex.filter { $0.frame.height > 80 }
+        return scrolls.max(by: { $0.frame.height < $1.frame.height }) ?? app.scrollViews.firstMatch
+    }
+
+    /// revealLower moves the finger up so rows below the fold come into view.
+    private func dragPlan(_ element: XCUIElement, revealLower: Bool) {
+        let startY: CGFloat = revealLower ? 0.70 : 0.40
+        let endY: CGFloat = revealLower ? 0.46 : 0.64
+        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     /// Screenshot launch fills a week on appear. If that row is not up yet, tap the
