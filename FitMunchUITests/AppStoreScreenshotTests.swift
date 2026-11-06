@@ -4,6 +4,7 @@ import XCTest
 /// Launch argument `-AppStoreScreenshots` skips auth and paywall copy.
 final class AppStoreScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
+    private let pricesVaryByStoreLine = "Prices vary by store and week."
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -140,6 +141,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
+            assertPlanSummaryIsFullyVisible()
         case "settings":
             break
         default:
@@ -157,6 +159,41 @@ final class AppStoreScreenshotTests: XCTestCase {
                 return
             }
         }
+    }
+
+    /// plan.summary sits fully under the targets header. The 6.9 store shot
+    /// was cutting that line to a fragment such as "from your calorie".
+    private func assertPlanSummaryIsFullyVisible() {
+        let summary = app.descendants(matching: .any)["plan-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 4), "Plan summary missing")
+        let prices = app.staticTexts[pricesVaryByStoreLine]
+        XCTAssertTrue(prices.waitForExistence(timeout: 2), "Targets header missing")
+        let generate = app.buttons["plan-generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 2), "Generate missing")
+        let full = "Chicken, fish, yoghurt, and rice across the week. Built from your calorie and protein targets."
+        XCTAssertEqual(summary.label, full, "Plan summary text is not the full sentence")
+        let deadline = Date().addingTimeInterval(3)
+        var frame = summary.frame
+        while Date() < deadline {
+            frame = summary.frame
+            if frame.height > 32,
+               frame.minY >= prices.frame.maxY - 1,
+               frame.maxY <= generate.frame.minY {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertGreaterThan(frame.height, 32, "Plan summary is cut (frame \(frame))")
+        XCTAssertGreaterThanOrEqual(
+            frame.minY,
+            prices.frame.maxY - 1,
+            "Plan summary is cut under the targets header (summary \(frame), prices \(prices.frame))"
+        )
+        XCTAssertLessThanOrEqual(
+            frame.maxY,
+            generate.frame.minY,
+            "Plan summary runs into Generate (summary \(frame), button \(generate.frame))"
+        )
     }
 
     /// Both Daily Summary variants are measured at the same width. The short
@@ -322,7 +359,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         ).allElementsBoundByIndex
         XCTAssertLessThanOrEqual(priceLines.count, 1, "\(screen) repeats the price line")
         if let line = priceLines.first {
-            XCTAssertEqual(line.label, "Prices vary by store and week.")
+            XCTAssertEqual(line.label, pricesVaryByStoreLine)
         }
     }
 
