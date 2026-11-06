@@ -4,6 +4,7 @@ import XCTest
 /// Launch argument `-AppStoreScreenshots` skips auth and paywall copy.
 final class AppStoreScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
+    private let pricesVaryByStoreLine = "Prices vary by store and week."
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -165,7 +166,7 @@ final class AppStoreScreenshotTests: XCTestCase {
     private func assertPlanSummaryIsFullyVisible() {
         let summary = app.descendants(matching: .any)["plan-summary"]
         XCTAssertTrue(summary.waitForExistence(timeout: 4), "Plan summary missing")
-        let prices = app.staticTexts["Prices vary by store and week."]
+        let prices = app.staticTexts[pricesVaryByStoreLine]
         XCTAssertTrue(prices.waitForExistence(timeout: 2), "Targets header missing")
         let generate = app.buttons["plan-generate"]
         XCTAssertTrue(generate.waitForExistence(timeout: 2), "Generate missing")
@@ -358,7 +359,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         ).allElementsBoundByIndex
         XCTAssertLessThanOrEqual(priceLines.count, 1, "\(screen) repeats the price line")
         if let line = priceLines.first {
-            XCTAssertEqual(line.label, "Prices vary by store and week.")
+            XCTAssertEqual(line.label, pricesVaryByStoreLine)
         }
     }
 
