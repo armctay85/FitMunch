@@ -84,8 +84,8 @@ body.fm-body{
   <div class="success-card">
     <div class="success-head">
       <div class="brand">Fit<span>Munch</span></div>
-      <h1 id="successTitle">You're all set.</h1>
-      <p id="successSub">Your subscription is live. Time to run the grocery loop.</p>
+      <h1 id="successTitle">Your trial has started.</h1>
+      <p id="successSub">Full access is on. Cancel before the trial ends and you are not charged.</p>
     </div>
     <div class="success-body">
       <div id="loading" class="loading">
@@ -95,11 +95,13 @@ body.fm-body{
         <div class="plan-badge" id="planName">FitMunch</div>
         <div class="info-block" id="trialBlock">
           <h3>14-day trial</h3>
+          <p id="trialEndLine">Your trial has started. Cancel before it ends and you are not charged.</p>
           <ul>
             <li>Full access with no charge until the trial ends</li>
             <li>Cancel anytime before the trial ends and you are not charged</li>
             <li>Your card is on file. The first charge is after 14 days if you stay subscribed</li>
           </ul>
+          <p id="trialNextLine">Next: open FitMunch and plan the week. Cancel from Billing before the trial ends and you are not charged.</p>
         </div>
         <div class="info-block" id="welcomeNote">
           <h3>Check your email</h3>
@@ -184,8 +186,24 @@ async function openBillingPortal(e) {
   const contentEl = document.getElementById('content');
   const planNameEl = document.getElementById('planName');
 
+  function trialEndPhrase(iso) {
+    const date = new Date(iso);
+    if (!iso || Number.isNaN(date.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('en-AU', {
+      timeZone: 'Australia/Sydney',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    }).formatToParts(date);
+    const pick = (type) => {
+      const found = parts.find((part) => part.type === type);
+      return found ? found.value : '';
+    };
+    return [pick('weekday'), pick('day'), pick('month')].filter(Boolean).join(' ');
+  }
+
   if (!sessionId) {
-    loadingEl.innerHTML = '<p style="color:var(--red)">No session ID found. Your subscription should still be active.</p>';
+    loadingEl.innerHTML = '<p style="color:var(--red)">No session ID found. If Checkout finished, your trial has started. Open the app to see the end date.</p>';
     contentEl.style.display = 'block';
     return;
   }
@@ -203,6 +221,21 @@ async function openBillingPortal(e) {
         };
         planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
       }
+      if (data.trial !== false) {
+        const phrase = trialEndPhrase(data.trialEndsAt);
+        const endLine = document.getElementById('trialEndLine');
+        if (endLine) {
+          endLine.textContent = phrase
+            ? ('Your trial ends on ' + phrase + '. Cancel before then and you are not charged.')
+            : 'Your trial has started. Cancel before it ends and you are not charged.';
+        }
+        if (!data.guestCheckout) {
+          document.getElementById('successTitle').textContent = 'Your trial has started.';
+          document.getElementById('successSub').textContent = phrase
+            ? ('Your trial ends on ' + phrase + '. Full access is on.')
+            : 'Full access is on. Cancel before the trial ends and you are not charged.';
+        }
+      }
       if (data.guestCheckout) {
         document.getElementById('claimBlock').style.display = 'block';
         // A guest has no session in this browser: no dashboard or billing
@@ -215,6 +248,10 @@ async function openBillingPortal(e) {
           // No trial applied, so the trial block must not promise one.
           const price = data.plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';
           const block = document.getElementById('trialBlock');
+          ['trialEndLine', 'trialNextLine'].forEach((id) => {
+            const extra = document.getElementById(id);
+            if (extra) extra.remove();
+          });
           block.querySelector('h3').textContent = 'Premium has started';
           const list = block.querySelector('ul');
           list.textContent = '';

@@ -128,6 +128,47 @@ async function updateUserCoachBilling(userId, coach, existingSettings) {
   return settings.coach;
 }
 
+const memoryConsumerBilling = new Map();
+
+function consumerBillingSnapshot(billing) {
+  const status = billing && typeof billing.status === 'string' ? billing.status : '';
+  const trialEnd = billing && typeof billing.trialEnd === 'string' ? billing.trialEnd : null;
+  return {
+    status: status || 'free',
+    trialEnd: trialEnd || null,
+  };
+}
+
+function consumerBillingFromUser(user) {
+  const stored = readUserSettings(user).consumerBilling;
+  if (stored && typeof stored === 'object' && stored.status) return consumerBillingSnapshot(stored);
+  if (user && user.id && memoryConsumerBilling.has(String(user.id))) {
+    return memoryConsumerBilling.get(String(user.id));
+  }
+  return { status: '', trialEnd: null };
+}
+
+// Trial banner data. settings.consumerBilling only. The subscription id stays
+// in the email claim row, not on the user. No database: the memory map is
+// what tests read. A database error must not fail the webhook or sync.
+async function rememberConsumerBilling(userId, billing) {
+  if (!userId) return null;
+  const snapshot = consumerBillingSnapshot(billing);
+  memoryConsumerBilling.set(String(userId), snapshot);
+  if (!process.env.DATABASE_URL) return snapshot;
+  try {
+    const user = await getUserById(userId);
+    if (!user) return snapshot;
+    const settings = { ...readUserSettings(user), consumerBilling: snapshot };
+    await db.update(schema.users)
+      .set({ settings, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  } catch (err) {
+    console.error('[billing] trial snapshot failed');
+  }
+  return snapshot;
+}
+
 function effectiveTier(user) {
   const stored = user && user.subscriptionTier ? String(user.subscriptionTier) : 'free';
   if (stored !== 'free') return stored;
@@ -473,6 +514,8 @@ module.exports = {
   updateUserSubscription,
   setAIDataConsent,
   updateUserCoachBilling,
+  rememberConsumerBilling,
+  consumerBillingFromUser,
   effectiveTier,
   withStripeCustomerLock,
   ensureUserExists,

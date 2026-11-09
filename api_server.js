@@ -15,6 +15,7 @@ const {
   updateUserSubscription,
   setAIDataConsent,
   effectiveTier,
+  consumerBillingFromUser,
   createOrUpdateProfile,
   getProfile,
   logMeal,
@@ -1117,6 +1118,7 @@ router.get('/auth/me', async (req, res) => {
     const role = roleRow.rows[0]?.role || 'client';
     const ptId = roleRow.rows[0]?.pt_id;
     const consent = choiceFromSettings(user.settings);
+    const billing = consumerBillingFromUser(user);
     res.json({
       success: true,
       user: {
@@ -1124,6 +1126,8 @@ router.get('/auth/me', async (req, res) => {
         name: user.name,
         email: user.email,
         subscriptionTier: effectiveTier(user),
+        subscriptionStatus: billing.status || null,
+        trialEndsAt: billing.trialEnd || null,
         role,
         ptId,
         aiDataConsent: consent === 'allow' ? true : consent === 'deny' ? false : null,

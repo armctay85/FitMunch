@@ -289,6 +289,105 @@ async function sendPaymentFailedOwnerAlert(to, details) {
   });
 }
 
+// Sign in, then Billing opens the existing /api/billing-portal route, which
+// is where a trial can be cancelled. A portal session URL would expire.
+const TRIAL_CANCEL_URL = 'https://www.fitmunch.com.au/login.html?next=billing';
+const APP_URL = 'https://www.fitmunch.com.au/app.html';
+
+function plainPersonName(value) {
+  const name = String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
+  return name || 'there';
+}
+
+function brandedNote({ headline, lede, paragraphs, buttonUrl, buttonLabel }) {
+  const bodyHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:Georgia,serif;background:#eef2ee;padding:0;margin:0">
+<div style="max-width:560px;margin:40px auto;background:#fff;border:1px solid #cfd9d2;overflow:hidden">
+  <div style="background:#07130d;padding:32px 28px">
+    <div style="font-family:system-ui,sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.03em">Fit<span style="color:#1f9d4a">Munch</span></div>
+    <h1 style="font-family:system-ui,sans-serif;color:#fff;margin:16px 0 0;font-size:24px;letter-spacing:-0.03em">${escapeHtml(headline)}</h1>
+    <p style="color:rgba(238,242,238,0.75);margin:8px 0 0;font-size:15px">${escapeHtml(lede)}</p>
+  </div>
+  <div style="padding:28px">
+    ${paragraphs.map((line) => `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escapeHtml(line)}</p>`).join('\n    ')}
+    <div style="text-align:left;margin:28px 0">
+      <a href="${escapeHtml(buttonUrl)}" style="display:inline-block;background:#1f9d4a;color:#fff;text-decoration:none;padding:14px 28px;font-family:system-ui,sans-serif;font-size:15px;font-weight:700">${escapeHtml(buttonLabel)}</a>
+    </div>
+    <p style="font-size:13px;color:#8a9a91;border-top:1px solid #cfd9d2;padding-top:16px;margin-top:24px">
+      Questions? <a href="https://www.fitmunch.com.au/support" style="color:#16803c">fitmunch.com.au/support</a><br>
+      FitMunch. Made in Australia for Australian shops.
+    </p>
+  </div>
+</div>
+</body>
+</html>`.trim();
+  const bodyText = `${paragraphs.join('\n\n')}\n\n${buttonLabel}: ${buttonUrl}\n\nSupport: https://www.fitmunch.com.au/support\n`;
+  return { bodyHtml, bodyText };
+}
+
+/**
+ * Trial ends within a few days. priceLabel comes from lib/public-prices.js.
+ * Stripe's own mail is the receipt. This note only says when the trial ends,
+ * what the plan costs after that, and how to cancel.
+ */
+async function sendTrialReminderEmail(to, options = {}) {
+  const { PREMIUM_MONTHLY_LABEL } = require('../lib/public-prices');
+  const name = plainPersonName(options.name);
+  const phrase = String(options.trialEndPhrase || '').replace(/[\r\n\t]+/g, ' ').trim();
+  const priceLabel = String(options.priceLabel || PREMIUM_MONTHLY_LABEL).replace(/[\r\n\t]+/g, ' ').trim();
+  const cancelUrl = TRIAL_CANCEL_URL;
+  const paragraphs = [
+    `Hi ${name},`,
+    `Your trial ends on ${phrase}.`,
+    `After that, the plan continues at ${priceLabel}. Cancel before then and you are not charged.`,
+    'The button signs you in and opens Billing. Billing opens the Stripe page where you can cancel.',
+  ];
+  const { bodyHtml, bodyText } = brandedNote({
+    headline: 'Your trial ends soon',
+    lede: `Your trial ends on ${phrase}.`,
+    paragraphs,
+    buttonUrl: cancelUrl,
+    buttonLabel: 'Cancel trial',
+  });
+  return sendEmail({
+    to,
+    subject: 'Your FitMunch trial ends soon',
+    bodyHtml,
+    bodyText,
+    idempotencyKey: options.idempotencyKey,
+  });
+}
+
+/**
+ * Trial just became a paid Premium subscription. No amount and no receipt
+ * wording: Stripe sends the receipt itself.
+ */
+async function sendPremiumActivatedEmail(to, options = {}) {
+  const name = plainPersonName(options.name);
+  const paragraphs = [
+    `Hi ${name},`,
+    "You're on Premium. The trial is over and Premium stays on.",
+    'Next: open FitMunch and keep planning the week. Manage the subscription any time from Billing.',
+  ];
+  const { bodyHtml, bodyText } = brandedNote({
+    headline: "You're on Premium",
+    lede: 'Premium stays on.',
+    paragraphs,
+    buttonUrl: APP_URL,
+    buttonLabel: 'Open FitMunch',
+  });
+  return sendEmail({
+    to,
+    subject: "You're on Premium",
+    bodyHtml,
+    bodyText,
+    idempotencyKey: options.idempotencyKey,
+  });
+}
+
 /** Email-first trial: the Stripe Checkout link goes to the typed address only. */
 /** A live subscriber typed their email on the signed-out trial page. */
 async function sendSignInToManageEmail(customerEmail) {
@@ -361,7 +460,11 @@ module.exports = {
   sendSignInToManageEmail,
   sendPaymentFailedEmail,
   sendPaymentFailedOwnerAlert,
+  sendTrialReminderEmail,
+  sendPremiumActivatedEmail,
   sendSupportReceivedEmail,
+  TRIAL_CANCEL_URL,
+  APP_URL,
   SUPPORT_FROM,
   SUPPORT_HELP_LINKS,
   escapeHtml,
