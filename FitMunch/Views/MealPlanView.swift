@@ -1,5 +1,9 @@
 import SwiftUI
 
+/// Named space of the week's scroll view. Row frames in it are measured
+/// against the visible height so a row is never left half under the fold.
+private let planScrollSpace = "plan-scroll"
+
 /// AI meal planner. Same `/api/meal-plan/generate` rail as the web app.
 struct MealPlanView: View {
     var embedded: Bool = false
@@ -14,6 +18,8 @@ struct MealPlanView: View {
     @State private var plansGenerated = 0
     @State private var freeLimitHits = 0
     @State private var showConsent = false
+    /// Visible height of the week's scroll view, which ends at the Generate bar.
+    @State private var planViewportHeight: CGFloat = 0
     @EnvironmentObject private var auth: AuthManager
     @ObservedObject private var consent = AIDataConsent.shared
 
@@ -41,18 +47,8 @@ struct MealPlanView: View {
         VStack(spacing: 0) {
             targetsHeader
             planScroll
+            generateBar
         }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Theme.fmSeparator)
-                        .frame(height: 0.5)
-                    generateButton
-                        .padding(.horizontal, Theme.Spacing.four)
-                        .padding(.vertical, Theme.Spacing.four)
-                }
-                .background(Theme.fmBackground)
-            }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Theme.surface)
         .sensoryFeedback(.selection, trigger: goal)
@@ -85,7 +81,8 @@ struct MealPlanView: View {
         }
     }
 
-    /// Generate is a sibling under the scroll view, so rows cannot draw through it.
+    /// Generate is a sibling under the scroll view, so the week ends at the
+    /// bar's top edge and no row can sit under it.
     /// A generated plan parks Monday dinner at the bottom of that scroll view.
     /// Store and audit launches stay at the top so plan.summary is not cut
     /// under the targets header on the 6.9-inch shot.
@@ -105,11 +102,35 @@ struct MealPlanView: View {
     }
 
     /// App Store screenshots and audit launches use these flags.
+    /// Release ignores them: ScreenshotLaunch.isActive is false there and the
+    /// audit reads below are compiled into Debug only.
     private var keepsPlanSummaryVisible: Bool {
         if ScreenshotLaunch.isActive { return true }
+        #if DEBUG
         let args = ProcessInfo.processInfo.arguments
         if args.contains(AuditLaunch.flowQA) { return true }
         return args.contains { $0.hasPrefix("-Audit") }
+        #else
+        return false
+        #endif
+    }
+
+    private var foldGuard: PlanFoldGuard {
+        PlanFoldGuard(enabled: keepsPlanSummaryVisible, viewportHeight: planViewportHeight)
+    }
+
+    /// Opaque bar under the week. It is a sibling of the scroll view, not an
+    /// overlay, so the list's last visible pixel is the bar's top edge.
+    private var generateBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Theme.fmSeparator)
+                .frame(height: 0.5)
+            generateButton
+                .padding(.horizontal, Theme.Spacing.four)
+                .padding(.vertical, Theme.Spacing.four)
+        }
+        .background(Theme.fmBackground)
     }
 
     /// Targets stay outside the scrolling week so the fields cannot slide
@@ -178,6 +199,19 @@ struct MealPlanView: View {
         .defaultScrollAnchor(.top)
         .scrollClipDisabled(false)
         .contentMargins(.bottom, 16, for: .scrollContent)
+        .coordinateSpace(name: planScrollSpace)
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: PlanViewportHeightKey.self, value: proxy.size.height)
+            }
+            .accessibilityHidden(true)
+        }
+        .onPreferenceChange(PlanViewportHeightKey.self) { height in
+            if abs(height - planViewportHeight) > 0.5 {
+                planViewportHeight = height
+            }
+        }
     }
 
     private func planSummary(_ plan: MealPlanPayload) -> some View {
@@ -198,6 +232,7 @@ struct MealPlanView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.two) {
                 Text(day.day ?? "Day")
                     .font(.headline)
+                    .modifier(foldGuard)
                 mealRow("Breakfast", day.meals?.breakfast)
                 mealRow("Lunch", day.meals?.lunch)
                 mealRow("Dinner", day.meals?.dinner, identifier: day.day == "Monday" ? "plan-monday-dinner" : nil)
@@ -207,6 +242,7 @@ struct MealPlanView: View {
                         .font(.footnote)
                         .foregroundStyle(Theme.fmSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .modifier(foldGuard)
                 }
             }
             .padding(Theme.Spacing.four)
@@ -272,9 +308,11 @@ struct MealPlanView: View {
             if let identifier {
                 mealRowLabel(label, meal, identifier: identifier)
                     .id(identifier)
+                    .modifier(foldGuard)
             } else {
                 mealRowLabel(label, meal, identifier: nil)
                     .accessibilityElement(children: .contain)
+                    .modifier(foldGuard)
             }
         }
     }
@@ -350,6 +388,55 @@ struct MealPlanView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+private struct PlanViewportHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct PlanRowFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+/// Store and audit launches rest at the top of the week. A row that crosses
+/// the bottom of the scroll view is hidden whole, so the resting shot never
+/// shows a cut meal title or a title without its kcal line. Normal launches
+/// pass enabled = false and are not measured.
+private struct PlanFoldGuard: ViewModifier {
+    let enabled: Bool
+    let viewportHeight: CGFloat
+    @State private var frame: CGRect = .zero
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(crossesFold ? 0 : 1)
+            .accessibilityHidden(crossesFold)
+            .background {
+                if enabled {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(key: PlanRowFrameKey.self, value: proxy.frame(in: .named(planScrollSpace)))
+                    }
+                    .accessibilityHidden(true)
+                }
+            }
+            .onPreferenceChange(PlanRowFrameKey.self) { next in
+                if next != frame {
+                    frame = next
+                }
+            }
+    }
+
+    private var crossesFold: Bool {
+        guard enabled, viewportHeight > 0, frame.height > 0 else { return false }
+        return frame.minY < viewportHeight && frame.maxY > viewportHeight
     }
 }
 

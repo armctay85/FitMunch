@@ -48,86 +48,29 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
-    /// Me is a real sign-in. Missing QA secrets skip only this capture.
+    /// Me in store-screenshot mode. `-AppStoreScreenshots` signs in the
+    /// Debug-only store persona (ScreenshotLaunch.PersonaGate), so public art
+    /// never shows the internal QA account or its mailbox.
     func testCaptureSignedInMe() throws {
-        let email = qaValue("QA_EMAIL")
-        let password = qaValue("QA_PASSWORD")
-        try XCTSkipIf(
-            email.isEmpty || password.isEmpty,
-            "QA_EMAIL and QA_PASSWORD are not set. Skipping the Me capture only."
-        )
         app = XCUIApplication()
-        app.launchArguments = ["-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
-        signIn(email: email, password: password)
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared in screenshot mode.")
         openTab("Me")
-        XCTAssertTrue(app.staticTexts["FitMunch QA"].waitForExistence(timeout: 12), "Signed-in name did not appear on Me")
+        dismissSystemAlerts()
+        XCTAssertTrue(app.staticTexts["Alex Morgan"].waitForExistence(timeout: 12), "Store persona name did not appear on Me")
+        XCTAssertTrue(app.staticTexts["alex@example.com"].waitForExistence(timeout: 4), "Store persona email did not appear on Me")
+        XCTAssertFalse(app.staticTexts["FitMunch QA"].exists, "QA account name is on the Me shot")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "hello+qa")).firstMatch.exists,
+            "QA mailbox is on the Me shot"
+        )
         XCTAssertFalse(app.staticTexts["Sample"].exists)
         XCTAssertFalse(app.staticTexts["Sample profile"].exists)
         XCTAssertFalse(app.staticTexts["Demo"].exists)
-        XCTAssertFalse(app.staticTexts["Alex Morgan"].exists)
         XCTAssertFalse(app.staticTexts["Reviewer"].exists)
-        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'example.com'")).firstMatch.exists)
         assertNoRejectedCopy(on: "settings")
         savePNG(named: "settings")
-    }
-
-    private func qaValue(_ key: String) -> String {
-        let fromEnv = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !fromEnv.isEmpty { return fromEnv }
-        let url = URL(fileURLWithPath: "/tmp/fitmunch-qa-credentials")
-        guard key == "QA_EMAIL" || key == "QA_PASSWORD",
-              let text = try? String(contentsOf: url, encoding: .utf8) else { return "" }
-        let lines = text.components(separatedBy: "\n")
-        if key == "QA_EMAIL" { return lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
-        return lines.dropFirst().first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
-
-    private func signIn(email: String, password: String, attempts: Int = 2) {
-        let signInButton = app.buttons["Sign In"]
-        if signInButton.waitForExistence(timeout: 15) {
-            signInButton.tap()
-        }
-        let emailField = app.textFields["auth-email"]
-        XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
-        emailField.tap()
-        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
-            emailField.tap()
-        }
-        emailField.typeText(email)
-        let passwordField = app.secureTextFields["auth-password"]
-        XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field missing")
-        passwordField.tap()
-        passwordField.typeText(password)
-        if app.keyboards.buttons["Done"].exists {
-            app.keyboards.buttons["Done"].tap()
-        } else if app.keyboards.buttons["Return"].exists {
-            app.keyboards.buttons["Return"].tap()
-        }
-        let submit = app.buttons["auth-sign-in"]
-        XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
-        submit.tap()
-        if reachedTabs(in: app, submit: submit) { return }
-        guard attempts > 0 else {
-            XCTFail("Sign in did not reach the tabs")
-            return
-        }
-        app.terminate()
-        app.launch()
-        signIn(email: email, password: password, attempts: attempts - 1)
-    }
-
-    /// A slow login stays on the auth screen with no error line. One extra tap, then give up.
-    private func reachedTabs(in app: XCUIApplication, submit: XCUIElement) -> Bool {
-        if app.tabBars.firstMatch.waitForExistence(timeout: 35) { return true }
-        let error = app.staticTexts["auth-error"]
-        if error.exists {
-            print("AUTH_ERROR \(error.label)")
-        }
-        if submit.isHittable {
-            submit.tap()
-        }
-        return app.tabBars.firstMatch.waitForExistence(timeout: 35)
     }
 
     private func assertScreenLooksInUse(_ screen: String) {

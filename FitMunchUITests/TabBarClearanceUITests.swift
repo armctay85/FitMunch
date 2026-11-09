@@ -68,6 +68,8 @@ final class TabBarClearanceUITests: XCTestCase {
                 "\(item.identifier) sits under the tab bar (control \(control.frame), tab buttons top \(barTop))"
             )
             if item.identifier == "plan-generate" {
+                // First frame, before any drag: this is the store shot's resting state.
+                assertPlanRestsClearOfGenerate(control, in: app)
                 assertMondayDinnerClearsGenerate(control, in: app)
             }
         }
@@ -91,6 +93,78 @@ final class TabBarClearanceUITests: XCTestCase {
         if summary.waitForExistence(timeout: 4) {
             print("SUMMARY_HEIGHT \(summary.value ?? "") \(summary.label)")
         }
+    }
+
+    /// Resting Plan, measured before any drag or scroll. Every meal row on screen
+    /// ends above Generate with its title and kcal line, or is fully hidden.
+    /// The fold is the bottom of the week's scroll view (the Generate bar's top),
+    /// or Generate's minY if that scroll view is not found.
+    private func assertPlanRestsClearOfGenerate(_ generate: XCUIElement, in app: XCUIApplication) {
+        let week = app.staticTexts["High protein training week"]
+        XCTAssertTrue(week.waitForExistence(timeout: 8), "Store launch did not seed the week on Plan")
+        // One frame for the fold guard to settle after the tab opens.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        let scroller = tallestPlanScroll(in: app)
+        var fold = generate.frame.minY
+        if scroller.exists, scroller.frame.height > 80 {
+            fold = min(fold, scroller.frame.maxY)
+        }
+        let top = week.frame.minY
+        let texts = staticTextFrames(in: app).filter { $0.frame.height > 1 && $0.frame.minY >= top - 1 }
+        print("PLAN_REST fold=\(fold) generateMinY=\(generate.frame.minY) texts=\(texts.count)")
+
+        let cut = texts.first { $0.frame.minY < fold - 1 && $0.frame.maxY > fold + 1 }
+        XCTAssertNil(
+            cut,
+            "Plan at rest: '\(cut?.label ?? "")' \(String(describing: cut?.frame)) is cut by Generate (fold \(fold))"
+        )
+
+        let kcalLines = texts.filter { $0.label.contains("protein per serve") }
+        XCTAssertFalse(kcalLines.isEmpty, "Plan at rest shows no meal rows")
+        for line in kcalLines {
+            let title = texts
+                .filter { !$0.label.contains("protein per serve") }
+                .filter { $0.frame.maxY <= line.frame.minY + 1 && $0.frame.maxY >= line.frame.minY - 12 }
+                .max { $0.frame.maxY < $1.frame.maxY }
+            guard let title else {
+                XCTFail("Meal row kcal line '\(line.label)' at \(line.frame) has no title above it at rest")
+                continue
+            }
+            let titleShown = title.frame.maxY <= fold + 1
+            let lineShown = line.frame.maxY <= fold + 1
+            XCTAssertEqual(
+                titleShown,
+                lineShown,
+                "Plan at rest splits '\(title.label)' at Generate (title \(title.frame), kcal \(line.frame), fold \(fold))"
+            )
+        }
+
+        let shown = kcalLines.filter { $0.frame.maxY <= fold + 1 }
+        XCTAssertFalse(shown.isEmpty, "No whole meal row above Generate at rest")
+        if let last = shown.max(by: { $0.frame.maxY < $1.frame.maxY }) {
+            print("PLAN_REST lastRow kcalMaxY=\(last.frame.maxY) fold=\(fold)")
+            XCTAssertLessThanOrEqual(
+                last.frame.maxY,
+                generate.frame.minY,
+                "Last meal row at rest ends under Generate (kcal \(last.frame), button \(generate.frame))"
+            )
+        }
+    }
+
+    /// One accessibility snapshot, so the rest check reads every frame from the same moment.
+    private func staticTextFrames(in app: XCUIApplication) -> [(label: String, frame: CGRect)] {
+        guard let root = try? app.snapshot() else { return [] }
+        var found: [(label: String, frame: CGRect)] = []
+        func walk(_ node: XCUIElementSnapshot) {
+            if node.elementType == .staticText {
+                found.append((label: node.label, frame: node.frame))
+            }
+            for child in node.children {
+                walk(child)
+            }
+        }
+        walk(root)
+        return found
     }
 
     /// Monday dinner is the row above Generate. Its frame has to end on or above the button.
