@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const request = require('supertest');
+const { JSDOM } = require('jsdom');
 
 process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_fake';
 
@@ -34,6 +35,37 @@ function postEvent(event) {
     .set('stripe-signature', 't=1,v1=x')
     .set('Content-Type', 'application/json')
     .send(JSON.stringify(event));
+}
+
+function renderSuccessPage(search, { session, config, configStatus = 200 } = {}) {
+  const html = fs.readFileSync(path.join(__dirname, 'public/success.html'), 'utf8');
+  return new JSDOM(html, {
+    url: `https://www.fitmunch.com.au/success.html${search || ''}`,
+    runScripts: 'dangerously',
+    beforeParse(window) {
+      window.fetch = async (url) => {
+        const target = String(url);
+        if (target.includes('/api/checkout/session')) {
+          return { ok: true, json: async () => session };
+        }
+        if (target.includes('/api/pricing/config')) {
+          return { ok: configStatus === 200, json: async () => config || {} };
+        }
+        return { ok: false, json: async () => ({}) };
+      };
+    },
+  });
+}
+
+async function successChip(dom) {
+  const doc = dom.window.document;
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline) {
+    const loading = doc.getElementById('loading');
+    if (loading && loading.style.display === 'none') return doc.getElementById('planName').textContent;
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  }
+  throw new Error('success page did not finish painting the plan chip');
 }
 
 function emptyDb() {
@@ -159,6 +191,78 @@ describe('trial reminder sends', () => {
     expect(third.status).toBe(200);
     expect(third.body).toEqual({ checked: 2, sent: 1, skipped: 1 });
     expect(sent).toHaveLength(1);
+  });
+
+  test('overlapping cron runs send one email for the same subscription and trial_end', async () => {
+    process.env.CRON_SECRET = 'cron-test-secret';
+    process.env.RESEND_API_KEY = 're_test';
+    const savedDb = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const trialEnd = nowSec + 2 * 24 * 60 * 60;
+    const sub = {
+      id: 'sub_overlap',
+      customer: 'cus_overlap',
+      status: 'trialing',
+      trial_end: trialEnd,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    };
+    let listed = 0;
+    let releaseList;
+    const bothListed = new Promise((resolve) => { releaseList = resolve; });
+    let emailCalls = 0;
+    let releaseEmail = () => {};
+    const emailHeld = new Promise((resolve) => { releaseEmail = resolve; });
+    const sent = [];
+    const idempotencyKeys = [];
+    global.fetch.mockImplementation(async (_url, opts) => {
+      emailCalls += 1;
+      sent.push(JSON.parse(opts.body));
+      idempotencyKeys.push(opts.headers && opts.headers['Idempotency-Key']);
+      await emailHeld;
+      return { ok: true, status: 200, json: async () => ({ id: 'msg_overlap' }) };
+    });
+    app._private.setStripeForTests({
+      subscriptions: {
+        list: jest.fn(async () => {
+          listed += 1;
+          if (listed >= 2) releaseList();
+          await bothListed;
+          return { data: [sub], has_more: false };
+        }),
+      },
+      customers: {
+        retrieve: jest.fn(async (id) => ({ id, email: `${id}@example.com`, name: 'Sam' })),
+      },
+    });
+
+    try {
+      const pending = [
+        cron('Bearer cron-test-secret'),
+        cron('Bearer cron-test-secret'),
+      ];
+      let overlapTimer;
+      const firstDone = await Promise.race([
+        Promise.race(pending),
+        new Promise((_, reject) => {
+          overlapTimer = setTimeout(() => reject(new Error('both invocations waited on the email send')), 2000);
+        }),
+      ]);
+      clearTimeout(overlapTimer);
+      expect(emailCalls).toBe(1);
+      expect(firstDone.status).toBe(200);
+      releaseEmail();
+      const results = await Promise.all(pending);
+      expect(results.map((res) => res.status)).toEqual([200, 200]);
+      expect(results.reduce((sum, res) => sum + res.body.sent, 0)).toBe(1);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].to).toEqual(['cus_overlap@example.com']);
+      expect(idempotencyKeys).toEqual([`trial_reminder:sub_overlap:${trialEnd}`]);
+    } finally {
+      releaseEmail();
+      if (savedDb === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = savedDb;
+    }
   });
 });
 
@@ -307,6 +411,70 @@ describe('checkout return copy', () => {
     expect(appHtml).toContain('data-fm-price="premiumMonthly"');
     expect(appHtml).toContain('role="status"');
     expect(appHtml).toContain('aria-live="polite"');
+  });
+
+  test('success.html contains no price literal', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/success.html'), 'utf8');
+    expect(html).not.toMatch(/A\$[0-9]/);
+    expect(html).not.toMatch(/19\.99|149\.99/);
+    expect(html).toContain("fetch('/api/pricing/config', { headers: { Accept: 'application/json' }, cache: 'no-store' })");
+    expect(html).toContain("premium: ['FitMunch Premium', 'premiumMonthly']");
+    expect(html).toContain("'premium-annual': ['FitMunch Premium', 'premiumAnnualLabel']");
+  });
+
+  test('the chip renders the config monthly and annual prices', async () => {
+    const monthly = 'A$11.11 a month';
+    const annual = 'A$88.88 a year';
+    const cfg = {
+      success: true,
+      premiumMonthly: monthly,
+      premiumAnnualLabel: annual,
+      coach39Monthly: 'A$39 a month',
+      coach79Monthly: 'A$79 a month',
+    };
+    async function paint(plan) {
+      const dom = renderSuccessPage(`?session_id=cs_${plan}`, {
+        session: {
+          plan,
+          trial: true,
+          guestCheckout: false,
+          trialEndsAt: '2025-11-13T13:00:00.000Z',
+        },
+        config: cfg,
+      });
+      const text = await successChip(dom);
+      dom.window.close();
+      return text;
+    }
+    expect(await paint('premium')).toBe('FitMunch Premium · ' + monthly);
+    expect(await paint('premium-annual')).toBe('FitMunch Premium · ' + annual);
+
+    async function chargeLine(plan) {
+      const dom = renderSuccessPage(`?session_id=cs_pay_${plan}`, {
+        session: { plan, trial: false, guestCheckout: true },
+        config: cfg,
+      });
+      await successChip(dom);
+      const lines = [...dom.window.document.querySelectorAll('#trialBlock li')].map((li) => li.textContent);
+      dom.window.close();
+      return lines;
+    }
+    expect(await chargeLine('premium')).toContain('Your first charge (' + monthly + ') is today');
+    expect(await chargeLine('premium-annual')).toContain('Your first charge (' + annual + ') is today');
+  });
+
+  test('a failed pricing config shows FitMunch Premium with no amount', async () => {
+    const dom = renderSuccessPage('?session_id=cs_fail', {
+      session: { plan: 'premium', trial: false, guestCheckout: true },
+      configStatus: 500,
+    });
+    const text = await successChip(dom);
+    const charge = dom.window.document.querySelector('#trialBlock li:nth-child(2)').textContent;
+    dom.window.close();
+    expect(text).toBe('FitMunch Premium');
+    expect(text).not.toMatch(/\d/);
+    expect(charge).toBe('Your first charge is today');
+    expect(charge).not.toMatch(/\d|A\$/);
   });
 
   test('success page states the trial end date when the session has one', () => {

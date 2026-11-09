@@ -476,10 +476,13 @@ describe('Email-first trial pages (PR 78 Shoulds)', () => {
     // QA r3 M1: the trial block flips for a no-trial payer, with the plan's own price.
     expect(html).toContain('<div class="info-block" id="trialBlock">');
     expect(html).toContain("block.querySelector('h3').textContent = 'Premium has started';");
-    expect(html).toContain("const price = data.plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';");
-    expect(html).toContain("['Full access starts now', 'Your first charge (' + price + ') is today', 'Cancel anytime from Billing']");
+    expect(html).toContain('/api/pricing/config');
+    expect(html).toContain("const price = configPrice(cfg, data.plan === 'premium-annual' ? 'premiumAnnualLabel' : 'premiumMonthly');");
+    expect(html).toContain("const charge = price ? ('Your first charge (' + price + ') is today') : 'Your first charge is today';");
+    expect(html).toContain("['Full access starts now', charge, 'Cancel anytime from Billing']");
     expect(html).toContain('Your trial has started.');
     expect(html).not.toContain('Your trial is started');
-    expect(html).toContain('A$149.99 a year');
+    expect(html).not.toMatch(/A\$[0-9]/);
+    expect(html).not.toMatch(/19\.99|149\.99/);
   });
 });
