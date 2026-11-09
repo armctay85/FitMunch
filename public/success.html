@@ -41,10 +41,20 @@ body.fm-body{
 .success-body{padding:28px}
 .plan-badge{
   display:inline-block;
+  max-width:100%;
+  box-sizing:border-box;
   font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
   font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   color:var(--leaf2);border:1px solid rgba(31,157,74,.28);
   background:rgba(31,157,74,.08);padding:6px 12px;margin-bottom:18px;
+  white-space:nowrap;
+}
+@media (max-width:480px){
+  .plan-badge{
+    font-size:clamp(.58rem, 2.7vw, .66rem);
+    letter-spacing:.02em;
+    padding:6px 10px;
+  }
 }
 .info-block{
   border-top:1px dashed var(--line);
@@ -208,18 +218,44 @@ async function openBillingPortal(e) {
     return;
   }
 
+  // Same keys the [data-fm-price] fill reads from GET /api/pricing/config.
+  // A failed fetch leaves the plan name only, never a baked-in amount.
+  const CHIP = {
+    'coach-39': ['FitMunch Coach Solo', 'coach39Monthly'],
+    'coach-79': ['FitMunch Coach Pro', 'coach79Monthly'],
+    premium: ['FitMunch Premium', 'premiumMonthly'],
+    'premium-annual': ['FitMunch Premium', 'premiumAnnualLabel'],
+  };
+  function configPrice(cfg, key) {
+    const value = cfg && key ? cfg[key] : '';
+    return typeof value === 'string' ? value.trim() : '';
+  }
+  function planChipText(plan, cfg, planLabel) {
+    const spec = CHIP[plan];
+    const name = spec ? spec[0] : (planLabel || 'FitMunch');
+    const price = spec ? configPrice(cfg, spec[1]) : '';
+    return price ? (name + ' · ' + price) : name;
+  }
+  async function loadPriceConfig() {
+    try {
+      const res = await fetch('/api/pricing/config', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      if (!res.ok) return null;
+      const cfg = await res.json();
+      return cfg && typeof cfg === 'object' ? cfg : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
   try {
-    const resp = await fetch(`/api/checkout/session?session_id=${encodeURIComponent(sessionId)}`);
+    const [resp, cfg] = await Promise.all([
+      fetch(`/api/checkout/session?session_id=${encodeURIComponent(sessionId)}`),
+      loadPriceConfig(),
+    ]);
     if (resp.ok) {
       const data = await resp.json();
       if (data.plan) {
-        const labels = {
-          'coach-39': 'FitMunch Coach Solo · A$39 a month',
-          'coach-79': 'FitMunch Coach Pro · A$79 a month',
-          'premium': 'FitMunch Premium · A$19.99 a month',
-          'premium-annual': 'FitMunch Premium · A$149.99 a year',
-        };
-        planNameEl.textContent = labels[data.plan] || data.planLabel || 'FitMunch';
+        planNameEl.textContent = planChipText(data.plan, cfg, data.planLabel);
       }
       if (data.trial !== false) {
         const phrase = trialEndPhrase(data.trialEndsAt);
@@ -246,7 +282,8 @@ async function openBillingPortal(e) {
           : 'Your 14-day trial has started. Set your password from the link we sent to finish your account.';
         if (data.trial === false) {
           // No trial applied, so the trial block must not promise one.
-          const price = data.plan === 'premium-annual' ? 'A$149.99 a year' : 'A$19.99 a month';
+          const price = configPrice(cfg, data.plan === 'premium-annual' ? 'premiumAnnualLabel' : 'premiumMonthly');
+          const charge = price ? ('Your first charge (' + price + ') is today') : 'Your first charge is today';
           const block = document.getElementById('trialBlock');
           ['trialEndLine', 'trialNextLine'].forEach((id) => {
             const extra = document.getElementById(id);
@@ -255,7 +292,7 @@ async function openBillingPortal(e) {
           block.querySelector('h3').textContent = 'Premium has started';
           const list = block.querySelector('ul');
           list.textContent = '';
-          ['Full access starts now', 'Your first charge (' + price + ') is today', 'Cancel anytime from Billing'].forEach((t) => {
+          ['Full access starts now', charge, 'Cancel anytime from Billing'].forEach((t) => {
             const li = document.createElement('li');
             li.textContent = t;
             list.appendChild(li);
