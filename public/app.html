@@ -506,6 +506,21 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
 .ob-swaps button span{display:block;font-size:.72rem;color:#3f4a45}
 #wr-btn,#ai-coach-refresh{min-height:44px;min-width:44px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center}
 #home-unreadable{margin:0 0 14px;padding:14px 16px;background:#07130d;border:1px solid rgba(34,197,94,.35);border-radius:12px;color:#f8fafc;font-size:1rem;line-height:1.5}
+.account-status{display:none}
+.account-status:has(.trial-banner:not([hidden])){display:block;padding:12px 16px 0;flex:0 0 auto}
+.trial-banner{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;margin:0 0 12px;padding:12px 14px;border:1px solid rgba(12,100,40,.45);border-radius:var(--radius);background:#e7f6ec;color:#0c1210}
+.trial-banner[hidden]{display:none !important}
+.trial-banner .trial-banner-copy{min-width:0;flex:1}
+.trial-banner strong{display:block;margin:0;color:#0c1210;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:1rem;line-height:1.35}
+.trial-banner p{margin:4px 0 0;color:#0c1210;font-size:.92rem;line-height:1.45}
+.trial-banner [data-fm-price]{display:inline-block;min-width:12ch;min-height:1.2em;font-weight:700}
+.trial-banner-btn{flex:0 0 auto;min-height:44px;min-width:44px;padding:10px 16px;background:#0c6428;color:#fff;border:0;border-radius:4px;font-weight:700;font-size:.92rem;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;cursor:pointer}
+.trial-banner-btn:focus-visible{outline:3px solid #0c1210;outline-offset:2px}
+@media (max-width:480px){
+ .account-status:has(.trial-banner:not([hidden])){padding:12px 14px 0}
+ .trial-banner{flex-direction:column;align-items:stretch}
+ .trial-banner-btn{width:100%}
+}
 @media (pointer:coarse),(max-width:480px){
  #modal-ai-consent a[href="/privacy"]{display:inline-flex;align-items:center;min-height:44px;padding:8px 4px;box-sizing:border-box}
 }
@@ -636,6 +651,24 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
 </nav>
 
 <div class="main" id="app-main">
+<div class="account-status">
+ <div id="checkout-return" class="trial-banner" hidden role="status" aria-live="polite"></div>
+ <div id="trial-banner" class="trial-banner" hidden role="status" aria-live="polite">
+  <div class="trial-banner-copy">
+   <strong id="trial-banner-title"></strong>
+   <p id="trial-banner-detail"></p>
+   <p id="trial-banner-price">Then <span data-fm-price="premiumMonthly"></span>.</p>
+  </div>
+  <button type="button" class="trial-banner-btn" id="trial-banner-action" onclick="openBillingPortal(this)">Manage trial</button>
+ </div>
+ <div id="home-upgrade-nudge" class="trial-banner" hidden role="region" aria-label="Start the 14-day trial">
+  <div class="trial-banner-copy">
+   <strong id="home-free-ai">Free includes AI actions a month</strong>
+   <p>Start the 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel before the trial ends and you are not charged.</p>
+  </div>
+  <button type="button" class="trial-banner-btn" id="home-upgrade-cta" onclick="startCheckout('premium', this)">Start the 14-day trial</button>
+ </div>
+</div>
 
 <!-- ══ TRAINER: DASHBOARD ══ -->
 <div class="view" id="view-dashboard">
@@ -1122,11 +1155,6 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <button class="quick-action" onclick="nav('ai-coach')"><div class="qi">🤖</div><div class="ql">Ask coach</div></button>
  <button class="quick-action" onclick="nav('meal-plans')"><div class="qi">🧠</div><div class="ql">Meal plan</div></button>
  <button class="quick-action" id="home-coach-action" style="display:none" onclick="location.href='/coach'"><div class="qi">📋</div><div class="ql">Client plan</div></button>
- </div>
-
- <div id="home-upgrade-nudge" class="goals-nudge" style="display:none">
- <div><strong id="home-free-ai">Free includes AI actions a month</strong><span>Premium is A$19.99 AUD/mo with a 14-day trial (card on file). Cancel before the trial ends and you are not charged.</span></div>
- <button class="btn btn-green btn-sm" onclick="startCheckout('premium', this)">Start Premium trial</button>
  </div>
 
  <!-- Goals banner -->
@@ -2065,6 +2093,115 @@ function bindFirstRun() {
   setTimeout(focusGoal, 0);
  }
 }
+function trialEndPhrase(iso) {
+ const date = new Date(iso);
+ if (!iso || Number.isNaN(date.getTime())) return '';
+ const parts = new Intl.DateTimeFormat('en-AU', {
+  timeZone: 'Australia/Sydney',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+ }).formatToParts(date);
+ const pick = (type) => {
+  const found = parts.find((part) => part.type === type);
+  return found ? found.value : '';
+ };
+ return [pick('weekday'), pick('day'), pick('month')].filter(Boolean).join(' ');
+}
+function trialDaysLeft(iso) {
+ const end = new Date(iso).getTime();
+ if (!Number.isFinite(end)) return null;
+ const left = end - Date.now();
+ if (left <= 0) return 0;
+ return Math.ceil(left / 86400000);
+}
+async function fillFmPrices(root) {
+ const scope = root && root.querySelectorAll ? root : document;
+ const slots = scope.querySelectorAll('[data-fm-price]');
+ if (!slots.length) return;
+ try {
+  const res = await fetch('/api/pricing/config', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+  if (!res.ok) return;
+  const data = await res.json();
+  slots.forEach((el) => {
+   const key = el.getAttribute('data-fm-price');
+   if (data && typeof data[key] === 'string' && data[key]) el.textContent = data[key];
+  });
+ } catch (_) {}
+}
+function showCheckoutReturn(kind, sync) {
+ const box = document.getElementById('checkout-return');
+ if (!box) return;
+ while (box.firstChild) box.removeChild(box.firstChild);
+ const copy = document.createElement('div');
+ copy.className = 'trial-banner-copy';
+ const title = document.createElement('strong');
+ const detail = document.createElement('p');
+ const next = document.createElement('p');
+ const btn = document.createElement('button');
+ btn.type = 'button';
+ btn.className = 'trial-banner-btn';
+ if (kind === 'cancelled') {
+  title.textContent = 'No charge';
+  detail.textContent = 'You have not started a trial.';
+  next.textContent = 'You can start the 14-day trial when you are ready.';
+  btn.textContent = 'Start the 14-day trial';
+  btn.addEventListener('click', () => startCheckout('premium', btn));
+ } else {
+  const phrase = sync && sync.trialEndsAt ? trialEndPhrase(sync.trialEndsAt) : '';
+  const paidNow = sync && sync.status === 'active' && !phrase;
+  if (paidNow) {
+   title.textContent = 'Premium is on.';
+   detail.textContent = 'Your first charge is today.';
+   next.textContent = 'Next: open your week in the app. This checkout did not start a new trial.';
+   btn.textContent = 'Manage subscription';
+  } else {
+   title.textContent = 'Your trial has started.';
+   detail.textContent = phrase
+    ? ('Your trial ends on ' + phrase + '.')
+    : 'Full access is on. The end date shows here once Billing confirms it.';
+   next.textContent = 'Next: use FitMunch as usual. Cancel from Billing before the trial ends and you are not charged.';
+   btn.textContent = 'Manage trial';
+  }
+  btn.addEventListener('click', () => openBillingPortal(btn));
+ }
+ copy.appendChild(title);
+ copy.appendChild(detail);
+ copy.appendChild(next);
+ box.appendChild(copy);
+ box.appendChild(btn);
+ box.hidden = false;
+}
+async function paintAccountTrial(user, opts) {
+ const banner = document.getElementById('trial-banner');
+ const nudge = document.getElementById('home-upgrade-nudge');
+ const trialing = Boolean(user && user.subscriptionStatus === 'trialing' && user.trialEndsAt);
+ if (banner) {
+  if (trialing) {
+   const days = trialDaysLeft(user.trialEndsAt);
+   const phrase = trialEndPhrase(user.trialEndsAt);
+   const title = document.getElementById('trial-banner-title');
+   const detail = document.getElementById('trial-banner-detail');
+   const titleText = days === 1
+    ? '1 day left in your trial'
+    : (days + ' days left in your trial');
+   if (title) title.textContent = days == null ? '' : titleText;
+   if (detail) detail.textContent = phrase ? ('Your trial ends on ' + phrase + '.') : '';
+   await fillFmPrices(banner);
+   banner.hidden = false;
+  } else {
+   banner.hidden = true;
+  }
+ }
+ const free = !user || !user.subscriptionTier || user.subscriptionTier === 'free';
+ const showUpgrade = free && !(opts && opts.hideUpgrade);
+ if (nudge) {
+  nudge.hidden = !showUpgrade;
+  if (showUpgrade) await fillFmPrices(nudge);
+ }
+ const upgrade = document.getElementById('btn-upgrade');
+ if (upgrade) upgrade.style.display = free ? '' : 'none';
+}
 async function boot() {
  if (!S.token) {
   if (location.hash === '#billing') window.location.replace('/login.html?next=billing');
@@ -2072,26 +2209,43 @@ async function boot() {
   return;
  }
  try {
+ const params = new URLSearchParams(location.search);
+ let returnKind = '';
+ let returnSync = null;
  // Returning from Stripe checkout: sync tier from Stripe directly so the
  // upgrade shows even if the webhook is delayed or misrouted.
- if (new URLSearchParams(location.search).get('subscribed') === '1') {
- try {
- const sync = await API('/stripe/sync-subscription', { method: 'POST' });
- if (sync.success && sync.tier && sync.tier !== 'free') {
- toast('Premium active - welcome aboard! 🎉');
+ if (params.get('subscribed') === '1') {
+  try { returnSync = await API('/stripe/sync-subscription', { method: 'POST' }); } catch (_) {}
+  returnKind = 'started';
+  window.history.replaceState({}, '', '/app.html');
  }
- } catch (_) {}
- window.history.replaceState({}, '', '/app.html');
- }
- if (new URLSearchParams(location.search).get('cancelled') === '1') {
- toast('Checkout cancelled - you can start Premium anytime from Billing.', 'warn');
- window.history.replaceState({}, '', '/app.html');
- setTimeout(() => nav('billing'), 400);
+ if (params.get('cancelled') === '1') {
+  returnKind = 'cancelled';
+  window.history.replaceState({}, '', '/app.html');
  }
  const me = await API('/auth/me');
  if (!me.success) { logout(); return; }
  S.user = me.user;
  S.role = me.user.role || 'client';
+ if (returnSync && returnSync.status === 'trialing' && returnSync.trialEndsAt) {
+  me.user.subscriptionStatus = 'trialing';
+  me.user.trialEndsAt = returnSync.trialEndsAt;
+ }
+ if (!me.user.subscriptionStatus && me.user.subscriptionTier && me.user.subscriptionTier !== 'free') {
+  try {
+   const sync = returnSync || await API('/stripe/sync-subscription', { method: 'POST' });
+   if (sync && sync.status === 'trialing' && sync.trialEndsAt) {
+    me.user.subscriptionStatus = 'trialing';
+    me.user.trialEndsAt = sync.trialEndsAt;
+   } else if (sync && sync.status === 'active') {
+    me.user.subscriptionStatus = 'active';
+   }
+  } catch (_) {}
+ }
+ if (returnKind === 'cancelled') showCheckoutReturn('cancelled');
+ else if (returnKind === 'started') showCheckoutReturn('started', returnSync);
+ await paintAccountTrial(me.user, { hideUpgrade: returnKind === 'cancelled' });
+ if (!me.user.subscriptionTier || me.user.subscriptionTier === 'free') fillFreeAiLine();
  document.documentElement.classList.add('fm-authed');
  // Update nav
  document.getElementById('nav-name').textContent = me.user.name.split(' ')[0];
@@ -2100,13 +2254,6 @@ async function boot() {
  const badge = document.getElementById('nav-plan-badge');
  badge.textContent = me.user.subscriptionTier.charAt(0).toUpperCase()+me.user.subscriptionTier.slice(1);
  badge.style.display = '';
- const nudge = document.getElementById('home-upgrade-nudge');
- if (nudge) nudge.style.display = 'none';
- } else {
- document.getElementById('btn-upgrade').style.display = '';
- const nudge = document.getElementById('home-upgrade-nudge');
- if (nudge) nudge.style.display = 'flex';
- fillFreeAiLine();
  }
  // Show correct sidebar
  if (S.role === 'client') {

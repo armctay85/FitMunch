@@ -1423,5 +1423,11 @@
   ],
   "regions": [
     "syd1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/trial-reminders",
+      "schedule": "0 21 * * *"
+    }
   ]
 }

@@ -360,6 +360,23 @@ app.post('/api/resend-inbound', async (req, res) => {
   }
 });
 
+// Daily trial reminders. Vercel Cron sends Authorization: Bearer CRON_SECRET.
+app.get('/api/cron/trial-reminders', async (req, res) => {
+  const { cronAuthStatus } = require('./lib/cron-auth');
+  const auth = cronAuthStatus(req.headers.authorization);
+  if (auth === 503) return res.status(503).json({ error: 'Cron is not configured' });
+  if (auth !== 200) return res.status(401).json({ error: 'Unauthorised' });
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured' });
+  try {
+    const { runTrialReminders } = require('./lib/trial-reminders');
+    const result = await runTrialReminders(stripe);
+    return res.json(result);
+  } catch (err) {
+    console.error('[trial-reminders] failed', ...webhookErrorFields(err));
+    return res.status(500).json({ error: 'unavailable' });
+  }
+});
+
 // Add API router before auth middleware
 const apiRouter = require('./api_server');
 app.use('/api', apiRouter);
@@ -643,6 +660,7 @@ const {
   openUnauthenticatedCheckout,
   createFitMunchCustomer,
   checkoutSessionIsFitMunch,
+  subscriptionMatchesAllowlist,
   cancelNewerDuplicatesAcrossCustomers,
   linkedCustomerHasLiveFitMunchSub,
   LIVE_SUBSCRIPTION_STATUSES,
@@ -1263,10 +1281,23 @@ app.post('/api/stripe/sync-subscription', async (req, res) => {
         console.log('[comp] premium comp remains after Stripe sync set the tier to free');
       }
     }
+    const trialEndsAt = live && live.status === 'trialing' && live.trial_end
+      ? new Date(Number(live.trial_end) * 1000).toISOString()
+      : null;
+    try {
+      const { rememberConsumerBilling } = require('./server/storage.js');
+      await rememberConsumerBilling(user.id, {
+        status: live && live.status ? live.status : 'free',
+        trialEnd: trialEndsAt,
+      });
+    } catch (err) {
+      console.error('[sync-subscription] trial snapshot failed');
+    }
     return res.json({
       success: true,
       tier: accessTier,
       status: (live || liveCoach)?.status || 'none',
+      trialEndsAt,
       synced: true,
       ...(coach ? { coach } : {}),
     });
@@ -1348,6 +1379,26 @@ app.post('/api/stripe/customers', stripeCustomersIpLimiter, stripeCustomersUserL
   }
 });
 
+async function checkoutTrialEndsAt(session) {
+  if (!session || session.metadata?.trial === '0') return '';
+  const embedded = session.subscription && typeof session.subscription === 'object' ? session.subscription : null;
+  const subId = typeof session.subscription === 'string' ? session.subscription : (embedded && embedded.id) || '';
+  let sub = embedded;
+  if (subId && typeof stripe?.subscriptions?.retrieve === 'function') {
+    try {
+      const live = await stripe.subscriptions.retrieve(subId);
+      if (live) sub = live;
+    } catch (_) {
+      return '';
+    }
+  }
+  if (!sub || sub.status !== 'trialing' || !sub.trial_end) return '';
+  if (!subscriptionMatchesAllowlist(sub)) return '';
+  const date = new Date(Number(sub.trial_end) * 1000);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString();
+}
+
 // ── SESSION LOOKUP (used by success page) ─────────────────────────────────────
 // Unauthenticated: anyone holding a session id can call this, so it must never
 // return a claim token, personal data (email), or the Stripe customer id, and
@@ -1369,13 +1420,16 @@ app.get('/api/checkout/session', async (req, res) => {
       session.status === 'complete' &&
       !sessionLoggedInUserId(session)
     );
-    res.json({
+    const body = {
       plan: session.metadata?.plan || null,
       planLabel: session.metadata?.plan || null,
       paymentStatus: session.payment_status,
       guestCheckout,
       trial: session.metadata?.trial !== '0',
-    });
+    };
+    const trialEndsAt = await checkoutTrialEndsAt(session);
+    if (trialEndsAt) body.trialEndsAt = trialEndsAt;
+    res.json(body);
   } catch (e) {
     res.status(404).json({ error: 'Session not found.' });
   }
