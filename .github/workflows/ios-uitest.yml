@@ -134,6 +134,23 @@ jobs:
             rm -rf "$bundle"
             bash scripts/set-simulator-region-au.sh "$udid"
             boot_with_retry "$udid" || return 1
+            # A fresh iPhone 11 Pro Max simulator is created each run. Its first app
+            # launch took 29-66s and crossed XCTest's ~60s launch timeout. Launch the
+            # already built app once here (no -CaptureLaunch) so XCTest is not first.
+            if [[ "$slug" == "iphone-11-pro-max" ]]; then
+              local warm_app warm_start
+              warm_app="$(find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 2 -path '*Debug-iphonesimulator/FitMunch.app' -print -quit 2>/dev/null || true)"
+              if [[ -n "$warm_app" ]]; then
+                warm_start=$(date +%s)
+                xcrun simctl install "$udid" "$warm_app" || true
+                xcrun simctl launch "$udid" com.fitmunch.app || true
+                echo "warmup: launched in $(( $(date +%s) - warm_start ))s app=$warm_app"
+                sleep 15
+                xcrun simctl terminate "$udid" com.fitmunch.app >/dev/null 2>&1 || true
+              else
+                echo "warmup: built FitMunch.app not found, skipped"
+              fi
+            fi
             local cand="artifacts/ios-uitest/launch-candidates-${slug}"
             rm -rf "$cand"
             mkdir -p "$cand"
