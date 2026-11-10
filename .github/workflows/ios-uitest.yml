@@ -11,6 +11,7 @@ on:
       - "FitMunchUITests/**"
       - "project.yml"
       - ".github/workflows/ios-uitest.yml"
+      - "scripts/warm-simulator-launch.sh"
   push:
     branches: [main, master]
     paths:
@@ -19,6 +20,7 @@ on:
       - "FitMunchUITests/**"
       - "project.yml"
       - ".github/workflows/ios-uitest.yml"
+      - "scripts/warm-simulator-launch.sh"
   workflow_dispatch:
     inputs:
       screen_audit:
@@ -134,23 +136,9 @@ jobs:
             rm -rf "$bundle"
             bash scripts/set-simulator-region-au.sh "$udid"
             boot_with_retry "$udid" || return 1
-            # A fresh iPhone 11 Pro Max simulator is created each run. Its first app
-            # launch took 29-66s and crossed XCTest's ~60s launch timeout. Launch the
-            # already built app once here (no -CaptureLaunch) so XCTest is not first.
-            if [[ "$slug" == "iphone-11-pro-max" ]]; then
-              local warm_app warm_start
-              warm_app="$(find "$RUNNER_TEMP/DerivedData/Build/Products" -maxdepth 2 -path '*Debug-iphonesimulator/FitMunch.app' -print -quit 2>/dev/null || true)"
-              if [[ -n "$warm_app" ]]; then
-                warm_start=$(date +%s)
-                xcrun simctl install "$udid" "$warm_app" || true
-                xcrun simctl launch "$udid" com.fitmunch.app || true
-                echo "warmup: launched in $(( $(date +%s) - warm_start ))s app=$warm_app"
-                sleep 15
-                xcrun simctl terminate "$udid" com.fitmunch.app >/dev/null 2>&1 || true
-              else
-                echo "warmup: built FitMunch.app not found, skipped"
-              fi
-            fi
+            # First XCUIApplication launch on a cold simulator takes 29-66s and
+            # crosses the ~60s limit. Warm every destination, not only 6.5.
+            bash scripts/warm-simulator-launch.sh "$udid"
             local cand="artifacts/ios-uitest/launch-candidates-${slug}"
             rm -rf "$cand"
             mkdir -p "$cand"
@@ -275,6 +263,7 @@ jobs:
           rm -rf "$PURCHASE_BUNDLE"
           PRO_UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
           bash scripts/set-simulator-region-au.sh "$PRO_UDID"
+          bash scripts/warm-simulator-launch.sh "$PRO_UDID"
           set +e
           xcodebuild test \
             -project FitMunch.xcodeproj \
@@ -358,6 +347,7 @@ jobs:
               echo "$folder" > /tmp/fitmunch-audit-device
             fi
             bash scripts/set-simulator-region-au.sh "$udid"
+            bash scripts/warm-simulator-launch.sh "$udid"
             local bundle="artifacts/audit-2026-10-15/${folder}.xcresult"
             rm -rf "$bundle"
             local only_testing=(-only-testing:FitMunchUITests/Build11ScreenAuditUITests/testProgressCapture)
