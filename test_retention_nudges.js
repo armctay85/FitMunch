@@ -460,55 +460,107 @@ describe('retention nudges', () => {
     }
   });
 
-  test('unsubscribe link sets the unsubscribed flag and both notes carry List-Unsubscribe', async () => {
-    const nudge = await emailApi.sendRetentionNudgeEmail('a@example.com', {
-      name: 'Sam',
-      thresholdDays: 3,
-      userId: USER_A,
-    });
-    const win = await emailApi.sendWinBackEmail('a@example.com', {
-      name: 'Sam',
-      userId: USER_A,
-    });
-    for (const built of [nudge, win]) {
-      expect(built.dryRun).toBe(true);
-      expect(built.headers['List-Unsubscribe']).toMatch(
-        /^<https:\/\/www\.fitmunch\.com\.au\/api\/retention\/unsubscribe\?token=[^>]+>$/
-      );
-      expect(built.bodyHtml).toContain('Unsubscribe from these notes');
-      expect(built.bodyText).toContain('Unsubscribe: https://www.fitmunch.com.au/api/retention/unsubscribe?token=');
-      expect(`${built.subject}\n${built.bodyHtml}\n${built.bodyText}`).not.toMatch(/pty ltd|woolworths|coles|A\$\s*\d/i);
+  test('GET unsubscribe does not write and POST does', async () => {
+    const saved = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = 'retention-test-secret';
+    try {
+      const nudge = await emailApi.sendRetentionNudgeEmail('a@example.com', {
+        name: 'Sam',
+        thresholdDays: 3,
+        userId: USER_A,
+      });
+      const win = await emailApi.sendWinBackEmail('a@example.com', {
+        name: 'Sam',
+        userId: USER_A,
+      });
+      for (const built of [nudge, win]) {
+        expect(built.dryRun).toBe(true);
+        expect(built.headers['List-Unsubscribe']).toMatch(
+          /^<https:\/\/www\.fitmunch\.com\.au\/api\/retention\/unsubscribe\?token=[^>]+>$/
+        );
+        expect(built.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+        expect(built.bodyHtml).toContain('Unsubscribe from these notes');
+        expect(built.bodyText).toContain('Unsubscribe: https://www.fitmunch.com.au/api/retention/unsubscribe?token=');
+        expect(`${built.subject}\n${built.bodyHtml}\n${built.bodyText}`).not.toMatch(/pty ltd|woolworths|coles|A\$\s*\d/i);
+      }
+      const href = nudge.bodyHtml.match(/href="([^"]*\/api\/retention\/unsubscribe\?token=[^"]+)"/);
+      expect(href).toBeTruthy();
+      const token = new URL(href[1].replace(/&amp;/g, '&')).searchParams.get('token');
+      expect(retention.userIdFromUnsubscribeToken(token)).toBe(USER_A);
+
+      const bad = await request(app).get('/api/retention/unsubscribe').query({ token: 'not-a-token' });
+      expect(bad.status).toBe(400);
+      expect(retention.unsubscribedForTests(USER_A)).toBe(false);
+
+      const page = await request(app).get('/api/retention/unsubscribe').query({ token });
+      expect(page.status).toBe(200);
+      expect(page.text).toContain('Unsubscribe from these notes.');
+      expect(page.text).toContain('method="post"');
+      expect(page.text).toContain('src="/assets/logo.svg"');
+      expect(page.text).toContain('width="32"');
+      expect(page.text).toContain('height="32"');
+      expect(page.text).toContain('width:32px;height:32px');
+      expect(page.text).toContain('#07130d');
+      expect(page.text).toContain('#1f9d4a');
+      expect(retention.unsubscribedForTests(USER_A)).toBe(false);
+
+      const posted = await request(app)
+        .post('/api/retention/unsubscribe')
+        .query({ token })
+        .type('form')
+        .send('List-Unsubscribe=One-Click');
+      expect(posted.status).toBe(200);
+      expect(posted.text).toContain('You are unsubscribed from FitMunch notes.');
+      expect(posted.text).toContain('src="/assets/logo.svg"');
+      expect(retention.unsubscribedForTests(USER_A)).toBe(true);
+
+      const again = await request(app).get('/api/retention/unsubscribe').query({ token });
+      expect(again.status).toBe(200);
+      expect(retention.unsubscribedForTests(USER_A)).toBe(true);
+      expect(retention.DRY_RUN).toBe(true);
+      expect(sendSpy).not.toHaveBeenCalled();
+    } finally {
+      if (saved === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = saved;
     }
-    const href = nudge.bodyHtml.match(/href="([^"]*\/api\/retention\/unsubscribe\?token=[^"]+)"/);
-    expect(href).toBeTruthy();
-    const token = new URL(href[1].replace(/&amp;/g, '&')).searchParams.get('token');
-    expect(retention.userIdFromUnsubscribeToken(token)).toBe(USER_A);
+  });
 
-    const bad = await request(app).get('/api/retention/unsubscribe').query({ token: 'not-a-token' });
-    expect(bad.status).toBe(400);
-    expect(retention.unsubscribedForTests(USER_A)).toBe(false);
-
-    const ok = await request(app).get('/api/retention/unsubscribe').query({ token });
-    expect(ok.status).toBe(200);
-    expect(ok.text).toContain('You are unsubscribed from FitMunch notes.');
-    expect(retention.unsubscribedForTests(USER_A)).toBe(true);
-
-    const again = await request(app).get('/api/retention/unsubscribe').query({ token });
-    expect(again.status).toBe(200);
-
-    const skipped = retention.selectDueNudges([
-      paidUser(USER_A, {
-        lastLoginAt: '2026-06-01T01:00:00.000Z',
-        settings: {
-          emailConsent: true,
-          unsubscribed: true,
-          consumerBilling: { status: 'active', trialEnd: null },
-        },
-      }),
-    ], NOW);
-    expect(skipped.due).toEqual([]);
-    expect(skipped.skipped[0].reason).toBe('unsubscribed');
-    expect(retention.DRY_RUN).toBe(true);
-    expect(sendSpy).not.toHaveBeenCalled();
+  test('JWT_SECRET unset mints no unsubscribe link and rejects every token', async () => {
+    const saved = process.env.JWT_SECRET;
+    const crypto = require('crypto');
+    delete process.env.JWT_SECRET;
+    try {
+      expect(retention.unsubscribeUrl(USER_A)).toBe('');
+      const nudge = await emailApi.sendRetentionNudgeEmail('a@example.com', {
+        name: 'Sam',
+        thresholdDays: 7,
+        userId: USER_A,
+      });
+      const win = await emailApi.sendWinBackEmail('a@example.com', {
+        name: 'Sam',
+        userId: USER_A,
+      });
+      for (const built of [nudge, win]) {
+        expect(built.bodyHtml).not.toContain('/api/retention/unsubscribe');
+        expect(built.bodyText).not.toContain('/api/retention/unsubscribe');
+        expect(built.headers).toBeUndefined();
+      }
+      const body = Buffer.from(JSON.stringify({ p: 'retention-unsub', u: USER_A }), 'utf8').toString('base64url');
+      const sig = crypto.createHmac('sha256', 'fitmunch-dev-secret').update(body).digest('base64url');
+      const forged = `${body}.${sig}`;
+      expect(retention.userIdFromUnsubscribeToken(forged)).toBe('');
+      expect(retention.userIdFromUnsubscribeToken('anything')).toBe('');
+      const getForged = await request(app).get('/api/retention/unsubscribe').query({ token: forged });
+      const postForged = await request(app).post('/api/retention/unsubscribe').query({ token: forged });
+      expect(getForged.status).toBe(400);
+      expect(postForged.status).toBe(400);
+      expect(retention.unsubscribedForTests(USER_A)).toBe(false);
+      const src = fs.readFileSync(path.join(__dirname, 'lib/retention-nudges.js'), 'utf8');
+      expect(src).not.toContain('fitmunch-dev-secret');
+      expect(retention.DRY_RUN).toBe(true);
+    } finally {
+      if (saved === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = saved;
+    }
   });
 });

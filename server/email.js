@@ -501,7 +501,10 @@ function attachUnsubscribe(note, url) {
 
 function listUnsubscribeHeaders(url) {
   if (!url) return undefined;
-  return { 'List-Unsubscribe': `<${url}>` };
+  return {
+    'List-Unsubscribe': `<${url}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
 }
 
 function buildRetentionNudge({ name, thresholdDays, userId } = {}) {

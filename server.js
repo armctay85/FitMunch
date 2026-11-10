@@ -1505,12 +1505,28 @@ app.post('/api/retention/cancel-intent', async (req, res) => {
   }
 });
 
-// One-click from a retention note. The token is signed with the existing
-// session secret. A valid token sets users.settings.unsubscribed.
-app.get('/api/retention/unsubscribe', async (req, res) => {
+// GET only shows the confirm page. POST is the RFC 8058 one-click write.
+// The token is signed with JWT_SECRET. An unset secret rejects every token.
+function retentionUnsubscribeToken(req) {
+  const fromQuery = req.query && req.query.token;
+  return typeof fromQuery === 'string' ? fromQuery : '';
+}
+
+app.get('/api/retention/unsubscribe', (req, res) => {
   res.set('Cache-Control', 'no-store');
   const retention = require('./lib/retention-nudges');
-  const userId = retention.userIdFromUnsubscribeToken(req.query && req.query.token);
+  const token = retentionUnsubscribeToken(req);
+  const userId = retention.userIdFromUnsubscribeToken(token);
+  if (!userId) {
+    return res.status(400).type('html').send(retention.unsubscribePage('This unsubscribe link is not valid.'));
+  }
+  return res.type('html').send(retention.unsubscribeConfirmPage(token));
+});
+
+app.post('/api/retention/unsubscribe', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const retention = require('./lib/retention-nudges');
+  const userId = retention.userIdFromUnsubscribeToken(retentionUnsubscribeToken(req));
   if (!userId) {
     return res.status(400).type('html').send(retention.unsubscribePage('This unsubscribe link is not valid.'));
   }
