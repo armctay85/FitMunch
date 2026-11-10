@@ -70,4 +70,17 @@ The plan and scan copy stays exactly `Prices vary by store and week.` This chang
 
 ## CI
 
-Filled in after the draft PR checks on this branch finish. The section below is updated on the commit that records the green SHA.
+Green SHA: `f10607a1cc14d6ed87774a45c3915f22f1ce6208` on draft PR https://github.com/armctay85/FitMunch/pull/216. No RevenueCat download flake on this SHA. `ios-archive.yml` was not run (workflow_dispatch only) and was not edited.
+
+| Job | Run | Conclusion |
+| --- | --- | --- |
+| iOS full-screen UITest | [42752618441](https://github.com/armctay85/FitMunch/actions/runs/42752618441) | Pass. 6.9 warmup 44s, then XCTest launch 8.3s, `440x956`. 6.5 warmup 101s, then XCTest launch 17.3s, `414x896`. No launch timeout. screen-audit skipped (not this branch). |
+| iOS design UI tests | [42752618262](https://github.com/armctay85/FitMunch/actions/runs/42752618262) | Pass, including `TabBarClearanceUITests`. 6.9 rest: last meal maxY 656.7, fold 739, limit 731. 6.5 rest: last meal maxY 638.7, fold 679, limit 671. Both end on the lunch line, at least 8pt above the fold, measured before any drag. |
+| iOS Build and Test | [42752618167](https://github.com/armctay85/FitMunch/actions/runs/42752618167) | Pass. Pre-ASC warmed the iPad (`926957D7`) in 48s before XCTest, then again in 18s, and printed `PRE-ASC simulator audit passed`. The 61s `testA_FirstRun` timeout did not recur. |
+| iOS App Store screenshots | [42752618190](https://github.com/armctay85/FitMunch/actions/runs/42752618190) | Pass. 6.5 and 6.9 Plan and Me shots saved from this run. Me shows Alex Morgan, `alex.morgan@icloud.com`. Plan price line is `Prices vary by store and week.` |
+| iOS flow recording | [42752618454](https://github.com/armctay85/FitMunch/actions/runs/42752618454) | Pass. |
+| Jest | [42752618482](https://github.com/armctay85/FitMunch/actions/runs/42752618482) | Pass. |
+| Web quality (`test`, `ship-safety`) | [42752618232](https://github.com/armctay85/FitMunch/actions/runs/42752618232) | Pass. |
+| Build 11 width capture | [42752618215](https://github.com/armctay85/FitMunch/actions/runs/42752618215) | Skipped. The job only runs for two named branches. |
+
+An earlier SHA on this branch, `1be06fd`, failed only design UI tests ([42746323465](https://github.com/armctay85/FitMunch/actions/runs/42746323465)): `DesignFeelUITests` still expected `alex@example.com`. `f10607a` points that assertion at `alex.morgan@icloud.com`. The other jobs were already green on `1be06fd` and are green again on `f10607a`.
