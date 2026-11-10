@@ -69,6 +69,7 @@ module.exports = {
     '**/test_coach_landers.js',
     '**/test_seo_pack_3.js',
     '**/test_seo_pack_4.js',
+    '**/test_answer_pages.js',
     '**/test_store_names.js',
     '**/test_store_name_sweep.js',
     '**/test_public_price_ban.js',

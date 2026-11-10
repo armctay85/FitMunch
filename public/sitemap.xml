@@ -80,6 +80,68 @@
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+  <!-- answer-pages:start -->
+  <url>
+    <loc>https://www.fitmunch.com.au/weekly-meal-plan-australia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/meal-plan-for-weight-loss-australia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/meal-plan-for-muscle-gain</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/easy-healthy-dinners-for-busy-weeknights</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/how-much-protein-do-i-need-a-day</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/calorie-counting-vs-meal-planning</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/how-to-eat-healthy-when-busy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/meal-plan-for-gym-beginners</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/vegetarian-high-protein-meal-plan</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/best-meal-planning-app-australia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/stop-wasting-food-and-money-on-groceries</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.fitmunch.com.au/healthy-lunch-ideas-for-work</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- answer-pages:end -->
   <url>
     <loc>https://www.fitmunch.com.au/pricing</loc>
     <changefreq>monthly</changefreq>

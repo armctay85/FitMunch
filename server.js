@@ -445,6 +445,10 @@ app.get('/fitmunch-coach-vs-spreadsheets', (req, res) => res.sendFile('fitmunch-
 app.get('/family-meal-plan', (req, res) => res.sendFile('family-meal-plan.html', { root: 'public' }));
 app.get('/macro-meal-planner', (req, res) => res.sendFile('macro-meal-planner.html', { root: 'public' }));
 app.get('/meal-plan-for-one', (req, res) => res.sendFile('meal-plan-for-one.html', { root: 'public' }));
+// Answer pages. Slugs and copy live in lib/answer-pages.js.
+for (const page of require('./lib/answer-pages').PAGES) {
+  app.get(`/${page.slug}`, (req, res) => res.sendFile(`${page.slug}.html`, { root: 'public' }));
+}
 // /funnel is gated before static files (analytics key required).
 
 // Clean auth/app URLs (marketing + IG often omit .html)
