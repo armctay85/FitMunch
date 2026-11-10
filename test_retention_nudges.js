@@ -49,6 +49,18 @@ function cron(auth) {
   return req;
 }
 
+function waitFor(fn) {
+  const deadline = Date.now() + 1000;
+  return new Promise((resolve, reject) => {
+    const tick = () => {
+      if (fn()) return resolve();
+      if (Date.now() > deadline) return reject(new Error('timed out'));
+      setImmediate(tick);
+    };
+    tick();
+  });
+}
+
 function tokenFor(user) {
   return jwt.sign(
     { userId: user.id, email: user.email, name: user.name, role: 'client' },
@@ -326,6 +338,7 @@ describe('retention nudges', () => {
       .send({ returnTo: 'app', cancelIntent: true });
     expect(cancel.status).toBe(200);
     expect(cancel.body.url).toBe('https://billing.stripe.com/session/test');
+    await waitFor(() => retention.loggedSendForTests(retention.winBackKey(user.id)));
     expect(retention.loggedSendForTests(retention.winBackKey(user.id)).kind).toBe('winback');
 
     const again = await request(app)
@@ -394,5 +407,108 @@ describe('retention nudges', () => {
     expect(login).toContain('/app.html?cancelIntent=1#billing');
     const appHtml = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
     expect(appHtml).toContain("API('/retention/cancel-intent'");
+    expect(appHtml).not.toMatch(/await\s+API\(\s*['"]\/retention\/cancel-intent/);
+  });
+
+  test('INACTIVITY_THRESHOLDS is exactly [3, 7, 14]', () => {
+    expect(retention.INACTIVITY_THRESHOLDS).toEqual([3, 7, 14]);
+  });
+
+  test('billing portal returns the URL when the win-back write hangs or rejects', async () => {
+    const user = paidUser(USER_A, { email: 'hang@example.com' });
+    storage.getUserById = async () => user;
+    armCron([]);
+    const appHtml = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+    const bootAt = appHtml.indexOf("params.get('cancelIntent')");
+    const boot = appHtml.slice(bootAt, bootAt + 360);
+    expect(boot).toContain('.catch(');
+    expect(boot).not.toMatch(/await\s+API\(\s*['"]\/retention\/cancel-intent/);
+
+    let releaseHang = () => {};
+    const hanging = new Promise((resolve) => { releaseHang = resolve; });
+    const hangSpy = jest.spyOn(retention, 'recordCancelIntent').mockReturnValue(hanging);
+    try {
+      const hung = await Promise.race([
+        request(app)
+          .post('/api/billing-portal')
+          .set('Authorization', `Bearer ${tokenFor(user)}`)
+          .set('Origin', 'https://www.fitmunch.com.au')
+          .send({ returnTo: 'app', cancelIntent: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('portal hung')), 800)),
+      ]);
+      expect(hung.status).toBe(200);
+      expect(hung.body.url).toBe('https://billing.stripe.com/session/test');
+    } finally {
+      releaseHang();
+      hangSpy.mockRestore();
+    }
+
+    const rejectSpy = jest.spyOn(retention, 'recordCancelIntent').mockRejectedValue(
+      Object.assign(new Error('retention down'), { code: 'ECONNREFUSED' })
+    );
+    try {
+      const rejected = await request(app)
+        .post('/api/billing-portal')
+        .set('Authorization', `Bearer ${tokenFor(user)}`)
+        .set('Origin', 'https://www.fitmunch.com.au')
+        .send({ returnTo: 'app', cancelIntent: true });
+      expect(rejected.status).toBe(200);
+      expect(rejected.body.url).toBe('https://billing.stripe.com/session/test');
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      rejectSpy.mockRestore();
+    }
+  });
+
+  test('unsubscribe link sets the unsubscribed flag and both notes carry List-Unsubscribe', async () => {
+    const nudge = await emailApi.sendRetentionNudgeEmail('a@example.com', {
+      name: 'Sam',
+      thresholdDays: 3,
+      userId: USER_A,
+    });
+    const win = await emailApi.sendWinBackEmail('a@example.com', {
+      name: 'Sam',
+      userId: USER_A,
+    });
+    for (const built of [nudge, win]) {
+      expect(built.dryRun).toBe(true);
+      expect(built.headers['List-Unsubscribe']).toMatch(
+        /^<https:\/\/www\.fitmunch\.com\.au\/api\/retention\/unsubscribe\?token=[^>]+>$/
+      );
+      expect(built.bodyHtml).toContain('Unsubscribe from these notes');
+      expect(built.bodyText).toContain('Unsubscribe: https://www.fitmunch.com.au/api/retention/unsubscribe?token=');
+      expect(`${built.subject}\n${built.bodyHtml}\n${built.bodyText}`).not.toMatch(/pty ltd|woolworths|coles|A\$\s*\d/i);
+    }
+    const href = nudge.bodyHtml.match(/href="([^"]*\/api\/retention\/unsubscribe\?token=[^"]+)"/);
+    expect(href).toBeTruthy();
+    const token = new URL(href[1].replace(/&amp;/g, '&')).searchParams.get('token');
+    expect(retention.userIdFromUnsubscribeToken(token)).toBe(USER_A);
+
+    const bad = await request(app).get('/api/retention/unsubscribe').query({ token: 'not-a-token' });
+    expect(bad.status).toBe(400);
+    expect(retention.unsubscribedForTests(USER_A)).toBe(false);
+
+    const ok = await request(app).get('/api/retention/unsubscribe').query({ token });
+    expect(ok.status).toBe(200);
+    expect(ok.text).toContain('You are unsubscribed from FitMunch notes.');
+    expect(retention.unsubscribedForTests(USER_A)).toBe(true);
+
+    const again = await request(app).get('/api/retention/unsubscribe').query({ token });
+    expect(again.status).toBe(200);
+
+    const skipped = retention.selectDueNudges([
+      paidUser(USER_A, {
+        lastLoginAt: '2026-06-01T01:00:00.000Z',
+        settings: {
+          emailConsent: true,
+          unsubscribed: true,
+          consumerBilling: { status: 'active', trialEnd: null },
+        },
+      }),
+    ], NOW);
+    expect(skipped.due).toEqual([]);
+    expect(skipped.skipped[0].reason).toBe('unsubscribed');
+    expect(retention.DRY_RUN).toBe(true);
+    expect(sendSpy).not.toHaveBeenCalled();
   });
 });

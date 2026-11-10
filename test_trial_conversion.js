@@ -270,6 +270,54 @@ describe('trial reminder sends', () => {
       else process.env.DATABASE_URL = savedDb;
     }
   });
+
+  test('a retention failure returns 200 with the trial counts and does not resend the trial email', async () => {
+    process.env.CRON_SECRET = 'cron-test-secret';
+    process.env.RESEND_API_KEY = 're_test';
+    const nowSec = Math.floor(Date.now() / 1000);
+    const dueEnd = nowSec + 2 * 24 * 60 * 60;
+    const due = {
+      id: 'sub_retention_fail',
+      customer: 'cus_retention_fail',
+      status: 'trialing',
+      trial_end: dueEnd,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    };
+    const sent = [];
+    global.fetch.mockImplementation(async (_url, opts) => {
+      sent.push(JSON.parse(opts.body));
+      return { ok: true, status: 200, json: async () => ({ id: 'msg_trial_keep' }) };
+    });
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => ({ data: [due], has_more: false })) },
+      customers: {
+        retrieve: jest.fn(async (id) => ({ id, email: `${id}@example.com`, name: 'Sam' })),
+      },
+    });
+    const retention = require('./lib/retention-nudges');
+    const boom = jest.spyOn(retention, 'runRetentionNudges').mockRejectedValue(
+      Object.assign(new Error('retention down'), { code: 'ECONNREFUSED' })
+    );
+    try {
+      const first = await cron('Bearer cron-test-secret');
+      expect(first.status).toBe(200);
+      expect(first.body.checked).toBe(1);
+      expect(first.body.sent).toBe(1);
+      expect(first.body.skipped).toBe(0);
+      expect(first.body.retention).toEqual({ error: 'unavailable' });
+      expect(sent).toHaveLength(1);
+
+      const second = await cron('Bearer cron-test-secret');
+      expect(second.status).toBe(200);
+      expect(second.body.checked).toBe(1);
+      expect(second.body.sent).toBe(0);
+      expect(second.body.skipped).toBe(1);
+      expect(second.body.retention).toEqual({ error: 'unavailable' });
+      expect(sent).toHaveLength(1);
+    } finally {
+      boom.mockRestore();
+    }
+  });
 });
 
 describe('trial emails', () => {

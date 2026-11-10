@@ -375,14 +375,14 @@ app.get('/api/cron/trial-reminders', async (req, res) => {
     console.error('[trial-reminders] failed', ...webhookErrorFields(err));
     return res.status(500).json({ error: 'unavailable' });
   }
+  let retention;
   try {
-    const { runRetentionNudges } = require('./lib/retention-nudges');
-    const retention = await runRetentionNudges();
-    return res.json({ ...trial, retention });
+    retention = await require('./lib/retention-nudges').runRetentionNudges();
   } catch (err) {
-    console.error('[retention-nudges] failed', ...webhookErrorFields(err));
-    return res.status(500).json({ error: 'unavailable' });
+    console.error('[retention-nudges] failed', webhookHandlerErrorLabel(err));
+    retention = { error: 'unavailable' };
   }
+  return res.json({ ...trial, retention });
 });
 
 // Add API router before auth middleware
@@ -1466,13 +1466,15 @@ app.post('/api/billing-portal', async (req, res) => {
       { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
     // Cancel subscription links set cancelIntent. Card updates do not.
-    // Stripe session params stay the same either way.
+    // Stripe session params stay the same either way. The portal URL is
+    // returned without waiting for the win-back write.
     if (req.body && req.body.cancelIntent === true) {
-      try {
-        await require('./lib/retention-nudges').recordCancelIntent(user, { source: 'billing-portal' });
-      } catch (intentErr) {
-        console.error('[retention-nudges] cancel intent failed');
-      }
+      const intentUser = user;
+      Promise.resolve()
+        .then(() => require('./lib/retention-nudges').recordCancelIntent(intentUser, { source: 'billing-portal' }))
+        .catch((err) => {
+          console.error('[retention-nudges] cancel intent failed', webhookHandlerErrorLabel(err));
+        });
     }
     sendStripeJson(res, { success: true, url: portal.url });
   } catch (e) {
@@ -1501,6 +1503,24 @@ app.post('/api/retention/cancel-intent', async (req, res) => {
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
     return sendApiError(res, e, 'Cancel intent error');
   }
+});
+
+// One-click from a retention note. The token is signed with the existing
+// session secret. A valid token sets users.settings.unsubscribed.
+app.get('/api/retention/unsubscribe', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const retention = require('./lib/retention-nudges');
+  const userId = retention.userIdFromUnsubscribeToken(req.query && req.query.token);
+  if (!userId) {
+    return res.status(400).type('html').send(retention.unsubscribePage('This unsubscribe link is not valid.'));
+  }
+  try {
+    await retention.markUnsubscribed(userId);
+  } catch (err) {
+    console.error('[retention-nudges] unsubscribe failed', webhookHandlerErrorLabel(err));
+    return res.status(500).type('html').send(retention.unsubscribePage('We could not unsubscribe you just now. Try the link again.'));
+  }
+  return res.type('html').send(retention.unsubscribePage('You are unsubscribed from FitMunch notes.'));
 });
 
 // Legacy pass-through: runs only for requests no earlier route handled.
