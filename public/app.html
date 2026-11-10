@@ -2227,6 +2227,12 @@ async function boot() {
  }
  const me = await API('/auth/me');
  if (!me.success) { logout(); return; }
+ if (params.get('cancelIntent') === '1') {
+  API('/retention/cancel-intent', { method: 'POST', body: '{}' }).catch(() => {
+   console.error('[retention-nudges] cancel intent failed');
+  });
+  window.history.replaceState({}, '', '/app.html#billing');
+ }
  S.user = me.user;
  S.role = me.user.role || 'client';
  if (returnSync && returnSync.status === 'trialing' && returnSync.trialEndsAt) {

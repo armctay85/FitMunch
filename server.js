@@ -367,14 +367,22 @@ app.get('/api/cron/trial-reminders', async (req, res) => {
   if (auth === 503) return res.status(503).json({ error: 'Cron is not configured' });
   if (auth !== 200) return res.status(401).json({ error: 'Unauthorised' });
   if (!stripe) return res.status(503).json({ error: 'Stripe is not configured' });
+  let trial;
   try {
     const { runTrialReminders } = require('./lib/trial-reminders');
-    const result = await runTrialReminders(stripe);
-    return res.json(result);
+    trial = await runTrialReminders(stripe);
   } catch (err) {
     console.error('[trial-reminders] failed', ...webhookErrorFields(err));
     return res.status(500).json({ error: 'unavailable' });
   }
+  let retention;
+  try {
+    retention = await require('./lib/retention-nudges').runRetentionNudges();
+  } catch (err) {
+    console.error('[retention-nudges] failed', webhookHandlerErrorLabel(err));
+    retention = { error: 'unavailable' };
+  }
+  return res.json({ ...trial, retention });
 });
 
 // Add API router before auth middleware
@@ -1457,12 +1465,78 @@ app.post('/api/billing-portal', async (req, res) => {
       },
       { idempotencyKey: stripeIdempotencyKey(['portal', user.id, customerId, inApp ? 'app' : 'web']) }
     );
+    // Cancel subscription links set cancelIntent. Card updates do not.
+    // Stripe session params stay the same either way. The portal URL is
+    // returned without waiting for the win-back write.
+    if (req.body && req.body.cancelIntent === true) {
+      const intentUser = user;
+      Promise.resolve()
+        .then(() => require('./lib/retention-nudges').recordCancelIntent(intentUser, { source: 'billing-portal' }))
+        .catch((err) => {
+          console.error('[retention-nudges] cancel intent failed', webhookHandlerErrorLabel(err));
+        });
+    }
     sendStripeJson(res, { success: true, url: portal.url });
   } catch (e) {
     if (sendAuthError(e, res)) return;
     if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
     return sendApiError(res, e, 'Billing portal error');
   }
+});
+
+// Signed-in landing on the cancel path (login ?intent=cancel, then the app).
+// Records one dry-run win-back. Does not open Stripe or change the portal.
+app.post('/api/retention/cancel-intent', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const decoded = requireAuthUser(req);
+    const { user } = await loadCheckoutUser(decoded);
+    const result = await require('./lib/retention-nudges').recordCancelIntent(user, { source: 'cancel-path' });
+    return res.json({
+      success: true,
+      dryRun: true,
+      queued: result.queued,
+      sent: 0,
+    });
+  } catch (e) {
+    if (sendAuthError(e, res)) return;
+    if (e.statusCode === 404) return res.status(404).json({ error: 'User not found.' });
+    return sendApiError(res, e, 'Cancel intent error');
+  }
+});
+
+// GET only shows the confirm page. POST is the RFC 8058 one-click write.
+// The token is signed with JWT_SECRET. An unset secret rejects every token.
+function retentionUnsubscribeToken(req) {
+  const fromQuery = req.query && req.query.token;
+  return typeof fromQuery === 'string' ? fromQuery : '';
+}
+
+app.get('/api/retention/unsubscribe', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const retention = require('./lib/retention-nudges');
+  const token = retentionUnsubscribeToken(req);
+  const userId = retention.userIdFromUnsubscribeToken(token);
+  if (!userId) {
+    return res.status(400).type('html').send(retention.unsubscribePage('This unsubscribe link is not valid.'));
+  }
+  return res.type('html').send(retention.unsubscribeConfirmPage(token));
+});
+
+app.post('/api/retention/unsubscribe', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const retention = require('./lib/retention-nudges');
+  const userId = retention.userIdFromUnsubscribeToken(retentionUnsubscribeToken(req));
+  if (!userId) {
+    return res.status(400).type('html').send(retention.unsubscribePage('This unsubscribe link is not valid.'));
+  }
+  try {
+    await retention.markUnsubscribed(userId);
+  } catch (err) {
+    console.error('[retention-nudges] unsubscribe failed', webhookHandlerErrorLabel(err));
+    return res.status(500).type('html').send(retention.unsubscribePage('We could not unsubscribe you just now. Try the link again.'));
+  }
+  return res.type('html').send(retention.unsubscribePage('You are unsubscribed from FitMunch notes.'));
 });
 
 // Legacy pass-through: runs only for requests no earlier route handled.
@@ -1560,6 +1634,7 @@ function setStripeForTests(next) {
   resetCheckoutGuardsForTests();
   stripeEvents.resetStripeEventsForTests();
   require('./lib/guest-claim').resetGuestClaimsForTests();
+  require('./lib/retention-nudges').resetRetentionForTests();
 }
 
 function setClaimResendObserverForTests(fn) {

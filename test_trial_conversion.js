@@ -29,6 +29,12 @@ function cron(auth) {
   return req;
 }
 
+const EMPTY_RETENTION = { dryRun: true, checked: 0, queued: 0, skipped: 0, sent: 0 };
+
+function withRetention(trial) {
+  return { ...trial, retention: EMPTY_RETENTION };
+}
+
 function postEvent(event) {
   return request(app)
     .post('/api/stripe/webhook')
@@ -112,7 +118,7 @@ describe('cron auth', () => {
     });
     const res = await cron('Bearer cron-test-secret');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ checked: 0, sent: 0, skipped: 0 });
+    expect(res.body).toEqual(withRetention({ checked: 0, sent: 0, skipped: 0 }));
   });
 
   test('the compare hashes both sides before timingSafeEqual', () => {
@@ -175,7 +181,7 @@ describe('trial reminder sends', () => {
 
     const first = await cron('Bearer cron-test-secret');
     expect(first.status).toBe(200);
-    expect(first.body).toEqual({ checked: 2, sent: 1, skipped: 1 });
+    expect(first.body).toEqual(withRetention({ checked: 2, sent: 1, skipped: 1 }));
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toEqual(['cus_sub_due@example.com']);
     expect(stripe.customers.retrieve).not.toHaveBeenCalledWith('cus_wipper');
@@ -183,13 +189,13 @@ describe('trial reminder sends', () => {
     sent.length = 0;
     const second = await cron('Bearer cron-test-secret');
     expect(second.status).toBe(200);
-    expect(second.body).toEqual({ checked: 2, sent: 0, skipped: 2 });
+    expect(second.body).toEqual(withRetention({ checked: 2, sent: 0, skipped: 2 }));
     expect(sent).toHaveLength(0);
 
     due.trial_end = dueEnd + 3600;
     const third = await cron('Bearer cron-test-secret');
     expect(third.status).toBe(200);
-    expect(third.body).toEqual({ checked: 2, sent: 1, skipped: 1 });
+    expect(third.body).toEqual(withRetention({ checked: 2, sent: 1, skipped: 1 }));
     expect(sent).toHaveLength(1);
   });
 
@@ -262,6 +268,54 @@ describe('trial reminder sends', () => {
       releaseEmail();
       if (savedDb === undefined) delete process.env.DATABASE_URL;
       else process.env.DATABASE_URL = savedDb;
+    }
+  });
+
+  test('a retention failure returns 200 with the trial counts and does not resend the trial email', async () => {
+    process.env.CRON_SECRET = 'cron-test-secret';
+    process.env.RESEND_API_KEY = 're_test';
+    const nowSec = Math.floor(Date.now() / 1000);
+    const dueEnd = nowSec + 2 * 24 * 60 * 60;
+    const due = {
+      id: 'sub_retention_fail',
+      customer: 'cus_retention_fail',
+      status: 'trialing',
+      trial_end: dueEnd,
+      items: { data: [{ price: { id: PRICE_IDS.premium } }] },
+    };
+    const sent = [];
+    global.fetch.mockImplementation(async (_url, opts) => {
+      sent.push(JSON.parse(opts.body));
+      return { ok: true, status: 200, json: async () => ({ id: 'msg_trial_keep' }) };
+    });
+    app._private.setStripeForTests({
+      subscriptions: { list: jest.fn(async () => ({ data: [due], has_more: false })) },
+      customers: {
+        retrieve: jest.fn(async (id) => ({ id, email: `${id}@example.com`, name: 'Sam' })),
+      },
+    });
+    const retention = require('./lib/retention-nudges');
+    const boom = jest.spyOn(retention, 'runRetentionNudges').mockRejectedValue(
+      Object.assign(new Error('retention down'), { code: 'ECONNREFUSED' })
+    );
+    try {
+      const first = await cron('Bearer cron-test-secret');
+      expect(first.status).toBe(200);
+      expect(first.body.checked).toBe(1);
+      expect(first.body.sent).toBe(1);
+      expect(first.body.skipped).toBe(0);
+      expect(first.body.retention).toEqual({ error: 'unavailable' });
+      expect(sent).toHaveLength(1);
+
+      const second = await cron('Bearer cron-test-secret');
+      expect(second.status).toBe(200);
+      expect(second.body.checked).toBe(1);
+      expect(second.body.sent).toBe(0);
+      expect(second.body.skipped).toBe(1);
+      expect(second.body.retention).toEqual({ error: 'unavailable' });
+      expect(sent).toHaveLength(1);
+    } finally {
+      boom.mockRestore();
     }
   });
 });

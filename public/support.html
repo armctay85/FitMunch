@@ -78,7 +78,7 @@
 
 <div class="help-serve">
   <a class="fm-btn fm-btn-leaf" href="/login.html?next=billing" data-billing-portal>Manage subscription</a>
-  <a class="fm-btn fm-btn-ink" href="/login.html?next=billing" data-billing-portal>Cancel subscription</a>
+  <a class="fm-btn fm-btn-ink" href="/login.html?next=billing&intent=cancel" data-billing-portal data-cancel-intent="1">Cancel subscription</a>
 </div>
 
 <div id="support-answers">
@@ -114,7 +114,7 @@
   <h2>Cancel</h2>
   <article class="help-item" data-help-item>
     <h3>How do I cancel?</h3>
-    <p>Sign in and open Billing. You can cancel at any time in Billing. Stripe handles it. Cancel before the trial ends and you are not charged. After the first charge, subscriptions auto-renew unless you cancel. Cancel anytime in Billing; access continues to the end of the paid period. If you can't sign in, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. The <a href="/login.html?next=billing" data-billing-portal>Cancel subscription</a> button on this page opens that same Billing path.</p>
+    <p>Sign in and open Billing. You can cancel at any time in Billing. Stripe handles it. Cancel before the trial ends and you are not charged. After the first charge, subscriptions auto-renew unless you cancel. Cancel anytime in Billing; access continues to the end of the paid period. If you can't sign in, email <a href="mailto:support@fitmunch.com.au">support@fitmunch.com.au</a>. The <a href="/login.html?next=billing&intent=cancel" data-billing-portal data-cancel-intent="1">Cancel subscription</a> button on this page opens that same Billing path.</p>
   </article>
 </section>
 
@@ -232,7 +232,10 @@
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + token
       },
-      body: JSON.stringify({ returnTo: 'app' })
+      body: JSON.stringify({
+        returnTo: 'app',
+        cancelIntent: link.getAttribute('data-cancel-intent') === '1'
+      })
     }).then(function (res) {
       return res.json().then(function (data) { return { ok: res.ok, data: data }; });
     }).then(function (result) {
