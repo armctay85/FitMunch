@@ -233,23 +233,6 @@
       ]
     },
     {
-      "source": "/best-meal-planning-app-australia.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
       "source": "/brand/",
       "headers": [
         {
@@ -268,23 +251,6 @@
     },
     {
       "source": "/brand/index.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
-      "source": "/calorie-counting-vs-meal-planning.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -340,7 +306,7 @@
       ]
     },
     {
-      "source": "/contact.html",
+      "source": "/commit-to-the-week.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -357,7 +323,7 @@
       ]
     },
     {
-      "source": "/easy-healthy-dinners-for-busy-weeknights.html",
+      "source": "/contact.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -456,23 +422,6 @@
       ]
     },
     {
-      "source": "/healthy-lunch-ideas-for-work.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
       "source": "/high-protein-shopping-list.html",
       "headers": [
         {
@@ -516,7 +465,7 @@
       ]
     },
     {
-      "source": "/how-to-eat-healthy-when-busy.html",
+      "source": "/index.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -533,7 +482,7 @@
       ]
     },
     {
-      "source": "/index.html",
+      "source": "/list-for-the-meals-you-lock.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -580,6 +529,40 @@
       ]
     },
     {
+      "source": "/lunches-for-work.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/macro-logging-or-meal-plan.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
       "source": "/macro-meal-planner.html",
       "headers": [
         {
@@ -593,40 +576,6 @@
       ]
     },
     {
-      "source": "/meal-plan-for-gym-beginners.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
-      "source": "/meal-plan-for-muscle-gain.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
       "source": "/meal-plan-for-one.html",
       "headers": [
         {
@@ -636,23 +585,6 @@
         {
           "key": "Cache-Control",
           "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/meal-plan-for-weight-loss-australia.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
         }
       ]
     },
@@ -679,6 +611,23 @@
         {
           "key": "Cache-Control",
           "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/meals-and-training-for-the-week.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
         }
       ]
     },
@@ -726,20 +675,7 @@
       ]
     },
     {
-      "source": "/receipt-nutrition-scanner.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/refund.html",
+      "source": "/quick-weeknight-dinners.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -756,7 +692,20 @@
       ]
     },
     {
-      "source": "/stop-wasting-food-and-money-on-groceries.html",
+      "source": "/receipt-nutrition-scanner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/refund.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -837,7 +786,7 @@
       ]
     },
     {
-      "source": "/vegetarian-high-protein-meal-plan.html",
+      "source": "/ways-to-plan-meals-australia.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

@@ -382,7 +382,16 @@
     "terms.html",
     "supermarket-meal-planner.html",
     "high-protein-shopping-list.html",
-    "ai-meal-plan-shopping-list.html"
+    "ai-meal-plan-shopping-list.html",
+    "weekly-meal-plan-australia.html",
+    "quick-weeknight-dinners.html",
+    "how-much-protein-do-i-need-a-day.html",
+    "macro-logging-or-meal-plan.html",
+    "commit-to-the-week.html",
+    "meals-and-training-for-the-week.html",
+    "ways-to-plan-meals-australia.html",
+    "list-for-the-meals-you-lock.html",
+    "lunches-for-work.html"
   ],
   "denyNames": [
     "(^|/)deploy\\.js$",

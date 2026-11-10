@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PAGES, SITE, buildPage, auditIssues } = require('../lib/answer-pages');
+const { PAGES, SITE, buildPage, auditIssues, assertPublicSlug, RETIRED_SLUGS } = require('../lib/answer-pages');
 
 const root = path.join(__dirname, '..');
 const issues = auditIssues();
@@ -16,8 +16,13 @@ if (issues.length) {
   process.exit(1);
 }
 
+const publicDir = path.join(root, 'public');
+for (const slug of RETIRED_SLUGS) {
+  const retired = path.join(publicDir, `${slug}.html`);
+  if (fs.existsSync(retired)) fs.unlinkSync(retired);
+}
 for (const page of PAGES) {
-  const file = path.join(root, 'public', `${page.slug}.html`);
+  const file = assertPublicSlug(page.slug, publicDir);
   fs.writeFileSync(file, buildPage(page));
 }
 
