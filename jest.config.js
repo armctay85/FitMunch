@@ -91,6 +91,7 @@ module.exports = {
     '**/test_stripe_webhook.js',
     '**/test_payment_failed_email.js',
     '**/test_trial_conversion.js',
+    '**/test_retention_nudges.js',
     '**/test_support_confirm.js',
     '**/test_payment_failed_email_pg.js',
     '**/test_resend_inbound.js',

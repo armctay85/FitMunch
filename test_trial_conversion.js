@@ -29,6 +29,12 @@ function cron(auth) {
   return req;
 }
 
+const EMPTY_RETENTION = { dryRun: true, checked: 0, queued: 0, skipped: 0, sent: 0 };
+
+function withRetention(trial) {
+  return { ...trial, retention: EMPTY_RETENTION };
+}
+
 function postEvent(event) {
   return request(app)
     .post('/api/stripe/webhook')
@@ -112,7 +118,7 @@ describe('cron auth', () => {
     });
     const res = await cron('Bearer cron-test-secret');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ checked: 0, sent: 0, skipped: 0 });
+    expect(res.body).toEqual(withRetention({ checked: 0, sent: 0, skipped: 0 }));
   });
 
   test('the compare hashes both sides before timingSafeEqual', () => {
@@ -175,7 +181,7 @@ describe('trial reminder sends', () => {
 
     const first = await cron('Bearer cron-test-secret');
     expect(first.status).toBe(200);
-    expect(first.body).toEqual({ checked: 2, sent: 1, skipped: 1 });
+    expect(first.body).toEqual(withRetention({ checked: 2, sent: 1, skipped: 1 }));
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toEqual(['cus_sub_due@example.com']);
     expect(stripe.customers.retrieve).not.toHaveBeenCalledWith('cus_wipper');
@@ -183,13 +189,13 @@ describe('trial reminder sends', () => {
     sent.length = 0;
     const second = await cron('Bearer cron-test-secret');
     expect(second.status).toBe(200);
-    expect(second.body).toEqual({ checked: 2, sent: 0, skipped: 2 });
+    expect(second.body).toEqual(withRetention({ checked: 2, sent: 0, skipped: 2 }));
     expect(sent).toHaveLength(0);
 
     due.trial_end = dueEnd + 3600;
     const third = await cron('Bearer cron-test-secret');
     expect(third.status).toBe(200);
-    expect(third.body).toEqual({ checked: 2, sent: 1, skipped: 1 });
+    expect(third.body).toEqual(withRetention({ checked: 2, sent: 1, skipped: 1 }));
     expect(sent).toHaveLength(1);
   });
 

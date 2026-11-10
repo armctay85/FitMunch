@@ -704,6 +704,10 @@ input{border-radius:12px;min-height:48px}
    return;
   }
   if (!plan && urlParams.get('next') === 'billing') {
+   if (urlParams.get('intent') === 'cancel') {
+    window.location.href = '/app.html?cancelIntent=1#billing';
+    return;
+   }
    window.location.href = '/app.html#billing';
    return;
   }

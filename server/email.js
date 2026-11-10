@@ -453,6 +453,120 @@ async function sendSupportReceivedEmail(customerEmail, options = {}) {
   });
 }
 
+const RETENTION_COPY = {
+  3: {
+    subject: 'Your FitMunch week is still here',
+    headline: 'Your week is still here',
+    lede: 'It has been a few days.',
+    lines: [
+      'It has been a few days since you opened FitMunch.',
+      'Your meal plan is still saved. Open the app and pick up the next meal.',
+    ],
+  },
+  7: {
+    subject: 'Your FitMunch plan is waiting',
+    headline: 'A week since your last visit',
+    lede: 'Your plan is still saved.',
+    lines: [
+      'It has been a week since you last used FitMunch.',
+      'The meal plan and shopping list are still on your account. Open the app when you want to plan the next shop.',
+    ],
+  },
+  14: {
+    subject: 'Your FitMunch account is still here',
+    headline: 'Two weeks away',
+    lede: 'Nothing has been deleted.',
+    lines: [
+      'It has been two weeks since you last used FitMunch.',
+      'Your account and meal plan are still there. Open FitMunch when you are ready.',
+    ],
+  },
+};
+
+function buildRetentionNudge({ name, thresholdDays } = {}) {
+  const copy = RETENTION_COPY[thresholdDays];
+  if (!copy) return null;
+  const person = plainPersonName(name);
+  const { bodyHtml, bodyText } = brandedNote({
+    headline: copy.headline,
+    lede: copy.lede,
+    paragraphs: [`Hi ${person},`, ...copy.lines],
+    buttonUrl: APP_URL,
+    buttonLabel: 'Open FitMunch',
+  });
+  return { subject: copy.subject, bodyHtml, bodyText };
+}
+
+function buildWinBack({ name } = {}) {
+  const person = plainPersonName(name);
+  const { bodyHtml, bodyText } = brandedNote({
+    headline: 'You can cancel from Billing',
+    lede: 'Your plan stays until you cancel.',
+    paragraphs: [
+      `Hi ${person},`,
+      'You opened Billing to cancel.',
+      'You can finish cancelling in Billing any time. If you stay, your meal plan stays on the account.',
+    ],
+    buttonUrl: APP_URL,
+    buttonLabel: 'Open FitMunch',
+  });
+  return {
+    subject: 'Before you cancel FitMunch',
+    bodyHtml,
+    bodyText,
+  };
+}
+
+function retentionDryRun() {
+  return require('../lib/retention-nudges').DRY_RUN !== false;
+}
+
+function logDryRun(kind, options, subject) {
+  const userId = options && options.userId ? String(options.userId) : '';
+  const threshold = options && options.thresholdDays ? String(options.thresholdDays) : '';
+  console.log(`[retention-nudges] dry-run kind=${kind} user=${userId} threshold=${threshold} subject=${subject}`);
+}
+
+/**
+ * Inactivity note. DRY_RUN is hard-on, so this logs and returns.
+ * The Resend send function is not called.
+ */
+async function sendRetentionNudgeEmail(to, options = {}) {
+  const built = buildRetentionNudge(options);
+  if (!to || !built) return { success: false, dryRun: true, error: 'Nothing to send' };
+  if (retentionDryRun()) {
+    logDryRun('inactivity', options, built.subject);
+    return { success: true, dryRun: true, subject: built.subject, bodyHtml: built.bodyHtml, bodyText: built.bodyText };
+  }
+  return module.exports.sendEmail({
+    to,
+    subject: built.subject,
+    bodyHtml: built.bodyHtml,
+    bodyText: built.bodyText,
+    idempotencyKey: options.idempotencyKey,
+  });
+}
+
+/**
+ * One note after cancel intent. No discount and no price change.
+ * DRY_RUN is hard-on, so this logs and returns.
+ */
+async function sendWinBackEmail(to, options = {}) {
+  const built = buildWinBack(options);
+  if (!to || !built) return { success: false, dryRun: true, error: 'Nothing to send' };
+  if (retentionDryRun()) {
+    logDryRun('winback', options, built.subject);
+    return { success: true, dryRun: true, subject: built.subject, bodyHtml: built.bodyHtml, bodyText: built.bodyText };
+  }
+  return module.exports.sendEmail({
+    to,
+    subject: built.subject,
+    bodyHtml: built.bodyHtml,
+    bodyText: built.bodyText,
+    idempotencyKey: options.idempotencyKey,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
@@ -463,6 +577,10 @@ module.exports = {
   sendTrialReminderEmail,
   sendPremiumActivatedEmail,
   sendSupportReceivedEmail,
+  buildRetentionNudge,
+  buildWinBack,
+  sendRetentionNudgeEmail,
+  sendWinBackEmail,
   TRIAL_CANCEL_URL,
   APP_URL,
   SUPPORT_FROM,

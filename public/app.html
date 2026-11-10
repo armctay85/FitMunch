@@ -2227,6 +2227,10 @@ async function boot() {
  }
  const me = await API('/auth/me');
  if (!me.success) { logout(); return; }
+ if (params.get('cancelIntent') === '1') {
+  try { await API('/retention/cancel-intent', { method: 'POST', body: '{}' }); } catch (_) {}
+  window.history.replaceState({}, '', '/app.html#billing');
+ }
  S.user = me.user;
  S.role = me.user.role || 'client';
  if (returnSync && returnSync.status === 'trialing' && returnSync.trialEndsAt) {
