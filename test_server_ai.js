@@ -500,3 +500,115 @@ describe('AI routes', () => {
     expect(r.body.upgrade).toBe(true);
   });
 });
+
+describe('normal Coach chat provider failure', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const aiClient = require('./lib/ai-client');
+  const aiUsage = require('./lib/ai-usage');
+  const app = makeApp();
+  const REAL_REPLY = 'Warm up for a few minutes, then work up to your sets.';
+  const FALLBACK = "I couldn't finish that reply just then. Ask again in a moment.";
+  const originalChat = aiClient.chat.getMockImplementation();
+  const ask = (content = 'How should I warm up for squats?') => request(app)
+    .post('/api/ai/chat')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ intent: 'workout', messages: [{ role: 'user', content }] });
+
+  beforeEach(() => {
+    aiUsage.refundAiCall.mockClear();
+    aiUsage.checkAndConsume.mockClear();
+  });
+
+  afterEach(() => {
+    aiClient.chat.mockReset();
+    aiClient.chat.mockImplementation(originalChat);
+    jest.restoreAllMocks();
+  });
+
+  it('provider times out once then succeeds with the real reply', async () => {
+    aiClient.chat
+      .mockResolvedValueOnce({ ok: false, error: 'timeout', errorMessage: 'time budget exceeded', status: 504, provider: 'xai' })
+      .mockResolvedValueOnce({ ok: true, text: REAL_REPLY, provider: 'xai', model: 'grok', usage: { promptTokens: 3, completionTokens: 4 } });
+    const r = await ask();
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+    expect(r.body.reply).toBe(REAL_REPLY);
+    expect(r.body.fallback).toBeUndefined();
+    expect(aiClient.chat).toHaveBeenCalledTimes(2);
+    expect(aiClient.chat.mock.calls[0][0].budgetMs).toBe(12000);
+    expect(aiClient.chat.mock.calls[1][0].budgetMs).toBeGreaterThanOrEqual(2500);
+    expect(aiClient.chat.mock.calls[1][0].budgetMs).toBeLessThanOrEqual(12000);
+    expect(aiClient.chat.mock.calls[1][0].system).toBe(aiClient.chat.mock.calls[0][0].system);
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+  });
+
+  it('provider fails twice and returns a 200 fallback, not a 502', async () => {
+    aiClient.chat
+      .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 500 })
+      .mockResolvedValueOnce({ ok: false, error: 'timeout', errorMessage: 'time budget exceeded', status: 504, provider: 'xai' });
+    const r = await ask();
+    expect(r.status).toBe(200);
+    expect(r.status).not.toBe(502);
+    expect(r.body).toEqual({ success: true, reply: FALLBACK, fallback: true, provider: null });
+    expect(r.body.reply).not.toMatch(/\u2014| -- /);
+    expect(r.body.reply).not.toMatch(/\d|kcal|protein|calorie|vitamin|woolworths|coles|aldi/i);
+    expect(aiClient.chat).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips the retry when the budget is nearly spent and returns a 200 fallback', async () => {
+    let t = 1_700_000_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => t);
+    aiClient.chat.mockImplementation(async () => {
+      t += 10000;
+      return { ok: false, error: 'timeout', errorMessage: 'time budget exceeded', status: 504, provider: 'xai' };
+    });
+    const r = await ask();
+    expect(aiClient.chat).toHaveBeenCalledTimes(1);
+    expect(aiClient.chat.mock.calls[0][0].budgetMs).toBe(12000);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ success: true, reply: FALLBACK, fallback: true, provider: null });
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not charge the quota for a fallback reply', async () => {
+    aiClient.chat.mockResolvedValue({ ok: false, error: 'provider_error', provider: 'xai', status: 503 });
+    const r = await ask();
+    expect(r.status).toBe(200);
+    expect(r.body.fallback).toBe(true);
+    expect(r.body.provider).toBeNull();
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u-test', feature: 'chat' }));
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({ allowed: true }),
+      { userId: 'u-test', feature: 'chat' },
+    );
+  });
+
+  it('still returns 400 when the provider reports no user message, without a retry', async () => {
+    aiClient.chat.mockResolvedValue({ ok: false, error: 'no_user_message', provider: 'anthropic' });
+    const r = await ask('hi');
+    expect(r.status).toBe(400);
+    expect(r.body.error).toMatch(/at least one/i);
+    expect(aiClient.chat).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+  });
+
+  it('Coach renders a successful reply, including a fallback, without the error line', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+    const start = html.indexOf('async function sendChat()');
+    const end = html.indexOf('async function fetchWeeklyReview()');
+    const fn = html.slice(start, end);
+    const renderAt = fn.indexOf('if (r.success && r.reply)');
+    const errorAt = fn.indexOf('try again in a moment');
+    expect(renderAt).toBeGreaterThan(0);
+    expect(errorAt).toBeGreaterThan(renderAt);
+    expect(fn).toContain('renderMarkdownLite(r.reply)');
+    expect(fn).toContain("CHAT.messages.push({ role: 'assistant', content: r.reply })");
+    const bubble = (body) => (body.success && body.reply
+      ? { kind: 'reply', text: body.reply }
+      : { kind: 'error' });
+    expect(bubble({ success: true, reply: FALLBACK, fallback: true, provider: null })).toEqual({ kind: 'reply', text: FALLBACK });
+  });
+});

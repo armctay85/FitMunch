@@ -193,20 +193,26 @@ describe('smoke cap is only charged for answered calls', () => {
     expect(smokeUsed).toBe(1);
     expect(refunds).toBe(0);
   });
-  it('chat provider failure (502) refunds', async () => {
-    aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 403 });
-    expect((await chat(tokenFor('x@example.com', ID))).status).toBe(502);
+  it('chat provider failure refunds on a 200 fallback', async () => {
+    aiClient.chat
+      .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 403 })
+      .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 403 });
+    const r = await chat(tokenFor('x@example.com', ID));
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ success: true, fallback: true, provider: null });
     await flush();
     expect(smokeUsed).toBe(0);
     expect(refunds).toBe(1);
   });
-  it('chat app error (5xx from a throw) refunds', async () => {
-    aiClient.chat.mockRejectedValueOnce(new Error('boom'));
+  it('a thrown provider call refunds on a 200 fallback', async () => {
+    aiClient.chat.mockRejectedValueOnce(new Error('boom')).mockRejectedValueOnce(new Error('boom'));
     jest.spyOn(console, 'error').mockImplementation(() => {});
     const r = await chat(tokenFor('x@example.com', ID));
-    expect(r.status).toBeGreaterThanOrEqual(500);
+    expect(r.status).toBe(200);
+    expect(r.body.fallback).toBe(true);
     await flush();
     expect(smokeUsed).toBe(0);
+    expect(refunds).toBe(1);
   });
   it('insight fallback after a provider failure refunds even though it is a 200', async () => {
     aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 500 });
@@ -233,8 +239,12 @@ describe('smoke cap is only charged for answered calls', () => {
   });
   it('ten failed chats leave the cap untouched, so the next call is allowed', async () => {
     for (let i = 0; i < 10; i += 1) {
-      aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 429 });
-      await chat(tokenFor('x@example.com', ID));
+      aiClient.chat
+        .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 429 })
+        .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 429 });
+      const failed = await chat(tokenFor('x@example.com', ID));
+      expect(failed.status).toBe(200);
+      expect(failed.body.fallback).toBe(true);
       await flush();
     }
     expect(smokeUsed).toBe(0);
