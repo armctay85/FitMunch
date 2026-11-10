@@ -47,6 +47,8 @@ run_xcode() {
   echo "$device" > /tmp/pre-asc-audit-device
   rm -rf "$bundle"
   boot_sim "$udid"
+  # The iPad's first XCTest launch timed out at 61s. Warm after the region reboot.
+  bash "$ROOT/scripts/warm-simulator-launch.sh" "$udid"
   echo "=== xcodebuild test scheme=$scheme label=$label mode=$mode ==="
   xcodebuild test \
     -project FitMunch.xcodeproj \

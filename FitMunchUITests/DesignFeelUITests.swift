@@ -145,7 +145,7 @@ final class DesignFeelUITests: XCTestCase {
             if tab == "Me" {
                 XCTAssertTrue(app.staticTexts["Progress"].waitForExistence(timeout: 4))
                 XCTAssertTrue(app.staticTexts["Alex Morgan"].waitForExistence(timeout: 4))
-                XCTAssertTrue(app.staticTexts["alex@example.com"].waitForExistence(timeout: 2))
+                XCTAssertTrue(app.staticTexts["alex.morgan@example.com"].waitForExistence(timeout: 2))
                 XCTAssertFalse(app.staticTexts["Sample profile"].exists)
                 XCTAssertTrue(app.staticTexts["Premium"].waitForExistence(timeout: 4))
                 XCTAssertFalse(app.staticTexts["Alex Chen"].exists)

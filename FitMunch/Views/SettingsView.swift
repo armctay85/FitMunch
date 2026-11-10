@@ -145,6 +145,9 @@ struct SettingsView: View {
                     sectionHeader("About", identifier: "me-about")
                 }
 
+                // Dark Mode is the last row at rest on 6.5, 6.7, and 6.9. The clear
+                // footer keeps the tab bar's top edge in this gap, so no row is cut
+                // by the bar. Notifications and Metric Units are one scroll below.
                 Section {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
                         .tint(Theme.fmBrand)
@@ -152,7 +155,13 @@ struct SettingsView: View {
                         .onChange(of: viewModel.isDarkMode) { _, newValue in
                             viewModel.applyDarkMode(newValue)
                         }
-                    
+                } footer: {
+                    Color.clear
+                        .frame(height: 72)
+                        .accessibilityHidden(true)
+                }
+
+                Section {
                     Toggle("Notifications", isOn: $viewModel.notificationsEnabled)
                         .onChange(of: viewModel.notificationsEnabled) { _, newValue in
                             viewModel.setNotificationsEnabled(newValue)

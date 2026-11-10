@@ -96,7 +96,7 @@ enum ScreenshotLaunch {
 
         #if DEBUG
         static let name = "Alex Morgan"
-        static let email = "alex@example.com"
+        static let email = "alex.morgan@example.com"
         #else
         static let name = ""
         static let email = ""
@@ -116,8 +116,8 @@ enum ScreenshotLaunch {
     static func prepareSession() {
         guard isActive else { return }
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
-        UserDefaults.standard.removeObject(forKey: "userDisplayName")
-        UserDefaults.standard.removeObject(forKey: "userEmail")
+        UserDefaults.standard.set(PersonaGate.name, forKey: "userDisplayName")
+        UserDefaults.standard.set(PersonaGate.email, forKey: "userEmail")
         UserDefaults.standard.set(true, forKey: "useMetricUnits")
         // Match SettingsViewModel's initial toggle so loadPreferences does not
         // flip Notifications and present the system permission alert.
