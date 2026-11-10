@@ -64,6 +64,7 @@ run_capture() {
   local expected_h="$4"
   mkdir -p "$folder"
   prepare_sim "$udid"
+  bash "$ROOT/scripts/warm-simulator-launch.sh" "$udid"
 
   echo "Capturing on $udid -> $folder (${expected_w}x${expected_h})"
   rm -rf /tmp/fitmunch-appstore-screenshots
@@ -71,17 +72,8 @@ run_capture() {
   local rc=1
   local log="$folder/xcodebuild.log"
   rm -rf "$folder/Test.xcresult"
-  local creds="/tmp/fitmunch-qa-credentials"
-  rm -f "$creds"
-  local require_settings=0
-  if [[ -n "${QA_EMAIL:-}" && -n "${QA_PASSWORD:-}" ]]; then
-    umask 077
-    printf '%s\n%s\n' "$QA_EMAIL" "$QA_PASSWORD" > "$creds"
-    require_settings=1
-    echo "Me capture will sign in. Credentials are not printed."
-  else
-    echo "QA_EMAIL or QA_PASSWORD is unset. The Me capture will skip."
-  fi
+  local require_settings=1
+  echo "Me capture uses the screenshot persona. It does not sign in."
   set +e
   local attempt
   for attempt in 1 2; do
@@ -96,8 +88,6 @@ run_capture() {
       CODE_SIGNING_REQUIRED=NO \
       CODE_SIGN_IDENTITY=- \
       TEST_RUNNER_SCREENSHOT_DIR="$folder" \
-      TEST_RUNNER_QA_EMAIL="${QA_EMAIL:-}" \
-      TEST_RUNNER_QA_PASSWORD="${QA_PASSWORD:-}" \
       | tee "$log"
     rc=${PIPESTATUS[0]}
     if [[ "$rc" -eq 0 ]]; then
@@ -109,7 +99,6 @@ run_capture() {
     fi
     break
   done
-  rm -f "$creds"
   set -e
   if [[ "$rc" -ne 0 ]]; then
     echo "xcodebuild failed for $udid (exit $rc)"

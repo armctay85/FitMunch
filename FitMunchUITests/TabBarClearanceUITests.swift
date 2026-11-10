@@ -68,9 +68,7 @@ final class TabBarClearanceUITests: XCTestCase {
                 "\(item.identifier) sits under the tab bar (control \(control.frame), tab buttons top \(barTop))"
             )
             if item.identifier == "plan-generate" {
-                // First frame, before any drag: this is the store shot's resting state.
                 assertPlanRestsClearOfGenerate(control, in: app)
-                assertMondayDinnerClearsGenerate(control, in: app)
             }
         }
     }
@@ -95,63 +93,83 @@ final class TabBarClearanceUITests: XCTestCase {
         }
     }
 
-    /// Resting Plan, measured before any drag or scroll. Every meal row on screen
-    /// ends above Generate with its title and kcal line, or is fully hidden.
-    /// The fold is the bottom of the week's scroll view (the Generate bar's top),
-    /// or Generate's minY if that scroll view is not found.
+    /// Resting Plan, before any drag. The lowest meal line ends at least 8pt above the Generate fold.
     private func assertPlanRestsClearOfGenerate(_ generate: XCUIElement, in app: XCUIApplication) {
         let week = app.staticTexts["High protein training week"]
         XCTAssertTrue(week.waitForExistence(timeout: 8), "Store launch did not seed the week on Plan")
-        // One frame for the fold guard to settle after the tab opens.
-        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        let scroller = tallestPlanScroll(in: app)
-        var fold = generate.frame.minY
-        if scroller.exists, scroller.frame.height > 80 {
-            fold = min(fold, scroller.frame.maxY)
-        }
+        let fold = planFold(generate: generate, in: app)
         let top = week.frame.minY
-        let texts = staticTextFrames(in: app).filter { $0.frame.height > 1 && $0.frame.minY >= top - 1 }
-        print("PLAN_REST fold=\(fold) generateMinY=\(generate.frame.minY) texts=\(texts.count)")
-
-        let cut = texts.first { $0.frame.minY < fold - 1 && $0.frame.maxY > fold + 1 }
+        let texts = staticTextFrames(in: app).filter { row in
+            row.frame.height > 8 && row.frame.minY >= top - 1 && row.frame.minY < fold
+        }
+        let limit = fold - 8
+        print("PLAN_REST fold=\(fold) generateMinY=\(generate.frame.minY) limit=\(limit) texts=\(texts.count)")
+        let cut = texts.first { $0.frame.maxY > limit + 0.5 }
         XCTAssertNil(
             cut,
-            "Plan at rest: '\(cut?.label ?? "")' \(String(describing: cut?.frame)) is cut by Generate (fold \(fold))"
+            "Plan at rest: '\(cut?.label ?? "")' \(String(describing: cut?.frame)) ends below the Generate fold minus 8pt (fold \(fold), limit \(limit))"
         )
-
-        let kcalLines = texts.filter { $0.label.contains("protein per serve") }
-        XCTAssertFalse(kcalLines.isEmpty, "Plan at rest shows no meal rows")
-        for line in kcalLines {
-            let title = texts
-                .filter { !$0.label.contains("protein per serve") }
-                .filter { $0.frame.maxY <= line.frame.minY + 1 && $0.frame.maxY >= line.frame.minY - 12 }
-                .max { $0.frame.maxY < $1.frame.maxY }
-            guard let title else {
-                XCTFail("Meal row kcal line '\(line.label)' at \(line.frame) has no title above it at rest")
-                continue
-            }
-            let titleShown = title.frame.maxY <= fold + 1
-            let lineShown = line.frame.maxY <= fold + 1
-            XCTAssertEqual(
-                titleShown,
-                lineShown,
-                "Plan at rest splits '\(title.label)' at Generate (title \(title.frame), kcal \(line.frame), fold \(fold))"
+        let meals = texts.filter { $0.label.contains("protein per serve") }
+        XCTAssertFalse(meals.isEmpty, "Plan at rest shows no whole meal row above Generate")
+        XCTAssertGreaterThanOrEqual(
+            meals.count,
+            3,
+            "Plan at rest shows \(meals.count) meal rows above Generate. Breakfast, Lunch, and Dinner must all rest above the fold."
+        )
+        for label in ["BREAKFAST", "LUNCH", "DINNER"] {
+            XCTAssertTrue(
+                texts.contains { $0.label.caseInsensitiveCompare(label) == .orderedSame },
+                "Plan at rest is missing the \(label) row above Generate"
             )
         }
-
-        let shown = kcalLines.filter { $0.frame.maxY <= fold + 1 }
-        XCTAssertFalse(shown.isEmpty, "No whole meal row above Generate at rest")
-        if let last = shown.max(by: { $0.frame.maxY < $1.frame.maxY }) {
-            print("PLAN_REST lastRow kcalMaxY=\(last.frame.maxY) fold=\(fold)")
+        assertMondayDinnerRests(above: limit, fold: fold, in: app)
+        if let last = meals.max(by: { $0.frame.maxY < $1.frame.maxY }) {
+            print("PLAN_REST lastRow='\(last.label)' maxY=\(last.frame.maxY) limit=\(limit)")
             XCTAssertLessThanOrEqual(
                 last.frame.maxY,
-                generate.frame.minY,
-                "Last meal row at rest ends under Generate (kcal \(last.frame), button \(generate.frame))"
+                limit + 0.5,
+                "Last meal row at rest is under the Generate fold (row \(last.frame), fold \(fold))"
             )
         }
     }
 
-    /// One accessibility snapshot, so the rest check reads every frame from the same moment.
+    /// Monday dinner is the last seeded row. At rest, before any drag, its title
+    /// and its kcal line both end at least 8pt above the Generate fold.
+    private func assertMondayDinnerRests(above limit: CGFloat, fold: CGFloat, in app: XCUIApplication) {
+        let byID = app.staticTexts["plan-monday-dinner"]
+        let title = byID.waitForExistence(timeout: 4) ? byID : app.staticTexts[mondayDinnerName]
+        XCTAssertTrue(title.waitForExistence(timeout: 2), "Monday dinner title is not on Plan at rest")
+        XCTAssertEqual(title.label, mondayDinnerName, "Monday dinner title is not the seeded meal")
+        let titleFrame = title.frame
+        print("PLAN_REST dinnerTitle='\(title.label)' maxY=\(titleFrame.maxY) fold=\(fold) limit=\(limit)")
+        XCTAssertGreaterThan(titleFrame.height, 8, "Monday dinner title has no frame \(titleFrame)")
+        XCTAssertLessThanOrEqual(
+            titleFrame.maxY,
+            limit + 0.5,
+            "Monday dinner title at rest ends below the Generate fold minus 8pt (title \(titleFrame), fold \(fold), limit \(limit))"
+        )
+        let meta = app.staticTexts[mondayDinnerMeta]
+        XCTAssertTrue(meta.waitForExistence(timeout: 2), "Monday dinner kcal line is not on Plan at rest")
+        print("PLAN_REST dinnerMeta maxY=\(meta.frame.maxY) limit=\(limit)")
+        XCTAssertLessThanOrEqual(
+            meta.frame.maxY,
+            limit + 0.5,
+            "Monday dinner kcal line at rest ends below the Generate fold minus 8pt (row \(meta.frame), fold \(fold), limit \(limit))"
+        )
+    }
+
+    private let mondayDinnerName = "Salmon, potatoes, greens"
+    private let mondayDinnerMeta = "680 kcal · 44g protein per serve · 20 min"
+
+    /// Top edge of the Generate bar. This is the clip, not the green button under the padding.
+    private func planFold(generate: XCUIElement, in app: XCUIApplication) -> CGFloat {
+        let marked = app.descendants(matching: .any)["plan-fold"]
+        XCTAssertTrue(marked.waitForExistence(timeout: 4), "plan-fold missing above Generate")
+        XCTAssertGreaterThan(marked.frame.minY, 40, "plan-fold has no frame \(marked.frame)")
+        XCTAssertLessThan(marked.frame.minY, generate.frame.minY, "plan-fold is not above Generate \(generate.frame)")
+        return marked.frame.minY
+    }
+
     private func staticTextFrames(in app: XCUIApplication) -> [(label: String, frame: CGRect)] {
         guard let root = try? app.snapshot() else { return [] }
         var found: [(label: String, frame: CGRect)] = []
@@ -165,72 +183,6 @@ final class TabBarClearanceUITests: XCTestCase {
         }
         walk(root)
         return found
-    }
-
-    /// Monday dinner is the row above Generate. Its frame has to end on or above the button.
-    /// The plan is generated first. An empty Plan has no Monday row to measure.
-    private func assertMondayDinnerClearsGenerate(_ generate: XCUIElement, in app: XCUIApplication) {
-        generatePlanIfNeeded(generate, in: app)
-        print("PLAN_AX_DUMP_BEGIN")
-        print(app.debugDescription)
-        print("PLAN_AX_DUMP_END")
-        let dinner = app.staticTexts["plan-monday-dinner"]
-        let scroller = tallestPlanScroll(in: app)
-        var nudges = 0
-        while nudges < 8 && !mondayDinnerClears(dinner, generate: generate) {
-            let tooHigh = dinner.exists && dinner.frame.height > 8 && dinner.frame.midY < 160
-            dragPlan(scroller.exists ? scroller : app, revealLower: !tooHigh)
-            nudges += 1
-        }
-        XCTAssertTrue(dinner.waitForExistence(timeout: 8), "Monday dinner missing")
-        XCTAssertGreaterThan(dinner.frame.height, 8, "Monday dinner has no frame \(dinner.frame)")
-        XCTAssertLessThanOrEqual(
-            dinner.frame.maxY,
-            generate.frame.minY,
-            "Monday dinner ends under Generate (dinner \(dinner.frame), button \(generate.frame))"
-        )
-    }
-
-    /// Store shots stay at the top of the week, so Monday dinner starts below
-    /// the fold. Nudge it into the band above Generate before measuring.
-    private func mondayDinnerClears(_ dinner: XCUIElement, generate: XCUIElement) -> Bool {
-        guard dinner.exists else { return false }
-        let frame = dinner.frame
-        guard frame.height > 8, frame.minY >= 0 else { return false }
-        return frame.maxY <= generate.frame.minY
-    }
-
-    private func tallestPlanScroll(in app: XCUIApplication) -> XCUIElement {
-        let scrolls = app.scrollViews.allElementsBoundByIndex.filter { $0.frame.height > 80 }
-        return scrolls.max(by: { $0.frame.height < $1.frame.height }) ?? app.scrollViews.firstMatch
-    }
-
-    /// revealLower moves the finger up so rows below the fold come into view.
-    private func dragPlan(_ element: XCUIElement, revealLower: Bool) {
-        let startY: CGFloat = revealLower ? 0.70 : 0.40
-        let endY: CGFloat = revealLower ? 0.46 : 0.64
-        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
-        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
-        start.press(forDuration: 0.05, thenDragTo: end)
-    }
-
-    /// Screenshot launch fills a week on appear. If that row is not up yet, tap the
-    /// plan action so Monday exists before the clearance check looks for it.
-    private func generatePlanIfNeeded(_ generate: XCUIElement, in app: XCUIApplication) {
-        let week = app.staticTexts["High protein training week"]
-        if week.waitForExistence(timeout: 4) { return }
-        let build = app.buttons["plan-build-week"]
-        if build.waitForExistence(timeout: 2) {
-            if !build.isHittable {
-                _ = scrollUntilHittable([build], in: app)
-            }
-            if build.isHittable {
-                build.tap()
-            }
-        } else if generate.isHittable {
-            generate.tap()
-        }
-        _ = week.waitForExistence(timeout: 8)
     }
 
     /// Screenshot launch already allows AI data. A full-app swipe on the short

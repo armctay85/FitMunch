@@ -31,6 +31,15 @@ enum AuditLaunch {
     static var isAuthError: Bool { flag(authError) }
     static var isFlowQA: Bool { flag(flowQA) }
 
+    /// Any `-Audit*` launch argument. Release does not read process arguments.
+    static var isAnyAudit: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-Audit") }
+        #else
+        return false
+        #endif
+    }
+
     private static func flag(_ name: String) -> Bool {
         #if DEBUG
         return ProcessInfo.processInfo.arguments.contains(name)

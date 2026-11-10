@@ -48,18 +48,26 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
-    /// Me in store-screenshot mode. `-AppStoreScreenshots` signs in the
-    /// Debug-only store persona (ScreenshotLaunch.PersonaGate), so public art
-    /// never shows the internal QA account or its mailbox.
+    /// Me uses the Debug screenshot persona. It does not sign in as the QA account.
     func testCaptureSignedInMe() throws {
+        let name = "Alex Morgan"
+        let email = "alex.morgan@example.com"
+        for token in ["QA", "test", "example", "+"] {
+            XCTAssertFalse(name.localizedCaseInsensitiveContains(token), "persona name contains \(token)")
+        }
+        // Reserved domain, so the shot never shows a real person's mailbox.
+        XCTAssertTrue(email.hasSuffix("@example.com"), "persona email is not on example.com")
+        for token in ["QA", "test", "+"] {
+            XCTAssertFalse(email.localizedCaseInsensitiveContains(token), "persona email contains \(token)")
+        }
         app = XCUIApplication()
         app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared in screenshot mode.")
         openTab("Me")
         dismissSystemAlerts()
-        XCTAssertTrue(app.staticTexts["Alex Morgan"].waitForExistence(timeout: 12), "Store persona name did not appear on Me")
-        XCTAssertTrue(app.staticTexts["alex@example.com"].waitForExistence(timeout: 4), "Store persona email did not appear on Me")
+        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 12), "Store persona name did not appear on Me")
+        XCTAssertTrue(app.staticTexts[email].waitForExistence(timeout: 4), "Store persona email did not appear on Me")
         XCTAssertFalse(app.staticTexts["FitMunch QA"].exists, "QA account name is on the Me shot")
         XCTAssertFalse(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "hello+qa")).firstMatch.exists,
@@ -85,6 +93,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
             assertPlanSummaryIsFullyVisible()
+            assertPlanRowsRestAboveGenerate()
         case "settings":
             break
         default:
@@ -136,6 +145,52 @@ final class AppStoreScreenshotTests: XCTestCase {
             frame.maxY,
             generate.frame.minY,
             "Plan summary runs into Generate (summary \(frame), button \(generate.frame))"
+        )
+    }
+
+    /// No drag. Every visible week line ends at least 8pt above the Generate fold.
+    private func assertPlanRowsRestAboveGenerate() {
+        let week = app.staticTexts["High protein training week"]
+        let generate = app.buttons["plan-generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 4), "Generate missing")
+        let fold = app.descendants(matching: .any)["plan-fold"]
+        XCTAssertTrue(fold.waitForExistence(timeout: 4), "plan-fold missing")
+        XCTAssertLessThan(fold.frame.minY, generate.frame.minY, "plan-fold is not above Generate")
+        let limit = fold.frame.minY - 8
+        guard let root = try? app.snapshot() else {
+            XCTFail("Plan snapshot failed")
+            return
+        }
+        var cut: (String, CGRect)?
+        var mealCount = 0
+        func walk(_ node: XCUIElementSnapshot) {
+            if node.elementType == .staticText,
+               node.frame.height > 8,
+               node.frame.minY >= week.frame.minY - 1,
+               node.frame.minY < fold.frame.minY {
+                if node.label.contains("protein per serve") { mealCount += 1 }
+                if node.frame.maxY > limit + 0.5, cut == nil {
+                    cut = (node.label, node.frame)
+                }
+            }
+            for child in node.children { walk(child) }
+        }
+        walk(root)
+        XCTAssertNil(
+            cut,
+            "Plan at rest: '\(cut?.0 ?? "")' \(String(describing: cut?.1)) ends below the Generate fold minus 8pt (fold \(fold.frame.minY))"
+        )
+        XCTAssertGreaterThan(mealCount, 0, "Plan at rest shows no whole meal row")
+        XCTAssertGreaterThanOrEqual(mealCount, 3, "Plan at rest shows \(mealCount) meal rows. Breakfast, Lunch, and Dinner must all rest above Generate.")
+        let byID = app.staticTexts["plan-monday-dinner"]
+        let dinner = byID.waitForExistence(timeout: 4) ? byID : app.staticTexts["Salmon, potatoes, greens"]
+        XCTAssertTrue(dinner.waitForExistence(timeout: 2), "Monday dinner title is not on the Plan shot")
+        XCTAssertEqual(dinner.label, "Salmon, potatoes, greens", "Monday dinner title is not the seeded meal")
+        print("PLAN_SHOT dinnerTitle maxY=\(dinner.frame.maxY) fold=\(fold.frame.minY) limit=\(limit)")
+        XCTAssertLessThanOrEqual(
+            dinner.frame.maxY,
+            limit + 0.5,
+            "Monday dinner title ends below the Generate fold minus 8pt (title \(dinner.frame), fold \(fold.frame.minY))"
         )
     }
 

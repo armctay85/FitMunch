@@ -1,8 +1,5 @@
 import SwiftUI
-
-/// Named space of the week's scroll view. Row frames in it are measured
-/// against the visible height so a row is never left half under the fold.
-private let planScrollSpace = "plan-scroll"
+import UIKit
 
 /// AI meal planner. Same `/api/meal-plan/generate` rail as the web app.
 struct MealPlanView: View {
@@ -18,8 +15,6 @@ struct MealPlanView: View {
     @State private var plansGenerated = 0
     @State private var freeLimitHits = 0
     @State private var showConsent = false
-    /// Visible height of the week's scroll view, which ends at the Generate bar.
-    @State private var planViewportHeight: CGFloat = 0
     @EnvironmentObject private var auth: AuthManager
     @ObservedObject private var consent = AIDataConsent.shared
 
@@ -81,16 +76,21 @@ struct MealPlanView: View {
         }
     }
 
-    /// Generate is a sibling under the scroll view, so the week ends at the
-    /// bar's top edge and no row can sit under it.
+    /// Generate is a sibling under the week, so rows cannot draw through the bar.
     /// A generated plan parks Monday dinner at the bottom of that scroll view.
-    /// Store and audit launches stay at the top so plan.summary is not cut
-    /// under the targets header on the 6.9-inch shot.
+    /// Store and audit launches stay at the top and always show Monday
+    /// breakfast, lunch, and dinner above the bar. Short phones get tighter
+    /// spacing, not fewer rows.
+    @ViewBuilder
     private var planScroll: some View {
-        ScrollViewReader { proxy in
-            scrollBody
-                .onAppear { revealMondayDinner(proxy) }
-                .onChange(of: plan?.planName) { _, _ in revealMondayDinner(proxy) }
+        if keepsPlanSummaryVisible {
+            fittedStoreWeek
+        } else {
+            ScrollViewReader { proxy in
+                scrollBody
+                    .onAppear { revealMondayDinner(proxy) }
+                    .onChange(of: plan?.planName) { _, _ in revealMondayDinner(proxy) }
+            }
         }
     }
 
@@ -102,30 +102,20 @@ struct MealPlanView: View {
     }
 
     /// App Store screenshots and audit launches use these flags.
-    /// Release ignores them: ScreenshotLaunch.isActive is false there and the
-    /// audit reads below are compiled into Debug only.
+    /// Release never reads them: each helper is empty outside Debug.
     private var keepsPlanSummaryVisible: Bool {
         if ScreenshotLaunch.isActive { return true }
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if args.contains(AuditLaunch.flowQA) { return true }
-        return args.contains { $0.hasPrefix("-Audit") }
-        #else
-        return false
-        #endif
+        if AuditLaunch.isFlowQA { return true }
+        return AuditLaunch.isAnyAudit
     }
 
-    private var foldGuard: PlanFoldGuard {
-        PlanFoldGuard(enabled: keepsPlanSummaryVisible, viewportHeight: planViewportHeight)
-    }
-
-    /// Opaque bar under the week. It is a sibling of the scroll view, not an
-    /// overlay, so the list's last visible pixel is the bar's top edge.
+    /// Hairline at the top of the Generate bar. UI tests measure the fold here,
+    /// which is the scroll edge, not the green button below the padding.
     private var generateBar: some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(Theme.fmSeparator)
-                .frame(height: 0.5)
+            FoldMarker()
+                .frame(height: 1)
+                .frame(maxWidth: .infinity)
             generateButton
                 .padding(.horizontal, Theme.Spacing.four)
                 .padding(.vertical, Theme.Spacing.four)
@@ -173,11 +163,6 @@ struct MealPlanView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.three) {
                 OfflineNotice()
 
-                Text("Build a week from your calorie and protein targets.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
                 if let errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
@@ -199,19 +184,95 @@ struct MealPlanView: View {
         .defaultScrollAnchor(.top)
         .scrollClipDisabled(false)
         .contentMargins(.bottom, 16, for: .scrollContent)
-        .coordinateSpace(name: planScrollSpace)
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .preference(key: PlanViewportHeightKey.self, value: proxy.size.height)
-            }
-            .accessibilityHidden(true)
+    }
+
+    /// Largest view of the week that fits above the Generate bar.
+    /// `contentMargins` only pads the tail of a scroll view, so a row that
+    /// lands on the resting fold stays cut. Extra rows past Monday dinner are
+    /// added only when they fit. Monday breakfast, lunch, and dinner are never
+    /// dropped: on the short phone (6.5) the compact layout trims padding and
+    /// spacing, never type size, so all three rows rest above the fold. The
+    /// bottom padding is inside the fitted height, so the last line ends above
+    /// the fold.
+    private var fittedStoreWeek: some View {
+        ViewThatFits(in: .vertical) {
+            storeWeek(.full)
+            storeWeek(.snack)
+            storeWeek(.dinner)
+            storeWeek(.dinner, compact: true)
         }
-        .onPreferenceChange(PlanViewportHeightKey.self) { height in
-            if abs(height - planViewportHeight) > 0.5 {
-                planViewportHeight = height
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func storeWeek(_ stop: StoreWeekStop, compact: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: compact ? Theme.Spacing.two : Theme.Spacing.three) {
+            OfflineNotice()
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
+            }
+            if let plan {
+                fittedPlan(plan, stop: stop, compact: compact)
+            } else if isLoading {
+                LoadingSkeleton(rows: 3, label: "Loading your week", identifier: "plan-loading")
+            } else {
+                planEmptyState
             }
         }
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.top, compact ? Theme.Spacing.one : Theme.Spacing.two)
+        .padding(.bottom, compact ? Theme.Spacing.two : 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func fittedPlan(_ plan: MealPlanPayload, stop: StoreWeekStop, compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? Theme.Spacing.two : Theme.Spacing.three) {
+            VStack(alignment: .leading, spacing: compact ? Theme.Spacing.one : Theme.Spacing.two) {
+                Text(plan.planName ?? "Your plan")
+                    .font(.title3.bold())
+                    .accessibilityIdentifier("plan-preview")
+                if let summary = plan.summary {
+                    Text(summary)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("plan-summary")
+                }
+            }
+            if let monday = (plan.days ?? []).first(where: { $0.day == "Monday" }) {
+                fittedDay(monday, stop: stop, compact: compact)
+            }
+            if stop == .full {
+                ForEach((plan.days ?? []).filter { $0.day != "Monday" }, id: \.day) { day in
+                    fittedDay(day, stop: .full, compact: compact)
+                }
+            }
+        }
+    }
+
+    private func fittedDay(_ day: MealPlanDay, stop: StoreWeekStop, compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : Theme.Spacing.two) {
+            Text(day.day ?? "Day")
+                .font(.headline)
+            mealRow("Breakfast", day.meals?.breakfast)
+            mealRow("Lunch", day.meals?.lunch)
+            mealRow("Dinner", day.meals?.dinner, identifier: day.day == "Monday" ? "plan-monday-dinner" : nil)
+            if stop.includes("Snack") {
+                mealRow("Snack", day.meals?.snack)
+            }
+            if stop == .full || stop == .snack, let totals = day.dailyTotals {
+                Text("Day total · \(totals.calories ?? 0) kcal · \(totals.protein ?? 0)g protein")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.fmSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.vertical, compact ? 10 : Theme.Spacing.four)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
     }
 
     private func planSummary(_ plan: MealPlanPayload) -> some View {
@@ -232,7 +293,6 @@ struct MealPlanView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.two) {
                 Text(day.day ?? "Day")
                     .font(.headline)
-                    .modifier(foldGuard)
                 mealRow("Breakfast", day.meals?.breakfast)
                 mealRow("Lunch", day.meals?.lunch)
                 mealRow("Dinner", day.meals?.dinner, identifier: day.day == "Monday" ? "plan-monday-dinner" : nil)
@@ -242,7 +302,6 @@ struct MealPlanView: View {
                         .font(.footnote)
                         .foregroundStyle(Theme.fmSecondary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .modifier(foldGuard)
                 }
             }
             .padding(Theme.Spacing.four)
@@ -308,11 +367,9 @@ struct MealPlanView: View {
             if let identifier {
                 mealRowLabel(label, meal, identifier: identifier)
                     .id(identifier)
-                    .modifier(foldGuard)
             } else {
                 mealRowLabel(label, meal, identifier: nil)
                     .accessibilityElement(children: .contain)
-                    .modifier(foldGuard)
             }
         }
     }
@@ -391,53 +448,35 @@ struct MealPlanView: View {
     }
 }
 
-private struct PlanViewportHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+/// How much of the seeded week fits above the Generate bar. Monday
+/// breakfast, lunch, and dinner are always shown; only extras are optional.
+private enum StoreWeekStop {
+    case full, snack, dinner
+
+    func includes(_ meal: String) -> Bool {
+        switch self {
+        case .full, .snack:
+            return true
+        case .dinner:
+            return meal != "Snack"
+        }
     }
 }
 
-private struct PlanRowFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
-/// Store and audit launches rest at the top of the week. A row that crosses
-/// the bottom of the scroll view is hidden whole, so the resting shot never
-/// shows a cut meal title or a title without its kcal line. Normal launches
-/// pass enabled = false and are not measured.
-private struct PlanFoldGuard: ViewModifier {
-    let enabled: Bool
-    let viewportHeight: CGFloat
-    @State private var frame: CGRect = .zero
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(crossesFold ? 0 : 1)
-            .accessibilityHidden(crossesFold)
-            .background {
-                if enabled {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .preference(key: PlanRowFrameKey.self, value: proxy.frame(in: .named(planScrollSpace)))
-                    }
-                    .accessibilityHidden(true)
-                }
-            }
-            .onPreferenceChange(PlanRowFrameKey.self) { next in
-                if next != frame {
-                    frame = next
-                }
-            }
+/// One-point fold marker. A SwiftUI shape's accessibility frame was not the
+/// bar's top edge, so the UI test reads this view's bounds.
+private struct FoldMarker: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isAccessibilityElement = true
+        view.accessibilityIdentifier = "plan-fold"
+        view.accessibilityLabel = "plan-fold"
+        view.backgroundColor = UIColor.separator
+        view.isUserInteractionEnabled = false
+        return view
     }
 
-    private var crossesFold: Bool {
-        guard enabled, viewportHeight > 0, frame.height > 0 else { return false }
-        return frame.minY < viewportHeight && frame.maxY > viewportHeight
-    }
+    func updateUIView(_ uiView: UIView, context: Context) {}
 }
 
 #Preview {

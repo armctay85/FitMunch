@@ -13,6 +13,7 @@ mkdir -p "$OUT"
 UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
 echo "Using simulator $UDID"
 bash "$ROOT/scripts/set-simulator-region-au.sh" "$UDID"
+bash "$ROOT/scripts/warm-simulator-launch.sh" "$UDID"
 
 rm -rf /tmp/fitmunch-flow-recording
 mkdir -p /tmp/fitmunch-flow-recording
