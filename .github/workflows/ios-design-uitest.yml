@@ -12,6 +12,7 @@ on:
       - "project.yml"
       - ".github/workflows/ios-design-uitest.yml"
       - "scripts/run-design-uitest.sh"
+      - "scripts/warm-simulator-launch.sh"
   push:
     branches: [main, master]
     paths:
@@ -20,6 +21,7 @@ on:
       - "project.yml"
       - ".github/workflows/ios-design-uitest.yml"
       - "scripts/run-design-uitest.sh"
+      - "scripts/warm-simulator-launch.sh"
 
 permissions:
   contents: read

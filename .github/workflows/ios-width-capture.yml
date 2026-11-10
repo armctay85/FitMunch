@@ -91,6 +91,7 @@ jobs:
             local udid="$2"
             local folder="$3"
             bash scripts/set-simulator-region-au.sh "$udid"
+            bash scripts/warm-simulator-launch.sh "$udid"
             echo "$folder" > /tmp/fitmunch-width-device
             local bundle="artifacts/width-capture/${folder}.xcresult"
             rm -rf "$bundle"

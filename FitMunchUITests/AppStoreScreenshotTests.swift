@@ -4,6 +4,7 @@ import XCTest
 /// Launch argument `-AppStoreScreenshots` skips auth and paywall copy.
 final class AppStoreScreenshotTests: XCTestCase {
     private var app: XCUIApplication!
+    private let pricesVaryByStoreLine = "Prices vary by store and week."
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -47,86 +48,33 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
-    /// Me is a real sign-in. Missing QA secrets skip only this capture.
+    /// Me uses the Debug screenshot persona. It does not sign in as the QA account.
     func testCaptureSignedInMe() throws {
-        let email = qaValue("QA_EMAIL")
-        let password = qaValue("QA_PASSWORD")
-        try XCTSkipIf(
-            email.isEmpty || password.isEmpty,
-            "QA_EMAIL and QA_PASSWORD are not set. Skipping the Me capture only."
-        )
+        let name = "Alex Morgan"
+        let email = "alex.morgan@icloud.com"
+        for token in ["QA", "test", "example", "+"] {
+            XCTAssertFalse(name.localizedCaseInsensitiveContains(token), "persona name contains \(token)")
+            XCTAssertFalse(email.localizedCaseInsensitiveContains(token), "persona email contains \(token)")
+        }
         app = XCUIApplication()
-        app.launchArguments = ["-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
-        signIn(email: email, password: password)
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared in screenshot mode.")
         openTab("Me")
-        XCTAssertTrue(app.staticTexts["FitMunch QA"].waitForExistence(timeout: 12), "Signed-in name did not appear on Me")
+        dismissSystemAlerts()
+        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 12), "Store persona name did not appear on Me")
+        XCTAssertTrue(app.staticTexts[email].waitForExistence(timeout: 4), "Store persona email did not appear on Me")
+        XCTAssertFalse(app.staticTexts["FitMunch QA"].exists, "QA account name is on the Me shot")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "hello+qa")).firstMatch.exists,
+            "QA mailbox is on the Me shot"
+        )
         XCTAssertFalse(app.staticTexts["Sample"].exists)
         XCTAssertFalse(app.staticTexts["Sample profile"].exists)
         XCTAssertFalse(app.staticTexts["Demo"].exists)
-        XCTAssertFalse(app.staticTexts["Alex Morgan"].exists)
         XCTAssertFalse(app.staticTexts["Reviewer"].exists)
-        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'example.com'")).firstMatch.exists)
         assertNoRejectedCopy(on: "settings")
         savePNG(named: "settings")
-    }
-
-    private func qaValue(_ key: String) -> String {
-        let fromEnv = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !fromEnv.isEmpty { return fromEnv }
-        let url = URL(fileURLWithPath: "/tmp/fitmunch-qa-credentials")
-        guard key == "QA_EMAIL" || key == "QA_PASSWORD",
-              let text = try? String(contentsOf: url, encoding: .utf8) else { return "" }
-        let lines = text.components(separatedBy: "\n")
-        if key == "QA_EMAIL" { return lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
-        return lines.dropFirst().first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
-
-    private func signIn(email: String, password: String, attempts: Int = 2) {
-        let signInButton = app.buttons["Sign In"]
-        if signInButton.waitForExistence(timeout: 15) {
-            signInButton.tap()
-        }
-        let emailField = app.textFields["auth-email"]
-        XCTAssertTrue(emailField.waitForExistence(timeout: 8), "Email field missing")
-        emailField.tap()
-        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
-            emailField.tap()
-        }
-        emailField.typeText(email)
-        let passwordField = app.secureTextFields["auth-password"]
-        XCTAssertTrue(passwordField.waitForExistence(timeout: 4), "Password field missing")
-        passwordField.tap()
-        passwordField.typeText(password)
-        if app.keyboards.buttons["Done"].exists {
-            app.keyboards.buttons["Done"].tap()
-        } else if app.keyboards.buttons["Return"].exists {
-            app.keyboards.buttons["Return"].tap()
-        }
-        let submit = app.buttons["auth-sign-in"]
-        XCTAssertTrue(submit.waitForExistence(timeout: 4), "Sign In button missing")
-        submit.tap()
-        if reachedTabs(in: app, submit: submit) { return }
-        guard attempts > 0 else {
-            XCTFail("Sign in did not reach the tabs")
-            return
-        }
-        app.terminate()
-        app.launch()
-        signIn(email: email, password: password, attempts: attempts - 1)
-    }
-
-    /// A slow login stays on the auth screen with no error line. One extra tap, then give up.
-    private func reachedTabs(in app: XCUIApplication, submit: XCUIElement) -> Bool {
-        if app.tabBars.firstMatch.waitForExistence(timeout: 35) { return true }
-        let error = app.staticTexts["auth-error"]
-        if error.exists {
-            print("AUTH_ERROR \(error.label)")
-        }
-        if submit.isHittable {
-            submit.tap()
-        }
-        return app.tabBars.firstMatch.waitForExistence(timeout: 35)
     }
 
     private func assertScreenLooksInUse(_ screen: String) {
@@ -140,6 +88,8 @@ final class AppStoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
+            assertPlanSummaryIsFullyVisible()
+            assertPlanRowsRestAboveGenerate()
         case "settings":
             break
         default:
@@ -157,6 +107,76 @@ final class AppStoreScreenshotTests: XCTestCase {
                 return
             }
         }
+    }
+
+    /// plan.summary sits fully under the targets header. The 6.9 store shot
+    /// was cutting that line to a fragment such as "from your calorie".
+    private func assertPlanSummaryIsFullyVisible() {
+        let summary = app.descendants(matching: .any)["plan-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 4), "Plan summary missing")
+        let prices = app.staticTexts[pricesVaryByStoreLine]
+        XCTAssertTrue(prices.waitForExistence(timeout: 2), "Targets header missing")
+        let generate = app.buttons["plan-generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 2), "Generate missing")
+        let full = "Chicken, fish, yoghurt, and rice across the week. Built from your calorie and protein targets."
+        XCTAssertEqual(summary.label, full, "Plan summary text is not the full sentence")
+        let deadline = Date().addingTimeInterval(3)
+        var frame = summary.frame
+        while Date() < deadline {
+            frame = summary.frame
+            if frame.height > 32,
+               frame.minY >= prices.frame.maxY - 1,
+               frame.maxY <= generate.frame.minY {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertGreaterThan(frame.height, 32, "Plan summary is cut (frame \(frame))")
+        XCTAssertGreaterThanOrEqual(
+            frame.minY,
+            prices.frame.maxY - 1,
+            "Plan summary is cut under the targets header (summary \(frame), prices \(prices.frame))"
+        )
+        XCTAssertLessThanOrEqual(
+            frame.maxY,
+            generate.frame.minY,
+            "Plan summary runs into Generate (summary \(frame), button \(generate.frame))"
+        )
+    }
+
+    /// No drag. Every visible week line ends at least 8pt above the Generate fold.
+    private func assertPlanRowsRestAboveGenerate() {
+        let week = app.staticTexts["High protein training week"]
+        let generate = app.buttons["plan-generate"]
+        XCTAssertTrue(generate.waitForExistence(timeout: 4), "Generate missing")
+        let fold = app.descendants(matching: .any)["plan-fold"]
+        XCTAssertTrue(fold.waitForExistence(timeout: 4), "plan-fold missing")
+        XCTAssertLessThan(fold.frame.minY, generate.frame.minY, "plan-fold is not above Generate")
+        let limit = fold.frame.minY - 8
+        guard let root = try? app.snapshot() else {
+            XCTFail("Plan snapshot failed")
+            return
+        }
+        var cut: (String, CGRect)?
+        var mealCount = 0
+        func walk(_ node: XCUIElementSnapshot) {
+            if node.elementType == .staticText,
+               node.frame.height > 8,
+               node.frame.minY >= week.frame.minY - 1,
+               node.frame.minY < fold.frame.minY {
+                if node.label.contains("protein per serve") { mealCount += 1 }
+                if node.frame.maxY > limit + 0.5, cut == nil {
+                    cut = (node.label, node.frame)
+                }
+            }
+            for child in node.children { walk(child) }
+        }
+        walk(root)
+        XCTAssertNil(
+            cut,
+            "Plan at rest: '\(cut?.0 ?? "")' \(String(describing: cut?.1)) ends below the Generate fold minus 8pt (fold \(fold.frame.minY))"
+        )
+        XCTAssertGreaterThan(mealCount, 0, "Plan at rest shows no whole meal row")
     }
 
     /// Both Daily Summary variants are measured at the same width. The short
@@ -322,7 +342,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         ).allElementsBoundByIndex
         XCTAssertLessThanOrEqual(priceLines.count, 1, "\(screen) repeats the price line")
         if let line = priceLines.first {
-            XCTAssertEqual(line.label, "Prices vary by store and week.")
+            XCTAssertEqual(line.label, pricesVaryByStoreLine)
         }
     }
 

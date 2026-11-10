@@ -17,6 +17,7 @@ rm -rf /tmp/fitmunch-design-uitest
 mkdir -p /tmp/fitmunch-design-uitest/light /tmp/fitmunch-design-uitest/dark
 
 DERIVED="$OUT/DerivedData"
+bash "$ROOT/scripts/warm-simulator-launch.sh" "$UDID"
 
 rm -rf "$OUT/screenshots/Test.xcresult"
 set +e
@@ -111,6 +112,7 @@ fi
 # TabBarClearanceUITests. This pass is the second size only, once.
 UDID_65="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 11 Pro Max" "iPhone XS Max")"
 echo "Using 6.5 simulator $UDID_65"
+bash "$ROOT/scripts/warm-simulator-launch.sh" "$UDID_65"
 rm -rf "$OUT/screenshots/TabBarClearance-6.5.xcresult"
 set +e
 xcodebuild test \
