@@ -561,6 +561,7 @@ function logDryRun(kind, options, subject) {
 async function sendRetentionNudgeEmail(to, options = {}) {
   const built = buildRetentionNudge(options);
   if (!to || !built) return { success: false, dryRun: true, error: 'Nothing to send' };
+  if (!built.listUnsubscribe) return { success: false, skipped: 'no_unsubscribe' };
   const headers = listUnsubscribeHeaders(built.listUnsubscribe);
   if (retentionDryRun()) {
     logDryRun('inactivity', options, built.subject);
@@ -583,6 +584,7 @@ async function sendRetentionNudgeEmail(to, options = {}) {
 async function sendWinBackEmail(to, options = {}) {
   const built = buildWinBack(options);
   if (!to || !built) return { success: false, dryRun: true, error: 'Nothing to send' };
+  if (!built.listUnsubscribe) return { success: false, skipped: 'no_unsubscribe' };
   const headers = listUnsubscribeHeaders(built.listUnsubscribe);
   if (retentionDryRun()) {
     logDryRun('winback', options, built.subject);

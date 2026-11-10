@@ -16,6 +16,7 @@ const retention = require('./lib/retention-nudges');
 const { jwtSecret } = require('./lib/fitmunch-checkout');
 
 const ORIGINAL_SECRET = process.env.CRON_SECRET;
+const ORIGINAL_JWT = process.env.JWT_SECRET;
 const ORIGINAL_GET_USER = storage.getUserById;
 
 // 11:00 in Australia/Sydney on 15 June 2026 (AEST, UTC+10). Not a DST day.
@@ -71,6 +72,7 @@ function tokenFor(user) {
 
 function armCron(users) {
   process.env.CRON_SECRET = 'cron-test-secret';
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'retention-test-secret';
   process.env.RESEND_API_KEY = 're_test_retention_must_not_send';
   const create = jest.fn(async () => ({ url: 'https://billing.stripe.com/session/test' }));
   app._private.setStripeForTests({
@@ -96,6 +98,8 @@ afterEach(() => {
   storage.getUserById = ORIGINAL_GET_USER;
   if (ORIGINAL_SECRET === undefined) delete process.env.CRON_SECRET;
   else process.env.CRON_SECRET = ORIGINAL_SECRET;
+  if (ORIGINAL_JWT === undefined) delete process.env.JWT_SECRET;
+  else process.env.JWT_SECRET = ORIGINAL_JWT;
   delete process.env.RESEND_API_KEY;
   app._private.setStripeForTests(null);
   expect(sendCalls).toBe(0);
@@ -540,11 +544,8 @@ describe('retention nudges', () => {
         name: 'Sam',
         userId: USER_A,
       });
-      for (const built of [nudge, win]) {
-        expect(built.bodyHtml).not.toContain('/api/retention/unsubscribe');
-        expect(built.bodyText).not.toContain('/api/retention/unsubscribe');
-        expect(built.headers).toBeUndefined();
-      }
+      expect(nudge).toEqual({ success: false, skipped: 'no_unsubscribe' });
+      expect(win).toEqual({ success: false, skipped: 'no_unsubscribe' });
       const body = Buffer.from(JSON.stringify({ p: 'retention-unsub', u: USER_A }), 'utf8').toString('base64url');
       const sig = crypto.createHmac('sha256', 'fitmunch-dev-secret').update(body).digest('base64url');
       const forged = `${body}.${sig}`;
@@ -561,6 +562,62 @@ describe('retention nudges', () => {
     } finally {
       if (saved === undefined) delete process.env.JWT_SECRET;
       else process.env.JWT_SECRET = saved;
+    }
+  });
+
+  test('JWT_SECRET unset skips both notes without sendEmail in dry-run and when dry-run is off', async () => {
+    const savedJwt = process.env.JWT_SECRET;
+    const savedDry = retention.DRY_RUN;
+    delete process.env.JWT_SECRET;
+    process.env.RESEND_API_KEY = 're_test_must_not_send';
+    try {
+      const nudgeDry = await emailApi.sendRetentionNudgeEmail('a@example.com', {
+        name: 'Sam',
+        thresholdDays: 3,
+        userId: USER_A,
+      });
+      const winDry = await emailApi.sendWinBackEmail('a@example.com', {
+        name: 'Sam',
+        userId: USER_A,
+      });
+      expect(nudgeDry).toEqual({ success: false, skipped: 'no_unsubscribe' });
+      expect(winDry).toEqual({ success: false, skipped: 'no_unsubscribe' });
+      expect(sendSpy).not.toHaveBeenCalled();
+
+      retention.DRY_RUN = false;
+      const nudgeLive = await emailApi.sendRetentionNudgeEmail('a@example.com', {
+        name: 'Sam',
+        thresholdDays: 14,
+        userId: USER_A,
+      });
+      const winLive = await emailApi.sendWinBackEmail('a@example.com', {
+        name: 'Sam',
+        userId: USER_A,
+      });
+      expect(nudgeLive).toEqual({ success: false, skipped: 'no_unsubscribe' });
+      expect(winLive).toEqual({ success: false, skipped: 'no_unsubscribe' });
+      expect(sendSpy).not.toHaveBeenCalled();
+
+      process.env.CRON_SECRET = 'cron-test-secret';
+      app._private.setStripeForTests({
+        subscriptions: { list: jest.fn(async () => ({ data: [], has_more: false })) },
+      });
+      retention.setNowForTests(NOW);
+      retention.setLoaderForTests(async () => [
+        paidUser(USER_A, { lastLoginAt: '2026-06-01T01:00:00.000Z', email: 'a@example.com' }),
+      ]);
+      const res = await cron('Bearer cron-test-secret');
+      expect(res.status).toBe(200);
+      expect(res.body.checked).toBe(0);
+      expect(res.body.sent).toBe(0);
+      expect(res.body.skipped).toBe(0);
+      expect(res.body.retention.queued).toBe(0);
+      expect(res.body.retention.error).toBeUndefined();
+      expect(sendSpy).not.toHaveBeenCalled();
+    } finally {
+      retention.DRY_RUN = savedDry;
+      if (savedJwt === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = savedJwt;
     }
   });
 });
