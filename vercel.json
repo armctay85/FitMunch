@@ -306,23 +306,6 @@
       ]
     },
     {
-      "source": "/commit-to-the-week.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
       "source": "/contact.html",
       "headers": [
         {
@@ -448,7 +431,24 @@
       ]
     },
     {
-      "source": "/how-much-protein-do-i-need-a-day.html",
+      "source": "/how-to-plan-meals-in-australia.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/how-to-plan-meals-when-you-are-busy.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -466,23 +466,6 @@
     },
     {
       "source": "/index.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
-      "source": "/list-for-the-meals-you-lock.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -546,7 +529,20 @@
       ]
     },
     {
-      "source": "/macro-logging-or-meal-plan.html",
+      "source": "/macro-meal-planner.html",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "https://www.fitmunch.com.au"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/macro-tracking-or-a-meal-plan.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -563,7 +559,7 @@
       ]
     },
     {
-      "source": "/macro-meal-planner.html",
+      "source": "/meal-plan-and-workout-plan.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -571,7 +567,11 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-store"
+          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Vercel-CDN-Cache-Control",
+          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
         }
       ]
     },
@@ -611,23 +611,6 @@
         {
           "key": "Cache-Control",
           "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/meals-and-training-for-the-week.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
         }
       ]
     },
@@ -770,23 +753,6 @@
     },
     {
       "source": "/terms.html",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://www.fitmunch.com.au"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Vercel-CDN-Cache-Control",
-          "value": "public, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
-    },
-    {
-      "source": "/ways-to-plan-meals-australia.html",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

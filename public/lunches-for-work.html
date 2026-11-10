@@ -40,6 +40,7 @@
 .ln-answer .ln-rows li span{font-weight:700}
 .ln-answer .ln-rows li em{font-style:normal;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.78rem;color:#c5d4c8;text-align:right}
 .ln-answer .ln-offer{margin-top:8px}
+[data-fm-price]{display:inline-block;min-width:16ch}
 @media(max-width:860px){
   .ln-answer.layout-list .ln-hero-inner{grid-template-columns:minmax(0,1fr)}
 }
@@ -48,6 +49,9 @@
   .ln-answer .ln-table,.ln-answer .ln-table tbody,.ln-answer .ln-table tr,.ln-answer .ln-table th,.ln-answer .ln-table td{display:block;width:100%}
   .ln-answer .ln-table tbody th{width:auto;padding-bottom:0;border-bottom:0}
   .ln-answer .ln-table td{padding-top:4px}
+}
+@media(max-width:390px){
+  .ln-answer .ln-table caption{display:block;width:100%}
 }
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Lunches for Work, Planned | FitMunch","description":"Lunch is one meal on the day, with breakfast, dinner and a snack. The list is the ingredients for that week. You check out at the supermarket.","url":"https://www.fitmunch.com.au/lunches-for-work","inLanguage":"en-AU","isPartOf":{"@type":"WebSite","name":"FitMunch","url":"https://www.fitmunch.com.au/"}}</script>
@@ -71,7 +75,7 @@
       <h1>Lunches for work, planned</h1>
       <p class="ln-lead ln-answer-text">Lunch is one meal on the day, with breakfast, dinner and a snack. Those meals land on the targets the engine set. The list is the ingredients for that week, and the trolley is the food for the meals you lock. You check out at the supermarket.</p>
       <div class="ln-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
-      <p class="ln-small ln-offer">14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p class="ln-small ln-offer">14-day trial, then <span data-fm-price="premiumMonthly"><a href="/pricing.html">See current plans and prices</a></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
     </div>
     <aside class="ln-card" aria-label="Lunches for work, planned"><div class="ln-card-top"><b>From the week</b><span>Meals you lock</span></div><ul class="ln-rows"><li><span>Lunch</span><em>one meal on the day</em></li><li><span>Eggs x12</span><em>6 lunches</em></li><li><span>Breakfast, dinner, snack</span><em>the rest of the day</em></li><li><span>The list</span><em>the ingredients for that week</em></li></ul><p class="ln-card-foot">You check out at the supermarket. FitMunch does not show supermarket prices.</p></aside>
   </div>
@@ -100,7 +104,7 @@
   <div class="ln-inner">
     <div class="fm-convert">
       <h2>Start the 14-day trial</h2>
-      <p class="ln-offer">14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p class="ln-offer">14-day trial, then <span data-fm-price="premiumMonthly"><a href="/pricing.html">See current plans and prices</a></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
       <div class="fm-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
     </div>
   </div>

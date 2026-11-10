@@ -36,8 +36,8 @@ function titlesInPublic() {
 }
 
 describe('answer pages: generated set', () => {
-  it('builds 8 to 12 pages and matches the committed HTML', () => {
-    expect(PAGES.length).toBeGreaterThanOrEqual(8);
+  it('builds 7 to 12 pages and matches the committed HTML', () => {
+    expect(PAGES.length).toBeGreaterThanOrEqual(7);
     expect(PAGES.length).toBeLessThanOrEqual(12);
     for (const page of PAGES) {
       const file = path.join(__dirname, 'public', `${page.slug}.html`);
@@ -123,6 +123,15 @@ describe('answer pages: routes, meta, JSON-LD and trial CTA', () => {
       expect(xml).not.toContain(`/${slug}`);
     }
   });
+
+  it('dropped slugs 404 and no remaining page links to them', async () => {
+    const html = PAGES.map((page) => buildPage(page)).join('\n');
+    for (const slug of RETIRED_SLUGS) {
+      expect(html).not.toContain(`/${slug}`);
+      await request(app).get(`/${slug}`).expect(404);
+      await request(app).get(`/${slug}.html`).expect(404);
+    }
+  });
 });
 
 describe('answer pages: copy guards', () => {
@@ -170,14 +179,26 @@ describe('answer pages: copy guards', () => {
     expect(hits).toEqual([]);
   });
 
-  it('gives the protein question no gram or per-kg figure', () => {
-    const html = fs.readFileSync(path.join(__dirname, 'public', 'how-much-protein-do-i-need-a-day.html'), 'utf8');
-    const body = html.replace(/<footer[\s\S]*<\/footer>/i, '');
-    expect(body).not.toMatch(/\bgrams?\b/i);
-    expect(body).not.toMatch(/\bkg\b/i);
-    expect(body).not.toMatch(/per\s*kg/i);
-    expect(body).not.toMatch(/\d+\s*g\b/i);
-    expect(body).toContain('The engine sets the day\'s calories and protein');
-    expect(body).not.toContain('does not choose');
+  it('a failed price fetch keeps the index fallback instead of an empty then-dot', async () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'weekly-meal-plan-australia.html'), 'utf8');
+    expect(html).toContain('[data-fm-price]{display:inline-block;min-width:16ch}');
+    expect(html).toContain('See current plans and prices');
+    expect(html).not.toMatch(/then <span data-fm-price="premiumMonthly"><\/span>\./);
+    const script = html.match(/\(function \(\) \{[\s\S]*?\}\)\(\);/)[0];
+    const els = [...html.matchAll(/<span data-fm-price="([^"]*)">([\s\S]*?)<\/span>/g)].map((m) => ({
+      key: m[1],
+      textContent: m[2].replace(/<[^>]+>/g, ''),
+      getAttribute(name) { return name === 'data-fm-price' ? this.key : ''; },
+    }));
+    const document = { querySelectorAll: () => els };
+    const fetch = () => Promise.reject(new Error('offline'));
+    new Function('window', 'document', 'fetch', script)({ fetch }, document, fetch);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(els.length).toBeGreaterThan(0);
+    for (const el of els) {
+      expect(el.textContent).toBe('See current plans and prices');
+    }
+    const shown = `14-day trial, then ${els[0].textContent}. Card on file.`;
+    expect(shown).not.toMatch(/then\s+\./);
   });
 });
