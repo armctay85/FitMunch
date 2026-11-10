@@ -467,4 +467,151 @@ extension XCTestCase {
             try? data.write(to: url)
         }
     }
+
+    // MARK: - At-rest fold checks for Today and Me
+
+    /// Tab bar fold, measured the way TabBarClearanceUITests measures it: the
+    /// bar container or its highest tab button, whichever is higher.
+    func restFoldTop(in app: XCUIApplication) -> CGFloat {
+        let window = app.windows.firstMatch
+        let windowBottom = window.exists ? window.frame.maxY : app.frame.maxY
+        let bar = app.tabBars.firstMatch
+        var top = windowBottom
+        if bar.exists, bar.frame.height > 1 {
+            top = min(top, bar.frame.minY)
+        }
+        for name in ["Today", "Plan", "Scan", "Coach", "Me"] {
+            let button = bar.buttons[name]
+            if button.exists, button.frame.height > 1, button.frame.minY < windowBottom {
+                top = min(top, button.frame.minY)
+            }
+        }
+        return top
+    }
+
+    /// Resting Today, before any drag. The Breakfast, Lunch, and Dinner cards
+    /// each end at least 8pt above the tab bar fold (limit = fold minY - 8).
+    func assertTodayRestsAtFold(in app: XCUIApplication, place: String) {
+        XCTAssertTrue(
+            app.staticTexts["Dinner"].waitForExistence(timeout: 12),
+            "Seeded Dinner is not on Today (\(place))"
+        )
+        // The short phone switches Daily Summary to its compact height after the first layout.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        let window = app.windows.firstMatch
+        let width = window.exists ? window.frame.width : app.frame.width
+        let fold = restFoldTop(in: app)
+        let limit = fold - 8
+        let names = ["Breakfast", "Lunch", "Dinner"]
+        var bottoms: [String: CGFloat] = [:]
+        let cards = app.descendants(matching: .any)
+            .matching(identifier: "today-meal-card")
+            .allElementsBoundByIndex
+        for card in cards {
+            let frame = card.frame
+            guard frame.width > 80, frame.height > 40 else { continue }
+            let nameText = card.staticTexts["today-meal-name"]
+            let title = nameText.exists ? nameText.label : card.label
+            guard names.contains(title) else { continue }
+            bottoms[title] = max(bottoms[title] ?? 0, frame.maxY)
+        }
+        var parts: [String] = []
+        for name in names {
+            if let maxY = bottoms[name] {
+                parts.append("\(name.lowercased())MaxY=\(maxY)")
+            } else {
+                parts.append("\(name.lowercased())MaxY=missing")
+            }
+        }
+        print("TODAY_REST place=\(place) width=\(Int(width.rounded())) fold=\(fold) limit=\(limit) \(parts.joined(separator: " "))")
+        for name in names {
+            guard let maxY = bottoms[name] else {
+                XCTFail("\(name) card is not on Today at rest (\(place))")
+                continue
+            }
+            XCTAssertLessThanOrEqual(
+                maxY,
+                limit + 0.5,
+                "Today at rest (\(place)): \(name) card ends at \(maxY), below the tab bar fold minus 8pt (fold \(fold), limit \(limit))"
+            )
+        }
+    }
+
+    /// Resting Me, before any drag. No list row straddles the tab bar: each row
+    /// ends at least 8pt above the fold, or starts at or under the fold.
+    func assertMeRestsAtFold(in app: XCUIApplication, place: String) {
+        XCTAssertTrue(
+            app.switches["me-dark-mode"].waitForExistence(timeout: 15),
+            "Dark Mode row is not on Me (\(place))"
+        )
+        _ = app.staticTexts["Alex Morgan"].waitForExistence(timeout: 8)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        let window = app.windows.firstMatch
+        let screen = window.exists ? window.frame : app.frame
+        let fold = restFoldTop(in: app)
+        let limit = fold - 8
+        let rows = meRestRows(in: app, screen: screen)
+        var lastAbove: CGFloat = 0
+        var firstBelow: CGFloat = -1
+        var straddling: [(label: String, frame: CGRect)] = []
+        for row in rows {
+            if row.frame.maxY <= limit + 0.5 {
+                lastAbove = max(lastAbove, row.frame.maxY)
+            } else if row.frame.minY >= fold - 0.5 {
+                firstBelow = firstBelow < 0 ? row.frame.minY : min(firstBelow, row.frame.minY)
+            } else {
+                straddling.append(row)
+            }
+        }
+        print("ME_REST place=\(place) width=\(Int(screen.width.rounded())) fold=\(fold) limit=\(limit) rows=\(rows.count) lastAboveMaxY=\(lastAbove) firstBelowMinY=\(firstBelow) straddling=\(straddling.count)")
+        for row in rows {
+            print("ME_REST row '\(row.label)' minY=\(row.frame.minY) maxY=\(row.frame.maxY)")
+        }
+        XCTAssertGreaterThan(rows.count, 0, "Me at rest has no list rows (\(place))")
+        XCTAssertGreaterThan(lastAbove, 0, "Me at rest has no whole row above the tab bar (\(place))")
+        let cut = straddling.first
+        XCTAssertNil(
+            cut,
+            "Me at rest (\(place)): row '\(cut?.label ?? "")' \(String(describing: cut?.frame)) crosses the tab bar (fold \(fold), limit \(limit))"
+        )
+    }
+
+    /// On-screen Me list rows: cells with a visible label, switch, or button.
+    private func meRestRows(in app: XCUIApplication, screen: CGRect) -> [(label: String, frame: CGRect)] {
+        guard let root = try? app.snapshot() else { return [] }
+        let contentTypes: [XCUIElement.ElementType] = [
+            .staticText,
+            .button,
+            .image,
+            XCUIElement.ElementType.switch,
+        ]
+        var rows: [(label: String, frame: CGRect)] = []
+        func hasContent(_ node: XCUIElementSnapshot) -> Bool {
+            for child in node.children {
+                if contentTypes.contains(child.elementType),
+                   !child.label.isEmpty || !child.identifier.isEmpty {
+                    return true
+                }
+                if hasContent(child) { return true }
+            }
+            return false
+        }
+        func walk(_ node: XCUIElementSnapshot) {
+            if node.elementType == .tabBar { return }
+            if node.elementType == .cell {
+                let frame = node.frame
+                if frame.width > 200, frame.height > 20, frame.height < 240,
+                   frame.minX >= screen.minX - 1, frame.maxX <= screen.maxX + 1,
+                   frame.minY < screen.maxY, frame.maxY > screen.minY, hasContent(node) {
+                    let name = node.label.isEmpty ? node.identifier : node.label
+                    rows.append((label: name, frame: frame))
+                }
+            }
+            for child in node.children {
+                walk(child)
+            }
+        }
+        walk(root)
+        return rows
+    }
 }

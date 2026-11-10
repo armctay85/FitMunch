@@ -24,6 +24,7 @@ final class TabBarClearanceUITests: XCTestCase {
             "Expected 6.9 (440x956) or 6.5 (414x896). Window is \(width)x\(height)"
         )
         logTodayMealCards(in: app, screenHeight: height)
+        assertTodayRestsAtFold(in: app, place: "clearance")
 
         let controls: [(tab: String, identifier: String, type: XCUIElement.ElementType)] = [
             ("Today", "today-log-meal", .button),
@@ -35,6 +36,10 @@ final class TabBarClearanceUITests: XCTestCase {
 
         for item in controls {
             openTab(item.tab, in: app)
+            if item.tab == "Me" {
+                // First visit to Me, before any drag or scroll.
+                assertMeRestsAtFold(in: app, place: "clearance")
+            }
             if item.identifier == "scan-take-photo" {
                 revealScanPhoto(in: app)
             }

@@ -47,8 +47,10 @@ struct HomeView: View {
                         mealsSection
                     }
                 }
+                // Breakfast, Lunch, and Dinner rest above the tab bar on 6.5, 6.7,
+                // and 6.9 before any drag. The page uses tighter vertical spacing
+                // and the same type sizes, so no meal is hidden.
                 .padding()
-                .padding(.top, 8)
                 .padding(.bottom, Theme.Spacing.eight)
                 .background(alignment: .top) {
                     GeometryReader { proxy in
@@ -299,14 +301,16 @@ private struct WindowHeightReader: UIViewRepresentable {
             .disabled(viewModel.isToday)
             .accessibilityLabel("Next day")
         }
-        .padding()
+        // The chevrons keep their 44pt targets. Only the card's vertical padding is tighter.
+        .padding(.horizontal)
+        .padding(.vertical, Theme.Spacing.one)
         .background(Color(.secondarySystemBackground))
         .cornerRadius(Theme.Radius.medium)
         .sensoryFeedback(.selection, trigger: viewModel.selectedDate)
     }
 
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             Text("Daily Progress")
                 .font(.title2)
                 .fontWeight(.semibold)
@@ -365,7 +369,7 @@ private struct WindowHeightReader: UIViewRepresentable {
     }
 
     private var loadingRings: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             Text("Daily Progress")
                 .font(.title2)
                 .fontWeight(.semibold)
@@ -408,14 +412,14 @@ private struct WindowHeightReader: UIViewRepresentable {
 
     /// Same card pitch as a logged meal, with no counts and no percent text.
     private var loadingMeals: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             Text("Today's Meals")
                 .font(.title2)
                 .fontWeight(.semibold)
             ForEach(0..<3, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
                     .fill(SkeletonFill.color)
-                    .frame(height: 105)
+                    .frame(height: 76)
                     .modifier(SkeletonShimmer(active: true))
             }
         }
@@ -518,7 +522,7 @@ private struct WindowHeightReader: UIViewRepresentable {
     }
 
     private var mealsSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.four) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
             HStack {
                 Text(viewModel.isToday ? "Today's Meals" : "Meals")
                     .font(.title2)
@@ -705,15 +709,18 @@ private struct MealCard: View {
     @State private var showDeleteAlert = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.three) {
-            HStack {
-                VStack(alignment: .leading, spacing: Theme.Spacing.one) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.two) {
+            HStack(alignment: .center) {
+                // Name and time share one line so three cards rest above the tab bar.
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.two) {
                     Text(meal.name)
                         .font(.headline)
+                        .lineLimit(1)
                         .accessibilityIdentifier("today-meal-name")
                     Text(Constants.timeFormatter.string(from: meal.date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
                 Spacer()
@@ -747,7 +754,8 @@ private struct MealCard: View {
                     .foregroundStyle(Theme.fmSecondary)
             }
         }
-        .padding()
+        .padding(.horizontal, Theme.Spacing.four)
+        .padding(.vertical, Theme.Spacing.three)
         .background(Color(.secondarySystemBackground))
         .cornerRadius(Theme.Radius.medium)
         .accessibilityElement(children: .contain)

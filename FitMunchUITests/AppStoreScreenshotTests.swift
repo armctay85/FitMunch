@@ -41,8 +41,8 @@ final class AppStoreScreenshotTests: XCTestCase {
             if screen.file == "home" {
                 logMealCards(where: "home")
                 assertSummaryHeightDrop(on: app)
-                alignWholeMealCardsAboveTabBar()
-                logMealCards(where: "home-after-align")
+                // The shot is the resting screen. No drag: all three meals sit above the bar.
+                assertTodayRestsAtFold(in: app, place: "store")
             }
             savePNG(named: screen.file)
         }
@@ -78,6 +78,7 @@ final class AppStoreScreenshotTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Demo"].exists)
         XCTAssertFalse(app.staticTexts["Reviewer"].exists)
         assertNoRejectedCopy(on: "settings")
+        assertMeRestsAtFold(in: app, place: "store")
         savePNG(named: "settings")
     }
 
@@ -238,59 +239,6 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
-    /// Park the lowest meal card that fits entirely above the tab buttons.
-    /// The following card stays fully behind the bar. Chasing a smaller gap
-    /// pulls that card back into a half cut, which is what the last run did.
-    private func alignWholeMealCardsAboveTabBar() {
-        let scroll = tallestScroll()
-        XCTAssertTrue(scroll.waitForExistence(timeout: 4), "Today scroll view missing")
-        let topLimit: CGFloat = 140
-        for _ in 0..<6 {
-            let barTop = floatingTabButtonTop(in: app)
-            let cards = mealCards()
-            // Lunch already sits on the bar on 6.7. Pulling Dinner up from there
-            // opens a gap under the last whole card and the shot fails.
-            if mealCardsAlreadyClearTabBar(cards, barTop: barTop, topLimit: topLimit) { break }
-            guard let anchor = lowestCardThatFits(cards, barTop: barTop, topLimit: topLimit) else { break }
-            let delta = barTop - anchor.frame.maxY
-            if abs(delta) <= 8 { break }
-            drag(scroll, points: max(-200, min(200, delta)))
-        }
-
-        let barTop = floatingTabButtonTop(in: app)
-        let cards = mealCards()
-        XCTAssertFalse(cards.isEmpty, "Today meal cards missing")
-        let cut = cards.first { $0.frame.minY < barTop - 4 && $0.frame.maxY > barTop + 4 }
-        XCTAssertNil(cut, "A meal card is cut by the tab bar \(String(describing: cut?.frame)) bar=\(barTop)")
-        let whole = cards.filter { $0.frame.maxY <= barTop + 4 && $0.frame.minY >= topLimit - 8 }
-        XCTAssertFalse(whole.isEmpty, "No whole meal card above the tab bar")
-        if let last = whole.max(by: { $0.frame.maxY < $1.frame.maxY }) {
-            let gap = barTop - last.frame.maxY
-            XCTAssertLessThan(gap, 72, "Empty band under the last meal card \(last.frame) bar=\(barTop)")
-        }
-    }
-
-    /// Same rule as the assertion below. A list that already passes must not be dragged.
-    private func mealCardsAlreadyClearTabBar(_ cards: [XCUIElement], barTop: CGFloat, topLimit: CGFloat) -> Bool {
-        let cut = cards.first { $0.frame.minY < barTop - 4 && $0.frame.maxY > barTop + 4 }
-        if cut != nil { return false }
-        let whole = cards.filter { $0.frame.maxY <= barTop + 4 && $0.frame.minY >= topLimit - 8 }
-        guard let last = whole.max(by: { $0.frame.maxY < $1.frame.maxY }) else { return false }
-        return barTop - last.frame.maxY < 72
-    }
-
-    /// Lowest card whose bottom can sit on the tab bar without sliding under the title.
-    private func lowestCardThatFits(_ cards: [XCUIElement], barTop: CGFloat, topLimit: CGFloat) -> XCUIElement? {
-        var fit: XCUIElement?
-        for card in cards {
-            let lift = max(0, card.frame.maxY - barTop)
-            if card.frame.minY - lift >= topLimit {
-                fit = card
-            }
-        }
-        return fit
-    }
-
     private func mealCards() -> [XCUIElement] {
         let raw = app.descendants(matching: .any)
             .matching(identifier: "today-meal-card")
@@ -308,22 +256,6 @@ final class AppStoreScreenshotTests: XCTestCase {
             kept.append(card)
         }
         return kept
-    }
-
-    private func tallestScroll() -> XCUIElement {
-        let scrolls = app.scrollViews.allElementsBoundByIndex.filter { $0.frame.height > 120 }
-        return scrolls.max(by: { $0.frame.height < $1.frame.height }) ?? app.scrollViews.firstMatch
-    }
-
-    /// points > 0 moves the finger down, so content moves down toward the tab bar.
-    private func drag(_ element: XCUIElement, points: CGFloat) {
-        let height = max(element.frame.height, 1)
-        guard abs(points) > 1 else { return }
-        let startY: CGFloat = points > 0 ? 0.38 : 0.72
-        let endY = min(0.90, max(0.10, startY + points / height))
-        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
-        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
-        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     private func openTab(_ name: String) {
