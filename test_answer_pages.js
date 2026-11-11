@@ -113,11 +113,28 @@ describe('answer pages: routes, meta, JSON-LD and trial CTA', () => {
     });
   }
 
-  it('lists every new page once in the sitemap on the www host', () => {
+  it('lists every new page once in the sitemap on the www host and each page links the trial', async () => {
     const xml = fs.readFileSync(path.join(__dirname, 'public', 'sitemap.xml'), 'utf8');
-    for (const page of PAGES) {
-      const loc = `<loc>${SITE}/${page.slug}</loc>`;
+    const slugs = [
+      'weekly-meal-plan-australia',
+      'quick-weeknight-dinners',
+      'macro-tracking-or-a-meal-plan',
+      'how-to-plan-meals-when-you-are-busy',
+      'meal-plan-and-workout-plan',
+      'how-to-plan-meals-in-australia',
+      'lunches-for-work',
+    ];
+    expect(PAGES.map((page) => page.slug).sort()).toEqual([...slugs].sort());
+    for (const slug of slugs) {
+      const loc = `<loc>${SITE}/${slug}</loc>`;
       expect(xml.split(loc).length - 1).toBe(1);
+      const html = (await request(app).get(`/${slug}`).expect(200)).text;
+      const trial = [...html.matchAll(/<a\b[^>]*class="[^"]*(?:fm-btn|fm-nav-cta)[^"]*"[^>]*>([^<]*)</g)];
+      expect(trial.length).toBeGreaterThanOrEqual(3);
+      for (const tag of trial) {
+        expect(tag[0]).toContain(`href="${TRIAL_HREF}"`);
+        expect(tag[1]).toBe(TRIAL_LABEL);
+      }
     }
     for (const slug of RETIRED_SLUGS) {
       expect(xml).not.toContain(`/${slug}`);
@@ -179,26 +196,39 @@ describe('answer pages: copy guards', () => {
     expect(hits).toEqual([]);
   });
 
+  it('reserves one box for the fallback link and the loaded price, with the period on the text', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'weekly-meal-plan-australia.html'), 'utf8');
+    expect(html).toContain('.ln-answer .ln-price{display:inline-grid;max-width:100%;vertical-align:baseline;justify-items:stretch;align-items:start}');
+    expect(html).toContain('.ln-answer .ln-price>.ln-price-fallback,.ln-answer .ln-price>.ln-price-live{grid-area:1/1;min-width:0}');
+    expect(html).toContain('.ln-answer .ln-price.is-ready>.ln-price-fallback{visibility:hidden}');
+    expect(html).not.toContain('min-width:16ch');
+    expect(html).not.toMatch(/\$\d|A\$/);
+    expect(html).toContain('>See current plans and prices</a>.');
+    expect(html).not.toMatch(/<\/span>\.\s*Card on file/);
+  });
+
   it('a failed price fetch keeps the index fallback instead of an empty then-dot', async () => {
     const html = fs.readFileSync(path.join(__dirname, 'public', 'weekly-meal-plan-australia.html'), 'utf8');
-    expect(html).toContain('[data-fm-price]{display:inline-block;min-width:16ch}');
-    expect(html).toContain('See current plans and prices');
-    expect(html).not.toMatch(/then <span data-fm-price="premiumMonthly"><\/span>\./);
     const script = html.match(/\(function \(\) \{[\s\S]*?\}\)\(\);/)[0];
-    const els = [...html.matchAll(/<span data-fm-price="([^"]*)">([\s\S]*?)<\/span>/g)].map((m) => ({
-      key: m[1],
-      textContent: m[2].replace(/<[^>]+>/g, ''),
-      getAttribute(name) { return name === 'data-fm-price' ? this.key : ''; },
-    }));
+    const els = [...html.matchAll(/<span class="ln-price" data-fm-price="([^"]*)">([\s\S]*?)<\/span>/g)].map((m) => {
+      const live = { textContent: '' };
+      return {
+        key: m[1],
+        fallback: (m[2].match(/<a[^>]*>([\s\S]*?)<\/a>/) || [])[1] || '',
+        live,
+        classList: { add() {} },
+        getAttribute(name) { return name === 'data-fm-price' ? this.key : ''; },
+        querySelector(sel) { return sel === '.ln-price-live' ? live : null; },
+      };
+    });
     const document = { querySelectorAll: () => els };
     const fetch = () => Promise.reject(new Error('offline'));
     new Function('window', 'document', 'fetch', script)({ fetch }, document, fetch);
     await new Promise((resolve) => setImmediate(resolve));
     expect(els.length).toBeGreaterThan(0);
     for (const el of els) {
-      expect(el.textContent).toBe('See current plans and prices');
+      expect(el.fallback).toBe('See current plans and prices');
+      expect(el.live.textContent).toBe('');
     }
-    const shown = `14-day trial, then ${els[0].textContent}. Card on file.`;
-    expect(shown).not.toMatch(/then\s+\./);
   });
 });

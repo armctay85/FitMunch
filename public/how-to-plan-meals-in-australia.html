@@ -40,7 +40,10 @@
 .ln-answer .ln-rows li span{font-weight:700}
 .ln-answer .ln-rows li em{font-style:normal;font-family:'IBM Plex Mono','IBM Plex Mono Fallback',ui-monospace,monospace;font-size:.78rem;color:#c5d4c8;text-align:right}
 .ln-answer .ln-offer{margin-top:8px}
-[data-fm-price]{display:inline-block;min-width:16ch}
+.ln-answer .ln-price{display:inline-grid;max-width:100%;vertical-align:baseline;justify-items:stretch;align-items:start}
+.ln-answer .ln-price>.ln-price-fallback,.ln-answer .ln-price>.ln-price-live{grid-area:1/1;min-width:0}
+.ln-answer .ln-price.is-ready>.ln-price-fallback{visibility:hidden}
+.ln-answer .ln-small .ln-price-fallback a,.ln-answer .ln-section .ln-price-fallback a,.ln-answer .ln-offer .ln-price-fallback a{display:inline;min-height:0;height:auto;padding:0;line-height:inherit}
 @media(max-width:860px){
   .ln-answer.layout-list .ln-hero-inner{grid-template-columns:minmax(0,1fr)}
 }
@@ -75,7 +78,7 @@
       <h1>How to plan meals in Australia</h1>
       <p class="ln-lead ln-answer-text">Macro and meal logging is one way. The engine is another: it plans 7 days of meals and training from the body you log, then writes the shopping list. A receipt comes after the shop. FitMunch scores that haul from the lines it found.</p>
       <div class="ln-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
-      <p class="ln-small ln-offer">14-day trial, then <span data-fm-price="premiumMonthly"><a href="/pricing.html">See current plans and prices</a></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Card on file. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
     </div>
     
   </div>
@@ -104,7 +107,7 @@
   <div class="ln-inner">
     <div class="fm-convert">
       <h2>Start the 14-day trial</h2>
-      <p class="ln-offer">14-day trial, then <span data-fm-price="premiumMonthly"><a href="/pricing.html">See current plans and prices</a></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Card on file. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
       <div class="fm-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
     </div>
   </div>
@@ -140,7 +143,11 @@
       if (!cfg) return;
       document.querySelectorAll('[data-fm-price]').forEach(function (el) {
         var key = el.getAttribute('data-fm-price');
-        if (cfg[key]) el.textContent = cfg[key];
+        var live = el.querySelector('.ln-price-live');
+        if (live && cfg[key]) {
+          live.textContent = cfg[key] + ". Card on file. Cancel before the trial ends and you are not charged.";
+          el.classList.add('is-ready');
+        }
       });
     })
     .catch(function () {});
