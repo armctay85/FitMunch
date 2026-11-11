@@ -222,7 +222,7 @@ img,svg,video{max-width:100%;height:auto}
 .fm-note{font-size:.8rem;color:var(--mute2);margin-top:10px}
 
 @media(max-width:720px){
-  .fm-nav-links a:not(.fm-nav-cta){display:none}
+  .fm-nav-links a:not(.fm-nav-cta):not([data-fm-auth="login"]){display:none}
 }
 
 /* Shared chrome: nav, buttons, hero band, footer. Page CSS still owns its own sections. */
