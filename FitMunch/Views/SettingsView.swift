@@ -55,10 +55,15 @@ struct SettingsView: View {
                 Section {
                     if let profile = signedInProfile {
                         HStack(alignment: .center, spacing: Theme.Spacing.three) {
-                            Image(systemName: "person.circle.fill")
-                                .font(.system(size: 50))
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(Theme.brandGreen)
+                            // FitMunch mark, never a person photo or a person glyph.
+                            Image("LaunchLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .padding(11)
+                                .frame(width: 50, height: 50)
+                                .background(Circle().fill(Theme.brandGreenSoft))
+                                .accessibilityHidden(true)
+                                .accessibilityIdentifier("me-avatar-mark")
 
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 8) {

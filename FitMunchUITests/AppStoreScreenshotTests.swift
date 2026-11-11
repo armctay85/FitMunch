@@ -12,7 +12,13 @@ final class AppStoreScreenshotTests: XCTestCase {
 
     func testCaptureRequiredStoreScreens() throws {
         app = XCUIApplication()
-        app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = [
+            ScreenshotLaunchArgument.flag,
+            ScreenshotLaunchArgument.scanResult,
+            "-ForceLightMode",
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryL",
+        ]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared. Auth or onboarding leaked into screenshot mode.")
 
@@ -29,7 +35,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             let appeared = app.navigationBars[screen.proof].waitForExistence(timeout: 8)
                 || app.staticTexts[screen.proof].waitForExistence(timeout: 2)
                 || (screen.file == "scan" && (
-                    app.staticTexts["Scan your shop"].waitForExistence(timeout: 3)
+                    app.staticTexts["Weekly haul score"].waitForExistence(timeout: 3)
                         || app.otherElements["scan-screen"].waitForExistence(timeout: 2)
                 ))
             XCTAssertTrue(
@@ -90,7 +96,11 @@ final class AppStoreScreenshotTests: XCTestCase {
         case "coach":
             XCTAssertTrue(app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 4))
         case "scan":
-            XCTAssertTrue(app.staticTexts["Scan your shop"].waitForExistence(timeout: 4))
+            // The store shot is a captured haul, not the empty intro.
+            XCTAssertTrue(app.staticTexts["Weekly haul score"].waitForExistence(timeout: 6), "Scan store shot is not on a captured result")
+            XCTAssertFalse(app.staticTexts["Scan your shop"].exists, "Scan store shot is the empty state")
+            XCTAssertTrue(app.staticTexts["Chicken breast"].waitForExistence(timeout: 2), "Scan result items are missing")
+            assertScanResultRestsAtFold()
         case "plan":
             XCTAssertTrue(app.staticTexts["High protein training week"].waitForExistence(timeout: 4))
             assertPlanSummaryIsFullyVisible()
@@ -100,6 +110,28 @@ final class AppStoreScreenshotTests: XCTestCase {
         default:
             break
         }
+    }
+
+    /// Every seeded item row ends at least 8pt above the tab bar on the resting Scan shot.
+    private func assertScanResultRestsAtFold() {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        let fold = restFoldTop(in: app)
+        let limit = fold - 8
+        let names = ["Chicken breast", "Greek yoghurt", "Salmon fillets", "Rolled oats", "Broccoli"]
+        var bottoms: [String] = []
+        for name in names {
+            let row = app.staticTexts[name]
+            XCTAssertTrue(row.waitForExistence(timeout: 2), "Scan item \(name) is missing")
+            bottoms.append("\(name)=\(row.frame.maxY)")
+            XCTAssertLessThanOrEqual(
+                row.frame.maxY,
+                limit + 0.5,
+                "Scan item \(name) ends under the tab bar (maxY \(row.frame.maxY), limit \(limit))"
+            )
+        }
+        let share = app.staticTexts["Share my haul score"]
+        let shareMaxY = share.exists ? share.frame.maxY : -1
+        print("SCAN_REST fold=\(fold) limit=\(limit) \(bottoms.joined(separator: " ")) shareMaxY=\(shareMaxY)")
     }
 
     private func dismissSystemAlerts() {
@@ -322,4 +354,5 @@ final class AppStoreScreenshotTests: XCTestCase {
 
 enum ScreenshotLaunchArgument {
     static let flag = "-AppStoreScreenshots"
+    static let scanResult = "-AppStoreScanResult"
 }
