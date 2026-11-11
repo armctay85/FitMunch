@@ -194,9 +194,7 @@ describe('smoke cap is only charged for answered calls', () => {
     expect(refunds).toBe(0);
   });
   it('chat provider failure refunds on a 200 fallback', async () => {
-    aiClient.chat
-      .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 403 })
-      .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 403 });
+    aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 403 });
     const r = await chat(tokenFor('x@example.com', ID));
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ success: true, fallback: true, provider: null });
@@ -205,7 +203,7 @@ describe('smoke cap is only charged for answered calls', () => {
     expect(refunds).toBe(1);
   });
   it('a thrown provider call refunds on a 200 fallback', async () => {
-    aiClient.chat.mockRejectedValueOnce(new Error('boom')).mockRejectedValueOnce(new Error('boom'));
+    aiClient.chat.mockRejectedValueOnce(new Error('boom'));
     jest.spyOn(console, 'error').mockImplementation(() => {});
     const r = await chat(tokenFor('x@example.com', ID));
     expect(r.status).toBe(200);
@@ -239,9 +237,7 @@ describe('smoke cap is only charged for answered calls', () => {
   });
   it('ten failed chats leave the cap untouched, so the next call is allowed', async () => {
     for (let i = 0; i < 10; i += 1) {
-      aiClient.chat
-        .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 429 })
-        .mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 429 });
+      aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 429 });
       const failed = await chat(tokenFor('x@example.com', ID));
       expect(failed.status).toBe(200);
       expect(failed.body.fallback).toBe(true);

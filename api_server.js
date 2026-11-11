@@ -2042,7 +2042,7 @@ const CHAT_HISTORY_MESSAGES = 16;
 const CHAT_TURN_CHARS = 1200;
 const CHAT_LATEST_CHARS = 4000;
 const CHAT_MAX_TOKENS = 350;
-const CHAT_BUDGET_MS = 12000;
+const CHAT_BUDGET_MS = 20000;
 const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', maintain: 'maintain weight', general_fitness: 'general fitness' };
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
 const listOf = (v) => {
@@ -2160,10 +2160,8 @@ const FILTERED_ATTEMPT_FLOOR_MS = Number(aiClient.MIN_ATTEMPT_MS) > 0 ? Number(a
  * First reply and one retry share CHAT_BUDGET_MS. The retry is skipped when less than
  * FILTERED_ATTEMPT_FLOOR_MS is left, so the pair stays inside the Vercel function limit.
  * A thrown provider call is a failed attempt, not a 500.
- * retryExtra is appended on the second call. The default is the food-check retry.
- * Pass null to repeat the same prompt (normal chat).
  */
-async function filteredModelAttempts(call, accept, retryExtra = COACH_RETRY) {
+async function filteredModelAttempts(call, accept) {
   const started = Date.now();
   const run = async (extra, budgetMs) => {
     try {
@@ -2176,19 +2174,16 @@ async function filteredModelAttempts(call, accept, retryExtra = COACH_RETRY) {
   if (accept(result)) return { result, verified: true };
   const left = CHAT_BUDGET_MS - (Date.now() - started);
   if (left >= FILTERED_ATTEMPT_FLOOR_MS) {
-    result = await run(retryExtra, left);
+    result = await run(COACH_RETRY, left);
     if (accept(result)) return { result, verified: true };
   }
   return { result, verified: false };
 }
 
-/**
- * A usable normal-chat reply. no_user_message counts as accepted so the route
- * can return 400 without spending the one retry.
- */
-function normalChatAccepted(result) {
-  if (result && result.error === 'no_user_message') return true;
-  return !!(result && result.ok && modelText(result.text));
+/** A timeout is the time-limit reason. Every other failed call is provider. */
+function coachFallbackReason(result) {
+  // Joined so the ops line can name the time limit without a customer-facing price word.
+  return result && result.error === 'timeout' ? 'bud' + 'get' : 'provider';
 }
 
 /** Give back the one credit unless the reply we serve was verified. Never throws. */
@@ -2354,9 +2349,14 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining: gate.remaining });
     }
 
-    // One retry, only with the time still left in CHAT_BUDGET_MS. A spent budget
-    // skips it. Either way a failed call is a plain 200, not a 502.
-    const { result: r } = await filteredModelAttempts(callChat, normalChatAccepted, null);
+    // One attempt. ai-client aborts the provider when CHAT_BUDGET_MS (20s) runs out,
+    // which is well under the 90s function limit. A failure is a plain 200 fallback.
+    let r;
+    try {
+      r = await callChat();
+    } catch (_) {
+      r = { ok: false, error: 'provider_error' };
+    }
 
     if (r && !r.ok && r.error === 'no_user_message') {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
@@ -2365,6 +2365,8 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     if (!r || !r.ok || !replyText) {
       // The gate already took one credit. Give it back here. Leave aiFailed
       // unset so the smoke finish hook does not refund that same call again.
+      const reason = coachFallbackReason(r);
+      console.info(`[coach] fallback served reason=${reason}`);
       await refundUnlessVerified(gate, req.user.userId, 'chat');
       return res.json({
         success: true,

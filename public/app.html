@@ -286,6 +286,12 @@ body{font-family:'Literata','Literata Fallback',Georgia,serif;background:var(--p
 .chat-bubble.assistant li{margin:3px 0}
 .chat-bubble.assistant strong{font-weight:800;color:var(--leaf2)}
 .chat-bubble.assistant code{font-family:'IBM Plex Mono',monospace;font-size:.78rem;background:var(--paper2);padding:1px 5px;border-radius:3px}
+.chat-fallback{align-self:stretch;max-width:560px;display:flex;flex-direction:column;gap:var(--fm-space-3);padding:var(--fm-space-4);background:var(--paper2);border:1px solid var(--line);border-radius:var(--radius);color:var(--ink)}
+.chat-fallback-brand{display:flex;align-items:center;gap:var(--fm-space-2);font-family:var(--fm-font-display);font-weight:800;font-size:var(--fm-step--1);color:var(--ink)}
+.chat-fallback-brand img{width:28px;height:28px;border-radius:6px;display:block}
+.chat-fallback-kicker{font-family:var(--fm-font-display);font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--red)}
+.chat-fallback-text{margin:0;font-family:var(--fm-font-body);font-size:var(--fm-step--1);line-height:1.5;color:var(--ink)}
+.chat-retry{min-height:44px;min-width:44px;padding:0 var(--fm-space-4);align-self:flex-start;font-family:var(--fm-font-display)}
 .chat-meta{font-size:.65rem;color:var(--mute2);margin-top:2px;align-self:flex-start;padding-left:4px}
 .chat-meta.user{align-self:flex-end;padding-right:4px}
 .allergen-warning{overflow-wrap:anywhere;word-break:break-word;margin:8px 0;padding:8px 10px;border-radius:6px;border:1px solid #b91c1c;background:#fef2f2;color:#991b1b;font-size:.8rem;font-weight:700;line-height:1.4}
@@ -389,6 +395,7 @@ body{font-family:'Literata','Literata Fallback',Georgia,serif;background:var(--p
  #dietary-tags .diet-tag,#saved-allergies .diet-tag,#ob-diet .diet-tag,#ob-allergies .diet-tag{min-height:40px;display:inline-flex;align-items:center}
  #allergy-add,#mp-save-filters,button[onclick="addTypedAllergy()"]{min-height:40px}
  .btn,.btn-sm{min-height:40px;box-sizing:border-box}
+ .chat-fallback .btn.chat-retry{min-height:44px;min-width:44px}
  .hw-acts .btn{min-height:44px}
  .sidebar .sb-item{min-height:40px;min-width:40px;display:flex;align-items:center;box-sizing:border-box}
  #btn-upgrade{min-height:40px;min-width:40px;box-sizing:border-box}
@@ -5164,7 +5171,9 @@ async function loadBillingUsage() {
 }
 
 // ── AI COACH CHAT ────────────────────────────────────────────────────────────
-const CHAT = { intent: 'general', messages: [], busy: false, initialised: false };
+const CHAT = { intent: 'general', messages: [], busy: false, initialised: false, lastPrompt: '' };
+// Above the 20s server limit so the browser waits for the aborted provider call.
+const CHAT_CLIENT_TIMEOUT_MS = 35000;
 
 function initChatView() {
  if (CHAT.initialised) return;
@@ -5248,17 +5257,58 @@ function appendChatMsg(role, text, opts={}) {
  return div;
 }
 
-async function sendChat() {
+function clearChatNotices() {
+ document.querySelectorAll('#chat-thread .chat-fallback').forEach((node) => node.remove());
+}
+
+function renderChatNotice(typing, message) {
+ const wrap = typing._wrap || typing.parentElement;
+ wrap.className = 'chat-fallback';
+ wrap.style.cssText = '';
+ wrap.setAttribute('role', 'alert');
+ wrap.replaceChildren();
+ const brand = document.createElement('div');
+ brand.className = 'chat-fallback-brand';
+ const mark = document.createElement('img');
+ mark.src = '/assets/logo.svg';
+ mark.alt = '';
+ mark.width = 28;
+ mark.height = 28;
+ const name = document.createElement('span');
+ name.textContent = 'FitMunch';
+ brand.append(mark, name);
+ const kicker = document.createElement('div');
+ kicker.className = 'chat-fallback-kicker';
+ kicker.textContent = 'No reply';
+ const text = document.createElement('p');
+ text.className = 'chat-fallback-text';
+ text.textContent = message || "I couldn't finish that reply just then. Ask again in a moment.";
+ const btn = document.createElement('button');
+ btn.type = 'button';
+ btn.className = 'btn btn-green chat-retry';
+ btn.textContent = 'Try again';
+ btn.addEventListener('click', () => sendChat({ resend: true }));
+ wrap.append(brand, kicker, text, btn);
+}
+
+async function sendChat(opts) {
+ const resend = !!(opts && opts.resend);
  if (CHAT.busy) return;
  const input = document.getElementById('chat-input');
- const text = input.value.trim();
- if (!text) return;
- input.value = '';
+ if (resend) {
+  if (!CHAT.lastPrompt) return;
+  clearChatNotices();
+ } else {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  clearChatNotices();
+  appendChatMsg('user', text);
+  CHAT.messages.push({ role: 'user', content: text });
+  CHAT.lastPrompt = text;
+ }
  CHAT.busy = true;
  document.getElementById('chat-send-btn').disabled = true;
-
- appendChatMsg('user', text);
- CHAT.messages.push({ role: 'user', content: text });
  const typing = appendChatMsg('assistant', '…');
 
  // Give the coach today's real numbers for grounded answers.
@@ -5271,12 +5321,17 @@ async function sendChat() {
  streak: calcStreak(S.portalData?.recentMeals || []),
  };
 
+ const ctrl = new AbortController();
+ const timer = setTimeout(() => ctrl.abort(), CHAT_CLIENT_TIMEOUT_MS);
  try {
  const r = await API('/ai/chat', {
  method: 'POST',
+ signal: ctrl.signal,
  body: JSON.stringify({ intent: CHAT.intent, messages: CHAT.messages.slice(-12), context }),
  });
- if (r.success && r.reply) {
+ if (r.fallback) {
+  renderChatNotice(typing, r.reply);
+ } else if (r.success && r.reply) {
  typing.innerHTML = renderMarkdownLite(r.reply);
  CHAT.messages.push({ role: 'assistant', content: r.reply });
  const el = document.getElementById('chat-remaining');
@@ -5299,11 +5354,12 @@ async function sendChat() {
  alt.onclick = () => nav('billing');
  typing.appendChild(alt);
  } else {
- typing.textContent = 'Hmm, that didn\'t work - ' + (r.error || 'try again in a moment.');
+ renderChatNotice(typing, r.error || 'That didn\'t work. Try again in a moment.');
  }
  } catch (e) {
- typing.textContent = 'Network hiccup - try again.';
+ renderChatNotice(typing, 'The connection dropped. Try again in a moment.');
  } finally {
+ clearTimeout(timer);
  CHAT.busy = false;
  document.getElementById('chat-send-btn').disabled = false;
  document.getElementById('chat-input').focus();
