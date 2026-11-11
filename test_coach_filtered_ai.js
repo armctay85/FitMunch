@@ -421,7 +421,7 @@ describe('the retry shares one time budget', () => {
     expect(aiClient.chat).toHaveBeenCalledTimes(2);
     const first = aiClient.chat.mock.calls[0][0].budgetMs;
     const second = aiClient.chat.mock.calls[1][0].budgetMs;
-    expect(first).toBe(12000);
+    expect(first).toBe(20000);
     expect(second).toBeLessThan(first);
     expect(second).toBeGreaterThanOrEqual(2500);
     expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
@@ -431,7 +431,7 @@ describe('the retry shares one time budget', () => {
     let t = 1_700_000_000_000;
     jest.spyOn(Date, 'now').mockImplementation(() => t);
     aiClient.chat.mockImplementation(async () => {
-      t += 11000;
+      t += 18000;
       return { ok: true, text: 'Have a Milo.', provider: 'mock', model: 'm' };
     });
     const r = await chat('Snack idea?');

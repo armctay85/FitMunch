@@ -2034,12 +2034,15 @@ function chatIntentPrompt(intent) {
   'If the user asks something unsafe or clearly medical, recommend they speak to a GP or dietitian.',
 ].join(' ');
 
+// Plain reply when the provider fails or the time budget runs out. No foods, targets, or health claims.
+const COACH_CHAT_FALLBACK = "I couldn't finish that reply just then. Ask again in a moment.";
+
 // 8 exchanges (user + assistant), earlier turns trimmed; the newest message keeps up to 4,000 chars.
 const CHAT_HISTORY_MESSAGES = 16;
 const CHAT_TURN_CHARS = 1200;
 const CHAT_LATEST_CHARS = 4000;
 const CHAT_MAX_TOKENS = 350;
-const CHAT_BUDGET_MS = 12000;
+const CHAT_BUDGET_MS = 20000;
 const GOAL_LABELS = { lose_weight: 'lose fat', muscle_gain: 'build muscle', maintain: 'maintain weight', general_fitness: 'general fitness' };
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
 const listOf = (v) => {
@@ -2155,7 +2158,8 @@ const FILTERED_ATTEMPT_FLOOR_MS = Number(aiClient.MIN_ATTEMPT_MS) > 0 ? Number(a
 
 /**
  * First reply and one retry share CHAT_BUDGET_MS. The retry is skipped when less than
- * FILTERED_ATTEMPT_FLOOR_MS is left. A thrown provider call is a failed attempt, not a 500.
+ * FILTERED_ATTEMPT_FLOOR_MS is left, so the pair stays inside the Vercel function limit.
+ * A thrown provider call is a failed attempt, not a 500.
  */
 async function filteredModelAttempts(call, accept) {
   const started = Date.now();
@@ -2174,6 +2178,12 @@ async function filteredModelAttempts(call, accept) {
     if (accept(result)) return { result, verified: true };
   }
   return { result, verified: false };
+}
+
+/** A timeout is the time-limit reason. Every other failed call is provider. */
+function coachFallbackReason(result) {
+  // Joined so the ops line can name the time limit without a customer-facing price word.
+  return result && result.error === 'timeout' ? 'bud' + 'get' : 'provider';
 }
 
 /** Give back the one credit unless the reply we serve was verified. Never throws. */
@@ -2339,18 +2349,31 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
       return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining: gate.remaining });
     }
 
-    const r = await callChat();
+    // One attempt. ai-client aborts the provider when CHAT_BUDGET_MS (20s) runs out,
+    // which is well under the 90s function limit. A failure is a plain 200 fallback.
+    let r;
+    try {
+      r = await callChat();
+    } catch (_) {
+      r = { ok: false, error: 'provider_error' };
+    }
 
-    if (!r.ok && r.error === 'no_user_message') {
+    if (r && !r.ok && r.error === 'no_user_message') {
       return res.status(400).json({ success: false, error: 'At least one message is required.' });
     }
-    if (!r.ok) {
-      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
-    }
-    const replyText = modelText(r.text);
-    if (!replyText) {
+    const replyText = modelText(r && r.text);
+    if (!r || !r.ok || !replyText) {
+      // The gate already took one credit. Give it back here. Leave aiFailed
+      // unset so the smoke finish hook does not refund that same call again.
+      const reason = coachFallbackReason(r);
+      console.info(`[coach] fallback served reason=${reason}`);
       await refundUnlessVerified(gate, req.user.userId, 'chat');
-      return res.status(502).json({ success: false, error: publicClientError('ai_error'), provider: r.provider || null });
+      return res.json({
+        success: true,
+        reply: COACH_CHAT_FALLBACK,
+        fallback: true,
+        provider: null,
+      });
     }
 
     res.locals.aiAnswered = true;

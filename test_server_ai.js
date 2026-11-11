@@ -500,3 +500,103 @@ describe('AI routes', () => {
     expect(r.body.upgrade).toBe(true);
   });
 });
+
+describe('normal Coach chat provider failure', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const aiClient = require('./lib/ai-client');
+  const aiUsage = require('./lib/ai-usage');
+  const app = makeApp();
+  const FALLBACK = "I couldn't finish that reply just then. Ask again in a moment.";
+  const originalChat = aiClient.chat.getMockImplementation();
+  const ask = (content = 'How should I warm up for squats?') => request(app)
+    .post('/api/ai/chat')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ intent: 'workout', messages: [{ role: 'user', content }] });
+
+  beforeEach(() => {
+    aiUsage.refundAiCall.mockClear();
+    aiUsage.checkAndConsume.mockClear();
+  });
+
+  afterEach(() => {
+    aiClient.chat.mockReset();
+    aiClient.chat.mockImplementation(originalChat);
+    jest.restoreAllMocks();
+  });
+
+  it('a timed-out provider serves one 20s attempt, then a 200 fallback', async () => {
+    const log = jest.spyOn(console, 'info').mockImplementation(() => {});
+    aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'timeout', errorMessage: 'time budget exceeded', status: 504, provider: 'xai' });
+    const r = await ask();
+    expect(r.status).toBe(200);
+    expect(r.status).not.toBe(502);
+    expect(r.body).toEqual({ success: true, reply: FALLBACK, fallback: true, provider: null });
+    expect(r.body.reply).not.toMatch(/\u2014| -- /);
+    expect(aiClient.chat).toHaveBeenCalledTimes(1);
+    expect(aiClient.chat.mock.calls[0][0].budgetMs).toBe(20000);
+    expect(log).toHaveBeenCalledWith('[coach] fallback served reason=budget');
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('a provider failure serves one attempt, then a 200 fallback', async () => {
+    const log = jest.spyOn(console, 'info').mockImplementation(() => {});
+    aiClient.chat.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai', status: 500 });
+    const r = await ask();
+    expect(r.status).toBe(200);
+    expect(r.status).not.toBe(502);
+    expect(r.body.fallback).toBe(true);
+    expect(r.body.provider).toBeNull();
+    expect(aiClient.chat).toHaveBeenCalledTimes(1);
+    expect(aiClient.chat.mock.calls[0][0].budgetMs).toBe(20000);
+    expect(log).toHaveBeenCalledWith('[coach] fallback served reason=provider');
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not charge the quota for a fallback reply', async () => {
+    aiClient.chat.mockResolvedValue({ ok: false, error: 'provider_error', provider: 'xai', status: 503 });
+    const r = await ask();
+    expect(r.status).toBe(200);
+    expect(r.body.fallback).toBe(true);
+    expect(r.body.provider).toBeNull();
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
+    expect(aiUsage.checkAndConsume).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u-test', feature: 'chat' }));
+    expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({ allowed: true }),
+      { userId: 'u-test', feature: 'chat' },
+    );
+  });
+
+  it('still returns 400 when the provider reports no user message, without a retry', async () => {
+    aiClient.chat.mockResolvedValue({ ok: false, error: 'no_user_message', provider: 'anthropic' });
+    const r = await ask('hi');
+    expect(r.status).toBe(400);
+    expect(r.body.error).toMatch(/at least one/i);
+    expect(aiClient.chat).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).not.toHaveBeenCalled();
+  });
+
+  it('Coach shows a fallback as an error with Try again, and the client waits past 20s', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+    const timeout = html.match(/const CHAT_CLIENT_TIMEOUT_MS = (\d+)/);
+    expect(timeout).not.toBeNull();
+    expect(Number(timeout[1])).toBeGreaterThan(20000);
+    const start = html.indexOf('async function sendChat');
+    const end = html.indexOf('async function fetchWeeklyReview');
+    const fn = html.slice(start, end);
+    const fallbackAt = fn.indexOf('if (r.fallback)');
+    const pushAt = fn.indexOf("CHAT.messages.push({ role: 'assistant', content: r.reply })");
+    expect(fallbackAt).toBeGreaterThan(0);
+    expect(pushAt).toBeGreaterThan(fallbackAt);
+    expect(fn.slice(fallbackAt, pushAt)).not.toContain('CHAT.messages.push');
+    expect(fn).toContain('renderChatNotice(typing, r.reply)');
+    expect(html).toContain('sendChat({ resend: true })');
+    expect(html).toContain('btn btn-green chat-retry');
+    expect(html).toContain('min-height:44px');
+    expect(html).toContain('Try again');
+    expect(html).toContain('/assets/logo.svg');
+    const notice = html.slice(html.indexOf('function renderChatNotice'), html.indexOf('async function sendChat'));
+    expect(notice).not.toMatch(/—| -- /);
+  });
+});

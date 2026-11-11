@@ -33,6 +33,17 @@ describe('production smoke classification', () => {
     expect(classifyCoach(null, null).reason).toBe('unexpected coach result none');
   });
 
+  it('treats a Coach 200 fallback as a failure', () => {
+    const verdict = classifyCoach(200, {
+      success: true,
+      reply: "I couldn't finish that reply just then. Ask again in a moment.",
+      fallback: true,
+      provider: null,
+    });
+    expect(verdict).toEqual({ ok: false, status: 200, reason: 'coach_fallback' });
+    expect(classifyCoach(200, { success: true, reply: 'Water helps the meal go down.', fallback: false }).ok).toBe(true);
+  });
+
   it('accepts real parsed items', () => {
     const verdict = classifyScan(200, {
       success: true,

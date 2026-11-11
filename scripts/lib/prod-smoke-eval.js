@@ -103,6 +103,9 @@ function safeReason(reason) {
 }
 
 function classifyCoach(status, body) {
+  if (body && body.fallback === true) {
+    return { ok: false, status: status == null ? null : status, reason: 'coach_fallback' };
+  }
   if (status === 200 && body && body.success === true && typeof body.reply === 'string' && body.reply.trim()) {
     return { ok: true, status, kind: 'reply' };
   }

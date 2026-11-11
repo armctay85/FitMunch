@@ -68,7 +68,7 @@ describe('Coach context', () => {
     for (const m of opts.messages.slice(0, -1)) expect(m.content.length).toBeLessThanOrEqual(1200);
     expect(opts.messages[opts.messages.length - 1].content).toBe('How should I warm up for squats?');
     expect(opts.maxTokens).toBe(350);
-    expect(opts.budgetMs).toBe(12000);
+    expect(opts.budgetMs).toBe(20000);
   });
 });
 
