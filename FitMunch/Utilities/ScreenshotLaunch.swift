@@ -83,8 +83,8 @@ enum ReviewLaunch {
 enum ScreenshotLaunch {
     static let argument = "-AppStoreScreenshots"
 
-    /// Store-shot identity. Compiled and applied only in Debug, and only when
-    /// the process was launched with `-AppStoreScreenshots`.
+    /// Store shots do not seed a personal name or email. Me shows the FitMunch
+    /// mark. Applied only in Debug, and only with `-AppStoreScreenshots`.
     enum PersonaGate {
         static var isPermitted: Bool {
             #if DEBUG
@@ -94,13 +94,8 @@ enum ScreenshotLaunch {
             #endif
         }
 
-        #if DEBUG
-        static let name = "Alex Morgan"
-        static let email = "alex.morgan@example.com"
-        #else
         static let name = ""
         static let email = ""
-        #endif
     }
 
     static var isActive: Bool {

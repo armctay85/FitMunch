@@ -40,9 +40,10 @@ final class SignedInProfileTests: XCTestCase {
             XCTAssertFalse(field.contains("example.com"))
         }
         #if DEBUG
-        XCTAssertEqual(ScreenshotLaunch.PersonaGate.name, "Alex Morgan")
-        XCTAssertEqual(ScreenshotLaunch.PersonaGate.email, "alex.morgan@example.com")
-        XCTAssertTrue(ScreenshotLaunch.PersonaGate.email.hasSuffix("@example.com"))
+        XCTAssertEqual(ScreenshotLaunch.PersonaGate.name, "")
+        XCTAssertEqual(ScreenshotLaunch.PersonaGate.email, "")
+        XCTAssertFalse(ScreenshotLaunch.PersonaGate.name.contains("Alex Morgan"))
+        XCTAssertFalse(ScreenshotLaunch.PersonaGate.email.contains("example.com"))
         XCTAssertFalse(ScreenshotLaunch.PersonaGate.email.localizedCaseInsensitiveContains("qa"))
         XCTAssertFalse(ScreenshotLaunch.PersonaGate.email.contains("+"))
         XCTAssertFalse(AuditLaunch.isAnyAudit)

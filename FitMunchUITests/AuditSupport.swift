@@ -544,7 +544,6 @@ extension XCTestCase {
             app.switches["me-dark-mode"].waitForExistence(timeout: 15),
             "Dark Mode row is not on Me (\(place))"
         )
-        _ = app.staticTexts["Alex Morgan"].waitForExistence(timeout: 8)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         let window = app.windows.firstMatch
         let screen = window.exists ? window.frame : app.frame

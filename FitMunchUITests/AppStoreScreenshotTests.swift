@@ -54,26 +54,22 @@ final class AppStoreScreenshotTests: XCTestCase {
         }
     }
 
-    /// Me uses the Debug screenshot persona. It does not sign in as the QA account.
+    /// Me in screenshot mode shows the FitMunch mark. No seeded name or email,
+    /// and it does not sign in as the QA account.
     func testCaptureSignedInMe() throws {
-        let name = "Alex Morgan"
-        let email = "alex.morgan@example.com"
-        for token in ["QA", "test", "example", "+"] {
-            XCTAssertFalse(name.localizedCaseInsensitiveContains(token), "persona name contains \(token)")
-        }
-        // Reserved domain, so the shot never shows a real person's mailbox.
-        XCTAssertTrue(email.hasSuffix("@example.com"), "persona email is not on example.com")
-        for token in ["QA", "test", "+"] {
-            XCTAssertFalse(email.localizedCaseInsensitiveContains(token), "persona email contains \(token)")
-        }
         app = XCUIApplication()
         app.launchArguments = [ScreenshotLaunchArgument.flag, "-ForceLightMode", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20), "Tab bar never appeared in screenshot mode.")
         openTab("Me")
         dismissSystemAlerts()
-        XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 12), "Store persona name did not appear on Me")
-        XCTAssertTrue(app.staticTexts[email].waitForExistence(timeout: 4), "Store persona email did not appear on Me")
+        XCTAssertTrue(app.staticTexts["Progress"].waitForExistence(timeout: 12), "Me did not appear in screenshot mode")
+        XCTAssertFalse(app.staticTexts["Alex Morgan"].exists, "Seeded name is on the Me shot")
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "example.com")).firstMatch.exists,
+            "example.com is on the Me shot"
+        )
+        XCTAssertFalse(app.staticTexts["No profile yet"].exists, "Empty profile copy is on the Me shot")
         XCTAssertFalse(app.staticTexts["FitMunch QA"].exists, "QA account name is on the Me shot")
         XCTAssertFalse(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "hello+qa")).firstMatch.exists,

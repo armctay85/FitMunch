@@ -117,6 +117,16 @@ jobs:
           boot_with_retry() {
             local udid="$1"
             xcrun simctl shutdown all >/dev/null 2>&1 || true
+            # shutdown is async. bootstatus on a device that is still marked
+            # booted returns immediately and skips the data-migration wait.
+            local i state
+            for i in $(seq 1 40); do
+              state="$(xcrun simctl list devices | grep -F "$udid" || true)"
+              if [[ "$state" == *"(Shutdown)"* ]]; then
+                break
+              fi
+              sleep 1
+            done
             xcrun simctl boot "$udid" >/dev/null 2>&1 || true
             if ! xcrun simctl bootstatus "$udid" -b >&2; then
               echo "Boot failed for $udid. Retrying the boot once." >&2

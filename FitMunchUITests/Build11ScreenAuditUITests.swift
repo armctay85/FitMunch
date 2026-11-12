@@ -203,7 +203,16 @@ final class Build11ScreenAuditUITests: XCTestCase {
         openTab("Coach", in: app)
         mark("Coach", "dark", app.staticTexts["What should I eat after training?"].waitForExistence(timeout: 6) ? "PASS" : "FAIL", copyNote(app), shot(app, "coach-dark"))
         openTab("Me", in: app)
-        mark("Me", "dark", app.staticTexts["Alex Morgan"].waitForExistence(timeout: 6) ? "PASS" : "FAIL", copyNote(app), shot(app, "me-dark"))
+        let seededName = app.staticTexts["Alex Morgan"].exists
+        let sampleMail = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "example.com")).firstMatch.exists
+        let premium = app.staticTexts["Premium"].waitForExistence(timeout: 6)
+        mark(
+            "Me",
+            "dark",
+            (!seededName && !sampleMail && premium) ? "PASS" : "FAIL",
+            "name=\(seededName) example.com=\(sampleMail) premium=\(premium). \(copyNote(app))",
+            shot(app, "me-dark")
+        )
         app.terminate()
         XCUIDevice.shared.appearance = .light
     }

@@ -95,6 +95,31 @@ struct SettingsView: View {
                         }
                         .padding(.vertical, 8)
                         .accessibilityElement(children: .contain)
+                    } else if ScreenshotLaunch.isActive {
+                        // Screenshot flag only. The mark stays, with no seeded name or email.
+                        HStack(alignment: .center, spacing: Theme.Spacing.three) {
+                            Image("LaunchLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .padding(11)
+                                .frame(width: 50, height: 50)
+                                .background(Circle().fill(Theme.brandGreenSoft))
+                                .accessibilityHidden(true)
+                                .accessibilityIdentifier("me-avatar-mark")
+                            if premium.isPremium {
+                                Text("Premium")
+                                    .font(.footnote.weight(.semibold))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
+                                    .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .accessibilityIdentifier("me-premium-badge")
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .contain)
                     } else {
                         VStack(alignment: .leading, spacing: Theme.Spacing.two) {
                             Label("No profile yet", systemImage: "person.crop.circle.badge.plus")
