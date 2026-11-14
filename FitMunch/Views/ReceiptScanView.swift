@@ -72,6 +72,8 @@ struct ReceiptScanView: View {
                     showRetake = true
                 } else if AuditLaunch.isScanFinished {
                     scan = Self.finishedSample
+                } else if scan == nil, let seeded = ScreenshotLaunch.scanResult() {
+                    scan = seeded
                 }
             }
             .accessibilityIdentifier("scan-screen")

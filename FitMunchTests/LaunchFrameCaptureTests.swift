@@ -12,6 +12,7 @@ final class LaunchFrameCaptureTests: XCTestCase {
         XCTAssertFalse(LaunchFrameCapture.isRequested)
         LaunchFrameCapture.deadline = nil
         LaunchFrameCapture.holdIfRequested()
+        LaunchFrameCapture.armWhenVisible()
         XCTAssertNil(
             LaunchFrameCapture.deadline,
             "holdIfRequested armed the 30s cover without -CaptureLaunch"

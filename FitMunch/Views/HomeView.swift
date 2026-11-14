@@ -679,26 +679,51 @@ private struct SummaryCard: View {
     let color: Color
     var compact: Bool = false
 
+    /// Compact tiles keep 10pt above the icon row and 10pt below the label.
+    /// The icon sits beside the number so the compact row stays short enough
+    /// for Breakfast, Lunch, and Dinner to rest above the tab bar.
+    static let compactVerticalPadding: CGFloat = 10
+
     var body: some View {
-        VStack(spacing: Theme.Spacing.two) {
-            Image(systemName: icon)
-                .font(.title2)
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(color)
-
-            MacroNumber(value: value, style: .title2)
-
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        Group {
+            if compact {
+                VStack(spacing: Theme.Spacing.one) {
+                    HStack(spacing: Theme.Spacing.one) {
+                        iconView(.title3)
+                        MacroNumber(value: value, style: .title2)
+                    }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    titleView
+                }
+            } else {
+                VStack(spacing: Theme.Spacing.two) {
+                    iconView(.title2)
+                    MacroNumber(value: value, style: .title2)
+                    titleView
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, compact ? Theme.Spacing.two : Theme.Spacing.four)
-        .padding(.vertical, compact ? 0 : Theme.Spacing.four)
+        .padding(.vertical, compact ? Self.compactVerticalPadding : Theme.Spacing.four)
         .background(color.opacity(0.1))
         .cornerRadius(Theme.Radius.medium)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) \(value)")
+    }
+
+    private func iconView(_ font: Font) -> some View {
+        Image(systemName: icon)
+            .font(font)
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(color)
+    }
+
+    private var titleView: some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 }
 

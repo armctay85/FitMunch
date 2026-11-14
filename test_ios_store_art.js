@@ -99,6 +99,34 @@ describe('Real-app screenshot path', () => {
   });
 });
 
+describe('S3 store frames', () => {
+  const frame = read('scripts/frame-store-screenshots.py');
+
+  it('wraps the raw captures in the store workflow and leaves the archive job alone', () => {
+    expect(capture).toContain('scripts/frame-store-screenshots.py');
+    expect(shots).toContain('scripts/frame-store-screenshots.py');
+    expect(shots).toContain('pillow');
+    expect(shots).not.toMatch(/node\s+\S*make-screenshots/);
+    expect(archive).not.toContain('frame-store-screenshots');
+    expect(frame).toContain('1320, 2868');
+    expect(frame).toContain('1290, 2796');
+    expect(frame).toContain('1242, 2688');
+    expect(frame).toContain('logo-wordmark.svg');
+    expect(frame).toContain('Scan your shop.');
+    expect(frame).toContain('See every macro.');
+    expect(frame).toContain('Meals planned');
+    expect(frame).toContain('to your macros');
+    expect(frame).toContain('Your day of eating,');
+    expect(frame).toContain('at a glance');
+    expect(frame).toContain('Ask what');
+    expect(frame).toContain('to eat next');
+    expect(frame).toContain('Your progress,');
+    expect(frame).toContain('all in one place');
+    expect(frame).toContain("Every item's macros, a haul score and meal ideas.");
+    expect(frame).not.toMatch(/Alex Morgan|alex\.morgan@example\.com/);
+  });
+});
+
 describe('Out of scope leftovers stay untouched', () => {
   it('does not reopen the iPad camera or Upgrade presentation', () => {
     expect(scan).toContain('openCameraSafely');

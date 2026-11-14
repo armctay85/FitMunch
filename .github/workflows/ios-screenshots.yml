@@ -1,7 +1,8 @@
 name: iOS App Store screenshots
 
-# Real SwiftUI captures on the macos-26 simulator. HTML mockup frames are
-# not store art (Guideline 2.3.3). This job does not upload to ASC or review.
+# Real SwiftUI captures on the macos-26 simulator, then the S3 frame pass.
+# HTML mockup frames are not store art (Guideline 2.3.3). This job does not
+# upload to ASC or review.
 
 on:
   workflow_dispatch:
@@ -13,7 +14,10 @@ on:
       - ".github/workflows/ios-screenshots.yml"
       - "scripts/ocr-store-screenshots.swift"
       - "scripts/capture-appstore-screenshots.sh"
+      - "scripts/frame-store-screenshots.py"
       - "scripts/warm-simulator-launch.sh"
+      - "marketing/appstore/fonts/**"
+      - "public/brand/logo-wordmark.svg"
   push:
     branches: [main, master]
     paths:
@@ -23,7 +27,10 @@ on:
       - ".github/workflows/ios-screenshots.yml"
       - "scripts/ocr-store-screenshots.swift"
       - "scripts/capture-appstore-screenshots.sh"
+      - "scripts/frame-store-screenshots.py"
       - "scripts/warm-simulator-launch.sh"
+      - "marketing/appstore/fonts/**"
+      - "public/brand/logo-wordmark.svg"
 
 permissions:
   contents: read
@@ -58,6 +65,12 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Install frame renderer
+        run: |
+          python3 -m pip install --break-system-packages pillow \
+            || python3 -m pip install pillow
+          python3 -c "from PIL import Image, ImageFont, ImageDraw, ImageFilter, ImageChops; print('pillow', Image.__version__)"
+
       - name: Capture real-app screenshots
         env:
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
@@ -68,6 +81,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-appstore-screenshots
-          path: artifacts/appstore-screenshots/**/*.png
+          path: |
+            artifacts/appstore-screenshots/iphone-69/*.png
+            artifacts/appstore-screenshots/iphone-67/*.png
+            artifacts/appstore-screenshots/iphone-65/*.png
           if-no-files-found: error
           retention-days: 14

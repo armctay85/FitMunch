@@ -27,6 +27,16 @@ enum LaunchFrameCapture {
     static func holdIfRequested() {
         #if DEBUG
         guard isRequested else { return }
+        // The clock starts in the cover task, when the hold is on screen.
+        // Arming it here expires during a cold-simulator idle stall, and the
+        // cover dismisses before the first frame the watcher can photograph.
+        #endif
+    }
+
+    /// First visible frame of the hold. A later view refresh keeps this deadline.
+    static func armWhenVisible() {
+        #if DEBUG
+        guard isRequested, deadline == nil else { return }
         deadline = Date().addingTimeInterval(holdSeconds)
         #endif
     }
@@ -74,6 +84,7 @@ struct LaunchFrameCover: View {
             for url in LaunchFrameCapture.sharedURLs(named: "fitmunch-launch-holding") {
                 try? Data("hold".utf8).write(to: url)
             }
+            LaunchFrameCapture.armWhenVisible()
             let deadline = LaunchFrameCapture.deadline ?? Date()
             while Date() < deadline {
                 if LaunchFrameCapture.watcherConfirmed() {

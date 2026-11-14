@@ -83,8 +83,8 @@ enum ReviewLaunch {
 enum ScreenshotLaunch {
     static let argument = "-AppStoreScreenshots"
 
-    /// Store-shot identity. Compiled and applied only in Debug, and only when
-    /// the process was launched with `-AppStoreScreenshots`.
+    /// Store shots do not seed a personal name or email. Me shows the FitMunch
+    /// mark. Applied only in Debug, and only with `-AppStoreScreenshots`.
     enum PersonaGate {
         static var isPermitted: Bool {
             #if DEBUG
@@ -94,13 +94,8 @@ enum ScreenshotLaunch {
             #endif
         }
 
-        #if DEBUG
-        static let name = "Alex Morgan"
-        static let email = "alex.morgan@example.com"
-        #else
         static let name = ""
         static let email = ""
-        #endif
     }
 
     static var isActive: Bool {
@@ -108,6 +103,39 @@ enum ScreenshotLaunch {
         return ProcessInfo.processInfo.arguments.contains(argument)
         #else
         return false
+        #endif
+    }
+
+    /// Store Scan shot only: open Scan on a finished haul instead of the empty state.
+    /// Needs both `-AppStoreScreenshots` and this flag, so design and audit runs
+    /// that launch with `-AppStoreScreenshots` alone still see the intro.
+    static let scanResultArgument = "-AppStoreScanResult"
+
+    static var showsScanResult: Bool {
+        #if DEBUG
+        return isActive && ProcessInfo.processInfo.arguments.contains(scanResultArgument)
+        #else
+        return false
+        #endif
+    }
+
+    /// Captured receipt for the Scan store shot: items, protein and calories per
+    /// item, and a haul score. No shelf price and no store name.
+    static func scanResult() -> ReceiptScanResponse? {
+        #if DEBUG
+        guard showsScanResult else { return nil }
+        let json = """
+        {"success":true,"scannerProvider":"preview","grade":"A","shareText":"My weekly haul score is A","items":[\
+        {"name":"Chicken breast","category":"meat","nutrition":{"protein":62,"carbs":0,"fat":7,"calories":330}},\
+        {"name":"Greek yoghurt","category":"dairy","nutrition":{"protein":20,"carbs":8,"fat":4,"calories":150}},\
+        {"name":"Salmon fillets","category":"seafood","nutrition":{"protein":40,"carbs":0,"fat":26,"calories":410}},\
+        {"name":"Rolled oats","category":"pantry","nutrition":{"protein":13,"carbs":60,"fat":7,"calories":380}},\
+        {"name":"Broccoli","category":"produce","nutrition":{"protein":6,"carbs":13,"fat":1,"calories":70}}],\
+        "weeklyTotals":{"protein":141,"carbs":81,"fat":45,"calories":1340}}
+        """
+        return try? JSONDecoder().decode(ReceiptScanResponse.self, from: Data(json.utf8))
+        #else
+        return nil
         #endif
     }
 

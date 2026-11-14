@@ -5,6 +5,7 @@ set -u
 
 UDID="${1:?udid}"
 OUT="${2:?output directory}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$OUT"
 
 # The predicate text itself contains LAUNCH_FRAME_HOLD, so the filter banner
@@ -53,34 +54,69 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Let the log stream open log.txt before we append. Its open truncates.
+sleep 0.3
+
 shot() {
   local name="$1"
   xcrun simctl io "$UDID" screenshot "$OUT/$name" >/dev/null 2>&1 || true
 }
 
-app_running() {
-  pgrep -f "Devices/${UDID}/.*FitMunch\\.app/FitMunch" >/dev/null 2>&1
-}
-
 hold_logged() {
-  grep -v Filtering "$OUT/log.txt" 2>/dev/null | grep -q LAUNCH_FRAME_HOLD
+  [[ -f "$OUT/log.txt" ]] || return 1
+  # The predicate banner also contains LAUNCH_FRAME_HOLD. The app line is
+  # "FitMunch[pid] ... LAUNCH_FRAME_HOLD".
+  grep LAUNCH_FRAME_HOLD "$OUT/log.txt" 2>/dev/null | grep -v Filtering | grep -q 'FitMunch\['
 }
 
-# Per-device file written at the start of the hold. A shared /tmp or $HOME
-# marker would still be present from the other simulator.
+# The app writes fitmunch-launch-holding to its container, NSTemporaryDirectory,
+# /tmp, SIMULATOR_SHARED_RESOURCES_DIRECTORY ($DEVICE/data), and the host home.
+# A recursive find of a freshly migrated device tree made each poll take seconds,
+# so the burst started after the cover had already gone.
 DEVICE="$HOME/Library/Developer/CoreSimulator/Devices/${UDID}"
-MARKER="$DEVICE/data/fitmunch-launch-holding"
-rm -f "$MARKER"
-find "$DEVICE" -name 'fitmunch-launch-confirmed' -delete >/dev/null 2>&1 || true
-find "$DEVICE" -name 'fitmunch-launch-holding' -delete >/dev/null 2>&1 || true
+CONTAINER=""
+
+refresh_container() {
+  CONTAINER="$(xcrun simctl get_app_container "$UDID" com.fitmunch.app data 2>/dev/null || true)"
+}
+
+marker_paths() {
+  local suffix="$1"
+  printf '%s\n' \
+    "$DEVICE/data/fitmunch-launch-${suffix}" \
+    "$DEVICE/data/tmp/fitmunch-launch-${suffix}" \
+    "/tmp/fitmunch-launch-${suffix}" \
+    "$HOME/fitmunch-launch-${suffix}"
+  if [[ -n "$CONTAINER" ]]; then
+    printf '%s\n' \
+      "$CONTAINER/fitmunch-launch-${suffix}" \
+      "$CONTAINER/tmp/fitmunch-launch-${suffix}"
+  fi
+}
+
+clear_markers() {
+  local path
+  while IFS= read -r path; do
+    rm -f "$path"
+  done < <(marker_paths holding)
+  while IFS= read -r path; do
+    rm -f "$path"
+  done < <(marker_paths confirmed)
+}
 
 hold_ready() {
-  [[ -f "$MARKER" ]] && return 0
-  if find "$DEVICE/data" -name 'fitmunch-launch-holding' -mmin -3 2>/dev/null | grep -q .; then
-    return 0
-  fi
-  hold_logged
+  # The log line is written when the cover task starts. Check it before any
+  # filesystem probe so a slow simctl call cannot miss the hold window.
+  hold_logged && return 0
+  local path
+  while IFS= read -r path; do
+    [[ -f "$path" ]] && return 0
+  done < <(marker_paths holding)
+  return 1
 }
+
+refresh_container
+clear_markers
 
 # Ready before xcodebuild launches. Shooting on process-exists captured the
 # frame after the cover had already gone on iPhone 11 Pro Max.
@@ -88,37 +124,50 @@ echo "watcher ready" >> "$OUT/log.txt"
 touch "$OUT/watcher-ready"
 
 confirm_hold() {
-  local device="$HOME/Library/Developer/CoreSimulator/Devices/${UDID}"
-  local found
-  found=$(find "$device" -name 'fitmunch-launch-holding' -mmin -5 2>/dev/null | head -n 8 || true)
-  if [[ -n "$found" ]]; then
-    while IFS= read -r file; do
-      echo seen > "$(dirname "$file")/fitmunch-launch-confirmed"
-    done <<< "$found"
-  fi
-  echo seen > "$device/data/fitmunch-launch-confirmed"
+  refresh_container
+  local path
+  while IFS= read -r path; do
+    local dir
+    dir="$(dirname "$path")"
+    mkdir -p "$dir" 2>/dev/null || true
+    echo seen > "$path" 2>/dev/null || true
+  done < <(marker_paths confirmed)
+  echo "watcher confirmed" >> "$OUT/log.txt"
+}
+
+frame_accepted() {
+  python3 "$ROOT/scripts/pick-launch-frame.py" "$OUT" "$OUT/accepted-launch.png" >> "$OUT/log.txt" 2>&1
 }
 
 # Do not shoot merely because the process exists. That frame is past the
 # launch cover. Wait until the hold file or the hold log line is real.
 # xcodebuild is still compiling when this loop starts. Keep waiting until
-# the cover writes the hold file. 0.5s * 1500 is 12.5 minutes.
+# the cover writes the hold. 0.25s * 1500 is 6.25 minutes.
 for i in $(seq 1 1500); do
   if hold_ready; then
-    echo "launch detected at poll ${i}" >> "$OUT/log.txt"
+    echo "launch detected at poll ${i} $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT/log.txt"
     echo "bursting launch screenshots" >> "$OUT/log.txt"
     n=0
-    while (( n < 16 )); do
+    accepted=0
+    while (( n < 12 )); do
       shot "$(printf 'frame-%03d.png' "$n")"
       n=$((n + 1))
-      sleep 0.25
+      echo "shot n=$n $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT/log.txt"
+      # Confirm only after a frame passes the existing launch-screen picker.
+      # A post-launch Today shot must not dismiss the cover.
+      if frame_accepted; then
+        accepted=1
+        echo "burst count=$n" >> "$OUT/log.txt"
+        confirm_hold
+        break
+      fi
     done
-    echo "burst count=$n" >> "$OUT/log.txt"
-    confirm_hold
-    echo "watcher confirmed" >> "$OUT/log.txt"
+    if (( accepted == 0 )); then
+      echo "burst count=$n no launch frame" >> "$OUT/log.txt"
+    fi
     break
   fi
-  sleep 0.5
+  sleep 0.25
 done
 
 if ! ls "$OUT"/frame-*.png >/dev/null 2>&1; then
