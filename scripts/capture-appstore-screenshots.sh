@@ -132,5 +132,9 @@ if [[ ! -d "$OUT/iphone-67" ]]; then
   exit 1
 fi
 
+# S3 frames wrap the raw captures. OCR has already run on the unframed UI.
+echo "Applying S3 frames to the raw captures"
+python3 "$ROOT/scripts/frame-store-screenshots.py" "$OUT"
+
 echo "Real-app screenshots written to $OUT"
 find "$OUT" -name '*.png' -print
