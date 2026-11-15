@@ -153,6 +153,7 @@ a.coach-trial.fm-nav-cta:hover{
   min-height:44px;
   padding:8px 2px;
 }
+.ln-section a.fm-btn { padding: 0 22px; min-height: 48px; }
 @media(prefers-reduced-motion:reduce){
   .ln-card,.ln-day{transition:none}
 }

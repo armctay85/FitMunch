@@ -290,6 +290,71 @@ describe('first-touch UTMs survive navigation', () => {
     });
   });
 
+  it('does not store a record when the visit has no utm, including referrer only', () => {
+    const store = memoryStorage();
+    runTrack(store, 'https://www.fitmunch.com.au/weekly-meal-plan-australia', {
+      referrer: 'https://www.google.com/search?q=meal+plan',
+    });
+    expect(store.local.getItem('fm_attribution')).toBeNull();
+    expect(store.session.getItem('fm_attribution')).toBeNull();
+  });
+
+  it('overwrites a stored record that has no utm when a utm visit arrives', () => {
+    const store = memoryStorage();
+    const prior = JSON.stringify({
+      referrer: 'https://www.google.com/',
+      landing: '/pricing',
+      ts: Date.now(),
+    });
+    store.local.setItem('fm_attribution', prior);
+    store.session.setItem('fm_attribution', prior);
+    runTrack(store, 'https://www.fitmunch.com.au/?utm_source=x&utm_campaign=drewcci', {
+      referrer: 'https://www.google.com/',
+    });
+    const next = JSON.parse(store.local.getItem('fm_attribution'));
+    expect(next).toMatchObject({
+      utm_source: 'x',
+      utm_campaign: 'drewcci',
+      landing: '/',
+    });
+    expect(next.referrer).toBe('https://www.google.com/');
+    expect(typeof next.ts).toBe('number');
+    expect(store.session.getItem('fm_attribution')).toBe(store.local.getItem('fm_attribution'));
+  });
+
+  it('treats a record older than 90 days as expired and overwrites it', () => {
+    const store = memoryStorage();
+    const stale = JSON.stringify({
+      utm_source: 'old',
+      utm_campaign: 'stale',
+      landing: '/pricing',
+      ts: Date.now() - (91 * 24 * 60 * 60 * 1000),
+    });
+    store.local.setItem('fm_attribution', stale);
+    store.session.setItem('fm_attribution', stale);
+    runTrack(store, 'https://www.fitmunch.com.au/?utm_source=x&utm_campaign=drewcci');
+    const next = JSON.parse(store.local.getItem('fm_attribution'));
+    expect(next).toMatchObject({ utm_source: 'x', utm_campaign: 'drewcci', landing: '/' });
+    expect(next.utm_source).not.toBe('old');
+    expect(Date.now() - next.ts).toBeLessThan(60 * 1000);
+  });
+
+  it('drops an expired record when the new visit has no utm', () => {
+    const store = memoryStorage();
+    const stale = JSON.stringify({
+      utm_source: 'old',
+      landing: '/',
+      ts: Date.now() - (90 * 24 * 60 * 60 * 1000) - 1,
+    });
+    store.local.setItem('fm_attribution', stale);
+    store.session.setItem('fm_attribution', stale);
+    runTrack(store, 'https://www.fitmunch.com.au/', {
+      referrer: 'https://news.example/story',
+    });
+    expect(store.local.getItem('fm_attribution')).toBeNull();
+    expect(store.session.getItem('fm_attribution')).toBeNull();
+  });
+
   it('uses sessionStorage when localStorage is blocked', () => {
     const store = memoryStorage();
     store.local.getItem = () => { throw new Error('blocked'); };
@@ -377,17 +442,25 @@ describe('login.html sends sourcePage and utm', () => {
 describe('home meal planning guides', () => {
   const html = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8');
 
-  it('links all 7 guides from #plan-from-here and the footer in CTA green', () => {
+  it('links all 7 guides from #plan-from-here and the footer as plain footer links', () => {
     const start = html.indexOf('id="plan-from-here"');
     const plan = html.slice(start, html.indexOf('</section>', start));
+    const footer = html.slice(html.indexOf('<footer>'));
     expect(plan).toContain('<h3>Meal planning guides</h3>');
     expect(plan).toContain('The same health engine, from the shop you already do and from a week of meals.');
+    expect(plan).toContain('after a 14\u2011day trial.');
+    expect(html).toContain('.landers-head [data-fm-price]{display:inline;min-width:0}');
     expect(html).not.toContain('Four ways into the same health engine');
     expect(html).toContain('.guide-links a{color:#0f7a32;font-weight:700;text-decoration:none}');
-    expect(html).toMatch(/\.footer-links a\.guide-link\{[^}]*background:#0f7a32/);
+    expect(html).not.toMatch(/\.footer-links a\.guide-link/);
+    expect(html).toContain('.lander-grid .lander-card:last-child { grid-column: 1 / -1; }');
+    expect(footer).not.toContain('guide-link');
+    const plainFooter = footer.match(/<a href="[^"]+">/g) || [];
     for (const [href, label] of GUIDE_LINKS) {
       expect(plan).toContain(`<a href="${href}">${label}</a>`);
-      expect(html).toContain(`<a class="guide-link" href="${href}">${label}</a>`);
+      expect(footer).toContain(`<a href="${href}">${label}</a>`);
+      expect(footer).not.toContain(`class="guide-link"`);
+      expect(plainFooter.some((tag) => tag === `<a href="${href}">`)).toBe(true);
     }
     const block = plan.slice(plan.indexOf('class="guide-block"'));
     expect(block).not.toMatch(/woolworths|woolies|\bcoles\b|\baldi\b|\biga\b|\$|\u2014/i);

@@ -108,37 +108,86 @@
     return out;
   }
 
-  function attributionStored() {
+  // 90 days. A stored record older than this is ignored and can be overwritten.
+  var ATTRIBUTION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+  function readAttribution(storage) {
     try {
-      if (localStorage.getItem('fm_attribution')) return true;
-    } catch (_) {}
-    try {
-      if (sessionStorage.getItem('fm_attribution')) return true;
-    } catch (_) {}
+      var raw = storage.getItem('fm_attribution');
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function recordHasUtm(record) {
+    if (!record) return false;
+    var i;
+    for (i = 0; i < UTM_KEYS.length; i++) {
+      if (record[UTM_KEYS[i]]) return true;
+    }
     return false;
   }
 
-  // First landing wins. A later page, including login.html, reads this record
-  // instead of a new query string. utm_content and utm_term stay in the record
-  // for the existing signup attribution path.
+  function recordExpired(record) {
+    if (!record || typeof record.ts !== 'number' || !isFinite(record.ts)) return false;
+    return Date.now() - record.ts > ATTRIBUTION_MAX_AGE_MS;
+  }
+
+  function writeAttribution(json) {
+    try { localStorage.setItem('fm_attribution', json); } catch (_) {}
+    try { sessionStorage.setItem('fm_attribution', json); } catch (_) {}
+  }
+
+  function dropAttribution() {
+    try { localStorage.removeItem('fm_attribution'); } catch (_) {}
+    try { sessionStorage.removeItem('fm_attribution'); } catch (_) {}
+  }
+
+  // First landing with a utm param wins. login.html reads this record as stored.
+  // A referrer with no utm does not create a record. A later utm visit overwrites
+  // a stored record that has no utm. Records older than 90 days are ignored.
   function captureFirstTouch() {
-    if (attributionStored()) return;
-    var attr = {};
+    var local = readAttribution(localStorage);
+    var session = readAttribution(sessionStorage);
+    var kept = null;
+    if (local && !recordExpired(local)) kept = local;
+    else if (session && !recordExpired(session)) kept = session;
+
     var fromUrl = allowlistedUtms(location.search || '');
+    var attr = {};
+    var sawUtm = false;
     var i;
     for (i = 0; i < UTM_KEYS.length; i++) {
-      if (fromUrl[UTM_KEYS[i]]) attr[UTM_KEYS[i]] = fromUrl[UTM_KEYS[i]];
+      if (fromUrl[UTM_KEYS[i]]) {
+        attr[UTM_KEYS[i]] = fromUrl[UTM_KEYS[i]];
+        sawUtm = true;
+      }
     }
+
+    if (kept && recordHasUtm(kept)) {
+      var needsStamp = typeof kept.ts !== 'number' || !isFinite(kept.ts);
+      if (needsStamp) kept.ts = Date.now();
+      if (needsStamp || !local || (local && recordExpired(local))) writeAttribution(JSON.stringify(kept));
+      return;
+    }
+
+    if (!sawUtm) {
+      if ((local && recordExpired(local)) || (session && recordExpired(session))) dropAttribution();
+      return;
+    }
+
     var ref = '';
     try { ref = String(document.referrer || ''); } catch (_) {}
     var host = '';
     try { host = String(location.hostname || ''); } catch (_) {}
     if (ref && host && ref.indexOf(host) === -1) attr.referrer = ref;
     attr.landing = pathOnly(location.pathname) || '/';
-    if (!(Object.keys(attr).length > 1 || attr.utm_source)) return;
-    var json = JSON.stringify(attr);
-    try { localStorage.setItem('fm_attribution', json); } catch (_) {}
-    try { sessionStorage.setItem('fm_attribution', json); } catch (_) {}
+    attr.ts = Date.now();
+    writeAttribution(JSON.stringify(attr));
   }
 
   function safeAttr() {

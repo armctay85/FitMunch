@@ -541,7 +541,7 @@ input{border-radius:12px;min-height:48px}
  });
  if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
  attr.landing = location.pathname;
- if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+ if (attr.utm_source || attr.utm_medium || attr.utm_campaign || attr.utm_content || attr.utm_term) localStorage.setItem('fm_attribution', JSON.stringify(attr));
  }
  } catch {}
 
@@ -1119,7 +1119,7 @@ input{border-radius:12px;min-height:48px}
  else if (document.getElementById('panel-register').classList.contains('active')) doRegister();
  });
 </script>
-<script src="/js/fm-track.js?v=8baa451ad9a4" defer></script>
+<script src="/js/fm-track.js?v=423670fb12f4" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>
