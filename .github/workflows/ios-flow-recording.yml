@@ -1,24 +1,16 @@
 name: iOS flow recording
 
-# Simulator recording of onboarding, the StoreKit paywall, and the five tabs.
+# Test-only B/D/F audit harness on this branch. Do not merge to main.
 # Separate from ios-archive.yml. Does not upload to App Store Connect.
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "FitMunch/**"
-      - "FitMunchUITests/**"
-      - "project.yml"
-      - ".github/workflows/ios-flow-recording.yml"
-      - "scripts/run-flow-recording.sh"
-      - "scripts/set-simulator-region-au.sh"
 
 permissions:
   contents: read
 
 jobs:
-  flow-recording:
+  bdf-audit:
     runs-on: macos-26
     timeout-minutes: 60
 
@@ -47,17 +39,21 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Record main flows
+      - name: Run B/D/F demo audit
         env:
-          QA_EMAIL: ${{ secrets.QA_EMAIL }}
-          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
-        run: bash scripts/run-flow-recording.sh
+          QA_EMAIL: ${{ secrets.FITMUNCH_DEMO_REVIEW_EMAIL }}
+          QA_PASSWORD: ${{ secrets.FITMUNCH_DEMO_REVIEW_PASSWORD }}
+        run: bash scripts/run-bdf-demo-audit.sh
 
-      - name: Upload flow recording
+      - name: Forget the credential file
+        if: always()
+        run: rm -f /tmp/fitmunch-qa-credentials
+
+      - name: Upload B/D/F audit artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: fitmunch-flow-recording
-          path: artifacts/flow-recording/*.mp4
+          name: fitmunch-bdf-demo-audit
+          path: artifacts/bdf-demo-audit/
           if-no-files-found: error
           retention-days: 14
