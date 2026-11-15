@@ -922,6 +922,8 @@ app.post('/api/quick-checkout', async (req, res) => {
         origin: checkoutOrigin(req),
         successPath: '/success.html?session_id={CHECKOUT_SESSION_ID}',
         cancelPath: quickCheckoutCancelPath(plan),
+        sourcePage: req.body?.sourcePage,
+        utm: req.body?.utm,
       })
     );
     const { TRIAL_USED_COPY } = require('./server/email.js');
@@ -990,6 +992,8 @@ app.post('/api/checkout', async (req, res) => {
         email: current.email,
         origin: checkoutOrigin(req),
         userId: current.id,
+        sourcePage: req.body?.sourcePage,
+        utm: req.body?.utm,
       });
     });
 

@@ -9,7 +9,7 @@ const {
   SKIPPED,
   RETIRED_SLUGS,
   SITE,
-  TRIAL_HREF,
+  trialHref,
   TRIAL_LABEL,
   TRIAL_SENTENCE,
   PUBLIC_DIR,
@@ -105,7 +105,7 @@ describe('answer pages: routes, meta, JSON-LD and trial CTA', () => {
       const tags = [...html.matchAll(/<a\b[^>]*class="[^"]*(?:fm-btn|fm-nav-cta)[^"]*"[^>]*>([^<]*)</g)];
       expect(tags.length).toBeGreaterThanOrEqual(3);
       for (const tag of tags) {
-        expect(tag[0]).toContain(`href="${TRIAL_HREF}"`);
+        expect(tag[0].match(/href="([^"]*)"/)[1]).toBe(trialHref(page.slug));
         expect(tag[1]).toBe(TRIAL_LABEL);
       }
       expect(html.split(TRIAL_SENTENCE).length - 1).toBeGreaterThanOrEqual(2);
@@ -132,7 +132,7 @@ describe('answer pages: routes, meta, JSON-LD and trial CTA', () => {
       const trial = [...html.matchAll(/<a\b[^>]*class="[^"]*(?:fm-btn|fm-nav-cta)[^"]*"[^>]*>([^<]*)</g)];
       expect(trial.length).toBeGreaterThanOrEqual(3);
       for (const tag of trial) {
-        expect(tag[0]).toContain(`href="${TRIAL_HREF}"`);
+        expect(tag[0].match(/href="([^"]*)"/)[1]).toBe(trialHref(slug));
         expect(tag[1]).toBe(TRIAL_LABEL);
       }
     }

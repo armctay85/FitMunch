@@ -18,7 +18,14 @@
     '/grocery-meal-planner': 'grocery-meal-planner',
     '/meal-prep-shopping-list': 'meal-prep-shopping-list',
     '/high-protein-shopping-list': 'high-protein-shopping-list',
-    '/ai-meal-plan-shopping-list': 'ai-meal-plan-shopping-list'
+    '/ai-meal-plan-shopping-list': 'ai-meal-plan-shopping-list',
+    '/weekly-meal-plan-australia': 'weekly-meal-plan-australia',
+    '/quick-weeknight-dinners': 'quick-weeknight-dinners',
+    '/macro-tracking-or-a-meal-plan': 'macro-tracking-or-a-meal-plan',
+    '/how-to-plan-meals-when-you-are-busy': 'how-to-plan-meals-when-you-are-busy',
+    '/meal-plan-and-workout-plan': 'meal-plan-and-workout-plan',
+    '/how-to-plan-meals-in-australia': 'how-to-plan-meals-in-australia',
+    '/lunches-for-work': 'lunches-for-work'
   };
 
   function sid() {
@@ -99,6 +106,88 @@
       out[key] = scrub(value[key]);
     }
     return out;
+  }
+
+  // 90 days. A stored record older than this is ignored and can be overwritten.
+  var ATTRIBUTION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+  function readAttribution(storage) {
+    try {
+      var raw = storage.getItem('fm_attribution');
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function recordHasUtm(record) {
+    if (!record) return false;
+    var i;
+    for (i = 0; i < UTM_KEYS.length; i++) {
+      if (record[UTM_KEYS[i]]) return true;
+    }
+    return false;
+  }
+
+  function recordExpired(record) {
+    if (!record || typeof record.ts !== 'number' || !isFinite(record.ts)) return false;
+    return Date.now() - record.ts > ATTRIBUTION_MAX_AGE_MS;
+  }
+
+  function writeAttribution(json) {
+    try { localStorage.setItem('fm_attribution', json); } catch (_) {}
+    try { sessionStorage.setItem('fm_attribution', json); } catch (_) {}
+  }
+
+  function dropAttribution() {
+    try { localStorage.removeItem('fm_attribution'); } catch (_) {}
+    try { sessionStorage.removeItem('fm_attribution'); } catch (_) {}
+  }
+
+  // First landing with a utm param wins. login.html reads this record as stored.
+  // A referrer with no utm does not create a record. A later utm visit overwrites
+  // a stored record that has no utm. Records older than 90 days are ignored.
+  function captureFirstTouch() {
+    var local = readAttribution(localStorage);
+    var session = readAttribution(sessionStorage);
+    var kept = null;
+    if (local && !recordExpired(local)) kept = local;
+    else if (session && !recordExpired(session)) kept = session;
+
+    var fromUrl = allowlistedUtms(location.search || '');
+    var attr = {};
+    var sawUtm = false;
+    var i;
+    for (i = 0; i < UTM_KEYS.length; i++) {
+      if (fromUrl[UTM_KEYS[i]]) {
+        attr[UTM_KEYS[i]] = fromUrl[UTM_KEYS[i]];
+        sawUtm = true;
+      }
+    }
+
+    if (kept && recordHasUtm(kept)) {
+      var needsStamp = typeof kept.ts !== 'number' || !isFinite(kept.ts);
+      if (needsStamp) kept.ts = Date.now();
+      if (needsStamp || !local || (local && recordExpired(local))) writeAttribution(JSON.stringify(kept));
+      return;
+    }
+
+    if (!sawUtm) {
+      if ((local && recordExpired(local)) || (session && recordExpired(session))) dropAttribution();
+      return;
+    }
+
+    var ref = '';
+    try { ref = String(document.referrer || ''); } catch (_) {}
+    var host = '';
+    try { host = String(location.hostname || ''); } catch (_) {}
+    if (ref && host && ref.indexOf(host) === -1) attr.referrer = ref;
+    attr.landing = pathOnly(location.pathname) || '/';
+    attr.ts = Date.now();
+    writeAttribution(JSON.stringify(attr));
   }
 
   function safeAttr() {
@@ -205,6 +294,7 @@
     }, true);
   }
 
+  captureFirstTouch();
   window.FMTrack = { send: send, trackCta: trackCta, landingPage: landingPage };
   var page = landingPage(location.pathname);
   var viewExtras = [];

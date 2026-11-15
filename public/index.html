@@ -553,6 +553,15 @@ h1,h2,h3,.brand,.nav-cta,.btn,.step-n,.score-n,.price-n,.device-top,.plan-kicker
 .lander-card p{margin:0;color:var(--mute);font-size:.88rem;line-height:1.5}
 .landers-proof{margin-top:16px;font-size:.9rem;color:var(--mute)}
 .landers-proof a{color:var(--leaf2);font-weight:700}
+.guide-block{margin-top:32px}
+.guide-block h3{
+  font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;
+  font-size:1.2rem;font-weight:800;letter-spacing:-.03em;margin:0 0 8px;
+}
+.guide-block p{color:var(--mute);font-size:.95rem;line-height:1.5;margin:0 0 12px}
+.guide-links{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 24px}
+.guide-links a{color:#0f7a32;font-weight:700;text-decoration:none}
+.guide-links a:hover,.guide-links a:focus-visible{color:#0c6428}
 
 /* FOOTER */
 footer{
@@ -573,6 +582,8 @@ footer{
 .footer-note{width:100%;border-top:1px solid rgba(255,255,255,.08);margin-top:8px;padding-top:18px;font-size:.78rem}
 
 @media(min-width:860px){
+  .lander-grid{grid-template-columns:1fr 1fr}
+  .lander-grid .lander-card:last-child { grid-column: 1 / -1; }
   .site-nav{padding:18px 48px}
   /* Top-aligned so no empty dark band sits above the kicker. */
   .hero{padding:clamp(56px,8vh,96px) 48px 56px;align-items:flex-start}
@@ -598,7 +609,7 @@ footer{
   .step{border-right:0;border-bottom:1px solid var(--line);padding:24px 0}
   .step:nth-child(odd){padding-right:18px}
   .step:nth-child(1),.step:nth-child(2){border-bottom:1px solid var(--line)}
-  .proof-inner,.fs-grid,.lander-grid{grid-template-columns:1fr}
+  .proof-inner,.fs-grid,.lander-grid,.guide-links{grid-template-columns:1fr}
   .plans{grid-template-columns:1fr}
   .plan{border-right:0;border-bottom:1px solid var(--line)}
   .plan:last-child{border-bottom:0}
@@ -629,6 +640,7 @@ footer{
   .hero-inner,.receipt,.step{animation:none!important;transition:none!important;opacity:1;transform:none}
 }
 [data-fm-price]{display:inline-block;min-width:16ch}
+.landers-head [data-fm-price]{display:inline;min-width:0}
 </style>
 <style id="fm-critical">
 /* Above-the-fold layout. Kept in sync with the fold rules in fm-elite.css.
@@ -1202,7 +1214,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   <div class="landers-inner">
     <div class="landers-head">
       <h2>Plan from the shop you already do.</h2>
-      <p>Four ways into the same health engine. Premium is <span data-fm-price="premiumMonthly"></span> after a 14-day trial.</p>
+      <p>The same health engine, from the shop you already do and from a week of meals. Premium is <span data-fm-price="premiumMonthly"></span> after a 14‑day trial.</p>
     </div>
     <div class="lander-grid">
       <article class="lander-card">
@@ -1219,6 +1231,19 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       </article>
     </div>
     <p class="landers-proof"><a href="/haul-teardown">Haul teardown</a></p>
+    <div class="guide-block">
+      <h3>Meal planning guides</h3>
+      <p>A week of meals, dinners, lunches, and training, written from the body you log.</p>
+      <ul class="guide-links">
+        <li><a href="/weekly-meal-plan-australia">Weekly meal plan Australia</a></li>
+        <li><a href="/quick-weeknight-dinners">Quick weeknight dinners</a></li>
+        <li><a href="/macro-tracking-or-a-meal-plan">Macro tracking or a meal plan</a></li>
+        <li><a href="/how-to-plan-meals-when-you-are-busy">How to plan meals when you are busy</a></li>
+        <li><a href="/meal-plan-and-workout-plan">Meal plan and workout plan</a></li>
+        <li><a href="/how-to-plan-meals-in-australia">How to plan meals in Australia</a></li>
+        <li><a href="/lunches-for-work">Lunches for work</a></li>
+      </ul>
+    </div>
   </div>
 </section>
 
@@ -1370,6 +1395,13 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       <a href="/high-protein-staples-meal-plan">High protein staples meal plan</a>
       <a href="/haul-teardown">Haul teardown</a>
       <a href="/receipt-nutrition-scanner">Receipt scanner</a>
+      <a href="/weekly-meal-plan-australia">Weekly meal plan Australia</a>
+      <a href="/quick-weeknight-dinners">Quick weeknight dinners</a>
+      <a href="/macro-tracking-or-a-meal-plan">Macro tracking or a meal plan</a>
+      <a href="/how-to-plan-meals-when-you-are-busy">How to plan meals when you are busy</a>
+      <a href="/meal-plan-and-workout-plan">Meal plan and workout plan</a>
+      <a href="/how-to-plan-meals-in-australia">How to plan meals in Australia</a>
+      <a href="/lunches-for-work">Lunches for work</a>
       <a href="/for-pts.html">For trainers</a>
       <a href="/contact">Contact</a>
       <a href="/privacy">Privacy</a>
@@ -1391,7 +1423,7 @@ try {
     });
     if (document.referrer && !document.referrer.includes(location.hostname)) attr.referrer = document.referrer;
     attr.landing = location.pathname;
-    if (Object.keys(attr).length > 1 || attr.utm_source) localStorage.setItem('fm_attribution', JSON.stringify(attr));
+    if (attr.utm_source || attr.utm_medium || attr.utm_campaign || attr.utm_content || attr.utm_term) localStorage.setItem('fm_attribution', JSON.stringify(attr));
   }
 } catch {}
 
@@ -1461,7 +1493,7 @@ try {
 </script>
 <script src="/js/fm-item-name.js?v=e88e8ebb27f3" defer></script>
 <script src="/js/fm-first-scan.js?v=96a3a80471ad" defer></script>
-<script src="/js/fm-track.js?v=6f041e2ee770" defer></script>
+<script src="/js/fm-track.js?v=423670fb12f4" defer></script>
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};
 window.va('beforeSend',function(e){try{var u=new URL(e.url);return Object.assign({},e,{url:u.origin+u.pathname});}catch(_){return null;}});</script>
 <script defer src="/_vercel/insights/script.js"></script>
