@@ -45,6 +45,13 @@ const SEARCH_LANDERS = [
   '/supermarket-meal-planner',
   '/grocery-meal-planner',
   '/meal-prep-shopping-list',
+  '/weekly-meal-plan-australia',
+  '/quick-weeknight-dinners',
+  '/macro-tracking-or-a-meal-plan',
+  '/how-to-plan-meals-when-you-are-busy',
+  '/meal-plan-and-workout-plan',
+  '/how-to-plan-meals-in-australia',
+  '/lunches-for-work',
 ];
 
 function audSession(id) {

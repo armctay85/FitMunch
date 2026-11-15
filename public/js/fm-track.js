@@ -18,7 +18,14 @@
     '/grocery-meal-planner': 'grocery-meal-planner',
     '/meal-prep-shopping-list': 'meal-prep-shopping-list',
     '/high-protein-shopping-list': 'high-protein-shopping-list',
-    '/ai-meal-plan-shopping-list': 'ai-meal-plan-shopping-list'
+    '/ai-meal-plan-shopping-list': 'ai-meal-plan-shopping-list',
+    '/weekly-meal-plan-australia': 'weekly-meal-plan-australia',
+    '/quick-weeknight-dinners': 'quick-weeknight-dinners',
+    '/macro-tracking-or-a-meal-plan': 'macro-tracking-or-a-meal-plan',
+    '/how-to-plan-meals-when-you-are-busy': 'how-to-plan-meals-when-you-are-busy',
+    '/meal-plan-and-workout-plan': 'meal-plan-and-workout-plan',
+    '/how-to-plan-meals-in-australia': 'how-to-plan-meals-in-australia',
+    '/lunches-for-work': 'lunches-for-work'
   };
 
   function sid() {
@@ -99,6 +106,39 @@
       out[key] = scrub(value[key]);
     }
     return out;
+  }
+
+  function attributionStored() {
+    try {
+      if (localStorage.getItem('fm_attribution')) return true;
+    } catch (_) {}
+    try {
+      if (sessionStorage.getItem('fm_attribution')) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  // First landing wins. A later page, including login.html, reads this record
+  // instead of a new query string. utm_content and utm_term stay in the record
+  // for the existing signup attribution path.
+  function captureFirstTouch() {
+    if (attributionStored()) return;
+    var attr = {};
+    var fromUrl = allowlistedUtms(location.search || '');
+    var i;
+    for (i = 0; i < UTM_KEYS.length; i++) {
+      if (fromUrl[UTM_KEYS[i]]) attr[UTM_KEYS[i]] = fromUrl[UTM_KEYS[i]];
+    }
+    var ref = '';
+    try { ref = String(document.referrer || ''); } catch (_) {}
+    var host = '';
+    try { host = String(location.hostname || ''); } catch (_) {}
+    if (ref && host && ref.indexOf(host) === -1) attr.referrer = ref;
+    attr.landing = pathOnly(location.pathname) || '/';
+    if (!(Object.keys(attr).length > 1 || attr.utm_source)) return;
+    var json = JSON.stringify(attr);
+    try { localStorage.setItem('fm_attribution', json); } catch (_) {}
+    try { sessionStorage.setItem('fm_attribution', json); } catch (_) {}
   }
 
   function safeAttr() {
@@ -205,6 +245,7 @@
     }, true);
   }
 
+  captureFirstTouch();
   window.FMTrack = { send: send, trackCta: trackCta, landingPage: landingPage };
   var page = landingPage(location.pathname);
   var viewExtras = [];
