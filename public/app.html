@@ -137,6 +137,7 @@ body{font-family:'Literata','Literata Fallback',Georgia,serif;background:var(--p
 .shop-cb{width:16px;height:16px;border-radius:3px;border:1.5px solid var(--border2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.65rem;transition:all .15s}
 .shop-cb.checked{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .shop-name{flex:1;font-size:.82rem;font-weight:500;color:var(--ink)}
+.shop-allergy-flag{display:block;margin-top:2px;font-size:.72rem;color:#9a3412}
 .shop-qty{font-size:.75rem;color:var(--mute2)}
 
 .fav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -3057,6 +3058,7 @@ function renderShoppingList(list, targetId) {
  <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i})">${item.checked?'✓':''}</div>
  <span class="shop-name">${escapeHtml(item.name)}</span>
  <span class="shop-qty">${escapeHtml(item.qty||'')} ${escapeHtml(item.unit||'')}</span>
+ ${item.allergyWarning ? '<span class="shop-allergy-flag">Check this item. It may not fit an allergy you saved.</span>' : ''}
  </div>`).join('')}
  </div>`).join('');
 }

@@ -23,10 +23,20 @@ jest.mock('pg', () => ({
         return Promise.resolve({ rows: row ? [row] : [] });
       }
       if (/INSERT INTO shopping_lists/i.test(q)) {
-        const items = JSON.parse(params[3]);
-        const row = { id: lists.length + 1, user_id: params[0], name: params[2], items };
+        const json = [...params].reverse().find((p) => typeof p === 'string' && /^\s*\[/.test(p));
+        const items = JSON.parse(json);
+        const name = params.find((p, i) => i > 0 && typeof p === 'string' && !/^\s*\[/.test(p)) || 'List';
+        const row = { id: lists.length + 1, user_id: params[0], name, items };
         lists.push(row);
         return Promise.resolve({ rows: [row] });
+      }
+      if (/UPDATE shopping_lists/i.test(q)) {
+        const userId = params[params.length - 1];
+        const id = params[params.length - 2];
+        const row = lists.find((item) => String(item.id) === String(id) && item.user_id === userId);
+        if (!row) return Promise.resolve({ rowCount: 0, rows: [] });
+        if (/items=/i.test(q)) row.items = JSON.parse(params[0]);
+        return Promise.resolve({ rowCount: 1, rows: [row] });
       }
       if (/FROM shopping_lists/i.test(q)) {
         return Promise.resolve({ rows: lists.filter((row) => row.user_id === params[0]) });
@@ -156,11 +166,27 @@ describe('fixed allergen map', () => {
   test('an unknown term fails closed and is flagged', () => {
     expect(norm.unmappable('古早味')).toBe(true);
     expect(norm.unmappable('花生')).toBe(false);
-    expect(norm.unmappable('kiwi')).toBe(false);
-    const diets = dietGuard.allergyDiets(['古早味']);
+    expect(norm.unmappable('kiwi')).toBe(true);
+    expect(norm.unmappable('xylophone-berry')).toBe(true);
+    expect(norm.unmappable('crevette')).toBe(false);
+    expect(norm.dietsFor('crevette')).toEqual(['shellfish free']);
+    expect(norm.dietsFor('garnelen')).toEqual(['shellfish free']);
+    expect(norm.dietsFor('cacahuète')).toEqual(['nut free']);
+    expect(norm.dietsFor('erdnuss')).toEqual(['nut free']);
+    expect(norm.flagsForText('lupin').has('lupin')).toBe(true);
+    expect(norm.flagsForText('鱼').has('fish')).toBe(true);
+    expect(norm.flagsForText('虾').has('shellfish')).toBe(true);
+    expect(norm.flagsForText('芝麻').has('sesame')).toBe(true);
+    expect(norm.flagsForText('大豆').has('soy')).toBe(true);
+    expect(norm.flagsForText('fish sauce').has('shellfish')).toBe(true);
+    const sauce = safety.mealProblems({ name: 'Stir fry', ingredients: ['fish sauce', 'rice'] }, new Set(['shellfish']), new Set());
+    expect(sauce).toContain('may contain crustacea');
+    expect(safety.warningFor(sauce).message).toMatch(/may contain crustacea/);
+    const diets = dietGuard.savedFilters({ allergies: ['古早味'] });
     for (const diet of dietGuard.ALL_FREE) expect(diets).toContain(diet);
+    expect(diets).toContain('古早味');
     const flag = dietGuard.unknownAllergyFlag(['古早味']);
-    expect(flag).toBe("We couldn't match this allergy (古早味). Foods that may contain it are left out.");
+    expect(flag).toBe('Please confirm this allergy (古早味). Foods that may contain it are left out.');
     expect(flag).not.toMatch(/—|--/);
   });
 });
@@ -243,6 +269,7 @@ describe('unknown allergy term fails closed', () => {
     expect(plan.body.source).toBe('builder');
     expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(plan.body.notice).toMatch(/古早味/);
+    expect(plan.body.notice).toMatch(/Please confirm/);
     expect(plan.body.notice).toMatch(/left out/);
     zeroHits(JSON.stringify(plan.body.plan), [/ghee/i, /surimi/i, /tahini/i, /peanut butter/i, /花生/]);
 
@@ -269,11 +296,21 @@ describe('role is the database column', () => {
     expect(apiSrc).not.toMatch(/enforceSavedMeals\(sentMeals,\s*\{\}\)/);
   });
 
-  test('the new default is user and existing rows are not rewritten', () => {
-    expect(ddl).toContain("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user'");
+  test('the new default is client and existing rows are not rewritten', () => {
+    expect(ddl).toContain("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'client'");
     expect(ddl).not.toMatch(/UPDATE\s+users\s+SET\s+role/i);
     expect(apiSrc).not.toContain("DEFAULT 'pt'");
-    expect(apiSrc).toContain("SET DEFAULT 'user'");
+    expect(apiSrc).toContain("SET DEFAULT 'client'");
+  });
+
+  test('workout model down gives the credit back', async () => {
+    const aiUsage = require('./lib/ai-usage');
+    profile = { targetCalories: 2000, targetProtein: 120 };
+    aiClient.chatJson.mockResolvedValue({ ok: false, error: 'down', provider: 'xai' });
+    aiUsage.refundAiCall.mockClear();
+    const workout = await request(app).post('/api/ai/workout-plan').set('Authorization', auth).send({ daysPerWeek: 3, level: 'intermediate' });
+    expect(workout.status).toBe(502);
+    expect(aiUsage.refundAiCall).toHaveBeenCalledWith(expect.objectContaining({ allowed: true }), expect.objectContaining({ feature: 'workout_plan' }));
   });
 
   test('a token role does not override the database role', async () => {
@@ -282,5 +319,145 @@ describe('role is the database column', () => {
     roles[USER] = 'pt';
     expect(await accountRole({ id: USER, role: 'client' })).toBe('pt');
     expect(await accountRole({ id: 'pt-1', role: 'pt' })).toBe('pt');
+  });
+});
+
+const EQA_CASES = [
+  'crevette', 'garnelen', 'lupin', 'xylophone-berry', 'cacahuète', 'erdnuss',
+  '花生', '牛奶', 'ピーナッツ', '虾', '芝麻', 'ghee', 'surimi', 'tahini', 'peanut butter',
+];
+const LEAK_FOODS = 'crevette, garnelen, lupin, xylophone-berry, cacahuète, erdnuss, 花生, 牛奶, ピーナッツ, 虾, 芝麻, ghee, surimi, tahini and peanut butter';
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function withoutConfirm(value) {
+  return String(value).replace(/Please confirm (?:this allergy|these allergies) \([^)]*\)\. Foods that may contain (?:it|them) are left out\.?/g, '');
+}
+
+describe('EQA pass signal: one shared filter, every path, twice', () => {
+  const storage = require('./server/storage.js');
+  const aiUsage = require('./lib/ai-usage');
+
+  beforeEach(() => {
+    const now = Date.now();
+    storage.getMealLogsForPeriod.mockResolvedValue([0, 1, 2].map((days) => ({
+      date: new Date(now - days * 86400000).toISOString(),
+      calories: 500,
+      protein: 30,
+      name: 'Rice',
+    })));
+  });
+
+  afterEach(() => {
+    storage.getMealLogsForPeriod.mockResolvedValue([]);
+  });
+
+  test.each([1, 2])('pass %s: mocked allergen output does not leak, and a typed line is kept and flagged', async () => {
+    for (const allergy of EQA_CASES) {
+      const hit = new RegExp(escapeRegExp(allergy), 'i');
+      profile = { allergies: [allergy], targetCalories: 2000, targetProtein: 120, dietaryPreferences: [] };
+      const badMeal = mealWith(LEAK_FOODS);
+
+      aiClient.chatJson.mockResolvedValue({
+        ok: true,
+        provider: 'xai',
+        data: {
+          days: [{ meals: { lunch: badMeal } }],
+          planName: 'Arms',
+          summary: LEAK_FOODS,
+          level: 'intermediate',
+          frequency: 3,
+          workouts: [{ day: 1, name: 'Press', sets: 3, reps: '8', rest: 60, notes: LEAK_FOODS }],
+          headline: LEAK_FOODS,
+          wins: [LEAK_FOODS],
+          focus: [LEAK_FOODS],
+          score: 5,
+        },
+      });
+      aiClient.chat.mockResolvedValue({ ok: true, text: `Have ${LEAK_FOODS} tonight.`, provider: 'xai' });
+
+      const plan = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({
+        goal: 'maintain', days: 1, calories: 2000, protein: 120, dietary: [],
+      });
+      expect(plan.status).toBe(200);
+      expect(withoutConfirm(JSON.stringify(plan.body.plan))).not.toMatch(hit);
+      if (allergy === 'xylophone-berry') {
+        expect(plan.body.notice).toMatch(/Please confirm/);
+        expect(withoutConfirm(JSON.stringify(plan.body.plan))).not.toMatch(/ghee|surimi|tahini|peanut butter|花生|牛奶/i);
+      }
+
+      const built = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({
+        goal: 'maintain', days: 1, calories: 2000, protein: 120, dietary: [], builderOnly: true,
+      });
+      expect(built.status).toBe(200);
+      expect(built.body.source).toBe('builder');
+      expect(withoutConfirm(JSON.stringify(built.body.plan))).not.toMatch(hit);
+
+      const basket = await request(app).post('/api/meal-plan/shopping').set('Authorization', auth).send({
+        plan: { planName: 'Week', days: [{ meals: { lunch: badMeal } }] },
+      });
+      expect(basket.status).toBe(200);
+      expect(JSON.stringify(basket.body.list)).not.toMatch(hit);
+
+      const saved = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+        name: 'Week',
+        meals: [{ day: 'Monday', meals: { lunch: badMeal } }],
+      });
+      expect(saved.status).toBe(200);
+      const generated = await request(app).post('/api/shopping-list/generate').set('Authorization', auth).send({ mealPlanId: saved.body.plan.id });
+      expect(generated.status).toBe(200);
+      expect(JSON.stringify(generated.body.list.items)).not.toMatch(hit);
+
+      const manual = await request(app).post('/api/shopping-list').set('Authorization', auth).send({
+        name: 'Typed shop',
+        items: [{ name: allergy, qty: '1' }, { name: 'Rice', qty: '1' }],
+      });
+      expect(manual.status).toBe(200);
+      expect(JSON.stringify(manual.body.list.items)).not.toMatch(hit);
+      expect(JSON.stringify(manual.body.list.items)).toMatch(/Rice/);
+
+      const patched = await request(app).patch(`/api/shopping-list/${manual.body.list.id}`).set('Authorization', auth).send({
+        items: [{ name: allergy, qty: '1', checked: false }, { name: 'Rice', qty: '1', checked: false }],
+      });
+      expect(patched.status).toBe(200);
+      const listed = await request(app).get('/api/shopping-list').set('Authorization', auth);
+      const row = (listed.body.lists || []).find((item) => String(item.id) === String(manual.body.list.id));
+      expect(row).toBeTruthy();
+      const flagged = (row.items || []).find((item) => String(item.name) === allergy);
+      const rice = (row.items || []).find((item) => item.name === 'Rice');
+      expect(flagged).toBeTruthy();
+      expect(flagged.allergyWarning).toBe(true);
+      expect(rice).toBeTruthy();
+      expect(rice.allergyWarning).toBeUndefined();
+
+      aiUsage.refundAiCall.mockClear();
+      const chat = await request(app).post('/api/ai/chat').set('Authorization', auth).send({
+        messages: [{ role: 'user', content: 'What should I eat for lunch?' }],
+      });
+      expect(chat.status).toBe(200);
+      expect(withoutConfirm(chat.body.reply)).not.toMatch(hit);
+      expect(aiUsage.refundAiCall).toHaveBeenCalled();
+
+      aiUsage.refundAiCall.mockClear();
+      const insight = await request(app).post('/api/ai/insight').set('Authorization', auth).send({
+        todayCalories: 400, todayProtein: 20, streak: 3, goal: 'general_fitness', targetCalories: 2000, targetProtein: 120,
+      });
+      expect(insight.status).toBe(200);
+      expect(withoutConfirm(insight.body.insight)).not.toMatch(hit);
+      expect(aiUsage.refundAiCall).toHaveBeenCalled();
+
+      aiUsage.refundAiCall.mockClear();
+      const review = await request(app).get('/api/ai/weekly-review').set('Authorization', auth);
+      expect(review.status).toBe(200);
+      expect(withoutConfirm(JSON.stringify(review.body.review))).not.toMatch(hit);
+      expect(aiUsage.refundAiCall).toHaveBeenCalled();
+
+      const workout = await request(app).post('/api/ai/workout-plan').set('Authorization', auth).send({ daysPerWeek: 3, level: 'intermediate' });
+      expect(workout.status).toBe(200);
+      expect(workout.body.source).toBe('fixed');
+      expect(withoutConfirm(JSON.stringify(workout.body.plan))).not.toMatch(hit);
+    }
   });
 });

@@ -547,6 +547,18 @@ describe('Coach checkout trial', () => {
     expect(mockStripe.rawRequest).not.toHaveBeenCalled();
   });
 
+  test('an unknown account id is forbidden, not missing', async () => {
+    storage.getUserById = jest.fn(async () => null);
+    const token = jwt.sign({ userId: 'missing-coach', role: 'pt' }, jwtSecret());
+    const res = await request(app)
+      .post('/api/coach/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plan: 'coach-39' });
+    expect(res.status).toBe(403);
+    expect(res.status).not.toBe(404);
+    expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+  });
+
   test('consumer checkout rejects a Coach plan', async () => {
     const token = jwt.sign({ userId: 'pt-1', role: 'pt' }, jwtSecret());
     await request(app)

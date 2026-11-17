@@ -548,8 +548,8 @@ async function ensureMigrations() {
   _migrationsPromise = (async () => {
     try {
       await _pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
-        ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'client';
+        ALTER TABLE users ALTER COLUMN role SET DEFAULT 'client';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pt_id UUID;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ;
         CREATE TABLE IF NOT EXISTS pt_clients (
@@ -1551,7 +1551,7 @@ async function shoppingListView(userId, row) {
   const shopFilters = await userFilters(userId);
   let items = row.items;
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch (_) { items = []; } }
-  const kept = mealSafety.groceryItemsSafe(Array.isArray(items) ? items : [], shopFilters);
+  const kept = mealSafety.markGroceryItems(Array.isArray(items) ? items : [], shopFilters);
   const view = { ...row, items: kept };
   if (shopFilters.allergyFlag) view.allergyFlag = shopFilters.allergyFlag;
   return view;
@@ -1585,7 +1585,7 @@ router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
     if (items !== undefined) {
       const shopFilters = await userFilters(req.user.userId);
       sets.push(`items=$${i++}`);
-      vals.push(JSON.stringify(mealSafety.groceryItemsSafe(items, shopFilters)));
+      vals.push(JSON.stringify(mealSafety.markGroceryItems(items, shopFilters)));
     }
     if (completed !== undefined) { sets.push(`completed=$${i++}`); vals.push(completed); }
     sets.push(`updated_at=NOW()`);
@@ -2061,9 +2061,13 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
     res.locals.aiAnswered = true;
     const tip = mealSafety.enforceText(insightText, { ...filters, alternative: false });
+    if (tip.removed.length) {
+      await refundUnlessVerified(gate, req.user.userId, 'insight');
+      return res.json({ success: true, insight: fallback, provider: null, remaining: gate.remaining });
+    }
     return res.json({
       success: true,
-      insight: tip.removed.length ? fallback : tip.text,
+      insight: tip.text,
       provider: r.provider,
       model: r.model,
       remaining: gate.remaining,
@@ -2583,10 +2587,12 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
       route: '/ai/workout-plan',
     });
     if (!r.ok) {
+      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
     const plan = mealSafety.enforceJsonText(r.data, mealSafety.profileFilters(wpProfile)).value;
     if (!plan.workouts || !Array.isArray(plan.workouts)) {
+      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
       return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
     }
     res.locals.aiAnswered = true;
