@@ -42,47 +42,48 @@ else
 fi
 bash "$ROOT/scripts/warm-simulator-launch.sh" "$UDID"
 
-LOG="$OUT/xcodebuild.log"
+# Step 1: build-for-testing. Full, unredacted xcodebuild output goes to stdout
+# (GitHub secret masking only) and to the artifact log. No credentials are used
+# at build time.
+DD="${RUNNER_TEMP:-$OUT}/DerivedDataBDF"
+BUILD_LOG="$OUT/xcodebuild-build-for-testing.log"
 set +e
-xcodebuild test \
+xcodebuild build-for-testing \
   -project FitMunch.xcodeproj \
   -scheme FitMunchStoreKit \
   -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
-  -only-testing:FitMunchUITests/BDFDemoAuditUITests/testBDF_DemoAccountScanAndStoreKit \
-  -testLanguage en \
-  -testRegion AU \
-  -parallel-testing-enabled NO \
-  -derivedDataPath "${RUNNER_TEMP:-$OUT}/DerivedDataBDF" \
+  -derivedDataPath "$DD" \
+  -resultBundlePath "$OUT/BuildForTesting.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY=- \
-  2>&1 | python3 - "$CREDS" "$LOG" <<'PY'
-import sys
-from pathlib import Path
-creds_path, log_path = sys.argv[1], sys.argv[2]
-secrets = []
-try:
-    text = Path(creds_path).read_text()
-    for line in text.splitlines():
-        value = line.strip()
-        if value:
-            secrets.append(value)
-except OSError:
-    pass
-out = Path(log_path)
-# Stream and redact known secrets so the artifact log cannot contain them.
-with out.open("w", encoding="utf-8") as fh:
-    for raw in sys.stdin:
-        line = raw
-        for secret in secrets:
-            if secret:
-                line = line.replace(secret, "***")
-        sys.stdout.write(line)
-        sys.stdout.flush()
-        fh.write(line)
-PY
-RC=${PIPESTATUS[0]}
+  2>&1 | tee "$BUILD_LOG"
+BUILD_RC=${PIPESTATUS[0]}
 set -e
+echo "build_for_testing_exit=$BUILD_RC" | tee "$OUT/step1.txt"
+grep -nE "error:|\*\* .* FAILED \*\*|Testing failed|BUILD (SUCCEEDED|FAILED)|TEST BUILD (SUCCEEDED|FAILED)" "$BUILD_LOG" | head -60 > "$OUT/step1-errors.txt" || true
+
+RC=$BUILD_RC
+if [[ "$BUILD_RC" -eq 0 ]]; then
+  # Step 2: one B/D/F run, only because Step 1 compiled.
+  LOG="$OUT/xcodebuild-test.log"
+  set +e
+  xcodebuild test-without-building \
+    -project FitMunch.xcodeproj \
+    -scheme FitMunchStoreKit \
+    -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
+    -only-testing:FitMunchUITests/BDFDemoAuditUITests/testBDF_DemoAccountScanAndStoreKit \
+    -testLanguage en \
+    -testRegion AU \
+    -parallel-testing-enabled NO \
+    -derivedDataPath "$DD" \
+    -resultBundlePath "$OUT/BDF-test.xcresult" \
+    2>&1 | tee "$LOG"
+  RC=${PIPESTATUS[0]}
+  set -e
+else
+  echo "Step 1 failed. Step 2 is not run."
+fi
 
 if [[ -d "$TMP_SHOTS" ]]; then
   find "$TMP_SHOTS" -type f -name '*.png' -exec cp {} "$OUT/screenshots/" \;
@@ -103,6 +104,7 @@ fi
 {
   echo "evidence_class=CI macos Simulator / BDF demo audit"
   echo "udid=$UDID"
+  echo "build_for_testing_exit=$BUILD_RC"
   echo "xcodebuild_exit=$RC"
   echo "=== screenshots ==="
   find "$OUT/screenshots" -type f -name '*.png' | sort
@@ -110,8 +112,16 @@ fi
   cat "$OUT/notes.txt" 2>/dev/null || true
 } | tee "$OUT/summary.txt"
 
-# Do not leave the derived data or an xcresult in the artifact tree.
-rm -rf "$OUT/DerivedData" "$OUT"/*.xcresult || true
+# Keep the xcresult bundles. Fail closed if the demo password appears in any
+# artifact file (the test pastes it via the pasteboard, so it should not).
+if grep -rlF -- "$QA_PASSWORD" "$OUT" > /tmp/bdf-secret-hits 2>/dev/null; then
+  echo "Password found in artifact files; deleting them:"
+  sed "s|$OUT/||" /tmp/bdf-secret-hits
+  while read -r f; do rm -f "$f"; done < /tmp/bdf-secret-hits
+  echo "secret_scan=hit_removed" >> "$OUT/summary.txt"
+else
+  echo "secret_scan=clean" >> "$OUT/summary.txt"
+fi
 
 if [[ "$RC" -ne 0 ]]; then
   echo "B/D/F simulator audit failed"
