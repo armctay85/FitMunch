@@ -470,7 +470,8 @@ describe('r4: unknown filters are dropped before the cut of 16, on both /generat
       for (const d of r.body.plan.days) for (const m of Object.values(d.meals)) for (const i of m.ingredients || []) items.push([i.item || i.name]);
       expect(require('./lib/meal-plan-engine').allergensOf(items)).not.toContain('fish');
       if (!builderOnly) expect(r.body.dietary).toEqual(['fish free']);
+      if (builderOnly) expect(aiClient.chatJson).not.toHaveBeenCalled();
+      else expect(aiClient.chatJson).toHaveBeenCalled();
     } finally { spy.mockRestore(); }
-    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 });

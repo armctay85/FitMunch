@@ -85,6 +85,16 @@
     var usesEl = root.querySelector('[data-fs-uses]');
     setText(scoreEl, String(score));
     setText(proteinEl, (totals.protein || 0) + 'g protein');
+    var unmatched = Number(data.unmatchedCount || (totals && totals.unmatchedCount) || 0);
+    if (proteinEl && unmatched > 0) {
+      var note = root.querySelector('[data-fs-unmatched]');
+      if (!note) {
+        note = document.createElement('div');
+        note.setAttribute('data-fs-unmatched', '');
+        proteinEl.insertAdjacentElement('afterend', note);
+      }
+      note.textContent = unmatched === 1 ? '1 item not counted' : (unmatched + ' items not counted');
+    }
     setText(itemsEl, (data.itemCount || 0) + ' items from your receipt');
     setText(mealEl, dinner.meal || 'Cook the highest-protein lines we read on this receipt.');
     setText(whyEl, dinner.why || 'One dinner from items we actually read on your receipt.');

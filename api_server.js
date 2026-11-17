@@ -583,6 +583,7 @@ async function ensureMigrations() {
         CREATE UNIQUE INDEX IF NOT EXISTS favourites_user_type_item_uidx
           ON favourites (user_id, item_type, item_id);
         ALTER TABLE meal_plans ADD COLUMN IF NOT EXISTS user_edited BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE workout_plans ADD COLUMN IF NOT EXISTS meal_plan_id INTEGER;
         -- pt_id must be UUID (users.id is UUID). Drop broken integer-FK versions if present.
         CREATE TABLE IF NOT EXISTS pt_referrals (
           id SERIAL PRIMARY KEY,
@@ -995,6 +996,10 @@ router.delete('/auth/account', authMiddleware, async (req, res) => {
     }
 
     // users row deletion CASCADEs to profiles, logs, plans, favourites, etc.
+    // Help form rows are keyed by email, so remove them before the account goes.
+    await _pool.query('DELETE FROM support_messages WHERE lower(email)=lower($1) OR user_id=$2', [user.email, userId]).catch((err) => {
+      if (!err || err.code !== '42P01') console.warn('[delete-account] support_messages', err && err.code);
+    });
     await _pool.query('DELETE FROM users WHERE id=$1', [userId]);
     console.log(`[delete-account] deleted user ${user.email}`);
     res.json({ success: true, message: 'Account and all data deleted.' });
@@ -1124,7 +1129,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'User not found.' });
 
     const roleRow = await _pool.query('SELECT role, pt_id FROM users WHERE id=$1', [user.id]);
-    const role = roleRow.rows[0]?.role || 'client';
+    const role = qaTrainer.isQaTrainerAccount(user.id) ? 'pt' : (roleRow.rows[0]?.role || 'client');
     const ptId = roleRow.rows[0]?.pt_id;
     const consent = choiceFromSettings(user.settings);
     const billing = consumerBillingFromUser(user);
@@ -1156,17 +1161,27 @@ const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans
 const EXPORT_QUERIES = [
   ...EXPORT_TABLES.map((t) => ({ key: t, from: t, where: 'user_id=$1', order: 'id' })),
   { key: 'ai_usage', from: 'ai_usage_monthly', where: 'user_id=$1::text', order: 'month, feature' },
-  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'pt_id, client_id' },
   { key: 'plan_assignments', from: 'plan_assignments', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
-  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'id' },
+  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'created_at, token' },
+  { key: 'support_messages', from: 'support_messages', where: 'user_id=$1', order: 'created_at, id' },
 ];
 const EXPORT_PAGE_ROWS = 1000;
-async function exportAllRows(q, userId) {
+function exportErrorClass(err) {
+  const code = err && err.code ? String(err.code) : '';
+  const message = String((err && err.message) || '')
+    .replace(/'[^']*'/g, '?')
+    .split('\n')[0]
+    .slice(0, 160);
+  return { code, message };
+}
+async function exportAllRows(q, userId, email) {
   const rows = [];
+  const bind = q.bind === 'email' ? email : userId;
   for (let offset = 0; ; offset += EXPORT_PAGE_ROWS) {
     const r = await _pool.query(
       `SELECT * FROM ${q.from} WHERE ${q.where} ORDER BY ${q.order} LIMIT ${EXPORT_PAGE_ROWS} OFFSET $2`,
-      [userId, offset]
+      [bind, offset]
     );
     const page = r.rows || [];
     rows.push(...page.map(exportRow));
@@ -1214,10 +1229,26 @@ router.get('/auth/export', authMiddleware, exportLimiter, async (req, res) => {
     };
     for (const q of EXPORT_QUERIES) {
       try {
-        data[q.key] = await exportAllRows(q, userId);
-      } catch (_) {
+        data[q.key] = await exportAllRows(q, userId, user.email);
+        if (q.key === 'support_messages' && user.email) {
+          const extra = await _pool.query(
+            'SELECT * FROM support_messages WHERE user_id IS DISTINCT FROM $1 AND lower(email)=lower($2) ORDER BY created_at, id',
+            [userId, user.email]
+          );
+          const seen = new Set((data[q.key] || []).map((row) => String(row.id)));
+          for (const row of extra.rows || []) {
+            if (!seen.has(String(row.id))) data[q.key].push(exportRow(row));
+          }
+        }
+      } catch (err) {
+        const info = exportErrorClass(err);
+        console.error('[export] table read failed:', q.key, info.code, info.message);
+        // Optional trainer and help-form tables are absent on some databases.
+        if (info.code === '42P01' && (q.key === 'pt_clients' || q.key === 'client_invitations' || q.key === 'plan_assignments' || q.key === 'support_messages')) {
+          data[q.key] = [];
+          continue;
+        }
         // Never hand over a partial file as if it were complete.
-        console.error('[export] table read failed:', q.key);
         res.set('Cache-Control', 'no-store');
         return res.status(500).json({ success: false, error: 'Could not prepare your full data export. Please try again.' });
       }
@@ -1331,6 +1362,7 @@ async function requireTrainer(req, res, next) {
       if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
       return next();
     }
+    if (qaTrainer.isQaTrainerAccount(req.user.userId)) return next();
     const r = await _pool.query('SELECT role FROM users WHERE id=$1', [req.user.userId]);
     if (!r.rows[0] || r.rows[0].role !== 'pt') {
       return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
@@ -1844,10 +1876,20 @@ router.get('/workout-plans', authMiddleware, async (req, res) => {
 router.post('/workout-plans', authMiddleware, async (req, res) => {
   try {
     const { name, description, level, frequency, workouts } = stripNames(req.body || {});
-    const r = await _pool.query(
-      'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
-    );
+    const mealPlanId = positiveIntId(req.body && req.body.mealPlanId);
+    let r;
+    try {
+      r = await _pool.query(
+        'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts, meal_plan_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+        [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[]), mealPlanId]
+      );
+    } catch (err) {
+      if (!err || err.code !== '42703') throw err;
+      r = await _pool.query(
+        'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+        [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
+      );
+    }
     res.json({ success: true, plan: r.rows[0] });
   } catch (err) { sendApiError(res, err); }
 });
@@ -1882,6 +1924,8 @@ const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
+const qaTrainer = require('./lib/qa-trainer');
+const workoutProgram = require('./lib/workout-program');
 
 /** Prepend the unknown-allergy flag onto a text field the user reads. */
 function stampAllergyText(res, flag, key) {
@@ -1997,6 +2041,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
+    }
+    // Home loads this on arrival. A background tip must not spend a free action.
+    if (req.body && req.body.background === true) {
+      return res.json({ success: true, insight: fallback, provider: null, source: 'fixed', charged: false });
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed && gate.unavailable) {
@@ -2376,6 +2424,38 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
+    // A program request in chat is saved on the account. Other training questions stay chat.
+    // Filtered accounts keep the existing checked-reply path.
+    if (!filtered && workoutProgram.wantsSavedProgram(latestUser)) {
+      const ctx = await loadWorkoutContext(req.user.userId, profile, ctxObj);
+      const built = await aiClient.chatJson({
+        messages: [{ role: 'user', content: `${workoutProgram.workoutPrompt(ctx)}\n\nThe user asked: ${latestUser.slice(0, 500)}` }],
+        maxTokens: 4000,
+        temperature: 0.6,
+        route: '/ai/chat',
+        budgetMs: workoutProgram.WORKOUT_ATTEMPT_MS,
+      });
+      let plan = built && built.ok ? workoutProgram.normaliseWorkout(built.data, ctx) : null;
+      let source = 'ai';
+      if (!plan) {
+        await refundUnlessVerified(gate, req.user.userId, 'chat');
+        plan = workoutProgram.fallbackWorkoutPlan(ctx);
+        source = 'fixed';
+      } else {
+        res.locals.aiAnswered = true;
+      }
+      const saved = await saveUserWorkoutPlan(req.user.userId, plan).catch(() => null);
+      return res.json({
+        success: true,
+        reply: workoutProgram.renderWorkoutText(plan),
+        plan,
+        savedPlan: saved,
+        provider: source === 'ai' ? built.provider : null,
+        remaining: gate.remaining,
+        source,
+      });
+    }
+
     // Personal context from the account itself (profile, targets, latest plan,
     // today's log, recent meals), not just what the browser sends. Compact, one line each.
     const personal = await buildCoachContext(req.user.userId, profile, context, filters, aiFilters).catch(() => '');
@@ -2509,6 +2589,60 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
   }
 });
 
+async function loadWorkoutContext(userId, profile, body) {
+  const p = profile || {};
+  const b = body || {};
+  let meal = null;
+  try {
+    const found = await _pool.query(
+      'SELECT id, name, total_calories FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+    meal = found.rows[0] || null;
+  } catch (_) { meal = null; }
+  const weight = p.weight != null ? p.weight : (p.weightKg != null ? p.weightKg : b.weightKg);
+  const mealName = meal && meal.name ? String(meal.name) : 'Week';
+  const mealKcal = meal && meal.total_calories ? ', ' + meal.total_calories + ' kcal' : '';
+  return {
+    goal: b.goal || p.fitnessGoal || p.fitness_goal || 'general_fitness',
+    level: b.level || 'intermediate',
+    daysPerWeek: b.daysPerWeek,
+    equipment: b.equipment,
+    sessionMinutes: b.sessionMinutes,
+    focus: b.focus,
+    weightKg: weight,
+    calories: p.targetCalories || p.target_calories || b.calories || null,
+    protein: p.targetProtein || p.target_protein || b.protein || null,
+    carbs: p.targetCarbs || p.target_carbs || b.carbs || null,
+    fat: p.targetFat || p.target_fat || b.fat || null,
+    mealPlanId: meal && meal.id,
+    mealPlanName: meal && meal.name,
+    mealWeek: meal ? mealName + mealKcal : '',
+  };
+}
+
+async function saveUserWorkoutPlan(userId, plan) {
+  if (!userId || !plan) return null;
+  const workouts = JSON.stringify(plan.workouts || []);
+  const values = [userId, plan.planName || 'Weekly program', plan.summary || '', plan.level || 'intermediate', plan.frequency || 3, workouts, plan.mealPlanId || null];
+  try {
+    const r = await _pool.query(
+      `INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts, meal_plan_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, name`,
+      values
+    );
+    return r.rows[0] || null;
+  } catch (err) {
+    if (!err || err.code !== '42703') throw err;
+    const r = await _pool.query(
+      `INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name`,
+      values.slice(0, 6)
+    );
+    return r.rows[0] || null;
+  }
+}
+
 // ── AI WORKOUT PLAN GENERATION ────────────────────────────────────────────────
 router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
   try {
@@ -2535,18 +2669,15 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // #127a: filtered users (or an unreadable profile) get a fixed, food-free program. No AI, no credit (EQA #135 r4 S2).
-    const workoutFlag = dietGuard.unknownAllergyFlag(wpProfile && wpProfile.allergies);
-    const withWorkoutFlag = (plan) => {
-      if (!workoutFlag || !plan || typeof plan !== 'object') return plan;
-      const summary = typeof plan.summary === 'string' && plan.summary ? `${workoutFlag} ${plan.summary}` : plan.summary;
-      return { ...plan, summary, allergyFlag: workoutFlag };
-    };
-    if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
-      return res.json({ success: true, plan: withWorkoutFlag(dietGuard.safeWorkoutPlan({ daysPerWeek, level })), source: 'fixed', provider: null });
-    }
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
+    const wpCtx = await loadWorkoutContext(req.user.userId, wpProfile, req.body || {});
+    const wpFilters = dietGuard.savedFilters(wpProfile);
+    const wpPast = !!(wpProfile && !wpUnread && mealSafety.profileFilters(wpProfile).pastBudget);
+    const wpClosed = wpUnread || dietGuard.unreadable(wpFilters) || wpPast;
+    // Unreadable filters stay on the checked template. Readable filters try the AI program first.
+    if (wpClosed || !aiClient.hasProvider()) {
+      const fixed = workoutProgram.fallbackWorkoutPlan({ ...wpCtx, daysPerWeek, level });
+      const saved = await saveUserWorkoutPlan(req.user.userId, fixed).catch(() => null);
+      return res.json({ success: true, plan: fixed, source: 'fixed', provider: null, notice: fixed.notice, savedPlan: saved });
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
@@ -2564,47 +2695,26 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-    const days = Math.min(Math.max(parseInt(daysPerWeek, 10) || 3, 1), 7);
-    const prompt = `You are an Australian strength and conditioning coach building a weekly program.
-
-Goal: ${goal}
-Experience level: ${level}
-Training days per week: ${days}
-Equipment: ${equipment}
-Session length: ~${sessionMinutes} minutes
-${focus ? `Special focus / constraints: ${focus}` : ''}
-
-Design a practical ${days}-day weekly program. Progressive overload friendly, sensible exercise order (compounds first), realistic volume.
-
-Return ONLY valid JSON, no markdown:
-{
-  "planName": "string",
-  "summary": "one sentence",
-  "level": "${level}",
-  "frequency": ${days},
-  "workouts": [
-    {"day": 1, "name": "e.g. Push A", "sets": 4, "reps": "8-10", "rest": 90, "notes": "optional cue"}
-  ]
-}
-Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give 4-7 exercises per day. "name" is the exercise name prefixed by nothing. Include a short warm-up note in "notes" of each day's first exercise.`;
-
+    const prompt = workoutProgram.workoutPrompt({ ...wpCtx, goal, level, daysPerWeek, equipment, focus, sessionMinutes });
     const r = await aiClient.chatJson({
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 4000,
       temperature: 0.6,
       route: '/ai/workout-plan',
+      budgetMs: workoutProgram.WORKOUT_ATTEMPT_MS,
     });
-    if (!r.ok) {
-      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
-      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
+    const plan = r && r.ok ? workoutProgram.normaliseWorkout(r.data, { ...wpCtx, level, daysPerWeek }) : null;
+    if (!plan) {
+      if (gate && await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' })) {
+        /* credit returned: the template did not use the model answer */
+      }
+      const fixed = workoutProgram.fallbackWorkoutPlan({ ...wpCtx, daysPerWeek, level });
+      const saved = await saveUserWorkoutPlan(req.user.userId, fixed).catch(() => null);
+      return res.json({ success: true, plan: fixed, source: 'fixed', provider: null, notice: fixed.notice, savedPlan: saved, remaining: gate.remaining });
     }
-    const plan = mealSafety.enforceJsonText(r.data, mealSafety.profileFilters(wpProfile)).value;
-    if (!plan.workouts || !Array.isArray(plan.workouts)) {
-      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
-      return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
-    }
+    const saved = await saveUserWorkoutPlan(req.user.userId, plan).catch(() => null);
     res.locals.aiAnswered = true;
-    res.json({ success: true, plan: withWorkoutFlag(plan), provider: r.provider, remaining: gate.remaining });
+    res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining, source: 'ai', savedPlan: saved });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
     sendApiError(res, err);
@@ -2837,7 +2947,44 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
       [req.user.userId]
     );
     const mealAssignment = assigned.rows.find(r => r.plan_type === 'meal');
-    const workoutAssignment = assigned.rows.find(r => r.plan_type === 'workout');
+    let workoutAssignment = assigned.rows.find(r => r.plan_type === 'workout' && r.workout_plan_name);
+    if (!workoutAssignment) {
+      try {
+        const own = await _pool.query(
+          'SELECT id, name, description, workouts, meal_plan_id FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',
+          [req.user.userId]
+        );
+        const row = own.rows[0];
+        if (row) {
+          workoutAssignment = {
+            plan_type: 'workout',
+            plan_id: row.id,
+            workout_plan_name: row.name,
+            description: row.description,
+            workouts: row.workouts,
+            meal_plan_id: row.meal_plan_id || null,
+            own: true,
+          };
+        }
+      } catch (err) {
+        if (!err || err.code !== '42703') throw err;
+        const own = await _pool.query(
+          'SELECT id, name, description, workouts FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',
+          [req.user.userId]
+        );
+        const row = own.rows[0];
+        if (row) {
+          workoutAssignment = {
+            plan_type: 'workout',
+            plan_id: row.id,
+            workout_plan_name: row.name,
+            description: row.description,
+            workouts: row.workouts,
+            own: true,
+          };
+        }
+      }
+    }
     // Shopping lists
     const lists = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [req.user.userId]);
     // Recent logs

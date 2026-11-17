@@ -47,7 +47,7 @@ async function sendEmail(opts) {
         subject: opts.subject,
         html: opts.bodyHtml,
         text: opts.bodyText || undefined,
-      }, opts.headers ? { headers: opts.headers } : {})),
+      }, opts.replyTo ? { reply_to: opts.replyTo } : {}, opts.headers ? { headers: opts.headers } : {})),
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
@@ -453,6 +453,54 @@ async function sendSupportReceivedEmail(customerEmail, options = {}) {
   });
 }
 
+const HELP_FORM_FROM = 'FitMunch Help Form <help@fitmunch.com.au>';
+const HELP_FORM_TO = 'support@fitmunch.com.au';
+
+function supportTopicLabel(topic) {
+  const t = String(topic || 'app');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/**
+ * The help form message, sent to support@ from the verified domain.
+ * Reply-To is the customer. Not relay@ and not the support-relay header.
+ */
+async function sendSupportTicketEmail({ email, name, topic, message, storeId }) {
+  const toCustomer = String(email || '').trim();
+  const safeName = String(name || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 80);
+  const safeTopic = supportTopicLabel(topic);
+  const rawMessage = String(message || '');
+  const subjectBit = rawMessage.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 60);
+  const subject = `[Help form] ${safeTopic}: ${subjectBit}`;
+  const idLine = storeId ? String(storeId) : 'not stored';
+  const text = [
+    `Name: ${safeName || '(blank)'}`,
+    `Email: ${toCustomer}`,
+    `Topic: ${safeTopic}`,
+    `Store id: ${idLine}`,
+    '',
+    rawMessage,
+  ].join('\n');
+  const html = `
+<!DOCTYPE html>
+<html><body>
+<p>Name: ${escapeHtml(safeName || '(blank)')}</p>
+<p>Email: ${escapeHtml(toCustomer)}</p>
+<p>Topic: ${escapeHtml(safeTopic)}</p>
+<p>Store id: ${escapeHtml(idLine)}</p>
+<pre style="white-space:pre-wrap;font-family:Georgia,serif">${escapeHtml(rawMessage)}</pre>
+</body></html>`.trim();
+  return sendEmail({
+    to: HELP_FORM_TO,
+    from: HELP_FORM_FROM,
+    replyTo: toCustomer,
+    subject,
+    bodyHtml: html,
+    bodyText: text,
+    idempotencyKey: storeId ? `support-${storeId}` : '',
+  });
+}
+
 const RETENTION_COPY = {
   3: {
     subject: 'Your FitMunch week is still here',
@@ -610,6 +658,9 @@ module.exports = {
   sendTrialReminderEmail,
   sendPremiumActivatedEmail,
   sendSupportReceivedEmail,
+  sendSupportTicketEmail,
+  HELP_FORM_FROM,
+  HELP_FORM_TO,
   buildRetentionNudge,
   buildWinBack,
   sendRetentionNudgeEmail,

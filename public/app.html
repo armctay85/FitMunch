@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/fm-fonts.css?v=b02c36607739"/>
 <link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
 <script src="/js/chart.umd.min.js?v=84d0e233daba"></script>
-<script src="/js/fm-targets.js?v=ef3a49db2f5a"></script>
+<script src="/js/fm-targets.js?v=c1c08d4577f8"></script>
 <script src="/js/fm-item-name.js?v=e88e8ebb27f3"></script>
 <script src="/js/fm-week-wow.js?v=17ebe9d7753e"></script>
 <script src="/js/fm-home-week.js?v=cbb2c5cef0c6"></script>
@@ -849,7 +849,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
  <div class="form-field">
  <label class="form-label">Daily calories</label>
- <input type="number" id="mp-cals-sel" class="form-input" placeholder="2000" min="1200" max="5000"/>
+ <input type="number" id="mp-cals-sel" class="form-input" placeholder="2000" min="1200" max="4500"/>
  </div>
  <div class="form-field">
  <label class="form-label">Protein (g/day)</label>
@@ -888,8 +888,8 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <!-- Loading state -->
  <div id="mp-loading" style="display:none;text-align:center;padding:48px 20px">
  <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
- <div style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is writing your meal plan…</div>
- <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and targets. Usually 10–20 seconds.</div>
+ <div id="mp-loading-title" style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is writing your meal plan…</div>
+ <div id="mp-loading-status" style="font-size:.78rem;color:var(--text3);margin-top:6px">Matching meals to your goals and targets. Usually 10–20 seconds.</div>
  </div>
 
  <!-- Plan output -->
@@ -901,7 +901,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  </div>
  <div style="display:flex;gap:8px">
  <button class="btn btn-ghost2 btn-sm" onclick="generateMealPlan()">↻ Regenerate</button>
- <button class="btn btn-green btn-sm" onclick="savePlanAndBuildList()">🛒 Build shopping list →</button>
+ <button class="btn btn-green btn-sm" id="mp-build-btn" onclick="savePlanAndBuildList()">🛒 Build shopping list →</button>
  </div>
  </div>
  <!-- Weekly averages -->
@@ -1008,8 +1008,8 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <!-- Loading -->
  <div id="wpg-loading" style="display:none;text-align:center;padding:48px 20px">
  <div class="loader" style="width:28px;height:28px;border-width:3px;margin:0 auto 16px"></div>
- <div style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is building your program…</div>
- <div style="font-size:.78rem;color:var(--text3);margin-top:6px">Usually 10–20 seconds.</div>
+ <div id="wpg-loading-title" style="font-size:.9rem;font-weight:700;color:var(--text)">Your AI coach is building your program…</div>
+ <div id="wpg-loading-status" style="font-size:.78rem;color:var(--text3);margin-top:6px">Usually 10–20 seconds.</div>
  </div>
 
  <!-- Generated plan preview -->
@@ -1254,9 +1254,9 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <div style="font-size:1rem;font-weight:800;margin-bottom:6px;font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;letter-spacing:-.02em">Your AI training partner</div>
  <div style="font-size:.78rem;color:var(--text3);line-height:1.6;margin-bottom:16px">It knows your goals and today's macros. Try one of these:</div>
  <div style="display:flex;flex-direction:column;gap:8px">
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('What should I eat tonight to hit my protein target?')">What should I eat tonight to hit my protein target?</button>
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('Build me a high-protein shop for the week')">Build me a high-protein shop</button>
- <button class="btn btn-ghost2 btn-sm" onclick="chatStarter('I keep snacking at 9pm. How do I stop?')">I keep snacking at 9pm. How do I stop?</button>
+ <button class="btn btn-ghost2 btn-sm" id="chat-starter-0" onclick="chatStarter(this.textContent)">What should I eat tonight to hit my protein target?</button>
+ <button class="btn btn-ghost2 btn-sm" id="chat-starter-1" onclick="chatStarter(this.textContent)">Build me a high-protein shop for the week</button>
+ <button class="btn btn-ghost2 btn-sm" id="chat-starter-2" onclick="chatStarter(this.textContent)">I keep snacking at 9pm. How do I stop?</button>
  </div>
  </div>
  </div>
@@ -1336,7 +1336,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
 <div class="view" id="view-portal-workouts">
  <div class="view-header">
  <div><div class="view-title">Log Workout</div><div class="view-sub">Track your training sessions.</div></div>
- <div class="view-actions"><button class="btn btn-green" onclick="openModal('modal-log-workout')">+ Log Session</button></div>
+ <div class="view-actions"><button class="btn btn-green" onclick="openLogWorkout()">+ Log Session</button></div>
  </div>
  <div class="scroll-body">
  <div class="card">
@@ -1834,7 +1834,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <div id="ob-step-2" style="display:none">
  <p style="font-size:.82rem;color:var(--text2);line-height:1.6;margin-bottom:12px" id="ob-explain"></p>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
- <div class="form-field"><label class="form-label" for="ob-cals">Calories a day</label><input id="ob-cals" class="form-input" type="number" min="1200" max="5000" oninput="onboardRebalance()"/></div>
+ <div class="form-field"><label class="form-label" for="ob-cals">Calories a day</label><input id="ob-cals" class="form-input" type="number" min="1200" max="4500" oninput="onboardRebalance()"/></div>
  <div class="form-field"><label class="form-label" for="ob-prot">Protein (g a day)</label><input id="ob-prot" class="form-input" type="number" min="40" max="350" oninput="onboardRebalance()"/></div>
  </div>
  <p style="font-size:.8rem;color:var(--text2);margin:0 0 14px" id="ob-macros"></p>
@@ -1867,7 +1867,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <div class="form-row" style="margin-top:10px">
  <div class="form-field">
  <label class="form-label">Daily calories</label>
- <input type="number" id="goal-calories" class="form-input" placeholder="e.g. 2000" min="1000" max="5000"/>
+ <input type="number" id="goal-calories" class="form-input" placeholder="e.g. 2000" min="1200" max="4500"/>
  </div>
  <div class="form-field">
  <label class="form-label">Protein target (g)</label>
@@ -1999,7 +1999,21 @@ const API = async (path, opts={}) => {
  const builderOnly = path === '/meal-plan/generate' && typeof opts.body === 'string' && /"builderOnly":true/.test(opts.body);
  if (!builderOnly && AI_PATHS.some(p => path.startsWith(p)) && !(await ensureAiConsent())) return { ...AI_OFF_RESULT };
  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token };
- return fetch('/api' + path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } }).then(r => r.json());
+ const timeoutMs = Number(opts.timeoutMs);
+ const fetchOpts = { ...opts };
+ delete fetchOpts.timeoutMs;
+ let timer = null;
+ if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+  const ctrl = new AbortController();
+  fetchOpts.signal = ctrl.signal;
+  timer = setTimeout(() => ctrl.abort(), timeoutMs);
+ }
+ try {
+  const r = await fetch('/api' + path, { ...fetchOpts, headers: { ...headers, ...(fetchOpts.headers||{}) } });
+  return await r.json();
+ } finally {
+  if (timer) clearTimeout(timer);
+ }
 };
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
@@ -2890,7 +2904,7 @@ async function loadWorkoutPlans() {
  const grid = document.getElementById('workout-plans-grid');
  if (!grid) return;
  if (!S.workoutPlans.length) {
- grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">🏋️</div><div class="et">No workout plans yet</div><div class="es">Create a program and assign it to clients.</div></div></div>`;
+ grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="ei">🏋️</div><div class="et">No workout plans yet</div><div class="es">Generate a program above. It stays on this account and shows on Home and My Plan.</div></div></div>`;
  return;
  }
  grid.innerHTML = S.workoutPlans.map(p => {
@@ -3039,9 +3053,10 @@ async function loadShoppingLists() {
  renderShoppingLists(S.shoppingLists, 'shopping-lists-body');
 }
 
-function renderShoppingList(list, targetId) {
+function renderShoppingList(list, targetId, listTarget) {
  const el = document.getElementById(targetId);
  if (!el) return;
+ const viewId = listTarget || 'shopping-lists-body';
  const items = list.items || [];
  if (!items.length) { el.innerHTML = '<div class="empty-state"><div class="es">No items in this list.</div></div>'; return; }
  const grouped = {};
@@ -3054,8 +3069,8 @@ function renderShoppingList(list, targetId) {
  <div class="shop-category">
  <div class="shop-cat-label">${escapeHtml(cat.charAt(0).toUpperCase()+cat.slice(1))}</div>
  ${catItems.map((item, i) => `
- <div class="shop-item ${item.checked?'checked':''}" id="si-${list.id}-${i}">
- <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i})">${item.checked?'✓':''}</div>
+ <div class="shop-item ${item.checked?'checked':''}" id="${viewId}-si-${list.id}-${i}">
+ <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i},'${viewId}')">${item.checked?'✓':''}</div>
  <span class="shop-name">${escapeHtml(item.name)}</span>
  <span class="shop-qty">${escapeHtml(item.qty||'')} ${escapeHtml(item.unit||'')}</span>
  ${item.allergyWarning ? `<span class="shop-allergy-flag">Check this item. It may not fit an allergy you saved.${item.allergyNote ? ' ' + escapeHtml(item.allergyNote) + '.' : ''}</span>` : ''}
@@ -3079,16 +3094,17 @@ function renderShoppingLists(lists, targetId) {
  <button class="btn btn-ghost2 btn-sm" onclick="deleteShoppingList(${list.id})">✕</button>
  </div>
  </div>
- <div class="card-body" id="sl-${list.id}"></div>
+ <div class="card-body" id="${targetId}-sl-${list.id}"></div>
  </div>`).join('');
- lists.forEach(list => renderShoppingList(list, 'sl-'+list.id));
+ lists.forEach(list => renderShoppingList(list, targetId+'-sl-'+list.id, targetId));
 }
 
-async function toggleShopItem(listId, itemIdx) {
+async function toggleShopItem(listId, itemIdx, targetId) {
  const list = S.shoppingLists.find(l=>l.id===listId) || (S.portalData?.shoppingLists||[]).find(l=>l.id===listId);
  if (!list) return;
  list.items[itemIdx].checked = !list.items[itemIdx].checked;
- renderShoppingList(list, 'sl-'+listId);
+ const bodyId = (targetId || 'shopping-lists-body') + '-sl-' + listId;
+ renderShoppingList(list, bodyId, targetId || 'shopping-lists-body');
  await API('/shopping-list/'+listId, { method:'PATCH', body: JSON.stringify({ items: list.items }) });
 }
 
@@ -3162,6 +3178,30 @@ async function removeFav(type, id) {
 }
 
 // ── HOME (shared by consumer-first accounts and PT-invited clients) ───────────
+let portalGate = null;
+function newPortalGate() {
+ let resolve, reject;
+ const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+ portalGate = { promise, resolve, reject, settled: false };
+ return portalGate;
+}
+newPortalGate();
+function waitForPortal(ms) {
+ const gate = portalGate;
+ return Promise.race([
+  gate.promise,
+  new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms || 15000)),
+ ]);
+}
+async function retryPortalView(view) {
+ newPortalGate();
+ await loadPortalHome();
+ if (view === 'portal-plan') renderPortalPlan();
+ if (view === 'portal-shopping') renderPortalShopping();
+}
+function portalErrorHtml(view) {
+ return '<div class="empty-state" id="portal-plan-error"><div class="ei">⏳</div><div class="et">Couldn\'t load your list, try again</div><div style="margin-top:12px"><button class="btn btn-green ea" onclick="retryPortalView(\'' + view + '\')">Try again</button></div></div>';
+}
 async function setupClientPortal() {
  const hour = new Date().getHours();
  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -3171,25 +3211,31 @@ async function setupClientPortal() {
 }
 
 async function loadPortalHome() {
- // Load user profile / goals
+ if (!portalGate || portalGate.settled) newPortalGate();
+ const gate = portalGate;
+ // Profile and portal together, so a cold open is not two round trips in a row.
+ const profP = API('/user/profile/' + S.user.id).catch(() => null);
+ const portalP = API('/portal/me').catch(() => null);
+ const [prof, r] = await Promise.all([profP, portalP]);
  try {
- const prof = await API('/user/profile/' + S.user.id);
- if (prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
- if (prof.success && prof.profile && prof.profile.targetCalories) {
+ if (prof && prof.success && prof.profile) { rememberProfileFilters(prof.profile); prefillDietTags(prof.profile.dietaryPreferences); }
+ if (prof && prof.success && prof.profile && prof.profile.targetCalories) {
  S.goals = { fitnessGoal: prof.profile.fitnessGoal, targetCalories: prof.profile.targetCalories, targetProtein: prof.profile.targetProtein, targetCarbs: prof.profile.targetCarbs, targetFat: prof.profile.targetFat };
  renderGoalTargets();
  }
  } catch(e) { /* ignore */ }
 
- let r;
- try { r = await API('/portal/me'); } catch (_) { r = null; }
  if (!r || r.success !== true || !Array.isArray(r.recentMeals)) {
+  gate.settled = true;
+  gate.reject(new Error('portal'));
   const box = document.getElementById('home-week');
   if (box) showHomeWeekError(box, loadPortalHome);
   return;
  }
  if (r.success) {
  S.portalData = r;
+ gate.settled = true;
+ gate.resolve(r);
  if (r.pt) {
  document.getElementById('portal-pt-name').textContent = 'Managed by ' + r.pt.name;
  } else {
@@ -3217,7 +3263,11 @@ async function loadPortalHome() {
  const woPlanEl = document.getElementById('home-workoutplan');
  const woBtn = document.getElementById('home-workoutplan-btn');
  if (r.workoutPlan) {
- woPlanEl.innerHTML = `<div class="portal-plan-name">${escapeHtml(r.workoutPlan.workout_plan_name||'Workout Plan')}</div>`;
+ const workouts = Array.isArray(r.workoutPlan.workouts) ? r.workoutPlan.workouts : [];
+ const day1 = workouts.filter(e => Number(e.day) === 1).slice(0, 4);
+ woPlanEl.innerHTML = `<div class="portal-plan-name">${escapeHtml(r.workoutPlan.workout_plan_name||'Workout Plan')}</div>`
+  + (r.workoutPlan.description ? `<div class="portal-plan-meta">${escapeHtml(String(r.workoutPlan.description).slice(0, 180))}</div>` : '')
+  + day1.map(e => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">${escapeHtml(e.name)} · ${escapeHtml(e.sets)}×${escapeHtml(e.reps||'')}</div>`).join('');
  if (woBtn) { woBtn.textContent = 'View'; woBtn.onclick = () => nav('portal-plan'); }
  }
  // Goals nudge on home
@@ -3241,7 +3291,7 @@ async function loadPortalHome() {
  }
 }
 
-async function loadAiCoaching(todayMeals, allMeals) {
+async function loadAiCoaching(todayMeals, allMeals, opts) {
  try {
  const todayCals = todayMeals.reduce((s,m)=>s+(m.calories||0),0);
  const todayProt = todayMeals.reduce((s,m)=>s+(m.protein||0),0);
@@ -3253,6 +3303,7 @@ async function loadAiCoaching(todayMeals, allMeals) {
  goal: S.goals?.fitnessGoal||'general_fitness',
  targetCalories: S.goals?.targetCalories||2000,
  targetProtein: S.goals?.targetProtein||150,
+ background: !(opts && opts.refresh),
  })
  });
  if (insightR.insight) {
@@ -3274,7 +3325,7 @@ async function refreshAiCoaching() {
  coachText.textContent = 'Getting fresh tip…';
  if (S.portalData) {
  const todayMeals = FMHomeWeek.loggedTodayMeals(S.portalData.recentMeals);
- await loadAiCoaching(todayMeals, S.portalData.recentMeals||[]);
+ await loadAiCoaching(todayMeals, S.portalData.recentMeals||[], { refresh: true });
  }
 }
 
@@ -3304,7 +3355,17 @@ async function renderPortalPlan() {
  // Only say a trainer assigned it when there is one (launch audit D9).
  const sub = document.getElementById('portal-plan-sub');
  if (sub) sub.textContent = S.portalData && S.portalData.pt ? 'Assigned by your trainer.' : 'Your saved meal and workout plans.';
- if (!S.portalData) { el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>'; return; }
+ if (!S.portalData) {
+  el.innerHTML = '<div style="padding:20px;text-align:center"><div class="loader"></div></div>';
+  try { await waitForPortal(15000); }
+  catch (_) {
+   if (currentView !== 'portal-plan') return;
+   el.innerHTML = portalErrorHtml('portal-plan');
+   return;
+  }
+  if (currentView !== 'portal-plan') return;
+  if (!S.portalData) { el.innerHTML = portalErrorHtml('portal-plan'); return; }
+ }
  const { mealPlan, workoutPlan } = S.portalData;
  // Same GET the Meal Planner uses. A failed read is a retry, never the empty state.
  let saved = null;
@@ -3331,16 +3392,31 @@ async function renderPortalPlan() {
  else if (loadKind === 'error') html += '<div class="empty-state" id="portal-plan-error"><div class="ei">🥗</div><div class="et">Couldn\'t load your week, try again</div><div style="margin-top:12px"><button class="btn btn-green ea" id="portal-plan-retry" onclick="renderPortalPlan()">Try again</button></div></div>';
  else if (!mealPlan) html += '<div class="empty-state"><div class="ei">🥗</div><div class="et">No meal plan yet</div><div class="es">Generate an AI plan with everyday foods, or wait if your trainer is assigning one.</div><button class="btn btn-green ea" onclick="nav(\'meal-plans\')">Generate meal plan →</button></div>';
  if (workoutPlan) {
+ const wex = Array.isArray(workoutPlan.workouts) ? workoutPlan.workouts : [];
+ const preview = wex.slice(0, 6).map(e => `<div style="font-size:.78rem;color:var(--text2);padding:2px 0">Day ${escapeHtml(e.day||1)}: ${escapeHtml(e.name)} · ${escapeHtml(e.sets)}×${escapeHtml(e.reps||'')}</div>`).join('');
  html += `<div class="portal-plan"><div class="portal-plan-title">🏋️ Workout Plan</div>
  <div class="portal-plan-name">${escapeHtml(workoutPlan.workout_plan_name||'Workout Plan')}</div>
+ ${workoutPlan.description ? `<div class="portal-plan-meta">${escapeHtml(String(workoutPlan.description).slice(0, 220))}</div>` : ''}
+ ${preview}
+ <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="openLogWorkout()">Log this workout</button></div>
  </div>`;
  } else html += '<div class="empty-state" style="margin-top:14px"><div class="ei">🏋️</div><div class="et">No workout plan yet</div><div class="es">Log sessions as you go, or ask AI Coach for a simple split.</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn btn-green ea" onclick="nav(\'portal-workouts\')">Log a workout</button><button class="btn btn-ghost2 ea" onclick="nav(\'ai-coach\')">Ask coach</button></div></div>';
  el.innerHTML = html;
 }
 
-function renderPortalShopping() {
+async function renderPortalShopping() {
  const el = document.getElementById('portal-shopping-body');
- if (!S.portalData) { el.innerHTML = '<div style="text-align:center;padding:20px"><div class="loader"></div></div>'; return; }
+ if (!S.portalData) {
+  el.innerHTML = '<div style="text-align:center;padding:20px"><div class="loader"></div></div>';
+  try { await waitForPortal(15000); }
+  catch (_) {
+   if (currentView !== 'portal-shopping') return;
+   el.innerHTML = portalErrorHtml('portal-shopping');
+   return;
+  }
+  if (currentView !== 'portal-shopping') return;
+  if (!S.portalData) { el.innerHTML = portalErrorHtml('portal-shopping'); return; }
+ }
  const lists = S.portalData.shoppingLists || [];
  renderShoppingLists(lists, 'portal-shopping-body');
  // Patch items toggle to work from portal data
@@ -3442,7 +3518,11 @@ function foodSearchInput(val) {
 }
 
 function renderFoodDropdown(foods, dd) {
- if (!foods.length) { dd.style.display = 'none'; return; }
+ if (!foods.length) {
+  dd.innerHTML = '<div class="food-result" id="food-no-match"><div class="food-result-name">No foods match. Try a simpler word.</div></div>';
+  dd.style.display = '';
+  return;
+ }
  dd.innerHTML = foods.map((f, i) => `
  <div class="food-result" data-idx="${i}" onclick="selectFood(${i})" onmouseover="focusResult(${i})">
  <div>
@@ -3551,6 +3631,18 @@ async function loadWorkoutLog() {
  </div>`).join('') : '<div class="empty-state"><div class="ei">🏋️</div><div class="et">No workouts logged yet</div><div class="es">Log your first session - sets, minutes, or just the type.</div><button class="btn btn-green ea" onclick="openModal(\'modal-log-workout\')">+ Log session</button></div>';
 }
 
+function openLogWorkout() {
+ const plan = S.portalData && S.portalData.workoutPlan;
+ const type = document.getElementById('lw-type');
+ const notes = document.getElementById('lw-notes');
+ if (plan && type) type.value = plan.workout_plan_name || 'Workout';
+ if (plan && notes && Array.isArray(plan.workouts)) {
+  const day1 = plan.workouts.filter(e => Number(e.day) === 1);
+  const lines = (day1.length ? day1 : plan.workouts.slice(0, 6)).map((e) => [e.name, String(e.sets) + 'x' + (e.reps || ''), e.rest ? ('rest ' + e.rest + 's') : ''].filter(Boolean).join(' '));
+  notes.value = lines.join('\n');
+ }
+ openModal('modal-log-workout');
+}
 async function logWorkoutEntry() {
  const body = {
  userId: S.user.id,
@@ -3975,13 +4067,16 @@ function renderScanResults(data) {
   : ('A$' + Number(item.price).toFixed(2));
  const contains = Array.isArray(item.contains) ? item.contains.filter(x => typeof x === 'string' && x.trim()) : [];
  const badge = contains.length ? `<span class="allergen-badge">contains ${escapeHtml(contains.join(', '))}</span> ` : (item.unchecked ? '<span class="allergen-note-badge">Not checked</span> ' : '');
+ const unmatched = !item.nutrition;
  const basis = item.nutrition && item.nutrition.basis ? ` (${escapeHtml(item.nutrition.basis)})` : '';
  html += `<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px dashed var(--border);cursor:pointer">
- <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0"${(contains.length || item.unchecked) ? '' : ' checked'}/>
+ <input type="checkbox" class="scan-item-cb" data-idx="${idx}" style="accent-color:var(--leaf);width:16px;height:16px;flex-shrink:0"${(contains.length || item.unchecked || unmatched) ? '' : ' checked'}/>
  <span style="flex:1;font-size:.8rem;font-weight:500">${badge}${escapeHtml(window.FMItemName?FMItemName.displayName(item.name):item.name)}</span>
  <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(priceLabel)}</span>
- <span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.protein)}g P</span>
- <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal${basis}</span>
+ ${unmatched
+  ? '<span style="font-size:.72rem;color:var(--text3)">Not in our food list yet</span>'
+  : `<span style="font-size:.72rem;color:var(--leaf2);font-weight:600;font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.protein)}g P</span>
+ <span style="font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">${escapeHtml(item.nutrition.calories)} cal${basis}</span>`}
  </label>`;
  });
  }
@@ -4103,7 +4198,7 @@ function onboardCompute() {
  err.style.display = 'none';
  document.getElementById('ob-cals').value = t.calories;
  document.getElementById('ob-prot').value = t.protein;
- document.getElementById('ob-explain').textContent = `Your body burns about ${t.bmr} kcal at rest and ${t.tdee} kcal on a typical day. For your goal we suggest:`;
+ document.getElementById('ob-explain').textContent = `Your body burns about ${t.bmr} kcal at rest and ${t.tdee} kcal on a typical day. For your goal we suggest:` + (t.capped ? ' We\'ve capped this at 4,500 kcal a day, the most a FitMunch plan builds.' : '');
  onboardRebalance(); onboardStep(2);
  } catch (e) {
  const names = { age:'age (16-100)', heightCm:'height (120-230 cm)', weightKg:'weight (35-300 kg)' };
@@ -4272,7 +4367,7 @@ async function onboardBuildWeek() {
  try { consented = typeof aiConsentState === 'function' && aiConsentState() === true; } catch (_) { consented = false; }
  try {
  if (!consented) { await local(); return; }
- const g = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
+ const g = await API('/meal-plan/generate', { method:'POST', timeoutMs: 85000, body: JSON.stringify({ goal: fitnessGoal, days: 7, calories: r.calories, protein: r.protein, dietary: diet }) });
  if (g && g.success && g.plan && Array.isArray(g.plan.days)) { S_activePlan = g.plan; onboardRenderWeek(g.plan, [g.notice || 'Your week, planned to your targets.', ...(g.plan.notes || [])].join(' '), r); await onboardSaveWeek(g.plan, fitnessGoal); }
  else await local();
  } catch (_) { try { await local(); } catch (_) { /* note already shown */ } }
@@ -4781,39 +4876,76 @@ async function saveDietFilters(opts) {
  return { ok: true };
 }
 
+function planBoundsError(cals, prot) {
+ const bounds = (window.FMTargets && FMTargets.PLAN_BOUNDS) || { minKcal: 1200, maxKcal: 4500, minProtein: 30, maxProtein: 350 };
+ if (!Number.isFinite(cals) || cals < bounds.minKcal || cals > bounds.maxKcal) return 'Daily calories must be between 1,200 and 4,500.';
+ if (!Number.isFinite(prot) || prot < bounds.minProtein || prot > bounds.maxProtein) return 'Daily protein must be between 30 and 350 g.';
+ return '';
+}
+function showPlanBoundsError(msg) {
+ let el = document.getElementById('mp-bounds-error');
+ if (!el) {
+  el = document.createElement('div');
+  el.id = 'mp-bounds-error';
+  el.setAttribute('role', 'alert');
+  el.style.cssText = 'color:#b91c1c;font-size:.8rem;margin:8px 0 0';
+  const btn = document.getElementById('mp-gen-btn');
+  if (btn && btn.parentNode) btn.parentNode.insertBefore(el, btn);
+ }
+ el.textContent = msg || '';
+ el.style.display = msg ? 'block' : 'none';
+}
 async function generateMealPlan() {
  const goal = document.getElementById('mp-goal-sel').value;
- const days = parseInt(document.getElementById('mp-days-sel').value) || 7;
- const cals = parseInt(document.getElementById('mp-cals-sel').value) || (S.goals?.targetCalories || 2000);
- const prot = parseInt(document.getElementById('mp-prot-sel').value) || (S.goals?.targetProtein || 150);
+ const days = parseInt(document.getElementById('mp-days-sel').value, 10);
+ const calsRaw = document.getElementById('mp-cals-sel').value;
+ const protRaw = document.getElementById('mp-prot-sel').value;
+ const cals = calsRaw === '' ? NaN : Number(calsRaw);
+ const prot = protRaw === '' ? NaN : Number(protRaw);
+ const boundsMsg = planBoundsError(cals, prot) || (!Number.isFinite(days) || days < 1 || days > 7 ? 'Days must be between 1 and 7.' : '');
+ if (boundsMsg) { showPlanBoundsError(boundsMsg); return; }
+ showPlanBoundsError('');
  const savedFilters = await saveDietFilters({ quiet: true });
  if (!savedFilters.ok) return;
  const dietary = [...document.querySelectorAll('#dietary-tags .diet-tag.active[data-val]')].map(b => b.dataset.val).filter(Boolean);
 
- // Pre-fill from goals if blank
- if (!document.getElementById('mp-cals-sel').value && S.goals?.targetCalories) document.getElementById('mp-cals-sel').value = S.goals.targetCalories;
- if (!document.getElementById('mp-prot-sel').value && S.goals?.targetProtein) document.getElementById('mp-prot-sel').value = S.goals.targetProtein;
- if (!document.getElementById('mp-goal-sel').value && S.goals?.fitnessGoal) document.getElementById('mp-goal-sel').value = S.goals.fitnessGoal;
-
+ const oldErr = document.getElementById('mp-generate-error'); if (oldErr) oldErr.innerHTML = '';
  document.getElementById('mp-loading').style.display = '';
+ document.getElementById('mp-loading-status').textContent = 'Matching meals to your goals and targets. Usually 10–20 seconds.';
  document.getElementById('mp-plan-output').style.display = 'none';
  document.getElementById('mp-gen-btn').disabled = true;
+ const slowNote = setTimeout(() => {
+  const status = document.getElementById('mp-loading-status');
+  if (status) status.textContent = 'Still working on your AI plan';
+ }, 20000);
 
  try {
- const r = await API('/meal-plan/generate', { method:'POST', body: JSON.stringify({ goal, days, calories: cals, protein: prot, dietary }) });
+ const r = await API('/meal-plan/generate', { method:'POST', timeoutMs: 85000, body: JSON.stringify({ goal, days, calories: cals, protein: prot, dietary }) });
  if (!r.success) {
  if (maybeUpgrade(r)) return;
  throw new Error(r.error || 'Generation failed');
  }
  S_activePlan = r.plan;
  S_activePlan.notice = r.notice || '';
+ S_activePlan.source = r.source || '';
  renderMealPlan(r.plan);
  // The notice explains a checked-recipe plan; no toast over it on small screens.
  if (!r.notice) toast('Meal plan ready! 🎉');
  else { const n = document.getElementById('mp-plan-notice'); if (n && n.scrollIntoView) n.scrollIntoView({ block: 'nearest' }); }
  } catch(err) {
- toast('Could not generate plan: ' + err.message, 'error');
+ const aborted = err && (err.name === 'AbortError' || /abort/i.test(err.message || ''));
+ let box = document.getElementById('mp-generate-error');
+ if (!box) {
+  box = document.createElement('div');
+  box.id = 'mp-generate-error';
+  const loading = document.getElementById('mp-loading');
+  if (loading) loading.insertAdjacentElement('afterend', box);
+ }
+ if (box) {
+  box.innerHTML = '<div class="empty-state" id="mp-plan-error"><div class="et">' + (aborted ? 'That plan took too long.' : 'Could not generate plan.') + '</div><div style="margin-top:12px"><button class="btn btn-green" type="button" onclick="generateMealPlan()">Try again</button></div></div>';
+ }
  } finally {
+ clearTimeout(slowNote);
  document.getElementById('mp-loading').style.display = 'none';
  document.getElementById('mp-gen-btn').disabled = false;
  }
@@ -4835,6 +4967,16 @@ function renderMealPlan(plan) {
  const noticeLines = [plan.notice, ...(plan.notes || [])].filter(Boolean);
  noticeEl.textContent = noticeLines.join(' ');
  noticeEl.style.display = noticeLines.length ? 'block' : 'none';
+ if (plan.source === 'builder') {
+  const again = document.createElement('button');
+  again.type = 'button';
+  again.className = 'btn btn-ghost2 btn-sm';
+  again.style.marginTop = '8px';
+  again.textContent = 'Try again';
+  again.onclick = () => generateMealPlan();
+  noticeEl.appendChild(document.createTextNode(' '));
+  noticeEl.appendChild(again);
+ }
 
  // Metrics bar
  const metricsEl = document.getElementById('mp-plan-metrics');
@@ -4898,25 +5040,38 @@ function renderPlanDay(day) {
 }
 
 async function savePlanAndBuildList() {
- if (!S_activePlan) return;
- document.getElementById('mp-gen-btn').disabled = true;
+ const btn = document.getElementById('mp-build-btn');
+ let plan = S_activePlan;
+ if (!plan) {
+  try {
+   const parsed = await readMealPlans();
+   if (parsed && parsed.kind === 'ok') {
+    const row = FMHomeWeek.pickListedPlan(parsed.body.plans);
+    if (row && row.meals) {
+     plan = { planName: row.name, summary: row.description || '', goal: row.goal_type, avgDailyCalories: row.total_calories, days: row.meals.days || row.meals };
+    }
+   }
+  } catch (_) {}
+ }
+ if (!plan || !plan.days) { toast('Generate a meal plan first, then build the list.', 'warn'); return; }
+ if (btn) { btn.disabled = true; btn.dataset.prevLabel = btn.textContent; btn.textContent = 'Building your list'; }
  try {
  // Save plan to DB
  const saved = await API('/meal-plans', { method:'POST', body: JSON.stringify({
- name: S_activePlan.planName,
- description: S_activePlan.summary,
- goalType: S_activePlan.goal || 'general_fitness',
- totalCalories: S_activePlan.avgDailyCalories || 0,
- meals: S_activePlan.days,
+ name: plan.planName,
+ description: plan.summary,
+ goalType: plan.goal || 'general_fitness',
+ totalCalories: plan.avgDailyCalories || 0,
+ meals: plan.days,
  })});
  if (saved.success) toast('Plan saved ✓');
  // Build shopping list
- await buildAiShoppingList(S_activePlan);
+ await buildAiShoppingList(plan, { portal: true });
  } catch(e) { toast('Error: '+e.message,'error'); }
- finally { document.getElementById('mp-gen-btn').disabled = false; }
+ finally { if (btn) { btn.disabled = false; btn.textContent = btn.dataset.prevLabel || '🛒 Build shopping list →'; } }
 }
 
-async function buildAiShoppingList(plan) {
+async function buildAiShoppingList(plan, opts) {
  toast('Building your shopping list…','success');
  const r = await API('/meal-plan/shopping', { method:'POST', body: JSON.stringify({ plan }) });
  if (!r.success) { toast('Could not build list: '+(r.error||'error'),'error'); return; }
@@ -4925,6 +5080,15 @@ async function buildAiShoppingList(plan) {
  return;
  }
  S_activeShoppingList = r.list;
+ if (opts && opts.portal && S.role === 'client') {
+  const saved = await API('/shopping-list', { method:'POST', body: JSON.stringify({ name: r.list.name, items: r.list.items }) });
+  if (!saved.success) { toast(saved.error || 'Could not save the list', 'error'); return; }
+  if (!S.portalData) S.portalData = { shoppingLists: [], recentMeals: [] };
+  S.portalData.shoppingLists = [saved.list, ...(S.portalData.shoppingLists || [])];
+  nav('portal-shopping');
+  renderPortalShopping();
+  return;
+ }
  nav('shopping-lists');
  renderAiShoppingList(r.list);
 }
@@ -5211,10 +5375,21 @@ async function refreshChatRemaining() {
  } catch(e) {}
 }
 
+const CHAT_STARTERS = {
+ general: ['What should I eat tonight to hit my protein target?', 'Build me a high-protein shop for the week', 'I keep snacking at 9pm. How do I stop?'],
+ nutrition: ['What should I eat tonight to hit my protein target?', 'Build me a high-protein shop for the week', 'I keep snacking at 9pm. How do I stop?'],
+ workout: ['Build me a 4 day gym program for my goal', 'What should I train today?', 'How do I progress the squat this week?'],
+ progress: ['How is my weight trend this month?', 'What should I focus on this week?', 'Am I logging enough to see a pattern?'],
+};
 function setChatIntent(btn) {
  document.querySelectorAll('.chat-intent').forEach(b => b.classList.remove('active'));
  btn.classList.add('active');
  CHAT.intent = btn.dataset.intent;
+ const prompts = CHAT_STARTERS[CHAT.intent] || CHAT_STARTERS.general;
+ prompts.forEach((text, i) => {
+  const el = document.getElementById('chat-starter-' + i);
+  if (el) el.textContent = text;
+ });
 }
 
 function chatStarter(text) {
@@ -5451,26 +5626,41 @@ async function generateWorkoutPlan() {
  const payload = {
  goal: document.getElementById('wpg-goal').value,
  level: document.getElementById('wpg-level').value,
- daysPerWeek: parseInt(document.getElementById('wpg-days').value) || 3,
+ daysPerWeek: parseInt(document.getElementById('wpg-days').value, 10) || 3,
  equipment: document.getElementById('wpg-equipment').value,
- sessionMinutes: parseInt(document.getElementById('wpg-minutes').value) || 60,
+ sessionMinutes: parseInt(document.getElementById('wpg-minutes').value, 10) || 60,
  focus: document.getElementById('wpg-focus').value.trim(),
+ weightKg: S.goals && S.goals.weightKg,
+ calories: S.goals && S.goals.targetCalories,
+ protein: S.goals && S.goals.targetProtein,
+ carbs: S.goals && S.goals.targetCarbs,
+ fat: S.goals && S.goals.targetFat,
  };
  document.getElementById('wpg-loading').style.display = '';
+ const status = document.getElementById('wpg-loading-status');
+ if (status) status.textContent = 'Usually 10–20 seconds.';
  document.getElementById('wpg-output').style.display = 'none';
  document.getElementById('wpg-gen-btn').disabled = true;
+ const slowNote = setTimeout(() => { if (status) status.textContent = 'Still working on your program'; }, 20000);
  try {
- const r = await API('/ai/workout-plan', { method: 'POST', body: JSON.stringify(payload) });
+ const r = await API('/ai/workout-plan', { method: 'POST', timeoutMs: 85000, body: JSON.stringify(payload) });
  if (!r.success) {
  if (maybeUpgrade(r)) return;
  throw new Error(r.error || 'Generation failed');
  }
  S_activeWorkoutPlan = r.plan;
+ if (r.savedPlan && r.savedPlan.id) S_activeWorkoutPlan.id = r.savedPlan.id;
  renderGeneratedWorkoutPlan(r.plan);
- toast('Program ready! 💪');
+ if (r.source === 'fixed') toast(r.notice || 'A checked program is ready. Try again if you want a fresh one.');
+ else toast('Program ready! 💪');
+ if (S.portalData) {
+  S.portalData.workoutPlan = { workout_plan_name: r.plan.planName, description: r.plan.summary, workouts: r.plan.workouts, own: true };
+ }
  } catch (err) {
- toast('Could not generate program: ' + err.message, 'error');
+ const aborted = err && (err.name === 'AbortError' || /abort/i.test(err.message || ''));
+ toast(aborted ? 'That program took too long. Try again.' : 'The program did not come back. Try again.', 'error');
  } finally {
+ clearTimeout(slowNote);
  document.getElementById('wpg-loading').style.display = 'none';
  document.getElementById('wpg-gen-btn').disabled = false;
  }
@@ -5503,6 +5693,7 @@ async function saveGeneratedWorkoutPlan() {
  level: p.level || 'intermediate',
  frequency: p.frequency || 3,
  workouts: p.workouts || [],
+ mealPlanId: p.mealPlanId || undefined,
  })});
  if (r.success) {
  toast('Program saved ✓');

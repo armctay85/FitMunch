@@ -42,26 +42,34 @@ describe('support confirmation email', () => {
       cc: 'other@example.net',
       message: 'How do I cancel?',
     }).expect(200);
-    expect(res.body).toEqual({ success: true });
-    expect(sent).toHaveLength(1);
-    expect(sent[0].from).toBe('FitMunch <support@fitmunch.com.au>');
-    expect(sent[0].to).toEqual(['ada@example.com']);
-    expect(sent[0].subject).toBe("We've got your message");
-    const blob = JSON.stringify(sent[0]);
+    expect(res.body.success).toBe(true);
+    expect(res.body.receipt).toBe(true);
+    expect(sent).toHaveLength(2);
+    const team = sent[0];
+    const receiptEmail = sent[1];
+    expect(team.from).toBe('FitMunch Help Form <help@fitmunch.com.au>');
+    expect(team.to).toEqual(['support@fitmunch.com.au']);
+    expect(team.reply_to).toBe('ada@example.com');
+    expect(team.subject).toMatch(/^\[Help form\] App: /);
+    expect(JSON.stringify(team)).not.toMatch(/relay@fitmunch\.com\.au|x-fitmunch-support-relay/);
+    expect(receiptEmail.from).toBe('FitMunch <support@fitmunch.com.au>');
+    expect(receiptEmail.to).toEqual(['ada@example.com']);
+    expect(receiptEmail.subject).toBe("We've got your message");
+    const blob = JSON.stringify(receiptEmail);
     expect(blob).not.toContain('victim@example.net');
     expect(blob).not.toContain('other@example.net');
-    expect(sent[0].text).toContain("We've got your message.");
-    expect(sent[0].text).toContain('within 1 business day');
-    expect(sent[0].text).not.toContain('1-2 business days');
-    expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#billing');
-    expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#trial');
-    expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#cancel');
-    expect(sent[0].html).toContain('We&#39;ve got your message.');
-    expect(sent[0].html).toContain('Hi Ada &lt;script&gt;.');
-    expect(sent[0].html).not.toContain('<script>');
-    expect(sent[0].html).toContain('href="https://www.fitmunch.com.au/support#billing"');
-    expect(sent[0].html).toContain('href="https://www.fitmunch.com.au/support#trial"');
-    expect(sent[0].html).toContain('href="https://www.fitmunch.com.au/support#cancel"');
+    expect(receiptEmail.text).toContain("We've got your message.");
+    expect(receiptEmail.text).toContain('within 1 business day');
+    expect(receiptEmail.text).not.toContain('1-2 business days');
+    expect(receiptEmail.text).toContain('https://www.fitmunch.com.au/support#billing');
+    expect(receiptEmail.text).toContain('https://www.fitmunch.com.au/support#trial');
+    expect(receiptEmail.text).toContain('https://www.fitmunch.com.au/support#cancel');
+    expect(receiptEmail.html).toContain('We&#39;ve got your message.');
+    expect(receiptEmail.html).toContain('Hi Ada &lt;script&gt;.');
+    expect(receiptEmail.html).not.toContain('<script>');
+    expect(receiptEmail.html).toContain('href="https://www.fitmunch.com.au/support#billing"');
+    expect(receiptEmail.html).toContain('href="https://www.fitmunch.com.au/support#trial"');
+    expect(receiptEmail.html).toContain('href="https://www.fitmunch.com.au/support#cancel"');
   });
 
   test('does not send when the address is missing, listed, or broken', async () => {
@@ -80,12 +88,11 @@ describe('support confirmation email', () => {
     }
     const blocked = await post({ email: 'ADA@example.com', message: 'Again' }).expect(429);
     expect(blocked.body.success).toBe(false);
-    expect(sent).toHaveLength(3);
-    sent.forEach((row) => expect(row.to).toEqual(['ada@example.com']));
+    expect(sent.filter((row) => row.to[0] === 'ada@example.com')).toHaveLength(3);
     const other = await post({ email: 'bea@example.com', message: 'Different person' }).expect(200);
     expect(other.body.success).toBe(true);
-    expect(sent).toHaveLength(4);
-    expect(sent[3].to).toEqual(['bea@example.com']);
+    expect(sent.filter((row) => row.to[0] === 'bea@example.com')).toHaveLength(1);
+    expect(sent.filter((row) => row.to[0] === 'support@fitmunch.com.au').length).toBeGreaterThan(0);
   });
 });
 

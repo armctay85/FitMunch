@@ -808,9 +808,18 @@ const supportFormLimiter = rateLimit({
 app.post('/api/support', supportFormLimiter, async (req, res) => {
   try {
     const { sendSupportConfirmation } = require('./lib/support-confirm');
-    const result = await sendSupportConfirmation(req.body || {});
+    let userId = null;
+    const header = req.headers.authorization || '';
+    if (header.startsWith('Bearer ')) {
+      try {
+        const decoded = require('./lib/session-token').verifySessionToken(header.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production');
+        if (decoded && typeof decoded.userId === 'string') userId = decoded.userId;
+      } catch (_) { userId = null; }
+    }
+    const result = await sendSupportConfirmation(req.body || {}, { userId });
     res.status(result.status).json(result.body);
   } catch (err) {
+    console.log('[support-form] ' + JSON.stringify({ ts: new Date().toISOString(), status: 500, reason: 'error', email: '', topic: '', storeId: null, resendId: null, receipt: false }));
     sendApiError(res, err, 'Support form error');
   }
 });

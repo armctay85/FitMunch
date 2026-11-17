@@ -219,10 +219,11 @@ describe('smoke cap is only charged for answered calls', () => {
     await flush();
     expect(smokeUsed).toBe(0);
   });
-  it('workout plan with an invalid AI result (502) refunds', async () => {
+  it('workout plan with an invalid AI result falls back and refunds', async () => {
     aiClient.chatJson.mockResolvedValueOnce({ ok: false, error: 'provider_error', provider: 'xai' });
     const r = await request(app).post('/api/ai/workout-plan').set('Authorization', `Bearer ${tokenFor('x@example.com', ID)}`).send({ goal: 'strength' });
-    expect(r.status).toBe(502);
+    expect(r.status).toBe(200);
+    expect(r.body.source).toBe('fixed');
     await flush();
     expect(smokeUsed).toBe(0);
   });
