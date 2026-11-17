@@ -548,7 +548,8 @@ async function ensureMigrations() {
   _migrationsPromise = (async () => {
     try {
       await _pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'pt';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
+        ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pt_id UUID;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ;
         CREATE TABLE IF NOT EXISTS pt_clients (
@@ -1058,9 +1059,17 @@ router.get('/coach/billing-status', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
     if (!decoded || !decoded.userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
-    if (decoded.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
-    // Role from the users row too, so a demoted trainer with an unexpired token is refused.
-    const userRow = await _pool.query('SELECT settings, role FROM users WHERE id=$1', [decoded.userId]);
+    // Role from the users row, not the token, so a demoted trainer with an unexpired token is refused.
+    let userRow;
+    try {
+      userRow = await _pool.query('SELECT settings, role FROM users WHERE id=$1', [decoded.userId]);
+    } catch (err) {
+      // A non-uuid id cannot be a users row. A database outage for a real id still fails closed as 500.
+      if (!UUID_RE.test(String(decoded.userId)) || (err && err.code === '22P02')) {
+        return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+      }
+      throw err;
+    }
     if (!userRow.rows[0] || userRow.rows[0].role !== 'pt') {
       return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
     }
@@ -1506,14 +1515,18 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     const days = Array.isArray(meals) ? meals : Object.values(meals);
     const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
     const { aggregateShoppingList } = require('./lib/meal-plan-engine');
-    const items = aggregateShoppingList({ days: planDays })
+    const draft = aggregateShoppingList({ days: planDays })
       .map((i) => ({ name: stripMarkup(i.name), qty: stripMarkup(i.qty), unit: '', category: categorise(String(i.name || '')), checked: false }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+    const shopFilters = await userFilters(req.user.userId);
+    const items = mealSafety.groceryItemsSafe(draft, shopFilters);
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
       [req.user.userId, planId, stripMarkup(String(name || `${plan.rows[0].name} — Shopping List`)).slice(0, 120), JSON.stringify(items)]
     );
-    res.json({ success: true, list: list.rows[0] });
+    const body = { success: true, list: list.rows[0] };
+    if (shopFilters.allergyFlag) body.allergyFlag = shopFilters.allergyFlag;
+    res.json(body);
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1521,18 +1534,35 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
 router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const { name, items = [] } = stripNames(req.body || {});
+    const shopFilters = await userFilters(req.user.userId);
+    const kept = mealSafety.groceryItemsSafe(items, shopFilters);
     const result = await _pool.query(
       `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
-      [req.user.userId, name || 'My List', JSON.stringify(items)]
+      [req.user.userId, name || 'My List', JSON.stringify(kept)]
     );
-    res.json({ success: true, list: result.rows[0] });
+    const body = { success: true, list: result.rows[0] };
+    if (shopFilters.allergyFlag) body.allergyFlag = shopFilters.allergyFlag;
+    res.json(body);
   } catch (err) { sendApiError(res, err); }
 });
+
+async function shoppingListView(userId, row) {
+  if (!row) return row;
+  const shopFilters = await userFilters(userId);
+  let items = row.items;
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch (_) { items = []; } }
+  const kept = mealSafety.groceryItemsSafe(Array.isArray(items) ? items : [], shopFilters);
+  const view = { ...row, items: kept };
+  if (shopFilters.allergyFlag) view.allergyFlag = shopFilters.allergyFlag;
+  return view;
+}
 
 router.get('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, lists: r.rows });
+    const lists = [];
+    for (const row of r.rows) lists.push(await shoppingListView(req.user.userId, row));
+    res.json({ success: true, lists });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1541,7 +1571,7 @@ router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    res.json({ success: true, list: r.rows[0] });
+    res.json({ success: true, list: await shoppingListView(req.user.userId, r.rows[0]) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1552,7 +1582,11 @@ router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
     const sets = [];
     const vals = [];
     let i = 1;
-    if (items !== undefined) { sets.push(`items=$${i++}`); vals.push(JSON.stringify(items)); }
+    if (items !== undefined) {
+      const shopFilters = await userFilters(req.user.userId);
+      sets.push(`items=$${i++}`);
+      vals.push(JSON.stringify(mealSafety.groceryItemsSafe(items, shopFilters)));
+    }
     if (completed !== undefined) { sets.push(`completed=$${i++}`); vals.push(completed); }
     sets.push(`updated_at=NOW()`);
     vals.push(req.params.id, req.user.userId);
@@ -1621,8 +1655,13 @@ async function userFilters(userId) {
   // guard: main's diet-guard filters (savedFilters), so typed-meal warnings are never weaker than main's (EQA #127 r10 M1).
   try {
     const profile = await getProfile(userId);
-    return { ...mealSafety.profileFilters(profile), guard: require('./lib/diet-guard').savedFilters(profile) };
-  } catch (_) { return { dietary: [], allergies: [], guard: [] }; }
+    const dg = require('./lib/diet-guard');
+    return {
+      ...mealSafety.profileFilters(profile),
+      guard: dg.savedFilters(profile),
+      allergyFlag: dg.unknownAllergyFlag(profile && profile.allergies),
+    };
+  } catch (_) { return { dietary: [], allergies: [], guard: [], allergyFlag: '' }; }
 }
 /**
  * A saved, manual or edited plan in any stored shape (day form with meals as an object or list, a flat list
@@ -1704,6 +1743,7 @@ function mealWarnings(meals, filters) {
   }
   // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
   if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.unreadableNotice(filters.pastBudget) });
+  if (filters && filters.allergyFlag) out.unshift({ meal: '', contains: [], notice: filters.allergyFlag });
   return out.slice(0, 50);
 }
 
@@ -1726,13 +1766,15 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
     const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Typed meals are stored exactly as entered, less any stale allergenWarning the app sent back (r8: one
     // warning system, computed on save and again on every read against the filters the user has then).
-    const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
-    const checked = await safeSavedMeals(req.user.userId, sentMeals);
+    // The check uses the stored allergy and diet filters, not an empty filter.
+    const filters = await userFilters(req.user.userId);
+    const checked = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, filters).meals;
+    const meals = sentMeals == null ? sentMeals : mealSafety.stripAllergenWarnings(sentMeals);
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked, await userFilters(req.user.userId)) });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked, filters) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1742,8 +1784,10 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
     const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Typed meals are stored exactly as entered, less any stale allergenWarning the app sent back (r8: one
     // warning system, computed on save and again on every read against the filters the user has then).
-    const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
-    const checked = await safeSavedMeals(req.user.userId, sentMeals);
+    // The check uses the stored allergy and diet filters, not an empty filter.
+    const filters = await userFilters(req.user.userId);
+    const checked = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, filters).meals;
+    const meals = sentMeals == null ? sentMeals : mealSafety.stripAllergenWarnings(sentMeals);
     // Totals come from the stored shape. A day-shaped week has calories on each meal, not on
     // m.foods, so summing foods only stored 0. planMacros averages the days (the card is cal/day)
     // and still sums a manual list from its foods when those foods carry the macros.
@@ -1769,7 +1813,7 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
        calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId, userEdited]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, await userFilters(req.user.userId)) : [] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, filters) : [] });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1830,6 +1874,18 @@ const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
+
+/** Prepend the unknown-allergy flag onto a text field the user reads. */
+function stampAllergyText(res, flag, key) {
+  if (!flag) return;
+  const send = res.json.bind(res);
+  res.json = (body) => {
+    if (body && typeof body[key] === 'string' && body[key] && !body[key].includes(flag)) {
+      body = { ...body, [key]: `${flag} ${body[key]}` };
+    }
+    return send(body);
+  };
+}
 
 /** A model string, or '' when the provider sent a number, array, object, or blank. Never calls trim on a non-string. */
 function modelText(value) {
@@ -1908,6 +1964,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     // An unreadable profile fails closed with no AI. A readable diet or allergy list gets a real tip, then a food check.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
+    stampAllergyText(res, dietGuard.unknownAllergyFlag(insightProfile && insightProfile.allergies), 'insight');
     const savedKcal = insightProfile && Number(insightProfile.targetCalories);
     const savedProt = insightProfile && Number(insightProfile.targetProtein);
     const insightCalories = Number.isFinite(savedKcal) && savedKcal > 0 ? savedKcal : targetCalories;
@@ -2218,6 +2275,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
+    stampAllergyText(res, dietGuard.unknownAllergyFlag(profile && profile.allergies), 'reply');
 
     const textOf = (c) => (Array.isArray(c)
       ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
@@ -2466,8 +2524,14 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
       });
     }
     // #127a: filtered users (or an unreadable profile) get a fixed, food-free program. No AI, no credit (EQA #135 r4 S2).
+    const workoutFlag = dietGuard.unknownAllergyFlag(wpProfile && wpProfile.allergies);
+    const withWorkoutFlag = (plan) => {
+      if (!workoutFlag || !plan || typeof plan !== 'object') return plan;
+      const summary = typeof plan.summary === 'string' && plan.summary ? `${workoutFlag} ${plan.summary}` : plan.summary;
+      return { ...plan, summary, allergyFlag: workoutFlag };
+    };
     if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
-      return res.json({ success: true, plan: dietGuard.safeWorkoutPlan({ daysPerWeek, level }), source: 'fixed', provider: null });
+      return res.json({ success: true, plan: withWorkoutFlag(dietGuard.safeWorkoutPlan({ daysPerWeek, level })), source: 'fixed', provider: null });
     }
     if (!aiClient.hasProvider()) {
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
@@ -2521,12 +2585,12 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
     if (!r.ok) {
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
-    const plan = r.data;
+    const plan = mealSafety.enforceJsonText(r.data, mealSafety.profileFilters(wpProfile)).value;
     if (!plan.workouts || !Array.isArray(plan.workouts)) {
       return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
     }
     res.locals.aiAnswered = true;
-    res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
+    res.json({ success: true, plan: withWorkoutFlag(plan), provider: r.provider, remaining: gate.remaining });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
     sendApiError(res, err);

@@ -272,6 +272,8 @@ router.post('/generate', requireAuth, async (req, res) => {
     const body = { success: true, plan, source: 'builder' };
     // Only when the allergy list could not be read. An empty notice would show as a blank line.
     if (dietGuard.unreadable(combined)) body.notice = dietGuard.unreadableNotice(past);
+    const allergyFlag = dietGuard.unknownAllergyFlag(profile && profile.allergies);
+    if (allergyFlag) body.notice = body.notice ? `${body.notice} ${allergyFlag}` : allergyFlag;
     return res.json(body);
   }
   // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
@@ -280,15 +282,17 @@ router.post('/generate', requireAuth, async (req, res) => {
   const filteredPlan = (dietary, pastBudget) => {
     if (dietGuard.unreadable(dietary) && !pastBudget) return unreadPlan(res);
     input.dietary = dietGuard.planFilters(dietary);
+    const allergyFlag = dietGuard.unknownAllergyFlag(profile && profile.allergies);
+    const notice = dietGuard.unreadable(dietary)
+      ? (pastBudget ? dietGuard.unreadableNotice(true) : dietGuard.unreadableNotice(false) + ' ' + dietGuard.PLAN_NOTICE)
+      : dietGuard.PLAN_NOTICE;
     return res.json({
       success: true,
       // r8: the builder week also goes through #127's ingredient check (meals and swaps), so a typed allergy
       // with no builder filter (lupin, kiwi) is honoured too.
       plan: builtPlan(input, dietary, pastBudget),
       source: 'builder',
-      notice: dietGuard.unreadable(dietary)
-        ? (pastBudget ? dietGuard.unreadableNotice(true) : dietGuard.unreadableNotice(false) + ' ' + dietGuard.PLAN_NOTICE)
-        : dietGuard.PLAN_NOTICE,
+      notice: allergyFlag ? `${notice} ${allergyFlag}` : notice,
       dietary: input.dietary,
     });
   };
@@ -402,8 +406,14 @@ router.post('/shopping', requireAuth, async (req, res) => {
     if (!plan || !Array.isArray(plan.days)) return res.status(400).json({ success: false, error: 'Plan required' });
 
     // Combine every ingredient across the plan (same item + unit summed).
+    let shopProfile = null;
+    try { shopProfile = await require('./server/storage.js').getProfile(req.user.userId); }
+    catch (_) {
+      return res.status(503).json({ success: false, error: "We couldn't check your allergies. Please try again." });
+    }
+    const shopFilters = mealSafety.profileFilters(shopProfile);
     const owned = (Array.isArray(excludeOwned) ? excludeOwned : []).map((e) => String(e).toLowerCase());
-    const items = planEngine.aggregateShoppingList(plan)
+    const items = mealSafety.groceryItemsSafe(planEngine.aggregateShoppingList(plan), shopFilters)
       .filter((i) => !owned.some((e) => e && e.includes(i.name.toLowerCase())))
       .map((i) => {
         return {
@@ -429,9 +439,11 @@ router.post('/shopping', requireAuth, async (req, res) => {
     );
 
     const itemCount = items.length;
+    const allergyFlag = dietGuard.unknownAllergyFlag(shopProfile && shopProfile.allergies);
 
     res.json({
       success: true,
+      ...(allergyFlag ? { allergyFlag } : {}),
       list: {
         name: (plan.planName || 'Week') + ': shopping list',
         itemCount,

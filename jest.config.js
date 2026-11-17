@@ -40,6 +40,8 @@ module.exports = {
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',
     '**/test_allergen_tags.js',
+    '**/test_allergen_hotfix.js',
+    '**/test_allergen_hotfix_pg.js',
     '**/test_ai_meal_safety.js',
     '**/test_ai_meal_safety_pg.js',
     '**/test_ai_meal_safety_r10_pg.js',

@@ -949,14 +949,14 @@ app.post('/api/checkout', async (req, res) => {
     if (!requestedPlan) {
       return res.status(400).json({ error: 'Plan is required.' });
     }
-    const plan = normalizeCheckoutPlan(requestedPlan, decoded.role);
+    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+    const plan = normalizeCheckoutPlan(requestedPlan, await require('./lib/account-role').accountRole(user));
     // Validate before any Stripe call.
     const priceId = priceIdForPlan(plan);
     if (!priceId) {
       return res.status(400).json({ error: 'Unknown plan.' });
     }
 
-    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
     const { eq } = require('drizzle-orm');
     const result = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
       // Re-read inside the lock so a concurrent new-user submit sees the customer
@@ -1037,13 +1037,13 @@ app.post('/api/coach/checkout', async (req, res) => {
     const authHeader = req.headers.authorization || '';
     if (authHeader.startsWith('Bearer ')) {
       const decoded = requireAuthUser(req);
-      if (decoded.role !== 'pt') {
+      const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+      if (await require('./lib/account-role').accountRole(user) !== 'pt') {
         return res.status(403).json({
           success: false,
           error: 'Coach plans are only available for trainer accounts.',
         });
       }
-      const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
       const { eq } = require('drizzle-orm');
       const result = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
         let current = user;

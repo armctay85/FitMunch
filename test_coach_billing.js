@@ -527,8 +527,17 @@ describe('Coach checkout trial', () => {
     });
   });
 
-  test('a client account cannot open Coach checkout', async () => {
-    const token = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
+  test('a database client cannot open Coach checkout, even with a trainer token', async () => {
+    storage.getUserById = jest.fn(async (id) => ({
+      id,
+      email: 'c@example.com',
+      name: 'Casey',
+      role: 'client',
+      subscriptionTier: 'free',
+      stripeCustomerId: null,
+      settings: {},
+    }));
+    const token = jwt.sign({ userId: 'c-1', role: 'pt' }, jwtSecret());
     const res = await request(app)
       .post('/api/coach/checkout')
       .set('Authorization', `Bearer ${token}`)
