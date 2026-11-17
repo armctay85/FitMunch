@@ -367,7 +367,16 @@ router.post('/generate', requireAuth, async (req, res) => {
       try {
         const account = await getUserById(req.user.userId);
         const denied = consentResponse(account && account.settings);
-        if (denied) return res.status(denied.status).json(denied.body);
+        if (denied) {
+          // A request that already has filters still gets the checked builder.
+          // Nothing is sent to a model, so a refused Allow does not leave them with no plan.
+          // An unfiltered request still stops here, before the profile is read.
+          if (input.dietary && input.dietary.length) {
+            const combined = dietGuard.combineFilters(profile, input.dietary);
+            return filteredPlan(combined, !!(stored && stored.pastBudget));
+          }
+          return res.status(denied.status).json(denied.body);
+        }
       } catch (_) {
         return res.status(503).json({
           success: false,

@@ -74,12 +74,17 @@ beforeEach(async () => {
 });
 afterAll(async () => { if (pool) await pool.end(); });
 
-// r8 (#135 merged): a user with any filter never reaches the AI; the week comes from the checked builder.
-const expectBuilderWeek = (res, words) => {
+// Readable filters may use the AI. The week that is served must still be safe.
+// Consent refused, an unreadable list, and builderOnly stay on the checked builder with no model call.
+const expectCheckedWeek = (res, words) => {
   expect(res.status).toBe(200);
+  expect(['ai', 'ai_retry', 'builder']).toContain(res.body.source);
+  if (words) expect(JSON.stringify(res.body.plan.days)).not.toMatch(words);
+};
+const expectBuilderWeek = (res, words) => {
+  expectCheckedWeek(res, words);
   expect(res.body.source).toBe('builder');
   expect(aiClient.chatJson).not.toHaveBeenCalled();
-  if (words) expect(JSON.stringify(res.body.plan.days)).not.toMatch(words);
 };
 // The AI-plan check itself, against the filters read from the real saved profile.
 const enforceWithSaved = async (plan) => require('./lib/meal-safety').enforcePlan(plan, { ...require('./lib/meal-safety').profileFilters(await storage.getProfile(U)), calories: 2000, protein: 120 });
@@ -88,7 +93,7 @@ maybe('AI meal plans on real Postgres', () => {
   it('saved gluten free + sesame free + peanut allergy, nothing ticked: builder week, no pasta, hummus or peanut butter, saved filters kept', async () => {
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal('Ricotta and spinach pasta', ['Pasta', 'Ricotta', 'Spinach'], 700) }) });
     const res = await gen([]);
-    expectBuilderWeek(res, /pasta|hummus|tahini|peanut/i);
+    expectCheckedWeek(res, /pasta|hummus|tahini|peanut/i);
     expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
     const { plan, replaced } = await enforceWithSaved(week({
       dinner: meal('Ricotta and spinach pasta', ['Pasta', 'Ricotta', 'Spinach'], 700),
@@ -100,7 +105,7 @@ maybe('AI meal plans on real Postgres', () => {
   });
   it('a new filter applies on top of the saved ones and is added to the profile, never replacing them (r9 M2)', async () => {
     const res = await gen(['nut free']);
-    expectBuilderWeek(res);
+    expectCheckedWeek(res);
     expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'sesame free', 'nut free']));
     // The saved peanut allergy already counts as nut free (main's filterPatch, EQA #140 r3 M1): nothing is added or lost.
     expect(await savedDiet()).toEqual(['gluten free', 'sesame free']);
@@ -108,7 +113,7 @@ maybe('AI meal plans on real Postgres', () => {
   });
   it('a filter not covered by the saved ones (egg free) is added to the profile, never replacing them (r9 M2)', async () => {
     const res = await gen(['egg free']);
-    expectBuilderWeek(res);
+    expectCheckedWeek(res);
     expect(res.body.dietary).toEqual(expect.arrayContaining(['gluten free', 'sesame free', 'nut free', 'egg free']));
     expect(await savedDiet()).toEqual(['gluten free', 'sesame free', 'egg free']);
   });
@@ -150,7 +155,7 @@ maybe('r6: stand-ins that sit beside the dish, and English muffins, on real Post
   ])('%s allergy: the %s builder week has no AI call and none of it; the AI check swaps it', async (allergy, slot, bad, re) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
-    expectBuilderWeek(await gen([]), re);
+    expectCheckedWeek(await gen([]), re);
     const { plan } = await enforceWithSaved(week({ [slot]: bad }));
     expect(plan.days[0].meals[slot].replacedForFilters).toBe(true);
     expect(JSON.stringify(plan.days.map((d) => d.meals))).not.toMatch(re);
@@ -169,7 +174,7 @@ maybe('r7: names that only look like the egg-free dish, and English muffins, on 
   ])('%s allergy: the %s "%s" never reaches the user; the AI check swaps it', async (allergy, slot, bad, re) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
-    expectBuilderWeek(await gen([]), new RegExp(bad.name.replace(/[^a-z ]/gi, '.'), 'i'));
+    expectCheckedWeek(await gen([]), new RegExp(bad.name.replace(/[^a-z ]/gi, '.'), 'i'));
     const { plan } = await enforceWithSaved(week({ [slot]: bad }));
     expect(plan.days[0].meals[slot].replacedForFilters).toBe(true);
     expect(JSON.stringify(plan.days.map((d) => d.meals))).not.toMatch(re);
@@ -199,13 +204,15 @@ maybe('r9: unreadable typed meals and remembered filters, on real Postgres', () 
   it('tick nut free, generate: the profile saves it, and Coach chat then makes 0 AI calls', async () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [] });
     const res = await gen(['nut free']);
-    expectBuilderWeek(res);
+    expectCheckedWeek(res);
     expect(await savedDiet()).toEqual(['nut free']);
+    aiClient.chatJson.mockClear();
     aiClient.chat.mockReset();
     aiClient.chat.mockResolvedValue({ ok: true, text: 'Try a satay bowl.', provider: 'mock' });
     const c = await request(app).post('/api/ai/chat').set('Authorization', auth).send({ messages: [{ role: 'user', content: 'What should I eat tonight?' }] });
     expect(c.status).toBe(200);
     expect(c.body.reply).not.toMatch(/satay/i);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 });
 
@@ -242,7 +249,7 @@ maybe('every FSANZ allergen term typed as an allergy, on real Postgres', () => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [term] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal(name, items, 700) }) });
     const res = await gen([]);
-    expectBuilderWeek(res);
+    expectCheckedWeek(res);
     const served = JSON.stringify(res.body.plan.days);
     expect(served).not.toContain(name);
     for (const i of items.filter((x) => !/^(?:White rice|Tomato|Carrot|Garlic)$/.test(x))) expect(served.toLowerCase()).not.toContain(i.toLowerCase());
