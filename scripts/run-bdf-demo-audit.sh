@@ -27,8 +27,10 @@ echo "Demo sign-in will use the secret file. Credentials are not printed."
 
 echo "iphone" > /tmp/pre-asc-audit-device
 
-UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 16" "iPhone 15" "iPhone 14")"
+UDID="$(bash "$ROOT/scripts/boot-pinned-simulator.sh" "iPhone 16e" "iPhone 14")"
 echo "Using 390pt simulator udid=$UDID"
+xcrun simctl list devices | grep -F "$UDID" || true
+echo "main_sha_under_test=$(git rev-parse HEAD)"
 bash "$ROOT/scripts/set-simulator-region-au.sh" "$UDID"
 xcrun simctl privacy "$UDID" grant photos com.fitmunch.app || true
 xcrun simctl privacy "$UDID" grant photos-add com.fitmunch.app || true
