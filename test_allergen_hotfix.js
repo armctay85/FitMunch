@@ -415,8 +415,10 @@ describe('EQA pass signal: one shared filter, every path, twice', () => {
         items: [{ name: allergy, qty: '1' }, { name: 'Rice', qty: '1' }],
       });
       expect(manual.status).toBe(200);
-      expect(JSON.stringify(manual.body.list.items)).not.toMatch(hit);
+      const typedLine = (manual.body.list.items || []).find((item) => String(item.name) === allergy);
+      expect(typedLine && typedLine.allergyWarning).toBe(true);
       expect(JSON.stringify(manual.body.list.items)).toMatch(/Rice/);
+      expect((manual.body.list.items || []).find((item) => item.name === 'Rice').allergyWarning).toBeUndefined();
 
       const patched = await request(app).patch(`/api/shopping-list/${manual.body.list.id}`).set('Authorization', auth).send({
         items: [{ name: allergy, qty: '1', checked: false }, { name: 'Rice', qty: '1', checked: false }],
@@ -459,5 +461,239 @@ describe('EQA pass signal: one shared filter, every path, twice', () => {
       expect(workout.body.source).toBe('fixed');
       expect(withoutConfirm(JSON.stringify(workout.body.plan))).not.toMatch(hit);
     }
+  });
+});
+
+const FLAG_BY_DIET = {
+  'nut free': 'nuts',
+  'dairy free': 'dairy',
+  'shellfish free': 'shellfish',
+  'fish free': 'fish',
+  'sesame free': 'sesame',
+  'gluten free': 'gluten',
+  'egg free': 'eggs',
+  'soy free': 'soy',
+};
+
+describe('one mapper and the extra fail-closed flags', () => {
+  const TERMS = [
+    'salmon', 'tuna', 'soja', 'surimi', 'peanut', 'prawn', 'shrimp', 'kiwi', 'celery', 'celeriac',
+    'mustard', 'sulphites', 'lupin', 'sesame', 'fish sauce', 'kiwi and peanut', 'peanut, kiwi',
+    'peanut/kiwi', 'xylophone-berry', 'zzqx',
+  ];
+
+  test('savedFilters flags are a subset of excludedFlags for every test term', () => {
+    for (const term of TERMS) {
+      const saved = new Set(dietGuard.savedFilters({ allergies: [term] }).map((diet) => FLAG_BY_DIET[diet]).filter(Boolean));
+      const excluded = safety.excludedFlags(safety.profileFilters({ allergies: [term] }));
+      for (const flag of saved) expect({ term, flag, excluded: [...excluded] }).toEqual({ term, flag, excluded: expect.arrayContaining([flag]) });
+    }
+  });
+
+  test.each(['salmon', 'tuna'])('%s maps to fish in both readers', (fish) => {
+    expect(norm.dietsFor(fish)).toEqual(['fish free']);
+    expect(safety.excludedFlags({ allergies: [fish] }).has('fish')).toBe(true);
+    expect(norm.unmappable(fish)).toBe(false);
+  });
+
+  test.each(['celery', 'celeriac'])('%s maps to celery and does not turn every filter on', (term) => {
+    expect(norm.flagsForText(term).has('celery')).toBe(true);
+    expect(norm.unmappable(term)).toBe(false);
+    const diets = dietGuard.savedFilters({ allergies: [term] });
+    expect(diets).not.toEqual(expect.arrayContaining(dietGuard.ALL_FREE));
+  });
+
+  test.each(['dried apricots', 'white wine', 'sultanas', 'raisins', 'wine'])('%s carries sulphites', (food) => {
+    expect(norm.flagsForText(food).has('sulphites')).toBe(true);
+  });
+
+  test.each(['kiwi and peanut', 'peanut, kiwi', 'peanut/kiwi', 'peanut & kiwi', 'peanut and/or kiwi'])('%s keeps both allergies', (chip) => {
+    const diets = dietGuard.savedFilters({ allergies: [chip] });
+    expect(diets).toContain('nut free');
+    expect(diets).toContain('kiwi');
+    for (const diet of dietGuard.ALL_FREE) expect(diets).toContain(diet);
+    const excluded = safety.excludedFlags({ allergies: [chip] });
+    expect(excluded.has('nuts')).toBe(true);
+    expect(excluded.has('mustard')).toBe(true);
+    expect(excluded.has('celery')).toBe(true);
+    expect(excluded.has('sulphites')).toBe(true);
+  });
+});
+
+describe('over-cap lists fail closed and are not shortened', () => {
+  test('a save over 50 items or over 100 characters is rejected and the stored list stays', async () => {
+    const storage = require('./server/storage.js');
+    profile = { allergies: ['peanut'], updatedAt: '2026-01-01T00:00:00.000Z' };
+    storage.createOrUpdateProfile.mockClear();
+    for (const bad of [new Array(51).fill('peanut'), ['p'.repeat(101)]]) {
+      const r = await request(app).post('/api/user/profile').set('Authorization', auth).send({
+        allergies: bad,
+        profileUpdatedAt: profile.updatedAt,
+      });
+      expect(r.status).toBe(400);
+      expect(r.body.error).toBe(dietGuard.CAP_ERROR);
+    }
+    expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
+    expect(profile.allergies).toEqual(['peanut']);
+  });
+
+  test('an existing over-cap record fails closed and is not truncated', () => {
+    const long = `q${'z'.repeat(180)}`;
+    const saved = dietGuard.savedFilters({ allergies: [long] });
+    expect(saved.join(' ')).not.toContain('z'.repeat(100));
+    for (const diet of dietGuard.ALL_FREE) expect(saved).toContain(diet);
+    expect(dietGuard.unknownAllergyFlag([long])).toBe(dietGuard.OVER_CAP_NOTICE);
+    const flags = safety.excludedFlags(safety.profileFilters({ allergies: [long] }));
+    for (const flag of norm.CLOSED_FLAGS) expect(flags.has(flag)).toBe(true);
+
+    const many = [...Array.from({ length: 50 }, (_, i) => `mint${i}`), 'peanut'];
+    const wide = dietGuard.savedFilters({ allergies: many });
+    expect(wide[0]).toBe('nut free');
+    expect(wide).toContain('mint0');
+    expect(wide).toContain('mint49');
+    for (const diet of dietGuard.ALL_FREE) expect(wide).toContain(diet);
+    expect(dietGuard.unknownAllergyFlag(many)).toBe(dietGuard.OVER_CAP_NOTICE);
+    expect(dietGuard.listOf(['x'.repeat(500)])).toEqual(['x'.repeat(100)]);
+  });
+});
+
+describe('mocked gate for the new allergen rows', () => {
+  const storage = require('./server/storage.js');
+  const aiUsage = require('./lib/ai-usage');
+
+  beforeEach(() => {
+    const now = Date.now();
+    storage.getMealLogsForPeriod.mockResolvedValue([0, 1, 2].map((days) => ({
+      date: new Date(now - days * 86400000).toISOString(),
+      calories: 500,
+      protein: 30,
+      name: 'Rice',
+    })));
+  });
+
+  afterEach(() => {
+    storage.getMealLogsForPeriod.mockResolvedValue([]);
+  });
+
+  const GATES = [
+    { allergy: 'salmon', leaks: [/salmon/i, /tuna/i, /fish sauce/i], notice: false },
+    { allergy: 'tuna', leaks: [/salmon/i, /tuna/i, /fish sauce/i], notice: false },
+    { allergy: 'kiwi and peanut', leaks: [/kiwi/i, /peanut/i], notice: true },
+    { allergy: 'peanut, kiwi', leaks: [/kiwi/i, /peanut/i], notice: true },
+    { allergy: 'peanut/kiwi', leaks: [/kiwi/i, /peanut/i], notice: true },
+    { allergy: 'xylophone-berry', leaks: [/mustard/i, /celery/i, /dried apricots/i, /white wine/i, /sultanas/i, /xylophone-berry/i], notice: true },
+    { allergy: 'zzqx', leaks: [/mustard/i, /celery/i, /dried apricots/i, /white wine/i, /sultanas/i], notice: true },
+    { allergy: 'kiwi', leaks: [/kiwi/i, /mustard/i, /celery/i, /dried apricots/i, /sultanas/i], notice: true },
+    { allergy: 'sulphites', leaks: [/dried apricots/i, /white wine/i, /sultanas/i], notice: false },
+    { allergy: 'celery', leaks: [/celery/i, /celeriac/i], notice: false },
+    { allergy: 'celeriac', leaks: [/celery/i, /celeriac/i], notice: false },
+  ];
+
+  function forbiddenText(leaks) {
+    return leaks.map((re) => re.source.replace(/\\b/g, '').replace(/^\//, '').replace(/\/i$/, '')).join(', ');
+  }
+
+  test.each(GATES)('$allergy is blocked on every food path', async ({ allergy, leaks, notice }) => {
+    profile = { allergies: [allergy], targetCalories: 2000, targetProtein: 120, dietaryPreferences: [] };
+    const line = forbiddenText(leaks);
+    const badMeal = mealWith(line);
+    aiClient.chatJson.mockResolvedValue({
+      ok: true,
+      provider: 'xai',
+      data: {
+        days: [{ meals: { lunch: badMeal } }],
+        planName: 'Arms',
+        summary: line,
+        level: 'intermediate',
+        frequency: 3,
+        workouts: [{ day: 1, name: 'Press', sets: 3, reps: '8', rest: 60, notes: line }],
+        headline: line,
+        wins: [line],
+        focus: [line],
+        score: 5,
+      },
+    });
+    aiClient.chat.mockResolvedValue({ ok: true, text: `Have ${line} tonight.`, provider: 'xai' });
+
+    const zero = (value) => {
+      const body = withoutConfirm(value);
+      for (const leak of leaks) expect(body).not.toMatch(leak);
+    };
+
+    const plan = await request(app).post('/api/meal-plan/generate').set('Authorization', auth).send({
+      goal: 'maintain', days: 1, calories: 2000, protein: 120, dietary: [],
+    });
+    expect(plan.status).toBe(200);
+    zero(JSON.stringify(plan.body.plan));
+    if (notice) expect(plan.body.notice).toMatch(/Please confirm/);
+
+    const basket = await request(app).post('/api/meal-plan/shopping').set('Authorization', auth).send({
+      plan: { planName: 'Week', days: [{ meals: { lunch: badMeal } }] },
+    });
+    expect(basket.status).toBe(200);
+    zero(JSON.stringify(basket.body.list));
+    if (notice) expect(basket.body.allergyFlag).toMatch(/Please confirm/);
+
+    const saved = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+      name: 'Week',
+      meals: [{ day: 'Monday', meals: { lunch: badMeal } }],
+    });
+    expect(saved.status).toBe(200);
+    const generated = await request(app).post('/api/shopping-list/generate').set('Authorization', auth).send({ mealPlanId: saved.body.plan.id });
+    expect(generated.status).toBe(200);
+    zero(JSON.stringify(generated.body.list.items));
+
+    const typed = [{ name: line, qty: '1' }, { name: 'Rice', qty: '1' }];
+    const manual = await request(app).post('/api/shopping-list').set('Authorization', auth).send({ name: 'Typed shop', items: typed });
+    expect(manual.status).toBe(200);
+    const kept = (manual.body.list.items || []).find((item) => item.name === line);
+    expect(kept && kept.allergyWarning).toBe(true);
+    if (notice) expect(manual.body.allergyFlag).toMatch(/Please confirm/);
+    const patched = await request(app).patch(`/api/shopping-list/${manual.body.list.id}`).set('Authorization', auth).send({ items: typed });
+    expect(patched.status).toBe(200);
+    const listed = await request(app).get('/api/shopping-list').set('Authorization', auth);
+    const row = (listed.body.lists || []).find((item) => String(item.id) === String(manual.body.list.id));
+    const flagged = (row.items || []).find((item) => item.name === line);
+    expect(flagged && flagged.allergyWarning).toBe(true);
+
+    aiUsage.refundAiCall.mockClear();
+    const chat = await request(app).post('/api/ai/chat').set('Authorization', auth).send({
+      messages: [{ role: 'user', content: 'What should I eat for lunch?' }],
+    });
+    expect(chat.status).toBe(200);
+    zero(chat.body.reply);
+
+    const insight = await request(app).post('/api/ai/insight').set('Authorization', auth).send({
+      todayCalories: 400, todayProtein: 20, streak: 3, goal: 'general_fitness', targetCalories: 2000, targetProtein: 120,
+    });
+    expect(insight.status).toBe(200);
+    zero(insight.body.insight);
+
+    const review = await request(app).get('/api/ai/weekly-review').set('Authorization', auth);
+    expect(review.status).toBe(200);
+    zero(JSON.stringify(review.body.review));
+
+    const workout = await request(app).post('/api/ai/workout-plan').set('Authorization', auth).send({ daysPerWeek: 3, level: 'intermediate' });
+    expect(workout.status).toBe(200);
+    zero(JSON.stringify(workout.body.plan));
+  });
+
+  test('fish sauce for a shellfish allergy shows may contain crustacea on the meal and the list', async () => {
+    profile = { allergies: ['prawn'], targetCalories: 2000, targetProtein: 120, dietaryPreferences: [] };
+    const saved = await request(app).post('/api/meal-plans').set('Authorization', auth).send({
+      name: 'Sauce week',
+      meals: [mealWith('fish sauce')],
+    });
+    expect(saved.status).toBe(200);
+    expect(JSON.stringify(saved.body.allergenWarnings)).toMatch(/may contain crustacea/);
+    const manual = await request(app).post('/api/shopping-list').set('Authorization', auth).send({
+      name: 'Sauce',
+      items: [{ name: 'fish sauce', qty: '1' }],
+    });
+    expect(manual.body.list.items[0].allergyWarning).toBe(true);
+    expect(manual.body.list.items[0].allergyNote).toBe('may contain crustacea');
+    const html = fs.readFileSync(path.join(__dirname, 'public/app.html'), 'utf8');
+    expect(html).toContain('item.allergyNote');
+    expect(html).toContain('shop-allergy-flag');
   });
 });

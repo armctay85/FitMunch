@@ -3058,7 +3058,7 @@ function renderShoppingList(list, targetId) {
  <div class="shop-cb ${item.checked?'checked':''}" onclick="toggleShopItem(${list.id},${i})">${item.checked?'✓':''}</div>
  <span class="shop-name">${escapeHtml(item.name)}</span>
  <span class="shop-qty">${escapeHtml(item.qty||'')} ${escapeHtml(item.unit||'')}</span>
- ${item.allergyWarning ? '<span class="shop-allergy-flag">Check this item. It may not fit an allergy you saved.</span>' : ''}
+ ${item.allergyWarning ? `<span class="shop-allergy-flag">Check this item. It may not fit an allergy you saved.${item.allergyNote ? ' ' + escapeHtml(item.allergyNote) + '.' : ''}</span>` : ''}
  </div>`).join('')}
  </div>`).join('');
 }
@@ -4650,6 +4650,10 @@ function prefillDietTags(saved) {
 
 let S_filters = { updatedAt: null, dietsOk: true, diets: [], allergiesOk: true, allergies: [], seen: false };
 function normFilterWord(d) { return String(d).toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+// Same split as lib/allergen-norm.js splitAllergyChip: comma, &, /, and, or, and/or.
+function splitAllergyChip(raw) {
+ return String(raw == null ? '' : raw).split(/\s*(?:,|&|\/|\band\s*\/\s*or\b|\band\b|\bor\b)\s*/i).map(s => s.trim()).filter(Boolean);
+}
 function filterWords(v) {
  if (v == null || v === false) return { ok: true, list: [] };
  let x = v;
@@ -4683,8 +4687,8 @@ function obAllergySave(chips, saved) {
  if (!chips || !chips.length) return null;
  const loaded = filterWords(saved);
  if (!loaded.ok) return null;
- const merged = loaded.list.slice();
- for (const a of chips) if (!merged.some(x => normFilterWord(x) === normFilterWord(a))) merged.push(a);
+ const merged = loaded.list.flatMap(splitAllergyChip);
+ for (const a of chips.flatMap(splitAllergyChip)) if (!merged.some(x => normFilterWord(x) === normFilterWord(a))) merged.push(a);
  return merged;
 }
 function rememberProfileFilters(profile) {
@@ -4696,7 +4700,7 @@ function rememberProfileFilters(profile) {
  dietsOk: diets.ok,
  diets: diets.ok ? diets.list.map(normFilterWord) : [],
  allergiesOk: allergies.ok,
- allergies: allergies.ok ? allergies.list : [],
+ allergies: allergies.ok ? allergies.list.flatMap(splitAllergyChip) : [],
  seen: true,
  };
  renderAllergyChips();
@@ -4728,9 +4732,12 @@ function addTypedAllergy() {
  const raw = String(input.value || '').trim();
  if (!raw) return;
  if (!S_filters.allergiesOk) { toast("We couldn't read every saved allergy, so this screen won't change them.", 'warn'); return; }
- if (raw.length > 100) { toast('Each allergy can be up to 100 characters.', 'warn'); return; }
- if (S_filters.allergies.length >= 50) { toast('You can save up to 50 allergies.', 'warn'); return; }
- if (!S_filters.allergies.some(a => a.toLowerCase() === raw.toLowerCase())) S_filters.allergies.push(raw);
+ const parts = splitAllergyChip(raw);
+ if (!parts.length) return;
+ if (parts.some(p => p.length > 100)) { toast('Each allergy can be up to 100 characters.', 'warn'); return; }
+ const incoming = parts.filter(p => !S_filters.allergies.some(a => a.toLowerCase() === p.toLowerCase()));
+ if (S_filters.allergies.length + incoming.length > 50) { toast('You can save up to 50 allergies.', 'warn'); return; }
+ for (const part of incoming) S_filters.allergies.push(part);
  input.value = '';
  renderAllergyChips();
 }
@@ -4976,7 +4983,12 @@ async function saveManualList() {
  const items = raw.split('\n').filter(Boolean).map(line => ({ name: line.trim(), qty:'1', category:'Other', checked: false }));
  const r = await API('/shopping-list', { method:'POST', body: JSON.stringify({ name, items }) });
  closeModal('modal-manual-list');
- if (r.success) { toast('List created ✓'); S.shoppingLists.unshift(r.list); loadShoppingLists(); }
+ if (r.success) {
+  const returned = (r.list && r.list.items) || [];
+  if (returned.length < items.length) toast('Some lines were left off this list. Check them against an allergy you saved.', 'warn');
+  else toast('List created ✓');
+  S.shoppingLists.unshift(r.list); loadShoppingLists();
+ }
  else toast('Could not save', 'error');
 }
 
@@ -5509,7 +5521,15 @@ function allergenBadgeHtml(warnings, alert) {
  const w = all.filter(x => !x.unchecked && !x.notice);
  const notes = all.filter(x => x.unchecked);
  // The unreadable-list notice (main #140) and red warnings share the alert box; unchecked meals get a calm note.
- const warn = (notices.length || w.length) ? `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>${notices.map(x => '⚠ ' + escapeHtml(x.notice) + '<br>').join('')}${w.length ? '⚠ Allergen warning: ' + w.slice(0, 6).map(x => escapeHtml(x.meal) + ' contains ' + escapeHtml((x.contains || []).join(', '))).join('; ') : ''}</div>` : '';
+ const warnLabel = (x) => {
+  const contains = (x.contains || []).join(', ');
+  const notes = (x.notes || []).filter(n => !(x.contains || []).includes(n)).join(', ');
+  let text = escapeHtml(x.meal || '');
+  if (contains) text += ' contains ' + escapeHtml(contains);
+  if (notes) text += (contains ? '. ' : ' ') + escapeHtml(notes);
+  return text;
+ };
+ const warn = (notices.length || w.length) ? `<div class="allergen-warning"${alert ? ' role="alert"' : ''}>${notices.map(x => '⚠ ' + escapeHtml(x.notice) + '<br>').join('')}${w.length ? '⚠ Allergen warning: ' + w.slice(0, 6).map(warnLabel).join('; ') : ''}</div>` : '';
  const note = notes.length ? `<div class="allergen-note">${notes.slice(0, 6).map(x => escapeHtml(x.meal)).join(', ')}: ${escapeHtml(uncheckedNote(notes.length))}</div>` : '';
  return warn + note;
 }
@@ -5532,7 +5552,15 @@ function showAllergenWarnings(r) {
  const n = all.find(x => x.notice);
  const w = all.filter(x => !x.unchecked && !x.notice);
  const notes = all.filter(x => x.unchecked);
- if (n || w.length) toast([n ? n.notice : '', w.length ? 'Allergen warning: ' + w.slice(0, 3).map(x => x.meal + ' contains ' + (x.contains || []).join(', ')).join('; ') + '.' : '', n ? '' : 'Check against your allergies and diet.'].filter(Boolean).join(' '), 'error');
+ const toastLabel = (x) => {
+  const contains = (x.contains || []).join(', ');
+  const notes = (x.notes || []).filter(n => !(x.contains || []).includes(n)).join(', ');
+  let text = x.meal || '';
+  if (contains) text += ' contains ' + contains;
+  if (notes) text += (contains ? '. ' : ' ') + notes;
+  return text;
+ };
+ if (n || w.length) toast([n ? n.notice : '', w.length ? 'Allergen warning: ' + w.slice(0, 3).map(toastLabel).join('; ') + '.' : '', n ? '' : 'Check against your allergies and diet.'].filter(Boolean).join(' '), 'error');
  // The calm note names the meal(s), and shows alongside a red warning on a mixed save.
  if (notes.length) toast(noteToastText(notes), 'note');
  return all.length > 0;

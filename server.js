@@ -951,6 +951,10 @@ app.post('/api/checkout', async (req, res) => {
     }
     const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
     const plan = normalizeCheckoutPlan(requestedPlan, await require('./lib/account-role').accountRole(user));
+    // A token role claim must not turn a starter or pro checkout into premium.
+    if ((requestedPlan === 'starter' || requestedPlan === 'pro') && plan === 'premium') {
+      return res.status(403).json({ error: 'That plan cannot be opened from this sign-in.' });
+    }
     // Validate before any Stripe call.
     const priceId = priceIdForPlan(plan);
     if (!priceId) {

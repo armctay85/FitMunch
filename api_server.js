@@ -1535,7 +1535,8 @@ router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const { name, items = [] } = stripNames(req.body || {});
     const shopFilters = await userFilters(req.user.userId);
-    const kept = mealSafety.groceryItemsSafe(items, shopFilters);
+    // A list the user typed is marked, not deleted. Generated lists use groceryItemsSafe.
+    const kept = mealSafety.markGroceryItems(items, shopFilters);
     const result = await _pool.query(
       `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
       [req.user.userId, name || 'My List', JSON.stringify(kept)]
@@ -1720,6 +1721,7 @@ function mealWarnings(meals, filters) {
   for (const v of meals2) {
     const w = (v.allergenWarning && typeof v.allergenWarning === 'object') ? v.allergenWarning : {};
     const ours = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
+    const mealNotes = Array.isArray(w.notes) ? w.notes.map((g) => String(g)) : [];
     // A meal the ingredient check accepted stays accepted ("Tofu fried rice" is not eggs; "Dead bug" is not shellfish).
     // A name it could not read can still go red when the other scanner names a group (a brand, a dish).
     const extra = (w.unrecognised && guard.length) ? dg.brokenGroups(JSON.stringify(v, noWarning), guard) : [];
@@ -1731,12 +1733,18 @@ function mealWarnings(meals, filters) {
       const terms = mealSafety.customTerms(filters || {});
       for (const swap of v.swaps) {
         const problems = mealSafety.mealProblems(swap, excluded, terms);
-        if (problems) fromSwaps.push(...mealSafety.warningFor(problems).allergens);
+        if (problems) {
+          const swapWarn = mealSafety.warningFor(problems);
+          fromSwaps.push(...swapWarn.allergens, ...(swapWarn.notes || []));
+        }
       }
     }
-    const contains = [...new Set([...ours, ...fromSwaps, ...extra])];
+    const contains = [...new Set([...ours, ...mealNotes, ...fromSwaps, ...extra])];
     const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
-    if (contains.length) out.push({ meal, contains });
+    if (contains.length) {
+      out.push({ meal, contains });
+      if (mealNotes.length) out[out.length - 1].notes = [...new Set(mealNotes)];
+    }
     // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
     // Past the read budget some typed foods were never read, so any meal not flagged is unchecked too (r10 M2).
     else if (w.unrecognised || (filters && filters.pastBudget)) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });

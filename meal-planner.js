@@ -256,7 +256,7 @@ router.post('/generate', requireAuth, async (req, res) => {
   }
   let stored = mealSafety.profileFilters(profile);
   const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary });
-  const input = { ...parsed, dietary: parsed.dietary, allergies: merged.allergies };
+  const input = { ...parsed, dietary: parsed.dietary, allergies: merged.allergies, overCap: !!(stored && stored.overCap) };
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
   if (req.body && req.body.builderOnly === true) {
@@ -328,6 +328,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       // Typed allergies from the profile go into the AI meal check too (#127).
       const read = mealSafety.profileFilters(profile);
       input.allergies = read.allergies;
+      input.overCap = !!read.overCap;
       stored = read;
     } catch (_) {
       // A configured database that cannot be read is the notice only. No week, and no model call.
