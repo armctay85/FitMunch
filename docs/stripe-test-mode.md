@@ -17,6 +17,7 @@ Point the server at a local Postgres database and a Stripe **test** secret key. 
 
 ```bash
 export STRIPE_SECRET_KEY=sk_test_...          # must start with sk_test_
+export STRIPE_TEST_PRICE_OVERRIDE=1           # required, or the override is ignored
 export STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE=price_1UcnAiGMuYRuJYDrOHq5rQdD
 export STRIPE_PRICE_PREMIUM_ANNUAL=price_1UcnAmGMuYRuJYDrxOJKvqk2
 export STRIPE_COACH_39_PRICE_ID=price_1UcnAqGMuYRuJYDrwBbdCaOC
@@ -25,7 +26,7 @@ export DATABASE_URL=postgres://localhost/fitmunch_dev
 unset RESEND_API_KEY                          # do not send real email
 ```
 
-When `STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE` is unset, checkout keeps the hard-coded live monthly price id. Annual and Coach already read `STRIPE_PRICE_PREMIUM_ANNUAL`, `STRIPE_COACH_39_PRICE_ID` and `STRIPE_COACH_79_PRICE_ID`.
+The monthly override is used only when `STRIPE_TEST_PRICE_OVERRIDE` is `1` and `STRIPE_SECRET_KEY` starts with `sk_test_`. A live key, or a test key with the flag unset, keeps the hard-coded live monthly price id. Annual and Coach already read `STRIPE_PRICE_PREMIUM_ANNUAL`, `STRIPE_COACH_39_PRICE_ID` and `STRIPE_COACH_79_PRICE_ID`.
 
 Abort the run if the key does not start with `sk_test_`, or if any fetched Stripe object has `livemode: true`.
 

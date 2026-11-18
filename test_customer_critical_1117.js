@@ -171,9 +171,11 @@ describe('(b) diet and allergy filters on the AI plan', () => {
   const post = (body) => request(app).post('/api/meal-plan/generate').set('Authorization', `Bearer ${mealToken}`).send(body);
 
   beforeEach(() => {
+    delete process.env.FILTERED_USERS_CHECKED_BUILDER;
     aiClient.chatJson.mockReset();
     storage.getProfile.mockResolvedValue({ dietaryPreferences: [], allergies: [] });
   });
+  afterEach(() => { delete process.env.FILTERED_USERS_CHECKED_BUILDER; });
 
   function withOneBadMeal(ingredient) {
     const plan = aiPlan();
@@ -181,27 +183,30 @@ describe('(b) diet and allergy filters on the AI plan', () => {
     return plan;
   }
 
-  test('peanut allergy: a model that adds peanuts does not leak peanuts', async () => {
+  test('peanut allergy: the checked builder is used, the model is not called, and peanuts do not leak', async () => {
     storage.getProfile.mockResolvedValue({ dietaryPreferences: [], allergies: ['peanuts'] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'xai', data: withOneBadMeal('Peanut butter') });
     const res = await post({ calories: 2100, protein: 150, days: 7, dietary: [] });
     expect(res.status).toBe(200);
-    expect(aiClient.chatJson).toHaveBeenCalled();
-    expect(String(aiClient.chatJson.mock.calls[0][0].messages[0].content).toLowerCase()).toMatch(/nut|peanut/);
+    expect(res.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(blob(res.body.plan)).not.toMatch(/peanut/);
     everyMealOk(res.body.plan, { allergies: ['peanuts'] });
   });
 
   test('dairy allergy: a model that adds dairy does not leak dairy', async () => {
+    process.env.FILTERED_USERS_CHECKED_BUILDER = '0';
     storage.getProfile.mockResolvedValue({ dietaryPreferences: [], allergies: ['dairy'] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'xai', data: withOneBadMeal('Cheddar cheese') });
     const res = await post({ calories: 2100, protein: 150, days: 7 });
+    delete process.env.FILTERED_USERS_CHECKED_BUILDER;
     expect(res.status).toBe(200);
     expect(blob(res.body.plan)).not.toMatch(/cheese|milk|yoghurt|yogurt/);
     everyMealOk(res.body.plan, { allergies: ['dairy'] });
   });
 
   test('vegan plus a meat request from the model does not leak meat', async () => {
+    process.env.FILTERED_USERS_CHECKED_BUILDER = '0';
     aiClient.chatJson.mockResolvedValue({
       ok: true,
       provider: 'xai',
@@ -219,6 +224,7 @@ describe('(b) diet and allergy filters on the AI plan', () => {
     expect(res.status).toBe(200);
     expect(blob(res.body.plan)).not.toMatch(/chicken|beef|mince|salmon|tuna/);
     everyMealOk(res.body.plan, { dietary: ['vegan'] });
+    delete process.env.FILTERED_USERS_CHECKED_BUILDER;
   });
 
   test('51 filters never call the AI', async () => {
@@ -382,7 +388,14 @@ describe('(i) shared plan bounds', () => {
 
 describe('(k) Stripe test price override', () => {
   const live = checkout.PRICE_IDS.premium;
-  afterEach(() => { delete process.env.STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE; });
+  const testId = 'price_1UcnAiGMuYRuJYDrOHq5rQdD';
+  const prevKey = process.env.STRIPE_SECRET_KEY;
+  afterEach(() => {
+    delete process.env.STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE;
+    delete process.env.STRIPE_TEST_PRICE_OVERRIDE;
+    if (prevKey === undefined) delete process.env.STRIPE_SECRET_KEY;
+    else process.env.STRIPE_SECRET_KEY = prevKey;
+  });
 
   test('unset env matches the live price id', () => {
     delete process.env.STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE;
@@ -392,13 +405,28 @@ describe('(k) Stripe test price override', () => {
     expect(checkout.allFitMunchPriceIds().filter((id) => id === live)).toHaveLength(1);
   });
 
-  test('override is the checkout price and still maps to premium', () => {
-    const testId = 'price_1UcnAiGMuYRuJYDrOHq5rQdD';
+  test('flag plus sk_test_ uses the override and still maps to premium', () => {
+    process.env.STRIPE_TEST_PRICE_OVERRIDE = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_fitmunch';
     process.env.STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE = testId;
     expect(checkout.priceIdForPlan('premium')).toBe(testId);
     expect(checkout.tierForPriceId(testId)).toBe('premium');
     expect(checkout.tierForPriceId(live)).toBe('premium');
     expect(checkout.allFitMunchPriceIds()).toEqual(expect.arrayContaining([live, testId]));
+  });
+
+  test('flag plus sk_live_ ignores the override', () => {
+    process.env.STRIPE_TEST_PRICE_OVERRIDE = '1';
+    process.env.STRIPE_SECRET_KEY = 'sk_live_fitmunch';
+    process.env.STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE = testId;
+    expect(checkout.priceIdForPlan('premium')).toBe(live);
+  });
+
+  test('no flag plus sk_test_ ignores the override', () => {
+    delete process.env.STRIPE_TEST_PRICE_OVERRIDE;
+    process.env.STRIPE_SECRET_KEY = 'sk_test_fitmunch';
+    process.env.STRIPE_PRICE_PREMIUM_MONTHLY_OVERRIDE = testId;
+    expect(checkout.priceIdForPlan('premium')).toBe(live);
   });
 });
 

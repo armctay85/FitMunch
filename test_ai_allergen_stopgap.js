@@ -101,33 +101,35 @@ describe('meal plan generation', () => {
     account({ dietaryPreferences: ['gluten free'], allergies: [] });
     const r = await generate({ dietary: [] });
     expect(r.status).toBe(200);
-    expect(['ai', 'ai_retry', 'builder']).toContain(r.body.source);
-    if (r.body.source === 'builder') expect(r.body.notice).toBe(dietGuard.PLAN_NOTICE);
+    expect(r.body.source).toBe('builder');
+    expect(r.body.notice).toBe(dietGuard.PLAN_NOTICE);
     expect(r.body.dietary).toContain('gluten free');
     expect(JSON.stringify(r.body)).not.toMatch(/MOCKAI|pasta|spaghetti|\bbread\b|\boats?\b/i);
     expect(servedGroups(r.body.plan)).not.toContain('gluten');
-    expect(aiClient.chatJson).toHaveBeenCalled();
-    if (r.body.source === 'builder') expect(aiUsage.refundAiCall).toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     expect(storage.createOrUpdateProfile).not.toHaveBeenCalled();
   });
 
   it('peanut allergy (free text) -> no peanut, satay or nuts anywhere', async () => {
     account({ dietaryPreferences: [], allergies: ['Peanuts'] });
     const r = await generate();
-    expect(['ai', 'ai_retry', 'builder']).toContain(r.body.source);
+    expect(r.body.source).toBe('builder');
     expect(JSON.stringify(r.body)).not.toMatch(/MOCKAI|peanut|satay|almond|cashew/i);
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
-    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
   it('sent filters with no saved ones -> builder only; saved + sent combine', async () => {
     account({ dietaryPreferences: ['dairy free'], allergies: [] });
     const r = await generate({ dietary: ['nut free'] });
-    expect(['ai', 'ai_retry', 'builder']).toContain(r.body.source);
+    expect(r.body.source).toBe('builder');
     expect(r.body.dietary).toEqual(expect.arrayContaining(['dairy free', 'nut free']));
     expect(servedGroups(r.body.plan)).not.toEqual(expect.arrayContaining(['dairy']));
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
-    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     // Hotfix: ticked filters are saved (merged, never shrunk) so Coach and the weekly review see them.
     expect(storage.mergeProfileFilters).toHaveBeenCalledTimes(1);
     const [uid, merge] = storage.mergeProfileFilters.mock.calls[0];
@@ -157,9 +159,10 @@ describe('meal plan generation', () => {
     storage.mergeProfileFilters.mockRejectedValueOnce(new Error('db write failed'));
     const r = await generate({ dietary: ['nut free'] });
     expect(r.status).toBe(200);
-    expect(['ai', 'ai_retry', 'builder']).toContain(r.body.source);
+    expect(r.body.source).toBe('builder');
     expect(servedGroups(r.body.plan)).not.toContain('nuts');
-    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
   it('#141 S1/S2/M2: filterPatch dedupes, case-folds, skips no-ops, treats empty-looking as [] and never overwrites odd formats', () => {
@@ -237,7 +240,7 @@ describe('meal plan generation', () => {
 });
 
 describe('Coach chat', () => {
-  it('peanut allergy + meal question -> checked recipes, safe line, no AI, no credit', async () => {
+  it('peanut allergy + meal question -> safe notice replaces the reply and the credit is returned', async () => {
     account({ dietaryPreferences: [], allergies: ['peanut'], targetCalories: 2100, targetProtein: 140 });
     const r = await chat('What should I eat for dinner tonight?');
     expect(r.status).toBe(200);
@@ -247,6 +250,8 @@ describe('Coach chat', () => {
     expect(r.body.reply).toMatch(/2,100 kcal/);
     expect(aiClient.chat).toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).toHaveBeenCalledTimes(1);
+    expect(aiUsage.refundAiCall).toHaveBeenCalled();
+    expect(r.body.remaining).toBe(10);
   });
 
   it('saved gluten free + nutrition intent -> no gluten in the reply', async () => {
@@ -374,8 +379,9 @@ describe('r2 S3 + mappings', () => {
   it('object allergies route to the builder', async () => {
     account({ dietaryPreferences: null, allergies: { peanut: true } });
     const r = await generate();
-    expect(['ai', 'ai_retry', 'builder']).toContain(r.body.source);
-    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(r.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     expect(JSON.stringify(r.body.plan || {})).not.toMatch(/peanut/i);
   });
 });
@@ -615,12 +621,13 @@ describe('r5 S1: malformed filter shapes fail closed', () => {
 
 describe('r5 S2: workout plan for filtered users', () => {
   const wp = (body = {}) => request(app).post('/api/ai/workout-plan').set('Authorization', token).send({ daysPerWeek: 4, focus: 'bulk with peanut butter shakes', ...body });
-  it('filters: the AI is asked, and a plan that cannot be used falls back without naming the allergy food', async () => {
+  it('filters: checked program, no AI call, no credit, and focus cannot add a peanut shake', async () => {
     account({ dietaryPreferences: [], allergies: ['peanut'] });
     const r = await wp();
     expect(r.status).toBe(200);
-    expect(['ai', 'fixed']).toContain(r.body.source);
-    expect(aiClient.chatJson).toHaveBeenCalled();
+    expect(r.body.source).toBe('fixed');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     expect(r.body.plan.frequency).toBe(4);
     expect(new Set(r.body.plan.workouts.map((w) => w.day))).toEqual(new Set([1, 2, 3, 4]));
     const text = JSON.stringify(r.body.plan);

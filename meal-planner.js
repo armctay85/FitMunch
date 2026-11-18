@@ -266,7 +266,11 @@ function dietValidate(plan, attempt, input) {
   const slots = [...enforced.replaced, ...enforced.dropped].map((row) => `day ${Number(row.day) + 1} ${row.slot}`).join(', ');
   const leak = planStillUnsafe(enforced.plan, input);
   if (!enforced.replaced.length && !enforced.dropped.length && !leak) return { ok: true, plan: enforced.plan };
-  const reason = `meals broke the diet or allergy rules: ${slots || 'output'}`;
+  const bits = [...enforced.replaced, ...enforced.dropped].map((row) => {
+    const why = (Array.isArray(row.reasons) ? row.reasons : []).filter((x) => !String(x).startsWith('unrecognised')).slice(0, 4).join(', ');
+    return `day ${Number(row.day) + 1} ${row.slot}${why ? ` (${why})` : ''}`;
+  });
+  const reason = `meals broke the diet or allergy rules: ${bits.join('; ') || slots || 'output'}`;
   if (attempt >= 2 && enforced.replaced.length <= 2 && enforced.dropped.length === 0 && !leak) {
     return { ok: true, plan: enforced.plan };
   }
@@ -328,8 +332,9 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (allergyFlag) body.notice = body.notice ? `${body.notice} ${allergyFlag}` : allergyFlag;
     return res.json(body);
   }
-  // Unreadable filters and lists past the read budget stay on the checked-recipe builder.
-  // A readable diet or allergy list goes to the AI, then enforcePlan (reverses the #135 stopgap).
+  // FILTERED_USERS_CHECKED_BUILDER is on by default: a filtered user gets the checked builder
+  // and the model is not called. Set the env to 0 or off and a readable list goes to the AI,
+  // then enforcePlan replaces anything that still fails. Unreadable lists always stay on the builder.
   // Coach chat and the weekly review keep their own filtered behaviour.
   const filteredPlan = (dietary, pastBudget) => {
     if (dietGuard.unreadable(dietary) && !pastBudget) return unreadPlan(res);
@@ -352,7 +357,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (profileRead) await rememberFilters(req.user.userId, input.dietary);
     const combined = dietGuard.combineFilters(profile, input.dietary);
     const past = !!(stored && stored.pastBudget);
-    if (dietGuard.unreadable(combined) || past) return filteredPlan(combined, past);
+    if (dietGuard.filteredUsersCheckedBuilder() || dietGuard.unreadable(combined) || past) return filteredPlan(combined, past);
     input.dietary = dietGuard.planFilters(combined);
     input.allergies = merged.allergies;
   }
@@ -407,6 +412,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       const combined = dietGuard.combineFilters(profile, input.dietary);
       input.dietary = dietGuard.planFilters(combined);
       input.allergies = (stored && stored.allergies) || input.allergies;
+      if (dietGuard.filteredUsersCheckedBuilder()) return await filteredPlan(combined, past);
     }
     if (hasAi) {
       // Free-tier gating — plan generation is a heavyweight AI call.
@@ -433,10 +439,11 @@ router.post('/generate', requireAuth, async (req, res) => {
     const budgetMs = PLAN_BUDGET_MS();
     const attemptMs = PLAN_ATTEMPT_MS();
     const hasDietGate = (input.dietary && input.dietary.length) || (input.allergies && input.allergies.length);
-    const callAi = gate ? (attempt, signal) => {
+    const callAi = gate ? (attempt, signal, priorReason) => {
       const left = Math.max(1000, Math.min(attemptMs, budgetMs - (Date.now() - started)));
+      const why = attempt > 1 ? String(priorReason || lastReason || '') : '';
       return aiClient.chatJson({
-        messages: [{ role: 'user', content: planPrompt(input, attempt > 1 ? lastReason : '') }],
+        messages: [{ role: 'user', content: planPrompt(input, why) }],
         maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
         temperature: 0.6,
         route: '/meal-plan/generate',
@@ -445,7 +452,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       });
     } : null;
     const result = await planEngine.generatePlan(input, {
-      callAi: callAi && ((attempt, signal) => callAi(attempt, signal).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
+      callAi: callAi && ((attempt, signal, priorReason) => callAi(attempt, signal, priorReason).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
       budgetMs,
       attemptMs,
       validate: hasDietGate ? (plan, attempt) => dietValidate(plan, attempt, input) : undefined,

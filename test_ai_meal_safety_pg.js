@@ -71,20 +71,20 @@ beforeEach(async () => {
   await storage.setAIDataConsent(U, true);
   await pool.query('delete from meal_plans where user_id=$1', [U]);
   aiClient.chatJson.mockReset();
+  require('./lib/ai-usage').checkAndConsume.mockClear();
 });
 afterAll(async () => { if (pool) await pool.end(); });
 
-// Readable filters may use the AI. The week that is served must still be safe.
-// Consent refused, an unreadable list, and builderOnly stay on the checked builder with no model call.
+// Kill switch on: a filtered generate is the checked builder. Source is exactly builder. No model, no credit.
 const expectCheckedWeek = (res, words) => {
   expect(res.status).toBe(200);
-  expect(['ai', 'ai_retry', 'builder']).toContain(res.body.source);
+  expect(res.body.source).toBe('builder');
+  expect(aiClient.chatJson).not.toHaveBeenCalled();
+  expect(require('./lib/ai-usage').checkAndConsume).not.toHaveBeenCalled();
   if (words) expect(JSON.stringify(res.body.plan.days)).not.toMatch(words);
 };
 const expectBuilderWeek = (res, words) => {
   expectCheckedWeek(res, words);
-  expect(res.body.source).toBe('builder');
-  expect(aiClient.chatJson).not.toHaveBeenCalled();
 };
 // The AI-plan check itself, against the filters read from the real saved profile.
 const enforceWithSaved = async (plan) => require('./lib/meal-safety').enforcePlan(plan, { ...require('./lib/meal-safety').profileFilters(await storage.getProfile(U)), calories: 2000, protein: 120 });
@@ -152,7 +152,7 @@ maybe('r6: stand-ins that sit beside the dish, and English muffins, on real Post
     ['egg', 'dinner', meal('Chicken fried rice with tofu', ['White rice', 'Chicken breast', 'Firm tofu', 'Peas'], 700), /fried rice/i],
     ['egg', 'dinner', meal('Fried rice with a side of tofu', ['White rice', 'Firm tofu', 'Peas'], 700), /fried rice/i],
     ['gluten', 'breakfast', meal('English muffin with almond flour', ['Almond flour', 'Banana'], 500), /english muffin/i],
-  ])('%s allergy: the %s builder week has no AI call and none of it; the AI check swaps it', async (allergy, slot, bad, re) => {
+  ])('%s allergy: the %s builder week has no AI call and none of it; enforcePlan swaps it', async (allergy, slot, bad, re) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
     expectCheckedWeek(await gen([]), re);
@@ -171,7 +171,7 @@ maybe('r7: names that only look like the egg-free dish, and English muffins, on 
     ['gluten', 'breakfast', meal('English style muffins', ['Almond flour', 'Blueberries'], 500), /muffin/i],
     ['gluten', 'breakfast', meal('Muffin, English', ['Almond flour', 'Blueberries'], 500), /muffin/i],
     ['gluten', 'breakfast', meal('English mini muffins', ['Almond flour', 'Blueberries'], 500), /muffin/i],
-  ])('%s allergy: the %s "%s" never reaches the user; the AI check swaps it', async (allergy, slot, bad, re) => {
+  ])('%s allergy: the %s "%s" never reaches the user; enforcePlan swaps it', async (allergy, slot, bad, re) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [allergy] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ [slot]: bad }) });
     expectCheckedWeek(await gen([]), new RegExp(bad.name.replace(/[^a-z ]/gi, '.'), 'i'));
@@ -245,7 +245,7 @@ const FSANZ = [
   ['lupin', 'Lupin rice bowl', ['Lupin flakes', 'White rice']],
 ];
 maybe('every FSANZ allergen term typed as an allergy, on real Postgres', () => {
-  it.each(FSANZ)('allergy "%s": no AI call and "%s" is never served; the AI check swaps it and says so', async (term, name, items) => {
+  it.each(FSANZ)('allergy "%s": source is builder, no AI call, and "%s" is never served; enforcePlan swaps it and says so', async (term, name, items) => {
     await storage.createOrUpdateProfile(U, { dietaryPreferences: [], allergies: [term] });
     aiClient.chatJson.mockResolvedValue({ ok: true, provider: 'mock', data: week({ dinner: meal(name, items, 700) }) });
     const res = await gen([]);
