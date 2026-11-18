@@ -19,8 +19,16 @@ function fromAddress() {
   return process.env.RESEND_FROM || 'FitMunch <hello@fitmunch.com.au>';
 }
 
+// One reply-to address. Newlines would become extra headers, so they are dropped.
+function singleReplyTo(value) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const text = String(raw || '').replace(/[\r\n]/g, '').trim();
+  if (!text || /[\s,;<>]/.test(text) || (text.match(/@/g) || []).length !== 1) return '';
+  return text;
+}
+
 /**
- * @param {{ to: string, subject: string, bodyHtml: string, bodyText?: string }} opts
+ * @param {{ to: string, subject: string, bodyHtml: string, bodyText?: string, replyTo?: string }} opts
  */
 async function sendEmail(opts) {
   const key = process.env.RESEND_API_KEY;
@@ -37,17 +45,22 @@ async function sendEmail(opts) {
   };
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
+  const payload = {
+    from: opts.from || fromAddress(),
+    to: [to],
+    subject: opts.subject,
+    html: opts.bodyHtml,
+    text: opts.bodyText || undefined,
+  };
+  const replyTo = singleReplyTo(opts.replyTo || opts.reply_to);
+  if (replyTo) payload.reply_to = replyTo;
+  if (opts.headers) payload.headers = opts.headers;
+
   try {
     const resp = await fetch(RESEND_API, {
       method: 'POST',
       headers,
-      body: JSON.stringify(Object.assign({
-        from: opts.from || fromAddress(),
-        to: [to],
-        subject: opts.subject,
-        html: opts.bodyHtml,
-        text: opts.bodyText || undefined,
-      }, opts.headers ? { headers: opts.headers } : {})),
+      body: JSON.stringify(payload),
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
@@ -453,6 +466,41 @@ async function sendSupportReceivedEmail(customerEmail, options = {}) {
   });
 }
 
+const SUPPORT_INBOX = 'support@fitmunch.com.au';
+
+function linesToHtml(lines) {
+  return lines.map((line) => {
+    const escaped = escapeHtml(line);
+    return `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escaped || '&nbsp;'}</p>`;
+  }).join('\n');
+}
+
+/**
+ * Full help-centre message for the support inbox. `replyTo` is the validated
+ * submitter, so a reply from the inbox goes back to them.
+ */
+async function sendSupportInboxEmail({ replyTo, name, subject, message } = {}) {
+  const reply = singleReplyTo(replyTo);
+  if (!reply) return { success: false, error: 'Missing reply address' };
+  const safeName = String(name || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 80);
+  const safeSubject = String(subject || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 200) || 'Support message';
+  const safeMessage = String(message || '').replace(/\u0000/g, '');
+  const lines = [
+    `Name: ${safeName || '(none)'}`,
+    `Reply-to: ${reply}`,
+    `Subject: ${safeSubject}`,
+    '',
+    safeMessage,
+  ];
+  return sendEmail({
+    to: SUPPORT_INBOX,
+    replyTo: reply,
+    subject: safeSubject,
+    bodyHtml: linesToHtml(lines),
+    bodyText: lines.join('\n'),
+  });
+}
+
 const RETENTION_COPY = {
   3: {
     subject: 'Your FitMunch week is still here',
@@ -610,6 +658,8 @@ module.exports = {
   sendTrialReminderEmail,
   sendPremiumActivatedEmail,
   sendSupportReceivedEmail,
+  sendSupportInboxEmail,
+  singleReplyTo,
   buildRetentionNudge,
   buildWinBack,
   sendRetentionNudgeEmail,
