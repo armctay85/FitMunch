@@ -54,6 +54,14 @@ describe('support confirmation email', () => {
     return sent.filter((row) => Array.isArray(row.to) && row.to[0] === SUPPORT_INBOX);
   }
 
+  function storedSubmits() {
+    return queries.filter((row) => String(row.sql).includes('INSERT INTO support_messages'));
+  }
+
+  function deliveryUpdates() {
+    return queries.filter((row) => String(row.sql).includes('UPDATE support_messages'));
+  }
+
   test('sends one confirmation to the validated submitter and nowhere else', async () => {
     const res = await post({
       name: 'Ada <script>',
@@ -65,30 +73,33 @@ describe('support confirmation email', () => {
     expect(res.body).toEqual({ success: true });
     expect(acksFor('ada@example.com')).toHaveLength(1);
     expect(forwards()).toHaveLength(1);
-    expect(sent[0].from).toBe('FitMunch <support@fitmunch.com.au>');
-    expect(sent[0].to).toEqual(['ada@example.com']);
-    expect(sent[0].subject).toBe("We've got your message");
-    const blob = JSON.stringify(sent[0]);
+    const ack = acksFor('ada@example.com')[0];
+    const forward = forwards()[0];
+    expect(ack.from).toBe('FitMunch <support@fitmunch.com.au>');
+    expect(ack.to).toEqual(['ada@example.com']);
+    expect(ack.subject).toBe("We've got your message");
+    const blob = JSON.stringify(ack);
     expect(blob).not.toContain('victim@example.net');
     expect(blob).not.toContain('other@example.net');
-    expect(sent[0].text).toContain("We've got your message.");
-    expect(sent[0].text).toContain('within 1 business day');
-    expect(sent[0].text).not.toContain('1-2 business days');
-    expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#billing');
-    expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#trial');
-    expect(sent[0].text).toContain('https://www.fitmunch.com.au/support#cancel');
-    expect(sent[0].html).toContain('We&#39;ve got your message.');
-    expect(sent[0].html).toContain('Hi Ada &lt;script&gt;.');
-    expect(sent[0].html).not.toContain('<script>');
-    expect(sent[0].html).toContain('href="https://www.fitmunch.com.au/support#billing"');
-    expect(sent[0].html).toContain('href="https://www.fitmunch.com.au/support#trial"');
-    expect(sent[0].html).toContain('href="https://www.fitmunch.com.au/support#cancel"');
-    expect(sent[1].to).toEqual([SUPPORT_INBOX]);
-    expect(sent[1].reply_to).toBe('ada@example.com');
-    expect(sent[1].text).toContain('How do I cancel?');
-    expect(JSON.stringify(sent[1])).not.toContain('victim@example.net');
-    expect(JSON.stringify(sent[1])).not.toContain('other@example.net');
-    expect(sent[1].html).not.toContain('<script>');
+    expect(ack.text).toContain("We've got your message.");
+    expect(ack.text).toContain('within 1 business day');
+    expect(ack.text).not.toContain('1-2 business days');
+    expect(ack.text).toContain('https://www.fitmunch.com.au/support#billing');
+    expect(ack.text).toContain('https://www.fitmunch.com.au/support#trial');
+    expect(ack.text).toContain('https://www.fitmunch.com.au/support#cancel');
+    expect(ack.html).toContain('We&#39;ve got your message.');
+    expect(ack.html).toContain('Hi Ada &lt;script&gt;.');
+    expect(ack.html).not.toContain('<script>');
+    expect(ack.html).toContain('href="https://www.fitmunch.com.au/support#billing"');
+    expect(ack.html).toContain('href="https://www.fitmunch.com.au/support#trial"');
+    expect(ack.html).toContain('href="https://www.fitmunch.com.au/support#cancel"');
+    expect(forward.to).toEqual([SUPPORT_INBOX]);
+    expect(forward.reply_to).toBe('ada@example.com');
+    expect(forward.reply_to).not.toMatch(/hello@/i);
+    expect(forward.text).toContain('How do I cancel?');
+    expect(JSON.stringify(forward)).not.toContain('victim@example.net');
+    expect(JSON.stringify(forward)).not.toContain('other@example.net');
+    expect(forward.html).not.toContain('<script>');
   });
 
   test('does not send when the address is missing, listed, or broken', async () => {
@@ -110,17 +121,17 @@ describe('support confirmation email', () => {
     for (let i = 0; i < 3; i += 1) {
       await post({ email: 'ada@example.com', message: 'Question ' + i }).expect(200);
     }
-    expect(queries).toHaveLength(3);
+    expect(storedSubmits()).toHaveLength(3);
     const blocked = await post({ email: 'ADA@example.com', message: 'Again' }).expect(429);
     expect(blocked.body).toEqual({ success: false, error: 'Too many messages from this email. Try again later.' });
     expect(acksFor('ada@example.com')).toHaveLength(3);
     expect(forwards()).toHaveLength(3);
-    expect(queries).toHaveLength(3);
+    expect(storedSubmits()).toHaveLength(3);
     const other = await post({ email: 'bea@example.com', message: 'Different person' }).expect(200);
     expect(other.body).toEqual({ success: true });
     expect(acksFor('bea@example.com')).toHaveLength(1);
     expect(forwards()).toHaveLength(4);
-    expect(queries).toHaveLength(4);
+    expect(storedSubmits()).toHaveLength(4);
   });
 
   test('a valid submit stores the message, forwards it, and sends the ack', async () => {
@@ -133,13 +144,20 @@ describe('support confirmation email', () => {
       message: 'How do I cancel?',
     }).expect(200);
     expect(res.body).toEqual({ success: true });
-    expect(queries).toHaveLength(1);
-    expect(queries[0].sql).toContain('INSERT INTO support_messages');
-    expect(queries[0].params).toEqual([
+    expect(storedSubmits()).toHaveLength(1);
+    expect(storedSubmits()[0].sql).toContain('INSERT INTO support_messages');
+    expect(storedSubmits()[0].params).toEqual([
       'ada@example.com',
       'Ada <script>',
       'Billing',
       'How do I cancel?',
+      'failed',
+      'failed',
+      null,
+    ]);
+    expect(deliveryUpdates()).toHaveLength(1);
+    expect(deliveryUpdates()[0].params).toEqual([
+      'row-1',
       'sent',
       'sent',
       'email_forward_1',
@@ -149,6 +167,7 @@ describe('support confirmation email', () => {
     expect(acksFor('ada@example.com')[0].text).not.toContain('1-2 business days');
     const forward = forwards()[0];
     expect(forward.reply_to).toBe('ada@example.com');
+    expect(forward.reply_to).not.toMatch(/hello@/i);
     expect(forward.subject).toBe('Billing');
     expect(forward.text).toContain('Name: Ada <script>');
     expect(forward.text).toContain('Subject: Billing');
@@ -182,10 +201,9 @@ describe('support confirmation email', () => {
       message: 'Hello from the form',
     }).expect(200);
     expect(res.body).toEqual({ success: true, forward_status: 'failed' });
-    expect(queries).toHaveLength(1);
-    expect(queries[0].params[4]).toBe('failed');
-    expect(queries[0].params[5]).toBe('sent');
-    expect(queries[0].params[6]).toBeNull();
+    expect(storedSubmits()).toHaveLength(1);
+    expect(deliveryUpdates()).toHaveLength(1);
+    expect(deliveryUpdates()[0].params).toEqual(['row-1', 'failed', 'sent', null]);
     expect(acksFor('ada@example.com')).toHaveLength(1);
     expect(acksFor('ada@example.com')[0].text).toContain('within 1 business day');
   });
@@ -212,11 +230,70 @@ describe('support confirmation email', () => {
     spy.mockRestore();
     expect(res.status).toBe(503);
     expect(res.body).toEqual({ success: false, error: 'Could not send a confirmation just now.' });
-    expect(acksFor('ada@example.com')).toHaveLength(1);
+    expect(acksFor('ada@example.com')).toHaveLength(0);
+    expect(sent.some((row) => row.subject === "We've got your message")).toBe(false);
     const logged = logs.join('\n');
     expect(logged).not.toContain('ada@example.com');
     expect(logged).not.toContain(phrase);
     expect(logged).not.toMatch(/re_test|RESEND_API_KEY/);
+  });
+
+  test('submit to relay stores, forwards with the submitter reply-to, then acks, and a failed send does not ack', async () => {
+    const order = [];
+    setSupportQueryForTests(async (sql, params) => {
+      queries.push({ sql, params });
+      const text = String(sql);
+      if (text.includes('INSERT INTO support_messages')) order.push('store');
+      else if (text.includes('UPDATE support_messages')) order.push('record');
+      return { rows: [{ id: 'row-1' }], rowCount: 1 };
+    });
+    global.fetch = jest.fn(async (url, opts) => {
+      const target = String(url);
+      if (!target.includes('api.resend.com')) throw new Error('unexpected fetch');
+      const body = JSON.parse(opts.body);
+      sent.push(body);
+      const to = Array.isArray(body.to) ? body.to[0] : '';
+      const kind = to === SUPPORT_INBOX ? 'forward' : 'ack';
+      order.push(kind);
+      return { ok: true, status: 200, json: async () => ({ id: kind === 'forward' ? 'email_forward_1' : 'email_ack_1' }) };
+    });
+
+    const res = await post({
+      name: 'Ada',
+      email: '  Ada@Example.com  ',
+      message: 'Need a hand with billing',
+    }).expect(200);
+    expect(res.body).toEqual({ success: true });
+    expect(order).toEqual(['store', 'forward', 'ack', 'record']);
+    const forward = forwards()[0];
+    expect(forward.to).toEqual([SUPPORT_INBOX]);
+    expect(forward.reply_to).toBe('ada@example.com');
+    expect(forward.reply_to).not.toMatch(/hello@/i);
+    expect(forward.reply_to).not.toBe(forward.from);
+    expect(acksFor('ada@example.com')).toHaveLength(1);
+    expect(acksFor('ada@example.com')[0].text).toContain('within 1 business day');
+    expect(deliveryUpdates()[0].params).toEqual(['row-1', 'sent', 'sent', 'email_forward_1']);
+
+    sent.length = 0;
+    queries.length = 0;
+    setSupportQueryForTests(async () => {
+      const err = new Error('connection refused');
+      err.code = 'ECONNREFUSED';
+      throw err;
+    });
+    global.fetch = jest.fn(async (url, opts) => {
+      const body = JSON.parse(opts.body);
+      sent.push(body);
+      const to = Array.isArray(body.to) ? body.to[0] : '';
+      if (to === SUPPORT_INBOX) return { ok: false, status: 502, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ id: 'email_ack_1' }) };
+    });
+    const failed = await post({ email: 'bea@example.com', message: 'Still need a hand' });
+    expect(failed.status).toBe(503);
+    expect(failed.body).toEqual({ success: false, error: 'Could not send a confirmation just now.' });
+    expect(acksFor('bea@example.com')).toHaveLength(0);
+    expect(sent.some((row) => row.subject === "We've got your message")).toBe(false);
+    expect(forwards()).toHaveLength(1);
   });
 });
 
