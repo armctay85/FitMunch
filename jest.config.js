@@ -130,6 +130,7 @@ module.exports = {
     '**/test_diet_filter_gaps.js',
     '**/test_diet_filter_onboarding_pg.js',
     '**/test_ai_allergen_stopgap_r6.js',
+    '**/test_eqa_acceptance_allergy_r5.js',
     '**/test_ai_allergen_stopgap_r6_pg.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
