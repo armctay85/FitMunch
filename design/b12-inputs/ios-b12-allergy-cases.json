@@ -1,0 +1,56 @@
+{
+ "source": "test_eqa_acceptance_allergy_r6.js sha256 0e16508449fd9c4c0e91f83c2e6a07f5e268d39fd93d305b4095f9ca611ae215",
+ "M1_sulphites": [
+  "Lemon cordial",
+  "Orange cordial",
+  "Gherkins",
+  "Pickled cucumbers",
+  "Chorizo",
+  "Cabanossi",
+  "Kabana",
+  "Frankfurts",
+  "Hot dogs",
+  "Salami",
+  "Ginger beer",
+  "Instant mashed potato",
+  "Dried cranberries",
+  "Chicken sausages",
+  "Pickles",
+  "Dill pickles"
+ ],
+ "M2_sulphites": [
+  "Bacon rashers",
+  "Glace cherries",
+  "Prosecco",
+  "Champagne",
+  "Dehydrated potato flakes",
+  "Prawns (cooked, preserved)"
+ ],
+ "kiwi_block": [
+  "Kiwi",
+  "Kiwi fruit",
+  "Kiwifruit",
+  "Gold kiwifruit",
+  "Kiwifruit salad"
+ ],
+ "kiwi_controls": [
+  "Kiwano",
+  "Banana",
+  "Chicken breast"
+ ],
+ "sulphite_controls": [
+  "Cucumber",
+  "Lemon",
+  "Ginger",
+  "Potato",
+  "Fresh pork chops",
+  "Cranberries",
+  "Fresh figs"
+ ],
+ "peanut_block": [
+  "Peanut butter",
+  "Peanuts",
+  "Satay chicken",
+  "Peanut oil"
+ ]
+}
