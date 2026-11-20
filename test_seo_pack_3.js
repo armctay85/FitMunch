@@ -13,7 +13,7 @@ const PAGES = [
   },
   {
     route: '/macro-meal-planner',
-    title: 'Macro Meal Planner Australia | FitMunch',
+    title: 'Macro Meal Planner | Meal Planner Australia | FitMunch',
     h1: 'Macro meal planner: 7 days written to your targets',
   },
   {
@@ -55,7 +55,13 @@ describe('SEO pack 3: new search landers', () => {
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
       expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/check out/i);
-      expect(html).toContain('"@type": "FAQPage"');
+      if (page.route === '/macro-meal-planner') {
+        expect(html).not.toMatch(/"@type":\s*"FAQPage"/);
+        expect(html).toMatch(/"@type":\s*"Article"/);
+        expect(html).toMatch(/"@type":\s*"BreadcrumbList"/);
+      } else {
+        expect(html).toContain('"@type": "FAQPage"');
+      }
       expect(html).toContain('The FitMunch team');
       expect(html).not.toMatch(/\u2014|\u2013/);
       expect(html).not.toMatch(/Pty Ltd/i);

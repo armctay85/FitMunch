@@ -13,7 +13,7 @@ const PAGES = [
   },
   {
     route: '/grocery-meal-planner',
-    title: 'Grocery Meal Planner | 7 Days, 1 List | FitMunch',
+    title: 'Macro Counting Grocery List | FitMunch',
     h1: 'Grocery meal planner: 7 days, 1 draft grocery list',
   },
   {
@@ -55,7 +55,13 @@ describe('SEO pack 2: new search landers', () => {
       expect(html).toMatch(/href="\/login\.html\?plan=premium[^"]*#register"[^>]*data-fm-plan="premium"/);
       expect(html).toContain('Prices vary by store and week.');
       expect(html).toMatch(/check out/i);
-      expect(html).toContain('"@type": "FAQPage"');
+      if (page.route === '/grocery-meal-planner') {
+        expect(html).not.toMatch(/"@type":\s*"FAQPage"/);
+        expect(html).toMatch(/"@type":\s*"Article"/);
+        expect(html).toMatch(/"@type":\s*"BreadcrumbList"/);
+      } else {
+        expect(html).toContain('"@type": "FAQPage"');
+      }
       expect(html).toContain('The FitMunch team');
       expect(html).not.toMatch(/\u2014|\u2013/);
       expect(html).not.toMatch(/Pty Ltd/i);
