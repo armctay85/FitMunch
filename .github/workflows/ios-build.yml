@@ -1,133 +1,173 @@
 name: iOS Build and Test
 
-# The iOS lane is parked while the web product leads. Only build when iOS
-# sources actually change (or on manual dispatch) so web pushes don't
-# generate failure noise.
+# Harness-only run-gate for build 11 (907d44d). Do not merge this branch.
+# Compile the 907d44d sources and launch on iPhone 16e and iPad Air 11-inch (M3).
+# No archive, no App Store upload, no ASC.
 on:
-  push:
-    branches: [ main, master ]
-    paths:
-      - "FitMunch/**"
-      - "FitMunchTests/**"
-      - "FitMunchUITests/**"
-      - "project.yml"
-      - "scripts/check-ios-camera-usage.sh"
-      - "scripts/run-pre-asc-ci-tests.sh"
-      - "docs/PRE_ASC_DEVICE_AUDIT.md"
-      - ".github/workflows/ios-build.yml"
-  pull_request:
-    branches: [ main, master, cursor/b11-coach-blocked-89f8 ]
-    paths:
-      - "FitMunch/**"
-      - "FitMunchTests/**"
-      - "FitMunchUITests/**"
-      - "project.yml"
-      - "scripts/check-ios-camera-usage.sh"
-      - "scripts/run-pre-asc-ci-tests.sh"
-      - "docs/PRE_ASC_DEVICE_AUDIT.md"
-      - ".github/workflows/ios-build.yml"
   workflow_dispatch:
 
 jobs:
-  build:
+  launch:
     runs-on: macos-26
-
+    timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Pre-ASC camera usage gate
-      run: bash scripts/check-ios-camera-usage.sh
+      - name: Select Xcode 26 (not a 27 preview)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/run-gate
+          if ls -d /Applications/Xcode_26*.app >/dev/null 2>&1; then
+            XCODE_APP="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          else
+            XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | grep -v 'Xcode_27' | tail -1)"
+          fi
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          echo "Selected $XCODE_APP" | tee artifacts/run-gate/xcode.txt
+          xcodebuild -version | tee -a artifacts/run-gate/xcode.txt
+          ls /Applications/Xcode*.app | tee -a artifacts/run-gate/xcode.txt
+          xcrun simctl list runtimes | tee artifacts/run-gate/runtimes.txt
+          xcrun simctl list devicetypes | tee artifacts/run-gate/devicetypes.txt
+          xcrun simctl list devices available | tee artifacts/run-gate/devices-available.txt
 
-    - name: Select Xcode
-      run: sudo xcode-select -s $(ls -d /Applications/Xcode*.app | tail -1)/Contents/Developer
+      - name: Install XcodeGen
+        run: brew install xcodegen
 
-    - name: Install XcodeGen
-      run: brew install xcodegen
+      - name: Download RevenueCat XCFramework
+        run: |
+          set -euo pipefail
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
 
-    # The project references RevenueCat.xcframework at repo root (not vendored).
-    # Same download used by ios-archive.yml — without it every build fails with
-    # "There is no XCFramework found".
-    - name: Download RevenueCat XCFramework
-      run: |
-        curl -L -o RevenueCat.xcframework.zip \
-          https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
-        unzip -q RevenueCat.xcframework.zip -d rc_tmp
-        XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
-        mv "$XCFW" ./RevenueCat.xcframework
-        rm -rf rc_tmp
-        xattr -cr RevenueCat.xcframework || true
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/ensure-storekit-scheme.py
 
-    - name: Generate Xcode project
-      run: |
-        xcodegen generate
-        python3 scripts/ensure-storekit-scheme.py
+      - name: Compile for iOS Simulator
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          xcodebuild build \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunch \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DD" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee artifacts/run-gate/xcodebuild-build.log
+          APP=$(find "$RUNNER_TEMP/DD/Build/Products" -name 'FitMunch.app' -type d -print -quit)
+          test -n "$APP"
+          echo "APP=$APP" | tee artifacts/run-gate/app-path.txt
+          echo "$APP" > "$RUNNER_TEMP/app-path"
 
-    - name: Resolve packages
-      run: xcodebuild -resolvePackageDependencies -project FitMunch.xcodeproj -scheme FitMunch
+      - name: Launch on iPhone 16e and iPad Air 11-inch (M3)
+        run: |
+          set -euo pipefail
+          APP="$(cat "$RUNNER_TEMP/app-path")"
+          OUT=artifacts/run-gate
+          SUMMARY="$OUT/summary.txt"
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "requested_sha=907d44dde78bf818980e3b7f355f0f7d7052d0aa"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "started_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$SUMMARY"
 
-    - name: Build
-      # generic simulator destination: compiles for any sim without depending on
-      # which device models the runner image ships (varies across macOS images)
-      run: |
-        xcodebuild clean build \
-          -project FitMunch.xcodeproj \
-          -scheme FitMunch \
-          -destination 'generic/platform=iOS Simulator' \
-          CODE_SIGNING_ALLOWED=NO
+          # Returns 0 if the app process is still running.
+          app_running() {
+            local udid="$1"
+            xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -Ei 'fitmunch' >/dev/null
+          }
 
-    - name: StoreKit session proof
-      run: |
-        set -euo pipefail
-        UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro" "iPhone 17 Pro Max")"
-        echo "proof destination $UDID os=26.2"
-        rm -rf "$RUNNER_TEMP/storekit-proof.xcresult"
-        xcodebuild test \
-          -project FitMunch.xcodeproj \
-          -scheme FitMunch \
-          -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
-          -only-testing:FitMunchTests/FitMunchProductsStoreKitTests \
-          -resultBundlePath "$RUNNER_TEMP/storekit-proof.xcresult" \
-          CODE_SIGNING_ALLOWED=NO \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGN_IDENTITY=-
+          launch_one() {
+            local label="$1"
+            shift
+            local shot="$OUT/launch-${label}.png"
+            local log="$OUT/launch-${label}.log"
+            local chosen=""
+            local udid=""
+            local result="FAIL"
+            local note=""
 
-    - name: Release binary does not link StoreKitTest
-      run: |
-        set -euo pipefail
-        xcodebuild build \
-          -project FitMunch.xcodeproj \
-          -scheme FitMunch \
-          -configuration Release \
-          -destination 'generic/platform=iOS Simulator' \
-          -derivedDataPath "$RUNNER_TEMP/ReleaseDD" \
-          CODE_SIGNING_ALLOWED=NO
-        BIN=$(find "$RUNNER_TEMP/ReleaseDD/Build/Products" -path '*/FitMunch.app/FitMunch' -type f -print -quit)
-        test -n "$BIN"
-        echo "Release binary: $BIN"
-        otool -L "$BIN"
-        if otool -L "$BIN" | grep -q StoreKitTest; then
-          echo "StoreKitTest is linked into the Release binary"
-          exit 1
-        fi
-        echo "Release link check: StoreKitTest is absent"
+            echo "=== $label: trying types: $* ===" | tee "$log"
+            if udid="$(bash scripts/boot-pinned-simulator.sh "$@" 2> >(tee -a "$log" >&2))"; then
+              chosen="$(grep -Eo 'type=[^ ]+' "$log" | tail -1 | sed 's/^type=//' || true)"
+              if [[ -z "$chosen" ]]; then
+                chosen="$1"
+              fi
+              echo "booted label=$label type=$chosen udid=$udid" | tee -a "$log"
+              xcrun simctl install "$udid" "$APP" 2>&1 | tee -a "$log"
+              local launch_out
+              launch_out="$(xcrun simctl launch --terminate-running-process "$udid" com.fitmunch.app 2>&1 | tee -a "$log")"
+              echo "launch_out=$launch_out" | tee -a "$log"
+              # Cold launch on some sims has been ~60s. Wait, then check it is still up.
+              local i
+              for i in $(seq 1 24); do
+                sleep 5
+                if app_running "$udid"; then
+                  echo "running_after=$((i * 5))s" | tee -a "$log"
+                  break
+                fi
+                echo "not_running_yet=$((i * 5))s" | tee -a "$log"
+              done
+              sleep 8
+              xcrun simctl io "$udid" screenshot "$shot" 2>&1 | tee -a "$log"
+              if [[ -f "$shot" ]] && app_running "$udid"; then
+                result="PASS"
+                note="launched and still running; screenshot $shot"
+              elif [[ -f "$shot" ]]; then
+                result="FAIL"
+                note="screenshot exists but process was not running after wait"
+              else
+                result="FAIL"
+                note="launch or screenshot failed"
+              fi
+              xcrun simctl spawn "$udid" log show --style compact --last 2m --predicate 'subsystem CONTAINS "fitmunch" OR processImagePath CONTAINS "FitMunch"' 2>/dev/null | tail -80 >> "$log" || true
+              xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
+            else
+              result="FAIL"
+              note="could not boot any of: $*"
+              chosen="none"
+              udid="none"
+            fi
 
-    - name: Pre-ASC unit + UI tests A–G (macos Simulator)
-      run: bash scripts/run-pre-asc-ci-tests.sh
+            {
+              echo "${label}_device=${chosen}"
+              echo "${label}_udid=${udid}"
+              echo "${label}_result=${result}"
+              echo "${label}_note=${note}"
+              echo "${label}_screenshot=${shot}"
+            } | tee -a "$SUMMARY"
+            if [[ "$result" != "PASS" ]]; then
+              echo "${label}_FAILED" >> "$OUT/fail-flag.txt"
+            fi
+          }
 
-    - name: Upload pre-ASC audit artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: pre-asc-audit-build-9
-        path: artifacts/pre-asc-audit/
-        if-no-files-found: warn
-        retention-days: 14
+          # iPhone: 16e first, then 16, then the closest 26.2 phones if both are missing.
+          launch_one "iphone" "iPhone 16e" "iPhone 16" "iPhone 17" "iPhone 17 Pro"
+          # iPad: Apple's review device first, then the closest Air.
+          launch_one "ipad" "iPad Air 11-inch (M3)" "iPad Air 11-inch (M4)" "iPad Air 13-inch (M3)" "iPad Air 11-inch" "iPad Air"
 
-    - name: Upload pre-ASC paywall screenshots
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: pre-asc-paywall-screenshots-build-9
-        path: artifacts/pre-asc-audit/screenshots/
-        if-no-files-found: warn
-        retention-days: 14
+          echo "finished_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$SUMMARY"
+          cat "$SUMMARY"
+          if [[ -f "$OUT/fail-flag.txt" ]]; then
+            echo "RUN GATE FAIL" | tee -a "$SUMMARY"
+            exit 1
+          fi
+          echo "RUN GATE PASS" | tee -a "$SUMMARY"
+
+      - name: Upload run-gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build11-run-gate
+          path: artifacts/run-gate/
+          if-no-files-found: warn
+          retention-days: 14
