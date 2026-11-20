@@ -48,5 +48,18 @@ row('IS-D5', 'Workout plan is not the static "parity mirror" of web templates', 
 const COPY = /Pty Ltd|inc\.? GST|Woolworths|Coles|\bAldi\b|\bIGA\b|\bcheap\b|\bbudget\b|\bGrok\b|\bGemini\b|\u2014/i;
 const copyHits = SW.filter((f) => (read(f) || '').split('\n').some((l) => /"[^"]*"/.test(l) && !/range\(of:|contains\(|hasPrefix\(|hasSuffix\(|^\s*\/\//.test(l) && COPY.test((l.match(/"[^"]*"/g) || []).join(' '))));
 row('IS-C1', 'No auto-fail copy in app string literals (Pty Ltd, inc. GST, store names, cheap, budget, Grok, Gemini, em dash; string-match filters excluded)', copyHits.length === 0, copyHits.join(' '));
+// OF / RevenueCat offering (added 21 Nov 2026 9:20am on Wilson's request; build 11 launch logs requested subwise_offering)
+const NT = SW; // app Swift only, tests excluded
+const constants = read('FitMunch/Utilities/Constants.swift') || '';
+const offConst = (constants.match(/enum Offerings\s*\{[^}]*static let \w+\s*=\s*"([^"]+)"/) || [])[1] || 'none';
+const offCallers = NT.filter((f) => /\.offerings\(\)/.test(read(f) || ''));
+const usesCurrent = offCallers.filter((f) => /offerings\.current/.test(read(f) || ''));
+const explicitDefault = offCallers.length > 0 && offCallers.every((f) => /offering\(identifier:\s*("default"|Constants\.Offerings\.\w+)\)/.test(read(f) || ''));
+row('IS-O1a', 'Offering constant is the literal "default"', offConst === 'default', `Constants.Offerings = "${offConst}"`);
+row('IS-O1b', 'Paywall requests offering "default" by identifier and does not take offerings.current first (current resolves to the dashboard\'s current offering, which was subwise_offering on build 11)', explicitDefault && usesCurrent.length === 0, `callers ${offCallers.join(' ')}; uses .current: ${usesCurrent.join(' ') || 'none'}`);
+const legacy = NT.filter((f) => /subwise_offering|com\.fitmunch\.ios\./.test(read(f) || ''));
+row('IS-O1c', 'No subwise_offering and no com.fitmunch.ios.* product IDs in app Swift', legacy.length === 0, legacy.join(' '));
+const prodIds = (constants.match(/enum ProductIDs\s*\{[\s\S]*?\n    \}/) || [''])[0];
+row('IS-O1d', 'Sellable product IDs are exactly fitmunch_monthly and fitmunch_annual', /"fitmunch_monthly"/.test(prodIds) && /"fitmunch_annual"/.test(prodIds) && !/weekly|com\.fitmunch\.ios/i.test(prodIds), prodIds.replace(/\s+/g, ' ').slice(0, 200));
 let fail = 0; for (const r of rows) { if (!r.ok) fail++; console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.id} ${r.name}${r.detail ? ' :: ' + r.detail.slice(0, 400) : ''}`); }
 console.log(`SUMMARY pass=${rows.length - fail} fail=${fail}`);
