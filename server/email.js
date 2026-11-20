@@ -3,6 +3,7 @@
  * Requires RESEND_API_KEY. Optional RESEND_FROM (default hello@fitmunch.com.au).
  */
 const crypto = require('crypto');
+const { destinationAddress } = require('../lib/resend-inbound');
 const RESEND_API = 'https://api.resend.com/emails';
 
 // Resend stores this header for 24 hours. A repeat with the same key returns
@@ -19,8 +20,16 @@ function fromAddress() {
   return process.env.RESEND_FROM || 'FitMunch <hello@fitmunch.com.au>';
 }
 
+// One reply-to address. Newlines would become extra headers, so they are dropped.
+function singleReplyTo(value) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const text = String(raw || '').replace(/[\r\n]/g, '').trim();
+  if (!text || /[\s,;<>]/.test(text) || (text.match(/@/g) || []).length !== 1) return '';
+  return text;
+}
+
 /**
- * @param {{ to: string, subject: string, bodyHtml: string, bodyText?: string }} opts
+ * @param {{ to: string, subject: string, bodyHtml: string, bodyText?: string, replyTo?: string }} opts
  */
 async function sendEmail(opts) {
   const key = process.env.RESEND_API_KEY;
@@ -37,17 +46,22 @@ async function sendEmail(opts) {
   };
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
+  const payload = {
+    from: opts.from || fromAddress(),
+    to: [to],
+    subject: opts.subject,
+    html: opts.bodyHtml,
+    text: opts.bodyText || undefined,
+  };
+  const replyTo = singleReplyTo(opts.replyTo || opts.reply_to);
+  if (replyTo) payload.reply_to = replyTo;
+  if (opts.headers) payload.headers = opts.headers;
+
   try {
     const resp = await fetch(RESEND_API, {
       method: 'POST',
       headers,
-      body: JSON.stringify(Object.assign({
-        from: opts.from || fromAddress(),
-        to: [to],
-        subject: opts.subject,
-        html: opts.bodyHtml,
-        text: opts.bodyText || undefined,
-      }, opts.headers ? { headers: opts.headers } : {})),
+      body: JSON.stringify(payload),
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
@@ -453,6 +467,66 @@ async function sendSupportReceivedEmail(customerEmail, options = {}) {
   });
 }
 
+const SUPPORT_INBOX = 'support@fitmunch.com.au';
+const RELAY_INBOX = 'relay@fitmunch.com.au';
+
+function logSupportCode(code) {
+  const safe = /^[A-Za-z0-9_]{1,40}$/.test(String(code || '')) ? String(code) : 'error';
+  console.error(`[support] ${safe}`);
+}
+
+// One plain address from SUPPORT_FORWARD_TO. Own inbound addresses would put
+// the relay back on the form path, so they count as no target.
+function supportForwardTarget() {
+  const raw = process.env.SUPPORT_FORWARD_TO;
+  if (raw == null || String(raw).trim() === '') {
+    logSupportCode('forward_target_unset');
+    return '';
+  }
+  const target = destinationAddress(raw);
+  if (!target || target === SUPPORT_INBOX || target === RELAY_INBOX) {
+    logSupportCode('forward_target_invalid');
+    return '';
+  }
+  return target;
+}
+
+function linesToHtml(lines) {
+  return lines.map((line) => {
+    const escaped = escapeHtml(line);
+    return `<p style="font-size:16px;color:#0c1210;line-height:1.6">${escaped || '&nbsp;'}</p>`;
+  }).join('\n');
+}
+
+/**
+ * Full help-centre message straight to SUPPORT_FORWARD_TO. `replyTo` is the
+ * validated submitter, one address, so a reply lands in their inbox. An unset,
+ * blank, invalid, or own-inbound target is a failed forward and is not sent.
+ */
+async function sendSupportInboxEmail({ replyTo, name, subject, message } = {}) {
+  const reply = singleReplyTo(replyTo);
+  if (!reply) return { success: false, error: 'Missing reply address' };
+  const to = supportForwardTarget();
+  if (!to) return { success: false };
+  const safeName = String(name || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 80);
+  const safeSubject = String(subject || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 200) || 'Support message';
+  const safeMessage = String(message || '').replace(/\u0000/g, '');
+  const lines = [
+    `Name: ${safeName || '(none)'}`,
+    `Reply-to: ${reply}`,
+    `Subject: ${safeSubject}`,
+    '',
+    safeMessage,
+  ];
+  return sendEmail({
+    to,
+    replyTo: reply,
+    subject: safeSubject,
+    bodyHtml: linesToHtml(lines),
+    bodyText: lines.join('\n'),
+  });
+}
+
 const RETENTION_COPY = {
   3: {
     subject: 'Your FitMunch week is still here',
@@ -610,6 +684,8 @@ module.exports = {
   sendTrialReminderEmail,
   sendPremiumActivatedEmail,
   sendSupportReceivedEmail,
+  sendSupportInboxEmail,
+  singleReplyTo,
   buildRetentionNudge,
   buildWinBack,
   sendRetentionNudgeEmail,
