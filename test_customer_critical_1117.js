@@ -236,54 +236,77 @@ describe('(b) diet and allergy filters on the AI plan', () => {
 });
 
 describe('(c) support form keeps the message', () => {
+  const emailLib = require('./server/email');
+  const counters = require('./lib/shared-counters');
+
+  afterEach(() => {
+    support.setSupportQueryForTests(null);
+    jest.restoreAllMocks();
+  });
+
   test('mask hides the address and a .com.au suffix stays', () => {
     expect(support.maskEmail('jordan@gmail.com')).toBe('j***@g***.com');
     expect(support.maskEmail('a@fitmunch.com.au')).toBe('a***@f***.com.au');
   });
 
   test('stores the row, emails support, then the receipt', async () => {
+    if (typeof counters.resetSharedCountersForTests === 'function') await counters.resetSharedCountersForTests();
+    const order = [];
     const calls = [];
-    const query = jest.fn(async (sql) => {
-      calls.push(sql);
-      if (/INSERT INTO support_messages/.test(sql)) return { rows: [{ id: 9 }] };
-      return { rows: [] };
+    support.setSupportQueryForTests(async (sql, params) => {
+      calls.push({ sql: String(sql), params });
+      if (/INSERT INTO support_messages/i.test(sql)) order.push('store');
+      return { rows: [{ id: '00000000-0000-4000-8000-000000000009' }], rowCount: 1 };
     });
-    const sendTeam = jest.fn(async () => ({ success: true, messageId: 're_1' }));
-    const sendReceipt = jest.fn(async () => ({ success: true }));
+    const forward = jest.spyOn(emailLib, 'sendSupportInboxEmail').mockImplementation(async () => {
+      order.push('forward');
+      return { success: true, messageId: 're_1' };
+    });
+    const ack = jest.spyOn(emailLib, 'sendSupportReceivedEmail').mockImplementation(async () => {
+      order.push('ack');
+      return { success: true, messageId: 're_ack' };
+    });
     const logs = [];
-    const spy = jest.spyOn(console, 'log').mockImplementation((line) => logs.push(String(line)));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation((line) => logs.push(String(line)));
+    const logSpy = jest.spyOn(console, 'log').mockImplementation((line) => logs.push(String(line)));
     const res = await support.sendSupportConfirmation({
       email: 'jordan@gmail.com',
       name: 'Jordan',
       topic: 'billing',
       message: 'Please look at my trial.',
-    }, { query, sendTeam, sendReceipt });
-    spy.mockRestore();
+    });
+    errSpy.mockRestore();
+    logSpy.mockRestore();
     expect(res.status).toBe(200);
-    expect(res.body.receipt).toBe(true);
-    expect(sendTeam.mock.calls[0][0].email).toBe('jordan@gmail.com');
-    expect(sendReceipt).toHaveBeenCalled();
-    expect(calls[0]).toMatch(/INSERT INTO support_messages/);
-    const line = logs.find((l) => l.startsWith('[support-form]'));
-    expect(line).toBeTruthy();
-    expect(line).not.toContain('jordan@gmail.com');
-    expect(line).not.toContain('Please look at my trial');
-    expect(line).not.toContain('Jordan');
-    expect(line).toContain('j***@g***.com');
+    expect(res.body.success).toBe(true);
+    expect(order[0]).toBe('store');
+    expect(order).toEqual(['store', 'forward', 'ack']);
+    expect(forward).toHaveBeenCalledTimes(1);
+    expect(forward.mock.calls[0][0].replyTo).toBe('jordan@gmail.com');
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(calls[0].sql).toMatch(/INSERT INTO support_messages/);
+    expect(String(calls[0].params[4])).toBe('failed');
+    expect(String(calls[0].params[5])).toBe('failed');
+    const blob = logs.join('\n');
+    expect(blob).not.toContain('jordan@gmail.com');
+    expect(blob).not.toContain('Please look at my trial');
+    expect(blob).not.toContain('Jordan');
   });
 
   test('store and send both failing is 503 and no receipt', async () => {
-    const sendReceipt = jest.fn(async () => ({ success: true }));
+    if (typeof counters.resetSharedCountersForTests === 'function') await counters.resetSharedCountersForTests();
+    const ack = jest.spyOn(emailLib, 'sendSupportReceivedEmail').mockResolvedValue({ success: true });
+    jest.spyOn(emailLib, 'sendSupportInboxEmail').mockResolvedValue({ success: false });
+    support.setSupportQueryForTests(async () => {
+      throw Object.assign(new Error('db down'), { code: 'ECONNREFUSED' });
+    });
     const res = await support.sendSupportConfirmation({
-      email: 'jordan@gmail.com', name: '', topic: 'app', message: 'Hello there',
-    }, {
-      query: async () => { throw new Error('db down'); },
-      sendTeam: async () => ({ success: false }),
-      sendReceipt,
+      email: 'jordan-down@example.com', name: '', topic: 'app', message: 'Hello there',
     });
     expect(res.status).toBe(503);
-    expect(sendReceipt).not.toHaveBeenCalled();
-    expect(res.body.error).toMatch(/support@fitmunch.com.au/);
+    expect(ack).not.toHaveBeenCalled();
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toBe('Could not send a confirmation just now.');
   });
 });
 
