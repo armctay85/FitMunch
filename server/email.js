@@ -3,7 +3,6 @@
  * Requires RESEND_API_KEY. Optional RESEND_FROM (default hello@fitmunch.com.au).
  */
 const crypto = require('crypto');
-const { destinationAddress } = require('../lib/resend-inbound');
 const RESEND_API = 'https://api.resend.com/emails';
 
 // Resend stores this header for 24 hours. A repeat with the same key returns
@@ -475,16 +474,37 @@ function logSupportCode(code) {
   console.error(`[support] ${safe}`);
 }
 
-// One plain address from SUPPORT_FORWARD_TO. Own inbound addresses would put
-// the relay back on the form path, so they count as no target.
+// One address, including "Name <a@b>". Two addresses, or our own domain, are not a target.
+function oneForwardAddress(raw) {
+  const text = String(raw || '').replace(/[\r\n]/g, '').trim();
+  if (!text) return '';
+  const found = text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [];
+  if (found.length !== 1) return '';
+  const addr = found[0].toLowerCase();
+  if (text.includes('<') || text.includes('>')) {
+    const wrapped = text.match(/^\s*(?:"[^"]*"|[^<>,;]*?)\s*<\s*([^<>\s]+)\s*>\s*$/);
+    if (!wrapped || wrapped[1].toLowerCase() !== addr) return '';
+  } else if (/[,;]/.test(text) || text.split(/\s+/).length !== 1) {
+    return '';
+  }
+  if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(addr) || addr.length > 254) return '';
+  return addr;
+}
+
+function ownFitmunchAddress(addr) {
+  const domain = String(addr || '').toLowerCase().split('@')[1] || '';
+  return domain === 'fitmunch.com.au' || domain.endsWith('.fitmunch.com.au');
+}
+
+// One plain address from SUPPORT_FORWARD_TO. Own-domain targets are a failed forward and are not sent.
 function supportForwardTarget() {
   const raw = process.env.SUPPORT_FORWARD_TO;
   if (raw == null || String(raw).trim() === '') {
     logSupportCode('forward_target_unset');
     return '';
   }
-  const target = destinationAddress(raw);
-  if (!target || target === SUPPORT_INBOX || target === RELAY_INBOX) {
+  const target = oneForwardAddress(raw);
+  if (!target || ownFitmunchAddress(target) || target === SUPPORT_INBOX || target === RELAY_INBOX) {
     logSupportCode('forward_target_invalid');
     return '';
   }
