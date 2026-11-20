@@ -130,6 +130,7 @@ module.exports = {
     '**/test_diet_filter_gaps.js',
     '**/test_diet_filter_onboarding_pg.js',
     '**/test_ai_allergen_stopgap_r6.js',
+    '**/test_eqa_acceptance_allergy_r5_workout.js',
     '**/test_ai_allergen_stopgap_r6_pg.js',
     '**/test_customer_critical_1117.js',
     '**/test_customer_critical_r2.js',
