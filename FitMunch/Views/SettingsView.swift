@@ -42,6 +42,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollViewReader { proxy in
             List {
+                Group {
                 Section {
                     NavigationLink {
                         HistoryView(modelContext: modelContext, embedded: true)
@@ -56,12 +57,13 @@ struct SettingsView: View {
                     if let profile = signedInProfile {
                         HStack(alignment: .center, spacing: Theme.Spacing.three) {
                             // FitMunch mark, never a person photo or a person glyph.
-                            Image("LaunchLogo")
+                            Image("BrandMark")
                                 .resizable()
+                                .interpolation(.high)
                                 .scaledToFit()
-                                .padding(11)
+                                .padding(6)
                                 .frame(width: 50, height: 50)
-                                .background(Circle().fill(Theme.brandGreenSoft))
+                                .background(Circle().fill(Theme.forestDeep))
                                 .accessibilityHidden(true)
                                 .accessibilityIdentifier("me-avatar-mark")
 
@@ -77,8 +79,8 @@ struct SettingsView: View {
                                             .lineLimit(1)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 6)
-                                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
-                                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                            .background(Theme.mint)
+                                            .foregroundStyle(Theme.forest)
                                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                             .accessibilityIdentifier("me-premium-badge")
                                     }
@@ -98,12 +100,13 @@ struct SettingsView: View {
                     } else if ScreenshotLaunch.isActive {
                         // Screenshot flag only. The mark stays, with no seeded name or email.
                         HStack(alignment: .center, spacing: Theme.Spacing.three) {
-                            Image("LaunchLogo")
+                            Image("BrandMark")
                                 .resizable()
+                                .interpolation(.high)
                                 .scaledToFit()
-                                .padding(11)
+                                .padding(6)
                                 .frame(width: 50, height: 50)
-                                .background(Circle().fill(Theme.brandGreenSoft))
+                                .background(Circle().fill(Theme.forestDeep))
                                 .accessibilityHidden(true)
                                 .accessibilityIdentifier("me-avatar-mark")
                             if premium.isPremium {
@@ -112,8 +115,8 @@ struct SettingsView: View {
                                     .lineLimit(1)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
-                                    .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
-                                    .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                    .background(Theme.mint)
+                                    .foregroundStyle(Theme.forest)
                                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     .accessibilityIdentifier("me-premium-badge")
                             }
@@ -128,7 +131,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Theme.brandGreen)
                             Text("Sign in and your name and email show up here.")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Theme.fmSecondary)
                         }
                         .padding(.vertical, 8)
                         .accessibilityElement(children: .combine)
@@ -175,12 +178,13 @@ struct SettingsView: View {
                     sectionHeader("About", identifier: "me-about")
                 }
 
-                // Dark Mode is the last row at rest on 6.5, 6.7, and 6.9. The clear
-                // footer keeps the tab bar's top edge in this gap, so no row is cut
-                // by the bar. Notifications and Metric Units are one scroll below.
+                // The switch stays in the list so Me still has this row. It does not
+                // open a light palette: FitMunch is Forest in every appearance.
+                // The clear footer keeps the tab bar's top edge in this gap, so no
+                // row is cut by the bar. Notifications and Metric Units are one scroll below.
                 Section {
                     Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
-                        .tint(Theme.fmBrand)
+                        .tint(Theme.mint)
                         .accessibilityIdentifier("me-dark-mode")
                         .onChange(of: viewModel.isDarkMode) { _, newValue in
                             viewModel.applyDarkMode(newValue)
@@ -226,13 +230,14 @@ struct SettingsView: View {
                     if privacyExpanded || privacyRequest > 0 {
                         Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.fmSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } header: {
                     sectionHeader("Privacy", identifier: "me-privacy")
                 } footer: {
                     Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review.")
+                        .foregroundStyle(Theme.fmSecondary)
                 }
                 .id("me-privacy")
                 
@@ -312,7 +317,7 @@ struct SettingsView: View {
                             Text("Signed in as")
                             Spacer()
                             Text(user.email)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.fmSecondary)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
@@ -327,6 +332,8 @@ struct SettingsView: View {
                 } header: {
                     sectionHeader("Account")
                 }
+                }
+                .listRowBackground(Theme.fmSurface)
             }
             .font(.body)
             .navigationTitle("Me")
@@ -442,7 +449,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 Text(title)
                     .font(.body)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.offwhite)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
@@ -608,7 +615,7 @@ private struct SettingsRow: View {
             
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .padding(.vertical, 8)
     }

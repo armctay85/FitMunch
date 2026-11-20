@@ -304,7 +304,7 @@ private struct WindowHeightReader: UIViewRepresentable {
         // The chevrons keep their 44pt targets. Only the card's vertical padding is tighter.
         .padding(.horizontal)
         .padding(.vertical, Theme.Spacing.one)
-        .background(Color(.secondarySystemBackground))
+        .background(Theme.fmSurface)
         .cornerRadius(Theme.Radius.medium)
         .sensoryFeedback(.selection, trigger: viewModel.selectedDate)
     }
@@ -619,14 +619,14 @@ private struct ProgressRing: View {
                     if !unit.isEmpty {
                         Text(unit)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.fmSecondary)
                     }
                 }
             }
 
             Text(title)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
@@ -635,8 +635,8 @@ private struct ProgressRing: View {
                 .fontWeight(.medium)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(color.opacity(0.1))
-                .foregroundStyle(color)
+                .background(color.opacity(0.18))
+                .foregroundStyle(Theme.offwhite)
                 .cornerRadius(Theme.Spacing.one)
         }
         .accessibilityElement(children: .combine)
@@ -707,7 +707,7 @@ private struct SummaryCard: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, compact ? Theme.Spacing.two : Theme.Spacing.four)
         .padding(.vertical, compact ? Self.compactVerticalPadding : Theme.Spacing.four)
-        .background(color.opacity(0.1))
+        .background(Theme.fmSurface)
         .cornerRadius(Theme.Radius.medium)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title) \(value)")
@@ -723,7 +723,7 @@ private struct SummaryCard: View {
     private var titleView: some View {
         Text(title)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.fmSecondary)
     }
 }
 
@@ -744,7 +744,7 @@ private struct MealCard: View {
                         .accessibilityIdentifier("today-meal-name")
                     Text(Constants.timeFormatter.string(from: meal.date))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.fmSecondary)
                         .lineLimit(1)
                 }
 
@@ -781,7 +781,7 @@ private struct MealCard: View {
         }
         .padding(.horizontal, Theme.Spacing.four)
         .padding(.vertical, Theme.Spacing.three)
-        .background(Color(.secondarySystemBackground))
+        .background(Theme.fmSurface)
         .cornerRadius(Theme.Radius.medium)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-meal-card")
@@ -811,12 +811,12 @@ private struct NutritionBadge: View {
                 .fontWeight(.semibold)
             Text(unit)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
         }
         .padding(.horizontal, Theme.Spacing.two)
         .padding(.vertical, Theme.Spacing.one)
-        .background(color.opacity(0.1))
-        .foregroundStyle(color)
+        .background(color.opacity(0.18))
+        .foregroundStyle(Theme.offwhite)
         .cornerRadius(Theme.Spacing.one)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(value)")
@@ -842,7 +842,7 @@ private struct MealBadgeID: ViewModifier {
 }
 
 private enum SkeletonFill {
-    static let color = Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255)
+    static let color = Theme.fmSurface
 }
 
 /// 1.2s shimmer. Reduce Motion and screenshot capture stay still.
@@ -856,7 +856,7 @@ private struct SkeletonShimmer: ViewModifier {
             if active, !reduceMotion, !ScreenshotLaunch.isActive {
                 GeometryReader { proxy in
                     LinearGradient(
-                        colors: [Color.white.opacity(0), Color.white.opacity(0.55), Color.white.opacity(0)],
+                        colors: [Theme.offwhite.opacity(0), Theme.offwhite.opacity(0.28), Theme.offwhite.opacity(0)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -958,8 +958,10 @@ private struct OpaqueNavigationBar: UIViewControllerRepresentable {
         func apply() {
             let appearance = UINavigationBarAppearance()
             appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor(named: "Surface") ?? .systemBackground
+            appearance.backgroundColor = UIColor(named: "Surface") ?? Theme.forestUIColor
             appearance.shadowColor = .clear
+            appearance.titleTextAttributes = [.foregroundColor: Theme.offwhiteUIColor]
+            appearance.largeTitleTextAttributes = [.foregroundColor: Theme.offwhiteUIColor]
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let bars = Self.navigationBars(from: self)

@@ -28,17 +28,16 @@ enum AppearanceLaunch {
     }
 
     static func prepare() {
-        guard let style = userInterfaceStyle else { return }
-        UserDefaults.standard.set(style == .dark, forKey: "isDarkMode")
+        // One Forest system. A light launch argument does not select a light palette.
+        UserDefaults.standard.set(true, forKey: "isDarkMode")
     }
 
     static func applyWindows() {
-        guard let style = userInterfaceStyle else { return }
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         for scene in scenes {
             for window in scene.windows {
-                window.overrideUserInterfaceStyle = style
-                window.backgroundColor = UIColor(named: "Surface")
+                window.overrideUserInterfaceStyle = .dark
+                window.backgroundColor = UIColor(named: "Surface") ?? Theme.forestUIColor
             }
         }
     }

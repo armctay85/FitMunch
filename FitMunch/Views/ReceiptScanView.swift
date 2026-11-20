@@ -181,7 +181,7 @@ struct ReceiptScanView: View {
                 .font(.headline)
             Text("Scan needs a connection. Try again when you're back online.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -196,7 +196,7 @@ struct ReceiptScanView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AIConsentCopy.scanBlocked)
                 .font(.subheadline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.offwhite)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Allow in Privacy") {
                 DispatchQueue.main.async {
@@ -227,7 +227,7 @@ struct ReceiptScanView: View {
                 .font(.title2.weight(.heavy))
             Text("Snap a supermarket receipt. Get every item's macros, a haul score, and meal ideas in seconds.")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
@@ -273,7 +273,7 @@ struct ReceiptScanView: View {
                     .foregroundColor(brandGreen)
                 Text("Weekly haul score")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.fmSecondary)
                 HStack(spacing: 22) {
                     totalStat(Int(scan.weeklyTotals?.protein?.value ?? 0), "g protein", Theme.brandGreen)
                     totalStat(Int(scan.weeklyTotals?.calories?.value ?? 0), "calories", .orange)
@@ -287,7 +287,7 @@ struct ReceiptScanView: View {
 
             Text("Prices vary by store and week.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             // Items. Aisle (category) and protein per item. Never a shelf price.
@@ -297,7 +297,7 @@ struct ReceiptScanView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name).font(.subheadline.weight(.medium))
                             if let category = item.category {
-                                Text(category.capitalized).font(.caption2).foregroundColor(.secondary)
+                                Text(category.capitalized).font(.caption2).foregroundColor(Theme.fmSecondary)
                             }
                         }
                         Spacer()
@@ -306,7 +306,7 @@ struct ReceiptScanView: View {
                                 .font(.caption.monospacedDigit().weight(.bold))
                                 .foregroundStyle(Theme.brandGreen)
                             Text("\(Int(item.nutrition?.calories?.value ?? 0)) cal")
-                                .font(.caption2).foregroundColor(.secondary)
+                                .font(.caption2).foregroundColor(Theme.fmSecondary)
                         }
                     }
                     .padding(.vertical, 9)
@@ -339,7 +339,7 @@ struct ReceiptScanView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(Color(.secondarySystemBackground))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.offwhite)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
@@ -349,8 +349,9 @@ struct ReceiptScanView: View {
     private func totalStat(_ value: Int, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 2) {
             MacroNumber(value: value, style: .headline)
-                .foregroundStyle(color)
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+                .foregroundStyle(Theme.offwhite)
+            Text(label).font(.caption2).foregroundStyle(Theme.fmSecondary)
+            Circle().fill(color).frame(width: 6, height: 6).accessibilityHidden(true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(value) \(label)")

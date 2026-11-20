@@ -54,7 +54,7 @@ struct DetailView: View {
                         .accessibilityIdentifier("meal-quick-calories")
                     Text("Protein, carbs, and fat are optional.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.fmSecondary)
                     HStack(spacing: Theme.Spacing.two) {
                         macroField("Protein", text: $quickProtein, id: "meal-quick-protein")
                         macroField("Carbs", text: $quickCarbs, id: "meal-quick-carbs")
@@ -84,7 +84,7 @@ struct DetailView: View {
                                     Text(meal.name)
                                     Spacer()
                                     Text("\(meal.totalCalories) cal")
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Theme.fmSecondary)
                                         .monospacedDigit()
                                 }
                             }
@@ -97,7 +97,7 @@ struct DetailView: View {
                 Section("Add Food") {
                     Text("Add a food manually.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.fmSecondary)
 
                     TextField("Food name", text: $manualName)
                         .textFieldStyle(.roundedBorder)
@@ -121,7 +121,7 @@ struct DetailView: View {
                                         .font(.headline)
                                     Text("\(foodItem.quantity, specifier: "%.1f") serving(s)")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Theme.fmSecondary)
                                 }
                                 
                                 Spacer()
@@ -180,7 +180,7 @@ struct DetailView: View {
                         if viewModel.totalNutrition.calories > 0 {
                             Text("Total for this meal")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.fmSecondary)
                         }
                     }
                     .padding(.vertical, 8)
@@ -295,7 +295,7 @@ private struct FoodItemRow: View {
                     .font(.headline)
                 Text("Per \(foodItem.quantity, specifier: "%.0f")g")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.fmSecondary)
             }
             
             Spacer()
@@ -333,8 +333,8 @@ private struct NutritionPill: View {
             .fontWeight(.medium)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(color.opacity(0.1))
-            .foregroundColor(color)
+            .background(color.opacity(0.15))
+            .foregroundColor(Theme.offwhite)
             .cornerRadius(4)
     }
 }
@@ -350,16 +350,18 @@ private struct NutritionSummaryItem: View {
         VStack(spacing: 4) {
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
             
             MacroNumber(value: value, style: .title3)
-                .foregroundStyle(color)
+                .foregroundStyle(Theme.offwhite)
             
             Text(unit)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -399,7 +401,7 @@ private struct QuantitySheet: View {
                             
                             Text("serving(s)")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.fmSecondary)
                         }
                         
                         if let quantityNum = Double(quantity), quantityNum > 0 {
@@ -408,7 +410,7 @@ private struct QuantitySheet: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Nutrition for \(quantityNum, specifier: "%.1f") serving(s):")
                                     .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Theme.fmSecondary)
                                 
                                 HStack {
                                     NutritionSummaryItem(

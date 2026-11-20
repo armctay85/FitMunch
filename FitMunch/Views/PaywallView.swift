@@ -136,12 +136,19 @@ struct PaywallView: View {
 
     private var headerSection: some View {
         VStack(spacing: 8) {
+            // Wraps on iPhone 16e, 6.9in, and iPad compatibility mode.
+            // A single line was clipping after "with" on the iPad Air 11-inch window.
             Text("Eat to your goals with every shop")
                 .font(.title.weight(.bold))
+                .foregroundStyle(Theme.offwhite)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+                .lineLimit(nil)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
                 .accessibilityIdentifier("paywall-headline")
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var benefitsSection: some View {
@@ -161,8 +168,8 @@ struct PaywallView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(Theme.fmSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("paywall-trial-timeline")
     }
@@ -171,9 +178,9 @@ struct PaywallView: View {
         HStack(spacing: 12) {
             Text(step)
                 .font(.caption.weight(.bold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.forest)
                 .frame(width: 22, height: 22)
-                .background(Theme.buttonGreen)
+                .background(Theme.mint)
                 .clipShape(Circle())
             Text(text)
                 .font(.subheadline)
@@ -204,7 +211,7 @@ struct PaywallView: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 24))
-                .foregroundStyle(Color(red: 180.0 / 255, green: 83.0 / 255, blue: 9.0 / 255))
+                .foregroundStyle(Theme.errorDark)
             Text("Couldn't load plans")
                 .font(.headline.weight(.semibold))
                 .accessibilityIdentifier("paywall-error")
@@ -218,12 +225,12 @@ struct PaywallView: View {
             } label: {
                 Text("Try again")
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.forest)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(minHeight: 48)
                     .accessibilityIdentifier("paywall-retry")
             }
-            .background(Theme.fmBrand)
+            .background(Theme.mint)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .accessibilityIdentifier("paywall-retry")
             legalButton("Restore Purchases", identifier: "paywall-restore-inline") {
@@ -300,7 +307,7 @@ struct PaywallView: View {
             if premiumManager.isLoading {
                 Text("Confirming with the App Store")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.forest)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -310,15 +317,15 @@ struct PaywallView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.9)
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.forest)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .frame(minHeight: 48)
                     .padding(.horizontal, 12)
             }
         }
-        .background(Theme.fmBrand)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.mint)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .disabled(premiumManager.isLoading)
         .accessibilityIdentifier("paywall-subscribe")
         .accessibilityLabel(purchaseAccessibilityLabel(cta))
@@ -342,10 +349,10 @@ struct PaywallView: View {
     private var paywallLoadingCards: some View {
         VStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255))
+                .fill(Theme.fmSurface)
                 .frame(height: 88)
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(red: 230.0 / 255, green: 234.0 / 255, blue: 230.0 / 255))
+                .fill(Theme.fmSurface)
                 .frame(height: 88)
         }
         .accessibilityElement(children: .ignore)
@@ -488,8 +495,8 @@ private struct PackageCard: View {
                             .font(.footnote.weight(.semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
-                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                            .background(Theme.mint)
+                            .foregroundStyle(Theme.forest)
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     if isSelected {
@@ -561,19 +568,19 @@ private struct PaywallLegalButtonStyle: ButtonStyle {
 }
 
 /// Bordered system style hides its accessibility identifier on iOS 26.
-/// Same two pills: Retry and Restore, 44pt tall, brand green label.
+/// Same two pills: Retry and Restore, 44pt tall, off-white label on a surface fill.
 private struct PaywallChoiceButtonStyle: ButtonStyle {
     var identifier: String
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold))
-            .foregroundStyle(Theme.brandGreen)
+            .foregroundStyle(Theme.offwhite)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, 12)
-            .background(Capsule(style: .continuous).fill(Color(.secondarySystemBackground)))
-            .overlay(Capsule(style: .continuous).stroke(Theme.brandGreen.opacity(0.45), lineWidth: 1))
+            .background(Capsule(style: .continuous).fill(Theme.fmSurface))
+            .overlay(Capsule(style: .continuous).stroke(Theme.muteDark, lineWidth: 1.5))
             .opacity(configuration.isPressed ? 0.75 : 1)
             .accessibilityElement(children: .ignore)
             .accessibilityIdentifier(identifier)
