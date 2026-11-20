@@ -2,65 +2,51 @@ import SwiftUI
 import UIKit
 
 /// Brand colours, spacing, and button styles shared across FitMunch.
+/// One dark Forest system. Mint is the accent and is never placed on white or off-white.
 enum Theme {
-    static let brandGreen = Color("BrandGreen")
-    static let brandGreenSoft = Color("BrandGreenSoft")
-    static let surface = Color("Surface")
+    private static func token(_ red: Double, _ green: Double, _ blue: Double) -> Color {
+        Color(red: red / 255.0, green: green / 255.0, blue: blue / 255.0)
+    }
 
-    /// Icon highlight from main (#2BBF5A). Not a fill behind white text.
-    static let green = Color(red: 43.0 / 255.0, green: 191.0 / 255.0, blue: 90.0 / 255.0)
+    private static func tokenUI(_ red: Double, _ green: Double, _ blue: Double) -> UIColor {
+        UIColor(red: red / 255.0, green: green / 255.0, blue: blue / 255.0, alpha: 1)
+    }
 
-    /// Paywall CTA fill from main (#167A36). White on this green is 5.42:1.
-    static let buttonGreen = Color(red: 22.0 / 255.0, green: 122.0 / 255.0, blue: 54.0 / 255.0)
+    /// fm-forest. Page background.
+    static let forest = token(15, 42, 31)
+    static let forestUIColor = tokenUI(15, 42, 31)
+    /// fm-forest-deep. Footer and tab bar.
+    static let forestDeep = token(10, 31, 22)
+    /// fm-surface. Cards and sheets.
+    static let surfaceCard = token(23, 58, 44)
+    /// fm-line. Decorative borders and dividers.
+    static let line = token(42, 82, 64)
+    /// fm-mint. Primary button fill, focus, active tab, key numbers.
+    static let mint = token(110, 242, 176)
+    /// fm-offwhite. Primary text on Forest.
+    static let offwhite = token(243, 240, 232)
+    static let offwhiteUIColor = tokenUI(243, 240, 232)
+    /// fm-mute-dark. Secondary text on Forest and surface.
+    static let muteDark = token(168, 191, 179)
+    /// fm-mute-light. Secondary text on a light page.
+    static let muteLight = token(79, 99, 88)
+    /// fm-error-dark. Errors on Forest.
+    static let errorDark = token(255, 143, 128)
 
-    /// Secondary copy. Light #595959 is 7.0:1 on white and 6.3:1 on the selected plan wash.
-    /// Dark #B8B8B8 stays above 4.5:1 on the dark paywall. #595959 on that background is about 2.4:1.
-    static let secondaryText: Color = {
-        let light = UIColor(red: 89.0 / 255.0, green: 89.0 / 255.0, blue: 89.0 / 255.0, alpha: 1)
-        let dark = UIColor(red: 184.0 / 255.0, green: 184.0 / 255.0, blue: 184.0 / 255.0, alpha: 1)
-        let dynamic = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? dark : light
-        }
-        return Color(uiColor: dynamic)
-    }()
-
-    /// Filled buttons stay on light BrandGreen #15803D in both appearances.
-    /// White on that green is 5.0:1. The asset's dark color (#22C55E) and
-    /// systemGreen are too light behind a white label, so this is not the asset.
-    static let buttonFill = Color(red: 21.0 / 255.0, green: 128.0 / 255.0, blue: 61.0 / 255.0)
-
-    /// Page background #F4F6F2. Dark #101A14.
-    static let fmBackground = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 16.0 / 255, green: 26.0 / 255, blue: 20.0 / 255, alpha: 1)
-            : UIColor(red: 244.0 / 255, green: 246.0 / 255, blue: 242.0 / 255, alpha: 1)
-    })
-
-    /// Card white. Dark stays a lifted surface.
-    static let fmSurface = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 22.0 / 255, green: 32.0 / 255, blue: 26.0 / 255, alpha: 1)
-            : UIColor(red: 1, green: 1, blue: 1, alpha: 1)
-    })
-
-    /// Brand fill #157A3C.
-    static let fmBrand = Color(red: 21.0 / 255.0, green: 122.0 / 255.0, blue: 60.0 / 255.0)
-
-    /// Secondary text #5F6B64. Dark #C5D0C8 stays above 4.5:1 on the dark page.
-    static let fmSecondary = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 197.0 / 255, green: 208.0 / 255, blue: 200.0 / 255, alpha: 1)
-            : UIColor(red: 95.0 / 255, green: 107.0 / 255, blue: 100.0 / 255, alpha: 1)
-    })
-
-    /// Hairline #D9DED9. Dark #26302A.
-    static let fmSeparator = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 38.0 / 255, green: 48.0 / 255, blue: 42.0 / 255, alpha: 1)
-            : UIColor(red: 217.0 / 255, green: 222.0 / 255, blue: 217.0 / 255, alpha: 1)
-    })
-
-    static let fmError = Color(red: 198.0 / 255.0, green: 40.0 / 255.0, blue: 40.0 / 255.0)
+    /// Existing names, all mapped onto the token set above. There is no light palette.
+    static let brandGreen = mint
+    static let brandGreenSoft = forestDeep
+    static let surface = forest
+    static let green = mint
+    static let buttonGreen = mint
+    static let secondaryText = muteDark
+    static let buttonFill = mint
+    static let fmBackground = forest
+    static let fmSurface = surfaceCard
+    static let fmBrand = mint
+    static let fmSecondary = muteDark
+    static let fmSeparator = line
+    static let fmError = errorDark
 
     /// 16pt cards, 12pt controls.
     enum Radius {
@@ -82,44 +68,42 @@ enum Theme {
     }
 }
 
-/// Filled BrandGreen, white semibold label.
-/// The app tint is BrandGreen. A disabled fade turns that tint into light-on-green,
-/// which fails WCAG AA and gets worse at accessibility sizes. The label stays white
-/// on #15803D whether the button is enabled or not.
+/// Mint fill, Forest text, 48pt minimum. Pressed fill is Mint at 88%.
+/// The label stays Forest on Mint when the button is disabled, so contrast holds.
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        let white = Color(uiColor: .white)
         configuration.label
             .font(.body.weight(.semibold))
-            .foregroundStyle(white)
-            .tint(white)
+            .foregroundStyle(Theme.forest)
+            .tint(Theme.forest)
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.7)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .padding(.horizontal, Theme.Spacing.four)
-            .background(Theme.buttonFill, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-            .opacity(configuration.isPressed ? 0.92 : 1)
+            .background(
+                Theme.mint.opacity(configuration.isPressed ? 0.88 : 1),
+                in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+            )
     }
 }
 
-/// Soft brand fill with BrandGreen 17pt semibold type.
+/// Transparent, 1.5pt mute-dark border, off-white text. Same 48pt height as the primary button.
 struct SecondaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Theme.brandGreen)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Theme.offwhite)
             .multilineTextAlignment(.center)
-            .lineLimit(1)
+            .lineLimit(2)
             .minimumScaleFactor(0.8)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .padding(.horizontal, Theme.Spacing.four)
-            .background(Theme.brandGreenSoft, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
-            .opacity(!isEnabled ? 0.55 : (configuration.isPressed ? 0.88 : 1))
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                    .stroke(Theme.muteDark, lineWidth: 1.5)
+            )
+            .opacity(configuration.isPressed ? 0.88 : 1)
     }
 }
 

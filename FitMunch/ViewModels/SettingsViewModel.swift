@@ -5,7 +5,7 @@ import UIKit
 /// ViewModel for the settings screen
 @MainActor
 class SettingsViewModel: ObservableObject {
-    @Published var isDarkMode: Bool = false
+    @Published var isDarkMode: Bool = true
     @Published var notificationsEnabled: Bool = true
     @Published var useMetricUnits: Bool = false
     @Published var isLoading: Bool = false
@@ -27,16 +27,12 @@ class SettingsViewModel: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
     
-    /// Load user preferences
+    /// Load user preferences. The window stays Forest even if an older setting stored light.
     func loadPreferences() {
-        if let forced = AppearanceLaunch.userInterfaceStyle {
-            isDarkMode = forced == .dark
-        } else {
-            isDarkMode = UserDefaults.standard.bool(forKey: "isDarkMode")
-        }
+        isDarkMode = true
         notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
         useMetricUnits = UserDefaults.standard.bool(forKey: "useMetricUnits")
-        applyWindowStyle(isDarkMode)
+        applyWindowStyle()
     }
     
     /// Save user preferences
@@ -46,19 +42,18 @@ class SettingsViewModel: ObservableObject {
         UserDefaults.standard.set(useMetricUnits, forKey: "useMetricUnits")
     }
     
-    /// The toggle binding already stored the new value. Do not flip it again.
+    /// The Me switch stays on. Turning it off does not open a light palette.
     func applyDarkMode(_ enabled: Bool) {
-        isDarkMode = enabled
+        isDarkMode = true
         savePreferences()
-        applyWindowStyle(enabled)
+        applyWindowStyle()
     }
 
-    private func applyWindowStyle(_ enabled: Bool) {
-        let style = AppearanceLaunch.userInterfaceStyle ?? (enabled ? UIUserInterfaceStyle.dark : UIUserInterfaceStyle.light)
+    private func applyWindowStyle() {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         for scene in scenes {
             scene.windows.forEach { window in
-                window.overrideUserInterfaceStyle = style
+                window.overrideUserInterfaceStyle = .dark
             }
         }
     }

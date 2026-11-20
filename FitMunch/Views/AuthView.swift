@@ -20,13 +20,15 @@ struct AuthView: View {
             ScrollView {
                 VStack(spacing: 22) {
                     VStack(spacing: 10) {
-                        Image(systemName: "leaf.circle.fill")
-                            .font(.system(size: 56))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(Theme.brandGreen)
+                        Image("BrandMark")
+                            .resizable()
+                            .interpolation(.high)
+                            .scaledToFit()
+                            .frame(width: 72, height: 72)
+                            .accessibilityHidden(true)
                         HStack(spacing: 0) {
-                            Text("Fit").foregroundStyle(.primary)
-                            Text("Munch").foregroundStyle(Theme.brandGreen)
+                            Text("Fit").foregroundStyle(Theme.offwhite)
+                            Text("Munch").foregroundStyle(Theme.mint)
                         }
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         Text("Your AI health partner")
@@ -81,11 +83,11 @@ struct AuthView: View {
 
                     Button(action: submit) {
                         Text(mode == .login ? "Sign In" : "Create Free Account")
-                            .foregroundStyle(Color.white)
-                            .tint(.white)
+                            .foregroundStyle(Theme.forest)
+                            .tint(Theme.forest)
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .tint(.white)
+                    .tint(Theme.forest)
                     .disabled(auth.isLoading || !formValid)
                     .padding(.horizontal, 28)
                     .accessibilityIdentifier(mode == .login ? "auth-sign-in" : "auth-create-account")
@@ -137,24 +139,24 @@ struct AuthView: View {
     }
 
     private func field(_ placeholder: String, text: Binding<String>, focus: Field, showsError: Bool) -> some View {
-        TextField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
+        TextField("", text: text, prompt: Text(placeholder).foregroundStyle(Theme.muteDark))
             .focused($focused, equals: focus)
             .padding(14)
-            .background(Color(.secondarySystemBackground))
-            .foregroundStyle(.primary)
+            .background(Theme.fmSurface)
+            .foregroundStyle(Theme.offwhite)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Color(.separator), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Theme.muteDark, lineWidth: 1.5))
     }
 
     private func secureField(_ placeholder: String, text: Binding<String>, showsError: Bool) -> some View {
-        SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(.secondary))
+        SecureField("", text: text, prompt: Text(placeholder).foregroundStyle(Theme.muteDark))
             .focused($focused, equals: .password)
             .textContentType(mode == .login ? .password : .newPassword)
             .padding(14)
-            .background(Color(.secondarySystemBackground))
-            .foregroundStyle(.primary)
+            .background(Theme.fmSurface)
+            .foregroundStyle(Theme.offwhite)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Color(.separator), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(showsError ? Theme.fmError : Theme.muteDark, lineWidth: 1.5))
     }
 }
 

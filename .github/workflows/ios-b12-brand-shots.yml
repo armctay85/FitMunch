@@ -1,0 +1,97 @@
+name: iOS b12 brand screenshots
+
+# Auth, Onboarding, Today, Plan, Paywall, and Me on iPhone 16e and
+# iPad Air 11-inch (M3) compatibility mode, iOS 26.2. Does not archive
+# or upload to App Store Connect.
+
+on:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - ".github/workflows/ios-b12-brand-shots.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  brand-shots:
+    runs-on: macos-26
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/ensure-storekit-scheme.py
+
+      - name: Capture brand screens
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/b12-brand-shots
+          capture() {
+            local label="$1"
+            local device="$2"
+            local udid
+            udid="$(bash scripts/boot-pinned-simulator.sh "$device")"
+            echo "$label $device $udid os=26.2" | tee -a artifacts/b12-brand-shots/destinations.txt
+            bash scripts/set-simulator-region-au.sh "$udid"
+            bash scripts/warm-simulator-launch.sh "$udid"
+            rm -rf /tmp/fitmunch-b12-brand-shots
+            mkdir -p /tmp/fitmunch-b12-brand-shots
+            local bundle="artifacts/b12-brand-shots/${label}.xcresult"
+            rm -rf "$bundle"
+            xcodebuild test \
+              -project FitMunch.xcodeproj \
+              -scheme FitMunch \
+              -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
+              -only-testing:FitMunchUITests/BrandScreenCaptureUITests \
+              -testLanguage en \
+              -testRegion AU \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "$bundle" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=-
+            local out="artifacts/b12-brand-shots/${label}"
+            mkdir -p "$out"
+            cp /tmp/fitmunch-b12-brand-shots/*.png "$out/"
+            for name in auth onboarding today plan paywall me; do
+              test -f "$out/${name}.png"
+            done
+          }
+          capture "iphone-16e" "iPhone 16e"
+          capture "ipad-air-11" "iPad Air 11-inch (M3)"
+          find artifacts/b12-brand-shots -name '*.png' -print | sort
+
+      - name: Upload brand screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-b12-brand-screenshots
+          path: artifacts/b12-brand-shots/
+          if-no-files-found: warn
+          retention-days: 14
