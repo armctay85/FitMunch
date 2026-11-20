@@ -3,6 +3,7 @@
  * Requires RESEND_API_KEY. Optional RESEND_FROM (default hello@fitmunch.com.au).
  */
 const crypto = require('crypto');
+const { destinationAddress } = require('../lib/resend-inbound');
 const RESEND_API = 'https://api.resend.com/emails';
 
 // Resend stores this header for 24 hours. A repeat with the same key returns
@@ -467,6 +468,28 @@ async function sendSupportReceivedEmail(customerEmail, options = {}) {
 }
 
 const SUPPORT_INBOX = 'support@fitmunch.com.au';
+const RELAY_INBOX = 'relay@fitmunch.com.au';
+
+function logSupportCode(code) {
+  const safe = /^[A-Za-z0-9_]{1,40}$/.test(String(code || '')) ? String(code) : 'error';
+  console.error(`[support] ${safe}`);
+}
+
+// One plain address from SUPPORT_FORWARD_TO. Own inbound addresses would put
+// the relay back on the form path, so they count as no target.
+function supportForwardTarget() {
+  const raw = process.env.SUPPORT_FORWARD_TO;
+  if (raw == null || String(raw).trim() === '') {
+    logSupportCode('forward_target_unset');
+    return '';
+  }
+  const target = destinationAddress(raw);
+  if (!target || target === SUPPORT_INBOX || target === RELAY_INBOX) {
+    logSupportCode('forward_target_invalid');
+    return '';
+  }
+  return target;
+}
 
 function linesToHtml(lines) {
   return lines.map((line) => {
@@ -476,12 +499,15 @@ function linesToHtml(lines) {
 }
 
 /**
- * Full help-centre message for the support inbox. `replyTo` is the validated
- * submitter, so a reply from the inbox goes back to them.
+ * Full help-centre message straight to SUPPORT_FORWARD_TO. `replyTo` is the
+ * validated submitter, one address, so a reply lands in their inbox. An unset,
+ * blank, invalid, or own-inbound target is a failed forward and is not sent.
  */
 async function sendSupportInboxEmail({ replyTo, name, subject, message } = {}) {
   const reply = singleReplyTo(replyTo);
   if (!reply) return { success: false, error: 'Missing reply address' };
+  const to = supportForwardTarget();
+  if (!to) return { success: false };
   const safeName = String(name || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 80);
   const safeSubject = String(subject || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 200) || 'Support message';
   const safeMessage = String(message || '').replace(/\u0000/g, '');
@@ -493,7 +519,7 @@ async function sendSupportInboxEmail({ replyTo, name, subject, message } = {}) {
     safeMessage,
   ];
   return sendEmail({
-    to: SUPPORT_INBOX,
+    to,
     replyTo: reply,
     subject: safeSubject,
     bodyHtml: linesToHtml(lines),

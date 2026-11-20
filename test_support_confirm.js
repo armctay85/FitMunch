@@ -16,10 +16,12 @@ describe('support confirmation email', () => {
   let queries;
   let originalFetch;
   const previousKey = process.env.RESEND_API_KEY;
-  const SUPPORT_INBOX = 'support@fitmunch.com.au';
+  const previousForwardTo = process.env.SUPPORT_FORWARD_TO;
+  const SUPPORT_INBOX = 'ops-forward@example.invalid';
 
   beforeEach(async () => {
     process.env.RESEND_API_KEY = 're_test_support_confirm';
+    process.env.SUPPORT_FORWARD_TO = 'ops-forward@example.invalid';
     await resetSharedCountersForTests();
     sent = [];
     queries = [];
@@ -44,6 +46,8 @@ describe('support confirmation email', () => {
     global.fetch = originalFetch;
     if (previousKey === undefined) delete process.env.RESEND_API_KEY;
     else process.env.RESEND_API_KEY = previousKey;
+    if (previousForwardTo === undefined) delete process.env.SUPPORT_FORWARD_TO;
+    else process.env.SUPPORT_FORWARD_TO = previousForwardTo;
   });
 
   function acksFor(address) {
