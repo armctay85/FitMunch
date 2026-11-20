@@ -994,8 +994,39 @@ router.delete('/auth/account', authMiddleware, async (req, res) => {
       console.warn('[delete-account] stripe cancel failed (continuing):', e.message);
     }
 
-    // users row deletion CASCADEs to profiles, logs, plans, favourites, etc.
-    await _pool.query('DELETE FROM users WHERE id=$1', [userId]);
+    // One transaction. Help rows (by email or user id) go with the account.
+    // A missing support_messages table (42P01) is the only error that still deletes.
+    const deleteRows = async (query) => {
+      try {
+        await query('DELETE FROM support_messages WHERE lower(email)=lower($1) OR user_id=$2', [user.email, userId]);
+      } catch (err) {
+        if (!err || err.code !== '42P01') throw err;
+      }
+      await query('DELETE FROM users WHERE id=$1', [userId]);
+    };
+    let client = null;
+    if (typeof _pool.connect === 'function') {
+      client = await _pool.connect();
+      try {
+        await client.query('BEGIN');
+        await deleteRows((sql, params) => client.query(sql, params));
+        await client.query('COMMIT');
+      } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) { /* the original error is the one to report */ }
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await _pool.query('BEGIN');
+      try {
+        await deleteRows((sql, params) => _pool.query(sql, params));
+        await _pool.query('COMMIT');
+      } catch (err) {
+        try { await _pool.query('ROLLBACK'); } catch (_) { /* the original error is the one to report */ }
+        throw err;
+      }
+    }
     console.log(`[delete-account] deleted user ${user.email}`);
     res.json({ success: true, message: 'Account and all data deleted.' });
   } catch (err) {
