@@ -1,7 +1,7 @@
 import XCTest
 
-/// Brand screens for build 12. One pass writes Auth, Onboarding, Today, Plan,
-/// Paywall, and Me. The workflow copies /tmp/fitmunch-b12-brand-shots after
+/// Brand screens for build 12. One pass writes auth, onboarding, today, plan,
+/// paywall, and me. The workflow copies /tmp/fitmunch-b12-brand-shots after
 /// each destination (iPhone 16e, then iPad Air 11-inch in compatibility mode).
 final class BrandScreenCaptureUITests: XCTestCase {
     private let shotDir = "/tmp/fitmunch-b12-brand-shots"
