@@ -116,10 +116,14 @@ async function expectNutSafe() {
     for (const t of repliedMeals(r.body.reply)) expect(engine.flagsOf(t)).not.toContain('nuts');
   }
   expect(repliedMeals(food.body.reply).length).toBeGreaterThan(0);
+  const creditsBeforePlan = aiUsage.checkAndConsume.mock.calls.length;
   const g = await request(app).post('/api/meal-plan/generate').set('Authorization', as(U)).send({ calories: 2000, protein: 150, days: 7 });
   expect(g.status).toBe(200);
+  expect(g.body.source).toBe('builder');
   expect(g.body.dietary).toContain('nut free');
   expect(servedGroups(g.body.plan)).not.toContain('nuts');
+  expect(aiClient.chatJson).not.toHaveBeenCalled();
+  expect(aiUsage.checkAndConsume.mock.calls.length).toBe(creditsBeforePlan);
   await pool.query('delete from meal_plans where user_id=$1', [U]);
   await pool.query(`insert into meal_plans(user_id,name,meals) values ($1,'Typed',$2::jsonb)`, [U, JSON.stringify([{ name: 'Satay chicken', foods: [] }])]);
   const l = await request(app).get('/api/meal-plans').set('Authorization', as(U));
@@ -170,12 +174,16 @@ maybe('#140 r2 M1 on real Postgres: item #51 is still read', () => {
     await profile(diet, allergies);
     const g = await request(app).post('/api/meal-plan/generate').set('Authorization', as(U)).send({ calories: 2000, protein: 150, days: 7 });
     expect(g.status).toBe(200);
+    expect(g.body.source).toBe('builder');
     expect(g.body.dietary).toContain('fish free');
     expect(servedGroups(g.body.plan)).not.toContain('fish');
     expect(servedGroups(g.body.plan)).not.toContain('shellfish');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    const calls = aiClient.chatJson.mock.calls.length;
     const w = await request(app).post('/api/meal-plan/generate').set('Authorization', as(U)).send({ calories: 2000, protein: 150, days: 7, builderOnly: true });
     expect(w.body.plan && servedGroups(w.body.plan)).not.toContain('fish');
-    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiClient.chatJson.mock.calls.length).toBe(calls);
   });
   it('a stored 1M-item list keeps chat, generate and the plan list under 500 ms', async () => {
     await profile([], new Array(1e6).fill('zzzz'));

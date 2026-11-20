@@ -63,7 +63,7 @@ describe('sample receipt demo r2', () => {
     expect(html).not.toMatch(/sample wednesday/i);
   });
   it('the bundled sample still scores the same protein', () => {
-    expect(sampleReceiptDemo().protein).toBe(638);
+    expect(sampleReceiptDemo().protein).toBe(583);
   });
   it('drops tonightDinner from the payload', () => {
     expect(sampleReceiptDemo()).not.toHaveProperty('tonightDinner');

@@ -278,7 +278,9 @@
     }).then(function (result) {
       if (result.status === 200 && result.data && result.data.success) {
         form.reset();
-        status.textContent = "We've got your message. We reply within 1 business day. A confirmation is on its way to your email.";
+        status.textContent = result.data && result.data.receipt === false
+          ? "We've got your message. We reply within 1 business day."
+          : "We've got your message. We reply within 1 business day. A confirmation is on its way to your email.";
         return;
       }
       status.textContent = (result.data && result.data.error) || 'Could not send that message.';

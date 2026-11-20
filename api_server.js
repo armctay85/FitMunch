@@ -583,6 +583,7 @@ async function ensureMigrations() {
         CREATE UNIQUE INDEX IF NOT EXISTS favourites_user_type_item_uidx
           ON favourites (user_id, item_type, item_id);
         ALTER TABLE meal_plans ADD COLUMN IF NOT EXISTS user_edited BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE workout_plans ADD COLUMN IF NOT EXISTS meal_plan_id INTEGER;
         -- pt_id must be UUID (users.id is UUID). Drop broken integer-FK versions if present.
         CREATE TABLE IF NOT EXISTS pt_referrals (
           id SERIAL PRIMARY KEY,
@@ -1187,17 +1188,27 @@ const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans
 const EXPORT_QUERIES = [
   ...EXPORT_TABLES.map((t) => ({ key: t, from: t, where: 'user_id=$1', order: 'id' })),
   { key: 'ai_usage', from: 'ai_usage_monthly', where: 'user_id=$1::text', order: 'month, feature' },
-  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'pt_id, client_id' },
   { key: 'plan_assignments', from: 'plan_assignments', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
-  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'id' },
+  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'created_at, token' },
+  { key: 'support_messages', from: 'support_messages', where: 'user_id=$1', order: 'created_at, id' },
 ];
 const EXPORT_PAGE_ROWS = 1000;
-async function exportAllRows(q, userId) {
+function exportErrorClass(err) {
+  const code = err && err.code ? String(err.code) : '';
+  const message = String((err && err.message) || '')
+    .replace(/'[^']*'/g, '?')
+    .split('\n')[0]
+    .slice(0, 160);
+  return { code, message };
+}
+async function exportAllRows(q, userId, email) {
   const rows = [];
+  const bind = q.bind === 'email' ? email : userId;
   for (let offset = 0; ; offset += EXPORT_PAGE_ROWS) {
     const r = await _pool.query(
       `SELECT * FROM ${q.from} WHERE ${q.where} ORDER BY ${q.order} LIMIT ${EXPORT_PAGE_ROWS} OFFSET $2`,
-      [userId, offset]
+      [bind, offset]
     );
     const page = r.rows || [];
     rows.push(...page.map(exportRow));
@@ -1245,10 +1256,26 @@ router.get('/auth/export', authMiddleware, exportLimiter, async (req, res) => {
     };
     for (const q of EXPORT_QUERIES) {
       try {
-        data[q.key] = await exportAllRows(q, userId);
-      } catch (_) {
+        data[q.key] = await exportAllRows(q, userId, user.email);
+        if (q.key === 'support_messages' && user.email) {
+          const extra = await _pool.query(
+            'SELECT * FROM support_messages WHERE user_id IS DISTINCT FROM $1 AND lower(email)=lower($2) ORDER BY created_at, id',
+            [userId, user.email]
+          );
+          const seen = new Set((data[q.key] || []).map((row) => String(row.id)));
+          for (const row of extra.rows || []) {
+            if (!seen.has(String(row.id))) data[q.key].push(exportRow(row));
+          }
+        }
+      } catch (err) {
+        const info = exportErrorClass(err);
+        console.error('[export] table read failed:', q.key, info.code, info.message);
+        // Optional trainer and help-form tables are absent on some databases.
+        if (info.code === '42P01' && (q.key === 'pt_clients' || q.key === 'client_invitations' || q.key === 'plan_assignments' || q.key === 'support_messages')) {
+          data[q.key] = [];
+          continue;
+        }
         // Never hand over a partial file as if it were complete.
-        console.error('[export] table read failed:', q.key);
         res.set('Cache-Control', 'no-store');
         return res.status(500).json({ success: false, error: 'Could not prepare your full data export. Please try again.' });
       }
@@ -1362,6 +1389,7 @@ async function requireTrainer(req, res, next) {
       if (!require('./lib/coach-store').previewEnabled()) return res.status(401).json({ error: 'Unauthorised' });
       return next();
     }
+    if (qaTrainer.isQaTrainerAccount(req.user.userId)) return next();
     const r = await _pool.query('SELECT role FROM users WHERE id=$1', [req.user.userId]);
     if (!r.rows[0] || r.rows[0].role !== 'pt') {
       return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
@@ -1490,6 +1518,14 @@ router.post('/clients/:clientId/assign-plan', authMiddleware, requireTrainer, as
     const table = planType === 'meal' ? 'meal_plans' : 'workout_plans';
     const owned = await _pool.query(`SELECT 1 FROM ${table} WHERE id=$1 AND user_id=$2`, [planId, req.user.userId]);
     if (!owned.rows[0]) return res.status(404).json({ error: 'Plan not found' });
+    try {
+      const named = await _pool.query(`SELECT name FROM ${table} WHERE id=$1 AND user_id=$2`, [planId, req.user.userId]);
+      const current = named.rows[0] && named.rows[0].name;
+      if (named.rows[0] && (current == null || String(current).trim() === '')) {
+        const fallbackName = planType === 'meal' ? 'Meal plan' : 'Weekly program';
+        await _pool.query(`UPDATE ${table} SET name=$1 WHERE id=$2 AND user_id=$3`, [fallbackName, planId, req.user.userId]);
+      }
+    } catch (_) { /* the assignment still points at the plan the trainer owns */ }
     // Deactivate this trainer's old assignment of the same type
     await _pool.query(
       'UPDATE plan_assignments SET active=FALSE WHERE client_id=$1 AND plan_type=$2 AND pt_id=$3',
@@ -1875,10 +1911,24 @@ router.get('/workout-plans', authMiddleware, async (req, res) => {
 router.post('/workout-plans', authMiddleware, async (req, res) => {
   try {
     const { name, description, level, frequency, workouts } = stripNames(req.body || {});
-    const r = await _pool.query(
-      'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [req.user.userId, name, description, level, frequency||3, JSON.stringify(workouts||[])]
-    );
+    const mealPlanId = positiveIntId(req.body && req.body.mealPlanId);
+    const planName = (typeof name === 'string' && name.trim()) || 'Weekly program';
+    const rows = workoutProgram.dedupeWorkoutRows(workouts || []);
+    const duplicate = await findDuplicateWorkout(req.user.userId, planName, rows);
+    if (duplicate) return res.json({ success: true, plan: duplicate });
+    let r;
+    try {
+      r = await _pool.query(
+        'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts, meal_plan_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+        [req.user.userId, planName, description, level, frequency||3, JSON.stringify(rows), mealPlanId]
+      );
+    } catch (err) {
+      if (!err || err.code !== '42703') throw err;
+      r = await _pool.query(
+        'INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+        [req.user.userId, planName, description, level, frequency||3, JSON.stringify(rows)]
+      );
+    }
     res.json({ success: true, plan: r.rows[0] });
   } catch (err) { sendApiError(res, err); }
 });
@@ -1913,6 +1963,8 @@ const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
+const qaTrainer = require('./lib/qa-trainer');
+const workoutProgram = require('./lib/workout-program');
 
 /** Prepend the unknown-allergy flag onto a text field the user reads. */
 function stampAllergyText(res, flag, key) {
@@ -2028,6 +2080,10 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
 
     if (!aiClient.hasProvider()) {
       return res.json({ success: true, insight: fallback, provider: null });
+    }
+    // Home loads this on arrival. A background tip must not spend a free action.
+    if (req.body && req.body.background === true) {
+      return res.json({ success: true, insight: fallback, provider: null, source: 'fixed', charged: false });
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'insight' });
     if (!gate.allowed && gate.unavailable) {
@@ -2261,7 +2317,7 @@ const FILTERED_ATTEMPT_FLOOR_MS = Number(aiClient.MIN_ATTEMPT_MS) > 0 ? Number(a
  * FILTERED_ATTEMPT_FLOOR_MS is left, so the pair stays inside the Vercel function limit.
  * A thrown provider call is a failed attempt, not a 500.
  */
-async function filteredModelAttempts(call, accept) {
+async function filteredModelAttempts(call, accept, reasonOf) {
   const started = Date.now();
   const run = async (extra, budgetMs) => {
     try {
@@ -2274,7 +2330,14 @@ async function filteredModelAttempts(call, accept) {
   if (accept(result)) return { result, verified: true };
   const left = CHAT_BUDGET_MS - (Date.now() - started);
   if (left >= FILTERED_ATTEMPT_FLOOR_MS) {
-    result = await run(COACH_RETRY, left);
+    let extra = COACH_RETRY;
+    if (typeof reasonOf === 'function') {
+      try {
+        const why = String(reasonOf(result) || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+        if (why) extra = `${COACH_RETRY} Rejected because: ${why}`;
+      } catch (_) { /* keep the plain retry */ }
+    }
+    result = await run(extra, left);
     if (accept(result)) return { result, verified: true };
   }
   return { result, verified: false };
@@ -2288,7 +2351,7 @@ function coachFallbackReason(result) {
 
 /** Give back the one credit unless the reply we serve was verified. Never throws. */
 async function refundUnlessVerified(gate, userId, feature) {
-  await aiUsage.refundAiCall(gate, { userId: String(userId), feature });
+  return aiUsage.refundAiCall(gate, { userId: String(userId), feature });
 }
 
 function chatAiFilters(profile, ctxObj) {
@@ -2340,7 +2403,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
 
     // Saved filters are read, never written. An unreadable profile or filter list fails closed with no AI.
-    // A readable diet or allergy list still gets a real answer, then a fail-closed food check.
+    // A readable list may ask the model. If that reply is replaced by the safe notice, the credit is returned.
     const ctxObj = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
     // A bare string ("peanut") is the same guard as { allergies: ['peanut'] }.
     const sentFilters = typeof context === 'string'
@@ -2407,6 +2470,38 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
+    // A program request in chat is saved on the account. Other training questions stay chat.
+    // Filtered accounts keep the existing checked-reply path.
+    if (!filtered && workoutProgram.wantsSavedProgram(latestUser)) {
+      const ctx = await loadWorkoutContext(req.user.userId, profile, ctxObj);
+      const built = await aiClient.chatJson({
+        messages: [{ role: 'user', content: `${workoutProgram.workoutPrompt(ctx)}\n\nThe user asked: ${latestUser.slice(0, 500)}` }],
+        maxTokens: 4000,
+        temperature: 0.6,
+        route: '/ai/chat',
+        budgetMs: workoutProgram.WORKOUT_ATTEMPT_MS,
+      });
+      let plan = built && built.ok ? workoutProgram.normaliseWorkout(built.data, ctx) : null;
+      let source = 'ai';
+      if (!plan) {
+        await refundUnlessVerified(gate, req.user.userId, 'chat');
+        plan = workoutProgram.fallbackWorkoutPlan(ctx);
+        source = 'fixed';
+      } else {
+        res.locals.aiAnswered = true;
+      }
+      const saved = await saveUserWorkoutPlan(req.user.userId, plan).catch(() => null);
+      return res.json({
+        success: true,
+        reply: workoutProgram.renderWorkoutText(plan),
+        plan,
+        savedPlan: saved,
+        provider: source === 'ai' ? built.provider : null,
+        remaining: gate.remaining,
+        source,
+      });
+    }
+
     // Personal context from the account itself (profile, targets, latest plan,
     // today's log, recent meals), not just what the browser sends. Compact, one line each.
     const personal = await buildCoachContext(req.user.userId, profile, context, filters, aiFilters).catch(() => '');
@@ -2432,7 +2527,12 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
         const text = modelText(r && r.text);
         return !!(r && r.ok && text && dietGuard.replyVerified(text, filters, aiFilters));
       };
-      const { result: r, verified } = await filteredModelAttempts(callChat, accept);
+      const reasonOf = (attempt) => {
+        const text = modelText(attempt && attempt.text);
+        if (!text) return 'the reply was empty';
+        return dietGuard.replyIssues(text, filters, aiFilters).slice(0, 8).join(', ');
+      };
+      const { result: r, verified } = await filteredModelAttempts(callChat, accept, reasonOf);
       if (verified) {
         res.locals.aiAnswered = true;
         return res.json({
@@ -2445,9 +2545,11 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
           source: 'ai',
         });
       }
-      await refundUnlessVerified(gate, req.user.userId, 'chat');
+      const refunded = await refundUnlessVerified(gate, req.user.userId, 'chat');
       const fb = dietGuard.addressedCoachReply(safeOpts);
-      return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining: gate.remaining });
+      let remaining = gate.remaining;
+      if (refunded && typeof remaining === 'number') remaining += 1;
+      return res.json({ success: true, reply: fb.reply, source: fb.source, provider: null, remaining });
     }
 
     // One attempt. ai-client aborts the provider when CHAT_BUDGET_MS (20s) runs out,
@@ -2540,6 +2642,77 @@ router.get('/ai/usage', authMiddleware, async (req, res) => {
   }
 });
 
+async function loadWorkoutContext(userId, profile, body) {
+  const p = profile || {};
+  const b = body || {};
+  let meal = null;
+  try {
+    const found = await _pool.query(
+      'SELECT id, name, total_calories FROM meal_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+    meal = found.rows[0] || null;
+  } catch (_) { meal = null; }
+  const weight = p.weight != null ? p.weight : (p.weightKg != null ? p.weightKg : b.weightKg);
+  const mealName = meal && meal.name ? String(meal.name) : 'Week';
+  const mealKcal = meal && meal.total_calories ? ', ' + meal.total_calories + ' kcal' : '';
+  return {
+    goal: b.goal || p.fitnessGoal || p.fitness_goal || 'general_fitness',
+    level: b.level || 'intermediate',
+    daysPerWeek: b.daysPerWeek,
+    equipment: b.equipment,
+    sessionMinutes: b.sessionMinutes,
+    focus: b.focus,
+    weightKg: weight,
+    calories: p.targetCalories || p.target_calories || b.calories || null,
+    protein: p.targetProtein || p.target_protein || b.protein || null,
+    carbs: p.targetCarbs || p.target_carbs || b.carbs || null,
+    fat: p.targetFat || p.target_fat || b.fat || null,
+    mealPlanId: meal && meal.id,
+    mealPlanName: meal && meal.name,
+    mealWeek: meal ? mealName + mealKcal : '',
+  };
+}
+
+async function findDuplicateWorkout(userId, name, workouts) {
+  try {
+    const prev = await _pool.query(
+      'SELECT id, name, workouts FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 8',
+      [userId]
+    );
+    const want = JSON.stringify(workouts || []);
+    return (prev.rows || []).find((row) => String(row.name || '') === name && JSON.stringify(row.workouts || []) === want) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function saveUserWorkoutPlan(userId, plan) {
+  if (!userId || !plan) return null;
+  const planName = String(plan.planName || plan.name || '').trim() || 'Weekly program';
+  const rows = workoutProgram.dedupeWorkoutRows(plan.workouts || []);
+  const duplicate = await findDuplicateWorkout(userId, planName, rows);
+  if (duplicate) return { id: duplicate.id, name: duplicate.name || planName };
+  const workouts = JSON.stringify(rows);
+  const values = [userId, planName, plan.summary || '', plan.level || 'intermediate', plan.frequency || 3, workouts, plan.mealPlanId || null];
+  try {
+    const r = await _pool.query(
+      `INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts, meal_plan_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, name`,
+      values
+    );
+    return r.rows[0] || null;
+  } catch (err) {
+    if (!err || err.code !== '42703') throw err;
+    const r = await _pool.query(
+      `INSERT INTO workout_plans (user_id, name, description, level, frequency, workouts)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name`,
+      values.slice(0, 6)
+    );
+    return r.rows[0] || null;
+  }
+}
+
 // ── AI WORKOUT PLAN GENERATION ────────────────────────────────────────────────
 router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
   try {
@@ -2566,18 +2739,24 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
-    // #127a: filtered users (or an unreadable profile) get a fixed, food-free program. No AI, no credit (EQA #135 r4 S2).
-    const workoutFlag = dietGuard.unknownAllergyFlag(wpProfile && wpProfile.allergies);
-    const withWorkoutFlag = (plan) => {
-      if (!workoutFlag || !plan || typeof plan !== 'object') return plan;
-      const summary = typeof plan.summary === 'string' && plan.summary ? `${workoutFlag} ${plan.summary}` : plan.summary;
-      return { ...plan, summary, allergyFlag: workoutFlag };
-    };
-    if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
-      return res.json({ success: true, plan: withWorkoutFlag(dietGuard.safeWorkoutPlan({ daysPerWeek, level })), source: 'fixed', provider: null });
-    }
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
+    const wpCtx = await loadWorkoutContext(req.user.userId, wpProfile, req.body || {});
+    const sentFilters = [
+      ...dietGuard.listOf((req.body || {}).dietary),
+      ...dietGuard.listOf((req.body || {}).allergies),
+    ];
+    const wpFilters = dietGuard.combineFilters(wpProfile, sentFilters);
+    const wpPast = !!(wpProfile && !wpUnread && mealSafety.profileFilters(wpProfile).pastBudget);
+    const wpClosed = wpUnread || dietGuard.unreadable(wpFilters) || wpPast;
+    const wpFiltered = wpFilters.length > 0;
+    const fixedPlan = () => workoutProgram.fallbackWorkoutPlan({
+      ...wpCtx, goal, level, daysPerWeek, equipment, filtered: !!(wpFiltered || wpClosed),
+    });
+    // Unreadable filters, and filtered users while the kill switch is on, stay on the checked template.
+    // The switch is on unless FILTERED_USERS_CHECKED_BUILDER is 0 or off. Focus text is not copied into that program.
+    if (wpClosed || !aiClient.hasProvider() || (wpFiltered && dietGuard.filteredUsersCheckedBuilder())) {
+      const fixed = fixedPlan();
+      const saved = await saveUserWorkoutPlan(req.user.userId, fixed).catch(() => null);
+      return res.json({ success: true, plan: fixed, source: 'fixed', provider: null, notice: fixed.notice, savedPlan: saved });
     }
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
@@ -2595,47 +2774,53 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     }
     aiUsage.refundSmokeOnFailure(gate, res);
 
-    const days = Math.min(Math.max(parseInt(daysPerWeek, 10) || 3, 1), 7);
-    const prompt = `You are an Australian strength and conditioning coach building a weekly program.
-
-Goal: ${goal}
-Experience level: ${level}
-Training days per week: ${days}
-Equipment: ${equipment}
-Session length: ~${sessionMinutes} minutes
-${focus ? `Special focus / constraints: ${focus}` : ''}
-
-Design a practical ${days}-day weekly program. Progressive overload friendly, sensible exercise order (compounds first), realistic volume.
-
-Return ONLY valid JSON, no markdown:
-{
-  "planName": "string",
-  "summary": "one sentence",
-  "level": "${level}",
-  "frequency": ${days},
-  "workouts": [
-    {"day": 1, "name": "e.g. Push A", "sets": 4, "reps": "8-10", "rest": 90, "notes": "optional cue"}
-  ]
-}
-Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give 4-7 exercises per day. "name" is the exercise name prefixed by nothing. Include a short warm-up note in "notes" of each day's first exercise.`;
-
-    const r = await aiClient.chatJson({
-      messages: [{ role: 'user', content: prompt }],
+    const prompt = workoutProgram.workoutPrompt({ ...wpCtx, goal, level, daysPerWeek, equipment, focus, sessionMinutes });
+    const readPlan = (data) => {
+      const plan = data && workoutProgram.normaliseWorkout(data, { ...wpCtx, level, daysPerWeek });
+      if (!plan) return null;
+      if (wpFiltered && workoutProgram.workoutBreaksFilters(plan, wpFilters)) return { plan, leak: true };
+      return { plan, leak: false };
+    };
+    const askWorkout = (extra) => aiClient.chatJson({
+      messages: [{ role: 'user', content: extra ? `${prompt}\n${extra}` : prompt }],
       maxTokens: 4000,
       temperature: 0.6,
       route: '/ai/workout-plan',
+      budgetMs: workoutProgram.WORKOUT_ATTEMPT_MS,
     });
-    if (!r.ok) {
-      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
-      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
+    const r = await askWorkout('');
+    let picked = r && r.ok ? readPlan(r.data) : null;
+    let provider = r && r.provider;
+    let source = 'ai';
+    if (picked && picked.leak) {
+      const why = dietGuard.brokenGroups(workoutProgram.renderWorkoutText(picked.plan), wpFilters).join(', ') || 'excluded food';
+      const r2 = await askWorkout(`Your last answer was rejected (${why}). Remove that food from the name, summary and notes.`);
+      const second = r2 && r2.ok ? readPlan(r2.data) : null;
+      if (second && !second.leak) {
+        picked = second;
+        provider = r2.provider;
+        source = 'ai_retry';
+      } else picked = null;
     }
-    const plan = mealSafety.enforceJsonText(r.data, mealSafety.profileFilters(wpProfile)).value;
-    if (!plan.workouts || !Array.isArray(plan.workouts)) {
-      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
-      return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
+    if (!picked || picked.leak) {
+      const refunded = gate && await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
+      // No saved filters: a failed model stays a 502. A smoke account and a filtered account still get the checked template.
+      if (!wpFiltered && !(gate && gate.smoke)) {
+        return res.status(502).json({
+          success: false,
+          error: (r && r.ok === false) ? publicClientError(r.error, 'ai_error') : 'Invalid plan structure from AI',
+          provider: provider || (r && r.provider) || null,
+        });
+      }
+      const fixed = workoutProgram.fallbackWorkoutPlan({ ...wpCtx, goal, level, daysPerWeek, equipment, filtered: true });
+      const saved = await saveUserWorkoutPlan(req.user.userId, fixed).catch(() => null);
+      let remaining = gate.remaining;
+      if (refunded && typeof remaining === 'number') remaining += 1;
+      return res.json({ success: true, plan: fixed, source: 'fixed', provider: null, notice: fixed.notice, savedPlan: saved, remaining });
     }
+    const saved = await saveUserWorkoutPlan(req.user.userId, picked.plan).catch(() => null);
     res.locals.aiAnswered = true;
-    res.json({ success: true, plan: withWorkoutFlag(plan), provider: r.provider, remaining: gate.remaining });
+    res.json({ success: true, plan: picked.plan, provider, remaining: gate.remaining, source, savedPlan: saved });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
     sendApiError(res, err);
@@ -2868,7 +3053,44 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
       [req.user.userId]
     );
     const mealAssignment = assigned.rows.find(r => r.plan_type === 'meal');
-    const workoutAssignment = assigned.rows.find(r => r.plan_type === 'workout');
+    let workoutAssignment = assigned.rows.find(r => r.plan_type === 'workout' && r.workout_plan_name);
+    if (!workoutAssignment) {
+      try {
+        const own = await _pool.query(
+          'SELECT id, name, description, workouts, meal_plan_id FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',
+          [req.user.userId]
+        );
+        const row = own.rows[0];
+        if (row) {
+          workoutAssignment = {
+            plan_type: 'workout',
+            plan_id: row.id,
+            workout_plan_name: row.name,
+            description: row.description,
+            workouts: row.workouts,
+            meal_plan_id: row.meal_plan_id || null,
+            own: true,
+          };
+        }
+      } catch (err) {
+        if (!err || err.code !== '42703') throw err;
+        const own = await _pool.query(
+          'SELECT id, name, description, workouts FROM workout_plans WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1',
+          [req.user.userId]
+        );
+        const row = own.rows[0];
+        if (row) {
+          workoutAssignment = {
+            plan_type: 'workout',
+            plan_id: row.id,
+            workout_plan_name: row.name,
+            description: row.description,
+            workouts: row.workouts,
+            own: true,
+          };
+        }
+      }
+    }
     // Shopping lists
     const lists = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [req.user.userId]);
     // Recent logs
