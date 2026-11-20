@@ -291,6 +291,27 @@ describe('POST /api/checkout pay path', () => {
     expect(res.body.error).toMatch(/authentication required/i);
   });
 
+  it('a forged token cannot rewrite starter checkout to premium', async () => {
+    storage.getUserById = jest.fn(async (id) => ({
+      id,
+      email: 'forged@example.com',
+      name: 'Forged',
+      role: 'client',
+      subscriptionTier: 'free',
+      stripeCustomerId: null,
+    }));
+    const forged = jwt.sign({ userId: 'u-forged', email: 'forged@example.com', role: 'pt' }, jwtSecret());
+    const res = await request(app)
+      .post('/api/checkout')
+      .set('Authorization', `Bearer ${forged}`)
+      .set('Origin', 'https://www.fitmunch.com.au')
+      .send({ plan: 'starter' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/sign-in/);
+    expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+    expect(mockStripe.customers.create).not.toHaveBeenCalled();
+  });
+
   it('after signup (JWT from the same secret) returns a real Stripe Checkout URL', async () => {
     const token = jwt.sign(
       { userId: 'u-stranger', email: 'stranger@example.com', name: 'New Stranger', role: 'client' },

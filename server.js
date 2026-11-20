@@ -808,7 +808,15 @@ const supportFormLimiter = rateLimit({
 app.post('/api/support', supportFormLimiter, async (req, res) => {
   try {
     const { sendSupportConfirmation } = require('./lib/support-confirm');
-    const result = await sendSupportConfirmation(req.body || {});
+    let userId = null;
+    const header = req.headers.authorization || '';
+    if (header.startsWith('Bearer ')) {
+      try {
+        const decoded = require('./lib/session-token').verifySessionToken(header.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production');
+        if (decoded && typeof decoded.userId === 'string') userId = decoded.userId;
+      } catch (_) { userId = null; }
+    }
+    const result = await sendSupportConfirmation(req.body || {}, { userId });
     res.status(result.status).json(result.body);
   } catch (err) {
     sendApiError(res, err, 'Support form error');
@@ -949,14 +957,18 @@ app.post('/api/checkout', async (req, res) => {
     if (!requestedPlan) {
       return res.status(400).json({ error: 'Plan is required.' });
     }
-    const plan = normalizeCheckoutPlan(requestedPlan, decoded.role);
+    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+    const plan = normalizeCheckoutPlan(requestedPlan, await require('./lib/account-role').accountRole(user));
+    // A token role claim must not turn a starter or pro checkout into premium.
+    if ((requestedPlan === 'starter' || requestedPlan === 'pro') && plan === 'premium') {
+      return res.status(403).json({ error: 'That plan cannot be opened from this sign-in.' });
+    }
     // Validate before any Stripe call.
     const priceId = priceIdForPlan(plan);
     if (!priceId) {
       return res.status(400).json({ error: 'Unknown plan.' });
     }
 
-    const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
     const { eq } = require('drizzle-orm');
     const result = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
       // Re-read inside the lock so a concurrent new-user submit sees the customer
@@ -1037,13 +1049,13 @@ app.post('/api/coach/checkout', async (req, res) => {
     const authHeader = req.headers.authorization || '';
     if (authHeader.startsWith('Bearer ')) {
       const decoded = requireAuthUser(req);
-      if (decoded.role !== 'pt') {
+      const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
+      if (await require('./lib/account-role').accountRole(user) !== 'pt') {
         return res.status(403).json({
           success: false,
           error: 'Coach plans are only available for trainer accounts.',
         });
       }
-      const { storage, user, checkoutSmokeFallback } = await loadCheckoutUser(decoded);
       const { eq } = require('drizzle-orm');
       const result = await storage.withStripeCustomerLock(`user:${user.id}`, async () => {
         let current = user;
@@ -1115,7 +1127,7 @@ app.post('/api/coach/checkout', async (req, res) => {
     return sendStripeJson(res, { success: true, url: result.url, id: result.id });
   } catch (err) {
     if (sendAuthError(err, res)) return;
-    if (err.statusCode === 404) return res.status(404).json({ success: false, error: 'User not found.' });
+    if (err.statusCode === 404) return res.status(403).json({ success: false, error: 'Coach checkout is not available for this account.' });
     const status = Number(err.statusCode);
     const code = status >= 400 && status < 500 ? status : 500;
     if (code >= 500 || isInternalLeak(err && err.message)) {

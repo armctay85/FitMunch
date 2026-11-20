@@ -285,7 +285,8 @@ describe('diet-guard', () => {
     expect(dietGuard.combineFilters(null, undefined)).toEqual([]);
   });
   it('unknown allergy text is kept as a filter (fails closed)', () => {
-    expect(dietGuard.combineFilters({ allergies: ['kiwifruit'] }, [])).toEqual(['kiwifruit']);
+    const kept = dietGuard.combineFilters({ allergies: ['kiwifruit'] }, []);
+    expect(kept).toEqual(expect.arrayContaining(['kiwifruit', ...dietGuard.ALL_FREE]));
   });
   it('textBreaksFilters catches unsafe foods in free text', () => {
     expect(dietGuard.textBreaksFilters(UNSAFE_CHAT, ['nut free'])).toBe(true);

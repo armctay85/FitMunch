@@ -194,7 +194,8 @@ describe('regenerate once, then a builder answer that still addresses the questi
     profile({ dietaryPreferences: [], allergies: ['kiwi'] });
     say('Slice some kiwi on rice.', 'Kiwi again with chicken.');
     const r = await chat('Snack idea?');
-    expect(r.body.reply).not.toMatch(/kiwi/i);
+    expect(r.body.reply.replace(/Please confirm this allergy \(kiwi\)\. Foods that may contain it are left out\. ?/, '')).not.toMatch(/kiwi/i);
+    expect(r.body.reply).toMatch(/Please confirm this allergy \(kiwi\)/);
     expect(r.body.source).toBe('builder');
     expect(dietGuard.replyIssues('Slice some kiwi on rice.', dietGuard.combineFilters({ allergies: ['kiwi'] }))).toEqual(expect.arrayContaining(['allergy:kiwi']));
   });
@@ -670,7 +671,8 @@ describe('cite, prose, prefix and prompt mutants', () => {
     say('Have some kiwi with rice.', 'Kiwi again with chicken.');
     const r = await chat('Snack idea?');
     expect(r.body.source).toBe('builder');
-    expect(r.body.reply).not.toMatch(/kiwi/i);
+    expect(r.body.reply.replace(/Please confirm this allergy \(kiwifruit\)\. Foods that may contain it are left out\. ?/, '')).not.toMatch(/kiwi/i);
+    expect(r.body.reply).toMatch(/Please confirm this allergy \(kiwifruit\)/);
     expect(aiUsage.refundAiCall).toHaveBeenCalledTimes(1);
   });
 

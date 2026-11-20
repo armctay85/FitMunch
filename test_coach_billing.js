@@ -527,14 +527,35 @@ describe('Coach checkout trial', () => {
     });
   });
 
-  test('a client account cannot open Coach checkout', async () => {
-    const token = jwt.sign({ userId: 'c-1', role: 'client' }, jwtSecret());
+  test('a database client cannot open Coach checkout, even with a trainer token', async () => {
+    storage.getUserById = jest.fn(async (id) => ({
+      id,
+      email: 'c@example.com',
+      name: 'Casey',
+      role: 'client',
+      subscriptionTier: 'free',
+      stripeCustomerId: null,
+      settings: {},
+    }));
+    const token = jwt.sign({ userId: 'c-1', role: 'pt' }, jwtSecret());
     const res = await request(app)
       .post('/api/coach/checkout')
       .set('Authorization', `Bearer ${token}`)
       .send({ plan: 'coach-39' })
       .expect(403);
     expect(res.body.error).toMatch(/trainer/i);
+    expect(mockStripe.rawRequest).not.toHaveBeenCalled();
+  });
+
+  test('an unknown account id is forbidden, not missing', async () => {
+    storage.getUserById = jest.fn(async () => null);
+    const token = jwt.sign({ userId: 'missing-coach', role: 'pt' }, jwtSecret());
+    const res = await request(app)
+      .post('/api/coach/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plan: 'coach-39' });
+    expect(res.status).toBe(403);
+    expect(res.status).not.toBe(404);
     expect(mockStripe.rawRequest).not.toHaveBeenCalled();
   });
 

@@ -59,6 +59,15 @@ async function getUserByEmail(email) {
   return user;
 }
 
+const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Role from the users row. Not the token. A non-uuid id is not a database user. */
+async function getUserRole(userId) {
+  if (typeof userId !== 'string' || !USER_ID.test(userId)) return null;
+  const r = await pool.query('SELECT role FROM users WHERE id=$1', [userId]);
+  const role = r.rows[0] && r.rows[0].role;
+  return typeof role === 'string' ? role : null;
+}
+
 async function getUserById(id, opts) {
   // Receipt scan passes ensureSchema:false. The migrate pool is not on that
   // hot path; login has already created the tables.
@@ -511,6 +520,7 @@ module.exports = {
   createUser,
   getUserByEmail,
   getUserById,
+  getUserRole,
   updateUserSubscription,
   setAIDataConsent,
   updateUserCoachBilling,

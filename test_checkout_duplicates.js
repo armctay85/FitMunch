@@ -1760,6 +1760,7 @@ describe('retired pt-starter / pt-pro checkout plans', () => {
     ['starter', 'pt'],
     ['pro', 'pt'],
   ])('/api/checkout plan %s (role %s) => 400, zero Stripe calls', async (plan, role) => {
+    users.u1.role = role;
     const res = await request(app).post('/api/checkout')
       .set('Authorization', `Bearer ${tokenFor('u1', { role })}`)
       .set('Origin', 'https://www.fitmunch.com.au')
