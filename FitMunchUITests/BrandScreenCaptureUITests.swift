@@ -25,7 +25,7 @@ final class BrandScreenCaptureUITests: XCTestCase {
         save(auth, name: "auth")
         auth.terminate()
 
-        let onboarding = launch([AuditLaunchArgument.onboarding])
+        let onboarding = launch([BrandAuditLaunch.onboarding])
         XCTAssertTrue(
             onboarding.staticTexts["Track Your Progress"].waitForExistence(timeout: 25),
             "Onboarding welcome did not appear"
@@ -99,6 +99,6 @@ final class BrandScreenCaptureUITests: XCTestCase {
     }
 }
 
-enum AuditLaunchArgument {
+private enum BrandAuditLaunch {
     static let onboarding = "-AuditOnboarding"
 }
