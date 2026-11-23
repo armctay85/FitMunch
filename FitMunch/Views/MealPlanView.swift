@@ -420,14 +420,23 @@ struct MealPlanView: View {
         isLoading = true
         defer { isLoading = false }
         do {
+            let calorieTarget = Int(calories) ?? 2000
+            let proteinTarget = Int(protein) ?? 150
+            TrainingTargets.saveGoal(goal)
+            TrainingTargets.saveTargets(calories: calorieTarget, protein: proteinTarget)
+            if let userId = auth.user?.id {
+                await AllergyStore.sync(userId: userId)
+            }
+            let savedAllergies = AllergyStore.saved
             let response = try await APIClient.request(
                 "/meal-plan/generate",
                 method: "POST",
                 body: [
                     "goal": goal,
-                    "calories": Int(calories) ?? 2000,
-                    "protein": Int(protein) ?? 150,
+                    "calories": calorieTarget,
+                    "protein": proteinTarget,
                     "days": 7,
+                    "allergies": savedAllergies,
                 ],
                 as: MealPlanGenerateResponse.self
             )

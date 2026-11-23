@@ -23,9 +23,9 @@ enum Constants {
         static let premium = "premium"
     }
     
-    /// Subscription offering IDs
+    /// RevenueCat offering that holds the monthly and annual packages.
     enum Offerings {
-        static let main = "main"
+        static let primary = "default"
     }
 
     /// App Store Connect product IDs sold on the v1.0 paywall.

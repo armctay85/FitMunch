@@ -181,7 +181,74 @@ struct OnboardingView: View {
                 }
             }
             .sensoryFeedback(.selection, trigger: viewModel.selectedGoal)
+
+            allergyStep
         }
+    }
+
+    /// Asked on the goals step, before the plan step and before any AI food.
+    private var allergyStep: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Allergies")
+                .font(.headline)
+            Text("Pick every food allergy that applies. This is saved before any meal plan.")
+                .font(.subheadline)
+                .foregroundColor(Theme.fmSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(OnboardingViewModel.allergyChoices, id: \.self) { name in
+                let selected = viewModel.selectedAllergies.contains(name)
+                Button {
+                    if selected {
+                        viewModel.selectedAllergies.remove(name)
+                    } else {
+                        viewModel.selectedAllergies.insert(name)
+                    }
+                } label: {
+                    HStack {
+                        Text(name)
+                            .foregroundColor(Theme.offwhite)
+                        Spacer()
+                        if selected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Theme.brandGreen)
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.four)
+                    .frame(minHeight: 44)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(selected ? Theme.forestDeep : Theme.fmSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding-allergy-\(name.lowercased().replacingOccurrences(of: " ", with: "-"))")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+
+            let noOther = viewModel.noOtherAllergies
+            Button {
+                viewModel.noOtherAllergies.toggle()
+            } label: {
+                HStack {
+                    Text("No other allergies")
+                        .foregroundColor(Theme.offwhite)
+                    Spacer()
+                    if noOther {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.four)
+                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(noOther ? Theme.forestDeep : Theme.fmSurface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("onboarding-allergy-no-other")
+            .accessibilityAddTraits(noOther ? .isSelected : [])
+        }
+        .accessibilityIdentifier("onboarding-allergies")
     }
     
     /// Plan step content

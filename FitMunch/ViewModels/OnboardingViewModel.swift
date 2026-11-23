@@ -15,6 +15,14 @@ class OnboardingViewModel: ObservableObject {
     @Published var premiumPeriodText: String = "in the app"
     /// Free-trial length from the monthly intro offer, then that product's displayPrice.
     @Published var premiumTrialText: String = ""
+    /// Food allergies picked before any meal plan. "No other" confirms the list is complete.
+    @Published var selectedAllergies: Set<String> = []
+    @Published var noOtherAllergies: Bool = false
+
+    static let allergyChoices = [
+        "Peanut", "Tree nuts", "Dairy", "Eggs", "Gluten",
+        "Soy", "Sesame", "Fish", "Shellfish", "Sulphites",
+    ]
 
     /// Total number of onboarding steps
     let totalSteps = 3
@@ -30,11 +38,23 @@ class OnboardingViewModel: ObservableObject {
         print("ONBOARDING_PRICE \(offer.price)")
     }
 
-    /// Move to the next onboarding step
+    /// Move to the next onboarding step. Allergies are saved before the plan step,
+    /// which is before any AI food output.
     func nextStep() {
+        if currentStep == 1 {
+            commitAllergies()
+        }
         if currentStep < totalSteps - 1 {
             currentStep += 1
         }
+    }
+
+    /// Writes the allergy chips and the "no other" confirmation, then the profile.
+    func commitAllergies() {
+        AllergyStore.save(selected: selectedAllergies, noOther: noOtherAllergies)
+        TrainingTargets.saveGoal(selectedGoal.rawValue)
+        let userId = AuthManager.shared.user?.id ?? ""
+        Task { await AllergyStore.sync(userId: userId) }
     }
     
     /// Move to the previous onboarding step
@@ -60,7 +80,7 @@ class OnboardingViewModel: ObservableObject {
             return false
         }
         
-        // Save to UserDefaults
+        commitAllergies()
         UserDefaults.standard.set(true, forKey: Constants.UserDefaultsKeys.hasCompletedOnboarding)
         if AuditLaunch.isFlowQA {
             AuthManager.shared.logout()

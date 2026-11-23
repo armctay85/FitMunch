@@ -228,7 +228,7 @@ struct SettingsView: View {
                         privacyExpanded.toggle()
                     }
                     if privacyExpanded || privacyRequest > 0 {
-                        Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
+                        Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, the number of days, and saved allergies.")
                             .font(.footnote)
                             .foregroundStyle(Theme.fmSecondary)
                             .fixedSize(horizontal: false, vertical: true)

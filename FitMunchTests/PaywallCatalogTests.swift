@@ -10,7 +10,7 @@ final class PaywallCatalogTests: XCTestCase {
         XCTAssertFalse(PaywallCatalog.sellable.contains("fitmunch_weekly"))
         XCTAssertFalse(Constants.ProductIDs.sellable.contains("fitmunch_weekly"))
         XCTAssertEqual(Constants.Entitlements.premium, "premium")
-        XCTAssertEqual(Constants.Offerings.main, "main")
+        XCTAssertEqual(Constants.Offerings.primary, "default")
     }
 
     func testLegacyWeeklyIdIsNotSellable() {

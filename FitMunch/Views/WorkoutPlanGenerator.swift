@@ -1,7 +1,7 @@
 import Foundation
 
-/// Parity mirror of the web `generateActivityPlan.js` plan data.
-/// Types: gym (Beginner/Intermediate/Advanced) + home (bodyweight).
+/// Weekly training built from the user's goal, calorie target, and protein target.
+/// Gym and home use different movements. Sets, reps, and rest follow that goal.
 struct WorkoutExercise: Identifiable {
     let id = UUID()
     let name: String
@@ -32,7 +32,28 @@ struct WorkoutDay: Identifiable {
 }
 
 enum WorkoutPlanGenerator {
-    static func plan(type: String, level: String) -> [WorkoutDay] {
+    static func plan(
+        type: String,
+        level: String,
+        goal: String = TrainingTargets.goal,
+        calories: Int = TrainingTargets.calories,
+        protein: Int = TrainingTargets.protein
+    ) -> [WorkoutDay] {
+        let dose = TrainingDose(goal: goal, calories: calories, protein: protein)
+        return baseDays(type: type, level: level).map { day in
+            let exercises = day.exercises.map { dose.prescribed($0) }
+            return WorkoutDay(
+                day: day.day,
+                workout: dose.sessionName(day.workout),
+                exercises: exercises,
+                duration: WorkoutDuration.minutes(for: exercises) ?? day.duration,
+                intensity: dose.intensity,
+                focusAreas: dose.focusAreas(day.focusAreas)
+            )
+        }
+    }
+
+    private static func baseDays(type: String, level: String) -> [WorkoutDay] {
         if type == "home" { return homePlan(level: level) }
         switch level {
         case "Beginner": return gymBeginner
@@ -160,6 +181,59 @@ enum WorkoutPlanGenerator {
                 WorkoutExercise(name: "Side Plank", sets: 3, time: "20s each", rest: "30s", notes: "Hips up"),
             ], duration: 1, intensity: "Moderate", focusAreas: ["Strength", "Stability"]),
         ]
+    }
+}
+
+/// Sets, reps, and rest prescribed from the goal and the calorie and protein targets.
+private struct TrainingDose {
+    let setsDelta: Int
+    let rest: String
+    let intensity: String
+    let goalLabel: String
+    let calories: Int
+    let protein: Int
+
+    init(goal: String, calories: Int, protein: Int) {
+        let key = goal.lowercased()
+        let building = key.contains("muscle") || key.contains("gain") || key.contains("strength") || protein >= 160 || calories >= 2600
+        let cutting = key.contains("lose") || key.contains("weight_loss") || key.contains("cut") || (calories > 0 && calories <= 1800)
+        self.calories = max(calories, 0)
+        self.protein = max(protein, 0)
+        if building && !cutting {
+            setsDelta = 1
+            rest = "120s"
+            intensity = "High"
+            goalLabel = "Strength"
+        } else if cutting {
+            setsDelta = 0
+            rest = "45s"
+            intensity = "Moderate"
+            goalLabel = "Conditioning"
+        } else {
+            setsDelta = 0
+            rest = "75s"
+            intensity = "Moderate"
+            goalLabel = "Balanced"
+        }
+    }
+
+    func prescribed(_ exercise: WorkoutExercise) -> WorkoutExercise {
+        WorkoutExercise(
+            name: exercise.name,
+            sets: min(6, max(2, exercise.sets + setsDelta)),
+            reps: exercise.reps,
+            time: exercise.time,
+            rest: rest,
+            notes: exercise.notes
+        )
+    }
+
+    func sessionName(_ workout: String) -> String {
+        "\(goalLabel): \(workout)"
+    }
+
+    func focusAreas(_ areas: [String]) -> [String] {
+        areas + ["\(calories) kcal", "\(protein)g protein"]
     }
 }
 

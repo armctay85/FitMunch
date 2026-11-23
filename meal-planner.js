@@ -92,9 +92,16 @@ function planInput(body) {
   const unknown = dietary.filter((d) => !planEngine.DIET_FILTERS.includes(d));
   if (unknown.length) return { error: `Unknown dietary filter: ${unknown.slice(0, 3).join(', ').slice(0, 80)}.` };
   if (dietary.length > 12) return { error: 'Too many dietary filters.' };
+  // Saved allergies from the client. A missing field is an empty list. A bad shape is a 400.
+  let allergies = [];
+  if (b.allergies != null) {
+    const allergyError = dietGuard.filterSaveError(b.allergies);
+    if (allergyError) return { error: allergyError };
+    allergies = dietGuard.listOf(b.allergies);
+  }
   // Only these fields reach the builder and the AI prompt. FitMunch doesn't plan to a price, so a
   // `budget` (or any other extra field) from an older client is dropped here.
-  return { calories, protein, days, goal, dietary };
+  return { calories, protein, days, goal, dietary, allergies };
 }
 
 function planPrompt({ goal, calories, protein, days, dietary, allergies = [] }, retryReason) {
@@ -255,7 +262,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (process.env.DATABASE_URL) return unreadPlan(res);
   }
   let stored = mealSafety.profileFilters(profile);
-  const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary });
+  const merged = mealSafety.mergeFilters(stored, { dietary: parsed.dietary, allergies: parsed.allergies });
   const input = { ...parsed, dietary: parsed.dietary, allergies: merged.allergies };
   // Deterministic food-DB plan only: no AI call, no data leaves FitMunch, no
   // credit, so no AI consent is needed. Used by onboarding without consent.
@@ -323,7 +330,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       saved = dietGuard.savedFilters(profile);
       // Typed allergies from the profile go into the AI meal check too (#127).
       const read = mealSafety.profileFilters(profile);
-      input.allergies = read.allergies;
+      input.allergies = mealSafety.mergeFilters(read, { allergies: parsed.allergies }).allergies;
       stored = read;
     } catch (_) {
       // A configured database that cannot be read is the notice only. No week, and no model call.

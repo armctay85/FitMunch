@@ -363,7 +363,7 @@ describe('iOS ASC review blockers (source contract)', () => {
   it('paywall loads main offering plus monthly/annual product IDs, with retry when empty', () => {
     expect(constants).toContain('fitmunch_monthly');
     expect(constants).toContain('fitmunch_annual');
-    expect(constants).toContain('static let main = "main"');
+    expect(constants).toContain('static let primary = "default"');
     expect(constants).toContain('static let premium = "premium"');
     expect(constants).not.toContain('login.html?plan=premium');
     expect(constants).not.toContain('premiumWebURL');
@@ -374,8 +374,8 @@ describe('iOS ASC review blockers (source contract)', () => {
     expect(constants).not.toContain('fitmunch_weekly');
     expect(premium).not.toContain('fitmunch_weekly');
     expect(premium).toContain('Purchases.isConfigured');
-    expect(premium).toContain('offerings.offering(identifier: Constants.Offerings.main)');
-    expect(premium).toContain('Purchases.shared.products');
+    expect(premium).toContain('offerings.offering(identifier: Constants.Offerings.primary)');
+    expect(premium).not.toContain('offerings.current');
     expect(premium).toContain('plansFromStoreKit');
     expect(premium).toContain('Product.products(for:');
     expect(premium).toContain('getPlans()');

@@ -10,8 +10,8 @@ struct WorkoutView: View {
 
     @AppStorage("completedWorkoutDays") private var completedWorkoutDays = ""
 
-    @State private var planType = "gym"
-    @State private var planLevel = "Beginner"
+    @AppStorage("workoutPlanType") private var planType = "gym"
+    @AppStorage("workoutPlanLevel") private var planLevel = "Beginner"
     @State private var plan: [WorkoutDay] = []
     @State private var hasGeneratedPlan = false
     @State private var plansGenerated = 0
@@ -88,6 +88,11 @@ struct WorkoutView: View {
             }
             .pickerStyle(.segmented)
 
+            Text("Built from your \(TrainingTargets.goal.replacingOccurrences(of: "_", with: " ")) target, \(TrainingTargets.calories) kcal and \(TrainingTargets.protein)g protein.")
+                .font(.caption)
+                .foregroundStyle(Theme.fmSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             Button {
                 generate(fromUser: true)
             } label: {
@@ -135,7 +140,8 @@ struct WorkoutView: View {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(ex.sets) sets").font(.caption).foregroundStyle(Theme.fmSecondary)
-                        Text(ex.reps ?? ex.time ?? "-").font(.caption).foregroundStyle(Theme.fmSecondary)
+                        Text(ex.reps ?? ex.time ?? "reps").font(.caption).foregroundStyle(Theme.fmSecondary)
+                        Text("Rest \(ex.rest)").font(.caption).foregroundStyle(Theme.fmSecondary)
                     }
                 }
                 .padding(.vertical, 4)
@@ -170,7 +176,13 @@ struct WorkoutView: View {
     }
 
     private func generate(fromUser: Bool = false) {
-        plan = WorkoutPlanGenerator.plan(type: planType, level: planLevel)
+        plan = WorkoutPlanGenerator.plan(
+            type: planType,
+            level: planLevel,
+            goal: TrainingTargets.goal,
+            calories: TrainingTargets.calories,
+            protein: TrainingTargets.protein
+        )
         hasGeneratedPlan = true
         if fromUser {
             plansGenerated += 1
