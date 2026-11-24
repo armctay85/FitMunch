@@ -73,6 +73,6 @@ final class StorefrontGateUITests: XCTestCase {
         let joined = monthlyLabel + "\n" + annualLabel
         XCTAssertTrue(monthlyLabel.contains("19.99"), "monthly GATE_PRICE flag=\(flag) \(monthlyLabel)")
         XCTAssertTrue(annualLabel.contains("149.99"), "annual GATE_PRICE flag=\(flag) \(annualLabel)")
-        XCTAssertFalse(joined.range(of: #"(^|[^0-9.])(12\.99|\b99\.99)\b"#, options: .regularExpression) != nil, "US price 12.99 or $99.99 GATE_PRICE flag=\(flag) \(joined)")
+        XCTAssertFalse(joined.range(of: "(^|[^0-9.])(12\\.99|\\b99\\.99)\\b", options: .regularExpression) != nil, "US price 12.99 GATE_PRICE flag=\(flag) \(joined)")
     }
 }
