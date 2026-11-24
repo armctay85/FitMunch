@@ -9,6 +9,14 @@ final class StorefrontGateUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        // workflow_dispatch broken_session injects this into the test runner only.
+        // Normal runs leave it unset and still start the AU session below.
+        let brokenSession = ProcessInfo.processInfo.environment["FITMUNCH_BROKEN_SESSION"] == "1"
+            || ProcessInfo.processInfo.arguments.contains("-FITMUNCH_BROKEN_SESSION")
+        if brokenSession {
+            print("GATE_BROKEN_SESSION no SKTestSession")
+            return
+        }
         let url = try XCTUnwrap(
             Bundle(for: StorefrontGateUITests.self)
                 .url(forResource: "FitMunchProducts", withExtension: "storekit"),

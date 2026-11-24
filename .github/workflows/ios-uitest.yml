@@ -27,6 +27,10 @@ on:
         description: Run the build 11 screen audit on 6.9in and 6.5in simulators
         type: boolean
         default: false
+      broken_session:
+        description: Run StorefrontGateUITests with no SKTestSession. The job passes only if that test fails on a US price in under 120s.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -37,7 +41,7 @@ concurrency:
 
 jobs:
   uitest:
-    if: github.event_name != 'workflow_dispatch' || inputs.screen_audit != true
+    if: github.event_name != 'workflow_dispatch' || (inputs.screen_audit != true && inputs.broken_session != true && inputs.broken_session != 'true')
     runs-on: macos-26
     timeout-minutes: 90
 
@@ -491,5 +495,220 @@ jobs:
           path: |
             artifacts/audit-2026-10-15/
             !**/DerivedData/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Dispatch only. Normal pull_request runs never set FITMUNCH_BROKEN_SESSION,
+  # so StorefrontGateUITests still starts its AU SKTestSession.
+  broken-session:
+    if: github.event_name == 'workflow_dispatch' && (inputs.broken_session == true || inputs.broken_session == 'true')
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/attach-storekit-test-action.py
+          python3 scripts/log-storekit-scheme-path.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("FitMunch.xcodeproj/xcshareddata/xcschemes/FitMunchStoreKit.xcscheme")
+          text = path.read_text()
+          start = text.find("<TestAction")
+          end = text.find("</TestAction>", start)
+          if start < 0 or end < 0:
+              raise SystemExit("FitMunchStoreKit.xcscheme has no TestAction")
+          section = text[start:end]
+          if "FITMUNCH_BROKEN_SESSION" not in section:
+              env_at = section.find("<EnvironmentVariables>")
+              var = """
+               <EnvironmentVariable
+                  key = "FITMUNCH_BROKEN_SESSION"
+                  value = "1"
+                  isEnabled = "YES">
+               </EnvironmentVariable>"""
+              arg = """
+               <CommandLineArgument
+                  argument = "-FITMUNCH_BROKEN_SESSION"
+                  isEnabled = "YES">
+               </CommandLineArgument>"""
+              if env_at >= 0:
+                  insert_at = start + env_at + len("<EnvironmentVariables>")
+                  text = text[:insert_at] + var + text[insert_at:]
+              else:
+                  open_end = text.find(">", start)
+                  block = """
+               <EnvironmentVariables>""" + var + """
+               </EnvironmentVariables>"""
+                  text = text[:open_end + 1] + block + text[open_end + 1:]
+              end = text.find("</TestAction>", start)
+              section = text[start:end]
+              args_at = section.find("<CommandLineArguments>")
+              if args_at >= 0:
+                  insert_at = start + args_at + len("<CommandLineArguments>")
+                  text = text[:insert_at] + arg + text[insert_at:]
+              else:
+                  open_end = text.find(">", start)
+                  block = """
+               <CommandLineArguments>""" + arg + """
+               </CommandLineArguments>"""
+                  text = text[:open_end + 1] + block + text[open_end + 1:]
+              path.write_text(text)
+          print("scheme test action sets FITMUNCH_BROKEN_SESSION")
+          PY
+
+      - name: Expect a US price failure with no SKTestSession
+        run: |
+          set -euo pipefail
+          UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+          bash scripts/set-simulator-region-au.sh "$UDID"
+          bash scripts/warm-simulator-launch.sh "$UDID"
+          DERIVED="${RUNNER_TEMP:-/tmp}/DerivedDataBrokenSession"
+          rm -rf "$DERIVED"
+          mkdir -p artifacts/broken-session
+          xcodebuild build-for-testing \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunchStoreKit \
+            -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
+            | tee artifacts/broken-session/build.log
+          XCTESTRUN=""
+          while IFS= read -r candidate; do
+            if grep -a -q FitMunchUITests "$candidate"; then
+              XCTESTRUN="$candidate"
+              break
+            fi
+          done < <(find "$DERIVED" -name '*.xctestrun' -print)
+          test -n "$XCTESTRUN"
+          python3 - "$XCTESTRUN" <<'PY'
+          import plistlib, sys
+          from pathlib import Path
+
+          def collect(node, acc):
+              if isinstance(node, dict):
+                  name = str(node.get("BlueprintName", ""))
+                  blob = str(node.get("TestBundlePath", ""))
+                  if name == "FitMunchUITests" or "FitMunchUITests" in blob:
+                      acc.append(node)
+                  for value in node.values():
+                      collect(value, acc)
+              elif isinstance(node, list):
+                  for value in node:
+                      collect(value, acc)
+
+          path = Path(sys.argv[1])
+          data = plistlib.loads(path.read_bytes())
+          acc = []
+          collect(data, acc)
+          if not acc:
+              raise SystemExit(f"no FitMunchUITests target in {path}")
+          for node in acc:
+              env = node.get("EnvironmentVariables")
+              if not isinstance(env, dict):
+                  env = {}
+                  node["EnvironmentVariables"] = env
+              env["FITMUNCH_BROKEN_SESSION"] = "1"
+              args = node.get("CommandLineArguments")
+              if not isinstance(args, list):
+                  args = []
+                  node["CommandLineArguments"] = args
+              if "-FITMUNCH_BROKEN_SESSION" not in args:
+                  args.append("-FITMUNCH_BROKEN_SESSION")
+          path.write_bytes(plistlib.dumps(data))
+          text = path.read_text(errors="replace")
+          if "FITMUNCH_BROKEN_SESSION" not in text or "-FITMUNCH_BROKEN_SESSION" not in text:
+              raise SystemExit(f"injection missing from {path}")
+          print(f"injected targets={len(acc)} file={path}")
+          PY
+          set +e
+          xcodebuild test-without-building \
+            -xctestrun "$XCTESTRUN" \
+            -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
+            -only-testing:FitMunchUITests/StorefrontGateUITests/testPricesWithoutLocalStoreKit \
+            -testLanguage en \
+            -testRegion AU \
+            -parallel-testing-enabled NO \
+            -resultBundlePath artifacts/broken-session/storefront.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
+            TEST_RUNNER_FITMUNCH_BROKEN_SESSION=1 \
+            | tee artifacts/broken-session/storefront.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "broken_session_xcodebuild_exit=$rc"
+          python3 - "$rc" artifacts/broken-session/storefront.log <<'PY'
+          import re, sys
+          from pathlib import Path
+          rc = int(sys.argv[1])
+          log = Path(sys.argv[2]).read_text(errors="replace")
+          case = re.compile(
+              r"Test Case '-\[FitMunchUITests\.StorefrontGateUITests testPricesWithoutLocalStoreKit\]' (passed|failed) \(([0-9]+(?:\.[0-9]+)?) seconds\)\."
+          )
+          found = case.findall(log)
+          if not found:
+              print("no StorefrontGateUITests result line")
+              sys.exit(1)
+          status, seconds = found[-1]
+          elapsed = float(seconds)
+          anchored = re.compile(r"(^|[^0-9.])(12\.99|99\.99)\b")
+          us_lines = [
+              line for line in log.splitlines()
+              if ("error:" in line or "XCTAssert" in line or "failed -" in line) and anchored.search(line)
+          ]
+          switched = "GATE_BROKEN_SESSION no SKTestSession" in log
+          print(f"test_status={status} elapsed_s={elapsed} us_lines={len(us_lines)} switched={switched}")
+          for line in us_lines:
+              print("US_PRICE_LINE=" + line)
+          summary = Path("broken-session-summary.md")
+          summary.write_text(
+              "\n".join([
+                  "## Broken session (expected red)",
+                  "StorefrontGateUITests/testPricesWithoutLocalStoreKit ran with no SKTestSession.",
+                  f"xcodebuild_exit={rc}",
+                  f"test_status={status}",
+                  f"elapsed_s={elapsed}",
+                  "US price line:",
+                  us_lines[0] if us_lines else "(none)",
+                  "",
+              ])
+          )
+          if not (rc != 0 and status == "failed" and elapsed < 120 and us_lines and switched):
+              print("The gate did not fail on a US price in under 120s.")
+              sys.exit(1)
+          print("broken_session_expected_red=pass")
+          PY
+          cat broken-session-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload broken session log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: broken-session-log
+          path: artifacts/broken-session/storefront.log
           if-no-files-found: warn
           retention-days: 14
