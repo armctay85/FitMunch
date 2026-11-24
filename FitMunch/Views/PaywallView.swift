@@ -562,8 +562,8 @@ private struct PackageCard: View {
                     .stroke(isSelected ? Theme.fmBrand : Theme.fmSeparator, lineWidth: isSelected ? 2 : 1)
             )
         }
-        .buttonStyle(.plain)
-        .uniqueButtonIdentifier("paywall-plan-\(plan.id)")
+        .buttonStyle(PaywallPlanCardStyle(identifier: "paywall-plan-\(plan.id)"))
+        .accessibilityIdentifier("paywall-plan-\(plan.id)")
         .accessibilityLabel(voiceOverLabel)
     }
 
@@ -579,6 +579,52 @@ private struct PackageCard: View {
             parts.append("Save \(savingsPercent) percent")
         }
         return parts.joined(separator: ". ")
+    }
+}
+
+/// Plain buttons drop paywall-plan-* on iOS 26, so the price text is visible
+/// and the card button is not. Contain keeps the price texts. The button
+/// trait and a UIButton anchor publish paywall-plan-<id> to XCTest.
+private struct PaywallPlanCardStyle: ButtonStyle {
+    var identifier: String
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(.isButton)
+            .background {
+                PaywallPlanButtonAnchor(identifier: identifier)
+            }
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+/// UIButton with the plan id. A SwiftUI plain button never became buttons[id].
+private struct PaywallPlanButtonAnchor: UIViewRepresentable {
+    var identifier: String
+
+    func makeUIView(context: Context) -> UIButton {
+        let button = UIButton(type: .custom)
+        button.backgroundColor = .clear
+        button.isUserInteractionEnabled = false
+        stamp(button)
+        return button
+    }
+
+    func updateUIView(_ button: UIButton, context: Context) {
+        stamp(button)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 44, height: max(proposal.height ?? 44, 44))
+    }
+
+    private func stamp(_ button: UIButton) {
+        button.isAccessibilityElement = true
+        button.accessibilityIdentifier = identifier
+        button.accessibilityTraits = .button
     }
 }
 

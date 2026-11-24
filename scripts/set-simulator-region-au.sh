@@ -15,7 +15,17 @@ boot_ready() {
   local attempt
   for attempt in 1 2; do
     xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
-    if xcrun simctl bootstatus "$UDID" -b >&2; then
+    if python3 - "$UDID" << 'PY'
+import subprocess, sys
+udid = sys.argv[1]
+try:
+    result = subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], timeout=180)
+except subprocess.TimeoutExpired:
+    print(f"bootstatus timed out for {udid}", file=sys.stderr)
+    sys.exit(124)
+sys.exit(result.returncode)
+PY
+    then
       return 0
     fi
     echo "bootstatus failed for $UDID (attempt $attempt)" >&2
