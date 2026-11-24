@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: web-quality-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  # Cancel superseded PR runs only. A push to main runs to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest

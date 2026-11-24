@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Live probes are never cancelled. Each deployment_status event has its own
+  # group, so a later deploy cannot drop a queued probe. Schedule and dispatch
+  # have no deployment_status id, so they fall back to github.run_id.
+  group: post-deploy-probe-${{ github.event.deployment_status.id || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   probe:
     # Preview deploys do not change fitmunch.com.au. Probe those hosts after a

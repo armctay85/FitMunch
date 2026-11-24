@@ -520,9 +520,9 @@ describe('prod-smoke.yml serialization', () => {
     expect(smokeJob).toContain("github.event.deployment.environment == 'Production – fit-munch'");
     expect(smokeJob).not.toMatch(/contains\(github\.event\.deployment\.environment/);
   });
-  it('deploy and periodic smokes use separate groups, each cancel-in-progress', () => {
-    expect(smokeJob).toContain("group: fitmunch-production-smoke-${{ github.event_name == 'deployment_status' && 'deploy' || 'periodic' }}");
-    expect(smokeJob).toMatch(/group: fitmunch-production-smoke-\$\{\{[^\n]+\}\}\n\s+cancel-in-progress: true/);
+  it('every deploy gets its own smoke: group keyed per event, never cancelled (class C, EQA locked 25 Nov 2026)', () => {
+    expect(smokeJob).toMatch(/\n\s+group: [^\n]*\$\{\{ github\.event\.deployment_status\.id \|\| github\.run_id \}\}[^\n]*\n\s+cancel-in-progress: false\n/);
+    expect(smokeJob).not.toMatch(/cancel-in-progress: true/);
   });
   it('accepts exactly the en dash and hyphen fit-munch production names, nothing else', () => {
     const names = [...smokeJob.matchAll(/github\.event\.deployment\.environment == '([^']+)'/g)].map((m) => m[1]);

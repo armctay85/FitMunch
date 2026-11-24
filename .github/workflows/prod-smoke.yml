@@ -10,6 +10,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Live probes are never cancelled. Each deployment_status event has its own
+  # group, so a later deploy cannot drop a queued smoke. Schedule and dispatch
+  # have no deployment_status id, so they fall back to github.run_id.
+  group: prod-smoke-${{ github.event.deployment_status.id || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   smoke:
     # Exactly one smoke per production deploy. Every deploy emits
@@ -34,12 +41,11 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Two groups: deploy smokes share one, schedule and dispatch share another,
-    # so a periodic run never cancels a deploy smoke. Within each group a newer
-    # run cancels the older one in flight, so only the latest runs.
+    # Every deploy gets its own smoke. A newer deploy must not cancel an older
+    # one in flight. Schedule and dispatch fall back to github.run_id.
     concurrency:
-      group: fitmunch-production-smoke-${{ github.event_name == 'deployment_status' && 'deploy' || 'periodic' }}
-      cancel-in-progress: true
+      group: fitmunch-production-smoke-${{ github.event.deployment_status.id || github.run_id }}
+      cancel-in-progress: false
     permissions:
       contents: read
     steps:
