@@ -145,6 +145,7 @@ module.exports = {
     '**/test_ai_allergen_stopgap_r6.js',
     '**/test_eqa_acceptance_allergy_r5.js',
     '**/test_ai_allergen_stopgap_r6_pg.js',
+    '**/test_eqa_ci5_delete_pg.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
