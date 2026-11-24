@@ -31,27 +31,16 @@ struct PaywallView: View {
 
     var body: some View {
         NavigationStack {
-            // One column. A bottom inset taller than the iPad compatibility
-            // window (and the iPhone 16e window) drew the Annual card over the
-            // headline and the last feature row. ViewThatFits keeps every row
-            // in that column, and scrolls only when the window is shorter.
-            GeometryReader { proxy in
-                let offered = proxy.size
-                ViewThatFits(in: .vertical) {
-                    paywallColumn(.regular, width: offered.width)
-                        .fixedSize(horizontal: false, vertical: true)
-                    paywallColumn(.compact, width: offered.width)
-                        .fixedSize(horizontal: false, vertical: true)
-                    ScrollView {
-                        paywallColumn(.compact, width: offered.width)
-                    }
-                    .refreshable {
-                        await loadPlansWithRetry()
-                    }
-                    .frame(width: offered.width, height: offered.height, alignment: .top)
-                }
-                .frame(width: offered.width, height: offered.height, alignment: .top)
+            // One scrolling column. A bottom inset drew the Annual card over the
+            // headline and the last feature row. A GeometryReader then gave that
+            // column no size, so the headline left the accessibility tree.
+            ScrollView {
+                paywallColumn(.compact)
             }
+            .refreshable {
+                await loadPlansWithRetry()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Theme.surface)
             .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
@@ -119,7 +108,7 @@ struct PaywallView: View {
 
     // MARK: - Sections
 
-    private func paywallColumn(_ density: PaywallDensity, width: CGFloat) -> some View {
+    private func paywallColumn(_ density: PaywallDensity) -> some View {
         VStack(alignment: .leading, spacing: density.section) {
             headerSection(density)
             if isLoadingPlans {
@@ -140,7 +129,7 @@ struct PaywallView: View {
         .padding(.horizontal, 16)
         .padding(.top, density == .compact ? 0 : 4)
         .padding(.bottom, 4)
-        .frame(width: width, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private func headerSection(_ density: PaywallDensity) -> some View {
