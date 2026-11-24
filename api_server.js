@@ -534,7 +534,11 @@ router.get('/analytics/funnel', funnelLimiter, async (req, res) => {
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+function jwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (typeof secret !== 'string' || secret.length === 0) return '';
+  return secret;
+}
 const JWT_EXPIRES = '30d';
 const SALT_ROUNDS = 12;
 
@@ -548,7 +552,8 @@ async function ensureMigrations() {
   _migrationsPromise = (async () => {
     try {
       await _pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'pt';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'client';
+        ALTER TABLE users ALTER COLUMN role SET DEFAULT 'client';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pt_id UUID;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ;
         CREATE TABLE IF NOT EXISTS pt_clients (
@@ -724,7 +729,7 @@ router.post('/auth/register', async (req, res) => {
 
     sendWelcomeEmail(user, req);
 
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, jwtSecret(), { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
@@ -876,7 +881,7 @@ router.post('/auth/login', async (req, res) => {
     } catch (e) {
       console.warn('[login] role lookup failed');
     }
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, jwtSecret(), { expiresIn: JWT_EXPIRES });
     try {
       await _pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
     } catch (e) {
@@ -993,8 +998,49 @@ router.delete('/auth/account', authMiddleware, async (req, res) => {
       console.warn('[delete-account] stripe cancel failed (continuing):', e.message);
     }
 
-    // users row deletion CASCADEs to profiles, logs, plans, favourites, etc.
-    await _pool.query('DELETE FROM users WHERE id=$1', [userId]);
+    // One transaction. Help rows (by email or user id) go with the account.
+    // A missing support_messages table (42P01) is the only error that still deletes.
+    const deleteRows = async (query) => {
+      const email = user.email || '';
+      const customerId = user.stripeCustomerId || user.stripe_customer_id || '';
+      // A missing table (42P01) has no rows to remove. Any other error aborts the delete.
+      const deleteKnown = async (sql, params) => {
+        try {
+          await query(sql, params);
+        } catch (err) {
+          if (!err || err.code !== '42P01') throw err;
+        }
+      };
+      await deleteKnown('DELETE FROM support_messages WHERE lower(email)=lower($1) OR user_id=$2', [email, userId]);
+      await deleteKnown('DELETE FROM pt_leads WHERE lower(email)=lower($1)', [email]);
+      await deleteKnown('DELETE FROM client_invitations WHERE lower(email)=lower($1) OR pt_id=$2', [email, userId]);
+      await deleteKnown('DELETE FROM stripe_claim_tokens WHERE user_id=$1 OR customer_id=$2', [userId, customerId]);
+      await deleteKnown('DELETE FROM ai_usage_monthly WHERE user_id=$1', [userId]);
+      await query('DELETE FROM users WHERE id=$1', [userId]);
+    };
+    let client = null;
+    if (typeof _pool.connect === 'function') {
+      client = await _pool.connect();
+      try {
+        await client.query('BEGIN');
+        await deleteRows((sql, params) => client.query(sql, params));
+        await client.query('COMMIT');
+      } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) { /* the original error is the one to report */ }
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      await _pool.query('BEGIN');
+      try {
+        await deleteRows((sql, params) => _pool.query(sql, params));
+        await _pool.query('COMMIT');
+      } catch (err) {
+        try { await _pool.query('ROLLBACK'); } catch (_) { /* the original error is the one to report */ }
+        throw err;
+      }
+    }
     console.log(`[delete-account] deleted user ${user.email}`);
     res.json({ success: true, message: 'Account and all data deleted.' });
   } catch (err) {
@@ -1053,14 +1099,22 @@ router.get('/coach/billing-status', async (req, res) => {
     }
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+      decoded = jwt.verify(authHeader.slice(7), jwtSecret(), { algorithms: ['HS256'] });
     } catch (_) {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
     if (!decoded || !decoded.userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
-    if (decoded.role !== 'pt') return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
-    // Role from the users row too, so a demoted trainer with an unexpired token is refused.
-    const userRow = await _pool.query('SELECT settings, role FROM users WHERE id=$1', [decoded.userId]);
+    // Role from the users row, not the token, so a demoted trainer with an unexpired token is refused.
+    let userRow;
+    try {
+      userRow = await _pool.query('SELECT settings, role FROM users WHERE id=$1', [decoded.userId]);
+    } catch (err) {
+      // A non-uuid id cannot be a users row. A database outage for a real id still fails closed as 500.
+      if (!UUID_RE.test(String(decoded.userId)) || (err && err.code === '22P02')) {
+        return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
+      }
+      throw err;
+    }
     if (!userRow.rows[0] || userRow.rows[0].role !== 'pt') {
       return res.status(403).json({ success: false, error: 'Trainer accounts only.' });
     }
@@ -1091,7 +1145,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'No token provided.' });
 
     const token = authHeader.slice(7);
-    const decoded = require('./lib/session-token').verifySessionToken(token, JWT_SECRET);
+    const decoded = require('./lib/session-token').verifySessionToken(token, jwtSecret());
     if (decoded.preview) {
       const coachStore = require('./lib/coach-store');
       if (!coachStore.previewEnabled()) {
@@ -1305,7 +1359,7 @@ function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
   try {
-    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), jwtSecret());
     next();
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
@@ -1506,14 +1560,18 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
     const days = Array.isArray(meals) ? meals : Object.values(meals);
     const planDays = days.map((d) => (d && d.meals ? d : { meals: Array.isArray(d) ? d : [d] }));
     const { aggregateShoppingList } = require('./lib/meal-plan-engine');
-    const items = aggregateShoppingList({ days: planDays })
+    const draft = aggregateShoppingList({ days: planDays })
       .map((i) => ({ name: stripMarkup(i.name), qty: stripMarkup(i.qty), unit: '', category: categorise(String(i.name || '')), checked: false }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+    const shopFilters = await userFilters(req.user.userId);
+    const items = mealSafety.groceryItemsSafe(draft, shopFilters);
     const list = await _pool.query(
       'INSERT INTO shopping_lists (user_id, meal_plan_id, name, items) VALUES ($1,$2,$3,$4) RETURNING *',
       [req.user.userId, planId, stripMarkup(String(name || `${plan.rows[0].name} — Shopping List`)).slice(0, 120), JSON.stringify(items)]
     );
-    res.json({ success: true, list: list.rows[0] });
+    const body = { success: true, list: list.rows[0] };
+    if (shopFilters.allergyFlag) body.allergyFlag = shopFilters.allergyFlag;
+    res.json(body);
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1521,18 +1579,36 @@ router.post('/shopping-list/generate', authMiddleware, async (req, res) => {
 router.post('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const { name, items = [] } = stripNames(req.body || {});
+    const shopFilters = await userFilters(req.user.userId);
+    // A list the user typed is marked, not deleted. Generated lists use groceryItemsSafe.
+    const kept = mealSafety.markGroceryItems(items, shopFilters);
     const result = await _pool.query(
       `INSERT INTO shopping_lists (user_id, name, items) VALUES ($1, $2, $3) RETURNING *`,
-      [req.user.userId, name || 'My List', JSON.stringify(items)]
+      [req.user.userId, name || 'My List', JSON.stringify(kept)]
     );
-    res.json({ success: true, list: result.rows[0] });
+    const body = { success: true, list: result.rows[0] };
+    if (shopFilters.allergyFlag) body.allergyFlag = shopFilters.allergyFlag;
+    res.json(body);
   } catch (err) { sendApiError(res, err); }
 });
+
+async function shoppingListView(userId, row) {
+  if (!row) return row;
+  const shopFilters = await userFilters(userId);
+  let items = row.items;
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch (_) { items = []; } }
+  const kept = mealSafety.markGroceryItems(Array.isArray(items) ? items : [], shopFilters);
+  const view = { ...row, items: kept };
+  if (shopFilters.allergyFlag) view.allergyFlag = shopFilters.allergyFlag;
+  return view;
+}
 
 router.get('/shopping-list', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);
-    res.json({ success: true, lists: r.rows });
+    const lists = [];
+    for (const row of r.rows) lists.push(await shoppingListView(req.user.userId, row));
+    res.json({ success: true, lists });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1541,7 +1617,7 @@ router.get('/shopping-list/:id', authMiddleware, async (req, res) => {
   try {
     const r = await _pool.query('SELECT * FROM shopping_lists WHERE id=$1 AND user_id=$2', [req.params.id, req.user.userId]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    res.json({ success: true, list: r.rows[0] });
+    res.json({ success: true, list: await shoppingListView(req.user.userId, r.rows[0]) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1552,7 +1628,11 @@ router.patch('/shopping-list/:id', authMiddleware, async (req, res) => {
     const sets = [];
     const vals = [];
     let i = 1;
-    if (items !== undefined) { sets.push(`items=$${i++}`); vals.push(JSON.stringify(items)); }
+    if (items !== undefined) {
+      const shopFilters = await userFilters(req.user.userId);
+      sets.push(`items=$${i++}`);
+      vals.push(JSON.stringify(mealSafety.markGroceryItems(items, shopFilters)));
+    }
     if (completed !== undefined) { sets.push(`completed=$${i++}`); vals.push(completed); }
     sets.push(`updated_at=NOW()`);
     vals.push(req.params.id, req.user.userId);
@@ -1621,8 +1701,13 @@ async function userFilters(userId) {
   // guard: main's diet-guard filters (savedFilters), so typed-meal warnings are never weaker than main's (EQA #127 r10 M1).
   try {
     const profile = await getProfile(userId);
-    return { ...mealSafety.profileFilters(profile), guard: require('./lib/diet-guard').savedFilters(profile) };
-  } catch (_) { return { dietary: [], allergies: [], guard: [] }; }
+    const dg = require('./lib/diet-guard');
+    return {
+      ...mealSafety.profileFilters(profile),
+      guard: dg.savedFilters(profile),
+      allergyFlag: dg.unknownAllergyFlag(profile && profile.allergies),
+    };
+  } catch (_) { return { dietary: [], allergies: [], guard: [], allergyFlag: '' }; }
 }
 /**
  * A saved, manual or edited plan in any stored shape (day form with meals as an object or list, a flat list
@@ -1681,6 +1766,7 @@ function mealWarnings(meals, filters) {
   for (const v of meals2) {
     const w = (v.allergenWarning && typeof v.allergenWarning === 'object') ? v.allergenWarning : {};
     const ours = (Array.isArray(w.allergens) ? w.allergens : []).map((g) => String(g).replace(/^allergy: /, ''));
+    const mealNotes = Array.isArray(w.notes) ? w.notes.map((g) => String(g)) : [];
     // A meal the ingredient check accepted stays accepted ("Tofu fried rice" is not eggs; "Dead bug" is not shellfish).
     // A name it could not read can still go red when the other scanner names a group (a brand, a dish).
     const extra = (w.unrecognised && guard.length) ? dg.brokenGroups(JSON.stringify(v, noWarning), guard) : [];
@@ -1692,18 +1778,25 @@ function mealWarnings(meals, filters) {
       const terms = mealSafety.customTerms(filters || {});
       for (const swap of v.swaps) {
         const problems = mealSafety.mealProblems(swap, excluded, terms);
-        if (problems) fromSwaps.push(...mealSafety.warningFor(problems).allergens);
+        if (problems) {
+          const swapWarn = mealSafety.warningFor(problems);
+          fromSwaps.push(...swapWarn.allergens, ...(swapWarn.notes || []));
+        }
       }
     }
-    const contains = [...new Set([...ours, ...fromSwaps, ...extra])];
+    const contains = [...new Set([...ours, ...mealNotes, ...fromSwaps, ...extra])];
     const meal = String(v.name || v.mealName || v.title || 'Meal').slice(0, 80);
-    if (contains.length) out.push({ meal, contains });
+    if (contains.length) {
+      out.push({ meal, contains });
+      if (mealNotes.length) out[out.length - 1].notes = [...new Set(mealNotes)];
+    }
     // r9: a meal we can't read ("Arancini", "Mum's special") gets a calm note, not silence and not an alarm.
     // Past the read budget some typed foods were never read, so any meal not flagged is unchecked too (r10 M2).
     else if (w.unrecognised || (filters && filters.pastBudget)) out.push({ meal, contains: [], unchecked: true, note: UNCHECKED_NOTE });
   }
   // Part of the allergy list couldn't be read: every allergen filter applies, and the user is told (EQA #140 r1 M1).
   if (filters && filters.unreadable) out.unshift({ meal: '', contains: [], notice: dg.unreadableNotice(filters.pastBudget) });
+  if (filters && filters.allergyFlag) out.unshift({ meal: '', contains: [], notice: filters.allergyFlag });
   return out.slice(0, 50);
 }
 
@@ -1726,13 +1819,15 @@ router.post('/meal-plans', authMiddleware, async (req, res) => {
     const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Typed meals are stored exactly as entered, less any stale allergenWarning the app sent back (r8: one
     // warning system, computed on save and again on every read against the filters the user has then).
-    const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
-    const checked = await safeSavedMeals(req.user.userId, sentMeals);
+    // The check uses the stored allergy and diet filters, not an empty filter.
+    const filters = await userFilters(req.user.userId);
+    const checked = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, filters).meals;
+    const meals = sentMeals == null ? sentMeals : mealSafety.stripAllergenWarnings(sentMeals);
     const r = await _pool.query(
       'INSERT INTO meal_plans (user_id, name, description, goal_type, meals, total_calories, total_protein, total_carbs, total_fat) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
       [req.user.userId, name, description, goalType, JSON.stringify(meals||[]), totalCalories||0, totalProtein||0, totalCarbs||0, totalFat||0]
     );
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked, await userFilters(req.user.userId)) });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: mealWarnings(checked, filters) });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1742,8 +1837,10 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
     const { name, description, goalType, meals: sentMeals, totalCalories, totalProtein, totalCarbs, totalFat } = stripNames(req.body || {});
     // Typed meals are stored exactly as entered, less any stale allergenWarning the app sent back (r8: one
     // warning system, computed on save and again on every read against the filters the user has then).
-    const meals = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, {}).meals;
-    const checked = await safeSavedMeals(req.user.userId, sentMeals);
+    // The check uses the stored allergy and diet filters, not an empty filter.
+    const filters = await userFilters(req.user.userId);
+    const checked = sentMeals == null ? sentMeals : mealSafety.enforceSavedMeals(sentMeals, filters).meals;
+    const meals = sentMeals == null ? sentMeals : mealSafety.stripAllergenWarnings(sentMeals);
     // Totals come from the stored shape. A day-shaped week has calories on each meal, not on
     // m.foods, so summing foods only stored 0. planMacros averages the days (the card is cal/day)
     // and still sums a manual list from its foods when those foods carry the macros.
@@ -1769,7 +1866,7 @@ router.put('/meal-plans/:id', authMiddleware, async (req, res) => {
        calcCalories, calcProtein, calcCarbs, calcFat, req.params.id, req.user.userId, userEdited]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Plan not found' });
-    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, await userFilters(req.user.userId)) : [] });
+    res.json({ success: true, plan: r.rows[0], allergenWarnings: meals ? mealWarnings(checked, filters) : [] });
   } catch (err) { sendApiError(res, err); }
 });
 
@@ -1830,6 +1927,18 @@ const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
+
+/** Prepend the unknown-allergy flag onto a text field the user reads. */
+function stampAllergyText(res, flag, key) {
+  if (!flag) return;
+  const send = res.json.bind(res);
+  res.json = (body) => {
+    if (body && typeof body[key] === 'string' && body[key] && !body[key].includes(flag)) {
+      body = { ...body, [key]: `${flag} ${body[key]}` };
+    }
+    return send(body);
+  };
+}
 
 /** A model string, or '' when the provider sent a number, array, object, or blank. Never calls trim on a non-string. */
 function modelText(value) {
@@ -1908,6 +2017,7 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     // An unreadable profile fails closed with no AI. A readable diet or allergy list gets a real tip, then a food check.
     let insightProfile; let insightUnread = false;
     try { insightProfile = await getProfile(req.user.userId); } catch (_) { insightUnread = true; }
+    stampAllergyText(res, dietGuard.unknownAllergyFlag(insightProfile && insightProfile.allergies), 'insight');
     const savedKcal = insightProfile && Number(insightProfile.targetCalories);
     const savedProt = insightProfile && Number(insightProfile.targetProtein);
     const insightCalories = Number.isFinite(savedKcal) && savedKcal > 0 ? savedKcal : targetCalories;
@@ -2004,9 +2114,13 @@ router.post('/ai/insight', authMiddleware, async (req, res) => {
     }
     res.locals.aiAnswered = true;
     const tip = mealSafety.enforceText(insightText, { ...filters, alternative: false });
+    if (tip.removed.length) {
+      await refundUnlessVerified(gate, req.user.userId, 'insight');
+      return res.json({ success: true, insight: fallback, provider: null, remaining: gate.remaining });
+    }
     return res.json({
       success: true,
-      insight: tip.removed.length ? fallback : tip.text,
+      insight: tip.text,
       provider: r.provider,
       model: r.model,
       remaining: gate.remaining,
@@ -2218,6 +2332,7 @@ router.post('/ai/chat', authMiddleware, async (req, res) => {
         error: "We couldn't check your AI settings. Please try again.",
       });
     }
+    stampAllergyText(res, dietGuard.unknownAllergyFlag(profile && profile.allergies), 'reply');
 
     const textOf = (c) => (Array.isArray(c)
       ? c.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('\n')
@@ -2466,8 +2581,14 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
       });
     }
     // #127a: filtered users (or an unreadable profile) get a fixed, food-free program. No AI, no credit (EQA #135 r4 S2).
+    const workoutFlag = dietGuard.unknownAllergyFlag(wpProfile && wpProfile.allergies);
+    const withWorkoutFlag = (plan) => {
+      if (!workoutFlag || !plan || typeof plan !== 'object') return plan;
+      const summary = typeof plan.summary === 'string' && plan.summary ? `${workoutFlag} ${plan.summary}` : plan.summary;
+      return { ...plan, summary, allergyFlag: workoutFlag };
+    };
     if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
-      return res.json({ success: true, plan: dietGuard.safeWorkoutPlan({ daysPerWeek, level }), source: 'fixed', provider: null });
+      return res.json({ success: true, plan: withWorkoutFlag(dietGuard.safeWorkoutPlan({ daysPerWeek, level })), source: 'fixed', provider: null });
     }
     if (!aiClient.hasProvider()) {
       return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
@@ -2519,14 +2640,16 @@ Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give
       route: '/ai/workout-plan',
     });
     if (!r.ok) {
+      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
       return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
     }
-    const plan = r.data;
+    const plan = mealSafety.enforceJsonText(r.data, mealSafety.profileFilters(wpProfile)).value;
     if (!plan.workouts || !Array.isArray(plan.workouts)) {
+      await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
       return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
     }
     res.locals.aiAnswered = true;
-    res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
+    res.json({ success: true, plan: withWorkoutFlag(plan), provider: r.provider, remaining: gate.remaining });
   } catch (err) {
     console.error('[ai/workout-plan]', err.message);
     sendApiError(res, err);
@@ -2894,7 +3017,7 @@ router.post('/internal/activation-test/backdate', async (req, res) => {
   try {
     const h = req.headers.authorization || '';
     if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
-    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), jwtSecret());
   } catch (_) {
     return res.status(401).json({ error: 'Invalid token' });
   }
@@ -2918,7 +3041,7 @@ router.post('/internal/activation-test/trial-fixture', async (req, res) => {
   try {
     const h = req.headers.authorization || '';
     if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
-    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), jwtSecret());
   } catch (_) {
     return res.status(401).json({ error: 'Invalid token' });
   }

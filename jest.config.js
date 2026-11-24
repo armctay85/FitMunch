@@ -1,4 +1,11 @@
 
+// Route tests sign tokens with this when the shell has no session secret.
+// Application code reads the variable itself and rejects a missing one.
+const configuredJwt = process.env.JWT_SECRET;
+if (typeof configuredJwt !== 'string' || configuredJwt.length === 0) {
+  process.env.JWT_SECRET = 'jest-only-session-secret';
+}
+
 module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],
@@ -40,6 +47,8 @@ module.exports = {
     '**/test_coach_plan_legacy_pg.js',
     '**/test_onboarding_targets.js',
     '**/test_allergen_tags.js',
+    '**/test_allergen_hotfix.js',
+    '**/test_allergen_hotfix_pg.js',
     '**/test_ai_meal_safety.js',
     '**/test_ai_meal_safety_pg.js',
     '**/test_ai_meal_safety_r10_pg.js',
@@ -96,6 +105,11 @@ module.exports = {
     '**/test_retention_nudges.js',
     '**/test_support_confirm.js',
     '**/test_eqa_acceptance_pr225_r3.js',
+    '**/test_eqa_acceptance_allergy_r6.js',
+    '**/test_eqa_acceptance_support_r6.js',
+    '**/test_eqa_acceptance_allergy_r7.js',
+    '**/test_eqa_acceptance_secrets_r7.js',
+    '**/test_eqa_acceptance_support_r7.js',
     '**/test_payment_failed_email_pg.js',
     '**/test_resend_inbound.js',
     '**/test_resend_inbound_pg.js',
@@ -129,6 +143,7 @@ module.exports = {
     '**/test_diet_filter_gaps.js',
     '**/test_diet_filter_onboarding_pg.js',
     '**/test_ai_allergen_stopgap_r6.js',
+    '**/test_eqa_acceptance_allergy_r5.js',
     '**/test_ai_allergen_stopgap_r6_pg.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],

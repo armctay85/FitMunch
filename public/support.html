@@ -260,9 +260,13 @@
     button.disabled = true;
     status.hidden = false;
     status.textContent = 'Sending your message.';
+    var token = '';
+    try { token = localStorage.getItem('fm_token') || ''; } catch (e) { token = ''; }
+    var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
     fetch('/api/support', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: headers,
       body: JSON.stringify({
         name: document.getElementById('support-name').value,
         email: document.getElementById('support-email').value,
