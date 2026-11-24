@@ -133,6 +133,7 @@ module.exports = {
     '**/test_eqa_ci5_delete_pg.js',
     '**/test_eqa_ci7_round_complete.js',
     '**/test_eqa_ci9_web_concurrency.js',
+    '**/test_eqa_ci9b_probe_group_unique.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
