@@ -27,6 +27,11 @@ xcodebuild build-for-testing \
   CODE_SIGN_IDENTITY=- \
   | tee "$OUT/build.log"
 
+# App print() does not always reach the xcodebuild console. Keep the simulator
+# log and the xcresult console so the caller can grep STOREFRONT country=.
+xcrun simctl spawn "$UDID" log stream --style compact --predicate 'eventMessage CONTAINS "STOREFRONT" OR eventMessage CONTAINS "plans fetched"' > "$OUT/sim.log" 2>&1 &
+LOG_PID=$!
+
 echo "storefront test-without-building start $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 set +e
 xcodebuild test-without-building \
@@ -46,5 +51,18 @@ xcodebuild test-without-building \
 rc=${PIPESTATUS[0]}
 set -e
 echo "storefront test-without-building exit=$rc end $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-grep -E 'STOREFRONT country=|plans fetched' "$OUT/storefront.log" || true
+if [[ -n "${LOG_PID:-}" ]]; then
+  kill "$LOG_PID" >/dev/null 2>&1 || true
+  wait "$LOG_PID" >/dev/null 2>&1 || true
+fi
+{
+  echo "===== simulator log ====="
+  cat "$OUT/sim.log" 2>/dev/null || true
+  echo "===== xcresult console ====="
+  xcrun xcresulttool get log --path "$OUT/storefront.xcresult" --type console 2>/dev/null || true
+} >> "$OUT/storefront.log"
+if xcrun xcresulttool get --legacy --format json --path "$OUT/storefront.xcresult" > "$OUT/legacy.json" 2>/dev/null; then
+  grep -E 'STOREFRONT country=|plans fetched' "$OUT/legacy.json" >> "$OUT/storefront.log" || true
+fi
+grep -E 'STOREFRONT country=|plans fetched|GATE_PRICE' "$OUT/storefront.log" || true
 exit 0

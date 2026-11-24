@@ -17,10 +17,13 @@ final class StorefrontGateUITests: XCTestCase {
             app.buttons["Upgrade"].tap()
         }
         _ = app.buttons["paywall-close"].waitForExistence(timeout: 20)
-        let deadline = Date().addingTimeInterval(25)
-        let prices = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'paywall-price-'"))
+        let monthly = app.staticTexts["paywall-price-fitmunch_monthly"]
+        let annual = app.staticTexts["paywall-price-fitmunch_annual"]
+        let deadline = Date().addingTimeInterval(30)
         while Date() < deadline {
-            if prices.firstMatch.exists {
+            let monthlyReady = monthly.exists && monthly.label.contains(where: { $0.isNumber })
+            let annualReady = annual.exists && annual.label.contains(where: { $0.isNumber })
+            if monthlyReady || annualReady {
                 break
             }
             if app.staticTexts["Plans couldn't load. Check your connection and try again."].exists {
@@ -29,6 +32,7 @@ final class StorefrontGateUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         RunLoop.current.run(until: Date().addingTimeInterval(2))
+        print("GATE_PRICE monthly=\(monthly.exists ? monthly.label : "missing") annual=\(annual.exists ? annual.label : "missing")")
         print("storefront gate finished")
     }
 }

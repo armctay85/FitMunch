@@ -69,6 +69,25 @@ jobs:
           python3 scripts/attach-storekit-test-action.py
           python3 scripts/log-storekit-scheme-path.py
 
+      - name: Broken StoreKit path fails fast
+        run: |
+          set -euo pipefail
+          start=$(date +%s)
+          set +e
+          python3 scripts/log-storekit-scheme-path.py --prove-broken
+          rc=$?
+          set -e
+          elapsed=$(( $(date +%s) - start ))
+          echo "broken_path_exit=$rc elapsed_s=$elapsed"
+          if [[ "$rc" -eq 0 ]]; then
+            echo "The broken ../../../ path resolved inside the checkout."
+            exit 1
+          fi
+          if [[ "$elapsed" -ge 120 ]]; then
+            echo "Broken path check took ${elapsed}s."
+            exit 1
+          fi
+
       - name: Gate STOREFRONT country=AUS
         run: |
           set -euo pipefail
@@ -327,7 +346,7 @@ jobs:
         if: failure()
         run: |
           python3 scripts/extract-ios-failure.py \
-            --from artifacts/ios-uitest \
+            --from artifacts \
             --out artifacts/uitest-failure
           # Writes the element tree to GITHUB_STEP_SUMMARY.
 
