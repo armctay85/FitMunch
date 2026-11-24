@@ -35,6 +35,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   screenshots:
     runs-on: macos-26
@@ -77,7 +81,16 @@ jobs:
           QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
         run: bash scripts/capture-appstore-screenshots.sh
 
+      - name: Extract iOS failure evidence
+        if: failure()
+        run: |
+          python3 scripts/extract-ios-failure.py \
+            --from artifacts/appstore-screenshots \
+            --out artifacts/screenshots-failure
+          # Writes the element tree to GITHUB_STEP_SUMMARY.
+
       - name: Upload screenshot artifacts
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-appstore-screenshots
@@ -86,4 +99,15 @@ jobs:
             artifacts/appstore-screenshots/iphone-67/*.png
             artifacts/appstore-screenshots/iphone-65/*.png
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload screenshots failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: screenshots-failure
+          path: |
+            artifacts/screenshots-failure/
+            !**/DerivedData/**
+          if-no-files-found: warn
           retention-days: 14

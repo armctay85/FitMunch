@@ -4,7 +4,7 @@ import XCTest
 /// Build 10: a real launch screen must fill the simulator, not letterbox at 320x480.
 final class FullScreenWindowTests: XCTestCase {
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        continueAfterFailure = true
     }
 
     /// AUD 19.99 / 149.99 on this simulator. Skipped: the unsigned runner stays on USD.
@@ -37,23 +37,34 @@ final class FullScreenWindowTests: XCTestCase {
         let todayShot = try assertFullScreen(app, slug: slug, phase: "today")
         saveShot(todayShot, name: "today-\(tag)")
 
+        attachPaywallShot("tab-before-paywall")
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 25), "Tab bar missing before paywall")
         openUpgradePaywall(in: app)
+        attachPaywallShot("paywall-open")
         XCTAssertTrue(app.buttons["paywall-close"].waitForExistence(timeout: 8), "Paywall did not open")
+        attachPaywallShot("paywall-headline")
         XCTAssertTrue(
             app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 8),
             "Paywall headline missing. The shot would not be the paywall."
         )
         let annualLabel = waitForPriceLabel(app, id: "fitmunch_annual", timeout: 50)
         let monthlyLabel = waitForPriceLabel(app, id: "fitmunch_monthly", timeout: 8)
+        attachPaywallShot("paywall-annual")
         XCTAssertFalse(annualLabel.isEmpty, "Annual sandbox plan missing. The paywall must not use a fake catalog.")
+        attachPaywallShot("paywall-annual-period")
         XCTAssertTrue(annualLabel.contains("/year"), "Annual price is missing the period. \(annualLabel)")
+        attachPaywallShot("paywall-monthly-period")
         XCTAssertTrue(monthlyLabel.contains("/month"), "Monthly price is missing the period. \(monthlyLabel)")
         print("SANDBOX_PRICE annual=\(annualLabel) monthly=\(monthlyLabel)")
+        attachPaywallShot("paywall-retry")
         XCTAssertFalse(app.buttons["paywall-retry"].exists, "Retry state means StoreKit products did not load")
+        attachPaywallShot("paywall-reminder")
         XCTAssertFalse(app.staticTexts["Day 12 we remind you"].exists)
+        attachPaywallShot("paywall-configuration")
         XCTAssertFalse(app.staticTexts["Configuration Required"].exists, "Orange configuration card is on the paywall")
+        attachPaywallShot("paywall-web-button")
         XCTAssertFalse(app.buttons["Continue on the web"].exists)
+        attachPaywallShot("paywall-web-text")
         XCTAssertFalse(app.staticTexts["Continue on the web"].exists)
         assertMonthlyPriceClearsAppleSentence(in: app)
         XCTAssertEqual(app.state, .runningForeground)
@@ -77,6 +88,9 @@ final class FullScreenWindowTests: XCTestCase {
     /// App frame and the app screenshot. 6.9-inch Pro Max is 440x956. 6.5-inch 11 Pro Max is 414x896.
     /// XCUIScreen has no bounds. A letterboxed legacy app is 320x480 with black bands.
     private func assertFullScreen(_ app: XCUIApplication, slug: String, phase: String) throws -> XCUIScreenshot {
+        if phase == "paywall" {
+            attachPaywallShot("paywall-fullscreen")
+        }
         XCTAssertEqual(app.state, .runningForeground, "Screenshot would miss the app during \(phase)")
         let frame = app.frame
         let shot = app.screenshot()
@@ -94,6 +108,13 @@ final class FullScreenWindowTests: XCTestCase {
         )
         appendSize("\(phase)\t\(slug)\t\(size)\n")
         return shot
+    }
+
+    private func attachPaywallShot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func shotTag() -> String {

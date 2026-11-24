@@ -1,4 +1,5 @@
 import Foundation
+import os
 import RevenueCat
 import StoreKit
 import SwiftUI
@@ -266,8 +267,8 @@ class PremiumManager: ObservableObject {
         }
         noteFetch(loaded.plans)
         let country = await Storefront.current?.countryCode ?? "nil"
-        print("STOREFRONT country=\(country)")
-        print("FitMunch plans fetched: \(lastPlanFetchSummary)")
+        Logger(subsystem: "com.fitmunch.app", category: "storekit").notice("STOREFRONT country=\(country, privacy: .public)")
+        Logger(subsystem: "com.fitmunch.app", category: "storekit").notice("FitMunch plans fetched: \(self.lastPlanFetchSummary, privacy: .public)")
         return loaded.plans
     }
 
