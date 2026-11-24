@@ -534,7 +534,11 @@ router.get('/analytics/funnel', funnelLimiter, async (req, res) => {
 const bcrypt  = require('bcrypt');
 const jwt     = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
+function jwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (typeof secret !== 'string' || secret.length === 0) return '';
+  return secret;
+}
 const JWT_EXPIRES = '30d';
 const SALT_ROUNDS = 12;
 
@@ -725,7 +729,7 @@ router.post('/auth/register', async (req, res) => {
 
     sendWelcomeEmail(user, req);
 
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, jwtSecret(), { expiresIn: JWT_EXPIRES });
     res.status(201).json({ success: true, token, user: { id: user.id, name: user.name, email: user.email, role } });
   } catch (err) {
     console.error('Register error:', err);
@@ -877,7 +881,7 @@ router.post('/auth/login', async (req, res) => {
     } catch (e) {
       console.warn('[login] role lookup failed');
     }
-    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ userId: user.id, name: user.name, email: user.email, role }, jwtSecret(), { expiresIn: JWT_EXPIRES });
     try {
       await _pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
     } catch (e) {
@@ -997,11 +1001,21 @@ router.delete('/auth/account', authMiddleware, async (req, res) => {
     // One transaction. Help rows (by email or user id) go with the account.
     // A missing support_messages table (42P01) is the only error that still deletes.
     const deleteRows = async (query) => {
-      try {
-        await query('DELETE FROM support_messages WHERE lower(email)=lower($1) OR user_id=$2', [user.email, userId]);
-      } catch (err) {
-        if (!err || err.code !== '42P01') throw err;
-      }
+      const email = user.email || '';
+      const customerId = user.stripeCustomerId || user.stripe_customer_id || '';
+      // A missing table (42P01) has no rows to remove. Any other error aborts the delete.
+      const deleteKnown = async (sql, params) => {
+        try {
+          await query(sql, params);
+        } catch (err) {
+          if (!err || err.code !== '42P01') throw err;
+        }
+      };
+      await deleteKnown('DELETE FROM support_messages WHERE lower(email)=lower($1) OR user_id=$2', [email, userId]);
+      await deleteKnown('DELETE FROM pt_leads WHERE lower(email)=lower($1)', [email]);
+      await deleteKnown('DELETE FROM client_invitations WHERE lower(email)=lower($1) OR pt_id=$2', [email, userId]);
+      await deleteKnown('DELETE FROM stripe_claim_tokens WHERE user_id=$1 OR customer_id=$2', [userId, customerId]);
+      await deleteKnown('DELETE FROM ai_usage_monthly WHERE user_id=$1', [userId]);
       await query('DELETE FROM users WHERE id=$1', [userId]);
     };
     let client = null;
@@ -1085,7 +1099,7 @@ router.get('/coach/billing-status', async (req, res) => {
     }
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.slice(7), JWT_SECRET, { algorithms: ['HS256'] });
+      decoded = jwt.verify(authHeader.slice(7), jwtSecret(), { algorithms: ['HS256'] });
     } catch (_) {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
@@ -1131,7 +1145,7 @@ router.get('/auth/me', async (req, res) => {
       return res.status(401).json({ success: false, error: 'No token provided.' });
 
     const token = authHeader.slice(7);
-    const decoded = require('./lib/session-token').verifySessionToken(token, JWT_SECRET);
+    const decoded = require('./lib/session-token').verifySessionToken(token, jwtSecret());
     if (decoded.preview) {
       const coachStore = require('./lib/coach-store');
       if (!coachStore.previewEnabled()) {
@@ -1345,7 +1359,7 @@ function authMiddleware(req, res, next) {
   const h = req.headers['authorization'];
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
   try {
-    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    req.user = require('./lib/session-token').verifySessionToken(h.slice(7), jwtSecret());
     next();
   } catch { res.status(401).json({ error: 'Invalid token' }); }
 }
@@ -3003,7 +3017,7 @@ router.post('/internal/activation-test/backdate', async (req, res) => {
   try {
     const h = req.headers.authorization || '';
     if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
-    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), jwtSecret());
   } catch (_) {
     return res.status(401).json({ error: 'Invalid token' });
   }
@@ -3027,7 +3041,7 @@ router.post('/internal/activation-test/trial-fixture', async (req, res) => {
   try {
     const h = req.headers.authorization || '';
     if (!h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorised' });
-    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), JWT_SECRET);
+    decoded = require('./lib/session-token').verifySessionToken(h.slice(7), jwtSecret());
   } catch (_) {
     return res.status(401).json({ error: 'Invalid token' });
   }

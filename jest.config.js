@@ -1,4 +1,11 @@
 
+// Route tests sign tokens with this when the shell has no session secret.
+// Application code reads the variable itself and rejects a missing one.
+const configuredJwt = process.env.JWT_SECRET;
+if (typeof configuredJwt !== 'string' || configuredJwt.length === 0) {
+  process.env.JWT_SECRET = 'jest-only-session-secret';
+}
+
 module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['./jest.setup.js'],

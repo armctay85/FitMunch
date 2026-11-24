@@ -233,7 +233,7 @@ describe('support confirmation email', () => {
     const res = await post({ email: 'ada@example.com', name: 'Ada', message: phrase });
     spy.mockRestore();
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({ success: false, error: 'Could not send a confirmation just now.' });
+    expect(res.body).toEqual({ success: false, error: 'Your message was not sent. Email support@fitmunch.com.au.' });
     expect(acksFor('ada@example.com')).toHaveLength(0);
     expect(sent.some((row) => row.subject === "We've got your message")).toBe(false);
     const logged = logs.join('\n');
@@ -294,7 +294,7 @@ describe('support confirmation email', () => {
     });
     const failed = await post({ email: 'bea@example.com', message: 'Still need a hand' });
     expect(failed.status).toBe(503);
-    expect(failed.body).toEqual({ success: false, error: 'Could not send a confirmation just now.' });
+    expect(failed.body).toEqual({ success: false, error: 'Your message was not sent. Email support@fitmunch.com.au.' });
     expect(acksFor('bea@example.com')).toHaveLength(0);
     expect(sent.some((row) => row.subject === "We've got your message")).toBe(false);
     expect(forwards()).toHaveLength(1);
