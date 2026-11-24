@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   flow-recording:
     runs-on: macos-26
@@ -45,7 +49,10 @@ jobs:
           xattr -cr RevenueCat.xcframework || true
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          python3 scripts/attach-storekit-test-action.py
+          python3 scripts/log-storekit-scheme-path.py
 
       - name: Record main flows
         env:

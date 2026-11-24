@@ -3,9 +3,10 @@ options:
   bundleIdPrefix: com.fitmunch
   deploymentTarget:
     iOS: "17.0"
-  # StoreKitConfigurationFileReference is relative to the .xcscheme file.
-  # xcshareddata/xcschemes sits three levels below the repo root.
-  schemePathPrefix: "../../../"
+  # Xcode resolves StoreKitConfigurationFileReference from the project container.
+  # This xcodeproj sits at the repo root, so the XcodeGen base is "../../".
+  # "../../../" points one directory above the checkout and Xcode skips the missing file.
+  schemePathPrefix: "../../"
 
 schemes:
   FitMunch:

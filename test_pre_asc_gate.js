@@ -90,6 +90,6 @@ describe('PRE-ASC device audit gate', () => {
     expect(runner).toContain('iPhone 14');
     expect(runner).toContain('FitMunchStoreKit');
     expect(runner).toContain('FitMunchSandboxProbe');
-    expect(iosBuild).toContain('pre-asc-paywall-screenshots-build-9');
+    expect(iosBuild).toContain('pre-asc-paywall-screenshots-${{ steps.ios-build-number.outputs.number }}');
   });
 });

@@ -10,16 +10,31 @@ on:
       - "FitMunchUITests/**"
       - "scripts/check-width-screenshots.py"
       - "scripts/log-storekit-scheme-path.py"
+      - "scripts/extract-ios-failure.py"
+      - "scripts/run-storefront-gate.sh"
       - "scripts/ios-simulator-on-version.py"
       - ".github/workflows/ios-width-capture.yml"
   workflow_dispatch:
+    inputs:
+      force_fail:
+        description: Deliberately fail one UI test
+        type: boolean
+        default: false
+      break_storekit_path:
+        description: Fail the static StoreKit path
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   width-capture:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'cursor/b11-coach-blocked-89f8' || github.head_ref == 'cursor/b11-design-gaps-ce84'
+    if: (github.event_name == 'workflow_dispatch' && inputs.force_fail != true && inputs.break_storekit_path != true) || github.head_ref == 'cursor/b11-coach-blocked-89f8' || github.head_ref == 'cursor/b11-design-gaps-ce84'
     runs-on: macos-26
     timeout-minutes: 80
 
@@ -54,7 +69,19 @@ jobs:
           python3 scripts/attach-storekit-test-action.py
           python3 scripts/log-storekit-scheme-path.py
 
+      - name: Gate STOREFRONT country=AUS
+        run: |
+          set -euo pipefail
+          bash scripts/run-storefront-gate.sh artifacts/storefront-gate
+          if ! grep -q 'STOREFRONT country=AUS' artifacts/storefront-gate/storefront.log; then
+            echo "Storefront gate failed. Expected STOREFRONT country=AUS."
+            grep -E 'STOREFRONT country=|plans fetched' artifacts/storefront-gate/storefront.log || true
+            exit 1
+          fi
+          grep -E 'STOREFRONT country=|plans fetched' artifacts/storefront-gate/storefront.log || true
+
       - name: Upload FitMunchStoreKit scheme
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-storekit-scheme
@@ -136,11 +163,157 @@ jobs:
             exit 1
           fi
 
+      - name: Extract iOS failure evidence
+        if: failure()
+        run: |
+          python3 scripts/extract-ios-failure.py \
+            --from artifacts/width-capture \
+            --out artifacts/width-capture-failure
+          # Writes the element tree to GITHUB_STEP_SUMMARY.
+
       - name: Upload width screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-b11-width-capture
-          path: artifacts/width-capture/
+          path: |
+            artifacts/width-capture/
+            !**/DerivedData/**
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Upload width-capture failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: width-capture-failure
+          path: |
+            artifacts/width-capture-failure/
+            !**/DerivedData/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  force-fail:
+    if: github.event_name == 'workflow_dispatch' && inputs.force_fail == true
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/attach-storekit-test-action.py
+          python3 scripts/log-storekit-scheme-path.py
+
+      - name: Run one deliberately failing UI test
+        if: github.event_name == 'workflow_dispatch' && inputs.force_fail == true
+        run: |
+          set -euo pipefail
+          UDID="$(bash scripts/boot-pinned-simulator.sh "iPhone 17 Pro Max" "iPhone 16 Pro Max")"
+          bash scripts/set-simulator-region-au.sh "$UDID"
+          bash scripts/warm-simulator-launch.sh "$UDID"
+          mkdir -p artifacts/force-fail
+          set +e
+          xcodebuild test \
+            -project FitMunch.xcodeproj \
+            -scheme FitMunchStoreKit \
+            -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
+            -only-testing:FitMunchUITests/ForceFailEvidenceUITests/testForcedFailureEvidence \
+            -testLanguage en \
+            -testRegion AU \
+            -parallel-testing-enabled NO \
+            -resultBundlePath artifacts/force-fail/ForceFail.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=- \
+            | tee artifacts/force-fail/force-fail.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "force_fail_exit=$rc"
+          grep -E 'STOREFRONT country=|plans fetched|forced failure' artifacts/force-fail/force-fail.log || true
+          if [[ "$rc" -eq 0 ]]; then
+            echo "The forced test passed. It must fail so the xcresult holds a failure."
+            exit 1
+          fi
+
+      - name: Extract iOS failure evidence
+        if: always()
+        run: |
+          python3 scripts/extract-ios-failure.py \
+            --from artifacts/force-fail \
+            --out artifacts/width-capture-failure
+          # Writes the element tree to GITHUB_STEP_SUMMARY.
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("artifacts/width-capture-failure")
+          png = list(root.rglob("*.png"))
+          hierarchy = root / "hierarchy.txt"
+          log = root / "app-stdout.log"
+          size = sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
+          print(f"artifact_bytes={size} png={len(png)} hierarchy={hierarchy.stat().st_size if hierarchy.exists() else 0} log={log.stat().st_size if log.exists() else 0}")
+          text = hierarchy.read_text(errors="ignore") if hierarchy.exists() else ""
+          log_text = log.read_text(errors="ignore") if log.exists() else ""
+          useful = any(token in text for token in ("Button", "Application", "identifier"))
+          if not png or not useful or len(log_text) < 20 or size >= 20 * 1024 * 1024:
+              raise SystemExit("failure artifact is missing a png, hierarchy, log, or is 20 MB or larger")
+          PY
+
+      - name: Upload width-capture failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: width-capture-failure
+          path: |
+            artifacts/width-capture-failure/
+            !**/DerivedData/**
+          if-no-files-found: error
+          retention-days: 14
+
+  storefront-path-proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.break_storekit_path == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Broken StoreKit path fails fast
+        run: |
+          set -euo pipefail
+          start=$(date +%s%3N)
+          set +e
+          python3 scripts/log-storekit-scheme-path.py --prove-broken
+          rc=$?
+          set -e
+          end=$(date +%s%3N)
+          elapsed_ms=$((end - start))
+          echo "broken_path_exit=$rc elapsed_ms=$elapsed_ms"
+          if [[ "$rc" -eq 0 ]]; then
+            echo "The broken ../../../ path resolved inside the checkout."
+            exit 1
+          fi
+          if [[ "$elapsed_ms" -ge 120000 ]]; then
+            echo "Broken path check took ${elapsed_ms}ms, which is not under 2 minutes."
+            exit 1
+          fi
+          echo "Broken storefront path failed in ${elapsed_ms}ms."

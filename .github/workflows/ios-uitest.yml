@@ -31,11 +31,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   uitest:
     if: github.event_name != 'workflow_dispatch' || inputs.screen_audit != true
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -62,7 +66,26 @@ jobs:
       - name: Generate Xcode project
         run: |
           xcodegen generate
-          python3 scripts/ensure-storekit-scheme.py
+          python3 scripts/attach-storekit-test-action.py
+          python3 scripts/log-storekit-scheme-path.py
+
+      - name: Gate STOREFRONT country=AUS
+        run: |
+          set -euo pipefail
+          bash scripts/run-storefront-gate.sh artifacts/storefront-gate
+          if ! grep -q 'STOREFRONT country=AUS' artifacts/storefront-gate/storefront.log; then
+            echo "Storefront gate failed. Expected STOREFRONT country=AUS."
+            grep -E 'STOREFRONT country=|plans fetched' artifacts/storefront-gate/storefront.log || true
+            {
+              echo "## Storefront gate"
+              grep -E 'STOREFRONT country=|plans fetched' artifacts/storefront-gate/storefront.log || true
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          grep -E 'STOREFRONT country=|plans fetched' artifacts/storefront-gate/storefront.log || true
+
+      - name: Strip StoreKit before sandbox window tests
+        run: python3 scripts/ensure-storekit-scheme.py
 
       - name: Build and check processed Info.plist
         run: |
@@ -293,12 +316,40 @@ jobs:
           grep -q 'SKInternalErrorDomain Code=3' artifacts/ios-uitest/purchase-sheet.log
           echo "purchase-sheet.png was not captured. The real StoreKit confirmation sheet needs a local StoreKit configuration beside the running app. The paywall falls through to live USD when that configuration is missing. The isolated catalog proof passed on runs 37553200762 and 37554689560 (AUD \$19.99/\$149.99, currency=AUD, 14-day FreeTrial). Not faking the sheet."
 
+      - name: Read iOS build number
+        id: ios-build-number
+        if: always()
+        run: |
+          number=$(python3 -c 'import re, pathlib; text = pathlib.Path("project.yml").read_text(); print(re.search(r"CURRENT_PROJECT_VERSION:\s*\"(\d+)\"", text).group(1))')
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Extract iOS failure evidence
+        if: failure()
+        run: |
+          python3 scripts/extract-ios-failure.py \
+            --from artifacts/ios-uitest \
+            --out artifacts/uitest-failure
+          # Writes the element tree to GITHUB_STEP_SUMMARY.
+
       - name: Upload simulator screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ios-uitest-screenshots-build-10
-          path: artifacts/ios-uitest/screenshots/
+          name: ios-uitest-screenshots-${{ steps.ios-build-number.outputs.number }}
+          path: |
+            artifacts/ios-uitest/screenshots/
+            !**/DerivedData/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload uitest failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: uitest-failure
+          path: |
+            artifacts/uitest-failure/
+            !**/DerivedData/**
           if-no-files-found: warn
           retention-days: 14
 
@@ -419,6 +470,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fitmunch-audit-2026-10-15
-          path: artifacts/audit-2026-10-15/
+          path: |
+            artifacts/audit-2026-10-15/
+            !**/DerivedData/**
           if-no-files-found: warn
           retention-days: 14

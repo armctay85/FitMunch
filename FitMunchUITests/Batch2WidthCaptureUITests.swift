@@ -7,7 +7,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
     private var storeKit: SKTestSession?
 
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        continueAfterFailure = true
         storeKit = nil
         let url = try XCTUnwrap(
             Bundle(for: Batch2WidthCaptureUITests.self)
@@ -232,6 +232,7 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let app = launch(["-ReviewGuards", "-PaywallForceEmpty", "-ForceLightMode"])
         showTab("Me", in: app)
         let upgrade = app.buttons["settings-upgrade"]
+        attachPaywallShot("paywall-upgrade")
         XCTAssertTrue(upgrade.waitForExistence(timeout: 12))
         upgrade.tap()
         let root = app.descendants(matching: .any)["paywall-root"]
@@ -240,29 +241,35 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let opened = root.waitForExistence(timeout: 20)
             || errorState.waitForExistence(timeout: 2)
             || errorLine.waitForExistence(timeout: 2)
+        attachPaywallShot("paywall-opened")
         XCTAssertTrue(opened, "Paywall did not open")
         var restore = tallest("paywall-restore-inline", in: app)
         if !restore.waitForExistence(timeout: 8) {
             restore = app.buttons["paywall-restore-inline"]
         }
+        attachPaywallShot("paywall-restore-inline")
         XCTAssertTrue(restore.waitForExistence(timeout: 8), "paywall-restore-inline missing")
         var hops = 0
         while !restore.isHittable && hops < 5 {
             app.swipeUp()
             hops += 1
         }
+        attachPaywallShot("paywall-restore-hittable")
         XCTAssertTrue(restore.isHittable)
         var terms = tallest("paywall-terms", in: app)
         if !terms.waitForExistence(timeout: 4) {
             terms = app.buttons["Terms"]
         }
+        attachPaywallShot("paywall-terms")
         XCTAssertTrue(terms.waitForExistence(timeout: 2), "Terms missing")
         print(String(
             format: "PAYWALL_TARGETS restoreH=%.1f termsH=%.1f",
             restore.frame.height,
             terms.frame.height
         ))
+        attachPaywallShot("paywall-restore-height")
         XCTAssertGreaterThanOrEqual(restore.frame.height, 44, "Restore tap target is under 44pt")
+        attachPaywallShot("paywall-terms-height")
         XCTAssertGreaterThanOrEqual(terms.frame.height, 44, "Terms tap target is under 44pt")
         shot(app, "paywall-restore")
         app.terminate()
@@ -274,27 +281,37 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let app = launch(["-ReviewGuards", "-UseLocalStoreKit", "-ForceLightMode"])
         showTab("Me", in: app)
         let upgrade = app.buttons["settings-upgrade"]
+        attachPaywallShot("paywall-plans-upgrade")
         XCTAssertTrue(upgrade.waitForExistence(timeout: 12))
         upgrade.tap()
+        attachPaywallShot("paywall-plans-root")
         XCTAssertTrue(app.descendants(matching: .any)["paywall-root"].waitForExistence(timeout: 20))
         let price = waitForPaywallPrice(in: app)
         print("PAYWALL_PRICE \(price)")
+        attachPaywallShot("paywall-plans-price")
         XCTAssertTrue(
             price.contains("19.99") && !price.contains("12.99"),
             "Paywall must show StoreKit monthly displayPrice (19.99, not 12.99). Saw \(price)"
         )
+        attachPaywallShot("paywall-plans-best-value")
         XCTAssertTrue(app.staticTexts["Best value"].waitForExistence(timeout: 4))
         let reminder = app.descendants(matching: .any)["paywall-trial-reminder"]
+        attachPaywallShot("paywall-plans-reminder")
         XCTAssertTrue(reminder.waitForExistence(timeout: 6), "Trial reminder row missing")
+        attachPaywallShot("paywall-plans-reminder-label")
         XCTAssertTrue(reminder.label.localizedCaseInsensitiveContains("reminder"))
+        attachPaywallShot("paywall-plans-today")
         XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-today"].exists)
+        attachPaywallShot("paywall-plans-billing")
         XCTAssertTrue(app.descendants(matching: .any)["paywall-trial-billing"].exists)
         let subscribe = app.buttons["paywall-subscribe"]
+        attachPaywallShot("paywall-plans-subscribe")
         XCTAssertTrue(subscribe.waitForExistence(timeout: 6), "Expected one subscribe control")
         let trialButtons = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'free trial'"))
         let trialLabels = trialButtons.allElementsBoundByIndex.map(\.label)
         print("TRIAL_CTAS \(trialLabels.joined(separator: " | "))")
         shot(app, "paywall-plans")
+        attachPaywallShot("paywall-plans-trial-count")
         XCTAssertEqual(trialButtons.count, 1, "Trial CTAs: \(trialLabels)")
         var planTerms = tallest("paywall-terms", in: app)
         if !planTerms.waitForExistence(timeout: 4) {
@@ -304,14 +321,18 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         if !planRestore.waitForExistence(timeout: 2) {
             planRestore = app.buttons["paywall-restore"]
         }
+        attachPaywallShot("paywall-plans-terms")
         XCTAssertTrue(planTerms.waitForExistence(timeout: 2))
+        attachPaywallShot("paywall-plans-restore")
         XCTAssertTrue(planRestore.waitForExistence(timeout: 4))
         print(String(
             format: "PAYWALL_PLAN_TARGETS restoreH=%.1f termsH=%.1f",
             planRestore.frame.height,
             planTerms.frame.height
         ))
+        attachPaywallShot("paywall-plans-restore-height")
         XCTAssertGreaterThanOrEqual(planRestore.frame.height, 44)
+        attachPaywallShot("paywall-plans-terms-height")
         XCTAssertGreaterThanOrEqual(planTerms.frame.height, 44)
         app.terminate()
     }
@@ -609,6 +630,13 @@ final class Batch2WidthCaptureUITests: XCTestCase {
         let button = app.tabBars.buttons[name]
         XCTAssertTrue(button.waitForExistence(timeout: 15), "Tab \(name) missing")
         button.tap()
+    }
+
+    private func attachPaywallShot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func shot(_ app: XCUIApplication, _ name: String) {

@@ -7,7 +7,7 @@ final class AppStoreScreenshotTests: XCTestCase {
     private let pricesVaryByStoreLine = "Prices vary by store and week."
 
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        continueAfterFailure = true
     }
 
     func testCaptureRequiredStoreScreens() throws {
@@ -311,6 +311,7 @@ final class AppStoreScreenshotTests: XCTestCase {
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "free")).firstMatch.exists,
             "\(screen) shows Free copy"
         )
+        attachPaywallShot("no-paywall-\(screen)")
         XCTAssertFalse(app.staticTexts["Paywall"].exists, "\(screen) shows a paywall")
         let priceLines = app.staticTexts.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Price")
@@ -319,6 +320,13 @@ final class AppStoreScreenshotTests: XCTestCase {
         if let line = priceLines.first {
             XCTAssertEqual(line.label, pricesVaryByStoreLine)
         }
+    }
+
+    private func attachPaywallShot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func savePNG(named name: String) {

@@ -134,6 +134,7 @@ final class Build11ScreenAuditUITests: XCTestCase {
         let app = launch([ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-ForceLightMode"])
         guard waitForTabs(app) else { return }
         openUpgradePaywall(in: app)
+        attachPaywallShot("paywall-plans-before-check")
         let phase = waitForPaywall(app)
         let weeklyCard = app.buttons["paywall-plan-fitmunch_weekly"].exists || app.staticTexts["paywall-plan-title-fitmunch_weekly"].exists
         let weeklyWord = visibleText(app).localizedCaseInsensitiveContains("fitmunch_weekly")
@@ -163,6 +164,7 @@ final class Build11ScreenAuditUITests: XCTestCase {
         let app = launch([ReviewLaunchArgument.flag, "-UseLocalStoreKit", "-PaywallForceEmpty", "-ForceLightMode"])
         guard waitForTabs(app) else { return }
         openUpgradePaywall(in: app)
+        attachPaywallShot("paywall-loading-before-check")
         let loading = app.descendants(matching: .any)["paywall-loading"].waitForExistence(timeout: 4)
         mark("Paywall", "loading", loading ? "PASS" : "FAIL", loading ? "Loading plans visible" : "Loading state missing", shot(app, "paywall-loading"))
         let error = app.staticTexts["Plans couldn't load. Check your connection and try again."].waitForExistence(timeout: 16)
@@ -372,6 +374,13 @@ final class Build11ScreenAuditUITests: XCTestCase {
     }
 
     @discardableResult
+    private func attachPaywallShot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func shot(_ app: XCUIApplication, _ name: String) -> String {
         let folder = deviceFolder()
         let dir = URL(fileURLWithPath: "/tmp/fitmunch-audit-2026-10-15/\(folder)", isDirectory: true)

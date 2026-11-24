@@ -7,7 +7,7 @@ final class PreASCDeviceAuditTests: XCTestCase {
     private let loadFailure = "Plans couldn't load. Check your connection and try again."
 
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        continueAfterFailure = true
     }
 
     /// A: First run shows the account screen and does not crash.
@@ -106,11 +106,14 @@ final class PreASCDeviceAuditTests: XCTestCase {
         let app = try launchReview()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
         openUpgradePaywall(in: app)
+        attachPaywallShot("C-paywall")
         XCTAssertTrue(paywallIsShowing(in: app), "C FAIL: paywall missing")
+        attachPaywallShot("C-foreground")
         XCTAssertEqual(app.state, .runningForeground, "C FAIL: app died after Upgrade")
         let shot = saveAuditScreen(app, baseName: "C-upgrade-paywall")
 
         let close = app.buttons["paywall-close"]
+        attachPaywallShot("C-close")
         XCTAssertTrue(close.waitForExistence(timeout: 4), "C FAIL: Close missing")
         close.tap()
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 6), "C FAIL: tab bar missing after close")
@@ -127,7 +130,9 @@ final class PreASCDeviceAuditTests: XCTestCase {
         premiumRow?.tap()
         let again = app.buttons["paywall-close"].waitForExistence(timeout: 8)
             || app.staticTexts["Eat to your goals with every shop"].waitForExistence(timeout: 2)
+        attachPaywallShot("C-premium-row")
         XCTAssertTrue(again, "C FAIL: Upgrade to Premium did not open the paywall")
+        attachPaywallShot("C-premium-foreground")
         XCTAssertEqual(app.state, .runningForeground)
         recordAudit(row: "C", status: "PASS", screenshot: shot)
     }
@@ -146,9 +151,11 @@ final class PreASCDeviceAuditTests: XCTestCase {
         openUpgradePaywall(in: app)
 
         let sawLoading = app.descendants(matching: .any)["paywall-loading"].waitForExistence(timeout: 8)
+        attachPaywallShot("E-loading")
         XCTAssertTrue(sawLoading, "E FAIL: paywall did not show a loading state")
 
         let error = app.staticTexts[loadFailure]
+        attachPaywallShot("E-retry-copy")
         XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: retry copy did not appear")
         guard let retry = scrollUntilHittable([
             app.buttons["paywall-retry"],
@@ -157,18 +164,24 @@ final class PreASCDeviceAuditTests: XCTestCase {
             XCTFail("E FAIL: Retry missing")
             return
         }
+        attachPaywallShot("E-restore")
         XCTAssertTrue(
             app.buttons["paywall-restore"].exists || app.buttons["paywall-restore-inline"].exists || app.buttons["Restore Purchases"].exists,
             "E FAIL: Restore Purchases missing on the error state"
         )
+        attachPaywallShot("E-header")
         XCTAssertTrue(app.staticTexts["Eat to your goals with every shop"].exists, "E FAIL: paywall header missing (blank screen)")
+        attachPaywallShot("E-old-copy")
         XCTAssertFalse(app.staticTexts["Premium plans did not load from the App Store."].exists)
+        attachPaywallShot("E-plans")
         XCTAssertFalse(app.otherElements["paywall-plans"].exists, "E FAIL: plans rendered on the forced-empty path")
 
         reveal(retry, in: app)
         retry.tap()
         _ = app.staticTexts["Loading plans…"].waitForExistence(timeout: 2)
+        attachPaywallShot("E-retry-again")
         XCTAssertTrue(error.waitForExistence(timeout: 12), "E FAIL: Retry did not return to the error state")
+        attachPaywallShot("E-foreground")
         XCTAssertEqual(app.state, .runningForeground, "E FAIL: app died on the empty fetch path")
         let shot = saveAuditScreen(app, baseName: "E-retry")
         recordAudit(row: "E", status: "PASS", screenshot: shot)
@@ -180,16 +193,20 @@ final class PreASCDeviceAuditTests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 20))
         openUpgradePaywall(in: app)
         let restore = app.buttons["paywall-restore"]
+        attachPaywallShot("F-restore")
         XCTAssertTrue(restore.waitForExistence(timeout: 8), "F FAIL: Restore Purchases missing")
         reveal(restore, in: app)
         restore.tap()
         let alert = app.alerts["Restore Purchases"]
+        attachPaywallShot("F-alert")
         XCTAssertTrue(alert.waitForExistence(timeout: 15), "F FAIL: restore did not finish")
+        attachPaywallShot("F-foreground")
         XCTAssertEqual(app.state, .runningForeground, "F FAIL: app died during restore")
         let shot = saveAuditScreen(app, baseName: "F-restore")
         if alert.buttons["OK"].exists {
             alert.buttons["OK"].tap()
         }
+        attachPaywallShot("F-still-open")
         XCTAssertTrue(paywallIsShowing(in: app), "F FAIL: paywall gone after restore")
         recordAudit(row: "F", status: "PASS", screenshot: shot)
     }
@@ -202,6 +219,7 @@ final class PreASCDeviceAuditTests: XCTestCase {
         openTab("Coach", in: app)
         openUpgradePaywall(in: app)
         let close = app.buttons["paywall-close"]
+        attachPaywallShot("G-close")
         XCTAssertTrue(close.waitForExistence(timeout: 6))
         close.tap()
         openTab("Scan", in: app)
@@ -243,6 +261,13 @@ final class PreASCDeviceAuditTests: XCTestCase {
                 return
             }
         }
+    }
+
+    private func attachPaywallShot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func launchReview(extra: [String] = [], localStoreKit: Bool = true) throws -> XCUIApplication {
