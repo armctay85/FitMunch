@@ -101,6 +101,7 @@ final class AuthManager: ObservableObject {
                 self.isAuthenticated = true
                 AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)
                 identifyRevenueCat(userId: user.id)
+                Task { await AllergyStore.sync(userId: user.id) }
             } else {
                 KeychainStore.token = nil
             }
@@ -139,6 +140,7 @@ final class AuthManager: ObservableObject {
             self.isAuthenticated = true
             AIDataConsent.shared.applyServer(user.aiDataConsent, userId: user.id)
             identifyRevenueCat(userId: user.id)
+            Task { await AllergyStore.sync(userId: user.id) }
             return true
         } catch {
             errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription

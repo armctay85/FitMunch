@@ -10,8 +10,8 @@ struct WorkoutView: View {
 
     @AppStorage("completedWorkoutDays") private var completedWorkoutDays = ""
 
-    @State private var planType = "gym"
-    @State private var planLevel = "Beginner"
+    @AppStorage("workoutPlanType") private var planType = "gym"
+    @AppStorage("workoutPlanLevel") private var planLevel = "Beginner"
     @State private var plan: [WorkoutDay] = []
     @State private var hasGeneratedPlan = false
     @State private var plansGenerated = 0
@@ -88,6 +88,11 @@ struct WorkoutView: View {
             }
             .pickerStyle(.segmented)
 
+            Text("Built from your \(TrainingTargets.goal.replacingOccurrences(of: "_", with: " ")) target, \(TrainingTargets.calories) kcal and \(TrainingTargets.protein)g protein.")
+                .font(.caption)
+                .foregroundStyle(Theme.fmSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             Button {
                 generate(fromUser: true)
             } label: {
@@ -111,7 +116,7 @@ struct WorkoutView: View {
                         .font(.title3.bold())
                     Text(durationLine(day))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.fmSecondary)
                         .accessibilityIdentifier("training-duration")
                 }
                 Spacer()
@@ -120,7 +125,7 @@ struct WorkoutView: View {
                 } label: {
                     Image(systemName: completedDays.contains(day.day) ? "checkmark.circle.fill" : "circle")
                         .font(.title2)
-                        .foregroundStyle(completedDays.contains(day.day) ? brandGreen : .secondary)
+                        .foregroundStyle(completedDays.contains(day.day) ? Theme.mint : Theme.fmSecondary)
                 }
             }
 
@@ -129,13 +134,14 @@ struct WorkoutView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ex.name).font(.subheadline.weight(.medium))
                         if let notes = ex.notes, !notes.isEmpty {
-                            Text(notes).font(.caption).foregroundStyle(.secondary)
+                            Text(notes).font(.caption).foregroundStyle(Theme.fmSecondary)
                         }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(ex.sets) sets").font(.caption).foregroundStyle(.secondary)
-                        Text(ex.reps ?? ex.time ?? "-").font(.caption).foregroundStyle(.secondary)
+                        Text("\(ex.sets) sets").font(.caption).foregroundStyle(Theme.fmSecondary)
+                        Text(ex.reps ?? ex.time ?? "reps").font(.caption).foregroundStyle(Theme.fmSecondary)
+                        Text("Rest \(ex.rest)").font(.caption).foregroundStyle(Theme.fmSecondary)
                     }
                 }
                 .padding(.vertical, 4)
@@ -144,7 +150,7 @@ struct WorkoutView: View {
             if !day.focusAreas.isEmpty {
                 Text(day.focusAreas.joined(separator: " · "))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.fmSecondary)
             }
         }
         .padding()
@@ -170,7 +176,13 @@ struct WorkoutView: View {
     }
 
     private func generate(fromUser: Bool = false) {
-        plan = WorkoutPlanGenerator.plan(type: planType, level: planLevel)
+        plan = WorkoutPlanGenerator.plan(
+            type: planType,
+            level: planLevel,
+            goal: TrainingTargets.goal,
+            calories: TrainingTargets.calories,
+            protein: TrainingTargets.protein
+        )
         hasGeneratedPlan = true
         if fromUser {
             plansGenerated += 1
@@ -218,16 +230,16 @@ struct WorkoutView: View {
                             Text(log.name).font(.subheadline.weight(.medium))
                             Text(log.date.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Theme.fmSecondary)
                         }
                         Spacer()
                         Text("\(log.sets) × \(log.reps)")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.fmSecondary)
                         if log.weight > 0 {
                             Text("\(log.weight, specifier: "%.1f")kg")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Theme.fmSecondary)
                         }
                     }
                     .padding(.vertical, 2)

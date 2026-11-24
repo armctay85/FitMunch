@@ -43,6 +43,7 @@ struct OnboardingView: View {
                 // The inset's top edge is the line the price and trial must clear.
                 onboardingFooter
             }
+            .background(Theme.forest.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationBarBackButtonHidden(true)
             .overlay {
@@ -70,9 +71,12 @@ struct OnboardingView: View {
         let plan = viewModel.currentStep == 2
         VStack(spacing: plan ? 6 : 12) {
             if !plan {
-                Image(systemName: "fork.knife.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundColor(Theme.brandGreen)
+                Image("BrandMark")
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .accessibilityHidden(true)
             }
 
             Text(viewModel.currentStepTitle)
@@ -82,7 +86,7 @@ struct OnboardingView: View {
 
             Text(viewModel.currentStepDescription)
                 .font(plan ? .subheadline : .body)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
                 .fixedSize(horizontal: false, vertical: true)
@@ -152,7 +156,7 @@ struct OnboardingView: View {
                     } label: {
                         HStack {
                             Text(goal.displayName)
-                                .foregroundColor(.primary)
+                                .foregroundColor(Theme.offwhite)
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.8)
                             Spacer()
@@ -164,7 +168,7 @@ struct OnboardingView: View {
                         .padding(.horizontal, Theme.Spacing.four)
                         .frame(minHeight: 44)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(selected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
+                        .background(selected ? Theme.forestDeep : Theme.fmSurface)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
@@ -177,7 +181,74 @@ struct OnboardingView: View {
                 }
             }
             .sensoryFeedback(.selection, trigger: viewModel.selectedGoal)
+
+            allergyStep
         }
+    }
+
+    /// Asked on the goals step, before the plan step and before any AI food.
+    private var allergyStep: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Allergies")
+                .font(.headline)
+            Text("Pick every food allergy that applies. This is saved before any meal plan.")
+                .font(.subheadline)
+                .foregroundColor(Theme.fmSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(OnboardingViewModel.allergyChoices, id: \.self) { name in
+                let selected = viewModel.selectedAllergies.contains(name)
+                Button {
+                    if selected {
+                        viewModel.selectedAllergies.remove(name)
+                    } else {
+                        viewModel.selectedAllergies.insert(name)
+                    }
+                } label: {
+                    HStack {
+                        Text(name)
+                            .foregroundColor(Theme.offwhite)
+                        Spacer()
+                        if selected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Theme.brandGreen)
+                        }
+                    }
+                    .padding(.horizontal, Theme.Spacing.four)
+                    .frame(minHeight: 44)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(selected ? Theme.forestDeep : Theme.fmSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("onboarding-allergy-\(name.lowercased().replacingOccurrences(of: " ", with: "-"))")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+
+            let noOther = viewModel.noOtherAllergies
+            Button {
+                viewModel.noOtherAllergies.toggle()
+            } label: {
+                HStack {
+                    Text("No other allergies")
+                        .foregroundColor(Theme.offwhite)
+                    Spacer()
+                    if noOther {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(Theme.brandGreen)
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.four)
+                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(noOther ? Theme.forestDeep : Theme.fmSurface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("onboarding-allergy-no-other")
+            .accessibilityAddTraits(noOther ? .isSelected : [])
+        }
+        .accessibilityIdentifier("onboarding-allergies")
     }
     
     /// Plan step content
@@ -221,7 +292,7 @@ struct OnboardingView: View {
             
             Text("Start with free plan, upgrade anytime")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .onAppear {
             print("ONBOARDING_PLAN visible")
@@ -251,8 +322,8 @@ struct OnboardingView: View {
                 Button("Next") {
                     viewModel.nextStep()
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.buttonFill)
+                .buttonStyle(PrimaryButtonStyle())
+                .layoutPriority(1)
                 .accessibilityIdentifier("onboarding-next")
             } else {
                 Button("Get Started") {
@@ -262,8 +333,8 @@ struct OnboardingView: View {
                         }
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.buttonFill)
+                .buttonStyle(PrimaryButtonStyle())
+                .layoutPriority(1)
                 .disabled(viewModel.isLoading)
                 .accessibilityIdentifier("onboarding-get-started")
             }
@@ -271,7 +342,7 @@ struct OnboardingView: View {
         .padding(.horizontal)
         .padding(.top, 12)
         .padding(.bottom, 12)
-        .background(.ultraThinMaterial)
+        .background(Theme.forestDeep.ignoresSafeArea())
         // No identifier on this stack. It replaces onboarding-next, so the
         // width test cannot find Next. Footer top is the button top minus
         // this 12pt padding.
@@ -296,14 +367,14 @@ private struct FeatureRow: View {
                     .font(.headline)
                 Text(description)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.fmSecondary)
             }
             
             Spacer()
         }
         .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(12)
+        .background(Theme.fmSurface)
+        .cornerRadius(16)
     }
 }
 
@@ -388,7 +459,7 @@ private struct PlanCard: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Theme.brandGreenSoft : Color(.secondarySystemBackground))
+            .background(isSelected ? Theme.forestDeep : Theme.fmSurface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)

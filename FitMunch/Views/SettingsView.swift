@@ -42,6 +42,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollViewReader { proxy in
             List {
+                Group {
                 Section {
                     NavigationLink {
                         HistoryView(modelContext: modelContext, embedded: true)
@@ -56,12 +57,13 @@ struct SettingsView: View {
                     if let profile = signedInProfile {
                         HStack(alignment: .center, spacing: Theme.Spacing.three) {
                             // FitMunch mark, never a person photo or a person glyph.
-                            Image("LaunchLogo")
+                            Image("BrandMark")
                                 .resizable()
+                                .interpolation(.high)
                                 .scaledToFit()
-                                .padding(11)
+                                .padding(6)
                                 .frame(width: 50, height: 50)
-                                .background(Circle().fill(Theme.brandGreenSoft))
+                                .background(Circle().fill(Theme.forestDeep))
                                 .accessibilityHidden(true)
                                 .accessibilityIdentifier("me-avatar-mark")
 
@@ -77,8 +79,8 @@ struct SettingsView: View {
                                             .lineLimit(1)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 6)
-                                            .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
-                                            .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                            .background(Theme.mint)
+                                            .foregroundStyle(Theme.forest)
                                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                             .accessibilityIdentifier("me-premium-badge")
                                     }
@@ -98,12 +100,13 @@ struct SettingsView: View {
                     } else if ScreenshotLaunch.isActive {
                         // Screenshot flag only. The mark stays, with no seeded name or email.
                         HStack(alignment: .center, spacing: Theme.Spacing.three) {
-                            Image("LaunchLogo")
+                            Image("BrandMark")
                                 .resizable()
+                                .interpolation(.high)
                                 .scaledToFit()
-                                .padding(11)
+                                .padding(6)
                                 .frame(width: 50, height: 50)
-                                .background(Circle().fill(Theme.brandGreenSoft))
+                                .background(Circle().fill(Theme.forestDeep))
                                 .accessibilityHidden(true)
                                 .accessibilityIdentifier("me-avatar-mark")
                             if premium.isPremium {
@@ -112,8 +115,8 @@ struct SettingsView: View {
                                     .lineLimit(1)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
-                                    .background(Color(red: 214.0 / 255, green: 235.0 / 255, blue: 221.0 / 255))
-                                    .foregroundStyle(Color(red: 15.0 / 255, green: 95.0 / 255, blue: 46.0 / 255))
+                                    .background(Theme.mint)
+                                    .foregroundStyle(Theme.forest)
                                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     .accessibilityIdentifier("me-premium-badge")
                             }
@@ -128,7 +131,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Theme.brandGreen)
                             Text("Sign in and your name and email show up here.")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Theme.fmSecondary)
                         }
                         .padding(.vertical, 8)
                         .accessibilityElement(children: .combine)
@@ -175,16 +178,24 @@ struct SettingsView: View {
                     sectionHeader("About", identifier: "me-about")
                 }
 
-                // Dark Mode is the last row at rest on 6.5, 6.7, and 6.9. The clear
-                // footer keeps the tab bar's top edge in this gap, so no row is cut
-                // by the bar. Notifications and Metric Units are one scroll below.
+                // The switch stays in the list so Me still has this row. It does not
+                // open a light palette: FitMunch is Forest in every appearance.
+                // The clear footer keeps the tab bar's top edge in this gap, so no
+                // row is cut by the bar. Notifications and Metric Units are one scroll below.
                 Section {
-                    Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
-                        .tint(Theme.fmBrand)
-                        .accessibilityIdentifier("me-dark-mode")
-                        .onChange(of: viewModel.isDarkMode) { _, newValue in
-                            viewModel.applyDarkMode(newValue)
+                    // The identifier sits on the UISwitch itself. A SwiftUI Toggle
+                    // inside a List drops that identifier on the iPad compatibility
+                    // window, so the brand shot cannot see switches["me-dark-mode"].
+                    HStack(spacing: 12) {
+                        Text("Dark Mode")
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        DarkModeSwitch(isOn: $viewModel.isDarkMode) { turnedOn in
+                            viewModel.applyDarkMode(turnedOn)
                         }
+                    }
+                    .frame(minHeight: 44)
+                    .accessibilityElement(children: .contain)
                 } footer: {
                     Color.clear
                         .frame(height: 72)
@@ -224,15 +235,16 @@ struct SettingsView: View {
                         privacyExpanded.toggle()
                     }
                     if privacyExpanded || privacyRequest > 0 {
-                        Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, and the number of days.")
+                        Text("Coach sends up to 12 recent messages, including replies. The server keeps at most 20. Age, weight, height, goal, and diet come from the account profile. Providers are xAI, then OpenAI, then Anthropic. A receipt photo goes to xAI or OpenAI only. Data is processed in the United States. A failed read is not shown as your shop. A meal plan sends the goal as a label, calories, protein, the number of days, and saved allergies.")
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.fmSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } header: {
                     sectionHeader("Privacy", identifier: "me-privacy")
                 } footer: {
                     Text("Off blocks Coach, receipt scan, meal plans, insights, and the weekly review.")
+                        .foregroundStyle(Theme.fmSecondary)
                 }
                 .id("me-privacy")
                 
@@ -312,7 +324,7 @@ struct SettingsView: View {
                             Text("Signed in as")
                             Spacer()
                             Text(user.email)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Theme.fmSecondary)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
@@ -327,6 +339,8 @@ struct SettingsView: View {
                 } header: {
                     sectionHeader("Account")
                 }
+                }
+                .listRowBackground(Theme.fmSurface)
             }
             .font(.body)
             .navigationTitle("Me")
@@ -396,6 +410,7 @@ struct SettingsView: View {
             } message: {
                 Text("This deletes the meal and workout logs on this iPhone. Your account, goals and synced history stay.")
             }
+            .listStyle(.insetGrouped)
             .navigationDestination(isPresented: $navigateToOnboarding) {
                 OnboardingView()
             }
@@ -442,7 +457,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 Text(title)
                     .font(.body)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.offwhite)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
@@ -588,6 +603,45 @@ private struct SettingsHeaderID: ViewModifier {
     }
 }
 
+/// UISwitch keeps accessibilityIdentifier on iPhone and on the iPad
+/// compatibility window. A List Toggle was not exposed as switches["me-dark-mode"].
+private struct DarkModeSwitch: UIViewRepresentable {
+    @Binding var isOn: Bool
+    var onChange: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UISwitch {
+        let control = UISwitch()
+        control.accessibilityIdentifier = "me-dark-mode"
+        control.isAccessibilityElement = true
+        control.onTintColor = UIColor(red: 110 / 255, green: 242 / 255, blue: 176 / 255, alpha: 1)
+        control.isOn = isOn
+        control.addTarget(context.coordinator, action: #selector(Coordinator.toggled(_:)), for: .valueChanged)
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return control
+    }
+
+    func updateUIView(_ uiView: UISwitch, context: Context) {
+        context.coordinator.parent = self
+        uiView.accessibilityIdentifier = "me-dark-mode"
+        if uiView.isOn != isOn {
+            uiView.setOn(isOn, animated: false)
+        }
+    }
+
+    final class Coordinator: NSObject {
+        var parent: DarkModeSwitch
+        init(_ parent: DarkModeSwitch) { self.parent = parent }
+
+        @objc func toggled(_ sender: UISwitch) {
+            parent.isOn = sender.isOn
+            parent.onChange(sender.isOn)
+        }
+    }
+}
+
 /// Settings row with icon
 private struct SettingsRow: View {
     let icon: String
@@ -608,7 +662,7 @@ private struct SettingsRow: View {
             
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .padding(.vertical, 8)
     }

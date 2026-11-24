@@ -53,10 +53,24 @@ echo "Pinned simulator type=$chosen udid=$udid runtime=$runtime os=$OS_VERSION" 
 # drop every destination (xcodebuild exit 70).
 xcrun simctl shutdown all >/dev/null 2>&1 || true
 
+# bootstatus can sit forever after shutdown all. Cap it so the next device still runs.
+boot_status() {
+  python3 - "$1" << 'PY'
+import subprocess, sys
+udid = sys.argv[1]
+try:
+    result = subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], timeout=180)
+except subprocess.TimeoutExpired:
+    print(f"bootstatus timed out for {udid}", file=sys.stderr)
+    sys.exit(124)
+sys.exit(result.returncode)
+PY
+}
+
 boot_once() {
   xcrun simctl boot "$udid" >/dev/null 2>&1 || true
   # bootstatus writes its progress to stdout. Callers capture stdout as the UDID.
-  xcrun simctl bootstatus "$udid" -b >&2
+  boot_status "$udid" >&2
 }
 
 if ! boot_once; then

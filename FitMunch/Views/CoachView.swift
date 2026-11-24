@@ -48,8 +48,8 @@ struct CoachView: View {
                                     .minimumScaleFactor(0.8)
                                     .padding(.horizontal, 12)
                                     .frame(height: 32)
-                                    .background(intent == item.id ? Theme.buttonFill : Color(.secondarySystemBackground))
-                                    .foregroundStyle(intent == item.id ? Color.white : Color.primary)
+                                    .background(intent == item.id ? Theme.mint : Theme.fmSurface)
+                                    .foregroundStyle(intent == item.id ? Theme.forest : Theme.offwhite)
                                     .clipShape(Capsule())
                             }
                             .frame(minHeight: 44)
@@ -115,7 +115,7 @@ struct CoachView: View {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 28))
                             .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(input.trimmingCharacters(in: .whitespaces).isEmpty || isSending ? Color.secondary : Theme.brandGreen)
+                            .foregroundStyle(input.trimmingCharacters(in: .whitespaces).isEmpty || isSending ? Theme.muteDark : Theme.mint)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
@@ -140,7 +140,7 @@ struct CoachView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Text("\(remaining) left")
                             .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.fmSecondary)
                     }
                 }
             }
@@ -194,7 +194,7 @@ struct CoachView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.three) {
             Text(AIConsentCopy.coachBlocked)
                 .font(.subheadline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.offwhite)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("coach-consent-blocked")
             Button("Allow in Privacy", action: openPrivacy)
@@ -256,7 +256,7 @@ struct CoachView: View {
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
                 .background(Theme.brandGreenSoft)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.offwhite)
                 .clipShape(Capsule())
                 .opacity(consent.isDenied(auth.user?.id) ? 0.45 : 1)
         }
@@ -284,8 +284,8 @@ struct CoachView: View {
                 .font(.subheadline)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(message.role == "user" ? Theme.buttonFill : Color(.secondarySystemBackground))
-                .foregroundStyle(message.role == "user" ? Color.white : Color.primary)
+                .background(message.role == "user" ? Theme.mint : Theme.fmSurface)
+                .foregroundStyle(message.role == "user" ? Theme.forest : Theme.offwhite)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             if message.role != "user" { Spacer(minLength: 40) }
         }

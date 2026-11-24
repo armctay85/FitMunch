@@ -1,8 +1,8 @@
 import UIKit
 
 /// Colours for the floating tab bar and the WCAG contrast of its icons and labels.
-/// The wash is the page background at 0.98 over the material, so row text behind
-/// the bar is not readable. Selected green matches the BrandGreen asset.
+/// One Forest system in both appearances. Selected tabs are Mint. Labels are mute-dark.
+/// The wash is Forest Deep at 0.98 over the material, so row text behind the bar is not readable.
 enum TabBarContrast {
     static let washOpacity: Double = 0.98
 
@@ -24,25 +24,23 @@ enum TabBarContrast {
         }
     }
 
-    /// BrandGreen light, #15803D-class. White is not drawn on this green here.
-    static let lightSelected = RGB(r: 0.082, g: 0.502, b: 0.239)
-    /// BrandGreen dark.
-    static let darkSelected = RGB(r: 0.133, g: 0.773, b: 0.369)
-    /// Secondary text #5F6B64.
-    static let lightNormal = RGB(r: 95.0 / 255.0, g: 107.0 / 255.0, b: 100.0 / 255.0)
-    /// Secondary text on the dark page.
-    static let darkNormal = RGB(r: 197.0 / 255.0, g: 208.0 / 255.0, b: 200.0 / 255.0)
-    /// Page background #F4F6F2.
-    static let lightPage = RGB(r: 244.0 / 255.0, g: 246.0 / 255.0, b: 242.0 / 255.0)
-    /// Page background #101A14.
-    static let darkPage = RGB(r: 16.0 / 255.0, g: 26.0 / 255.0, b: 20.0 / 255.0)
-    /// Hairline #D9DED9.
-    static let lightSeparator = RGB(r: 217.0 / 255.0, g: 222.0 / 255.0, b: 217.0 / 255.0)
-    /// Hairline #26302A.
-    static let darkSeparator = RGB(r: 38.0 / 255.0, g: 48.0 / 255.0, b: 42.0 / 255.0)
+    /// fm-mint. Active tab icon and label.
+    static let lightSelected = RGB(r: 110.0 / 255.0, g: 242.0 / 255.0, b: 176.0 / 255.0)
+    static let darkSelected = lightSelected
+    /// fm-mute-dark. Unselected tab icon and label.
+    static let lightNormal = RGB(r: 168.0 / 255.0, g: 191.0 / 255.0, b: 179.0 / 255.0)
+    static let darkNormal = lightNormal
+    /// fm-forest. Page behind the bar.
+    static let lightPage = RGB(r: 15.0 / 255.0, g: 42.0 / 255.0, b: 31.0 / 255.0)
+    static let darkPage = lightPage
+    /// fm-line. Decorative hairline.
+    static let lightSeparator = RGB(r: 42.0 / 255.0, g: 82.0 / 255.0, b: 64.0 / 255.0)
+    static let darkSeparator = lightSeparator
     static let white = RGB(r: 1, g: 1, b: 1)
-    /// Dark card, lifted off the page.
-    static let darkCard = RGB(r: 22.0 / 255.0, g: 32.0 / 255.0, b: 26.0 / 255.0)
+    /// fm-surface. Cards behind the bar wash.
+    static let darkCard = RGB(r: 23.0 / 255.0, g: 58.0 / 255.0, b: 44.0 / 255.0)
+    /// fm-forest-deep. Tab bar wash.
+    static let bar = RGB(r: 10.0 / 255.0, g: 31.0 / 255.0, b: 22.0 / 255.0)
 
     /// Page colour at `washOpacity` composited over whatever is scrolling behind the bar.
     static func composite(_ wash: RGB, over back: RGB, opacity: Double = washOpacity) -> RGB {
@@ -68,10 +66,7 @@ enum TabBarContrast {
     }
 
     static var washUIColor: UIColor {
-        UIColor { traits in
-            let rgb = traits.userInterfaceStyle == .dark ? darkPage : lightPage
-            return UIColor(red: rgb.r, green: rgb.g, blue: rgb.b, alpha: washOpacity)
-        }
+        UIColor(red: bar.r, green: bar.g, blue: bar.b, alpha: washOpacity)
     }
 
     /// Solid page colour. Fills the gap around the floating pill so row text there is not readable.

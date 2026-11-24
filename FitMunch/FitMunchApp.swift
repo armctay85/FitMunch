@@ -57,9 +57,10 @@ struct FitMunchApp: App {
             .modelContainer(sharedModelContainer)
             .environmentObject(premiumManager)
             .environmentObject(auth)
-            .tint(Theme.brandGreen)
-            .preferredColorScheme(AppearanceLaunch.colorScheme)
-            .background(Theme.surface)
+            .tint(Theme.mint)
+            .preferredColorScheme(.dark)
+            .foregroundStyle(Theme.offwhite)
+            .background(Theme.forest)
             .onAppear {
                 AppearanceLaunch.applyWindows()
                 ScreenFill.apply()
@@ -83,10 +84,10 @@ enum OpaqueBars {
     static func apply() {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(named: "Surface") ?? .systemBackground
+        appearance.backgroundColor = UIColor(named: "Surface") ?? Theme.forestUIColor
         appearance.shadowColor = .clear
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.label]
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
+        appearance.titleTextAttributes = [.foregroundColor: Theme.offwhiteUIColor]
+        appearance.largeTitleTextAttributes = [.foregroundColor: Theme.offwhiteUIColor]
         let nav = UINavigationBar.appearance()
         nav.standardAppearance = appearance
         nav.scrollEdgeAppearance = appearance

@@ -151,7 +151,7 @@ struct MealPlanView: View {
         .padding(.horizontal, Theme.Spacing.four)
         .padding(.vertical, Theme.Spacing.two)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
+        .background(Theme.fmSurface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
         .padding(.horizontal, Theme.Spacing.four)
         .padding(.top, Theme.Spacing.two)
@@ -235,7 +235,7 @@ struct MealPlanView: View {
                     .accessibilityIdentifier("plan-preview")
                 if let summary = plan.summary {
                     Text(summary)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.fmSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("plan-summary")
                 }
@@ -271,7 +271,7 @@ struct MealPlanView: View {
         .padding(.horizontal, Theme.Spacing.four)
         .padding(.vertical, compact ? 10 : Theme.Spacing.four)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
+        .background(Theme.fmSurface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
     }
 
@@ -283,7 +283,7 @@ struct MealPlanView: View {
                 .accessibilityIdentifier("plan-preview")
             if let summary = plan.summary {
                 Text(summary)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.fmSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan-summary")
             }
@@ -306,7 +306,7 @@ struct MealPlanView: View {
             }
             .padding(Theme.Spacing.four)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
+            .background(Theme.fmSurface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             .id(day.day == "Monday" ? "plan-monday-bottom" : nil)
         }
@@ -339,7 +339,7 @@ struct MealPlanView: View {
         } label: {
             Text(isLoading ? "Building your week…" : (plan == nil ? "Build my week" : "Generate 7-day plan"))
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.forest)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
         }
@@ -352,7 +352,7 @@ struct MealPlanView: View {
 
     private func labeledField(_ title: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.one) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.caption).foregroundStyle(Theme.fmSecondary)
             TextField(title, text: text)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
@@ -379,7 +379,7 @@ struct MealPlanView: View {
             mealName(label, meal, identifier: identifier)
             Text("\(meal.calories ?? 0) kcal · \(meal.protein ?? 0)g protein per serve · \(meal.prepMins ?? 0) min")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.fmSecondary)
         }
     }
 
@@ -420,14 +420,23 @@ struct MealPlanView: View {
         isLoading = true
         defer { isLoading = false }
         do {
+            let calorieTarget = Int(calories) ?? 2000
+            let proteinTarget = Int(protein) ?? 150
+            TrainingTargets.saveGoal(goal)
+            TrainingTargets.saveTargets(calories: calorieTarget, protein: proteinTarget)
+            if let userId = auth.user?.id {
+                await AllergyStore.sync(userId: userId)
+            }
+            let savedAllergies = AllergyStore.saved
             let response = try await APIClient.request(
                 "/meal-plan/generate",
                 method: "POST",
                 body: [
                     "goal": goal,
-                    "calories": Int(calories) ?? 2000,
-                    "protein": Int(protein) ?? 150,
+                    "calories": calorieTarget,
+                    "protein": proteinTarget,
                     "days": 7,
+                    "allergies": savedAllergies,
                 ],
                 as: MealPlanGenerateResponse.self
             )

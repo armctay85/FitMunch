@@ -10,7 +10,7 @@ struct LoadingSkeleton: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.three) {
             ForEach(0..<rows, id: \.self) { index in
                 RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(Theme.fmSurface)
                     .frame(height: index == 0 ? 96 : 64)
                     .frame(maxWidth: .infinity)
             }

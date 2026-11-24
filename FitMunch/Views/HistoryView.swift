@@ -141,7 +141,7 @@ struct HistoryView: View {
             
             Text(viewModel.formattedDateRange)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .padding()
         .background(Color(.secondarySystemBackground))
@@ -300,7 +300,7 @@ private struct StatCard: View {
             
             Text(title)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -323,14 +323,14 @@ private struct HistoryMealCard: View {
                         .font(.headline)
                     Text(Constants.dateFormatter.string(from: meal.date))
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.fmSecondary)
                 }
                 
                 Spacer()
                 
                 Text(Constants.timeFormatter.string(from: meal.date))
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.fmSecondary)
             }
             
             HStack {
@@ -365,12 +365,12 @@ private struct NutritionBadge: View {
                 .fontWeight(.semibold)
             Text(unit)
                 .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundColor(Theme.fmSecondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(color.opacity(0.1))
-        .foregroundColor(color)
+        .background(color.opacity(0.15))
+        .foregroundColor(Theme.offwhite)
         .cornerRadius(4)
     }
 }
@@ -418,9 +418,9 @@ private struct DateRangePicker: View {
                         isPresented = false
                     }
                     .frame(maxWidth: .infinity)
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.forest)
                     .padding()
-                    .background(Theme.buttonFill)
+                    .background(Theme.mint)
                     .cornerRadius(8)
                 }
                 .listRowBackground(Color.clear)
@@ -459,7 +459,7 @@ struct ExportSheet: View {
                 
                 Text("Your data has been prepared for export. You can share it as a CSV file.")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Theme.fmSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                 

@@ -1,4 +1,5 @@
 import Foundation
+import os
 import RevenueCat
 import StoreKit
 import SwiftUI
@@ -18,6 +19,7 @@ class PremiumManager: ObservableObject {
 
     static let shared = PremiumManager()
 
+    private let offeringLog = Logger(subsystem: "com.fitmunch.app", category: "paywall")
     private var planHandles: [String: PlanHandle] = [:]
     private var fetchToken = UUID()
 
@@ -71,9 +73,8 @@ class PremiumManager: ObservableObject {
         }
         guard !Purchases.isConfigured else { return }
 
-        #if DEBUG
-        Purchases.logLevel = .debug
-        #endif
+        // Warnings from an unused empty offering must not land in the launch log.
+        Purchases.logLevel = .error
         Purchases.configure(withAPIKey: Constants.revenueCatApiKey)
 
         Task {
@@ -224,9 +225,11 @@ class PremiumManager: ObservableObject {
         }
     }
 
-    /// Load monthly/annual plans. Never throws into UI. Empty offerings return [].
-    /// Order: RevenueCat current offering, then `main`, then RC product IDs, then StoreKit 2.
-    /// Each step times out so a hung sandbox fetch cannot leave the paywall spinning.
+    /// Load monthly and annual plans. Never throws into UI.
+    /// Asks RevenueCat for offering "default" only. When that offering has no
+    /// monthly or annual package, StoreKit products fill the cards so the
+    /// attached AU catalog can still show Annual. The error state is only
+    /// when both are empty. Each step times out so a hung fetch cannot spin.
     func getPlans() async -> [PaywallPlan] {
         let token = UUID()
         fetchToken = token
@@ -242,17 +245,12 @@ class PremiumManager: ObservableObject {
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
 
         if !localOnly && canUsePurchases {
-            loaded = await withTimeout(seconds: 4) {
+            loaded = await withTimeout(seconds: 15) {
                 await self.plansFromOfferings()
             } ?? LoadedPlans()
-            if loaded.plans.isEmpty {
-                loaded = await withTimeout(seconds: 4) {
-                    await self.plansFromProductIds()
-                } ?? LoadedPlans()
-            }
         }
         if loaded.plans.isEmpty {
-            loaded = await withTimeout(seconds: 6) {
+            loaded = await withTimeout(seconds: 8) {
                 await self.plansFromStoreKit()
             } ?? LoadedPlans()
         }
@@ -288,17 +286,31 @@ class PremiumManager: ObservableObject {
         }
     }
 
+    /// Offering "default" only. Its $rc_monthly and $rc_annual packages map to
+    /// fitmunch_monthly and fitmunch_annual. No other offering is read.
     private func plansFromOfferings() async -> LoadedPlans {
+        let identifier = Constants.Offerings.primary
+        print("Requesting offering \(identifier)")
+        offeringLog.info("Requesting offering \(identifier, privacy: .public)")
         do {
             let offerings = try await Purchases.shared.offerings()
-            let offering = offerings.current
-                ?? offerings.offering(identifier: Constants.Offerings.main)
-            guard let offering else { return LoadedPlans() }
+            guard let offering = offerings.offering(identifier: Constants.Offerings.primary) else {
+                print("offering \(identifier) is missing")
+                return LoadedPlans()
+            }
 
-            let packages = offering.availablePackages
+            let standard = Set(["$rc_monthly", "$rc_annual"])
+            let packages = offering.availablePackages.filter { package in
+                standard.contains(package.identifier)
+                    || Constants.ProductIDs.sellable.contains(package.storeProduct.productIdentifier)
+            }
             let ids = PaywallCatalog.selectSellableIds(
                 from: packages.map(\.storeProduct.productIdentifier)
             )
+            guard !ids.isEmpty else {
+                print("offering \(identifier) has no monthly or annual package")
+                return LoadedPlans()
+            }
             var loaded = LoadedPlans()
             for id in ids {
                 guard let package = packages.first(where: { $0.storeProduct.productIdentifier == id }) else { continue }
@@ -306,25 +318,17 @@ class PremiumManager: ObservableObject {
                 loaded.handles[id] = .package(package)
                 loaded.plans.append(plan)
             }
+            if loaded.plans.isEmpty {
+                print("offering \(identifier) has no monthly or annual package")
+            } else {
+                print("Loaded offering \(identifier)")
+                offeringLog.info("Loaded offering \(identifier, privacy: .public)")
+            }
             return loaded
         } catch {
-            print("Offerings error: \(error)")
+            print("offering \(identifier) could not be loaded")
             return LoadedPlans()
         }
-    }
-
-    private func plansFromProductIds() async -> LoadedPlans {
-        guard canUsePurchases else { return LoadedPlans() }
-        let products = await Purchases.shared.products(Constants.ProductIDs.sellable)
-        let ids = PaywallCatalog.selectSellableIds(from: products.map(\.productIdentifier))
-        var loaded = LoadedPlans()
-        for id in ids {
-            guard let product = products.first(where: { $0.productIdentifier == id }) else { continue }
-            let plan = await planFromRevenueCat(product, id: id, priceString: product.localizedPriceString)
-            loaded.handles[id] = .product(product)
-            loaded.plans.append(plan)
-        }
-        return loaded
     }
 
     /// Last-resort App Store load. Used when RevenueCat offerings/products are empty

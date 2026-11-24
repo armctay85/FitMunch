@@ -72,11 +72,14 @@ enum PaywallLaunchArgument {
     /// Skips RevenueCat so StoreKit product prices are what the paywall shows.
     static let localStoreKit = "-UseLocalStoreKit"
     static let sandboxProbe = "-SandboxProductProbe"
+    /// Opens the paywall on launch so a fresh simulator can record the offering load.
+    static let launchPaywall = "-LaunchPaywall"
 
     /// Launch arguments are test hooks. Release builds ignore them.
     static var isForceEmpty: Bool { flag(forceEmpty) }
     static var isLocalStoreKit: Bool { flag(localStoreKit) }
     static var isSandboxProbe: Bool { flag(sandboxProbe) }
+    static var isLaunchPaywall: Bool { flag(launchPaywall) }
 
     private static func flag(_ name: String) -> Bool {
         #if DEBUG

@@ -1,0 +1,79 @@
+name: iOS b12 launch log
+
+# Fresh install on iPhone 16e and iPad Air 11-inch (M3), StoreKit catalog
+# attached, launch to the paywall, and keep the RevenueCat plus FitMunch log
+# until the offering loads. Does not archive or upload to App Store Connect.
+
+on:
+  pull_request:
+    paths:
+      - "FitMunch/**"
+      - "FitMunchUITests/**"
+      - "project.yml"
+      - "scripts/capture-b12-launch-log.sh"
+      - "scripts/attach-storekit-test-action.py"
+      - "design/b12-inputs/eqa_ios_b12_launchlog.js"
+      - ".github/workflows/ios-b12-launch-log.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launch-log:
+    runs-on: macos-26
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Download RevenueCat XCFramework
+        run: |
+          curl -L -o RevenueCat.xcframework.zip \
+            https://github.com/RevenueCat/purchases-ios/releases/download/5.84.0/RevenueCat.xcframework.zip
+          unzip -q RevenueCat.xcframework.zip -d rc_tmp
+          XCFW=$(find rc_tmp -maxdepth 3 -name "RevenueCat.xcframework" -type d | head -1)
+          mv "$XCFW" ./RevenueCat.xcframework
+          rm -rf rc_tmp
+          xattr -cr RevenueCat.xcframework || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          python3 scripts/attach-storekit-test-action.py
+
+      - name: Capture launch logs
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/b12-launch-logs
+          bash scripts/capture-b12-launch-log.sh iphone "iPhone 16e" artifacts/b12-launch-logs/launch-iphone.log
+          bash scripts/capture-b12-launch-log.sh ipad "iPad Air 11-inch (M3)" artifacts/b12-launch-logs/launch-ipad.log
+
+      - name: Upload launch logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-b12-launch-logs
+          path: |
+            artifacts/b12-launch-logs/launch-iphone.log
+            artifacts/b12-launch-logs/launch-ipad.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Locked OF2 launch log check
+        if: always()
+        run: |
+          mkdir -p artifacts/b12-launch-logs
+          node design/b12-inputs/eqa_ios_b12_launchlog.js \
+            artifacts/b12-launch-logs/launch-iphone.log \
+            artifacts/b12-launch-logs/launch-ipad.log | tee artifacts/b12-launch-logs/of2.txt
+          grep -qx 'SUMMARY fail=0' artifacts/b12-launch-logs/of2.txt
