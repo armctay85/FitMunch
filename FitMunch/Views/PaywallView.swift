@@ -31,11 +31,13 @@ struct PaywallView: View {
 
     var body: some View {
         NavigationStack {
-            // One scrolling column. A bottom inset drew the Annual card over the
-            // headline and the last feature row. A GeometryReader then gave that
-            // column no size, so the headline left the accessibility tree.
-            ScrollView {
+            // One vertical scroll. The column takes the window width (390pt on
+            // iPhone 16e, the iPad compatibility window on iPad Air) so the
+            // headline and feature lines wrap instead of clipping. No fixed
+            // height on the column, so the Annual card stays in the tree.
+            ScrollView(.vertical) {
                 paywallColumn(.compact)
+                    .containerRelativeFrame(.horizontal, alignment: .top)
             }
             .refreshable {
                 await loadPlansWithRetry()
@@ -118,11 +120,14 @@ struct PaywallView: View {
             if plansLoadFailed {
                 emptyPlansSection
             }
-            if let timeline = trialTimeline {
-                trialTimelineSection(timeline, compact: density == .compact)
-            }
+            // Annual sits under the feature rows so a 390pt window can show the
+            // headline, every row, and the Annual card together. The trial
+            // lines follow the cards and scroll with the rest.
             if !plans.isEmpty {
                 pricingSection(density)
+            }
+            if let timeline = trialTimeline {
+                trialTimelineSection(timeline, compact: density == .compact)
             }
             bottomBar(density)
         }
@@ -140,7 +145,8 @@ struct PaywallView: View {
                 .font(density.headline)
                 .foregroundStyle(Theme.offwhite)
                 .multilineTextAlignment(.center)
-                .lineLimit(nil)
+                .lineLimit(4)
+                .minimumScaleFactor(1)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
                 .accessibilityIdentifier("paywall-headline")
@@ -155,11 +161,16 @@ struct PaywallView: View {
                     icon: row.icon,
                     title: row.title,
                     tint: Theme.green,
-                    identifier: "paywall-benefit-\(index)",
+                    identifier: featureIdentifier(index),
                     compact: density == .compact
                 )
             }
         }
+    }
+
+    /// Plain id. The UITest lists the same strings without interpolation.
+    private func featureIdentifier(_ index: Int) -> String {
+        "paywall-feature-" + String(index)
     }
 
     @ViewBuilder
@@ -355,10 +366,10 @@ struct PaywallView: View {
         VStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Theme.fmSurface)
-                .frame(height: 88)
+                .frame(maxWidth: .infinity, minHeight: 64)
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Theme.fmSurface)
-                .frame(height: 88)
+                .frame(maxWidth: .infinity, minHeight: 64)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading plans")
@@ -552,7 +563,7 @@ private struct PackageCard: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("paywall-plan-\(plan.id)")
+        .uniqueButtonIdentifier("paywall-plan-\(plan.id)")
         .accessibilityLabel(voiceOverLabel)
     }
 
@@ -625,8 +636,10 @@ private struct BenefitRow: View {
                 .frame(width: compact ? 22 : 28)
             Text(title)
                 .font(compact ? .subheadline : .body)
+                .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)

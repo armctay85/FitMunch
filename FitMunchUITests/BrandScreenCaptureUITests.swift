@@ -64,6 +64,7 @@ final class BrandScreenCaptureUITests: XCTestCase {
         let paywall = launch([ReviewLaunchArgument.flag])
         XCTAssertTrue(paywall.tabBars.firstMatch.waitForExistence(timeout: 25), "Paywall launch had no tabs")
         openUpgradePaywall(in: paywall)
+        scrollPaywall(until: paywall.staticTexts["paywall-headline"], in: paywall)
         let title = paywall.staticTexts["paywall-headline"]
         XCTAssertTrue(title.waitForExistence(timeout: 8), "Paywall headline missing")
         XCTAssertEqual(title.label, headline)
@@ -76,19 +77,28 @@ final class BrandScreenCaptureUITests: XCTestCase {
         if window.frame.width <= 430 {
             XCTAssertGreaterThan(title.frame.height, 44, "Headline did not wrap on a narrow window (\(window.frame.width))")
         }
-        let featureIds = (0..<4).map { "paywall-benefit-\($0)" }
+        let featureIds = [
+            "paywall-feature-0",
+            "paywall-feature-1",
+            "paywall-feature-2",
+            "paywall-feature-3",
+        ]
         for identifier in featureIds {
+            let row = paywall.descendants(matching: .any)[identifier]
+            scrollPaywall(until: row, in: paywall)
             XCTAssertTrue(
-                paywall.descendants(matching: .any)[identifier].waitForExistence(timeout: 6),
+                row.waitForExistence(timeout: 6),
                 "Feature row missing: \(identifier)"
             )
         }
         let annual = paywall.buttons["paywall-plan-fitmunch_annual"]
+        scrollPaywall(until: annual, in: paywall, timeout: 22)
         XCTAssertTrue(annual.waitForExistence(timeout: 25), "Annual card missing")
         let laidOut = Date().addingTimeInterval(4)
         while Date() < laidOut && annual.frame.height < 20 {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
+        bringPaywallIntoWindow(title: title, annual: annual, featureIds: featureIds, in: paywall)
         save(paywall, name: "paywall")
         XCTAssertGreaterThanOrEqual(title.frame.minY, window.frame.minY - 1, "Headline is above the window")
         XCTAssertLessThanOrEqual(title.frame.maxY, window.frame.maxY + 1, "Headline is below the window")
@@ -110,6 +120,75 @@ final class BrandScreenCaptureUITests: XCTestCase {
             "Annual price is not the AU catalog. \(annualPrice.label)"
         )
         XCTAssertFalse(annualPrice.label.contains("12.99"), "US storefront price is on the paywall. \(annualPrice.label)")
+    }
+
+    /// Short drags on the paywall scroll view. A full swipe can park the
+    /// headline under the navigation bar before the frame checks run.
+    private func scrollPaywall(
+        until element: XCUIElement,
+        in app: XCUIApplication,
+        nudges: Int = 8,
+        timeout: TimeInterval = 0
+    ) {
+        if timeout > 0 {
+            let deadline = Date().addingTimeInterval(timeout)
+            while Date() < deadline && !element.exists {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            }
+        }
+        if element.exists { return }
+        let scroller = paywallScroller(in: app)
+        for _ in 0..<nudges {
+            if element.exists { return }
+            nudgePaywall(scroller, up: true)
+        }
+        for _ in 0..<nudges {
+            if element.exists { return }
+            nudgePaywall(scroller, up: false)
+        }
+    }
+
+    /// Headline and feature rows have to sit inside the window, above Annual.
+    /// Scroll just enough to put that band on screen. The assertions stay as they are.
+    private func bringPaywallIntoWindow(
+        title: XCUIElement,
+        annual: XCUIElement,
+        featureIds: [String],
+        in app: XCUIApplication
+    ) {
+        let window = app.windows.firstMatch
+        guard window.exists else { return }
+        let rows = featureIds.map { app.descendants(matching: .any)[$0] }
+        func inside(_ element: XCUIElement) -> Bool {
+            guard element.exists, element.frame.height > 1 else { return false }
+            return element.frame.minY >= window.frame.minY - 1
+                && element.frame.maxY <= window.frame.maxY + 1
+        }
+        func settled() -> Bool {
+            inside(title) && rows.allSatisfy(inside)
+        }
+        if settled() { return }
+        let scroller = paywallScroller(in: app)
+        for _ in 0..<10 {
+            if settled() { return }
+            guard title.exists, annual.exists else { return }
+            let tooHigh = title.frame.height < 1 || title.frame.minY < window.frame.minY - 1
+            nudgePaywall(scroller, up: !tooHigh)
+        }
+    }
+
+    private func paywallScroller(in app: XCUIApplication) -> XCUIElement {
+        let scroll = app.scrollViews.firstMatch
+        if scroll.exists, scroll.isHittable, scroll.frame.height > 80 { return scroll }
+        return app
+    }
+
+    private func nudgePaywall(_ element: XCUIElement, up: Bool) {
+        let startY: CGFloat = up ? 0.68 : 0.40
+        let endY: CGFloat = up ? 0.40 : 0.68
+        let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+        let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     private func launch(_ arguments: [String]) -> XCUIApplication {

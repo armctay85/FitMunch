@@ -226,9 +226,10 @@ class PremiumManager: ObservableObject {
     }
 
     /// Load monthly and annual plans. Never throws into UI.
-    /// Asks RevenueCat for offering "default" only. A missing offering stays on the
-    /// error state. Local StoreKit is used only when RevenueCat is not in this launch.
-    /// Each step times out so a hung sandbox fetch cannot leave the paywall spinning.
+    /// Asks RevenueCat for offering "default" only. When that offering has no
+    /// monthly or annual package, StoreKit products fill the cards so the
+    /// attached AU catalog can still show Annual. The error state is only
+    /// when both are empty. Each step times out so a hung fetch cannot spin.
     func getPlans() async -> [PaywallPlan] {
         let token = UUID()
         fetchToken = token
@@ -244,11 +245,12 @@ class PremiumManager: ObservableObject {
         let localOnly = PaywallLaunchArgument.isLocalStoreKit
 
         if !localOnly && canUsePurchases {
-            loaded = await withTimeout(seconds: 4) {
+            loaded = await withTimeout(seconds: 15) {
                 await self.plansFromOfferings()
             } ?? LoadedPlans()
-        } else if loaded.plans.isEmpty {
-            loaded = await withTimeout(seconds: 6) {
+        }
+        if loaded.plans.isEmpty {
+            loaded = await withTimeout(seconds: 8) {
                 await self.plansFromStoreKit()
             } ?? LoadedPlans()
         }
@@ -288,6 +290,8 @@ class PremiumManager: ObservableObject {
     /// fitmunch_monthly and fitmunch_annual. No other offering is read.
     private func plansFromOfferings() async -> LoadedPlans {
         let identifier = Constants.Offerings.primary
+        print("Requesting offering \(identifier)")
+        offeringLog.info("Requesting offering \(identifier, privacy: .public)")
         do {
             let offerings = try await Purchases.shared.offerings()
             guard let offering = offerings.offering(identifier: Constants.Offerings.primary) else {
