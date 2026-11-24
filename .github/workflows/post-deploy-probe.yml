@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Live probes are never cancelled. A newer run of the same event waits.
+  group: post-deploy-probe-${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: false
+
 jobs:
   probe:
     # Preview deploys do not change fitmunch.com.au. Probe those hosts after a

@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Live probes are never cancelled. A newer run of the same event waits.
+  group: prod-smoke-${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: false
+
 jobs:
   smoke:
     # Exactly one smoke per production deploy. Every deploy emits
