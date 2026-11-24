@@ -10,6 +10,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 
 MAX_BYTES = 19 * 1024 * 1024
 TEXT_SUFFIXES = {".txt", ".log", ".json", ".xml", ".md", ".plist"}
@@ -70,25 +71,41 @@ def export_bundle(bundle: Path, dest: Path) -> None:
         (dest / "xcresulttool-stderr.txt").write_text(notes[-20000:])
 
 
-def first_file(root: Path, suffixes):
+OWN_OUTPUTS = {"app-stdout.log", "hierarchy.txt", "step-summary.md", "screenshot.png"}
+TREE_SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".mp4", ".mov", ".zip", ".car", ".dylib", ".json", ".plist"}
+
+
+def in_attachments(path: Path) -> bool:
+    return "attachments" in path.parts
+
+
+def first_attachment(root: Path, suffixes):
     matches = []
     if not root.exists():
         return None
     for path in root.rglob("*"):
-        if path.is_file() and path.suffix.lower() in suffixes and not skip_derived(path):
+        if not path.is_file() or skip_derived(path) or not in_attachments(path):
+            continue
+        if path.suffix.lower() in suffixes:
             matches.append(path)
     matches.sort(key=lambda item: item.stat().st_size, reverse=True)
     return matches[0] if matches else None
 
 
 def hierarchy_text(root: Path) -> str:
-    texts = []
+    """Element tree from the xcresult attachment export only.
+
+    The script's own files (app-stdout.log, hierarchy.txt, the copied xcodebuild
+    log) are never candidates. A log that mentions Button or identifier must not
+    become hierarchy.txt.
+    """
+    ranked = []
     if not root.exists():
         return ""
     for path in root.rglob("*"):
-        if not path.is_file() or skip_derived(path):
+        if not path.is_file() or skip_derived(path) or not in_attachments(path):
             continue
-        if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".zip", ".car", ".dylib"}:
+        if path.name in OWN_OUTPUTS or path.suffix.lower() in TREE_SKIP_SUFFIXES:
             continue
         if path.stat().st_size > 2_000_000:
             continue
@@ -96,19 +113,48 @@ def hierarchy_text(root: Path) -> str:
             sample = path.read_text(errors="ignore")
         except OSError:
             continue
-        if "identifier" in sample.lower() or "Button" in sample or "Application" in sample:
-            texts.append(sample)
-    if not texts:
+        if "Element subtree" in sample:
+            rank = 2
+        elif "identifier:" in sample and ("Application" in sample or "Button" in sample or "StaticText" in sample):
+            rank = 1
+        else:
+            continue
+        ranked.append((rank, len(sample), sample))
+    if not ranked:
         return ""
-    texts.sort(key=len, reverse=True)
-    return texts[0]
+    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return ranked[0][2]
+
+
+def xcresult_text(root: Path) -> str:
+    parts = []
+    if not root.exists():
+        return ""
+    for path in root.rglob("*"):
+        if not path.is_file() or skip_derived(path):
+            continue
+        if path.name not in {"tests.txt", "summary.txt"}:
+            continue
+        if path.parent.resolve() == root.resolve():
+            continue
+        try:
+            parts.append(path.read_text(errors="ignore"))
+        except OSError:
+            continue
+    return "\n".join(parts)
 
 
 def assertion_lines(text: str):
     lines = []
     for line in text.splitlines():
-        if "XCTAssert" in line or " error:" in line or line.strip().startswith("error:"):
-            lines.append(line.strip())
+        stripped = line.strip()
+        if (
+            "XCTAssert" in stripped
+            or " error:" in stripped
+            or stripped.startswith("error:")
+            or "failed -" in stripped
+        ):
+            lines.append(stripped)
     return lines[:40]
 
 
@@ -191,19 +237,28 @@ def main() -> None:
             stdout_parts.append(f"===== {log} =====\n" + log.read_text(errors="ignore")[-400_000:])
         except OSError:
             continue
-    (output / "app-stdout.log").write_text("\n".join(stdout_parts) if stdout_parts else "(no xcodebuild log found)\n")
-    png = first_file(output, {".png"})
+    stdout_body = "\n".join(stdout_parts) if stdout_parts else "(no xcodebuild log found)\n"
+    (output / "app-stdout.log").write_text(stdout_body)
+    png = first_attachment(output, {".png"})
     if png and png.resolve() != (output / "screenshot.png").resolve():
         shutil.copyfile(png, output / "screenshot.png")
     tree = hierarchy_text(output)
-    (output / "hierarchy.txt").write_text(tree or "(no view hierarchy exported)\n")
-    combined = "\n".join(stdout_parts) + "\n" + tree
-    assertions = assertion_lines(combined)
+    if tree and tree == stdout_body:
+        tree = ""
+    (output / "hierarchy.txt").write_text(tree if tree else "(no view hierarchy exported)\n")
+    # Assertions come from the xcresult export. The xcodebuild log is only a
+    # fallback for the file:line "error:" line, and it is never the element tree.
+    assertions = assertion_lines(xcresult_text(output) + "\n" + stdout_body)
     write_summary(output, assertions, tree)
     cap_tree(output)
     size = sum(path.stat().st_size for path in output.rglob("*") if path.is_file())
     print(f"failure_evidence_bytes={size}")
     print(f"failure_evidence_dir={output.resolve()}")
+    hierarchy_now = (output / "hierarchy.txt").read_text(errors="ignore")
+    stdout_now = (output / "app-stdout.log").read_text(errors="ignore")
+    if png is None or hierarchy_now == stdout_now:
+        print("failure_evidence_closed=1")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

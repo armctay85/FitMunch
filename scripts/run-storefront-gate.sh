@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Build once, then launch the paywall and keep the app log for the AUS gate.
-# The caller greps the log for STOREFRONT country=AUS and fails the job if it is missing.
+# Build once, then run StorefrontGateUITests (with and without -UseLocalStoreKit).
+# The test assertion is the pass signal. This script exits with the test status.
+# STOREFRONT country=AUS is collected when the unified log has it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,7 +40,7 @@ xcodebuild test-without-building \
   -scheme FitMunchStoreKit \
   -destination "platform=iOS Simulator,id=$UDID,arch=arm64" \
   -derivedDataPath "$DERIVED" \
-  -only-testing:FitMunchUITests/StorefrontGateUITests/testStorefrontIsAUS \
+  -only-testing:FitMunchUITests/StorefrontGateUITests \
   -testLanguage en \
   -testRegion AU \
   -parallel-testing-enabled NO \
@@ -65,4 +66,4 @@ if xcrun xcresulttool get --legacy --format json --path "$OUT/storefront.xcresul
   grep -E 'STOREFRONT country=|plans fetched' "$OUT/legacy.json" >> "$OUT/storefront.log" || true
 fi
 grep -E 'STOREFRONT country=|plans fetched|GATE_PRICE' "$OUT/storefront.log" || true
-exit 0
+exit "$rc"
