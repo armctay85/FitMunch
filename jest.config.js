@@ -97,6 +97,8 @@ module.exports = {
     '**/test_support_confirm.js',
     '**/test_eqa_acceptance_pr225_r3.js',
     '**/test_eqa_ios_ci_evidence.js',
+    '**/test_eqa_ios_storefront_gate_r2.js',
+    '**/test_eqa_ios_extractor_r2.js',
     '**/test_payment_failed_email_pg.js',
     '**/test_resend_inbound.js',
     '**/test_resend_inbound_pg.js',
