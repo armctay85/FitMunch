@@ -462,7 +462,8 @@ private enum PaywallDensity {
     var planSpacing: CGFloat { self == .regular ? 8 : 6 }
     var cardPadding: CGFloat { self == .regular ? 12 : 8 }
     var cardSpacing: CGFloat { self == .regular ? 4 : 2 }
-    var headline: Font { .title2.weight(.bold) }
+    // Title wraps on a 390pt window. Title2 stayed one line and failed the brand shot.
+    var headline: Font { .title.weight(.bold) }
 }
 
 /// Benefit lines that exist in this binary. No shopping list, so the week line
