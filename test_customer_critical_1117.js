@@ -306,7 +306,7 @@ describe('(c) support form keeps the message', () => {
     expect(res.status).toBe(503);
     expect(ack).not.toHaveBeenCalled();
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toBe('Could not send a confirmation just now.');
+    expect(res.body.error).toBe('Your message was not sent. Email support@fitmunch.com.au.');
   });
 });
 
