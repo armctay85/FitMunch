@@ -31,25 +31,28 @@ struct PaywallView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    headerSection
-                    if isLoadingPlans {
-                        paywallLoadingCards
+            // One column. A bottom inset taller than the iPad compatibility
+            // window (and the iPhone 16e window) drew the Annual card over the
+            // headline and the last feature row. ViewThatFits keeps every row
+            // in that column, and scrolls only when the window is shorter.
+            GeometryReader { proxy in
+                let offered = proxy.size
+                ViewThatFits(in: .vertical) {
+                    paywallColumn(.regular, width: offered.width)
+                        .fixedSize(horizontal: false, vertical: true)
+                    paywallColumn(.compact, width: offered.width)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ScrollView {
+                        paywallColumn(.compact, width: offered.width)
                     }
-                    benefitsSection
-                    if plansLoadFailed {
-                        emptyPlansSection
+                    .refreshable {
+                        await loadPlansWithRetry()
                     }
-                    if let timeline = trialTimeline {
-                        trialTimelineSection(timeline)
-                    }
+                    .frame(width: offered.width, height: offered.height, alignment: .top)
                 }
-                .padding(.horizontal)
-                .padding(.top, 4)
-                .padding(.bottom, 8)
+                .frame(width: offered.width, height: offered.height, alignment: .top)
             }
-            .contentMargins(.top, 0, for: .scrollContent)
+            .background(Theme.surface)
             .accessibilityIdentifier("paywall-root")
             .navigationBarTitleDisplayMode(.inline)
             .background(Theme.surface.ignoresSafeArea())
@@ -67,24 +70,6 @@ struct PaywallView: View {
                     .accessibilityLabel("Close")
                     .accessibilityIdentifier("paywall-close")
                 }
-            }
-            .refreshable {
-                await loadPlansWithRetry()
-            }
-            // Plan cards stay in this inset, above the Apple renewal sentence.
-            // Inside the scroll they rested under that sentence, so the monthly
-            // price could not be read while the annual price stayed clear.
-            .safeAreaInset(edge: .bottom, spacing: 8) {
-                VStack(spacing: 0) {
-                    if !plans.isEmpty {
-                        pricingSection
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-                            .padding(.bottom, 4)
-                    }
-                    bottomBar
-                }
-                .background(Theme.surface.ignoresSafeArea(edges: .bottom))
             }
             .alert("Couldn't complete that", isPresented: $showErrorAlert) {
                 Button("Retry") {
@@ -134,16 +119,39 @@ struct PaywallView: View {
 
     // MARK: - Sections
 
-    private var headerSection: some View {
+    private func paywallColumn(_ density: PaywallDensity, width: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: density.section) {
+            headerSection(density)
+            if isLoadingPlans {
+                paywallLoadingCards
+            }
+            benefitsSection(density)
+            if plansLoadFailed {
+                emptyPlansSection
+            }
+            if let timeline = trialTimeline {
+                trialTimelineSection(timeline, compact: density == .compact)
+            }
+            if !plans.isEmpty {
+                pricingSection(density)
+            }
+            bottomBar(density)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, density == .compact ? 0 : 4)
+        .padding(.bottom, 4)
+        .frame(width: width, alignment: .top)
+    }
+
+    private func headerSection(_ density: PaywallDensity) -> some View {
         VStack(spacing: 8) {
             // Wraps on iPhone 16e, 6.9in, and iPad compatibility mode.
             // A single line was clipping after "with" on the iPad Air 11-inch window.
             Text("Eat to your goals with every shop")
-                .font(.title.weight(.bold))
+                .font(density.headline)
                 .foregroundStyle(Theme.offwhite)
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
-                .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
                 .accessibilityIdentifier("paywall-headline")
@@ -151,22 +159,28 @@ struct PaywallView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var benefitsSection: some View {
-        VStack(spacing: 10) {
-            ForEach(PaywallBenefits.rows, id: \.title) { row in
-                BenefitRow(icon: row.icon, title: row.title, tint: Theme.green)
+    private func benefitsSection(_ density: PaywallDensity) -> some View {
+        VStack(spacing: density.benefitSpacing) {
+            ForEach(Array(PaywallBenefits.rows.enumerated()), id: \.element.title) { index, row in
+                BenefitRow(
+                    icon: row.icon,
+                    title: row.title,
+                    tint: Theme.green,
+                    identifier: "paywall-benefit-\(index)",
+                    compact: density == .compact
+                )
             }
         }
     }
 
     @ViewBuilder
-    private func trialTimelineSection(_ timeline: PaywallPricing.TrialTimeline) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            timelineRow("1", timeline.today, identifier: "paywall-trial-today")
-            timelineRow("2", timeline.reminder, identifier: "paywall-trial-reminder")
-            timelineRow("3", timeline.billed, identifier: "paywall-trial-billing")
+    private func trialTimelineSection(_ timeline: PaywallPricing.TrialTimeline, compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 4 : 10) {
+            timelineRow("1", timeline.today, identifier: "paywall-trial-today", compact: compact)
+            timelineRow("2", timeline.reminder, identifier: "paywall-trial-reminder", compact: compact)
+            timelineRow("3", timeline.billed, identifier: "paywall-trial-billing", compact: compact)
         }
-        .padding(12)
+        .padding(compact ? 8 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.fmSurface)
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -174,31 +188,34 @@ struct PaywallView: View {
         .accessibilityIdentifier("paywall-trial-timeline")
     }
 
-    private func timelineRow(_ step: String, _ text: String, identifier: String) -> some View {
-        HStack(spacing: 12) {
+    private func timelineRow(_ step: String, _ text: String, identifier: String, compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 12) {
             Text(step)
                 .font(.caption.weight(.bold))
                 .foregroundColor(Theme.forest)
-                .frame(width: 22, height: 22)
+                .frame(width: compact ? 18 : 22, height: compact ? 18 : 22)
                 .background(Theme.mint)
                 .clipShape(Circle())
             Text(text)
-                .font(.subheadline)
+                .font(compact ? .caption : .subheadline)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(identifier)
     }
 
     @ViewBuilder
-    private var pricingSection: some View {
+    private func pricingSection(_ density: PaywallDensity) -> some View {
         if !plans.isEmpty {
-            VStack(spacing: 10) {
+            VStack(spacing: density.planSpacing) {
                 ForEach(displayPlans) { plan in
                     PackageCard(
                         plan: plan,
                         monthlyAmount: monthlyAmount,
                         isSelected: selectedPlan?.id == plan.id,
                         brandGreen: Theme.green,
+                        padding: density.cardPadding,
+                        stackSpacing: density.cardSpacing,
                         action: { selectedPlan = plan }
                     )
                 }
@@ -259,8 +276,8 @@ struct PaywallView: View {
         #endif
     }
 
-    private var bottomBar: some View {
-        VStack(spacing: 8) {
+    private func bottomBar(_ density: PaywallDensity) -> some View {
+        VStack(spacing: density == .compact ? 4 : 8) {
             sandboxProbeSection
             if let plan = selectedPlan, !plans.isEmpty {
                 Text(renewalLine(plan))
@@ -268,6 +285,7 @@ struct PaywallView: View {
                     .foregroundStyle(Theme.fmSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("paywall-renewal")
                 subscribeButton(plan)
             }
@@ -287,11 +305,9 @@ struct PaywallView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+        .padding(.top, density == .compact ? 2 : 6)
+        .padding(.bottom, 2)
         .frame(maxWidth: .infinity)
-        .background(Theme.surface.ignoresSafeArea(edges: .bottom))
     }
 
     private func subscribeButton(_ plan: PaywallPlan) -> some View {
@@ -446,6 +462,20 @@ struct PaywallView: View {
     }
 }
 
+/// Spacing that still leaves the headline, four feature rows, both plans,
+/// and the renewal sentence on a 6.5-inch phone. Compact is the iPhone 16e
+/// and iPad compatibility column. Scroll is only the fallback.
+private enum PaywallDensity {
+    case regular, compact
+
+    var section: CGFloat { self == .regular ? 10 : 6 }
+    var benefitSpacing: CGFloat { self == .regular ? 8 : 4 }
+    var planSpacing: CGFloat { self == .regular ? 8 : 6 }
+    var cardPadding: CGFloat { self == .regular ? 12 : 8 }
+    var cardSpacing: CGFloat { self == .regular ? 4 : 2 }
+    var headline: Font { .title2.weight(.bold) }
+}
+
 /// Benefit lines that exist in this binary. No shopping list, so the week line
 /// does not mention one.
 enum PaywallBenefits {
@@ -464,6 +494,8 @@ private struct PackageCard: View {
     let monthlyAmount: Decimal?
     let isSelected: Bool
     let brandGreen: Color
+    var padding: CGFloat = 12
+    var stackSpacing: CGFloat = 6
     let action: () -> Void
 
     private var isAnnual: Bool { plan.id == Constants.ProductIDs.annual }
@@ -484,7 +516,7 @@ private struct PackageCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: stackSpacing) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(plan.title)
                         .font(.headline)
@@ -520,7 +552,7 @@ private struct PackageCard: View {
                         .accessibilityIdentifier("paywall-save-\(plan.id)")
                 }
             }
-            .padding(12)
+            .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isSelected ? Theme.brandGreenSoft : Theme.fmSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -592,18 +624,23 @@ private struct BenefitRow: View {
     let icon: String
     let title: String
     let tint: Color
+    var identifier: String
+    var compact: Bool
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: compact ? 10 : 12) {
             Image(systemName: icon)
-                .font(.title3)
+                .font(compact ? .subheadline : .body)
                 .foregroundColor(tint)
-                .frame(width: 32)
+                .frame(width: compact ? 22 : 28)
             Text(title)
-                .font(.body)
-            Spacer()
+                .font(compact ? .subheadline : .body)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(identifier)
     }
 }
 

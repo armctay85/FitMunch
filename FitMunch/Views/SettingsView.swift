@@ -183,12 +183,19 @@ struct SettingsView: View {
                 // The clear footer keeps the tab bar's top edge in this gap, so no
                 // row is cut by the bar. Notifications and Metric Units are one scroll below.
                 Section {
-                    Toggle("Dark Mode", isOn: $viewModel.isDarkMode)
-                        .tint(Theme.mint)
-                        .accessibilityIdentifier("me-dark-mode")
-                        .onChange(of: viewModel.isDarkMode) { _, newValue in
-                            viewModel.applyDarkMode(newValue)
+                    // The identifier sits on the UISwitch itself. A SwiftUI Toggle
+                    // inside a List drops that identifier on the iPad compatibility
+                    // window, so the brand shot cannot see switches["me-dark-mode"].
+                    HStack(spacing: 12) {
+                        Text("Dark Mode")
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        DarkModeSwitch(isOn: $viewModel.isDarkMode) { turnedOn in
+                            viewModel.applyDarkMode(turnedOn)
                         }
+                    }
+                    .frame(minHeight: 44)
+                    .accessibilityElement(children: .contain)
                 } footer: {
                     Color.clear
                         .frame(height: 72)
@@ -403,6 +410,7 @@ struct SettingsView: View {
             } message: {
                 Text("This deletes the meal and workout logs on this iPhone. Your account, goals and synced history stay.")
             }
+            .listStyle(.insetGrouped)
             .navigationDestination(isPresented: $navigateToOnboarding) {
                 OnboardingView()
             }
@@ -591,6 +599,45 @@ private struct SettingsHeaderID: ViewModifier {
             content.accessibilityIdentifier(identifier)
         } else {
             content
+        }
+    }
+}
+
+/// UISwitch keeps accessibilityIdentifier on iPhone and on the iPad
+/// compatibility window. A List Toggle was not exposed as switches["me-dark-mode"].
+private struct DarkModeSwitch: UIViewRepresentable {
+    @Binding var isOn: Bool
+    var onChange: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UISwitch {
+        let control = UISwitch()
+        control.accessibilityIdentifier = "me-dark-mode"
+        control.isAccessibilityElement = true
+        control.onTintColor = UIColor(red: 110 / 255, green: 242 / 255, blue: 176 / 255, alpha: 1)
+        control.isOn = isOn
+        control.addTarget(context.coordinator, action: #selector(Coordinator.toggled(_:)), for: .valueChanged)
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return control
+    }
+
+    func updateUIView(_ uiView: UISwitch, context: Context) {
+        context.coordinator.parent = self
+        uiView.accessibilityIdentifier = "me-dark-mode"
+        if uiView.isOn != isOn {
+            uiView.setOn(isOn, animated: false)
+        }
+    }
+
+    final class Coordinator: NSObject {
+        var parent: DarkModeSwitch
+        init(_ parent: DarkModeSwitch) { self.parent = parent }
+
+        @objc func toggled(_ sender: UISwitch) {
+            parent.isOn = sender.isOn
+            parent.onChange(sender.isOn)
         }
     }
 }

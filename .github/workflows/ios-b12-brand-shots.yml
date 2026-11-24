@@ -46,7 +46,7 @@ jobs:
       - name: Generate Xcode project
         run: |
           xcodegen generate
-          python3 scripts/ensure-storekit-scheme.py
+          python3 scripts/attach-storekit-test-action.py
 
       - name: Capture brand screens
         run: |
@@ -64,10 +64,12 @@ jobs:
             mkdir -p /tmp/fitmunch-b12-brand-shots
             local bundle="artifacts/b12-brand-shots/${label}.xcresult"
             rm -rf "$bundle"
+            set +e
             xcodebuild test \
               -project FitMunch.xcodeproj \
-              -scheme FitMunch \
+              -scheme FitMunchStoreKit \
               -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
+              -derivedDataPath artifacts/b12-brand-shots/DerivedData \
               -only-testing:FitMunchUITests/BrandScreenCaptureUITests \
               -testLanguage en \
               -testRegion AU \
@@ -76,9 +78,15 @@ jobs:
               CODE_SIGNING_ALLOWED=NO \
               CODE_SIGNING_REQUIRED=NO \
               CODE_SIGN_IDENTITY=-
+            local rc=$?
+            set -e
             local out="artifacts/b12-brand-shots/${label}"
             mkdir -p "$out"
-            cp /tmp/fitmunch-b12-brand-shots/*.png "$out/"
+            cp /tmp/fitmunch-b12-brand-shots/*.png "$out/" || true
+            if [[ "$rc" -ne 0 ]]; then
+              echo "brand capture failed for $label exit=$rc"
+              exit "$rc"
+            fi
             for name in auth onboarding today plan paywall me; do
               test -f "$out/${name}.png"
             done
@@ -88,7 +96,7 @@ jobs:
           find artifacts/b12-brand-shots -name '*.png' -print | sort
 
       - name: Upload brand screenshots
-        if: success()
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ios-b12-brand-screenshots

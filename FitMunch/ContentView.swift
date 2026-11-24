@@ -21,6 +21,9 @@ struct ContentView: View {
     @AppStorage(Constants.UserDefaultsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
     @State private var selectedTab: AppTab = .today
     @State private var privacyRequest = 0
+    #if DEBUG
+    @State private var launchPaywall = PaywallLaunchArgument.isLaunchPaywall
+    #endif
 
     var body: some View {
         if hasCompletedOnboarding {
@@ -32,6 +35,11 @@ struct ContentView: View {
                 .onAppear {
                     ScreenshotLaunch.seedMealsIfNeeded(into: modelContext)
                 }
+                #if DEBUG
+                .fullScreenCover(isPresented: $launchPaywall) {
+                    PaywallView()
+                }
+                #endif
         } else {
             OnboardingView()
         }

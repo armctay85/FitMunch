@@ -1,4 +1,5 @@
 import Foundation
+import os
 import RevenueCat
 import StoreKit
 import SwiftUI
@@ -18,6 +19,7 @@ class PremiumManager: ObservableObject {
 
     static let shared = PremiumManager()
 
+    private let offeringLog = Logger(subsystem: "com.fitmunch.app", category: "paywall")
     private var planHandles: [String: PlanHandle] = [:]
     private var fetchToken = UUID()
 
@@ -316,6 +318,7 @@ class PremiumManager: ObservableObject {
                 print("offering \(identifier) has no monthly or annual package")
             } else {
                 print("Loaded offering \(identifier)")
+                offeringLog.info("Loaded offering \(identifier, privacy: .public)")
             }
             return loaded
         } catch {
