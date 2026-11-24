@@ -92,28 +92,41 @@ const FOODS = [
   { name:'Olive oil',                   cal:884,  p:0,   c:0,    f:100,  serving:'1 tbsp (14g)', servingG:14, tags:['olive oil','fat','cooking'] },
   { name:'Coconut oil',                 cal:892,  p:0,   c:0,    f:100,  serving:'1 tbsp (14g)', servingG:14, tags:['coconut oil','fat','cooking'] },
   { name:'Chia seeds',                  cal:486,  p:17,  c:42,   f:31,   serving:'2 tbsp (24g)', servingG:24, tags:['chia','seeds','fibre'] },
-  // ── COMMON MEALS / FAST FOOD ─────────────────────────────────────────────────
-  { name:'Chicken rice bowl',           cal:450,  p:35,  c:55,   f:8,    serving:'1 bowl (~350g)', servingG:350, tags:['bowl','meal','chicken','rice'] },
-  { name:'Scrambled eggs (2 eggs)',     cal:183,  p:14,  c:1.5,  f:14,   serving:'2 eggs cooked', servingG:120, tags:['eggs','scrambled','breakfast'] },
-  { name:'Overnight oats',             cal:320,  p:15,  c:50,   f:7,    serving:'1 jar (~300g)', servingG:300, tags:['oats','overnight','breakfast'] },
-  { name:'Protein shake (whey+milk)',   cal:260,  p:35,  c:18,   f:5,    serving:'1 shake (~300ml)', servingG:300, tags:['shake','protein','shake','drink'] },
-  { name:'Chicken stir fry with rice',  cal:520,  p:40,  c:60,   f:10,   serving:'1 plate',        servingG:400, tags:['stir fry','chicken','rice','meal'] },
-  { name:'Tuna salad',                  cal:200,  p:28,  c:8,    f:6,    serving:'1 bowl',         servingG:250, tags:['tuna','salad','meal'] },
-  { name:'Egg white omelette',          cal:110,  p:18,  c:2,    f:2,    serving:'3 whites cooked',servingG:150, tags:['eggs','omelette','breakfast'] },
-  { name:'Protein pancakes',            cal:350,  p:30,  c:40,   f:6,    serving:'3 pancakes',     servingG:200, tags:['pancakes','protein','breakfast'] },
-  { name:'Acai bowl',                   cal:380,  p:8,   c:68,   f:10,   serving:'1 bowl (~300g)', servingG:300, tags:['acai','bowl','breakfast'] },
-  { name:'Poke bowl (salmon)',          cal:480,  p:30,  c:55,   f:12,   serving:'1 bowl (~350g)', servingG:350, tags:['poke','bowl','salmon','meal'] },
-  { name:'Greek salad with chicken',    cal:420,  p:38,  c:12,   f:22,   serving:'1 bowl',         servingG:350, tags:['salad','chicken','greek','meal'] },
-  { name:'Subway 6\" Turkey (no sauce)',cal:280,  p:18,  c:45,   f:4,    serving:'1 sub',          servingG:220, tags:['subway','turkey','fast food'] },
-  { name:'Sushi roll (salmon, 6 pcs)', cal:250,  p:12,  c:40,   f:5,    serving:'6 pieces',       servingG:180, tags:['sushi','salmon','rice','japanese'] },
-  { name:'Weetbix (2 biscuits+milk)',   cal:220,  p:8,   c:38,   f:3,    serving:'2 biscuits + 200ml milk', servingG:230, tags:['weetbix','breakfast','cereal'] },
-  // ── DRINKS ───────────────────────────────────────────────────────────────────
-  { name:'Coffee (black, long black)',  cal:5,    p:0.3, c:0.5,  f:0,    serving:'250ml',  servingG:250, tags:['coffee','drink'] },
-  { name:'Coffee with full cream milk', cal:65,   p:3,   c:5,    f:3.5,  serving:'flat white 200ml', servingG:200, tags:['coffee','flat white','drink'] },
-  { name:'Orange juice',               cal:112,  p:1.7, c:26,   f:0.5,  serving:'250ml',  servingG:250, tags:['juice','orange','drink'] },
-  { name:'Gatorade',                   cal:140,  p:0,   c:36,   f:0,    serving:'600ml bottle', servingG:600, tags:['gatorade','sports drink'] },
-  { name:'Coconut water',              cal:46,   p:1.7, c:9,    f:0.5,  serving:'330ml',  servingG:330, tags:['coconut water','drink','hydration'] },
+  { name:'Kangaroo steak (raw)',        cal:102,  p:22.5, c:0.4, f:1.0, serving:'100g', servingG:100, tags:['kangaroo','steak','meat','protein'], src:'AFCD R3 F009791' },
+  // ── COMMON MEALS / FAST FOOD (figures are one serving, not per 100 g) ────────
+  { name:'Chicken rice bowl',           cal:450,  p:35,  c:55,   f:8,    serving:'1 bowl (~350g)', servingG:350, tags:['bowl','meal','chicken','rice'], perServing:true },
+  { name:'Scrambled eggs (2 eggs)',     cal:183,  p:14,  c:1.5,  f:14,   serving:'2 eggs cooked', servingG:120, tags:['eggs','scrambled','breakfast'], perServing:true },
+  { name:'Overnight oats',             cal:320,  p:15,  c:50,   f:7,    serving:'1 jar (~300g)', servingG:300, tags:['oats','overnight','breakfast'], perServing:true },
+  { name:'Protein shake (whey+milk)',   cal:260,  p:35,  c:18,   f:5,    serving:'1 shake (~300ml)', servingG:300, tags:['shake','protein','shake','drink'], perServing:true },
+  { name:'Chicken stir fry with rice',  cal:520,  p:40,  c:60,   f:10,   serving:'1 plate',        servingG:400, tags:['stir fry','chicken','rice','meal'], perServing:true },
+  { name:'Tuna salad',                  cal:200,  p:28,  c:8,    f:6,    serving:'1 bowl',         servingG:250, tags:['tuna','salad','meal'], perServing:true },
+  { name:'Egg white omelette',          cal:110,  p:18,  c:2,    f:2,    serving:'3 whites cooked',servingG:150, tags:['eggs','omelette','breakfast'], perServing:true },
+  { name:'Protein pancakes',            cal:350,  p:30,  c:40,   f:6,    serving:'3 pancakes',     servingG:200, tags:['pancakes','protein','breakfast'], perServing:true },
+  { name:'Acai bowl',                   cal:380,  p:8,   c:68,   f:10,   serving:'1 bowl (~300g)', servingG:300, tags:['acai','bowl','breakfast'], perServing:true },
+  { name:'Poke bowl (salmon)',          cal:480,  p:30,  c:55,   f:12,   serving:'1 bowl (~350g)', servingG:350, tags:['poke','bowl','salmon','meal'], perServing:true },
+  { name:'Greek salad with chicken',    cal:420,  p:38,  c:12,   f:22,   serving:'1 bowl',         servingG:350, tags:['salad','chicken','greek','meal'], perServing:true },
+  { name:'Turkey sub, 6 inch (no sauce)', cal:280, p:18, c:45,   f:4,    serving:'1 sub',          servingG:220, tags:['turkey','sub','meal'], perServing:true },
+  { name:'Sushi roll (salmon, 6 pcs)', cal:250,  p:12,  c:40,   f:5,    serving:'6 pieces',       servingG:180, tags:['sushi','salmon','rice','japanese'], perServing:true },
+  { name:'Weetbix (2 biscuits+milk)',   cal:220,  p:8,   c:38,   f:3,    serving:'2 biscuits + 200ml milk', servingG:230, tags:['weetbix','breakfast','cereal'], perServing:true },
+  // ── DRINKS (figures are one serving, not per 100 ml) ─────────────────────────
+  { name:'Coffee (black, long black)',  cal:5,    p:0.3, c:0.5,  f:0,    serving:'250ml',  servingG:250, tags:['coffee','drink'], perServing:true },
+  { name:'Coffee with full cream milk', cal:65,   p:3,   c:5,    f:3.5,  serving:'flat white 200ml', servingG:200, tags:['coffee','flat white','drink'], perServing:true },
+  { name:'Orange juice',               cal:112,  p:1.7, c:26,   f:0.5,  serving:'250ml',  servingG:250, tags:['juice','orange','drink'], perServing:true },
+  { name:'Gatorade',                   cal:140,  p:0,   c:36,   f:0,    serving:'600ml bottle', servingG:600, tags:['gatorade','sports drink'], perServing:true },
+  { name:'Coconut water',              cal:46,   p:1.7, c:9,    f:0.5,  serving:'330ml',  servingG:330, tags:['coconut water','drink','hydration'], perServing:true },
 ];
+
+// Rows flagged perServing stored one serving in the per-100 g fields. Convert once at load.
+for (const food of FOODS) {
+  if (!food.perServing || !(food.servingG > 0)) continue;
+  const scale = (n) => Math.round((Number(n) * 100 / food.servingG) * 10) / 10;
+  food.listedCalories = food.cal;
+  food.listedProtein = food.p;
+  food.cal = scale(food.cal);
+  food.p = scale(food.p);
+  food.c = scale(food.c);
+  food.f = scale(food.f);
+}
 
 // ── SEARCH FUNCTION ───────────────────────────────────────────────────────────
 function searchFoods(query, limit = 8) {

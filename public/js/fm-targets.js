@@ -30,6 +30,8 @@
 
   const FLOOR_KCAL = { male: 1500, female: 1200, other: 1350 };
   const FAT_SHARE = 0.25; // 25% of calories from fat
+  // Shared with the meal planner. A plan is not built outside these bounds.
+  const PLAN_BOUNDS = Object.freeze({ minKcal: 1200, maxKcal: 4500, minProtein: 30, maxProtein: 350 });
 
   function num(v) { const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 
@@ -59,14 +61,18 @@
     const b = bmr(p);
     const tdee = b * ACTIVITY[p.activity];
     const g = GOALS[p.goal];
-    const calories = Math.max(FLOOR_KCAL[p.sex], Math.round((tdee * (1 + g.adjust)) / 10) * 10);
+    let calories = Math.max(FLOOR_KCAL[p.sex], Math.round((tdee * (1 + g.adjust)) / 10) * 10);
     // Protein from a capped weight (BMI 25 at this height) so large bodies get a reachable target,
     // and never more than 35% of calories.
     const proteinWeight = Math.min(p.weightKg, 25 * Math.pow(p.heightCm / 100, 2));
-    const protein = Math.min(Math.round(proteinWeight * g.proteinPerKg), Math.floor((calories * 0.35) / 4));
+    let protein = Math.min(Math.round(proteinWeight * g.proteinPerKg), Math.floor((calories * 0.35) / 4));
+    let capped = false;
+    if (calories > PLAN_BOUNDS.maxKcal) { calories = PLAN_BOUNDS.maxKcal; capped = true; }
+    if (protein > PLAN_BOUNDS.maxProtein) { protein = PLAN_BOUNDS.maxProtein; capped = true; }
+    if (calories < PLAN_BOUNDS.minKcal) { calories = PLAN_BOUNDS.minKcal; capped = true; }
     const fat = Math.round((calories * FAT_SHARE) / 9);
     const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
-    return { bmr: Math.round(b), tdee: Math.round(tdee), calories, protein, carbs, fat };
+    return { bmr: Math.round(b), tdee: Math.round(tdee), calories, protein, carbs, fat, capped };
   }
 
   /** Re-derive carbs and fat after the user edits calories or protein. */
@@ -76,5 +82,5 @@
     return { calories: c, protein: pr, fat, carbs: Math.max(0, Math.round((c - pr * 4 - fat * 9) / 4)) };
   }
 
-  return { ACTIVITY, GOALS, bmr, computeTargets, rebalance, validate };
+  return { ACTIVITY, GOALS, PLAN_BOUNDS, bmr, computeTargets, rebalance, validate };
 }));

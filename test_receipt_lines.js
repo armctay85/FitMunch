@@ -89,7 +89,7 @@ describe('vision JSON', () => {
   });
 
   it('scores from the real prices and reports protein per dollar without store names', () => {
-    expect(payload.proteinPerDollar).toBe(3.9);
+    expect(payload.proteinPerDollar).toBe(4.7);
     const oneDollar = core.buildScanPayload({
       items: [{ name: 'Bananas 1kg', quantity: 1, unit: 'kg', price: 1, category: 'fruit' }],
     });

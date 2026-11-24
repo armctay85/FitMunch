@@ -14,6 +14,7 @@ const planEngine = require('./lib/meal-plan-engine');
 const mealSafety = require('./lib/meal-safety');
 const dietGuard = require('./lib/diet-guard');
 const { shoppingAisle } = require('./lib/grocery-aisle');
+const { PLAN_BOUNDS } = require('./public/js/fm-targets');
 const router  = express.Router();
 
 async function userTier(userId) {
@@ -70,8 +71,9 @@ function aisleFor(name) {
 // built from the local food DB. Every day is checked against the calorie
 // target (±5%) before it's returned.
 const BUILDER_NOTICE = "The AI didn't answer, so this plan was built from our food database to your targets. It didn't use an AI credit.";
-const PLAN_BUDGET_MS = () => Number(process.env.MEAL_PLAN_BUDGET_MS) || 25000;
-const PLAN_ATTEMPT_MS = () => Number(process.env.MEAL_PLAN_ATTEMPT_MS) || 20000;
+const PLAN_BUDGET_MS = () => Number(process.env.MEAL_PLAN_BUDGET_MS) || 70000;
+const PLAN_ATTEMPT_MS = () => Number(process.env.MEAL_PLAN_ATTEMPT_MS) || 62000;
+// Cold pre-AI work is about 19s at the worst (connect plus statements). 70s of AI plus that stays under the 90s function limit.
 
 function planInput(body) {
   const b = body || {};
@@ -79,8 +81,8 @@ function planInput(body) {
   const calories = Math.round(num(b.calories, 2000));
   const protein = Math.round(num(b.protein, 150));
   const days = Math.round(num(b.days, 7));
-  if (!Number.isFinite(calories) || calories < 1200 || calories > 4500) return { error: 'Daily calories must be between 1200 and 4500.' };
-  if (!Number.isFinite(protein) || protein < 30 || protein > 350) return { error: 'Daily protein must be between 30 and 350 g.' };
+  if (!Number.isFinite(calories) || calories < PLAN_BOUNDS.minKcal || calories > PLAN_BOUNDS.maxKcal) return { error: 'Daily calories must be between 1200 and 4500.' };
+  if (!Number.isFinite(protein) || protein < PLAN_BOUNDS.minProtein || protein > PLAN_BOUNDS.maxProtein) return { error: 'Daily protein must be between 30 and 350 g.' };
   if (!Number.isFinite(days) || days < 1 || days > 7) return { error: 'Days must be between 1 and 7.' };
   const goal = ['lose_weight', 'muscle_gain', 'maintain', 'general_fitness'].includes(b.goal) ? b.goal : 'general_fitness';
   // Stop before reading an oversized list (EQA #135 r5 S1): at most 50 items.
@@ -223,6 +225,60 @@ function safePlan(plan, input) {
   return mealSafety.enforcePlan(plan, input).plan;
 }
 
+function planStillUnsafe(plan, input) {
+  const excluded = mealSafety.excludedFlags(input);
+  const terms = mealSafety.customTerms(input);
+  if (!excluded.size && !terms.size) return false;
+  if (!plan || !Array.isArray(plan.days)) return true;
+  for (const day of plan.days) {
+    const meals = day && day.meals;
+    if (!meals || typeof meals !== 'object' || Array.isArray(meals)) return true;
+    for (const meal of Object.values(meals)) {
+      if (!meal || meal.unchecked) return true;
+      if (mealSafety.mealProblems(meal, excluded, terms)) return true;
+      if (Array.isArray(meal.swaps)) {
+        for (const swap of meal.swaps) {
+          if (mealSafety.mealProblems(swap, excluded, terms)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Readable filters may use the AI week. Anything enforcePlan has to change is a failed
+ * attempt. One retry. A second attempt ships only when at most two meals were replaced,
+ * nothing was dropped, and the shipped week still passes the same check.
+ */
+function dietValidate(plan, attempt, input) {
+  const excluded = mealSafety.excludedFlags(input);
+  const terms = mealSafety.customTerms(input);
+  if (!excluded.size && !terms.size) return { ok: true, plan };
+  let working;
+  try { working = JSON.parse(JSON.stringify(plan)); }
+  catch (_) { return { ok: false, reason: 'meals broke the diet or allergy rules: unreadable plan' }; }
+  for (const day of working.days || []) {
+    if (!day || !day.meals || typeof day.meals !== 'object') continue;
+    for (const meal of Object.values(day.meals)) {
+      if (meal && meal.unchecked) meal.ingredients = [{ item: 'unchecked ingredient', qty: '1' }];
+    }
+  }
+  const enforced = mealSafety.enforcePlan(working, input);
+  const slots = [...enforced.replaced, ...enforced.dropped].map((row) => `day ${Number(row.day) + 1} ${row.slot}`).join(', ');
+  const leak = planStillUnsafe(enforced.plan, input);
+  if (!enforced.replaced.length && !enforced.dropped.length && !leak) return { ok: true, plan: enforced.plan };
+  const bits = [...enforced.replaced, ...enforced.dropped].map((row) => {
+    const why = (Array.isArray(row.reasons) ? row.reasons : []).filter((x) => !String(x).startsWith('unrecognised')).slice(0, 4).join(', ');
+    return `day ${Number(row.day) + 1} ${row.slot}${why ? ` (${why})` : ''}`;
+  });
+  const reason = `meals broke the diet or allergy rules: ${bits.join('; ') || slots || 'output'}`;
+  if (attempt >= 2 && enforced.replaced.length <= 2 && enforced.dropped.length === 0 && !leak) {
+    return { ok: true, plan: enforced.plan };
+  }
+  return { ok: false, reason };
+}
+
 /** Swap options go through the same check (allergies from the profile aren't builder filters). */
 function profilePastBudget(profile) {
   return !!(profile && mealSafety.profileFilters(profile).pastBudget);
@@ -278,9 +334,10 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (allergyFlag) body.notice = body.notice ? `${body.notice} ${allergyFlag}` : allergyFlag;
     return res.json(body);
   }
-  // Any diet or allergy filter (sent or saved) -> ingredient-checked builder only, never AI meals.
-  // Ticked filters are saved to the profile first (merged, never shrunk), so Coach and the
-  // weekly review see them too and stay off the AI (live hotfix after #135).
+  // FILTERED_USERS_CHECKED_BUILDER is on by default: a filtered user gets the checked builder
+  // and the model is not called. Set the env to 0 or off and a readable list goes to the AI,
+  // then enforcePlan replaces anything that still fails. Unreadable lists always stay on the builder.
+  // Coach chat and the weekly review keep their own filtered behaviour.
   const filteredPlan = (dietary, pastBudget) => {
     if (dietGuard.unreadable(dietary) && !pastBudget) return unreadPlan(res);
     input.dietary = dietGuard.planFilters(dietary);
@@ -300,7 +357,11 @@ router.post('/generate', requireAuth, async (req, res) => {
   };
   if (input.dietary.length) {
     if (profileRead) await rememberFilters(req.user.userId, input.dietary);
-    return filteredPlan(dietGuard.combineFilters(profile, input.dietary), !!(stored && stored.pastBudget));
+    const combined = dietGuard.combineFilters(profile, input.dietary);
+    const past = !!(stored && stored.pastBudget);
+    if (dietGuard.filteredUsersCheckedBuilder() || dietGuard.unreadable(combined) || past) return filteredPlan(combined, past);
+    input.dietary = dietGuard.planFilters(combined);
+    input.allergies = merged.allergies;
   }
   try {
     let gate = null;
@@ -313,7 +374,16 @@ router.post('/generate', requireAuth, async (req, res) => {
       try {
         const account = await getUserById(req.user.userId);
         const denied = consentResponse(account && account.settings);
-        if (denied) return res.status(denied.status).json(denied.body);
+        if (denied) {
+          // A request that already has filters still gets the checked builder.
+          // Nothing is sent to a model, so a refused Allow does not leave them with no plan.
+          // An unfiltered request still stops here, before the profile is read.
+          if (input.dietary && input.dietary.length) {
+            const combined = dietGuard.combineFilters(profile, input.dietary);
+            return filteredPlan(combined, !!(stored && stored.pastBudget));
+          }
+          return res.status(denied.status).json(denied.body);
+        }
       } catch (_) {
         return res.status(503).json({
           success: false,
@@ -337,7 +407,15 @@ router.post('/generate', requireAuth, async (req, res) => {
       if (process.env.DATABASE_URL) return unreadPlan(res);
       saved = null;
     }
-    if (saved === null || saved.length) return await filteredPlan(saved || [], !!(stored && stored.pastBudget));
+    if (saved === null) return await filteredPlan([], !!(stored && stored.pastBudget));
+    if (saved.length) {
+      const past = !!(stored && stored.pastBudget);
+      if (dietGuard.unreadable(saved) || past) return await filteredPlan(saved, past);
+      const combined = dietGuard.combineFilters(profile, input.dietary);
+      input.dietary = dietGuard.planFilters(combined);
+      input.allergies = (stored && stored.allergies) || input.allergies;
+      if (dietGuard.filteredUsersCheckedBuilder()) return await filteredPlan(combined, past);
+    }
     if (hasAi) {
       // Free-tier gating — plan generation is a heavyweight AI call.
       const tier = await userTier(req.user.userId);
@@ -359,19 +437,32 @@ router.post('/generate', requireAuth, async (req, res) => {
     }
 
     let lastReason = '';
-    const callAi = gate ? (attempt, signal) => aiClient.chatJson({
-      messages: [{ role: 'user', content: planPrompt(input, attempt > 1 ? lastReason : '') }],
-      maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
-      temperature: 0.6,
-      route: '/meal-plan/generate',
-      signal,
-    }) : null;
     const started = Date.now();
+    const budgetMs = PLAN_BUDGET_MS();
+    const attemptMs = PLAN_ATTEMPT_MS();
+    const hasDietGate = (input.dietary && input.dietary.length) || (input.allergies && input.allergies.length);
+    const callAi = gate ? (attempt, signal, priorReason) => {
+      const left = Math.max(1000, Math.min(attemptMs, budgetMs - (Date.now() - started)));
+      const why = attempt > 1 ? String(priorReason || lastReason || '') : '';
+      return aiClient.chatJson({
+        messages: [{ role: 'user', content: planPrompt(input, why) }],
+        maxTokens: 8192, // 7-day plan JSON is large; truncation breaks JSON.parse
+        temperature: 0.6,
+        route: '/meal-plan/generate',
+        signal,
+        budgetMs: left,
+      });
+    } : null;
     const result = await planEngine.generatePlan(input, {
-      callAi: callAi && ((attempt, signal) => callAi(attempt, signal).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
-      budgetMs: PLAN_BUDGET_MS(),
-      attemptMs: PLAN_ATTEMPT_MS(),
+      callAi: callAi && ((attempt, signal, priorReason) => callAi(attempt, signal, priorReason).then((r) => { if (r && !r.ok) lastReason = r.error || ''; return r; })),
+      budgetMs,
+      attemptMs,
+      validate: hasDietGate ? (plan, attempt) => dietValidate(plan, attempt, input) : undefined,
     });
+    if (result.source !== 'builder') {
+      const tout = result.usage && result.usage.completionTokens;
+      console.info(`[meal-planner] AI plan ok source=${result.source} tokens_out=${tout == null ? '-' : tout} elapsed=${Date.now() - started}ms`);
+    }
     if (result.attempts.length) {
       console.warn('[meal-planner] AI plan rejected:', result.attempts.join(', '), '->', result.source, `${Date.now() - started}ms`);
     }
@@ -383,14 +474,20 @@ router.post('/generate', requireAuth, async (req, res) => {
     } else {
       res.locals.aiAnswered = true;
     }
-    res.json({
+    const dietFallback = hasDietGate && result.source === 'builder';
+    const served = dietFallback
+      ? builtPlan(input, dietGuard.combineFilters(profile, input.dietary), !!(stored && stored.pastBudget))
+      : safePlan(result.plan, input);
+    const body = {
       success: true,
-      plan: safePlan(result.plan, input),
+      plan: served,
       source: result.source,
-      notice: result.source === 'builder' ? BUILDER_NOTICE : undefined,
+      notice: result.source === 'builder' ? (dietFallback ? dietGuard.PLAN_NOTICE : BUILDER_NOTICE) : undefined,
       provider: result.provider || undefined,
       remaining,
-    });
+    };
+    if (input.dietary && input.dietary.length) body.dietary = input.dietary;
+    res.json(body);
   } catch (err) {
     // Last resort: never leave the user with a 500 for a plan.
     try {

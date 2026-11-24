@@ -821,6 +821,7 @@ app.post('/api/support', supportFormLimiter, async (req, res) => {
     const result = await sendSupportConfirmation(req.body || {}, { userId });
     res.status(result.status).json(result.body);
   } catch (err) {
+    console.log('[support-form] ' + JSON.stringify({ ts: new Date().toISOString(), status: 500, reason: 'error', email: '', topic: '', storeId: null, resendId: null, receipt: false }));
     sendApiError(res, err, 'Support form error');
   }
 });

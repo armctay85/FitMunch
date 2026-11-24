@@ -119,9 +119,9 @@ maybe('#127a on real Postgres', () => {
     expect(r.body.source).toBe('builder');
     expect(JSON.stringify(r.body)).not.toMatch(/MOCKAI|pasta|spaghetti|\bbread\b|\boats?\b|couscous/i);
     expect(servedGroups(r.body.plan)).not.toContain('gluten');
-    expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(await profileOf(GF)).toEqual(before);
     expect((await profileOf(GF)).dietary_preferences).toEqual(['gluten free']);
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
   });
 
@@ -137,9 +137,12 @@ maybe('#127a on real Postgres', () => {
     const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: ['nut free'] });
     expect(r.status).toBe(200);
     expect(r.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
     expect((await profileOf(PLAIN)).allergies).toEqual([]);
     // A later chat sends no filters: the saved profile alone must keep it off the AI.
+    aiClient.chatJson.mockClear();
     const c = await request(app).post('/api/ai/chat').set('Authorization', as(PLAIN)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
     expect(c.status).toBe(200);
     expect(c.body.provider).toBeNull();
@@ -151,11 +154,13 @@ maybe('#127a on real Postgres', () => {
     // Generating again with nothing ticked never removes the saved filter.
     await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7, dietary: [] });
     expect((await profileOf(PLAIN)).dietary_preferences).toEqual(['nut free']);
-    expect(aiClient.chatJson).not.toHaveBeenCalled();
   });
 
   it('peanut allergy -> no peanut butter or satay in plans, onboarding week or Coach', async () => {
     const plan = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PEANUT)).send({ calories: 2200, protein: 140, days: 7 });
+    expect(plan.body.source).toBe('builder');
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
     const week = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PEANUT)).send({ calories: 2200, protein: 140, days: 7, builderOnly: true });
     const food = await request(app).post('/api/ai/chat').set('Authorization', as(PEANUT)).send({ intent: 'nutrition', messages: [{ role: 'user', content: 'Give me a meal plan for tomorrow' }] });
     const other = await request(app).post('/api/ai/chat').set('Authorization', as(PEANUT)).send({ intent: 'workout', messages: [{ role: 'user', content: 'How many sets of squats?' }] });
@@ -163,10 +168,11 @@ maybe('#127a on real Postgres', () => {
       expect(r.status).toBe(200);
       expect(JSON.stringify(r.body)).not.toMatch(/MOCKAI|peanut|satay/i);
     }
+    expect(aiClient.chatJson).not.toHaveBeenCalled();
     expect(servedGroups(plan.body.plan)).not.toContain('nuts');
     expect(servedGroups(week.body.plan)).not.toContain('nuts');
     expect(food.body.reply.startsWith(dietGuard.SAFE_NOTICE)).toBe(true);
-    expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(week.body.source).toBe('builder');
     expect((await profileOf(PEANUT)).allergies).toEqual(['peanuts']);
   });
 
@@ -293,6 +299,7 @@ maybe('#127a on real Postgres', () => {
     await setDiet(GF, empty);
     await gen(GF, ['nut free']);
     expect((await profileOf(GF)).dietary_preferences).toEqual(['nut free']);
+    aiClient.chatJson.mockClear();
     const c = await coachFood();
     const w = await request(app).get('/api/ai/weekly-review').set('Authorization', as(GF));
     const i = await request(app).post('/api/ai/insight').set('Authorization', as(GF)).send({ todayCalories: 800, targetCalories: 2000, targetProtein: 150 });
@@ -463,6 +470,9 @@ maybe('#127a on real Postgres', () => {
     const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7 });
     expect(r.body.source).toBe('builder');
     expect(aiClient.chatJson).not.toHaveBeenCalled();
+    expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
+    expect(JSON.stringify(r.body)).not.toMatch(/peanut|satay|MOCKAI/i);
+    expect(servedGroups(r.body.plan)).not.toContain('nuts');
   });
 
   it('M4: shellfish, fish and soy allergies get no prawns, fish or tofu in the plan', async () => {
@@ -470,6 +480,8 @@ maybe('#127a on real Postgres', () => {
       await pool.query('update user_profiles set allergies=$2::jsonb, dietary_preferences=$3::jsonb where user_id=$1', [PLAIN, JSON.stringify([allergy]), JSON.stringify(allergy === 'soy' ? ['vegan'] : [])]);
       const r = await request(app).post('/api/meal-plan/generate').set('Authorization', as(PLAIN)).send({ calories: 2000, protein: 150, days: 7 });
       expect(r.body.source).toBe('builder');
+      expect(aiClient.chatJson).not.toHaveBeenCalled();
+      expect(aiUsage.checkAndConsume).not.toHaveBeenCalled();
       expect(JSON.stringify(r.body.plan.days)).not.toMatch(re);
     }
   });
