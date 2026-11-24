@@ -812,7 +812,9 @@ app.post('/api/support', supportFormLimiter, async (req, res) => {
     const header = req.headers.authorization || '';
     if (header.startsWith('Bearer ')) {
       try {
-        const decoded = require('./lib/session-token').verifySessionToken(header.slice(7), process.env.JWT_SECRET || 'fitmunch-secret-key-change-in-production');
+        const secret = process.env.JWT_SECRET;
+        if (typeof secret !== 'string' || secret.length === 0) throw new Error('missing secret');
+        const decoded = require('./lib/session-token').verifySessionToken(header.slice(7), secret);
         if (decoded && typeof decoded.userId === 'string') userId = decoded.userId;
       } catch (_) { userId = null; }
     }
