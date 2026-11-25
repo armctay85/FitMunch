@@ -1169,9 +1169,9 @@ const EXPORT_TABLES = ['meal_logs', 'workout_logs', 'progress_logs', 'meal_plans
 const EXPORT_QUERIES = [
   ...EXPORT_TABLES.map((t) => ({ key: t, from: t, where: 'user_id=$1', order: 'id' })),
   { key: 'ai_usage', from: 'ai_usage_monthly', where: 'user_id=$1::text', order: 'month, feature' },
-  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
+  { key: 'pt_clients', from: 'pt_clients', where: '(pt_id=$1 OR client_id=$1)', order: 'pt_id, client_id' },
   { key: 'plan_assignments', from: 'plan_assignments', where: '(pt_id=$1 OR client_id=$1)', order: 'id' },
-  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'id' },
+  { key: 'client_invitations', from: 'client_invitations', where: 'pt_id=$1', order: 'created_at, token' },
 ];
 const EXPORT_PAGE_ROWS = 1000;
 async function exportAllRows(q, userId) {
