@@ -95,7 +95,7 @@ const FOODS = [
   // ── COMMON MEALS / FAST FOOD ─────────────────────────────────────────────────
   { name:'Chicken rice bowl',           cal:450,  p:35,  c:55,   f:8,    serving:'1 bowl (~350g)', servingG:350, tags:['bowl','meal','chicken','rice'] },
   { name:'Scrambled eggs (2 eggs)',     cal:183,  p:14,  c:1.5,  f:14,   serving:'2 eggs cooked', servingG:120, tags:['eggs','scrambled','breakfast'] },
-  { name:'Overnight oats',             cal:320,  p:15,  c:50,   f:7,    serving:'1 jar (~300g)', servingG:300, tags:['oats','overnight','breakfast'] },
+  { name:'Overnight oats',             cal:116,  p:5.56, c:16.2, f:3.25, serving:'1 jar (~300g)', servingG:300, tags:['oats','overnight','breakfast'], src:'USDA FDC 2708383 Oatmeal, regular or quick, made with milk, no added fat (per 100g)' },
   { name:'Protein shake (whey+milk)',   cal:260,  p:35,  c:18,   f:5,    serving:'1 shake (~300ml)', servingG:300, tags:['shake','protein','shake','drink'] },
   { name:'Chicken stir fry with rice',  cal:520,  p:40,  c:60,   f:10,   serving:'1 plate',        servingG:400, tags:['stir fry','chicken','rice','meal'] },
   { name:'Tuna salad',                  cal:200,  p:28,  c:8,    f:6,    serving:'1 bowl',         servingG:250, tags:['tuna','salad','meal'] },

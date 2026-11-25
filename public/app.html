@@ -15,6 +15,7 @@
 <script src="/js/fm-item-name.js?v=e88e8ebb27f3"></script>
 <script src="/js/fm-week-wow.js?v=17ebe9d7753e"></script>
 <script src="/js/fm-home-week.js?v=cbb2c5cef0c6"></script>
+<script src="/js/fm-dates.js?v=5a6fe6c4acb3"></script>
 <style>
 /* App-only contrast: brand green and muted text meet WCAG AA on light surfaces */
 :root{--leaf:#15803d;--leaf2:#166534;--mute2:#56655d}
@@ -1935,7 +1936,7 @@ const S = {
  portalData: null,
  inviteLink: null,
  todayMeals: [],
- mealsDate: new Date().toISOString().split('T')[0],
+ mealsDate: fmLocalDate(),
 };
 
 // AI routes run only after the account has said Allow (enforced server-side too).
@@ -3517,7 +3518,7 @@ async function logMealEntry() {
  if (!foodName) { toast('Search or type a food name', 'error'); return; }
  const body = {
  userId: S.user.id,
- date: new Date(S.mealsDate).toISOString(),
+ date: fmMealDateIso(S.mealsDate),
  mealType: document.getElementById('lm-meal').value,
  foodName,
  calories: parseInt(document.getElementById('lm-cals').value)||0,
