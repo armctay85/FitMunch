@@ -356,6 +356,7 @@
     "js/fm-api.js",
     "js/fm-claim.js",
     "js/fm-coach.js",
+    "js/fm-dates.js",
     "js/fm-first-scan.js",
     "js/fm-item-name.js",
     "js/fm-identity.js",
