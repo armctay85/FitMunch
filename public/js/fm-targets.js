@@ -29,6 +29,8 @@
   });
 
   const FLOOR_KCAL = { male: 1500, female: 1200, other: 1350 };
+  // Highest intake POST /api/meal-plan/generate will build (meal-planner.js planInput).
+  const CEILING_KCAL = 4500;
   const FAT_SHARE = 0.25; // 25% of calories from fat
 
   function num(v) { const n = Number(v); return Number.isFinite(n) ? n : NaN; }
@@ -59,7 +61,7 @@
     const b = bmr(p);
     const tdee = b * ACTIVITY[p.activity];
     const g = GOALS[p.goal];
-    const calories = Math.max(FLOOR_KCAL[p.sex], Math.round((tdee * (1 + g.adjust)) / 10) * 10);
+    const calories = Math.min(CEILING_KCAL, Math.max(FLOOR_KCAL[p.sex], Math.round((tdee * (1 + g.adjust)) / 10) * 10));
     // Protein from a capped weight (BMI 25 at this height) so large bodies get a reachable target,
     // and never more than 35% of calories.
     const proteinWeight = Math.min(p.weightKg, 25 * Math.pow(p.heightCm / 100, 2));

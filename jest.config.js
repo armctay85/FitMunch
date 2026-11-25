@@ -137,6 +137,8 @@ module.exports = {
     '**/test_eqa_ci7_round_complete.js',
     '**/test_eqa_ci9_web_concurrency.js',
     '**/test_eqa_ci9b_probe_group_unique.js',
+    '**/test_eqa_round_a.js',
+    '**/test_eqa_round_a_timeout.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,

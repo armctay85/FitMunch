@@ -155,10 +155,32 @@ function isRealIsoDate(value) {
   return true;
 }
 
+function finiteProfileNumber(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
 router.post('/user/profile', authMiddleware, async (req, res) => {
   try {
     const profileData = { ...req.body };
     delete profileData.userId; // ignore body userId — use token
+    // Onboarding sends age, heightCm and weightKg. Storage columns are age, height and weight.
+    const ageN = finiteProfileNumber(profileData.age);
+    if (ageN !== undefined) profileData.age = ageN;
+    const heightN = finiteProfileNumber(profileData.height);
+    const heightCm = finiteProfileNumber(profileData.heightCm);
+    if (heightN !== undefined) profileData.height = heightN;
+    else if (heightCm !== undefined) profileData.height = heightCm;
+    const weightN = finiteProfileNumber(profileData.weight);
+    const weightKg = finiteProfileNumber(profileData.weightKg);
+    if (weightN !== undefined) profileData.weight = weightN;
+    else if (weightKg !== undefined) profileData.weight = weightKg;
+    delete profileData.heightCm;
+    delete profileData.weightKg;
     // #127a: filters must be a string or a list of strings; any other shape would hide an allergy.
     for (const k of ['allergies', 'dietaryPreferences']) {
       const filterError = dietGuard.filterSaveError(profileData[k]);
@@ -1830,6 +1852,7 @@ const mealSafety = require('./lib/meal-safety');
 const aiClient = require('./lib/ai-client');
 const aiUsage = require('./lib/ai-usage');
 const dietGuard = require('./lib/diet-guard');
+const workoutBuilder = require('./lib/workout-builder');
 
 /** A model string, or '' when the provider sent a number, array, object, or blank. Never calls trim on a non-string. */
 function modelText(value) {
@@ -2469,9 +2492,16 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     if (wpUnread || dietGuard.savedFilters(wpProfile).length) {
       return res.json({ success: true, plan: dietGuard.safeWorkoutPlan({ daysPerWeek, level }), source: 'fixed', provider: null });
     }
-    if (!aiClient.hasProvider()) {
-      return res.status(503).json({ success: false, error: 'AI is not configured on this server.' });
-    }
+    const builtInput = { goal, level, daysPerWeek, equipment, sessionMinutes };
+    const serveBuilt = async (gate) => {
+      if (gate && gate.allowed) {
+        await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'workout_plan' });
+      }
+      const built = workoutBuilder.buildWorkoutPlan(builtInput);
+      res.locals.aiFailed = true;
+      return res.json({ success: true, plan: built.plan, source: 'builder', notice: built.notice, provider: null });
+    };
+    if (!aiClient.hasProvider()) return serveBuilt(null);
     const gate = await aiUsage.checkAndConsume({ userId: String(req.user.userId), tier, feature: 'workout_plan' });
     if (!gate.allowed && gate.unavailable) {
       res.set('Retry-After', '3');
@@ -2489,9 +2519,22 @@ router.post('/ai/workout-plan', authMiddleware, async (req, res) => {
     aiUsage.refundSmokeOnFailure(gate, res);
 
     const days = Math.min(Math.max(parseInt(daysPerWeek, 10) || 3, 1), 7);
+    const profileLines = [];
+    if (wpProfile && typeof wpProfile === 'object') {
+      const put = (label, value) => {
+        if (value === undefined || value === null || value === '') return;
+        profileLines.push(`${label}: ${value}`);
+      };
+      put('Age', wpProfile.age);
+      put('Height cm', wpProfile.height);
+      put('Weight kg', wpProfile.weight);
+      put('Sex', wpProfile.gender || wpProfile.sex);
+      put('Calorie target', wpProfile.targetCalories);
+    }
+    const profileBlock = profileLines.length ? `${profileLines.join('\n')}\n` : '';
     const prompt = `You are an Australian strength and conditioning coach building a weekly program.
 
-Goal: ${goal}
+${profileBlock}Goal: ${goal}
 Experience level: ${level}
 Training days per week: ${days}
 Equipment: ${equipment}
@@ -2512,18 +2555,21 @@ Return ONLY valid JSON, no markdown:
 }
 Each element of "workouts" is ONE exercise with a "day" number (1-${days}). Give 4-7 exercises per day. "name" is the exercise name prefixed by nothing. Include a short warm-up note in "notes" of each day's first exercise.`;
 
-    const r = await aiClient.chatJson({
-      messages: [{ role: 'user', content: prompt }],
-      maxTokens: 4000,
-      temperature: 0.6,
-      route: '/ai/workout-plan',
-    });
-    if (!r.ok) {
-      return res.status(502).json({ success: false, error: publicClientError(r.error, 'ai_error'), provider: r.provider || null });
+    let r;
+    try {
+      r = await aiClient.chatJson({
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 4000,
+        temperature: 0.6,
+        route: '/ai/workout-plan',
+      });
+    } catch (err) {
+      console.error('[ai/workout-plan]', err && err.message);
+      r = { ok: false };
     }
-    const plan = r.data;
-    if (!plan.workouts || !Array.isArray(plan.workouts)) {
-      return res.status(502).json({ success: false, error: 'Invalid plan structure from AI' });
+    const plan = r && r.data;
+    if (!r || !r.ok || !plan || !Array.isArray(plan.workouts) || plan.workouts.length === 0) {
+      return serveBuilt(gate);
     }
     res.locals.aiAnswered = true;
     res.json({ success: true, plan, provider: r.provider, remaining: gate.remaining });
