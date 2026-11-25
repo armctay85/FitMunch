@@ -96,6 +96,12 @@ maybe('unreadable profile notice on insight and weekly review', () => {
       await ctx.addInitScript(() => { localStorage.setItem('fm_token', 't.t'); sessionStorage.setItem('fm_goals_prompted', '1'); });
       const p = await ctx.newPage();
       await p.goto(`${base}/app.html`);
+      await p.waitForFunction(() => {
+        const card = document.getElementById('ai-coach-card');
+        return card && getComputedStyle(card).display !== 'none' && typeof refreshAiCoaching === 'function';
+      }, { timeout: 20000 });
+      // Call the refresh control without a pointer click, so a short screen does not scroll the notice off.
+      await p.evaluate(() => refreshAiCoaching());
       await p.waitForFunction((notice) => {
         const el = document.getElementById('ai-coach-text');
         return el && el.textContent === notice && getComputedStyle(document.getElementById('ai-coach-card')).display !== 'none';

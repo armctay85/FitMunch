@@ -349,6 +349,7 @@ router.post('/generate', requireAuth, async (req, res) => {
         });
       }
       aiUsage.refundSmokeOnFailure(gate, res);
+      res.locals.mealPlanGate = gate;
     }
 
     let lastReason = '';
@@ -370,25 +371,31 @@ router.post('/generate', requireAuth, async (req, res) => {
     }
 
     let remaining = gate ? gate.remaining : undefined;
+    let served = result.plan;
     if (result.source === 'builder') {
-      // No AI plan was used, so the user keeps their AI credit.
+      // No AI plan was used, so the user keeps their AI credit. Attach swaps on this fallback week.
       if (gate && await aiUsage.refundAiCall(gate, { userId: String(req.user.userId), feature: 'meal_plan' }) && typeof remaining === 'number') remaining += 1;
+      served = builtPlan(input, dietGuard.combineFilters(profile, input.dietary), !!(stored && stored.pastBudget));
     } else {
       res.locals.aiAnswered = true;
+      served = safePlan(served, input);
     }
     res.json({
       success: true,
-      plan: safePlan(result.plan, input),
+      plan: served,
       source: result.source,
       notice: result.source === 'builder' ? BUILDER_NOTICE : undefined,
       provider: result.provider || undefined,
       remaining,
     });
   } catch (err) {
-    // Last resort: never leave the user with a 500 for a plan.
+    // Last resort: never leave the user with a 500 for a plan. Give the credit back first.
+    const spent = res.locals && res.locals.mealPlanGate;
+    if (spent) await aiUsage.refundAiCall(spent, { userId: String(req.user.userId), feature: 'meal_plan' });
     try {
       console.error('[meal-planner] generate failed, serving built plan:', err && err.message);
-      return res.json({ success: true, plan: safePlan(planEngine.buildPlan(input), input), source: 'builder', notice: BUILDER_NOTICE });
+      const plan = builtPlan(input, dietGuard.combineFilters(profile, input.dietary), !!(stored && stored.pastBudget));
+      return res.json({ success: true, plan, source: 'builder', notice: BUILDER_NOTICE });
     } catch (_) {
       return res.status(503).json({ success: false, error: "We couldn't build your plan right now. Please try again in a minute." });
     }
