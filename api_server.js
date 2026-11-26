@@ -2129,23 +2129,32 @@ async function buildCoachContext(userId, profile, context = {}, filters, aiFilte
   } catch (_) { /* plan context is optional */ }
   try {
     const since = new Date(Date.now() - 7 * 86400000);
-    const [logged, workouts] = await Promise.all([
-      getMealLogsForPeriod(userId, since, localDayEnd()).catch(() => []),
-      getRecentWorkouts(userId, 5).catch(() => []),
-    ]);
-    const todayLabel = sydneyDay(new Date());
-    let todayKcal = 0;
-    let todayProt = 0;
-    for (const m of logged || []) {
-      const raw = m && m.date;
-      const dt = raw instanceof Date ? raw : new Date(raw);
-      if (Number.isNaN(dt.getTime()) || sydneyDay(dt) !== todayLabel) continue;
-      todayKcal += Number(m.calories) || 0;
-      todayProt += Number(m.protein) || 0;
+    const workoutRead = getRecentWorkouts(userId, 5).catch(() => []);
+    let logged = [];
+    let mealReadFailed = false;
+    try {
+      const rows = await getMealLogsForPeriod(userId, since, localDayEnd());
+      logged = Array.isArray(rows) ? rows : [];
+    } catch (err) {
+      mealReadFailed = true;
+      console.error('[coach] meal log read failed', err && err.code ? err.code : 'Error');
     }
-    const protShown = Math.round(todayProt * 10) / 10;
-    const protText = Number.isInteger(protShown) ? String(protShown) : protShown.toFixed(1);
-    lines.push(`Today so far: ${Math.round(todayKcal)} kcal, ${protText} g protein`);
+    const workouts = await workoutRead;
+    if (!mealReadFailed) {
+      const todayLabel = sydneyDay(new Date());
+      let todayKcal = 0;
+      let todayProt = 0;
+      for (const m of logged) {
+        const raw = m && m.date;
+        const dt = raw instanceof Date ? raw : new Date(raw);
+        if (Number.isNaN(dt.getTime()) || sydneyDay(dt) !== todayLabel) continue;
+        todayKcal += Number(m.calories) || 0;
+        todayProt += Number(m.protein) || 0;
+      }
+      const protShown = Math.round(todayProt * 10) / 10;
+      const protText = Number.isInteger(protShown) ? String(protShown) : protShown.toFixed(1);
+      lines.push(`Today so far: ${Math.round(todayKcal)} kcal, ${protText} g protein`);
+    }
     const bits = [];
     for (const m of (logged || []).slice(0, 12)) {
       const name = String(m.foodName || m.name || '').trim().slice(0, 80);

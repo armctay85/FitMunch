@@ -40,6 +40,7 @@ const express = require('express');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const aiClient = require('./lib/ai-client');
+const storage = require('./server/storage.js');
 const JWT_SECRET = process.env.JWT_SECRET || 'fitmunch-dev-secret';
 const token = jwt.sign({ userId: 'u1' }, JWT_SECRET);
 const app = express();
@@ -69,6 +70,34 @@ describe('Coach context', () => {
     expect(opts.messages[opts.messages.length - 1].content).toBe('How should I warm up for squats?');
     expect(opts.maxTokens).toBe(350);
     expect(opts.budgetMs).toBe(20000);
+  });
+
+  it('a failed meal read leaves Today so far out and invents no 0 kcal', async () => {
+    aiClient.chat.mockClear();
+    storage.getMealLogsForPeriod.mockRejectedValueOnce(new Error('meal logs down'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const r = await request(app).post('/api/ai/chat').set('Authorization', `Bearer ${token}`)
+        .send({ messages: [{ role: 'user', content: 'How should I warm up for squats?' }], context: { todayCalories: 0, todayProtein: 0 } });
+      expect(r.status).toBe(200);
+      const system = aiClient.chat.mock.calls[0][0].system;
+      expect(system).not.toMatch(/Today so far/);
+      expect(system).not.toMatch(/\b0 kcal/);
+      expect(errSpy).toHaveBeenCalledWith('[coach] meal log read failed', 'Error');
+      const logged = errSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+      expect(logged).not.toMatch(/meal logs down|u1|me@example\.com/);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it('an empty meal read shows the true 0 total', async () => {
+    aiClient.chat.mockClear();
+    storage.getMealLogsForPeriod.mockResolvedValueOnce([]);
+    const r = await request(app).post('/api/ai/chat').set('Authorization', `Bearer ${token}`)
+      .send({ messages: [{ role: 'user', content: 'How should I warm up for squats?' }], context: { todayCalories: 1200, todayProtein: 80 } });
+    expect(r.status).toBe(200);
+    expect(aiClient.chat.mock.calls[0][0].system).toContain('Today so far: 0 kcal, 0 g protein');
   });
 });
 
