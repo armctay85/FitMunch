@@ -113,6 +113,16 @@ const FOODS = [
   { name:'Orange juice',               cal:112,  p:1.7, c:26,   f:0.5,  serving:'250ml',  servingG:250, tags:['juice','orange','drink'] },
   { name:'Gatorade',                   cal:140,  p:0,   c:36,   f:0,    serving:'600ml bottle', servingG:600, tags:['gatorade','sports drink'] },
   { name:'Coconut water',              cal:46,   p:1.7, c:9,    f:0.5,  serving:'330ml',  servingG:330, tags:['coconut water','drink','hydration'] },
+  // AFCD Release 3 (Dec 2025). Per 100 g, or per 100 mL for milk. Receipt lookup reads these rows.
+  { name:'Kangaroo mince', cal:89.1, p:20.3, c:0, f:0.8, serving:'100g', servingG:100, tags:['kangaroo','mince','meat'], afcd:'F004790', src:'AFCD R3 F004790 kangaroo rump raw, proxy for mince (no AFCD mince row). AFCD Release 3' },
+  { name:'Eggs raw', cal:127.4, p:12.6, c:0.3, f:8.5, serving:'100g', servingG:100, tags:['eggs','protein'], afcd:'F003729', src:'AFCD Release 3 F003729 egg, chicken, whole, raw' },
+  { name:'Broccoli raw', cal:32, p:4, c:1.2, f:0.4, serving:'100g', servingG:100, tags:['broccoli','veg'], afcd:'F001905', src:'AFCD Release 3 F001905 broccoli, fresh, raw' },
+  { name:'Baby carrots', cal:32, p:0.7, c:5.5, f:0.1, serving:'100g', servingG:100, tags:['carrot','veg'], afcd:'F002266', src:'AFCD Release 3 F002266 carrot, baby, peeled, fresh, raw' },
+  { name:'Sweet potato raw', cal:65.2, p:1.4, c:13.2, f:0.2, serving:'100g', servingG:100, tags:['sweet potato','veg'], afcd:'F009035', src:'AFCD Release 3 F009035 sweet potato, orange flesh, peeled, fresh, raw' },
+  { name:'Lite milk', cal:44.9, p:3.5, c:5, f:1.2, serving:'100ml', servingG:100, tags:['milk','lite','dairy'], afcd:'F005614', src:'AFCD Release 3 F005614 milk, cow, fluid, reduced fat (~1%), per 100 mL' },
+  { name:'Skim milk per 100 mL', cal:36.3, p:3.7, c:5.5, f:0, serving:'100ml', servingG:100, tags:['milk','skim','dairy'], afcd:'F005637', src:'AFCD Release 3 F005637 milk, cow, fluid, skim (~0.15% fat), per 100 mL' },
+  { name:'Reduced fat milk', cal:53.1, p:4.7, c:5.3, f:1.4, serving:'100ml', servingG:100, tags:['milk','dairy'], afcd:'F005621', src:'AFCD Release 3 F005621 milk, cow, fluid, reduced fat (~1.5%), per 100 mL' },
+  { name:'Vegemite', cal:163.2, p:24.4, c:10.9, f:0.9, serving:'100g', servingG:100, tags:['vegemite','spread'], afcd:'F008785', src:'AFCD Release 3 F008785 spread, yeast, vegemite' },
 ];
 
 // ── SEARCH FUNCTION ───────────────────────────────────────────────────────────
