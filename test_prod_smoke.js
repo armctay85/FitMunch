@@ -528,6 +528,15 @@ describe('prod-smoke.yml serialization', () => {
     const names = [...smokeJob.matchAll(/github\.event\.deployment\.environment == '([^']+)'/g)].map((m) => m[1]);
     expect(names).toEqual(['Production \u2013 fit-munch', 'Production - fit-munch']);
   });
+  it('both jobs install production dependencies before running a node script (26 Nov 2026 express crash)', () => {
+    const issueJob = wf.slice(wf.indexOf('\n  prod-smoke-issue:'));
+    for (const job of [smokeJob, issueJob]) {
+      const install = job.indexOf('run: npm ci --omit=dev --ignore-scripts');
+      const script = job.search(/run: node scripts\//);
+      expect(install).toBeGreaterThan(-1);
+      expect(script).toBeGreaterThan(install);
+    }
+  });
   it('issue job is not cancelled by a newer smoke', () => {
     const issueJob = wf.slice(wf.indexOf('\n  prod-smoke-issue:'));
     expect(issueJob).toMatch(/group: fitmunch-production-smoke-issue\n\s+cancel-in-progress: false/);
