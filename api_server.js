@@ -34,7 +34,7 @@ const {
 const { eq, and, desc, gte } = require('drizzle-orm');
 const { consentResponse, choiceFromSettings } = require('./lib/ai-data-consent');
 const { shoppingCategory } = require('./lib/grocery-aisle');
-const { loggedSydneyDays, mealsInReviewWindow } = require('./lib/review-window');
+const { loggedSydneyDays, mealsInReviewWindow, localDayEnd, sydneyDay } = require('./lib/review-window');
 const { Pool } = require('pg');
 const { sendApiError, publicClientError } = require('./lib/public-error');
 const { sanitizeAnalyticsPayload, sanitizeUrlField, UTM_KEYS } = require('./lib/url-redact');
@@ -1420,7 +1420,7 @@ router.get('/clients/:clientId', authMiddleware, requireTrainer, async (req, res
     if (!owns.rows[0]) return res.status(403).json({ error: 'Not your client' });
     const user = await getUserById(req.params.clientId);
     const profile = await getProfile(req.params.clientId);
-    const meals = await getMealLogsForPeriod(req.params.clientId, new Date(Date.now()-30*86400000), new Date());
+    const meals = await getMealLogsForPeriod(req.params.clientId, new Date(Date.now()-30*86400000), localDayEnd());
     const workouts = await getRecentWorkouts(req.params.clientId, 20);
     const progress = await getProgressHistory(req.params.clientId, 20);
     const plans = await _pool.query(
@@ -2114,9 +2114,6 @@ async function buildCoachContext(userId, profile, context = {}, filters, aiFilte
   if (Array.isArray(filters) && filters.length && !dietGuard.unreadable(filters)) {
     lines.push(`Active diet and allergy filters: ${filters.filter((f) => f && f !== dietGuard.UNREADABLE).slice(0, 16).join(', ')}`);
   }
-  if (Number.isFinite(Number(ctx.todayCalories))) {
-    lines.push(`Today so far: ${Math.round(Number(ctx.todayCalories))} kcal${Number.isFinite(Number(ctx.todayProtein)) ? `, ${Math.round(Number(ctx.todayProtein))} g protein` : ''}`);
-  }
   if (num(ctx.streak)) lines.push(`Logging streak: ${num(ctx.streak)} days`);
   try {
     const plan = await coachPlanFor(userId);
@@ -2133,9 +2130,22 @@ async function buildCoachContext(userId, profile, context = {}, filters, aiFilte
   try {
     const since = new Date(Date.now() - 7 * 86400000);
     const [logged, workouts] = await Promise.all([
-      getMealLogsForPeriod(userId, since, new Date()).catch(() => []),
+      getMealLogsForPeriod(userId, since, localDayEnd()).catch(() => []),
       getRecentWorkouts(userId, 5).catch(() => []),
     ]);
+    const todayLabel = sydneyDay(new Date());
+    let todayKcal = 0;
+    let todayProt = 0;
+    for (const m of logged || []) {
+      const raw = m && m.date;
+      const dt = raw instanceof Date ? raw : new Date(raw);
+      if (Number.isNaN(dt.getTime()) || sydneyDay(dt) !== todayLabel) continue;
+      todayKcal += Number(m.calories) || 0;
+      todayProt += Number(m.protein) || 0;
+    }
+    const protShown = Math.round(todayProt * 10) / 10;
+    const protText = Number.isInteger(protShown) ? String(protShown) : protShown.toFixed(1);
+    lines.push(`Today so far: ${Math.round(todayKcal)} kcal, ${protText} g protein`);
     const bits = [];
     for (const m of (logged || []).slice(0, 12)) {
       const name = String(m.foodName || m.name || '').trim().slice(0, 80);
@@ -2618,7 +2628,7 @@ router.get('/ai/weekly-review', authMiddleware, async (req, res) => {
     if (!unreadableReview) {
       let meals;
       try {
-        meals = await getMealLogsForPeriod(req.user.userId, mealSince, new Date());
+        meals = await getMealLogsForPeriod(req.user.userId, mealSince, localDayEnd());
       } catch (_) {
         res.set('Retry-After', '3');
         return res.status(503).json({ success: false, error: MEAL_LOG_DOWN });
@@ -2809,7 +2819,7 @@ router.get('/portal/me', authMiddleware, async (req, res) => {
     // Shopping lists
     const lists = await _pool.query('SELECT * FROM shopping_lists WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5', [req.user.userId]);
     // Recent logs
-    const meals = await getMealLogsForPeriod(req.user.userId, new Date(Date.now()-7*86400000), new Date());
+    const meals = await getMealLogsForPeriod(req.user.userId, new Date(Date.now()-7*86400000), localDayEnd());
     const workouts = await getRecentWorkouts(req.user.userId, 10);
     const progress = await getProgressHistory(req.user.userId, 10);
     const favs = await _pool.query('SELECT * FROM favourites WHERE user_id=$1 ORDER BY created_at DESC', [req.user.userId]);

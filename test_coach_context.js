@@ -61,7 +61,7 @@ describe('Coach context', () => {
     expect(opts.system).toContain('Daily targets: 2100 kcal, 170 g protein');
     expect(opts.system).not.toContain('9999');
     // Diet and allergy lines aren't asserted here: users with filters never reach the AI (#127a).
-    expect(opts.system).toContain('Today so far: 1200 kcal, 80 g protein');
+    expect(opts.system).toContain('Today so far: 0 kcal, 0 g protein');
     expect(opts.system).toContain('Latest plan: Christmas cut, 7 days (day 1: Greek yoghurt oats; Chicken rice bowl)');
     expect(opts.system).not.toMatch(/me@example\.com|u1/);
     expect(opts.messages.length).toBeLessThanOrEqual(16);
