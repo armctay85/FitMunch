@@ -19,7 +19,13 @@
 <meta name="twitter:description" content="Lunch is one meal on the day, with breakfast, dinner and a snack. The list is the ingredients for that week. You check out at the supermarket."/>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="theme-color" content="#07130d"/>
-<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
+<link rel="icon" href="/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="icon" type="image/png" href="/favicon-16.png" sizes="16x16"/>
+<link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32"/>
+<link rel="icon" type="image/png" href="/favicon-48.png" sizes="48x48"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<link rel="manifest" href="/app_manifest.json"/>
 <link rel="stylesheet" href="/css/fm-tokens.css?v=39dcf7777ed5"/>
 <link rel="stylesheet" href="/css/fm-shell.css?v=61c4405fd836"/>
 <link rel="stylesheet" href="/css/fm-lander.css?v=98b8d7e759a4"/>
@@ -62,7 +68,7 @@
 </head>
 <body class="fm-body ln-answer layout-list">
 <nav class="fm-nav" aria-label="Primary">
-  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo.svg" alt="" width="28" height="28"/>FitMunch</a>
+  <a class="fm-brand" href="/" aria-label="FitMunch"><img src="/assets/logo-small.svg" alt="" width="28" height="28"/>FitMunch</a>
   <div class="fm-nav-links">
     <a href="/#loop">How it works</a>
     <a href="/pricing">Pricing</a>
@@ -78,7 +84,7 @@
       <h1>Lunches for work, planned</h1>
       <p class="ln-lead ln-answer-text">Lunch is one meal on the day, with breakfast, dinner and a snack. Those meals land on the targets the engine set. The list is the ingredients for that week, and the trolley is the food for the meals you lock. You check out at the supermarket.</p>
       <div class="ln-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&src=lunches-for-work#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
-      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Card on file. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
+      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime.</span><span class="ln-price-live"></span></span></p>
     </div>
     <aside class="ln-card" aria-label="Lunches for work, planned"><div class="ln-card-top"><b>From the week</b><span>Meals you lock</span></div><ul class="ln-rows"><li><span>Lunch</span><em>one meal on the day</em></li><li><span>Eggs x12</span><em>6 lunches</em></li><li><span>Breakfast, dinner, snack</span><em>the rest of the day</em></li><li><span>The list</span><em>the ingredients for that week</em></li></ul><p class="ln-card-foot">You check out at the supermarket. FitMunch does not show supermarket prices.</p></aside>
   </div>
@@ -107,7 +113,7 @@
   <div class="ln-inner">
     <div class="fm-convert">
       <h2>Start the 14-day trial</h2>
-      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Card on file. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
+      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime.</span><span class="ln-price-live"></span></span></p>
       <div class="fm-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&src=lunches-for-work#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
     </div>
   </div>
@@ -145,7 +151,7 @@
         var key = el.getAttribute('data-fm-price');
         var live = el.querySelector('.ln-price-live');
         if (live && cfg[key]) {
-          live.textContent = cfg[key] + ". Card on file. Cancel before the trial ends and you are not charged.";
+          live.textContent = cfg[key] + ". Cancel anytime.";
           el.classList.add('is-ready');
         }
       });

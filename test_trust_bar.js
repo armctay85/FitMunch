@@ -125,7 +125,7 @@ describe('Trust bar 4: one Stripe trial story', () => {
       expect(res.text).not.toContain('No credit card');
     }
     const refund = await request(app).get('/refund').expect(200);
-    expect(refund.text).toContain('card on file');
+    expect(refund.text).toContain('Payments are processed by Stripe.');
     expect(refund.text).toContain('It is not a 14-day refund after a paid charge');
     expect(refund.text).toContain('support@fitmunch.com.au');
     expect(refund.text).toContain('No GST is charged.');
@@ -227,7 +227,7 @@ describe('Trust bar 8: Start free does not force Premium Stripe', () => {
   it('login without a plan is a free account, not an immediate Stripe checkout', async () => {
     const login = await request(app).get('/login.html').expect(200);
     expect(login.text).toContain('id="free-intent"');
-    expect(login.text).toContain('This creates a free account. No card and no Stripe checkout');
+    expect(login.text).toContain('This creates a free account. No card and no payment');
     expect(login.text).toContain('Create Free Account');
     expect(login.text).toMatch(/if \(!plan\) \{[\s\S]*\/api\/checkout/);
   });
@@ -241,7 +241,7 @@ describe('Trust bar 10: stranger first run is their receipt', () => {
     expect(fold).toContain('class="trial-bar"');
     expect(fold).toContain('data-fm-price="premiumMonthly"');
     expect(fold).not.toContain('A$19.99');
-    expect(fold).toContain('Card on file');
+    expect(fold).toContain('Cancel anytime');
     expect(hero).toContain('Your week of meals, planned to your macros.');
     expect(hero).toContain('Set a goal. FitMunch plans 7 days of meals and training, writes the shopping list and scores your receipt.');
     expect(hero).toContain('Start the 14-day trial');

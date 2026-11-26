@@ -119,7 +119,7 @@ describe('FitMunch Coach landers', () => {
     expect(html).not.toContain('$99');
     expect(html).not.toContain('plan=starter');
     expect(html).not.toContain('plan=pro');
-    expect(html).toContain('Card on file');
+    expect(html).toContain('Cancel anytime');
     expect(html).not.toMatch(/\u2014|\u2013/);
   });
 

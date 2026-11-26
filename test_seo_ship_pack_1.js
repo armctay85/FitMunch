@@ -51,7 +51,7 @@ describe('SEO ship pack 1: title / H1 / meta / canonical', () => {
     const res = await request(app).get('/ai-meal-planner-australia').expect(200);
     expect(title(res.text)).toBe('AI Meal Planner Australia | Receipt-First | FitMunch');
     expect(h1(res.text)).toBe('AI meal planner Australia: from your real supermarket shop');
-    expect(metaDescription(res.text)).toBe('Plan the week from your body and your supermarket shop. AUD, grams, receipt-ready. 14-day Premium trial.');
+    expect(metaDescription(res.text)).toBe('Plan the week from your body and your supermarket shop. Grams, receipt-ready. 14-day Premium trial.');
     expect(canonical(res.text)).toBe('https://www.fitmunch.com.au/ai-meal-planner-australia');
     expect(res.text).toContain('It does not scrape supermarket trolley APIs.');
     expect(res.text).toContain('Premium is A$19.99 AUD/mo after a 14-day trial.');

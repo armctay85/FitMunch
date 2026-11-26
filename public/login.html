@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="UTF-8" />
+ <link rel="icon" href="/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="icon" type="image/png" href="/favicon-16.png" sizes="16x16"/>
+<link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32"/>
+<link rel="icon" type="image/png" href="/favicon-48.png" sizes="48x48"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<link rel="manifest" href="/app_manifest.json"/>
+<meta charset="UTF-8" />
  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
  <script src="/js/fm-claim.js?v=2675fc50c4f3"></script>
  <meta name="referrer" content="no-referrer" />
  <title>FitMunch - Sign In</title>
- <link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
- <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
  <link rel="preload" href="/fonts/bricolage-grotesque-800.woff2" as="font" type="font/woff2" crossorigin/>
  <link rel="preload" href="/fonts/literata-400.woff2" as="font" type="font/woff2" crossorigin/>
  <style id="fm-fonts">
@@ -285,11 +290,11 @@ input{border-radius:12px;min-height:48px}
 
  <div id="premium-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid rgba(31,157,74,.35);background:rgba(31,157,74,.1);border-radius:4px">
  <div style="font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Premium trial</div>
- <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then Stripe opens. 14-day trial, then A$19.99 a month. Card on file. Cancel before the trial ends and you are not charged.</div>
+ <div style="font-size:.85rem;color:var(--sub);line-height:1.45">Create your account, then secure card payment opens. 14-day trial, then A$19.99 a month. Cancel anytime.</div>
  </div>
  <div id="free-intent" style="display:none;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);background:#0a1610;border-radius:4px">
  <div style="font-family:'Bricolage Grotesque','Bricolage Grotesque Fallback',system-ui,sans-serif;font-size:.78rem;font-weight:700;color:var(--sub);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">Free account</div>
- <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no Stripe checkout. Premium is optional later from billing.</div>
+ <div style="font-size:.85rem;color:var(--sub);line-height:1.45">This creates a free account. No card and no payment. Premium is optional later from billing.</div>
  </div>
  <div id="claim-intent" class="claim-card" style="display:none">
  <div class="claim-kicker" style="color:var(--green)">Finish your account</div>
@@ -404,14 +409,14 @@ input{border-radius:12px;min-height:48px}
  </div>
 
  <button class="btn" id="register-btn" onclick="doRegister()">Create Free Account</button>
- <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">Next you review the plan, the price and the first billing date. Stripe Checkout opens only after you confirm. You set your password after checkout from the link we email you.</p>
+ <p class="strength-label" id="email-first-note" style="display:none;margin-top:10px">Next you review the plan, the price and the first billing date. Secure card payment opens only after you confirm. You set your password after checkout from the link we email you.</p>
 
  <div class="foot">
  Already have an account? <a href="#" onclick="showTab('login'); return false;">Sign in</a>
  </div>
  </div>
 
- <!-- REVIEW: shown before any Stripe Checkout session is created -->
+ <!-- REVIEW: shown before any secure card payment session is created -->
  <div class="panel" id="panel-review">
   <div class="error-msg" id="review-error"></div>
   <div class="success-msg" id="review-success"></div>
@@ -421,11 +426,11 @@ input{border-radius:12px;min-height:48px}
    <div><dt>Plan</dt><dd id="review-plan">Premium</dd></div>
    <div><dt>Price</dt><dd id="review-price">A$19.99 a month</dd></div>
    <div><dt>Today</dt><dd id="review-today">A$0</dd></div>
-   <div><dt>Trial</dt><dd id="review-terms">14-day trial, card on file.</dd></div>
+   <div><dt>Trial</dt><dd id="review-terms">14-day free trial. Cancel anytime.</dd></div>
    <div><dt>First billing date</dt><dd id="review-date"></dd></div>
   </dl>
   <p id="review-cancel">Cancel before that date and you are not charged.</p>
-  <button class="btn" id="review-confirm" type="button" onclick="confirmCheckoutReview()">Confirm and continue to Stripe</button>
+  <button class="btn" id="review-confirm" type="button" onclick="confirmCheckoutReview()">Confirm and continue to secure card payment</button>
   <button class="btn btn-quiet" id="review-back" type="button" onclick="hideCheckoutReview()">Back</button>
  </div>
 </div>
@@ -469,7 +474,7 @@ input{border-radius:12px;min-height:48px}
  // Same length as TRIAL_PERIOD_DAYS in lib/fitmunch-checkout.js. Do not change it here.
  const TRIAL_DAYS = 14;
  // Email-first trial: a signed-out Premium visitor gives only an email, pays
- // Stripe Checkout straight away, then sets a password from the emailed link.
+ // secure card payment straight away, then sets a password from the emailed link.
  let emailFirst = false;
  try { emailFirst = plan === 'premium' && !localStorage.getItem('fm_token'); } catch (e) { emailFirst = plan === 'premium'; }
  let trialNonce = '';
@@ -489,10 +494,10 @@ input{border-radius:12px;min-height:48px}
     banner.style.display = 'block';
     if (coachPlan) {
       banner.querySelector('div').textContent = 'FitMunch Coach trial';
-      banner.querySelectorAll('div')[1].textContent = 'Create your trainer account, then Stripe opens. 14-day trial, then ' + (plan === 'coach-39' ? 'A$39 a month for up to 10 clients' : 'A$79 a month for unlimited clients') + '. Card on file. Cancel before the trial ends and you are not charged.';
+      banner.querySelectorAll('div')[1].textContent = 'Create your trainer account, then secure card payment opens. 14-day trial, then ' + (plan === 'coach-39' ? 'A$39 a month for up to 10 clients' : 'A$79 a month for unlimited clients') + '. Cancel anytime.';
     } else if (plan !== 'premium') {
       banner.querySelector('div').textContent = 'Paid trial';
-      banner.querySelectorAll('div')[1].textContent = 'Create your account, then Stripe opens for a 14-day trial. Card on file. Cancel before the trial ends and you are not charged.';
+      banner.querySelectorAll('div')[1].textContent = 'Create your account, then secure card payment opens for a 14-day trial. Cancel anytime.';
     }
   }
   const regBtn = document.getElementById('register-btn');
@@ -504,7 +509,7 @@ input{border-radius:12px;min-height:48px}
     banner.querySelector('div').textContent = '14-day free trial';
     banner.querySelectorAll('div')[1].textContent = (emailFirst
       ? 'Enter your email, then review the plan before any payment. '
-      : 'Create your account, then Stripe opens. ') + '14-day free trial, then ' + priceLine + ' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: ' + firstCharge + '.';
+      : 'Create your account, then secure card payment opens. ') + '14-day free trial, then ' + priceLine + ' from day 15. Card required. Cancel anytime before then and you pay nothing. First charge: ' + firstCharge + '.';
   }
   if (emailFirst) {
     ['reg-name-group', 'reg-password-group'].forEach((id) => {
@@ -602,7 +607,7 @@ input{border-radius:12px;min-height:48px}
    try {
      await redirectAfterAuth(existingToken);
    } catch (error) {
-     showError(plan ? 'register-error' : 'login-error', error.message || 'Could not open Stripe checkout.');
+     showError(plan ? 'register-error' : 'login-error', error.message || 'Could not open secure card payment.');
    }
  })
  .catch(() => {});
@@ -753,7 +758,7 @@ input{border-radius:12px;min-height:48px}
  buttons.forEach((btn) => { btn.disabled = true; });
  let leaving = false;
  checkoutInFlight = (async () => {
-  // Map marketing aliases → Stripe price keys (must match server PRICE_IDS)
+  // Map marketing aliases to price keys (must match server PRICE_IDS)
   // Server normalizeCheckoutPlan owns PT vs consumer mapping.
   // Never force pt-* aliases here. That 403s consumer Premium/starter/pro funnels.
   const checkoutPlan = plan === 'premium' ? premiumCheckoutPlan : plan;
@@ -780,7 +785,7 @@ input{border-radius:12px;min-height:48px}
    return;
   }
   if (!d.url) {
-   throw new Error(d.error || 'Checkout did not return a Stripe card form URL.');
+   throw new Error(d.error || 'Checkout did not return a secure card payment URL.');
   }
   leaving = true;
   window.location.href = d.url;
@@ -860,7 +865,7 @@ input{border-radius:12px;min-height:48px}
 
  function idleLabel(btnId) {
   if (btnId === 'login-btn') return 'Sign In';
-  if (btnId === 'review-confirm') return 'Confirm and continue to Stripe';
+  if (btnId === 'review-confirm') return 'Confirm and continue to secure card payment';
   return registerLabel;
  }
  function setLoading(btnId, loading) {
@@ -912,7 +917,7 @@ input{border-radius:12px;min-height:48px}
  if (!data.success) { showError('login-error', data.error || 'Login failed.'); return; }
  localStorage.setItem('fm_token', data.token);
  localStorage.setItem('fm_user', JSON.stringify(data.user));
- showSuccess('login-success', pendingClaim ? 'Logged in. Confirm the purchase below.' : (plan ? 'Logged in! Opening Stripe checkout...' : 'Logged in! Redirecting...'));
+ showSuccess('login-success', pendingClaim ? 'Logged in. Confirm the purchase below.' : (plan ? 'Logged in! Opening secure card payment...' : 'Logged in! Redirecting...'));
  await redirectAfterAuth(data.token);
  } catch (error) { showError('login-error', error.message || 'Network error. Please try again.'); }
  finally {
@@ -942,7 +947,7 @@ input{border-radius:12px;min-height:48px}
   document.getElementById('review-plan').textContent = 'Premium';
   document.getElementById('review-price').textContent = priceLine;
   document.getElementById('review-today').textContent = 'A$0';
-  document.getElementById('review-terms').textContent = TRIAL_DAYS + '-day trial, card on file.';
+  document.getElementById('review-terms').textContent = TRIAL_DAYS + '-day free trial. Cancel anytime.';
   document.getElementById('review-date').textContent = firstLabel;
   document.getElementById('review-cancel').textContent = 'Cancel before ' + firstLabel + ' and you are not charged.';
   const tabs = document.querySelector('.tabs');
@@ -1012,10 +1017,10 @@ input{border-radius:12px;min-height:48px}
     showSuccess('review-success', signedIn);
     return;
    }
-   if (!d.url || !/^https:\/\//.test(d.url)) throw new Error('Could not open Stripe checkout.');
+   if (!d.url || !/^https:\/\//.test(d.url)) throw new Error('Could not open secure card payment.');
    leaving = true;
    if (d.notice) {
-    // Returning trial user: say so before Stripe, and let them choose to go on.
+    // Returning trial user: say so before payment, and let them choose to go on.
     // No trial applies, so the banner and note must not promise one.
     const intent = document.getElementById('premium-intent');
     if (intent) {
@@ -1024,7 +1029,7 @@ input{border-radius:12px;min-height:48px}
      intent.querySelectorAll('div')[1].textContent = d.notice + ' Card required. Cancel anytime from Billing.';
     }
     const paidNote = document.getElementById('email-first-note');
-    if (paidNote) paidNote.textContent = 'Secure Stripe Checkout opens next. Your first charge is today.';
+    if (paidNote) paidNote.textContent = 'Secure card payment opens next. Your first charge is today.';
     const today = document.getElementById('review-today');
     if (today) today.textContent = annualBilling ? 'A$149.99 a year' : 'A$19.99 a month';
     const cancel = document.getElementById('review-cancel');
@@ -1036,10 +1041,10 @@ input{border-radius:12px;min-height:48px}
     }
     return;
    }
-   if (btn) btn.textContent = 'Opening Stripe...';
+   if (btn) btn.textContent = 'Opening secure card payment...';
    window.location.href = d.url;
   } catch (error) {
-   const msg = error.message || 'Could not open Stripe checkout.';
+   const msg = error.message || 'Could not open secure card payment.';
    showError('register-error', msg);
    showError('review-error', msg);
   } finally {
@@ -1072,7 +1077,7 @@ input{border-radius:12px;min-height:48px}
  if (!data.success) { showError('register-error', data.error || 'Registration failed.'); return; }
  localStorage.setItem('fm_token', data.token);
  localStorage.setItem('fm_user', JSON.stringify(data.user));
- showSuccess('register-success', pendingClaim ? 'Account created. Confirm the purchase below.' : (plan ? 'Account created! Opening Stripe checkout...' : 'Account created! Redirecting...'));
+ showSuccess('register-success', pendingClaim ? 'Account created. Confirm the purchase below.' : (plan ? 'Account created! Opening secure card payment...' : 'Account created! Redirecting...'));
  await redirectAfterAuth(data.token);
  } catch (error) { showError('register-error', error.message || 'Network error. Please try again.'); }
  finally {

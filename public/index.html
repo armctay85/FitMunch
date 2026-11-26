@@ -1,24 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" href="/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="icon" type="image/png" href="/favicon-16.png" sizes="16x16"/>
+<link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32"/>
+<link rel="icon" type="image/png" href="/favicon-48.png" sizes="48x48"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<link rel="manifest" href="/app_manifest.json"/>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>FitMunch: Your body wrote the trolley</title>
-<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
+<meta name="description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day free trial. Cancel anytime."/>
 <meta name="theme-color" content="#07130d"/>
 <link rel="canonical" href="https://www.fitmunch.com.au/"/>
 <meta property="og:title" content="FitMunch: Your body wrote the trolley"/>
-<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
+<meta property="og:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day free trial. Cancel anytime."/>
 <meta property="og:url" content="https://www.fitmunch.com.au/"/>
 <meta property="og:type" content="website"/>
 <meta property="og:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="FitMunch: Your body wrote the trolley"/>
-<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day trial, card on file."/>
+<meta name="twitter:description" content="The health engine plans a week of meals and training from your body, then writes the shopping list. 14-day free trial. Cancel anytime."/>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FitMunch","applicationCategory":"HealthApplication","operatingSystem":"Web","description":"The health engine plans a week of meals and training from your body, then writes the shopping list."}</script>
 <meta name="twitter:image" content="https://www.fitmunch.com.au/assets/og-image.jpg"/>
-<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
 <link rel="preload" href="/fonts/bricolage-grotesque-800-home.woff2" as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href="/fonts/literata-400-home.woff2" as="font" type="font/woff2" crossorigin/>
 <style id="fm-fonts">
@@ -947,15 +952,13 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   margin:0;
   aspect-ratio:auto;
   object-fit:cover;
-  object-position:center 68%;
+  object-position:top center;
   border:0;
   border-radius:0;
   box-shadow:none;
   background:#0c1c14;
-  filter:blur(18px);
-  opacity:.4;
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+  filter:none;
+  opacity:1;
 }
 .hero-app-note{
   position:relative;
@@ -992,8 +995,9 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   .fold .hero-shot{
     height:100%;
     min-height:0;
-    grid-template-rows:64px minmax(0,1fr) 176px auto;
+    grid-template-rows:64px minmax(0,1fr) auto auto;
   }
+  .fold .hero-shot picture{display:block;height:100%;min-height:0}
   .fold .hero-food{height:100%;min-height:72px}
   .fold .plan-live{padding:10px 12px 8px}
   .plan-chips{margin-bottom:4px}
@@ -1007,8 +1011,14 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     position:relative;
     top:auto;right:auto;
     width:100%;
-    height:176px;
+    height:100%;
+    object-fit:cover;
+    object-position:top center;
+    filter:none;
+    opacity:1;
     border:0;border-radius:0;box-shadow:none;
+    -webkit-mask-image:none;
+    mask-image:none;
   }
   .engine-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .coach-inner{grid-template-columns:1.1fr .9fr;gap:40px}
@@ -1087,7 +1097,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 
 <div class="fold">
 <aside class="trial-bar">
-  14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. <a href="#pricing">See pricing</a>
+  14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime. <a href="#pricing">See pricing</a>
   <noscript><a href="/pricing.html">See current plans and prices</a></noscript>
 </aside>
 
@@ -1250,7 +1260,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 <section class="trust" aria-label="Product proof">
   <div class="trust-inner">
     <div class="trust-item"><strong>Your receipt, not a demo shop</strong>Photograph any supermarket receipt. The score is from that trolley.</div>
-    <div class="trust-item"><strong>Premium trial</strong>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
+    <div class="trust-item"><strong>Premium trial</strong>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime. <a href="/refund" style="color:var(--leaf2);font-weight:700">Refunds</a>.</div>
     <div class="trust-item"><strong>Made in Australia</strong>For Australian shops, AUD pricing, and weekly trolley maths.</div>
   </div>
 </section>
@@ -1310,7 +1320,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
             <ul class="fs-uses" data-fs-uses></ul>
           </div>
           <a class="btn btn-leaf" data-fs-trial data-fm-auth="register" data-fm-plan="premium" href="/login.html?plan=premium#register">Start the 14-day trial</a>
-          <p class="fs-trial-note">14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged. Unlimited scans, coach, and weekly plans after the first haul.</p>
+          <p class="fs-trial-note">14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime. Unlimited scans, coach, and weekly plans after the first haul.</p>
         </div>
       </div>
     </div>
@@ -1327,7 +1337,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     </details>
     <details>
       <summary>What is in the 14-day trial?</summary>
-      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
+      <p>Premium: coach, meal plans, training and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime.</p>
     </details>
     <details>
       <summary>Does FitMunch show shop prices?</summary>
@@ -1348,7 +1358,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
       <article class="plan main">
         <div class="plan-kicker">Premium</div>
         <div class="price-n"><span data-fm-price="premiumAmount"></span> <small>a month</small> <noscript><a href="/pricing.html">See current plans and prices</a></noscript></div>
-        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file. Cancel before the trial ends and you are not charged.</p>
+        <p>Unlimited coach, meal plans, training, and receipt scans. 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime.</p>
         <ul>
           <li>Unlimited AI coach grounded in your logs</li>
           <li>Meal plans and shopping lists from your shop</li>
@@ -1363,7 +1373,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
         <p>Macro logging, a starter plan allowance, and a receipt scan teaser.</p>
         <ul>
           <li>Macro and meal logging</li>
-          <li data-free-ai>Free includes AI actions a month</li>
+          <li data-free-ai hidden>Free includes AI actions a month</li>
           <li>Starter shopping lists</li>
         </ul>
         <a class="btn btn-ink" href="/login.html?utm_source=homepage&utm_medium=pricing&utm_campaign=free_signup#register" data-fm-auth="register">Start free</a>
@@ -1376,7 +1386,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 <section class="final reveal">
   <div class="final-inner">
     <h2>Your body wrote the <em>trolley.</em></h2>
-    <p>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Card on file.</p>
+    <p>14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime.</p>
     <div class="final-ctas">
       <a class="btn btn-leaf" href="/login.html?plan=premium#register" data-fm-auth="register" data-fm-plan="premium" data-fm-track="final_trial">Start the 14-day trial</a>
       <a class="btn btn-ghost" href="#first-scan" data-fm-track="final_scan_mine">After the shop: score a receipt</a>
@@ -1471,9 +1481,9 @@ try {
     .then(function (cfg) {
       if (!cfg) return;
       var n = Number(cfg.freeAiMonthly);
-      if (Number.isFinite(n) && n >= 0) {
+      if (Number.isFinite(n) && n >= 1) {
         var line = 'Free includes ' + n + ' AI actions a month';
-        document.querySelectorAll('[data-free-ai]').forEach(function (el) { el.textContent = line; });
+        document.querySelectorAll('[data-free-ai]').forEach(function (el) { el.textContent = line; el.hidden = false; });
       }
       document.querySelectorAll('[data-fm-price]').forEach(function (el) {
         var key = el.getAttribute('data-fm-price');
