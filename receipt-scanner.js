@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const aiUsage = require('./lib/ai-usage');
 const core = require('./lib/receipt-scan-core');
+const { flagUnreadableWeights } = require('./lib/receipt-lines');
 const crypto = require('crypto');
 const { sendApiError, GENERIC_API_ERROR } = require('./lib/public-error');
 const { attachApiJsonSanitizer } = require('./lib/sanitize-api-json');
@@ -325,7 +326,7 @@ router.post('/scan', requireAuth, receiptUpload, async (req, res) => {
       filters = null;
       filtersUnreadable = true;
     }
-    const payload = core.buildScanPayload(rawItems, {
+    const payload = core.buildScanPayload(flagUnreadableWeights(rawItems), {
       guest: false,
       scannerProvider: 'vision',
       filters,
@@ -412,7 +413,7 @@ router.post('/first-scan', firstScanLimiter, receiptUpload, async (req, res) => 
       );
     }
 
-    const payload = core.buildScanPayload(rawItems, { guest: true, scannerProvider: 'vision' });
+    const payload = core.buildScanPayload(flagUnreadableWeights(rawItems), { guest: true, scannerProvider: 'vision' });
     console.info('[receipt-scan]', JSON.stringify({
       event: 'first_scan_success',
       itemCount: payload.itemCount,

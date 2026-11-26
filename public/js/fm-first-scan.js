@@ -85,7 +85,11 @@
     var usesEl = root.querySelector('[data-fs-uses]');
     setText(scoreEl, String(score));
     setText(proteinEl, (totals.protein || 0) + 'g protein');
-    setText(itemsEl, (data.itemCount || 0) + ' items from your receipt');
+    var unknownCount = Number(data.nutritionUnknownCount);
+    if (!isFinite(unknownCount) || unknownCount < 0) unknownCount = 0;
+    var itemLine = (data.itemCount || 0) + ' items from your receipt';
+    if (unknownCount > 0) itemLine += '. ' + unknownCount + ' left out';
+    setText(itemsEl, itemLine);
     setText(mealEl, dinner.meal || 'Cook the highest-protein lines we read on this receipt.');
     setText(whyEl, dinner.why || 'One dinner from items we actually read on your receipt.');
     if (usesEl) {
