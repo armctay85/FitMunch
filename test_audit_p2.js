@@ -330,7 +330,7 @@ describe('weekly review: honest empty state', () => {
     expect(i).toBeLessThan(api.indexOf("feature: 'weekly_review'"));
     expect(i).toBeLessThan(api.indexOf('const denied = consentResponse(user && user.settings);', i));
     const route = api.slice(api.indexOf("router.get('/ai/weekly-review'"), api.indexOf("router.get('/portal/me'"));
-    expect(route).toMatch(/getMealLogsForPeriod\(req\.user\.userId, mealSince, new Date\(\)\)/);
+    expect(route).toMatch(/getMealLogsForPeriod\(req\.user\.userId, mealSince, localDayEnd\(\)\)/);
     const mealLine = route.split('\n').find((line) => line.includes('getMealLogsForPeriod'));
     expect(mealLine).not.toMatch(/\.catch/);
     expect(route).toContain('USAGE_STORE_DOWN');
