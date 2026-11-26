@@ -140,6 +140,7 @@ module.exports = {
     '**/test_eqa_round_a.js',
     '**/test_eqa_round_a_timeout.js',
     '**/test_eqa_round_b.js',
+    '**/test_round_b_rev3.js',
     '**/test_eqa_round_c.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],

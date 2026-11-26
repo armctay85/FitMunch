@@ -4041,8 +4041,12 @@ async function logScannedItems() {
  if (!checked.length) { toast('Select at least one item', 'warn'); return; }
  const mealType = document.getElementById('scan-meal-type').value;
  let logged = 0;
+ const skipped = [];
  for (const item of checked) {
- if (!item.nutrition) continue;
+ if (!item.nutrition || item.nutritionStatus === 'unknown') {
+ skipped.push(item.name);
+ continue;
+ }
  const body = {
  userId: S.user.id,
  date: new Date().toISOString(),
@@ -4057,10 +4061,19 @@ async function logScannedItems() {
  const r = await API('/meals/log', { method:'POST', body: JSON.stringify(body) });
  if (r.success) logged++;
  }
+ const skippedNote = skipped.length
+  ? (skipped.length === 1
+    ? `${skipped[0]} wasn't logged because its nutrition is unknown.`
+    : `${skipped.length} items weren't logged because their nutrition is unknown.`)
+  : '';
  if (logged) {
- toast(`✅ ${logged} item${logged!==1?'s':''} logged to ${mealType}!`);
+ toast(skippedNote
+  ? `✅ ${logged} item${logged!==1?'s':''} logged to ${mealType}. ${skippedNote}`
+  : `✅ ${logged} item${logged!==1?'s':''} logged to ${mealType}!`);
  document.querySelectorAll('.scan-item-cb').forEach(cb => cb.checked = false);
  document.getElementById('cb-select-all').checked = false;
+ } else if (skippedNote) {
+ toast(skippedNote, 'warn');
  } else {
  toast('Could not log items - try again', 'error');
  }
