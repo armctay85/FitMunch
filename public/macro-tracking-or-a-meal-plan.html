@@ -84,7 +84,7 @@
       <h1>Macro tracking or a meal plan</h1>
       <p class="ln-lead ln-answer-text">Macro logging is a log of meals. A meal plan is the engine writing 7 days of meals and training from the body you log, then the shopping list. Weight, goal and training set the calories and the protein. Meals hit those numbers. You check out at the supermarket.</p>
       <div class="ln-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&src=macro-tracking-or-a-meal-plan#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
-      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime.</span><span class="ln-price-live"></span></span></p>
+      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
     </div>
     
   </div>
@@ -113,7 +113,7 @@
   <div class="ln-inner">
     <div class="fm-convert">
       <h2>Start the 14-day trial</h2>
-      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime.</span><span class="ln-price-live"></span></span></p>
+      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
       <div class="fm-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&src=macro-tracking-or-a-meal-plan#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
     </div>
   </div>
@@ -151,7 +151,7 @@
         var key = el.getAttribute('data-fm-price');
         var live = el.querySelector('.ln-price-live');
         if (live && cfg[key]) {
-          live.textContent = cfg[key] + ". Cancel anytime.";
+          live.textContent = cfg[key] + ". Cancel anytime. Cancel before the trial ends and you are not charged.";
           el.classList.add('is-ready');
         }
       });

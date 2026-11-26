@@ -84,7 +84,7 @@
       <h1>Quick weeknight dinners, planned</h1>
       <p class="ln-lead ln-answer-text">Dinner is one meal on the day. Breakfast, lunch, dinner and a snack land on the targets the engine set. FitMunch plans 7 days of meals, and the trolley is the food for the meals you lock. You check out at the supermarket.</p>
       <div class="ln-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&src=quick-weeknight-dinners#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
-      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime.</span><span class="ln-price-live"></span></span></p>
+      <p class="ln-small ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
     </div>
     <aside class="ln-card" aria-label="Quick weeknight dinners, planned"><div class="ln-card-top"><b>From the week</b><span>Meals you lock</span></div><ul class="ln-rows"><li><span>Dinner</span><em>one meal on the day</em></li><li><span>Breakfast, lunch, snack</span><em>the rest of the day</em></li><li><span>Chicken breast 1kg</span><em>4 dinners</em></li><li><span>The trolley</span><em>the food for the meals you lock</em></li></ul><p class="ln-card-foot">You check out at the supermarket. FitMunch does not show supermarket prices.</p></aside>
   </div>
@@ -113,7 +113,7 @@
   <div class="ln-inner">
     <div class="fm-convert">
       <h2>Start the 14-day trial</h2>
-      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime.</span><span class="ln-price-live"></span></span></p>
+      <p class="ln-offer">14-day trial, then <span class="ln-price" data-fm-price="premiumMonthly"><span class="ln-price-fallback"><a href="/pricing.html">See current plans and prices</a>. Cancel anytime. Cancel before the trial ends and you are not charged.</span><span class="ln-price-live"></span></span></p>
       <div class="fm-ctas"><a class="fm-btn fm-btn-leaf" href="/login.html?plan=premium&src=quick-weeknight-dinners#register" data-fm-auth="register" data-fm-plan="premium">Start the 14-day trial</a></div>
     </div>
   </div>
@@ -151,7 +151,7 @@
         var key = el.getAttribute('data-fm-price');
         var live = el.querySelector('.ln-price-live');
         if (live && cfg[key]) {
-          live.textContent = cfg[key] + ". Cancel anytime.";
+          live.textContent = cfg[key] + ". Cancel anytime. Cancel before the trial ends and you are not charged.";
           el.classList.add('is-ready');
         }
       });

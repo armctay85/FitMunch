@@ -4358,10 +4358,13 @@ async function fillFreeAiLine() {
   return { status: res.status, body: body, retryAfter: retry };
  }
  let res = await readUsage();
- if (res.status === 503) {
-  const wait = Number(res.retryAfter);
-  const ms = Number.isFinite(wait) && wait >= 0 ? wait * 1000 : 1000;
-  await new Promise(function (resolve) { setTimeout(resolve, ms); });
+ if (res.status === 429 || (res.status >= 500 && res.status <= 599)) {
+  let sec = 1;
+  if (res.retryAfter != null && res.retryAfter !== '') {
+   const wait = Number(res.retryAfter);
+   if (Number.isFinite(wait) && wait >= 0) sec = Math.min(wait, 5);
+  }
+  await new Promise(function (resolve) { setTimeout(resolve, sec * 1000); });
   res = await readUsage();
  }
  if (!res || res.status !== 200 || !res.body || res.body.success !== true) return;

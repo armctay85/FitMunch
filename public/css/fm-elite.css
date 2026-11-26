@@ -296,7 +296,7 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   display:block;
   width:100%;
   max-width:none;
-  height:168px;
+  height:100%;
   margin:0;
   aspect-ratio:auto;
   object-fit:cover;
@@ -305,10 +305,10 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   border-radius:0;
   box-shadow:none;
   background:#0c1c14;
-  filter:blur(18px);
-  opacity:.4;
-  -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
-  mask-image:linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
+  filter:none;
+  opacity:1;
+  -webkit-mask-image:none;
+  mask-image:none;
 }
 .hero-app-note{
   position:relative;
@@ -460,8 +460,12 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
     position:relative;
     top:auto;right:auto;
     width:100%;
-    height:176px;
+    height:100%;
     border:0;border-radius:0;box-shadow:none;
+    filter:none;
+    opacity:1;
+    -webkit-mask-image:none;
+    mask-image:none;
   }
   .engine-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .coach-inner{grid-template-columns:1.1fr .9fr;gap:40px}
@@ -484,7 +488,7 @@ html.fm-motion .reveal.is-in{opacity:1;transform:none}
   .plan-live{order:1;min-height:555px}
   .fold .hero-food{order:2;height:88px}
   .fold .hero-shot picture{order:3}
-  .fold .hero-app{order:3;position:relative;top:auto;right:auto;width:100%;height:168px;border:0;border-radius:0;box-shadow:none}
+  .fold .hero-app{order:3;position:relative;top:auto;right:auto;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;filter:none;opacity:1;-webkit-mask-image:none;mask-image:none}
   .hero-app-note{order:4}
   .fold .hero-shot figcaption{order:5}
 }
