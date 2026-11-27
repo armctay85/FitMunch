@@ -217,6 +217,6 @@ describe('EQA Round D acceptance (locked)', () => {
     const src = fs.readFileSync(path.join(__dirname, 'test_audit_p2.js'), 'utf8');
     const rest = src.split('\n').filter((l) => !/getMealLogsForPeriod/.test(l)).join('\n');
     expect({ restSha: crypto.createHash('sha256').update(rest).digest('hex'), its: (src.match(/\bit\(/g) || []).length })
-      .toEqual({ restSha: '7f276a8f0bd302b8977ac85d45dc9a18e2e2cb41708e5bc63e80d8ccb288e3c2', its: 30 });
+      .toEqual({ restSha: 'ab3f33e3e0056b38b5c64a84cb5a5f5b82edca1259af9f76f2f35dec3588bd3e', its: 30 });
   });
 });

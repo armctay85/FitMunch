@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" href="/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="icon" type="image/png" href="/favicon-16.png" sizes="16x16"/>
+<link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32"/>
+<link rel="icon" type="image/png" href="/favicon-48.png" sizes="48x48"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<link rel="manifest" href="/app_manifest.json"/>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>FitMunch - Your AI Health Partner</title>
-<link rel="icon" type="image/svg+xml" href="/assets/logo.svg"/>
-<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png"/>
 <link rel="preload" href="/fonts/bricolage-grotesque-800.woff2" as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href="/fonts/literata-400.woff2" as="font" type="font/woff2" crossorigin/>
 <link rel="stylesheet" href="/css/fm-fonts.css?v=b02c36607739"/>
@@ -552,7 +557,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
 
 <div id="app-gate">
  <div class="gate-card fr-card">
-  <a class="fr-brand" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28"/>FitMunch</a>
+  <a class="fr-brand" href="/"><img src="/assets/logo-small.svg" alt="" width="28" height="28"/>FitMunch</a>
   <div id="fr-step-1">
    <h1 id="goal">Build your first week</h1>
    <p>Goal, weight and training come first. The next screen is one day and the rest of the week, worked out from those numbers.</p>
@@ -609,7 +614,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
 <!-- TOP NAV -->
 <nav class="topnav">
  <a href="/" class="nav-logo">
- <div class="logo-m"><img src="/assets/logo.svg" alt="FitMunch" width="28" height="28" style="display:block;width:100%;height:100%"/></div>
+ <div class="logo-m"><img src="/assets/logo-small.svg" alt="FitMunch" width="28" height="28" style="display:block;width:100%;height:100%"/></div>
  <span class="logo-w">Fit<span>Munch</span></span>
  </a>
  <div class="nav-spacer"></div>
@@ -673,7 +678,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  </div>
  <div id="home-upgrade-nudge" class="trial-banner" hidden role="region" aria-label="Start the 14-day trial">
   <div class="trial-banner-copy">
-   <strong id="home-free-ai">Free includes AI actions a month</strong>
+   <strong id="home-free-ai" hidden></strong>
    <p>Start the 14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel before the trial ends and you are not charged.</p>
   </div>
   <button type="button" class="trial-banner-btn" id="home-upgrade-cta" onclick="startCheckout('premium', this)">Start the 14-day trial</button>
@@ -1085,7 +1090,7 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
 
 <!-- ══ BILLING ══ -->
 <div class="view" id="view-billing">
- <div class="view-header"><div><div class="view-title">Upgrade to Premium</div><div class="view-sub">Unlimited scans, coach and weekly plans. 14-day trial, card on file. Cancel before the trial ends and you are not charged.</div></div></div>
+ <div class="view-header"><div><div class="view-title">Upgrade to Premium</div><div class="view-sub">Unlimited scans, coach and weekly plans. 14-day free trial. Cancel anytime.</div></div></div>
  <div class="scroll-body">
  <div id="billing-usage" style="max-width:700px;margin-bottom:14px"></div>
  <div id="billing-coach" hidden style="max-width:700px;margin-bottom:24px">
@@ -1120,10 +1125,10 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <li><strong>Unlimited</strong> AI coach chat</li>
  <li><strong>Unlimited</strong> meal and workout plans</li>
  <li><strong>Unlimited</strong> receipt scans and weekly reviews</li>
- <li>14-day trial (card on file, cancel anytime)</li>
+ <li>14-day trial (cancel anytime)</li>
  </ul>
  <button class="btn btn-green" style="display:block;width:100%;margin-top:10px" onclick="startCheckout('premium', this)">Start Premium trial</button>
- <div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:8px">Opens Stripe checkout</div>
+ <div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:8px">Opens secure card payment</div>
  </div>
  </div>
  <div class="card">
@@ -1132,14 +1137,14 @@ html.fm-guest #app-gate{align-items:flex-start;min-height:100vh;padding:24px 16p
  <div class="billing-price" style="font-size:1.8rem;font-weight:600;letter-spacing:-.04em;font-family:'IBM Plex Mono',monospace">A$0<span style="font-size:.85rem;font-weight:500;color:var(--text2)"> forever</span></div>
  <ul style="font-size:.78rem;color:var(--text2);margin:10px 0;padding-left:18px;line-height:1.9">
  <li>Meal, workout and progress logging</li>
- <li id="billing-free-ai">Free includes AI actions a month</li>
+ <li id="billing-free-ai" hidden></li>
  <li>Shopping lists and favourites</li>
  </ul>
  <button class="btn btn-ghost2" style="display:block;width:100%;margin-top:10px" disabled>Current free plan</button>
  </div>
  </div>
  </div>
- <p style="max-width:700px;margin:16px 0 0;font-size:.8rem;color:var(--text2)">Already subscribed? Update the card or cancel in Stripe Billing.</p>
+ <p style="max-width:700px;margin:16px 0 0;font-size:.8rem;color:var(--text2)">Already subscribed? Update the card or cancel in Billing.</p>
  <button type="button" class="btn btn-ghost2" id="billing-update-card" style="display:block;width:100%;max-width:700px;min-height:44px;margin-top:8px" onclick="openBillingPortal(this)">Update your card</button>
  </div>
 </div>
@@ -2223,7 +2228,7 @@ async function boot() {
  const params = new URLSearchParams(location.search);
  let returnKind = '';
  let returnSync = null;
- // Returning from Stripe checkout: sync tier from Stripe directly so the
+ // Returning from checkout: sync the tier from the payment record so the
  // upgrade shows even if the webhook is delayed or misrouted.
  if (params.get('subscribed') === '1') {
   try { returnSync = await API('/stripe/sync-subscription', { method: 'POST' }); } catch (_) {}
@@ -4353,22 +4358,41 @@ async function onboardDone() {
 
 function freeAiActionsLine(limit) {
  const n = Number(limit);
- if (!Number.isFinite(n) || n < 0) return '';
+ if (!Number.isFinite(n) || n < 1) return '';
  return 'Free includes ' + n + ' AI actions a month';
 }
 function paintFreeAiLine(limit) {
  const line = freeAiActionsLine(limit);
  if (!line) return;
  ['home-free-ai', 'billing-free-ai'].forEach((id) => {
- const el = document.getElementById(id);
- if (el) el.textContent = line;
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = line;
+  el.hidden = false;
+  el.removeAttribute('hidden');
  });
 }
 async function fillFreeAiLine() {
- try {
- const r = await API('/ai/usage');
- if (r && r.success) paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit);
- } catch (_) {}
+ async function readUsage() {
+  const res = await fetch('/api/ai/usage', { headers: { Authorization: 'Bearer ' + (S.token || ''), Accept: 'application/json' } });
+  let body = null;
+  try { body = await res.json(); } catch (err) { body = null; }
+  const retry = res.headers && typeof res.headers.get === 'function' ? res.headers.get('Retry-After') : null;
+  return { status: res.status, body: body, retryAfter: retry };
+ }
+ let res = await readUsage();
+ if (res.status === 429 || (res.status >= 500 && res.status <= 599)) {
+  let sec = 1;
+  if (res.retryAfter != null && res.retryAfter !== '') {
+   const wait = Number(res.retryAfter);
+   if (Number.isFinite(wait) && wait >= 0) sec = Math.min(wait, 5);
+  }
+  await new Promise(function (resolve) { setTimeout(resolve, sec * 1000); });
+  res = await readUsage();
+ }
+ if (!res || res.status !== 200 || !res.body || res.body.success !== true) return;
+ const r = res.body;
+ paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit);
 }
 let S_homeWeekWarns = [];
 function homeMealHeadsUp(name) {
@@ -5125,7 +5149,7 @@ function maybeUpgrade(r) {
 
 // Coach plans show only for trainer accounts, first in Billing, with the
 // current plan marked, the client count against the Coach Solo cap and a
-// link to the Stripe billing portal.
+// link to the billing page.
 async function loadCoachBilling() {
  const box = document.getElementById('billing-coach');
  if (!box) return;

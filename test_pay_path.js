@@ -37,7 +37,7 @@ describe('Public Premium CTA', () => {
     const cfg = await request(app).get('/api/pricing/config').expect(200);
     expect(cfg.body.premiumAmount).toBe('A$19.99');
     expect(res.text).toContain('14-day trial');
-    expect(res.text).toContain('card on file');
+    expect(res.text).toContain('Cancel anytime');
     expect(res.text).not.toMatch(/Wipper|wipper|client hub/i);
     expect(res.text).not.toMatch(/\bABN\b/);
   });
@@ -57,12 +57,12 @@ describe('Public Premium CTA', () => {
     // QA r3 M2: the trial-used branch drops the trial banner and date.
     expect(login.text).toContain("intent.querySelector('div').textContent = 'PREMIUM';");
     expect(login.text).toContain("intent.querySelectorAll('div')[1].textContent = d.notice + ' Card required. Cancel anytime from Billing.';");
-    expect(login.text).toContain("paidNote.textContent = 'Secure Stripe Checkout opens next. Your first charge is today.';");
+    expect(login.text).toContain("paidNote.textContent = 'Secure card payment opens next. Your first charge is today.';");
     // QA r3 L1: the subscriber state hides the Checkout note.
     expect(login.text).toContain("if (signInNote) signInNote.style.display = 'none';");
     expect(login.text).toContain("'14-day free trial, then ' + priceLine");
     expect(login.text).toContain("annualBilling ? 'A$149.99 a year' : 'A$19.99 a month'");
-    expect(login.text).toContain('Stripe opens');
+    expect(login.text).toContain('secure card payment opens');
     expect(login.text).toContain("registerLabel = plan === 'premium' ? (emailFirst ? 'Start the 14-day trial' : 'Start Premium trial')");
     expect(login.text).toMatch(/await fetch\('\/api\/quick-checkout'/);
     expect(login.text).toContain('if (emailFirst && !pendingClaim) return showCheckoutReview();');
@@ -73,7 +73,7 @@ describe('Public Premium CTA', () => {
     expect(login.text.indexOf('function confirmCheckoutReview()')).toBeLessThan(login.text.indexOf("await fetch('/api/quick-checkout'"));
     expect(login.text).toMatch(/await fetch\('\/api\/checkout'/);
     expect(login.text).toContain('await redirectAfterAuth(data.token)');
-    expect(login.text).toContain('Checkout did not return a Stripe card form URL');
+    expect(login.text).toContain('Checkout did not return a secure card payment URL');
     expect(login.text).not.toMatch(/if \(d\.url\) \{ window\.location\.href = d\.url; return; \}\s*\} catch \{\}/);
     expect(login.text).not.toMatch(/Wipper|wipper/i);
   });

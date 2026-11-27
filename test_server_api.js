@@ -86,7 +86,7 @@ describe('Server API shell', () => {
 
   it('refund, terms, privacy, and PT pages share the Stripe trial story', async () => {
     const refund = await request(app).get('/refund').expect(200);
-    expect(refund.text).toContain('card on file');
+    expect(refund.text).toContain('Payments are processed by Stripe.');
     expect(refund.text).toContain('support@fitmunch.com.au');
     expect(refund.text).not.toContain('14-day refund window');
 
@@ -100,7 +100,7 @@ describe('Server API shell', () => {
     expect(privacy.text).not.toContain('Original receipt images are stored securely');
 
     const pts = await request(app).get('/for-pts').expect(200);
-    expect(pts.text).toContain('Card on file');
+    expect(pts.text).toContain('Cancel anytime');
     expect(pts.text).not.toContain('No credit card');
     expect(pts.text).not.toContain('reviewCount');
   });

@@ -50,8 +50,9 @@ describe('A$0', () => {
 describe('copy', () => {
   it('the jargon line is plain English and the number comes from the usage limit, not a typed 10', () => {
     expect(app).not.toMatch(/runs out fast|once the loop sticks/i);
-    expect(app).toContain('id="home-free-ai">Free includes AI actions a month');
-    expect(app).toContain('id="billing-free-ai">Free includes AI actions a month');
+    expect(app).toContain('id="home-free-ai" hidden>');
+    expect(app).toContain('id="billing-free-ai" hidden>');
+    expect(app).not.toMatch(/id="(?:home|billing)-free-ai"[^>]*>\s*Free includes\s+AI actions/);
     expect(app).not.toMatch(/Free includes \d+ AI actions/);
     expect(app).toContain('paintFreeAiLine(r.freeMonthly != null ? r.freeMonthly : r.limit)');
     expect(read('public', 'pricing.html')).toContain('data-free-ai');
