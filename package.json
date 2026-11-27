@@ -46,7 +46,7 @@
     "helmet": "^8.1.0",
     "jpeg-js": "^0.4.4",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2",
+    "multer": "^2.5.0",
     "node-fetch": "^3.2.6",
     "openai": "^6.34.0",
     "pg": "^8.16.3",
