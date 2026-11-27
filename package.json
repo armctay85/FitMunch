@@ -36,7 +36,7 @@
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.2",
     "chart.js": "^4.4.8",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "drizzle-kit": "^0.31.6",
