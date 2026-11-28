@@ -669,11 +669,7 @@ footer{
   position:sticky;
   top:0;
   z-index:50;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-wrap:wrap;
-  gap:4px 8px;
+  display:block;
   min-height:44px;
   padding:10px 16px;
   background:#04100a;
@@ -691,6 +687,15 @@ footer{
   border-radius:999px;
   padding:1px 8px;
   font-weight:600;
+}
+.trial-bar .trial-now{
+  white-space:nowrap;
+  color:inherit;
+  background:none;
+  padding:0;
+  border-radius:0;
+  font-weight:inherit;
+  font-family:inherit;
 }
 .trial-bar a{color:#fff}
 
@@ -983,24 +988,26 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
 }
 
 @media(min-width:860px){
-  .fold{height:100svh;min-height:100svh}
+  .fold{height:auto;min-height:100svh}
   .trial-bar{min-height:40px;padding:8px 16px}
   .site-nav{padding:10px 40px}
   .fold .hero{padding:6px 40px 16px}
-  .fold .hero-copy{justify-content:space-between;height:100%;padding:8px 0 4px}
+  .fold .hero-copy{justify-content:flex-start;height:auto;padding:8px 0 4px}
   .fold .hero h1.hero-display{font-size:clamp(3rem, 4.2vw, 4.7rem)}
   .fold .hero-copy h2{font-size:clamp(1.2rem, 1.7vw, 1.55rem)}
   .fold .hero-inner{
     grid-template-columns:minmax(0,1.02fr) minmax(320px,.96fr);
     gap:32px;
+    align-items:start;
   }
   .fold .hero-shot{
-    height:100%;
+    height:auto;
+    align-self:start;
     min-height:0;
-    grid-template-rows:64px minmax(0,1fr) auto auto;
+    grid-template-rows:auto auto auto auto;
   }
-  .fold .hero-shot picture{display:block;height:100%;min-height:0}
-  .fold .hero-food{height:100%;min-height:72px}
+  .fold .hero-shot picture{display:block;height:auto}
+  .fold .hero-food{height:88px;min-height:0}
   .fold .plan-live{padding:10px 12px 8px}
   .plan-chips{margin-bottom:4px}
   .goal-chip{min-height:44px}
@@ -1013,15 +1020,17 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
     position:relative;
     top:auto;right:auto;
     width:100%;
-    height:100%;
-    object-fit:cover;
-    object-position:top center;
+    height:auto;
+    aspect-ratio:auto;
+    object-fit:contain;
+    object-position:top;
     filter:none;
     opacity:1;
     border:0;border-radius:0;box-shadow:none;
     -webkit-mask-image:none;
     mask-image:none;
   }
+  .fold .hero-app-note{padding-top:20px}
   .engine-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .coach-inner{grid-template-columns:1.1fr .9fr;gap:40px}
   .beats{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1091,15 +1100,15 @@ html.fm-motion .plan-meals li{animation:mealIn .45s cubic-bezier(.2,.7,.3,1) bot
   }
 }
 </style>
-<link rel="stylesheet" href="/css/fm-elite.css?v=6ae150199ccb" media="print" onload="this.media='all'"/>
-<noscript><link rel="stylesheet" href="/css/fm-elite.css?v=6ae150199ccb"/></noscript>
+<link rel="stylesheet" href="/css/fm-elite.css?v=5e0a0fca19d2" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="/css/fm-elite.css?v=5e0a0fca19d2"/></noscript>
 </head>
 <body>
 <a class="skip" href="#loop">Skip to how FitMunch works</a>
 
 <div class="fold">
 <aside class="trial-bar">
-  14-day trial, then <span data-fm-price="premiumMonthly"></span>. Cancel anytime. Cancel before the trial ends and you are not charged. <a href="#pricing">See pricing</a>
+  14-day trial, then <span class="trial-now"><span data-fm-price="premiumMonthly"></span>.</span> Cancel anytime. Cancel before the trial ends and you are not charged. <a href="#pricing">See pricing</a>
   <noscript><a href="/pricing.html">See current plans and prices</a></noscript>
 </aside>
 

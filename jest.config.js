@@ -144,6 +144,7 @@ module.exports = {
     '**/test_eqa_round_c.js',
     '**/test_eqa_round_d.js',
     '**/test_eqa_round_e.js',
+    '**/test_eqa_round_h.js',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   collectCoverage: true,
