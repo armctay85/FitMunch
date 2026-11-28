@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const PUB = path.join(__dirname, 'public');
 const read = (f) => fs.readFileSync(path.join(PUB, f), 'utf8');
-const BRAND_NORM_SHA = '0aae9b91734abbbaad118d457ce57f6db1f4d1d939f424c9a8f1a15687789189';
+const BRAND_NORM_SHA = '34891f53550490c76b1b46dbc7c204e0a0d46782eb7142a97195ddbe0c114b04';
 const OLD_V = '6ae150199ccb';
 const imgSrcs = (html) => [...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]);
 function rules(css, sel) {
