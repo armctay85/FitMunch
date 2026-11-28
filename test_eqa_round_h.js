@@ -2,6 +2,8 @@
  * EQA acceptance list, FitMunch Round H (home hero redesign Option 1 + /brand images + home banner).
  * Briefs: /workspace/desk/fitmunch/briefs/round-hero-redesign-plus-brand-brief-2026-11-28.md (controlling) and
  * home-hero-redesign-brief-2026-11-28.md. Owned by Elite QA. LOCKED 2026-11-28 AEDT, proved red against main 503f40dc.
+ * RELOCK r3 2026-11-28 ~11:40pm AEDT (Wilson M1 decision): pack wordmark served at /brand/fitmunch-wordmark.svg,
+ * light preview at /brand/logo-wordmark-light.svg, /brand/logo-wordmark.svg kept byte-identical to main (iOS framer input).
  * EQA also runs a hidden rendered check (390 and 1440, twice) the builder never sees. Every test name starts with its line ID.
  * Commit unchanged at the repo root and add it to jest.config.js testMatch. Do not edit, skip, loosen or retry.
  *
@@ -15,7 +17,7 @@ const path = require('path');
 const crypto = require('crypto');
 const PUB = path.join(__dirname, 'public');
 const read = (f) => fs.readFileSync(path.join(PUB, f), 'utf8');
-const BRAND_NORM_SHA = '34891f53550490c76b1b46dbc7c204e0a0d46782eb7142a97195ddbe0c114b04';
+const BRAND_NORM_SHA = 'b4548f83b14fba52b6f328c7143e636204ce8eadf507b91911b784a1b84a3c77';
 const OLD_V = '6ae150199ccb';
 const imgSrcs = (html) => [...html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]);
 function rules(css, sel) {
@@ -31,13 +33,30 @@ describe('EQA Round H: /brand images', () => {
     const bad = imgSrcs(read('brand/index.html')).filter((s) => !s.startsWith('/') || !fs.existsSync(path.join(PUB, s.split('?')[0])));
     expect(bad).toEqual([]);
   });
-  it('H2 the three previews point at /brand/logo-icon.svg, /brand/logo-social-profile.svg and /brand/logo-wordmark.svg', () => {
+  it('H2 the previews point at /brand/logo-icon.svg, /brand/logo-social-profile.svg, /brand/fitmunch-wordmark.svg and /brand/logo-wordmark-light.svg', () => {
     const s = imgSrcs(read('brand/index.html'));
-    expect(['/brand/logo-icon.svg', '/brand/logo-social-profile.svg', '/brand/logo-wordmark.svg'].filter((x) => !s.includes(x))).toEqual([]);
+    expect(['/brand/logo-icon.svg', '/brand/logo-social-profile.svg', '/brand/fitmunch-wordmark.svg', '/brand/logo-wordmark-light.svg'].filter((x) => !s.includes(x))).toEqual([]);
   });
   it('H3 nothing else on /brand changed (page equals main once logo srcs are normalised)', () => {
     const n = read('brand/index.html').replace(/src="\/?(?:brand\/)?(logo-[a-z-]+\.svg)"/g, 'src="$1"');
     expect(crypto.createHash('sha256').update(n).digest('hex')).toBe(BRAND_NORM_SHA);
+  });
+  it('H10 /brand files are the 18 Nov 5g pack byte for byte, and /brand/logo-wordmark.svg is unchanged from main (iOS store framer input)', () => {
+    const want = {
+      'brand/logo-icon.svg': '9ca0636d9d293146df74ac80ee65f5ce9f99d9c17ba1aa14df605396ecbe4076',
+      'brand/logo-social-profile.svg': '9ca0636d9d293146df74ac80ee65f5ce9f99d9c17ba1aa14df605396ecbe4076',
+      'brand/fitmunch-wordmark.svg': 'f532614d3df824e77bf93533c24f425d371a8cc386116ed1222e20ddca39111b',
+      'brand/logo-wordmark-light.svg': '0d4f924e975c4a907be9624dc47fc3ba955a4f6d73fe168f21fc1b46b3903ddd',
+      'brand/logo-wordmark.svg': 'bc5a9d73c5ef2b0919021b3ee95e1eb809eeafe1034e030aa60aa95dba6e2947',
+    };
+    const bad = Object.entries(want).filter(([f, h]) => !fs.existsSync(path.join(PUB, f)) || crypto.createHash('sha256').update(fs.readFileSync(path.join(PUB, f))).digest('hex') !== h).map(([f]) => f);
+    expect(bad).toEqual([]);
+  });
+  it('H11 every Download SVG href and exportPNG path on /brand is absolute /brand/ and resolves to a file', () => {
+    const h = read('brand/index.html');
+    const paths = [...h.matchAll(/<a\b[^>]*\bhref="([^"]+\.svg)"[^>]*\bdownload/g)].map((m) => m[1]).concat([...h.matchAll(/exportPNG\('([^']+)'/g)].map((m) => m[1]));
+    expect(paths.length).toBe(6);
+    expect(paths.filter((p) => !p.startsWith('/brand/') || !fs.existsSync(path.join(PUB, p)))).toEqual([]);
   });
 });
 
